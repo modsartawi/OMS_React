@@ -19,6 +19,7 @@
 import { createRequire } from 'node:module'
 import { envelope } from './insurance-rules-stubs.mjs'
 import { ERRORS, SYSTEM, WORKLIST, curationStub, newCurationState } from './fhir-rules-stubs-707.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -56,7 +57,7 @@ async function open(dir, state, user, { deny = [] } = {}) {
     const body = req.postData() ? JSON.parse(req.postData()) : undefined
     const hit = curationStub(req.method(), p, body, { state, query: url.searchParams, user, deny })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/insurance-rules/code-labels`)

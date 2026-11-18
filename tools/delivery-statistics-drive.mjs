@@ -10,7 +10,7 @@
 // plus one fixture that DROPS flow.trips (an older SIS.Api) and has a null average.
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`), it asserts:
 //   1. without the list grant the leaf is hidden and the URL shows the denied card, no call;
-//   2. with it, the leaf is last in the OMS group, and the group + page gate cost ONE probe call;
+//   2. with it, the leaf is last in the OMS group, and the group + page gate cost ONE permissions call;
 //   3. Today asks From = To = today by the hour, LeaveOutChurned=true, no StoreCode/LeaveOutTypes;
 //   4. the flow band in order, Trips as Out for delivery's sub-caption, the misses band, Avg
 //      hand-over, AsOf; Handed over is the SERVER's figure (the stub's is not Delivered + Picked
@@ -109,6 +109,7 @@
 //   2. node tools/delivery-statistics-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -241,8 +242,7 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: grant, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...(grant ? ['DocumentList:03'] : []), 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', 'CentralInvoice:03']))
     if (p === 'SdDocumentWeb/StoreStatistics') {
       statQueries.push(url.searchParams)
       // 815: every answer after the first is held back (a Node timer, not the page's fake clock), so a refetch is seen in flight.
@@ -272,8 +272,6 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
     // 485: the two EXISTING lookups the scope reads (no new door).
     if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORES))
     if (p === 'SdDocument/DocumentTypes') return route.fulfill(envelope(DOCUMENT_TYPES))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, statQueries }
@@ -486,9 +484,9 @@ async function drive(dir) {
     await page.locator('nav a[href="/oms/delivery-statistics"]').first().click()
     await waitFigures(page)
     check(
-      `${label}: the OMS group and the page gate cost ONE probe call`,
-      calls.filter((c) => c === 'SdDocumentWeb/Access').length === 1,
-      String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
+      `${label}: the OMS group and the page gate cost ONE permissions call`,
+      calls.filter((c) => c === 'Auth/Permissions').length === 1,
+      String(calls.filter((c) => c === 'Auth/Permissions').length),
     )
     check(`${label}: dir is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
 

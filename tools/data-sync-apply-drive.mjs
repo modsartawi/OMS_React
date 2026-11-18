@@ -38,6 +38,7 @@
 //   2. node tools/data-sync-apply-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -169,10 +170,9 @@ async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnb
     const p = url.pathname.replace(/^\/api\//, '')
     const method = route.request().method()
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DataSyncConsole:03', 'DataSyncConsole:06', ...flagKeys('ActionSync', asAccess)]))
     if (p === 'DataSync/Health') return route.fulfill(envelope({ stateDb: 'Ok', workerEnabled: true, lastWorkerTick: new Date().toISOString() }))
     if (p === 'DataSync/Profiles') return route.fulfill(envelope(PROFILES))
-    if (p === 'ActionSync/Access') return route.fulfill(envelope(asAccess, { errors: null }))
     if (p === 'ActionSync/Fleet') {
       const pg = Number(url.searchParams.get('page') || 1)
       const size = Number(url.searchParams.get('pageSize') || 50)
@@ -231,7 +231,6 @@ async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnb
     }
     if (p === `DataSync/Campaigns/${NEW_ID}`) return route.fulfill(envelope(campaignOf('Running', posts.create.at(-1))))
     if (p === `DataSync/Campaigns/${NEW_ID}/Jobs`) return route.fulfill(envelope([]))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, log, posts, state }

@@ -2,7 +2,7 @@
 //
 // Drives the REAL app in Chromium against a STUB of the three doors — 3065 is on a BackOffice branch, not deployed, so
 // there is no live SIS.Api to point at. The stub answers EXACTLY the shapes of `SerialRefusalReportModels.cs`, camelCase:
-//   GET SerialRefusal/Access → { screenAllowed }              (allowed, not allowed)
+//   GET Auth/Permissions → the screen keys the drive grants (`permissions-stub.mjs`)              (allowed, not allowed)
 //   GET SerialRefusal/Report → { asOf, from, to, totals, days[], stores[], staff[], articles[], serials[], heldBy[], offenders[] }
 //   GET SerialRefusal/Rows   → { asOf, from, to, truncated, rows[] }
 // and a `PICK-00301` refusal on the Report when asked for store `REFUSE`.
@@ -23,6 +23,7 @@
 //   2. DRIVE_PORT=5207 node tools/serial-refusals-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -121,8 +122,7 @@ async function open(dir, { access = 'allowed' } = {}) {
     const p = url.pathname.split('/api/')[1]
     ;(queries[p] ??= []).push(url.searchParams)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
-    if (p === 'SerialRefusal/Access') return route.fulfill(envelope({ screenAllowed: access === 'allowed' }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', ...(access === 'allowed' ? ['SerialRefusal:03'] : [])]))
     if (p === 'SerialRefusal/Report') {
       if (url.searchParams.get('stores') === 'REFUSE')
         return route.fulfill(
@@ -136,7 +136,6 @@ async function open(dir, { access = 'allowed' } = {}) {
       return route.fulfill(envelope(report()))
     }
     if (p === 'SerialRefusal/Rows') return route.fulfill(envelope(rows(url.searchParams)))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, queries }

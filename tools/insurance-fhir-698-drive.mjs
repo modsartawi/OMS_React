@@ -14,6 +14,7 @@
 import { createRequire } from 'node:module'
 import { publishChecksStub } from './fhir-rules-stubs-698.mjs'
 import { NO_DEDUCTIBLE, RULES, approvalStub, coverageStub, envelope, insuranceMetricsStub, insuranceRulesStub, newApprovalStore, newCoverageState } from './insurance-rules-stubs.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -54,7 +55,7 @@ async function open(dir, who, path, { store, state, checks = {} }) {
       insuranceMetricsStub(req.method(), p, url.searchParams) ??
       insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}${path}`)

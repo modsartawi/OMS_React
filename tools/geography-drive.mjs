@@ -4,7 +4,7 @@
 // (`GET SdDocumentWeb/Cities` and `GET SdDocumentWeb/Districts?cityCode=`, BackOffice ask BO-5) are
 // NOT built, so there is no live SIS.Api to point at. Never point this at a live SIS.Api.
 // Stubbed, exactly as D2/D6 propose:
-//   GET SdDocumentWeb/Access              → { canOpenList, canOpenDetail, canOpenGeography? }
+//   GET Auth/Permissions                  → screens: DocumentList:03, DocumentDetails:03, SdCityInquiry:03?, SdCityImport:03?, SdDistrictImport:03?
 //   GET SdDocumentWeb/Cities              → SdCityModel[]
 //   GET SdDocumentWeb/Districts?cityCode= → SdDistrictModel[]
 //   POST SdDocumentWeb/Cities/Import | Districts/Import  { lines: [..., isDelete] }
@@ -13,7 +13,7 @@
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"), it asserts:
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows the
 //      denied card, with no cities call; an import flag alone does not show it;
-//   2. with it, the leaf follows Document payments (D18), the group costs ONE probe call, the
+//   2. with it, the leaf follows Document payments (D18), the group costs ONE permissions call, the
 //      cities load on open, once, and no district is asked for before a city is selected;
 //   3. the city columns: code, English then Arabic name, the last change (update, else creation;
 //      an unset time blank), every value isolated;
@@ -42,6 +42,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -143,14 +144,15 @@ async function open(dir, { grant, importOnly = false, imports = {}, importAnswer
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') {
-      const flags = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDocumentPayments: true }
-      if (grant) flags.canOpenGeography = true
-      if (importOnly) Object.assign(flags, { canImportCities: true, canImportDistricts: true })
-      if (imports.cities) flags.canImportCities = true
-      if (imports.districts) flags.canImportDistricts = true
-      return route.fulfill(envelope(flags))
-    }
+    if (p === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([
+          'DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', 'DocumentPaymentInquiry:03', 'CentralInvoice:03',
+          ...(grant ? ['SdCityInquiry:03'] : []),
+          ...(importOnly || imports.cities ? ['SdCityImport:03'] : []),
+          ...(importOnly || imports.districts ? ['SdDistrictImport:03'] : []),
+        ]),
+      )
     const importDoor = /^SdDocumentWeb\/(Cities|Districts)\/Import$/.exec(p)
     if (importDoor) {
       const kind = importDoor[1].toLowerCase()
@@ -162,7 +164,6 @@ async function open(dir, { grant, importOnly = false, imports = {}, importAnswer
         return route.fulfill(envelope(null, { status: 403, success: false, message: 'You do not hold SdCityImport (03).', errorCode: 'FORBIDDEN' }))
       return route.fulfill(envelope(answer))
     }
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
     if (p === 'SdDocumentWeb/Cities') {
       cityCalls++
       if (cities(cityCalls) === 'refused')
@@ -175,8 +176,6 @@ async function open(dir, { grant, importOnly = false, imports = {}, importAnswer
       if (districts(code) === 'down') return route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' })
       return route.fulfill(envelope(DISTRICTS[code] ?? []))
     }
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, districtAsks, importBodies, cityCount: () => cityCalls }
@@ -311,9 +310,9 @@ async function drive(dir) {
     await waitRows(page, 'cities', 3)
     check(`${label}: the cities load on open, once`, cityCount() === 1, String(cityCount()))
     check(
-      `${label}: the OMS group and the page gate cost ONE probe call`,
-      calls.filter((c) => c === 'SdDocumentWeb/Access').length === 1,
-      String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
+      `${label}: the OMS group and the page gate cost ONE permissions call`,
+      calls.filter((c) => c === 'Auth/Permissions').length === 1,
+      String(calls.filter((c) => c === 'Auth/Permissions').length),
     )
     check(`${label}: dir is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
     check(`${label}: without an import grant neither list offers Import`, (await page.locator('[data-geo-import]').count()) === 0)

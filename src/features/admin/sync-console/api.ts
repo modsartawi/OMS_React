@@ -1,5 +1,5 @@
 /**
- * The store sync console's server calls (spec 444; ticket 445 lands the access probe
+ * The store sync console's server calls (spec 444; ticket 445 lands the gate
  * and the Fleet page's reads, 446–449 add theirs here).
  *
  * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`): the envelope,

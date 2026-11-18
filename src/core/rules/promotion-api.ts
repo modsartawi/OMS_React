@@ -6,7 +6,7 @@ import { RULE_PROMOTIONS_KEY } from './api'
 // The rule engine's promotion reads (BackOffice ADR 0097, tickets 2846-2847 renamed by 2862; the 2737
 // brief's section "HQ contract: promotions (2846-2847)"): every door POST, cookie session, each with
 // its OWN grant on `BackOfficeScreen[RuleAuthoring, command]` — 03 reader for the list and a
-// promotion's campaigns, 02 author for the writes. There is no access probe: a session without the
+// promotion's campaigns, 02 author for the writes. There is no client gate: a session without the
 // grant is a BARE 403 with no body, which the screen names through `isBareDenial`. No promotion door
 // writes a ruleset version or asks for approval. Calls go through @/core/api
 // (.claude/rules/api-envelope.md).

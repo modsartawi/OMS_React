@@ -6,7 +6,7 @@
 //   DRIVE_PORT=5244 SIS_USER=<id> SIS_PASS=<pw> node tools/focus-on-arrival-drive.mjs
 //
 // Needs a session that can open every screen listed (ADMIN). A palette run waits for the
-// palette's rows: a gated leaf (GS1 check) appears only once its access probe has answered.
+// palette's rows: a gated leaf (GS1 check) appears only once the permissions answer is in.
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')

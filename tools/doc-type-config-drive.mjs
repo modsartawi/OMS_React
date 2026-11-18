@@ -20,6 +20,7 @@
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/doc-type-config-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -105,9 +106,8 @@ async function open(dir, { canEdit = true } = {}) {
     }
     calls.push({ method, p, body })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    // The shell's OMS probe expects an object; this session holds no other OMS screen.
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: false, canOpenDetail: false }))
-    if (p === 'SdDocTypeConfigWeb/Access') return route.fulfill(envelope({ canViewDocTypeConfig: true, canEditDocTypeConfig: canEdit }))
+    // The one permissions answer: this session holds no other OMS screen.
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', ...(canEdit ? ['DocumentList:03', 'SdDocTypeConfig:06'] : [])]))
     const forced = force.get(`${method} ${p}`)
     if (forced) {
       force.delete(`${method} ${p}`)
@@ -120,8 +120,7 @@ async function open(dir, { canEdit = true } = {}) {
       state.bupa = { ...body.after }
       return route.fulfill(envelope(state.bupa))
     }
-    // Every other screen's probe answers "no grant" (an object, as the shell expects); anything else is empty.
-    if (p.endsWith('/Access')) return route.fulfill(envelope({}))
+    // Anything else is empty.
     return route.fulfill(envelope(null))
   })
   return { context, page, errors, calls, force, state }

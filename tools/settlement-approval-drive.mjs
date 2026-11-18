@@ -26,6 +26,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-approval-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -69,7 +70,7 @@ let queueExtra = []
 let approveCalls = []
 let rejectCalls = []
 let ledgerCalls = []
-let accessCalls = 0
+let permissionsCalls = 0
 let postCalls = []
 /** Held open to show the queue's loading state; released by the scenario. */
 let releaseQueue = null
@@ -82,7 +83,7 @@ const reset = (flags = {}) => {
   rejectCalls = []
   ledgerCalls = []
   postCalls = []
-  accessCalls = 0
+  permissionsCalls = 0
 }
 
 /** What the ledger door answers for a status: the stub plays the server, reading the
@@ -111,11 +112,11 @@ async function run() {
 
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') {
-      accessCalls++
-      // After a 403 the probe is re-read and — as an administrator took the grant —
-      // now answers without supervision.
-      return route.fulfill(envelope(scenario.revoked ? ACCOUNTANT : scenario.access))
+    if (path === 'Auth/Permissions') {
+      permissionsCalls++
+      // After a 403 the permissions answer is re-read (oms 909) and — as an administrator took the
+      // grant — now answers without supervision. The scenario's flags are the Collections area's.
+      return route.fulfill(permissions(flagKeys('Collection', scenario.revoked ? ACCOUNTANT : scenario.access)))
     }
     if (path === 'Settlement/Account') {
       if (scenario.accountFails)
@@ -316,17 +317,17 @@ async function run() {
   text = await bodyText()
   check('🔑 a refusal is NEWS — it says what the entry is now, not that something failed', text.includes('Entry 1207 was no longer waiting — it is now Open. Nothing was changed.') && !/could not be sent/.test(text))
 
-  // The bare 403: the grant went between the probe and the press.
+  // The bare 403: the grant went between the answer and the press.
   reset({ access: SUPERVISOR, supervision403: true })
   await go(`${OPEN_ROUTE}?tab=pending`)
-  const probesBefore = accessCalls
+  const readsBefore = permissionsCalls
   scenario.revoked = true
   await page.locator('[data-testid="pending-approve"]').first().click()
   await page.locator('[data-testid="approval-commit"]').click()
   await appears('text=You no longer hold settlement supervision')
   await settle()
   check('🔑 a bare 403 is named — not "something unexpected"', (await bodyText()).includes('You no longer hold settlement supervision') && !/unexpected/i.test(await bodyText()))
-  check('…the probe is re-read, and the buttons go away', accessCalls > probesBefore && (await page.locator('[data-testid="pending-approve"]').count()) === 0, `${accessCalls - probesBefore} probe(s)`)
+  check('…the permissions answer is re-read, and the buttons go away', permissionsCalls > readsBefore && (await page.locator('[data-testid="pending-approve"]').count()) === 0, `${permissionsCalls - readsBefore} re-read(s)`)
 
   // An accountant reads the same queue without buttons.
   reset()

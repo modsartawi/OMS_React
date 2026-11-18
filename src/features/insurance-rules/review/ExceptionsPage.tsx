@@ -40,7 +40,7 @@ import { DeniedCard, TD, TH } from '@/core/insurance-rules/parts'
  * insurance-team user issues an HQ guard exception (patient key, one rule or every guard, item / same kind /
  * list, valid until at most 90 LOCAL days, reason, note), lists them, revokes one and reads its log of uses.
  *
- * 🚩 UNGATED: no access probe until 618 (the exception grant is the server's to refuse); a bare 403 on the
+ * 🚩 UNGATED: no client gate until 618 (the exception grant is the server's to refuse); a bare 403 on the
  * read is "You do not have access".
  */
 export default function ExceptionsPage() {

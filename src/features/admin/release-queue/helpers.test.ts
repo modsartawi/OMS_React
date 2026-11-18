@@ -289,11 +289,10 @@ describe('progressPercent (review 3396)', () => {
 })
 
 describe('isManagedRead (review 3396)', () => {
-  it('is every release-queue read but the access probe', () => {
+  it('is every release-queue read', () => {
     for (const read of ['pool', 'slots', 'queue', 'convergence', 'audit']) expect([read, isManagedRead(['release-queue', read])]).toEqual([read, true])
     expect(isManagedRead(['release-queue', 'history', { outcome: '', store: '', version: '', page: 2 }])).toBe(true)
     expect(isManagedRead(['release-queue', 'audit', '2026-11-06T10:10:00|a.owner'])).toBe(true)
-    expect(isManagedRead(['release-queue', 'access'])).toBe(false)
   })
 
   it("is never another screen's read", () => {

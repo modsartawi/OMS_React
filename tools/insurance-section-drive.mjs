@@ -29,6 +29,7 @@
 //   2. node tools/insurance-section-drive.mjs   (DRIVE_PORT=<port> for another port)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -91,7 +92,7 @@ async function drive(dir) {
   await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', access)))
     const ins = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Insurance$/)
     if (ins) {
       reads.push(ins[1])

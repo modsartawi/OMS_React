@@ -5,21 +5,21 @@
 //
 // Port 5207, not 5206 — 125 reserves that one, and the two run in the same wave.
 //
-// Nothing about the app is stubbed except the wire: `Auth/Me` and every `*/Access`
-// probe are fulfilled from here, so a run needs no SIS.Api and no seeded user.
+// Nothing about the app is stubbed except the wire: `Auth/Me` and the one `Auth/Permissions`
+// answer (oms 909) are fulfilled from here, so a run needs no SIS.Api and no seeded user.
 //
-// ⚠️ The one piece of surgery: the OMS group is still UNGATED on main (ticket 125 is
-// what gates it), so no combination of probe answers can empty the menu today. The
-// scenarios that need an empty menu therefore rewrite the served `menu-model.ts`
-// module in flight, giving every ungated leaf an access probe — 125's world, one
-// ticket early. The app code under test is untouched; only the menu data is.
+// ⚠️ The one piece of surgery: some leaves are UNGATED, so no permissions answer can empty
+// the menu. The scenarios that need an empty menu therefore rewrite the served
+// `menu-model.ts` module in flight, gating every ungated leaf on an injected `Drive:03` key.
+// The app code under test is untouched; only the menu data is.
 //
 // Asserts the ticket's Done-when:
 //   1. settled + nothing visible  → the noAccess card (title, body, hint), no section cards;
-//   2. a SLOW probe that resolves to visible → the card never renders, at any point —
+//   2. a SLOW answer that resolves to visible → the card never renders, at any point —
 //      the assertion that makes the settled flag worth having;
 //   3. an entitled user's home page is unchanged — same section cards, same order.
 import { createRequire } from 'node:module'
+import { ALL_SCREENS, permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -37,30 +37,17 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
 
-// Every screen probe reads a different flag off its own payload (canOpen / screenAllowed /
-// allowed / canAdmin / canSupport). One object carrying all of them answers all of them,
-// so the drive never has to enumerate the endpoints — and a menu item added later is
-// covered without touching this file.
-const grant = (yes) => ({
-  canOpen: yes,
-  screenAllowed: yes,
-  allowed: yes,
-  canAdmin: yes,
-  canSupport: yes,
-})
+// Granted: every key the app reads plus the injected `Drive:03`, so a menu item added later is
+// covered without touching this file. Not granted: no key at all.
+const grant = (yes) => permissions(yes ? [...ALL_SCREENS, 'Drive:03'] : [])
 
-/** Appended to the served menu-model module: gate every ungated leaf (ticket 125's world). */
+/** Appended to the served menu-model module: gate every ungated leaf on the injected `Drive:03` key. */
 const GATE_ALL = `
 ;(function () {
-  const gate = {
-    key: ['drive', 'oms-access'],
-    run: () => fetch('/api/Drive/Access').then((r) => r.json()).then((j) => j.data),
-    visible: (r) => r != null && r.canOpen === true,
-  }
   const walk = (items) => {
     for (const it of items) {
       if (it.items) walk(it.items)
-      else if (!it.access) it.access = gate
+      else if (!it.requires && !it.key) it.key = 'Drive:03'
     }
   }
   walk(MENU)
@@ -90,8 +77,8 @@ seen()
  * scenarios that rewrite it and scenarios that don't must not share one.
  *
  * @param opts.gateAll  rewrite the menu so every leaf is gated
- * @param opts.granted  what every `*​/Access` probe answers
- * @param opts.hold     hold EVERY access probe until released (the slow-probe case)
+ * @param opts.granted  whether the one `Auth/Permissions` answer grants everything or nothing
+ * @param opts.hold     hold the answer until released (the slow-answer case)
  */
 async function open(browser, { gateAll = false, granted = false, hold = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
@@ -116,10 +103,10 @@ async function open(browser, { gateAll = false, granted = false, hold = false } 
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    if (/Access$/.test(p)) {
-      // Covers the injected `Drive/Access` gate and every real screen probe alike.
+    if (p === 'Auth/Permissions') {
+      // Covers the injected `Drive:03` gate and every real screen key alike.
       if (hold) await held
-      return route.fulfill(envelope(grant(granted)))
+      return route.fulfill(grant(granted))
     }
     return route.fulfill(envelope({}))
   })
@@ -179,7 +166,7 @@ async function run() {
     await context.close()
   }
 
-  // ==================================== 2 · a slow probe must NOT flash the empty state
+  // ==================================== 2 · a slow answer must NOT flash the empty state
   {
     const { context, page, errors, release } = await open(browser, {
       gateAll: true,
@@ -188,12 +175,12 @@ async function run() {
     })
     await page.goto(BASE + '/')
     await page.locator('h1').waitFor()
-    // Every probe is still out — so the menu is empty exactly the way it is empty for a
+    // The answer is still out — so the menu is empty exactly the way it is empty for a
     // user with no grants at all. This is the moment a naive length check would fire.
     await page.waitForTimeout(700)
 
     check(
-      'while the probes are still out the menu is empty — but the card is NOT shown (unsettled)',
+      'while the answer is still out the menu is empty — but the card is NOT shown (unsettled)',
       (await noAccess(page).count()) === 0 && (await sections(page).count()) === 0,
       `${await noAccess(page).count()} card(s), ${await sections(page).count()} section(s)`,
     )
@@ -201,7 +188,7 @@ async function run() {
     await sections(page).first().waitFor()
     await page.waitForTimeout(400)
     check(
-      'when the slow probe resolves to VISIBLE the section cards appear',
+      'when the slow answer resolves to VISIBLE the section cards appear',
       (await sections(page).count()) > 0,
       `${await sections(page).count()} section(s)`,
     )
@@ -209,7 +196,7 @@ async function run() {
       'and the noAccess card was never rendered at any point during the load — no flash',
       (await page.evaluate(() => window.__noAccessSeen)) === false,
     )
-    check('no page errors on the slow-probe load', errors.length === 0, errors.join(' | '))
+    check('no page errors on the slow-answer load', errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

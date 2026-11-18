@@ -19,6 +19,7 @@
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/serving-list-writes-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -114,7 +115,7 @@ async function open(dir, { canEdit = true } = {}) {
     const body = req.postData() ? JSON.parse(req.postData()) : null
     calls.push({ method, p, qs: url.searchParams.toString(), body })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ServingListWeb/Access') return route.fulfill(envelope({ canViewServingLists: true, canEditServingLists: canEdit }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ServingList:03', ...(canEdit ? ['ServingList:06'] : [])]))
     for (const [k, answer] of force) {
       if (`${method} ${p}`.endsWith(k)) {
         force.delete(k)
@@ -154,7 +155,6 @@ async function open(dir, { canEdit = true } = {}) {
       else state.members[id] = ms.filter((x) => x.storeCode !== code)
       return route.fulfill(envelope(recount(id)))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, force, state }

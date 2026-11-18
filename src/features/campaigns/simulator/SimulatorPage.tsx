@@ -36,7 +36,7 @@ const INVALID_CAMPAIGN = 'RULES_INVALID_CAMPAIGN'
  * campaign and the near misses. Distinct from Pricing's bonus-buy Simulation: that is the other
  * engine.
  *
- * No access probe (BackOffice 2759 seeds the roles): a missing grant is a bare 403 on Run.
+ * No client gate (BackOffice 2759 seeds the roles): a missing grant is a bare 403 on Run.
  */
 export default function SimulatorPage() {
   const { t, i18n } = useTranslation('rule-simulator')

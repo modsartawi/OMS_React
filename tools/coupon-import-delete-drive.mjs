@@ -27,6 +27,7 @@
 //   2. node tools/coupon-import-delete-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -169,7 +170,7 @@ async function open(dir) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'CouponsAdminWeb/Access') return route.fulfill(envelope({ canAdmin: true, canSupport: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CouponsAdmin:03', 'CouponsSupport:03']))
     if (p === `CouponsAdminWeb/Templates/${TEMPLATE}/Jobs`) {
       jobsCalls++
       return route.fulfill(envelope(jobs))
@@ -196,7 +197,6 @@ async function open(dir) {
     }
     m = /^CouponsAdminWeb\/Coupons\/([^/]+)$/.exec(p)
     if (m) return route.fulfill(envelope(DETAILS[m[1]]))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, deletes, jobsCount: () => jobsCalls, resultCount: () => resultCalls }

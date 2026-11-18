@@ -40,7 +40,6 @@
 //   2. node tools/idf-groups-drive.mjs        (DRIVE_PORT overrides 5217)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState, IDF_GROUPS, IDF_GROUPS_EXPORT_NAME } from './idf-stubs.mjs'
-import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -85,8 +84,6 @@ async function open(dir, { deny = [], refuseGroupsApply = false } = {}) {
     calls.push({ method: req.method(), path: p, multipart, body })
     const hit = idfStub(req.method(), p + url.search, body, { state, deny, reads, writes, groupUploads, refuseGroupsApply })
     if (hit) return route.fulfill(hit)
-    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, writes, state, calls, groupUploads }
@@ -428,7 +425,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${BASE}/insurance-rules/idf/groups`)
     await page.locator('[data-idf-groups] tbody tr').first().waitFor({ timeout: 60000 })
     await page.waitForTimeout(500)
-    check(`${dir} 17. the probe is read`, (reads.access ?? 0) >= 1)
+    check(`${dir} 17. the permissions answer is read`, (reads.access ?? 0) >= 1)
     check(
       `${dir} 17. without canEditGeneral: no Add, Import, Edit or Remove, no actions column`,
       (await page.locator('[data-idf-group-add], [data-idf-groups-import], [data-group-edit], [data-group-remove]').count()) === 0 &&

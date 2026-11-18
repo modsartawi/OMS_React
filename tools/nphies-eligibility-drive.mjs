@@ -2,7 +2,7 @@
 // REAL app in Chromium against MOCKED `Nphies/*` envelopes.
 //
 // ⚠ SIS.Api is down and NONE of this slice's four server dependencies exist yet
-// (BackOffice 912–922 are being written in parallel): the grant filter, `Nphies/Access`,
+// (BackOffice 912–922 are being written in parallel): the grant filter (now read off `Auth/Permissions`: Nphies:03),
 // `Nphies/Providers` and `Nphies/LastEligibility/{patientId}` are all new, and even
 // `Nphies/CheckEligibility` — the one route that ships today — carries no grant filter
 // yet. So the network is stubbed at Playwright against the contract's own shapes, the
@@ -26,6 +26,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-eligibility-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -319,11 +320,9 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'Nphies/Access') {
-      if (scenario.accessDown)
-        return route.fulfill(envelope(null, { status: 500, success: false, message: 'down' }))
-      return route.fulfill(envelope(scenario.access))
-    }
+    // `scenario.access` keeps the old flag names (canOpenNphies → Nphies:03); accessDown = the answer fails (500).
+    if (path === 'Auth/Permissions')
+      return route.fulfill(scenario.accessDown ? permissionsFailed() : permissions(flagKeys('Nphies', scenario.access)))
     if (path === 'Nphies/Providers') return route.fulfill(envelope(PROVIDERS))
     if (path === 'Nphies/EligibilityResponses') {
       lastListQuery = new URLSearchParams(url.split('?')[1] || '')
@@ -596,7 +595,7 @@ async function run() {
     (await page.getByRole('link', { name: /Check eligibility/i }).count()) === 0,
   )
 
-  // ---- Scenario 10: an errored probe FAILS CLOSED ----
+  // ---- Scenario 10: an errored permissions answer FAILS CLOSED ----
   // 🚩 The grant goes back to TRUE first. Without it scenario 9's
   // `canOpenNphies:false` is still in force and both assertions below would pass
   // with the 500 branch deleted — the path this scenario exists for, untested.
@@ -606,7 +605,7 @@ async function run() {
   await page.waitForSelector('[role="alert"]', { timeout: 10000 })
   const probeDown = await page.locator('main').innerText()
   check(
-    '🚩 an ERRORED probe fails closed — the screen stays shut',
+    '🚩 an ERRORED permissions answer fails closed — the screen stays shut',
     (await page.getByLabel('Patient ID').count()) === 0,
   )
   check(
@@ -615,7 +614,7 @@ async function run() {
     probeDown.replace(/\n/g, ' ').slice(0, 90),
   )
   check(
-    'an errored probe hides the nav leaf too',
+    'an errored permissions answer hides the nav leaf too',
     (await page.getByRole('link', { name: /Check eligibility/i }).count()) === 0,
   )
   scenario.accessDown = false
@@ -1092,7 +1091,7 @@ async function run() {
   )
   scenario.access = { canOpenNphies: true }
 
-  // The refusal + probe-down scenarios intentionally answer 409/500, which the
+  // The refusal + permissions-down scenarios intentionally answer 409/500, which the
   // browser logs as resource errors. Expected, not app faults.
   const realErrors = errors.filter((e) => !/status of (403|404|409|500)/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))

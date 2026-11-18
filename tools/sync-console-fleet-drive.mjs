@@ -38,6 +38,7 @@
 //   2. node tools/sync-console-fleet-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -219,7 +220,7 @@ async function open({ access = { screenAllowed: true, canOperate: false, canOnbo
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('ActionSync', access)))
     if (p === 'ActionSync/Workers') return route.fulfill(envelope({ items: workers }))
     if (p === 'ActionSync/Fleet/Summary') {
       counts.summary++
@@ -241,7 +242,6 @@ async function open({ access = { screenAllowed: true, canOperate: false, canOnbo
     }
     if (p === 'ActionSync/Store/Hours' || p === 'ActionSync/Store/Counters') return route.fulfill(envelope({ items: [] }))
     // Every other probe: shut, or (to see where the leaf sits among its siblings) open.
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: othersOpen, screenAllowed: othersOpen, allowed: othersOpen, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, fleetCalls, counts }

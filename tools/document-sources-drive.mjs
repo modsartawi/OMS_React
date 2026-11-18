@@ -18,6 +18,7 @@
 //   1. run the app:  npx vite --port 5276 --strictPort
 //   2. DRIVE_PORT=5276 node tools/document-sources-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -86,8 +87,7 @@ async function open(dir, { canEdit = true, stale = false, mixed = false } = {}) 
     const body = req.postData() ? JSON.parse(req.postData()) : null
     calls.push({ method: req.method(), p, q: url.search, body })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: false, canOpenDetail: false }))
-    if (p === 'SdDocTypeConfigWeb/Access') return route.fulfill(envelope({ canViewDocTypeConfig: true, canEditDocTypeConfig: canEdit }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', ...(canEdit ? ['DocumentList:03', 'SdDocTypeConfig:06'] : [])]))
     if (p === 'SdDocTypeConfigWeb/DocumentSources' && req.method() === 'GET')
       return route.fulfill(envelope(Object.values(rows).sort((a, b) => (a.documentSource < b.documentSource ? -1 : 1))))
     if (p === 'SdDocTypeConfigWeb/CodeOnlyBehaviour')
@@ -104,7 +104,6 @@ async function open(dir, { canEdit = true, stale = false, mixed = false } = {}) 
       rows[body.after.documentSource] = { ...body.after }
       return route.fulfill(envelope(body.after))
     }
-    if (p.endsWith('/Access')) return route.fulfill(envelope({}))
     return route.fulfill(envelope(null))
   })
   return { context, page, errors, calls }

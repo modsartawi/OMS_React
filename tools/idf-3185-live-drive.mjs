@@ -5,7 +5,7 @@
 // holds for any real estate. It is READ-ONLY: it never starts a draft, publishes, applies, sets / clears an item or
 // writes a group — it only opens pages, reads doors and clicks downloads. Every IdfPriority write it sees fails it.
 //
-//   1. GET IdfPriority/Access answers exactly { canViewIdf, canEditIdf, canEditGeneral }, all booleans;
+//   1. GET Auth/Permissions answers a screens list (the IDF keys IdfPriority:03/06/07 are read off it);
 //   2. the masters list ends with the General row (masterId/kind `general`, no live version) and the page shows it with
 //      no thresholds, no version and no Edit;
 //   3. one live master's page: the entries door answers { page, pageSize, total, rows } with the row keys; paging
@@ -45,7 +45,7 @@ const keysOf = (o) => Object.keys(o ?? {}).sort()
 const hasKeys = (o, want) => same(keysOf(o), [...want].sort())
 
 // ── The doors' keys as built (BackOffice IdfPriorityWebEndpoints / IdfGeneralWebEndpoints / IdfGroupWebEndpoints) ──
-const ACCESS = ['canViewIdf', 'canEditIdf', 'canEditGeneral']
+const IDF_KEYS = ['IdfPriority:03', 'IdfPriority:06', 'IdfPriority:07']
 const PAGE = ['page', 'pageSize', 'total', 'rows']
 const ENTRY = ['itemNumber', 'descriptionEn', 'descriptionAr', 'idfNumber', 'priority']
 const CHANGE = ['changeId', 'entity', 'key', 'action', 'before', 'after', 'reason', 'by', 'at', 'uploadId', 'idfNumberBefore', 'idfNumberAfter']
@@ -151,11 +151,12 @@ async function download(label, hook, doorPath) {
   check(`${label}: a file downloads with the server's name`, head.ok() && !!serverName && saved === decodeURIComponent(serverName), `saved ${saved}, server "${serverName}" (HTTP ${head.status()})`)
 }
 
-// ── 1. the grant probe ───────────────────────────────────────────────────────────────────────────────
-const access = await door('IdfPriority/Access')
-check('1. Access answers exactly { canViewIdf, canEditIdf, canEditGeneral }', access.ok && hasKeys(access.data, ACCESS), why(access) + ' ' + JSON.stringify(access.data))
-check('1. every flag is a boolean', ACCESS.every((k) => typeof access.data?.[k] === 'boolean'), JSON.stringify(access.data))
-console.log(`   grants: ${JSON.stringify(access.data)}`)
+// ── 1. the grants (the one permissions answer) ───────────────────────────────────────────────────────
+const answer = await door('Auth/Permissions')
+const screens = answer.data?.screens
+check('1. Auth/Permissions answers a screens list', answer.ok && Array.isArray(screens), why(answer) + ' ' + JSON.stringify(answer.data))
+check('1. the IDF view key is held (the walk needs it)', (screens ?? []).includes('IdfPriority:03'), JSON.stringify(screens))
+console.log(`   IDF grants: ${JSON.stringify(IDF_KEYS.filter((k) => (screens ?? []).includes(k)))}`)
 
 // ── 2. the masters list ──────────────────────────────────────────────────────────────────────────────
 const masters = await door('IdfPriority/masters')

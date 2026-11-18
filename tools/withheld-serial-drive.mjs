@@ -26,6 +26,7 @@
 //   2. node tools/withheld-serial-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -206,8 +207,7 @@ async function open(dir, { granted }) {
       return route.fulfill(envelope(data))
     }
     if (p === 'Auth/Me') return answer({ authenticated: true, userId: granted ? 'support02' : 'support01', currentStoreCode: 'P001' })
-    if (p === 'SdDocumentWeb/Access')
-      return answer({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, ...(granted ? { canSeePickSupportSerial: true } : {}) })
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', { canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, ...(granted ? { canSeePickSupportSerial: true } : {}) })))
     if (p === 'PickSupport/Resolve') {
       const key = url.searchParams.get('key') ?? ''
       if (key === DELIVERY || key === DISAGREE) return answer(resolution(key, { deliveries: [resolved(key, ['DELIVERY'])] }))
@@ -220,7 +220,6 @@ async function open(dir, { granted }) {
       const no = decodeURIComponent(delivery[1])
       return answer(diagnosis(no, !granted || no === DISAGREE))
     }
-    if (/Access$/.test(p)) return answer({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false })
     return answer([])
   })
   return { context, page, errors, bodies }

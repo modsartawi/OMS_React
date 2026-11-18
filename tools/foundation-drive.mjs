@@ -122,6 +122,7 @@
 // Screenshots → tools/.foundation-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, ALL_SCREENS } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -263,10 +264,7 @@ async function driveOneMode({ theme, dir }) {
     if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path)) return route.fulfill(envelope(DOCUMENT))
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path))
       return route.fulfill(envelope([]))
-    if (/Access$/.test(path))
-      return route.fulfill(
-        envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
-      )
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
     if (/\/(Outbox|Logs)$/.test(path)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
   })
@@ -566,7 +564,8 @@ async function routeGrids(route) {
         { districtNameEn: 'Al Olaya', districtNameAr: 'العليا', cityNameEn: 'Riyadh', cityNameAr: ARABIC_CITY, storeCode: '1001', tempStoreCode: '', insuranceStoreCode: '' },
       ]),
     )
-  if (path === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
+  // Every gated screen is granted, so each grid module is reachable.
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
   if (path === 'Sd/CentralInvoice' && req.method() === 'GET')
     return route.fulfill(envelope({ rows: [LIST_ROW({}), LIST_ROW({ id: 'A2', deliveryNo: '8006456512', cashRemainder: 0 })] }))
   if (path === 'Sd/CentralInvoice' && req.method() === 'POST') {
@@ -583,10 +582,6 @@ async function routeGrids(route) {
     )
   }
   if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return route.fulfill(envelope([]))
-  if (/Access$/.test(path))
-    return route.fulfill(
-      envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
-    )
   return route.fulfill(envelope([]))
 }
 
@@ -841,7 +836,7 @@ async function driveRanges({ theme, dir }) {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03', 'NotificationBroadcast:01']))
     if (path === 'CallCenterWeb/Open') {
       if (existingOrder)
         return route.fulfill(
@@ -873,7 +868,6 @@ async function driveRanges({ theme, dir }) {
         }),
       )
     if (/\/(Outbox|Logs)$/.test(path)) return route.fulfill(envelope([]))
-    if (path === 'Notifications/Access') return route.fulfill(envelope({ canBroadcast: true }))
     if (path === 'BonusBuyDownloadWeb/Download') {
       downloads += 1
       // The third number never answers, so the counter holds mid-run at `2 / 12`.
@@ -905,10 +899,6 @@ async function driveRanges({ theme, dir }) {
         }),
       )
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return route.fulfill(envelope([]))
-    if (/Access$/.test(path))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
-      )
     return route.fulfill(envelope([]))
   })
 
@@ -1006,8 +996,8 @@ async function driveRanges({ theme, dir }) {
 
 // ── 385: navigation lives in an expanding navy rail, collapsed by default ──────────────────────
 //
-// The session is granted OMS and Collections only; every other probe answers a denial (each
-// predicate reads `=== true`, so `{}` is a no), and the rail must draw exactly two groups.
+// The session is granted OMS and Collections only; every other key is absent from the one
+// permissions answer, and the rail must draw exactly two groups.
 
 // The rail's roles (ticket 593): the active pill's ground and icon, the active ink, the resting
 // group ink. Since 592 the active item is a filled pill, not a gold `::before` bar.
@@ -1043,21 +1033,7 @@ async function routeRail(route) {
     return route.fulfill(
       envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
     )
-  if (path === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
-  if (path === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
-  if (path === 'CollectionWeb/Access')
-    return route.fulfill(
-      envelope({
-        canOpenCollections: true,
-        canOpenAcrs: true,
-        canOpenDeposits: true,
-        canOpenAttempts: true,
-        canOpenAssignment: true,
-        canOpenSettlement: true,
-        canOpenReady: true,
-      }),
-    )
-  if (/Access$/.test(path)) return route.fulfill(envelope({}))
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', 'CentralInvoice:03', 'CollectionInquiry:03', 'AcrInquiry:03', 'DepositInquiry:03', 'CollectionAttempts:03', 'CollectionAssignment:03', 'SettlementAccount:03', 'CollectionReady:03']))
   return route.fulfill(envelope([]))
 }
 
@@ -2748,18 +2724,7 @@ const routeDialogs = (calls) => async (route) => {
       envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
     )
   if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
-  if (path === 'UaAdminWeb/Access') return route.fulfill(envelope({ canOpen: true }))
-  if (path === 'CollectionWeb/Access')
-    return route.fulfill(
-      envelope({
-        canOpenCollections: true,
-        canOpenAcrs: true,
-        canOpenDeposits: true,
-        canOpenAttempts: true,
-        canOpenSettlement: true,
-      }),
-    )
-  if (/Access$/.test(path)) return route.fulfill(envelope({}))
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(['UaUsers:03', 'CollectionInquiry:03', 'AcrInquiry:03', 'DepositInquiry:03', 'CollectionAttempts:03', 'SettlementAccount:03']))
   // The first press of each dialog is refused; the second succeeds.
   if (path === 'UaAdminWeb/Employees/SetPassword')
     return route.fulfill(calls.setPassword++ === 0 ? refusal(SET_PASSWORD_REFUSAL) : envelope({ success: true }))
@@ -3230,7 +3195,7 @@ async function routeScreens(route) {
     )
   if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
   if (path === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORES))
-  if (/Access$/.test(path)) return route.fulfill(envelope(ALL_GRANTS))
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
   if (path === 'Settlement/Fleet') return route.fulfill(envelope(SETTLEMENT?.fleet ?? []))
   if (path === 'Settlement/Orphans') return route.fulfill(envelope(SETTLEMENT?.orphans ?? []))
   if (path === 'Settlement/Uncollected') return route.fulfill(envelope(SETTLEMENT?.uncollected ?? []))

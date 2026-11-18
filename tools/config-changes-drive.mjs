@@ -14,6 +14,7 @@
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/config-changes-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -79,8 +80,7 @@ async function open(dir) {
     const p = url.pathname.replace(/^\/api\//, '')
     calls.push({ method: req.method(), p, q: Object.fromEntries(url.searchParams) })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: false, canOpenDetail: false }))
-    if (p === 'SdDocTypeConfigWeb/Access') return route.fulfill(envelope({ canViewDocTypeConfig: true, canEditDocTypeConfig: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03']))
     if (p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA') return route.fulfill(envelope(settings))
     if (p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA/History') return route.fulfill(envelope(HISTORY))
     if (p === 'SdDocTypeConfigWeb/ConfigChanges') {
@@ -94,7 +94,6 @@ async function open(dir) {
         headers: { 'Content-Disposition': 'attachment; filename=config-changes-20261001-20261027.xlsx' },
         body: Buffer.from('PK-stub'),
       })
-    if (p.endsWith('/Access')) return route.fulfill(envelope({}))
     return route.fulfill(envelope(null))
   })
   return { context, page, errors, calls }

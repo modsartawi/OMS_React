@@ -127,7 +127,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const clear = useCopilotConversation((s) => s.startNew)
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
-  // 888 (spec 3632 Q27): the SQL mode toggle, only for a holder of the SQL grant (`Analytics/Access` `canSql`).
+  // 888 (spec 3632 Q27): the SQL mode toggle, only for a holder of the SQL grant (`canSqlAnalytics`).
   const canSql = canSqlAnalytics(usePermissions())
   const sqlOn = useCopilotConversation((s) => s.sqlMode) && canSql
   const setSqlMode = useCopilotConversation((s) => s.setSqlMode)

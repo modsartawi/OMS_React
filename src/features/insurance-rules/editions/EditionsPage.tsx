@@ -24,7 +24,7 @@ import { ByAt, DeniedCard } from '@/core/insurance-rules/parts'
  * newest first — the live one, the one waiting to be published, and the old ones, read-only. An edition opens
  * its diff, its publish and its gap report (`/insurance-rules/editions/:list/:id`).
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on the read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on the read is "You do not have access".
  */
 export default function EditionsPage() {
   const { t } = useTranslation('insurance-editions')

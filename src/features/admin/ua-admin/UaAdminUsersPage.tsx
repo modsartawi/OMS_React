@@ -279,7 +279,7 @@ export default function UaAdminUsersPage() {
           </Button>
         </div>
         {/* Carries NO permission check of its own — it renders whenever the
-            screen renders, behind the existing access probe (ticket 146). It is
+            screen renders, behind the existing key (ticket 146). It is
             dead only when there is nothing to export yet. */}
         <Button
           variant="outlined"

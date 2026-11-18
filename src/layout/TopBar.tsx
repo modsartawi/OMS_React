@@ -40,7 +40,7 @@ function Separator() {
 /**
  * Group / [sub-group] / screen / [promotion] / record number, derived from the menu (`crumb.ts`).
  * Read off the FULL menu rather than the permission-filtered one, so it names the screen
- * while the access probes are still settling. The record is a machine value: `Ltr`, mono.
+ * while the permissions answer is still settling. The record is a machine value: `Ltr`, mono.
  */
 function Crumb() {
   const { t } = useTranslation()

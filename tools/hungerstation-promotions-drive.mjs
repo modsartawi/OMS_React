@@ -31,6 +31,7 @@
 //   2. DRIVE_PORT=5265 node tools/hungerstation-promotions-drive.mjs
 import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -404,7 +405,6 @@ else {
   sameKeys('0: the Check answer is exactly HungerStationPromotionCheck', 'HungerStationPromotionCheck', checkOf('p'))
   sameKeys('0: a Check issue is exactly HungerStationPromotionCheckIssue', 'HungerStationPromotionCheckIssue', issue())
   sameKeys('0: a previewed part is exactly HungerStationPromotionPartPreview', 'HungerStationPromotionPartPreview', previewPart())
-  sameKeys('0: the access probe is the four flags', 'HungerStationAccessResult', { canManageStores: true, canManageCatalog: true, canViewOrders: true, canManagePromotions: true })
 }
 
 // ── The browser ──────────────────────────────────────────────────────────────────────────────
@@ -431,7 +431,7 @@ async function open(dir, { access = ALL, chains = 'ok', many = false, doors = {}
     const url = new URL(req.url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'HungerStationWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('HungerStation', access)))
     if (p === 'HungerStationWeb/Chains') return route.fulfill(chains === 'ok' ? envelope(['OlaCare', 'AlDawaa']) : bare403)
     for (const d of DOORS) {
       const m = req.method() === d.method ? d.path.exec(p) : null
@@ -446,7 +446,6 @@ async function open(dir, { access = ALL, chains = 'ok', many = false, doors = {}
       if (!access.canManagePromotions) return route.fulfill(bare403)
       return route.fulfill(await (doors[d.door] ?? d.handle)(ctx, m, req, url))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, ctx }

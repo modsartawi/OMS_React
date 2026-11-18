@@ -32,6 +32,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-authorization-session-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -476,11 +477,9 @@ async function run() {
           currentStoreCode: scenario.actingStore,
         }),
       )
-    if (path === 'Nphies/Access') {
-      if (scenario.accessDown)
-        return route.fulfill(envelope(null, { status: 500, success: false, message: 'down' }))
-      return route.fulfill(envelope(scenario.access))
-    }
+    // `scenario.access` keeps the old flag names (canOpenNphies → Nphies:03); accessDown = the answer fails (500).
+    if (path === 'Auth/Permissions')
+      return route.fulfill(scenario.accessDown ? permissionsFailed() : permissions(flagKeys('Nphies', scenario.access)))
 
     // The eligibility 217 is raised FROM — 213's seam, so the drive can prove the two
     // features meet at a URL rather than at an object.
@@ -1408,7 +1407,7 @@ async function run() {
   await page.goto(FORM_URL)
   await page.waitForSelector('[role="alert"]', { timeout: 15000 })
   check(
-    '🚩 an ERRORED probe fails closed — the form stays shut and says UNAVAILABLE, not "you lack the grant"',
+    '🚩 an ERRORED permissions answer fails closed — the form stays shut and says UNAVAILABLE, not "you lack the grant"',
     /Nphies is unavailable/.test(await text()) && !/does not hold the Nphies grant/.test(await text()),
   )
   scenario.accessDown = false

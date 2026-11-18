@@ -34,7 +34,7 @@ import UploadStateBadge from './UploadStateBadge'
  * nothing of it is edited here: the fix for a bad campaign is a new workbook.
  *
  * The buttons show on a pending upload (they follow its state, never a guessed role): there is no
- * access probe, so a session without the approver's grant is refused by HQ with a bare 403, which
+ * client gate, so a session without the approver's grant is refused by HQ with a bare 403, which
  * the dialog names. Four-eyes is HQ's too (`RULES_SELF_APPROVAL`).
  */
 export default function UploadPage() {

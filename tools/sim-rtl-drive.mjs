@@ -41,6 +41,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -303,12 +304,9 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    if (p === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (p === 'Pricing/CacheAccess') return route.fulfill(envelope({ canClear: true }))
-    // `{ screenAllowed }`, the shape `bonusBuyAccessApi.access()` reads — a `canOpen`
-    // here would probe as DENIED and the bonus-buy control would be absent, which is the
+    // `BbyInquiry:03` lights the bonus-buy control; without it the control would be absent, which is the
     // gate working correctly and the icon check measuring nothing.
-    if (p === 'Bby/Access') return route.fulfill(envelope({ screenAllowed: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['PosSimulation:03', 'PricingCache:03', 'BbyInquiry:03']))
     if (p === 'Pricing/Simulate')
       return route.fulfill(failing ? REJECTION : envelope(CAPTURES[serving]))
     return route.fulfill(envelope({}))

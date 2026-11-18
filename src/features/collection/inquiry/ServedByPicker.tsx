@@ -67,7 +67,7 @@ export default function ServedByPicker({
   const collected = contract.reading === 'collector'
   const [typing, setTyping] = useState(false)
 
-  // The one shared key+options (in `api.ts`, beside the access probe's), so a user
+  // The one shared key+options (in `api.ts`), so a user
   // moving between the five screens costs one request and not five — and so the
   // page that lands on `defaultScope` reads the very same cache entry this picker
   // renders from, rather than a second copy that could disagree with it.

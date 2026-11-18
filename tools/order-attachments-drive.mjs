@@ -5,7 +5,8 @@
 //   - `GET SdDocumentWeb/Document/{no}` / `Delivery/{no}` — `attachmentOwnerNo` + `attachmentCount`
 //     (2063, SdDocumentHeaderModel.cs: both omitted when null) and `attachmentCategory` (2077's
 //     `## Web contract` STUB — not built yet; omitted when null);
-//   - `GET AttachmentWeb/Access` — `{ categories, withdrawCategories }`, or a 503 `NOT_SET_UP` / bare 403;
+//   - `GET Auth/Permissions` (oms 909) — the OMS keys plus `Attachments:03:<c>` per category read and `Attachments:04:<c>`
+//     per category withdrawn, `extras.fileServerReady` (false = the old 503 `NOT_SET_UP`), or a failed / malformed answer;
 //   - `GET AttachmentWeb/ByOwner?ownerKind=SD_DOCUMENT&ownerKey=<attachmentOwnerNo>` — `data` = AttachmentDto[]
 //     (with 2056's `caption` and 2067's `storeCode`), `withdrawn` + `withdrawReasons` BESIDE `data`
 //     (AttachmentOwnerListResponse.cs), or a 503 `READ_NOT_AUDITED`;
@@ -19,7 +20,7 @@
 //   - Refresh before opening reads none; Refresh after opening reads one;
 //   - no /Content until a file is clicked.
 //
-// Also: the tab hidden for no owner, no category, a refused probe, a malformed probe and a category not
+// Also: the tab hidden for no owner, no category, the File Server not ready, a failed or malformed answer and a category not
 // held; the badge from the model, then from the list, absent → none, 0 → 0; the list (name, caption,
 // stamps, source); jpeg/png/pdf previews; download without a second fetch; the 404 / 502 /
 // READ_NOT_AUDITED answers; Withdrawn (n); object URLs revoked on leave; a delivery lists its OWNER's files.
@@ -33,7 +34,7 @@
 // survives a tab switch; a delivery's Add posting OwnerKey=<owner>.
 //
 // Ticket 331 adds `POST AttachmentWeb/{id}/Withdraw`, body `{ reasonCode, note }` (BackOffice 2062's Web contract;
-// AttachmentWithdrawResult.cs + AttachmentWebEndpoints.cs on pricing2), and the probe's `withdrawCategories`: Withdraw…
+// AttachmentWithdrawResult.cs + AttachmentWebEndpoints.cs on pricing2), and the `Attachments:04:<c>` withdraw keys: Withdraw…
 // offered only with the grant for the order's category AND ByOwner's `withdrawReasons`, those reasons listed in the order
 // sent with EN·AR labels as sent, WRONG_ORDER posted, Other disabled until a note is typed, the answers by code (400 keeps
 // the input, 404 re-reads, 503 NOT_SET_UP no resend, a failure pressed again), a bare 403 removing Withdraw for the rest
@@ -51,6 +52,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, permissionsBody, permissionsFailed, attachmentKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -71,6 +73,29 @@ const envelope = (data, { status = 200, success = true, message = '', errors = n
   contentType: 'application/json',
   body: JSON.stringify({ statusCode: status, success, message, errors, serverTime: '2026-09-27T09:00:00', data, ...siblings }),
 })
+const OMS_KEYS = ['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01']
+/**
+ * The one answer per mode: the OMS keys, the attachment categories read / withdrawn (`Attachments:03:<c>` /
+ * `Attachments:04:<c>`) and the File Server's readiness. 'holder' reads P2E + ALTIBBI and withdraws none;
+ * 'notSetUp' is that with `fileServerReady: false`; 'failed' is a 500; 'malformed' carries `screens` as a bare string.
+ */
+function permissionsFor(mode) {
+  if (mode === 'failed') return permissionsFailed(500)
+  if (mode === 'malformed') {
+    const body = permissionsBody(OMS_KEYS, { fileServerReady: true })
+    body.data.screens = 'Attachments:03:P2E'
+    return { status: 200, contentType: 'application/json', body: JSON.stringify(body) }
+  }
+  const [read, withdraw] =
+    {
+      otherCategory: [['ERX'], []],
+      // 331: the withdraw grant for both of 2062's categories; an ERX reader (2062 seeds no ERX withdraw grant, so it
+      // can never withdraw ERX).
+      withdrawer: [['P2E', 'ALTIBBI'], ['P2E', 'ALTIBBI']],
+      erxReader: [['ERX', 'P2E', 'ALTIBBI'], ['P2E', 'ALTIBBI']],
+    }[mode] ?? [['P2E', 'ALTIBBI'], []]
+  return permissions([...OMS_KEYS, ...attachmentKeys(read, withdraw)], { fileServerReady: mode !== 'notSetUp' })
+}
 const refusal = (status, code, message) =>
   envelope(null, { status, success: false, message, errors: [{ errorCode: code, internalErrorCode: '', errorMessage: message }] })
 
@@ -155,11 +180,12 @@ const CONTENT_502 =
 const NOT_AUDITED = 'The read could not be recorded, so the file is not shown.\nتعذر تسجيل القراءة، لذلك لا يُعرض الملف.'
 const NOT_SET_UP = 'The attachment store is not set up on this server.\nمخزن المرفقات غير مُعدّ على هذا الخادم.'
 
-let probe = 'holder'
+/** The permissions mode the next `Auth/Permissions` answers (see `permissionsFor`). */
+let perms = 'holder'
 let byOwner = 'normal'
 let byOwnerCalls = []
 let contentCalls = {}
-let accessCalls = 0
+let permissionsCalls = 0
 let documentCalls = 0
 let goneIds = new Set()
 let bytes = {}
@@ -256,7 +282,10 @@ async function run() {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
+    if (p === 'Auth/Permissions') {
+      permissionsCalls += 1
+      return route.fulfill(permissionsFor(perms))
+    }
     // Leaving lands on the deliveries list: its grid and its filter lookups answer empty lists.
     if (p === 'SdDocumentWeb/DeliveryDocumentList' || /^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes|StoreDetails)$/.test(p))
       return route.fulfill(envelope([]))
@@ -266,19 +295,6 @@ async function run() {
       return route.fulfill(envelope({ ...CAPTURED[doc[1]], ...(fields[doc[1]] ?? {}) }))
     }
     if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
-    if (p === 'AttachmentWeb/Access') {
-      accessCalls += 1
-      if (probe === 'notSetUp') return route.fulfill(refusal(503, 'NOT_SET_UP', NOT_SET_UP))
-      if (probe === 'forbidden') return route.fulfill({ status: 403, body: '' })
-      if (probe === 'bareString') return route.fulfill(envelope({ categories: 'P2E', withdrawCategories: 'P2E' }))
-      if (probe === 'otherCategory') return route.fulfill(envelope({ categories: ['ERX'], withdrawCategories: [] }))
-      // 331: the withdraw grant for both of 2062's categories; a bare-string withdraw list; an ERX reader (2062 seeds no
-      // ERX withdraw grant, so its withdrawCategories can never hold ERX).
-      if (probe === 'withdrawer') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: ['P2E', 'ALTIBBI'] }))
-      if (probe === 'withdrawBareString') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: 'P2E' }))
-      if (probe === 'erxReader') return route.fulfill(envelope({ categories: ['ERX', 'P2E', 'ALTIBBI'], withdrawCategories: ['P2E', 'ALTIBBI'] }))
-      return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: [] }))
-    }
     if (p === 'AttachmentWeb/ByOwner') {
       byOwnerCalls.push({ ownerKind: url.searchParams.get('ownerKind'), ownerKey: url.searchParams.get('ownerKey') })
       if (byOwner === 'readNotAudited') return route.fulfill(refusal(503, 'READ_NOT_AUDITED', NOT_AUDITED))
@@ -407,11 +423,11 @@ async function run() {
     check(`${where} — no raw t() key on screen`, raw.length === 0, raw.join(', '))
   }
   const reset = () => {
-    probe = 'holder'
+    perms = 'holder'
     byOwner = 'normal'
     byOwnerCalls = []
     contentCalls = {}
-    accessCalls = 0
+    permissionsCalls = 0
     documentCalls = 0
     goneIds = new Set()
     uploads = []
@@ -427,27 +443,21 @@ async function run() {
   const FULL = { attachmentOwnerNo: OWNER, attachmentCount: 3, attachmentCategory: 'P2E' }
 
   // ════════════════════ 1 · the tab is HIDDEN unless all three hold ════════════════════
-  for (const [name, docFields, probeMode] of [
+  for (const [name, docFields, mode] of [
     ['no owner', { attachmentCount: 3, attachmentCategory: 'P2E' }, 'holder'],
     ['no category (BackOffice 2077 not served)', { attachmentOwnerNo: OWNER, attachmentCount: 3 }, 'holder'],
-    ['a refused probe (503 NOT_SET_UP)', FULL, 'notSetUp'],
-    ['a refused probe (bare 403)', FULL, 'forbidden'],
-    ['a malformed probe (bare-string categories "P2E")', FULL, 'bareString'],
+    ['the File Server not ready (fileServerReady false)', FULL, 'notSetUp'],
+    ['a failed permissions answer (500)', FULL, 'failed'],
+    ['a malformed permissions answer (bare-string screens)', FULL, 'malformed'],
     ['a category the session does not hold', FULL, 'otherCategory'],
   ]) {
     reset()
-    probe = probeMode
+    perms = mode
     fields = { [ORDER]: docFields }
     await open(`/oms/document/${ORDER}`)
     check(`hidden — ${name}: no Attachments disclosure`, (await panel().count()) === 0 && (await page.locator('[role="tab"]').count()) === 0)
     check(`hidden — ${name}: no ByOwner and no /Content`, byOwnerCalls.length === 0 && contentTotal() === 0, JSON.stringify(byOwnerCalls))
   }
-  check('hidden — with no owner or no category the probe is not even asked', await (async () => {
-    reset()
-    fields = { [ORDER]: { attachmentOwnerNo: OWNER, attachmentCount: 3 } }
-    await open(`/oms/document/${ORDER}`)
-    return accessCalls === 0
-  })(), `${accessCalls} probe calls`)
 
   // ════════════════════ 2 · the audited read: zero on load, one on first selection ════════════════════
   reset()
@@ -463,7 +473,7 @@ async function run() {
   check('🔑 load — ZERO ByOwner requests on page load', byOwnerCalls.length === 0, JSON.stringify(byOwnerCalls))
   check('load — no /Content either', contentTotal() === 0)
   check('load — Items shows, the disclosure folded', (await page.locator('#doc-items').isVisible()) && !(await shown()))
-  check('load — the probe asked once', accessCalls === 1, `${accessCalls}`)
+  check('load — Auth/Permissions asked once', permissionsCalls === 1, `${permissionsCalls}`)
 
   // Refresh BEFORE the tab is opened reads the document again, and no files.
   const docsBefore = documentCalls
@@ -969,7 +979,7 @@ async function run() {
   const WITHDRAW_404 = 'The attachment was not found.\nلم يتم العثور على المرفق.'
 
   reset()
-  probe = 'withdrawer'
+  perms = 'withdrawer'
   fields = { [ORDER]: FULL }
   await open(`/oms/document/${ORDER}`)
   check('withdraw — nothing posted by the load', withdraws.length === 0 && byOwnerCalls.length === 0)
@@ -980,7 +990,7 @@ async function run() {
   await pick(JPEG)
   check('withdraw — with the grant: Withdraw beside Download on the previewed file', (await withdrawButton().isVisible()) && (await panel().getByTestId('slip-download').isVisible()))
   check('withdraw — the button reads the panel’s "Withdraw", named for the file', (await withdrawButton().innerText()).trim() === 'Withdraw' && (await withdrawButton().getAttribute('aria-label')) === 'Withdraw rx-front.jpg')
-  check('withdraw — reading the reasons asked nothing more: one ByOwner, no probe re-ask', byOwnerCalls.length === 1 && accessCalls === 1, `${byOwnerCalls.length} / ${accessCalls}`)
+  check('withdraw — reading the reasons asked nothing more: one ByOwner, no permissions re-ask', byOwnerCalls.length === 1 && permissionsCalls === 1, `${byOwnerCalls.length} / ${permissionsCalls}`)
 
   await withdrawButton().click()
   await dialog().waitFor()
@@ -1130,20 +1140,20 @@ async function run() {
   await refreshButton().click()
   await settle()
   await pick(PDF)
-  check('bare 403 — …and after the page’s Refresh (the probe still says yes)', (await withdrawButton().count()) === 0 && accessCalls === 1)
+  // The 403 invalidates the permissions answer (oms 909), so it is re-asked once — and still says yes.
+  check('bare 403 — …and after the page’s Refresh (the re-asked answer still says yes)', (await withdrawButton().count()) === 0 && permissionsCalls === 2, `${permissionsCalls}`)
   check('ATWD — the web sends nothing for the order’s history line: no other write at all', otherWrites.length === 0, otherWrites.join(', '))
   await noRawKeys('order — withdraw')
 
   // ════════════════════ 8 · no Withdraw… without the grant, or without the server's reasons ════════════════════
-  for (const [name, probeMode, mode, docFields] of [
+  for (const [name, permsMode, mode, docFields] of [
     ['read only (withdrawCategories [])', 'holder', 'sent', FULL],
-    ['a bare-string withdrawCategories "P2E"', 'withdrawBareString', 'sent', FULL],
     ['an ERX order (2062 has no ERX withdraw grant)', 'erxReader', 'sent', { ...FULL, attachmentCategory: 'ERX' }],
     ['no withdrawReasons (an older SIS.Api)', 'withdrawer', 'absent', FULL],
     ['an empty withdrawReasons', 'withdrawer', 'empty', FULL],
   ]) {
     reset()
-    probe = probeMode
+    perms = permsMode
     reasonsMode = mode
     fields = { [ORDER]: docFields }
     await open(`/oms/document/${ORDER}`)
@@ -1208,17 +1218,17 @@ async function run() {
   check('🔑 files row — the summary first, then Show: still ONE ByOwner', byOwnerCalls.length === 1 && (await shown()), `${byOwnerCalls.length}`)
 
   // No Files row without the gate, with N = 0, or with no count.
-  for (const [name, docFields, probeMode] of [
+  for (const [name, docFields, mode] of [
     ['no owner', { attachmentCount: 3, attachmentCategory: 'P2E' }, 'holder'],
     ['no category', { attachmentOwnerNo: OWNER, attachmentCount: 3 }, 'holder'],
-    ['a refused probe (503 NOT_SET_UP)', FULL, 'notSetUp'],
-    ['a bare-string probe', FULL, 'bareString'],
+    ['the File Server not ready', FULL, 'notSetUp'],
+    ['a malformed permissions answer', FULL, 'malformed'],
     ['a category the session does not hold', FULL, 'otherCategory'],
     ['N = 0', { ...FULL, attachmentCount: 0 }, 'holder'],
     ['no count (no badge)', { attachmentOwnerNo: OWNER, attachmentCategory: 'P2E' }, 'holder'],
   ]) {
     reset()
-    probe = probeMode
+    perms = mode
     fields = { [ORDER]: docFields }
     await open(`/oms/document/${ORDER}`)
     const got = await rxRows()
@@ -1240,12 +1250,12 @@ async function run() {
   await panel().locator('[data-testid="slip-list"]').waitFor()
   await settle()
   check('files alone — Show opens the disclosure with its one read', (await shown()) && byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
-  for (const [name, docFields, probeMode] of [
+  for (const [name, docFields, mode] of [
     ['without the gate', { ...FULL, ...NO_RX }, 'otherCategory'],
     ['with N = 0', { ...FULL, ...NO_RX, attachmentCount: 0 }, 'holder'],
   ]) {
     reset()
-    probe = probeMode
+    perms = mode
     fields = { [ORDER]: docFields }
     await open(`/oms/document/${ORDER}`)
     check(`files alone — ${name}: no Prescription card at all`, (await rxCard().count()) === 0)

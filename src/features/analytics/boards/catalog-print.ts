@@ -19,8 +19,8 @@ import { analyticsRefusal, type AnalyticsRefusal } from './wire'
  * tables they read, its freshness and its area boundary), then the Planned and untapped section. The facts and the
  * roadmap come from 842's pure modules (`./catalog-area`, `./catalog-planned`), so the paper says what the screen says.
  *
- * Curator facts (rows, size, hidden columns) are drawn by **presence** in the answer, never by the access probe: under
- * a render ticket the probe is faked as a runner, while `Render/Catalog` answers as the requester sees it (ruling 6).
+ * Curator facts (rows, size, hidden columns) are drawn by **presence** in the answer, never by the permissions: under
+ * a render ticket they are a runner's (`RENDER_TICKET_PERMISSIONS`), while `Render/Catalog` answers as the requester sees it (ruling 6).
  */
 
 export interface PrintMart extends AnalyticsCatalogMart {
@@ -84,7 +84,7 @@ export function catalogPrint(catalog: AnalyticsCatalog): CatalogPrint {
 }
 
 /**
- * Every read the print page makes. A catalog ticket opens ONLY `Render/Catalog` (BO 3444): no access probe, no
+ * Every read the print page makes. A catalog ticket opens ONLY `Render/Catalog` (BO 3444): no client gate, no
  * `analyticsApi.model()` (it would switch to `Render/Model` and be refused), nothing else that queries.
  */
 export const catalogPrintQueries = () => [analyticsCatalogQuery()]

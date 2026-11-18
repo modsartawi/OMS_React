@@ -2,12 +2,13 @@
 // REAL app in Chromium against MOCKED `Nphies/*` envelopes.
 //
 // ⚠ No live SIS.Api: the stubs are the shapes BackOffice 3725 built (`NphiesUndispenseRow`,
-// `NphiesUndispenseList`, `NphiesUndispenseQueued`, the 1.2 `Nphies/Access` answer, the §6 refusal codes),
+// `NphiesUndispenseList`, `NphiesUndispenseQueued`, the Nphies keys, the §6 refusal codes),
 // so the stub is a contract assertion rather than a convenience.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-undispense-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -97,7 +98,7 @@ async function run() {
       const method = route.request().method()
       if (path === 'Auth/Me')
         return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-      if (path === 'Nphies/Access') return route.fulfill(envelope(scenario.access))
+      if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Nphies', scenario.access)))
       if (path === 'Nphies/Undispense' && method === 'GET') {
         calls.list.push(Object.fromEntries(url.searchParams))
         return route.fulfill(envelope({ items: filterRows(url.searchParams), truncated: scenario.truncated, contractVersion: '1.2' }))
@@ -253,7 +254,7 @@ async function run() {
     page = await open()
     await page.goto(PAGE_URL)
     await page.waitForSelector('[data-testid=undispense-grid] .ag-row')
-    const label = 'canUndispense' in access ? 'canUndispense=false' : 'a probe without the field'
+    const label = 'canUndispense' in access ? 'canUndispense=false' : 'an answer without the key'
     check(`${label}: the list shows`, (await gridText(page)).includes('AUTH-1'))
     check(`${label}: no Retry`, (await page.locator('[data-testid=undispense-retry]').count()) === 0)
     check(`${label}: no manual Undispense`, (await page.locator('[data-testid=undispense-manual]').count()) === 0)

@@ -15,7 +15,7 @@ export interface LfReturnPanelContext {
   openedAs: OpenedAs
   /** The payload's category — `T` is a delivery return (the `9000000003` capture). */
   documentCategory: string | null | undefined
-  /** The probe's `canCreateLocalFulfillmentReturn` (03), read strictly. */
+  /** `canCreateLocalFulfillmentReturn` = `LocalFulfillmentReturn:03`, read strictly. */
   canCreateLocalFulfillmentReturn?: boolean
 }
 

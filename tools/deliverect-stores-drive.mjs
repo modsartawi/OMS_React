@@ -6,7 +6,7 @@
 // EXACTLY the contract's fields, on the REAL envelope { statusCode, success, message,
 // errors: [{ errorCode, internalErrorCode, errorMessage }], data }, and every refusal's
 // errorMessage is "<English> / <Arabic>":
-//   GET    DeliverectWeb/Access            → { canManageStores, canManageCatalog, canViewOrders, canManageTerms }
+//   GET    Auth/Permissions            → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET    DeliverectWeb/Stores?account=&linked=&q=  → store rows (sync and status NULL — 2624/2625 unshipped)
 //   POST   DeliverectWeb/Stores            → the row; DLV-00001/2/3/9; the direct-HungerStation warning
 //   PUT    DeliverectWeb/Stores/{store}    → move
@@ -29,7 +29,7 @@
 //
 // ── 477 (this slice) ── it asserts:
 //   1. the Deliverect group comes LAST (after Materials) with ONE leaf, Stores; the group, the leaf
-//      and the page gate cost ONE probe call; without canManageStores the group is hidden and the URL
+//      and the page gate cost ONE permissions call; without canManageStores the group is hidden and the URL
 //      shows the denied card with no Stores call;
 //   2. the rows render; the state reads Linked / Onboarded, not linked; the direct-HungerStation
 //      badge shows; with every sync and status NULL there is NO sync or status column;
@@ -109,6 +109,7 @@
 //   2. DRIVE_PORT=5196 node tools/deliverect-stores-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -318,7 +319,7 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Deliverect', access), 'ItemInquiryCustome:03', 'MaterialStockInquiry:03', 'Gs1SerialInquiry:03']))
     if (p === 'DeliverectWeb/Accounts') {
       if (accounts === 'ok') return route.fulfill(envelope(ACCOUNTS))
       return route.fulfill(
@@ -420,9 +421,6 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
       return route.fulfill(envelope(null))
     }
     // Materials' leaves are shown so the Deliverect group's place after them can be read.
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope({ canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, lists, writes, logReads, statusWrites, historyReads, lineReads, materialReads }
@@ -484,9 +482,9 @@ const dialog = (page) => page.locator('dialog[open]')
   await page.locator('nav a[href="/deliverect/stores"]').first().click()
   await waitRows(page, 3)
   check(
-    '1: the group, its leaf and the page gate cost ONE probe call',
-    calls.filter((c) => c === 'DeliverectWeb/Access').length === 1,
-    String(calls.filter((c) => c === 'DeliverectWeb/Access').length),
+    '1: the group, its leaf and the page gate cost ONE permissions call',
+    calls.filter((c) => c === 'Auth/Permissions').length === 1,
+    String(calls.filter((c) => c === 'Auth/Permissions').length),
   )
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()

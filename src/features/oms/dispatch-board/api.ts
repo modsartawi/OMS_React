@@ -1,7 +1,7 @@
 /**
  * The dispatch board's server calls (BackOffice spec 2952; door 2964, oms ticket 541).
  *
- * The board read lives here. The probe (`GET DispatchBoard/Access`) and the lock's write
+ * The board read lives here. The predicates (`DispatchBoard:03` / `:06`) and the lock's write
  * (`POST DispatchBoard/ReleaseLock`) live in `@/core/dispatch/access`, because Delivery details (542)
  * offers the same Release lock and a feature may not import another.
  *

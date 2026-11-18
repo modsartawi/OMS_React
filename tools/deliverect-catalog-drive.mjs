@@ -6,7 +6,7 @@
 // fixture emits EXACTLY the contract's fields, on the REAL envelope { statusCode, success, message,
 // errors: [{ errorCode, internalErrorCode, errorMessage }], data }, and every refusal's errorMessage
 // is "<English> / <Arabic>":
-//   GET  DeliverectWeb/Access                      → { canManageStores, canManageCatalog, canViewOrders, canManageTerms }
+//   GET  Auth/Permissions                      → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  DeliverectWeb/Whitelist?q=&state=&skip=&take=
 //                                                  → { total, rows: [{ materialNumber, nameEn, nameAr, gtins, disabled,
 //                                                      deleted, excludedPlatforms, updatedAt, updatedBy }] }
@@ -23,7 +23,7 @@
 //
 // It asserts:
 //   1. the Catalog leaf joins the Deliverect group on canManageCatalog, after Orders; without it the
-//      leaf is hidden and the URL shows the denied card with no Whitelist call; one probe call;
+//      leaf is hidden and the URL shows the denied card with no Whitelist call; one permissions call;
 //   2. the grid: material, both names (bidi), GTINs as one isolate, disabled / deleted flags, the
 //      excluded platforms as chips, updated at / by; state and text land on the door and the URL;
 //      a pasted URL drives the door; paging sends take=500 and Next sends skip=500;
@@ -55,6 +55,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
 import { crc32 } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -221,7 +222,7 @@ async function open(dir, { access = ALL, platforms = 'ok', accounts = 'ok', tota
     calls.push(p)
     const body = () => JSON.parse(req.postData() ?? 'null')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Deliverect', access), 'ItemInquiryCustome:03', 'MaterialStockInquiry:03', 'Gs1SerialInquiry:03']))
     if (p === 'DeliverectWeb/Platforms') return route.fulfill(platforms === 'ok' ? envelope(PLATFORMS) : refuse('Forbidden'))
     if (p === 'DeliverectWeb/Accounts') return route.fulfill(accounts === 'ok' ? envelope(ACCOUNTS) : refuse('Forbidden'))
     if (p === 'DeliverectWeb/Whitelist' && req.method() === 'GET') {
@@ -267,9 +268,6 @@ async function open(dir, { access = ALL, platforms = 'ok', accounts = 'ok', tota
       if (b.materialNumbers.includes('101236')) return route.fulfill(envelope({ accounts: [] }))
       return route.fulfill(envelope({ accounts: PUSH_ACCOUNTS }))
     }
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope({ canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, lists, writes }
@@ -311,7 +309,7 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
   check('1: the leaf reads "Catalog"', (await page.locator('nav a[href="/deliverect/catalog"]').first().innerText()).trim() === 'Catalog')
   await page.locator('nav a[href="/deliverect/catalog"]').first().click()
   await waitRows(page, ACTIVE)
-  check('1: the group, its leaves and the page gate cost ONE probe call', calls.filter((c) => c === 'DeliverectWeb/Access').length === 1)
+  check('1: the group, its leaves and the page gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

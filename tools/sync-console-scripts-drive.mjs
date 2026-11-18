@@ -31,6 +31,7 @@
 //   2. node tools/sync-console-scripts-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -152,8 +153,7 @@ async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_
     const p = url.pathname.replace(/^\/api\//, '')
     calls.push(`${p}${url.search}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access')
-      return route.fulfill(envelope({ screenAllowed: true, canOperate: false, canOnboard: false, canEnrol: false, canReplay: false, canRunScripts }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ActionSyncConsole:03', ...(canRunScripts ? ['SyncStoreScript:06'] : [])]))
     if (p === 'ActionSync/Scripts') {
       const pg = Number(url.searchParams.get('page'))
       const size = Number(url.searchParams.get('pageSize'))
@@ -187,7 +187,6 @@ async function open(path, { canRunScripts = false, storeScripts = STORE_SCRIPTS_
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope({ items: [] }))
     if (p === 'ActionSync/Store/Scripts') return route.fulfill(envelope(storeScripts))
     if (p === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
   })
   await page.goto(`${BASE}${path}`)

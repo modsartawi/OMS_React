@@ -31,6 +31,7 @@
 // Screenshots → tools/.sim-process-shots/ (gitignored).
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -130,14 +131,12 @@ async function drive(browser, { theme, dir }) {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (p === 'Pricing/CacheAccess') return route.fulfill(envelope({ canClear: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['PosSimulation:03', 'PricingCache:03']))
     if (p === 'Pricing/Simulate') {
       posted.push(JSON.parse(route.request().postData() || '{}'))
       if (wire.delayMs) await new Promise((r) => setTimeout(r, wire.delayMs))
       return route.fulfill(envelope(PAYLOAD))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope({}))
   })
 

@@ -29,6 +29,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -141,11 +142,9 @@ async function run() {
     const p = url.split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access')
-      // The LF grant (03) alone: the bonded `canCreateReturn` is NOT held.
-      return route.fulfill(
-        envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: false, canCreateLocalFulfillmentReturn: true }),
-      )
+    if (p === 'Auth/Permissions')
+      // The LF grant (03) alone: the bonded return (OmsCreateReturn:01) is NOT held.
+      return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'LocalFulfillmentReturn:03']))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (p === 'SdDocumentWeb/CreateReturn') {

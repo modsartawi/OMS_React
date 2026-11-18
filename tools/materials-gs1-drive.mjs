@@ -6,7 +6,7 @@
 // the contract's own example values (material 101234, GTIN 06281234567890, expiry 2027-03-31,
 // lot A12, serial X9, SOLD at store 1007 / till 03 / invoice 200311, history count 3, a history row
 // at 2026-09-02 14:31:07 in store 1001 / till 02 / invoice 100045):
-//   GET  MaterialWeb/Access       → { canSearchMaterials, canCheckStock, canCheckGs1 }
+//   GET  Auth/Permissions       → the screen keys the drive grants (`permissions-stub.mjs`)
 //   POST MaterialWeb/Gs1/Check    → one answer per code, in request order (a repeat in one request
 //                                   gets duplicate: true and the same answer)
 //   GET  MaterialWeb/Gs1/History  → the unit's trail, oldest → newest, lotMismatch per row
@@ -39,6 +39,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -135,7 +136,7 @@ async function open({ access = ALL } = {}) {
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Material', access)))
     if (p === 'MaterialWeb/Gs1/Check') {
       const raw = route.request().postData() ?? '{}'
       const body = JSON.parse(raw)
@@ -162,8 +163,6 @@ async function open({ access = ALL } = {}) {
       const ok = url.searchParams.get('material') === '101234' && url.searchParams.get('serial') === 'X9'
       return route.fulfill(envelope(ok ? HISTORY : []))
     }
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, checkBodies, historyCalls }

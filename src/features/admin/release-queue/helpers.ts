@@ -70,9 +70,9 @@ export function progressPercent(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : 0
 }
 
-/** The release-queue reads a Manage change can move: every one under the prefix but the access probe. */
+/** The release-queue reads a Manage change can move: every one under the prefix (the grants are the one permissions answer). */
 export function isManagedRead(queryKey: readonly unknown[]): boolean {
-  return queryKey[0] === 'release-queue' && queryKey[1] !== 'access'
+  return queryKey[0] === 'release-queue'
 }
 
 /** A finished lease's state as the page names it (the `history.outcome.*` keys). */

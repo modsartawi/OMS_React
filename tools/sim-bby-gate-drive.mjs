@@ -1,7 +1,7 @@
 // Bonus-buy details affordance + its gate (ticket 118, spec 110) — drives the REAL app
 // in Chromium, serving the captured `Pricing/Simulate` response from
-// `.issues/assets/098-simulate-payloads/` as the wire and STUBBING `Bby/Access` across
-// its three states. The app is not stubbed, only the wire.
+// `.issues/assets/098-simulate-payloads/` as the wire and STUBBING the one `Auth/Permissions`
+// answer (oms 909) with and without `BbyInquiry:03`. The app is not stubbed, only the wire.
 //
 // Its own file and its own port (5202) rather than an extension of 117's, so this slice
 // and 119 run in the same wave without contending for either.
@@ -10,11 +10,10 @@
 // decision, and only a rendered tree shows that, which is why the whole slice is proved
 // here. Asserts the ticket's Done-when:
 //
-//   1. the control is ABSENT when the grant is unprobed (the degraded-to-granted trap:
-//      `Bby/Access` 404s today, and the inquiry probe maps that to screenAllowed=true),
-//      ABSENT when denied, PRESENT on both card kinds when confirmed;
-//   2. the promotions rail renders BEFORE the probe resolves — the verdict is the
-//      screen's primary answer and never waits on a permission check;
+//   1. the control is ABSENT when the answer lacks BbyInquiry:03, PRESENT on both card kinds
+//      when it holds it (the old probe's 404 "unprobed" trap went with the probe);
+//   2. (gone with 909: the rail cannot render before the answer, since the screen's own
+//      PosSimulation:03 gate reads the same answer);
 //   3. the control opens the bonus-buy modal in place, over the basket, and closing it
 //      returns to exactly that basket — on a fired card AND on a near-miss.
 //
@@ -22,6 +21,7 @@
 //   2. node tools/sim-bby-gate-drive.mjs
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -49,7 +49,7 @@ const CAPTURE = JSON.parse(
 
 // The Bby/Detail payload (contract 058, the same shape tools/bby-inquiry-drive.mjs
 // serves). ⚠️ The endpoint does NOT exist in SIS.Api — which is the whole reason the
-// affordance ships dark behind `probed && screenAllowed`.
+// affordance ships dark behind BbyInquiry:03.
 const DETAIL = {
   header: {
     bbyNumber: '000100000131', description: 'Buy 2 Panadol, get 1 free', bbyProfile: 'HEALTH_PROMO',
@@ -75,20 +75,12 @@ const DETAIL = {
 }
 
 /**
- * The `Bby/Access` state under test. The three the ticket names, plus the HELD one that
- * proves the rail never waits:
+ * The grant under test, as the `Auth/Permissions` answer carries it:
  *
- * - `granted`  — 200 `{ screenAllowed: true }` → `probed:true`  → control PRESENT.
- * - `missing`  — 404. The probe maps it to `{ screenAllowed: TRUE, probed: false }`,
- *                fail-open, which is correct for the read-only inquiry screen and is
- *                exactly the trap this gate exists to refuse → control ABSENT.
- * - `denied`   — 200 `{ screenAllowed: false }` → `probed:true` → control ABSENT.
- * - `held`     — never answers until released.
+ * - `granted`  — BbyInquiry:03 held → control PRESENT.
+ * - `denied`   — BbyInquiry:03 absent → control ABSENT.
  */
 let accessState = 'granted'
-let releaseHeld = () => {}
-const heldGate = () => new Promise((resolve) => { releaseHeld = resolve })
-let held = heldGate()
 
 async function run() {
   const browser = await chromium.launch()
@@ -99,11 +91,6 @@ async function run() {
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => {
     if (m.type() !== 'error') return
-    // The `missing` scenario 404s `Bby/Access` ON PURPOSE — that is the degraded-probe
-    // trap under test — and Chromium logs every 404 response as a console error. Only
-    // that one URL is excused, by location rather than by message, so a real 404
-    // anywhere else still fails the run.
-    if (/\/api\/Bby\/Access/.test(m.location()?.url ?? '')) return
     errors.push(m.text())
   })
 
@@ -118,15 +105,9 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    if (p === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (p === 'Pricing/CacheAccess') return route.fulfill(envelope({ canClear: false }))
+    if (p === 'Auth/Permissions')
+      return route.fulfill(permissions(['PosSimulation:03', ...(accessState === 'granted' ? ['BbyInquiry:03'] : [])]))
     if (p === 'Pricing/Simulate') return route.fulfill(envelope(CAPTURE))
-    if (p === 'Bby/Access') {
-      if (accessState === 'held') await held
-      if (accessState === 'missing')
-        return route.fulfill(envelope(null, { status: 404, success: false, message: 'not found' }))
-      return route.fulfill(envelope({ screenAllowed: accessState !== 'denied' }))
-    }
     if (p === 'Bby/Detail') {
       detailCalls++
       lastDetailBby = new URL(route.request().url()).searchParams.get('bbyNumber')
@@ -142,7 +123,7 @@ async function run() {
   const dialog = () => page.locator('dialog[open]')
 
   /** Load the screen fresh (a reload, so the query cache carries nothing over from the
-   *  previous probe state), type a basket and Process it. */
+   *  previous grant), type a basket and Process it. */
   const runBasket = async () => {
     await page.goto(`${BASE}/pricing/simulation`)
     await page.locator('[data-run-strip]').waitFor()
@@ -188,8 +169,8 @@ async function run() {
       ).length,
     )
 
-  // ================================================== 1 · unprobed — the degraded trap
-  accessState = 'missing'
+  // ============================================================== 2 · denied — absent
+  accessState = 'denied'
   await runBasket()
   let cards = await controlsByCard()
   check(
@@ -198,24 +179,11 @@ async function run() {
     cards.map((c) => c.kind).join(', ') || '(no cards)',
   )
   check(
-    'grant UNPROBED (Bby/Access 404s, and the inquiry probe degrades that to GRANTED): no control on any card',
+    'grant DENIED (no BbyInquiry:03): no control on any card',
     (await controls().count()) === 0,
     `${await controls().count()} control(s)`,
   )
-  check(
-    'so no click can reach an endpoint that does not exist — the affordance ships DARK',
-    detailCalls === 0,
-    `${detailCalls} Bby/Detail call(s)`,
-  )
-
-  // ============================================================== 2 · denied — absent
-  accessState = 'denied'
-  await runBasket()
-  check(
-    'grant DENIED (screenAllowed:false): no control on any card',
-    (await controls().count()) === 0,
-    `${await controls().count()} control(s)`,
-  )
+  check('so no click can reach Bby/Detail', detailCalls === 0, `${detailCalls} Bby/Detail call(s)`)
   check(
     'the rail itself is unaffected by the denial — the cards are the verdict, not the grant',
     (await rail().count()) === 1 && (await controlsByCard()).length === 2,
@@ -226,7 +194,7 @@ async function run() {
   await runBasket()
   cards = await controlsByCard()
   check(
-    'grant CONFIRMED (probed AND allowed): both cards carry the control',
+    'grant HELD (BbyInquiry:03): both cards carry the control',
     cards.length === 2 && cards.every((c) => c.control === 'Bonus buy details'),
     cards.map((c) => `${c.kind}:${c.control}`).join(' · '),
   )
@@ -249,28 +217,6 @@ async function run() {
     'the rule holds the other way too — nothing chip-shaped in the rail is clickable',
     (await clickableChips()) === 0,
     `${await clickableChips()} clickable chip(s)`,
-  )
-
-  // ===================================== 4 · the rail never waits on a permission check
-  accessState = 'held'
-  held = heldGate()
-  await runBasket()
-  check(
-    'the promotions rail RENDERS while the probe is still out — the verdict is not delayed by a grant',
-    (await rail().count()) === 1 && (await controlsByCard()).length === 2,
-    `${(await controlsByCard()).length} card(s) with the probe pending`,
-  )
-  check(
-    'and while it is out the control is absent — unknown means ABSENT, never a hopeful button',
-    (await controls().count()) === 0,
-  )
-  accessState = 'granted'
-  releaseHeld()
-  await page.waitForTimeout(400)
-  check(
-    'when the probe LATER resolves to a confirmed grant the control appears, with no re-run',
-    (await controls().count()) === 2,
-    `${await controls().count()} control(s)`,
   )
 
   // ================================= 5 · it opens the record in place, and closes back

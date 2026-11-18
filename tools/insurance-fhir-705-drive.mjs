@@ -17,6 +17,7 @@ import { createRequire } from 'node:module'
 import { envelope, INSURER_SETTINGS } from './insurance-rules-stubs.mjs'
 import { BUPA, TAKAFUL_WRONG, UCUM, aliasesStub, newAliasStore } from './fhir-rules-stubs-704.mjs'
 import { newRepinStore, repinStub } from './fhir-rules-stubs-705.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -50,7 +51,7 @@ async function open(dir, aliases, repins, user, { deny = [] } = {}) {
     const body = req.postData() ? JSON.parse(req.postData()) : undefined
     const hit = repinStub(req.method(), p, body, { store: repins, aliases, user, deny }) ?? aliasesStub(req.method(), p, body, { store: aliases, user })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/insurance-rules/aliases`)

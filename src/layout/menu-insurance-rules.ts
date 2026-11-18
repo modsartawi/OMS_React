@@ -279,8 +279,8 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
 
     // 896 · Payer months (`menu.payerMonths`, `/insurance-rules/payer-months`; BackOffice spec 1623)
     {
-      // 896 — the insurance team closes, reopens and audits a payer's month. 🚩 Its OWN probe, not the area's:
-      // `InsurancePayerMonthWeb/Access` reports the screen's one grant (`INSURANCE_TEAM`), and fails closed.
+      // 896 — the insurance team closes, reopens and audits a payer's month. 🚩 Its OWN key, not the area's:
+      // `InsurancePayerMonth:03` is the screen's one grant (`INSURANCE_TEAM`), and fails closed.
       labelKey: 'insurance-rules:menu.payerMonths',
       icon: CalendarCheck,
       routerLink: '/insurance-rules/payer-months',

@@ -23,6 +23,7 @@
 //   2. DRIVE_PORT=5293 node tools/sync-console-resume-all-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -147,7 +148,7 @@ async function open({ locale = 'en', canOperate = true, none = false, pausedFail
     const q = url.searchParams
     calls.push(p + url.search)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate, canOnboard: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ActionSyncConsole:03', ...(canOperate ? ['ActionSyncConsole:06'] : [])]))
     if (p === 'ActionSync/Workers') return route.fulfill(envelope(WORKERS))
     if (p === 'ActionSync/Fleet/Summary') {
       const active = stores.filter((s) => !s.isDisabled)
@@ -187,7 +188,6 @@ async function open({ locale = 'en', canOperate = true, none = false, pausedFail
       posts.push({ door: 'bulk', ...body })
       return route.fulfill(envelope({ batchId: `01JRESUME${++batches}`, results: body.codes.map((c) => apply(body.action, c)) }))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, posts, byCode }

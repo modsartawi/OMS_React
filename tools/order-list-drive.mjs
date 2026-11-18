@@ -19,6 +19,7 @@
 //   2. node tools/order-list-drive.mjs   (DRIVE_PORT=<port> for another port)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -116,7 +117,7 @@ async function drive(dir, grant) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canViewInsurance: grant }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', ...(grant ? ['OmsInsuranceView:03'] : [])]))
     if (p === 'SdDocument/DocumentTypes') return route.fulfill(envelope([{ documentType: 'BUPA', description: 'Bupa Care Connect', documentCategory: 'X' }]))
     if (p === 'SdDocument/DocumentSources') return route.fulfill(envelope([{ documentSource: 'ERX', description: 'ERX', documentSourceCategory: '' }]))
     if (p === 'SdDocumentWeb/OrderDocumentList') {

@@ -2,12 +2,13 @@
 // REAL app in Chromium against MOCKED `Nphies/*` envelopes.
 //
 // ⚠ No live SIS.Api: the stubs are the shapes BackOffice 3343 built (`NphiesApprovalNumberReleased`,
-// `NphiesApprovalReleaseEntry`, the 1.1 `Nphies/Access` answer, the §6 refusal codes), so the stub is
+// `NphiesApprovalReleaseEntry`, the Nphies keys, the §6 refusal codes), so the stub is
 // a contract assertion rather than a convenience.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-approval-release-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -109,7 +110,7 @@ async function run() {
       const path = decodeURIComponent(url.split('/api/')[1].split('?')[0])
       if (path === 'Auth/Me')
         return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-      if (path === 'Nphies/Access') return route.fulfill(envelope(scenario.access))
+      if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Nphies', scenario.access)))
       if (path.startsWith('Nphies/AuthResponse/')) {
         calls.detail++
         // Case-insensitive, like the SQL Server collation behind the door: `auth-1` answers AUTH-1.
@@ -232,7 +233,7 @@ async function run() {
   page = await open()
   await page.goto(PAGE_URL + '?id=AUTH-1')
   await page.waitForSelector('[data-testid=release-summary]')
-  check('a probe without the field shows no button', (await page.locator('[data-testid=release-open]').count()) === 0)
+  check('an answer without the key shows no button', (await page.locator('[data-testid=release-open]').count()) === 0)
   await page.close()
 
   // 6 — dispensed / empty rows.

@@ -1,7 +1,7 @@
 /**
  * The HQ prescription-session doors (BackOffice spec 2994, ticket 3015;
  * `Services/SIS.Api/Endpoints/PrescriptionSessions/PrescriptionSessionWebEndpoints.cs`). Cookie-only,
- * each behind `BackOfficeScreen[PrescriptionSessionHq, 03]`. There is NO access probe: a session
+ * each behind `BackOfficeScreen[PrescriptionSessionHq, 03]`. The menu leaf reads that key; a session
  * without the grant gets a BARE 403, which the page names through `isBareDenial`.
  *
  * Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its.

@@ -20,8 +20,7 @@ import { bonusBuyDownloadApi, canOpenBbyDownload } from './api'
 // textarea, snapshot the overrides ONCE, then call download/delete per number,
 // advancing a progress bar + a per-number status list. A mid-loop 502 (HANA
 // middleware unreachable) halts with ONE banner, not N rows. Delete confirms first,
-// listing the numbers. Self-guards on Access (spinner → denied card → content),
-// sharing the ['bonus-buy-download','access'] key with the menu probe (issue 429).
+// listing the numbers. Self-guards on `BbyDownload:03` (spinner → denied card → content).
 
 // The five free-text override fields — always rendered; blank CLEARS (design 492). The
 // four capped columns (Includes/Excludes/OriginFilter/StackingExcludes) get maxLength

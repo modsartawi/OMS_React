@@ -32,6 +32,7 @@
 //   2. node tools/sim-responsive-drive.mjs
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -91,8 +92,7 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    if (p === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (p === 'Pricing/CacheAccess') return route.fulfill(envelope({ canClear: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['PosSimulation:03', 'PricingCache:03']))
     if (p === 'Pricing/Simulate') return route.fulfill(envelope(CAPTURES[serving]))
     return route.fulfill(envelope({}))
   })

@@ -27,6 +27,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/four-filters-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -252,7 +253,7 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(ACCESS))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Collection', ACCESS)))
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(
         envelope({

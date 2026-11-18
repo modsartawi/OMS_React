@@ -3,7 +3,7 @@
 // Walks the web against a REAL SIS.Api (no stubs) and records every Analytics/* and Copilot/* call it makes, so each
 // difference from the stubbed wire is a drift report (835's drift rule: correct BackOffice 3408 first, then 819's
 // transcription, then the client). The acceptance case runs on whatever data the SIS.Api's Cube serves:
-//   0. the probe, the model (the v2 areas and measures), the health;
+//   0. the permissions answer (`Auth/Permissions`), the model (the v2 areas and measures), the health;
 //   1. the owner's sentence in the copilot builds a report (create_report), with its assumptions and next steps;
 //   2. its designer opens and every panel answers (no refused or failed panel), live figures as chips;
 //   3. its page runs: every panel answers, the Words door fills each figure, no raw token;
@@ -18,7 +18,7 @@
 //        SIS_SIGN_IN=window            — a visible browser opens on /login; sign in there by hand
 //        SIS_USER=<id> SIS_PASS=<pw>   — POST Auth/Login through the proxy
 //        SIS_COOKIE=<sis_session>      — a cookie copied from a browser session
-//      A good sign-in is kept in DRIVE_STATE (outside the repo) and reused while it still answers the probe.
+//      A good sign-in is kept in DRIVE_STATE (outside the repo) and reused while `Auth/Permissions` still answers it.
 //   3. DRIVE_PORT=5173 DRIVE_STATE=<file> DRIVE_OUT=<dir> [MAILPIT=http://10.211.55.2:18025] node tools/analytics-v2-live-drive.mjs
 //      DRIVE_STEPS=0,1,2 runs only those steps (a report id from an earlier run: REPORT_ID=…).
 import { createRequire } from 'node:module'
@@ -52,8 +52,9 @@ const RAW_TOKEN = /\{\{fig:[^}]*\}\}|\{p\d+:[a-z_]+\}/
 // ── Sign-in (kept in DRIVE_STATE while it still answers) ──────────────────────────────────────────
 const WINDOW = process.env.SIS_SIGN_IN === 'window'
 const browser = await chromium.launch({ headless: !WINDOW })
+/** The one permissions answer (oms 909), or null while the session is not signed in. */
 const probe = async (ctx) => {
-  const res = await ctx.request.get(`${BASE}/api/Analytics/Access`, { headers: { 'X-Web-Client': '1' } }).catch(() => null)
+  const res = await ctx.request.get(`${BASE}/api/Auth/Permissions`, { headers: { 'X-Web-Client': '1' } }).catch(() => null)
   return res?.status() === 200 ? (await res.json()).data : null
 }
 let context = existsSync(STATE) ? await browser.newContext({ storageState: STATE, viewport: { width: 1600, height: 1300 } }) : null
@@ -88,12 +89,12 @@ if (!access) {
   }
   access = await probe(context)
   if (!access) {
-    console.error('Signed in, but Analytics/Access does not answer 200.')
+    console.error('Signed in, but Auth/Permissions does not answer 200.')
     process.exit(2)
   }
   await context.storageState({ path: STATE })
 }
-console.log(`Signed in; the probe answers ${JSON.stringify(access)}.`)
+console.log(`Signed in; Auth/Permissions holds ${access.screens.filter((k) => k.startsWith('Analytics:')).join(', ') || 'no Analytics key'}.`)
 
 // ── The wire recorder: every Analytics/* and Copilot/* call, with its body and its answer ─────────
 const wire = []
@@ -157,10 +158,10 @@ const settle = (p, scope = 'body', timeout = 60000) =>
     .catch(() => {})
 const failedOn = (since, re) => wire.slice(since).filter((r) => re.test(r.path) && r.status >= 400)
 
-// ── 0. The probe, the model, the health ──────────────────────────────────────────────────────────
+// ── 0. The permissions answer, the model, the health ──────────────────────────────────────────────────────────
 if (step(0)) {
-  check('0: the probe carries canView, canAuthor and canCurate as booleans', ['canView', 'canAuthor', 'canCurate'].every((k) => typeof access[k] === 'boolean'), JSON.stringify(access))
-  check('0: this account may author (the walk builds and schedules)', access.canAuthor === true)
+  check('0: the answer carries screens as a string list', Array.isArray(access.screens) && access.screens.every((k) => typeof k === 'string'), JSON.stringify(access.screens))
+  check('0: this account may author (Analytics:03 + Analytics:02; the walk builds and schedules)', ['Analytics:03', 'Analytics:02'].every((k) => access.screens.includes(k)))
   const model = await api('GET', 'Analytics/Model')
   const views = model.data?.views ?? model.data?.areas ?? []
   const measures = (model.data?.measures ?? []).map((m) => m.key)

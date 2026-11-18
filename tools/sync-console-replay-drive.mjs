@@ -35,6 +35,7 @@
 //   2. node tools/sync-console-replay-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -149,11 +150,7 @@ async function open({ canReplay, replays = [] }) {
     calls.push(p + url.search)
     const code = url.searchParams.get('code')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access') {
-      // Without the grant the door's older shape: no canReplay member at all.
-      const access = { screenAllowed: true, canOperate: false, canOnboard: false }
-      return route.fulfill(envelope(canReplay ? { ...access, canReplay: true } : access))
-    }
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ActionSyncConsole:03', ...(canReplay ? ['ReceiptReplay:06'] : [])]))
     if (p === 'ActionSync/Replay/Registers') {
       if (code === 'P002') return route.fulfill(envelope(null, { status: 400, success: false, message: 'P002 is not a NewPos store.', errorCode: 'NOT_NEWPOS_STORE' }))
       if (code === 'P503') return route.fulfill(envelope(null, { status: 400, success: false, message: 'The store could not be reached.', errorCode: 'STORE_UNREACHABLE' }))
@@ -179,7 +176,6 @@ async function open({ canReplay, replays = [] }) {
       return route.fulfill(envelope({ items: recent.slice((pg - 1) * size, pg * size), total: recent.length, page: pg, pageSize: size }))
     }
     if (p === 'ActionSync/Audit') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, pushes, logged, stub }

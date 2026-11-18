@@ -61,8 +61,8 @@ export const DEFAULT_FIELDS = [
 ] as const satisfies readonly (keyof CollectionReadyRow)[]
 
 /**
- * The column the slip probe gates (ticket 320): drawn only when
- * `AttachmentWeb/Access` holds `CASH_CLOSE`, right after `READY_SLIP_ANCHOR` — the
+ * The column the slip gate gates (ticket 320): drawn only when
+ * the session reads `Attachments:03:CASH_CLOSE` on a ready File Server, right after `READY_SLIP_ANCHOR` — the
  * mapping's last column (spec 2423). Its own group, so the completeness proof
  * still accounts for it without either list carrying a column the session may not
  * see.

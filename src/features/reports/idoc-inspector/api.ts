@@ -70,7 +70,7 @@ export const idocInspectorApi = {
    * `400 STORE_CODE_REQUIRED` / `TRX_NUMBER_REQUIRED` stay the server's defence
    * rather than a state this screen can reach.
    *
-   * ⚠️ Grant-gated server-side and independently of the access probe, which only
+   * ⚠️ Grant-gated server-side and independently of the permissions answer, which only
    * hides the menu leaf.
    */
   transaction(key: LookupKey): Promise<IDocInspectorTransaction> {

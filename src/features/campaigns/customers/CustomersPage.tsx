@@ -24,7 +24,7 @@ import { MEMBER_KEYS, memberQueryFromParams, memberQueryToParams } from './membe
  * and tier points, and what is pending), and the profile-scope budgets they have used. Read-only,
  * and only that view: the member's own record is Loyalty's screen, not this one.
  *
- * Doors `RuleCampaign/Members…` (PROVISIONAL, BackOffice 2754 and 2744). No access probe on the leaf
+ * Doors `RuleCampaign/Members…` (PROVISIONAL, BackOffice 2754 and 2744). No client gate on the leaf
  * yet: the doors fail closed on the server; ticket 520 adds the probe.
  */
 export default function CustomersPage() {

@@ -37,6 +37,7 @@
 //   2. node tools/document-family-drive.mjs   (DRIVE_PORT=<port> for another port)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -120,7 +121,7 @@ async function drive(dir) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03']))
     const fam = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Family$/)
     if (fam) {
       const no = fam[1]
@@ -269,7 +270,7 @@ async function driveBig(dir, { dark, width }) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03']))
     const fam = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Family$/)
     if (fam) return route.fulfill(envelope({ askedNo: fam[1], askedCategory: url.searchParams.get('category'), rootNo: '1000887766', rootCategory: 'O', truncated: true, nodes: BIG }))
     if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
@@ -378,7 +379,7 @@ async function driveDeep(dir) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03']))
     const fam = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Family$/)
     if (fam) {
       familyReads++

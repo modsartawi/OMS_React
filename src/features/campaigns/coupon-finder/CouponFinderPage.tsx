@@ -31,7 +31,7 @@ import { codeFromParams, codeToParams } from './finder-query'
  * campaign, batch, status, local validity, the member it is bound to, and each sale that used it,
  * whose sale id opens the customer session. Read-only; the code lives in the address.
  *
- * One door, `RuleCampaign/Coupons/{code}` (PROVISIONAL, BackOffice 2754). No access probe on the
+ * One door, `RuleCampaign/Coupons/{code}` (PROVISIONAL, BackOffice 2754). No client gate on the
  * leaf yet: the door fails closed on the server; ticket 520 adds the probe.
  */
 export default function CouponFinderPage() {

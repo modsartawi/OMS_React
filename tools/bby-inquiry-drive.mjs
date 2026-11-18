@@ -4,14 +4,15 @@
 // bullets:
 //   1. access allowed + rows → the four-column grid renders active rows.
 //   2. access allowed + empty rows → the no-results empty state (not a broken screen).
-//   3. access 404 → screen SHOWN (fail-open); access screenAllowed:false → denied card
-//      AND the Pricing menu leaf hidden.
+//   3. no `BbyInquiry:03` in the `Auth/Permissions` answer (oms 909) → denied card AND the Pricing
+//      menu leaf hidden. (The old probe's 404 fail-open is gone with the probe.)
 //
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs).
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-inquiry-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -125,7 +126,7 @@ const DETAIL_DOC = {
 }
 
 // scenario state, mutated between reloads
-let scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: '2' })] }
+let scenario = { accessBody: { screenAllowed: true }, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: '2' })] }
 // last Bby/List query string seen (assert Search sends the built params), and the
 // list response controls for the 064 flow (cap banner + a business date error).
 let lastListQuery = ''
@@ -142,11 +143,7 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'Bby/Access') {
-      if (scenario.access404)
-        return route.fulfill(envelope(null, { ok: false, status: 404, success: false, message: 'not found' }))
-      return route.fulfill(envelope(scenario.accessBody))
-    }
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Bby', scenario.accessBody)))
     if (path === 'Bby/List') {
       lastListQuery = url.includes('?') ? url.split('?')[1] : ''
       if (scenario.listError === 'status')
@@ -199,12 +196,12 @@ async function run() {
         ),
       )
     }
-    // Any other probe/endpoint → benign empty success so no leaf crashes.
+    // Any other endpoint → benign empty success so no leaf crashes.
     return route.fulfill(envelope({}))
   })
 
   // ---- Scenario 1: allowed + rows ----
-  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: '2' })] }
+  scenario = { accessBody: { screenAllowed: true }, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: '2' })] }
   await page.goto(URL)
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
   const rowCount = await page.locator('.ag-row').count()
@@ -286,16 +283,8 @@ async function run() {
   check('allowed + empty rows → no-results empty state', emptyText.includes('No Bonus Buys'), '')
   check('empty state, not a grid', (await page.locator('.ag-row').count()) === 0)
 
-  // ---- Scenario 3a: access 404 → fail-open (shown) ----
-  scenario = { access404: true, rows: [ROW({})] }
-  await page.reload()
-  await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
-  check('access 404 → screen SHOWN (fail-open), grid renders', (await page.locator('.ag-row').count()) === 1)
-  const leaf404 = await page.getByRole('link', { name: /BBY Inquiry/i }).count()
-  check('access 404 → menu leaf still shown (fail-open)', leaf404 >= 1)
-
-  // ---- Scenario 3b: screenAllowed:false → denied card + leaf hidden ----
-  scenario = { accessBody: { screenAllowed: false }, access404: false, rows: [ROW({})] }
+  // ---- Scenario 3: no BbyInquiry:03 → denied card + leaf hidden ----
+  scenario = { accessBody: { screenAllowed: false }, rows: [ROW({})] }
   await page.reload()
   await page.waitForLoadState('networkidle')
   const deniedText = await page.locator('main').innerText()
@@ -305,7 +294,7 @@ async function run() {
   check('screenAllowed:false → menu leaf hidden', leafDenied === 0, `${leafDenied} leaves`)
 
   // ---- ticket 064: search toolbar (filtered chip + cap banner + date error) ----
-  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: '2' })], capReached: false, listError: false }
+  scenario = { accessBody: { screenAllowed: true }, rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: '2' })], capReached: false, listError: false }
   await page.goto(URL)
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
   check('search toolbar renders (BBY number field)', (await page.getByLabel(/BBY number/i).count()) >= 1)
@@ -431,7 +420,7 @@ async function run() {
   check('CSV cells are RAW (20260101 date; status blank + "2"), not formatted', /20260101/.test(csv) && csvStatuses.includes('') && csvStatuses.includes('2') && !/Activated/.test(csv) && !/2026-01-01/.test(csv), csvStatuses.join('|'))
 
   // ---- ticket 066: the Details modal (rows branch, document branch, not-found) ----
-  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: '2' })], detailMode: 'rows' }
+  scenario = { accessBody: { screenAllowed: true }, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: '2' })], detailMode: 'rows' }
   await page.goto(URL)
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
 
@@ -605,7 +594,7 @@ async function run() {
   for (const theme of ['light', 'dark']) {
     scenario = {
       accessBody: { screenAllowed: true },
-      access404: false,
+     
       rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: '2' })],
       detailMode: 'rows',
     }
@@ -693,7 +682,7 @@ async function run() {
   ]
   scenario = {
     accessBody: { screenAllowed: true },
-    access404: false,
+   
     rows: READINGS.map(([code], i) => ROW({ bbyNumber: String(200001 + i), bbyStatus: code, isActive: code === '' })),
     detailMode: 'rows',
   }
@@ -733,7 +722,7 @@ async function run() {
   }
   delete scenario.detailStatus
 
-  // The fail-open scenario (3a) intentionally 404s Bby/Access, which the browser logs
+  // The not-found scenarios intentionally 404 a detail read, which the browser logs
   // as a resource-load 404 — expected, not an app fault. Filter it out.
   // The date-error scenario (064) intentionally returns 400 INVALID_DATE_RANGE — a
   // business outcome surfaced in-page, logged by the browser as a resource 400. Expected.

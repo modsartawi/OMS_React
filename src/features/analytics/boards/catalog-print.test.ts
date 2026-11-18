@@ -148,10 +148,10 @@ describe('print route renders every area and the planned section from the wire',
   })
 })
 
-describe('print route never asks the access probe under a render ticket', () => {
+describe('print route never asks the permissions answer under a render ticket', () => {
   beforeEach(() => setRenderTicket({ ticket: 'T-catalog', lang: 'ar' }))
 
-  it('its only read is GET Analytics/Render/Catalog with the ticket header — no Access, no Model, no Catalog', async () => {
+  it('its only read is GET Analytics/Render/Catalog with the ticket header — no permissions, no Model, no Catalog', async () => {
     api.get.mockResolvedValue(WIRE)
     const queries = catalogPrintQueries()
     for (const q of queries) await q.queryFn()

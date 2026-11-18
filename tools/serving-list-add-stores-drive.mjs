@@ -23,6 +23,7 @@
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/serving-list-add-stores-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -132,12 +133,11 @@ async function open(dir, { canEdit = true } = {}) {
     const p = url.pathname.replace(/^\/api\//, '')
     calls.push({ method: req.method(), p, qs: url.searchParams, body: req.postData() })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ServingListWeb/Access') return route.fulfill(envelope({ canViewServingLists: true, canEditServingLists: canEdit }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ServingList:03', ...(canEdit ? ['ServingList:06'] : [])]))
     if (p === 'ServingListWeb/Lists') return route.fulfill(envelope([LIST]))
     if (p === 'ServingListWeb/Stores') return route.fulfill(envelope(storesAnswer(url.searchParams)))
     if (p === `ServingListWeb/Lists/${A}/Members`) return route.fulfill(envelope(MEMBER_CODES.map((c) => member(c, c === '1001' ? 'Olaya' : 'Malqa', 'Riyadh'))))
     if (p === `ServingListWeb/Lists/${A}/Stores` && req.method() === 'POST') return route.fulfill(addAnswer(JSON.parse(req.postData() ?? '{}')))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls }

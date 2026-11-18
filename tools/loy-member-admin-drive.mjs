@@ -6,8 +6,8 @@
 // rule — inherited from decision 228 — says no ticket in this wave may be called
 // done on the strength of a live call, so the network is stubbed at Playwright
 // against the shapes the client designed. 🚩 NOTHING here is driven against a
-// live SIS.Api, and the widened probe answer is this client's design intent
-// rather than a shipped contract.
+// live SIS.Api. Since oms 909 the grants are the one `Auth/Permissions` answer's keys (`LoyMember:03` open,
+// `:02` edit, `:04` remove the mobile).
 //
 // Ticket 302's flow Proof bullet — `theTabDrawsControlsOnlyForTheAuthorityHeld`:
 //   1. Profile LEADS the strip and Activities is still the landing tab;
@@ -17,10 +17,10 @@
 //      the email-removal control;
 //   4. a REMOVER additionally sees the mobile-removal control, inside the group
 //      that is set visibly apart;
-//   5. 🚩 every not-literally-true flag is a denial — a string `"true"`, an
-//      absent flag, `{}` and a probe that THREW all draw the look-only tab;
-//   6. 🚩 the three flags ride the ONE shared probe key: the nav leaf, the page
-//      guard and the tab together make exactly ONE `LoyWeb/Access` call;
+//   5. 🚩 every key not spelled exactly is a denial — a near-miss spelling, an
+//      absent key and a permissions answer that THREW all draw the look-only tab;
+//   6. 🚩 the three keys ride the ONE permissions answer: the nav leaf, the page
+//      guard and the tab together make exactly ONE `Auth/Permissions` call;
 //   7. the mobile is read-only for every session, including the remover — it
 //      changes through its own command (305), never as a profile field.
 //
@@ -97,6 +97,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-admin-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -144,17 +145,17 @@ const MEMBER = {
   blockedReason: null,
 }
 
-// The three sessions the ticket is about, plus the four answers that must behave
+// The three sessions the ticket is about, plus the answers that must behave
 // exactly like the first one. 🚩 `looseEdit` and `absentFlags` are the whole
-// point: being wrong here fails OPEN on a customer-PII surface, so a string
-// `"true"` and a flag the door forgot must both draw the read-only tab.
+// point: being wrong here fails OPEN on a customer-PII surface, so a key spelled
+// almost right and a key the answer left out must both draw the read-only tab.
 const SESSIONS = {
-  lookOnly: { canOpenLoyMember: true, canEditLoyMember: false, canRemoveLoyMemberMobile: false },
-  editor: { canOpenLoyMember: true, canEditLoyMember: true, canRemoveLoyMemberMobile: false },
-  remover: { canOpenLoyMember: true, canEditLoyMember: true, canRemoveLoyMemberMobile: true },
-  looseEdit: { canOpenLoyMember: true, canEditLoyMember: 'true', canRemoveLoyMemberMobile: 1 },
-  absentFlags: { canOpenLoyMember: true },
-  objectFlags: { canOpenLoyMember: true, canEditLoyMember: {}, canRemoveLoyMemberMobile: null },
+  lookOnly: ['LoyMember:03'],
+  editor: ['LoyMember:03', 'LoyMember:02'],
+  remover: ['LoyMember:03', 'LoyMember:02', 'LoyMember:04'],
+  looseEdit: ['LoyMember:03', 'loymember:02', 'LoyMember:4'],
+  absentFlags: ['LoyMember:03'],
+  objectFlags: ['LoyMember:03', 'LoyMember:02 ', 'LoyMember'],
 }
 
 // `GET LoyWeb/BlockedReasons` as the door is designed to answer it (ticket 303).
@@ -268,14 +269,13 @@ async function run() {
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
 
-    // The area's ONE probe, now answering three flags (spec 301). Counted so the
-    // "one key, one call" property is asserted rather than assumed.
-    if (path === 'LoyWeb/Access') {
+    // The ONE permissions answer (oms 909). Counted so the "one answer, one call"
+    // property is asserted rather than assumed.
+    if (path === 'Auth/Permissions') {
       accessCalls += 1
-      // A probe that THREW — the case the fail-closed rule exists for. There is
-      // no 404-tolerant catch anywhere on this path.
-      if (scenario.access === 'throws') return route.fulfill({ status: 500, body: 'boom' })
-      return route.fulfill(envelope(SESSIONS[scenario.access]))
+      // An answer that THREW — the case the fail-closed rule exists for.
+      if (scenario.access === 'throws') return route.fulfill(permissionsFailed())
+      return route.fulfill(permissions(SESSIONS[scenario.access]))
     }
 
     // ---- ticket 304: the profile command ----------------------------------
@@ -437,7 +437,7 @@ async function run() {
   const buttonNames = async () =>
     (await panel.getByRole('button').allInnerTexts()).map((text) => text.trim().toLowerCase())
 
-  /** Load the member fresh under one probe answer, and open the named tab. */
+  /** Load the member fresh under one permissions answer, and open the named tab. */
   const open = async (access, { tab = 'profile', memberOver = {} } = {}) => {
     scenario = { access, memberOver }
     accessCalls = 0
@@ -540,7 +540,7 @@ async function run() {
     !lookOnlyText.includes('contact removal') && !lookOnlyText.includes('remove email'),
   )
   check(
-    '🚩 the whole screen cost ONE probe call — nav leaf, page guard and tab share the key',
+    '🚩 the whole screen cost ONE permissions call — nav leaf, page guard and tab share the answer',
     accessCalls === 1,
     `${accessCalls} calls`,
   )
@@ -592,7 +592,7 @@ async function run() {
     'the removal group says out loud that it is not account deletion',
     /not account deletion/i.test(editorText),
   )
-  check('one probe call for the editor too', accessCalls === 1, `${accessCalls} calls`)
+  check('one permissions call for the editor too', accessCalls === 1, `${accessCalls} calls`)
 
   // A blocked member flips the ONE status control rather than growing a second.
   await open('editor', { memberOver: { blockedReason: 'CM' } })
@@ -625,9 +625,9 @@ async function run() {
 
   // ---- Scenario 5: every loose answer is a denial --------------------------
   for (const [answer, why] of [
-    ['looseEdit', 'a string "true" and a 1'],
-    ['absentFlags', 'flags the door never sent'],
-    ['objectFlags', 'an object and a null where a boolean was promised'],
+    ['looseEdit', 'a key in the wrong case and a key with a short code'],
+    ['absentFlags', 'keys the answer never sent'],
+    ['objectFlags', 'a key with a trailing space and a key with no code'],
   ]) {
     await open(answer)
     check(
@@ -637,16 +637,16 @@ async function run() {
     )
   }
 
-  // A probe that threw does not reach this tab at all — the page's own
+  // An answer that threw does not reach this tab at all — the page's own
   // fail-closed guard lands on the denied backstop first, which is the stronger
   // outcome and the one 234 pinned. Asserted here so a later change that made
-  // the tab tolerant of a thrown probe would still be caught.
+  // the tab tolerant of a thrown answer would still be caught.
   scenario = { access: 'throws', memberOver: {} }
   accessCalls = 0
   await page.goto(`${BASE}/loy/members/${LOYID_KEY}?tab=profile`)
   await page.getByRole('alert').waitFor({ timeout: 15000 })
   check(
-    '🚩 a probe that THREW never renders the tab — the screen denies before it draws',
+    '🚩 a permissions answer that THREW never renders the tab — the screen denies before it draws',
     (await page.getByRole('tablist').count()) === 0 &&
       (await page.locator('#loy-tab-panel').count()) === 0,
   )

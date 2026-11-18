@@ -67,12 +67,16 @@ same named predicates. The one kept read is AuthzAdmin's role lists (`authzAdmin
 `src/app/no-access-probes.test.ts`, mutation-checked. Staging boot (signed out, 172.23.10.110:4433): one
 `Auth/Permissions`, zero `*/Access`, quiet 401, lands on /login (`tools/permissions-boot-drive.mjs`).
 
+Tidy (same day): every `tools/*-drive.mjs` answers one `Auth/Permissions` stub (`tools/permissions-stub.mjs`, its keys
+pinned to `SCREEN_KEYS` by `tools/permissions-stub.test.mjs`) in place of its `*/Access` stubs; a probe 403/500 scenario
+became a failed answer, and the 404-tolerant scenarios went with their fallbacks. Comments and docs naming the old routes,
+`accessProbe` or `*_ACCESS_KEY` now describe the keys. CouponsAdmin's half grant is also tested through the real menu
+(`src/layout/menu-coupons.test.ts`).
+
 Left open:
 
 - **Signed-in staging walk** — no test credentials in the repo; run `SIS_SIGN_IN=window node tools/permissions-boot-drive.mjs`
   against the staging-proxied dev server and walk the menu (also run the DataSync seed there first, brief 3995).
 - **Production after-capture** (the last Proof box) after the release.
-- The `tools/*-drive.mjs` drives still stub `*/Access` routes, not `Auth/Permissions`; each needs an
-  `Auth/Permissions` answer before it drives a gated screen again.
 - `npm run build` / the map-build lint gate fail before and after this change on the same missing packages
   (`maplibre-gl`, `@protomaps/basemaps` absent from the shared node_modules).

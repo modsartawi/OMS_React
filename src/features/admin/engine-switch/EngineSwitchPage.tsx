@@ -32,7 +32,7 @@ import { ENGINES, filterByEngine, flipTarget, STORES_CAP, storeRows, switchQuery
  * blocks. A row opens the store's history, with who flipped it last.
  *
  * The list is the builder's stores lookup (RuleAuthoring grant), not a switch door: there is none (BO
- * ask C). No access probe on the leaf yet (BO ask B, ticket 529): a missing grant is a bare 403.
+ * ask C). No client gate on the leaf yet (BO ask B, ticket 529): a missing grant is a bare 403.
  */
 export default function EngineSwitchPage() {
   const { t } = useTranslation('engine-switch')

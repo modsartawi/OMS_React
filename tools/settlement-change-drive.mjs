@@ -61,7 +61,7 @@
 //      OPEN with 344's sentence and the "reject it" step; ENTRY_FINAL redraws as finished;
 //  22. Reject opens a required Reason box, sends { changeRequestId, reason }, and a 400 on
 //      the Reason lands on that box;
-//  23. a bare 403 is named, the probe re-read, and the buttons go; a 404 says "not available yet".
+//  23. a bare 403 is named, the permissions answer re-read, and the buttons go; a 404 says "not available yet".
 //
 // Ticket 347 — delete, and "Reduce it to X" on a spent entry (W5, 2193's delete):
 //  24. an untouched entry offers "Request delete" beside "Request a change" (a supervisor:
@@ -128,6 +128,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -165,8 +166,8 @@ const REQUEST_ID = '01K6G8Z3N4QH5V2C7M9R1T0XYB'
 
 let scenario = {}
 let FX = null
-/** Every read of the Collections probe — a bare 403 must re-read it (W1). */
-let accessCalls = 0
+/** Every read of the `Auth/Permissions` answer — a bare 403 must re-read it (W1; oms 909 invalidates it). */
+let permissionsCalls = 0
 
 /** 353's queue door: what `Settlement/ChangeRequest/Open` answers, and every `limit` asked. */
 let queue353 = { rows: [], missing: false, calls: [] }
@@ -226,9 +227,9 @@ async function run() {
 
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') {
-      accessCalls++
-      return route.fulfill(envelope(scenario.access ?? ACCOUNTANT))
+    if (path === 'Auth/Permissions') {
+      permissionsCalls++
+      return route.fulfill(permissions(flagKeys('Collection', scenario.access ?? ACCOUNTANT)))
     }
     if (path === 'Settlement/ChangeRequest/Approve' || path === 'Settlement/ChangeRequest/Reject') {
       const door = path.endsWith('Approve') ? 'approve' : 'reject'
@@ -1247,14 +1248,14 @@ async function run() {
   // ---- 23. a bare 403, and a 404 ----
   resetDecide({ decideForbidden: true })
   await openCard(151)
-  const probesBefore = accessCalls
-  // An administrator took the grant between the probe and the press: re-read, it says so.
+  const permissionsBefore = permissionsCalls
+  // An administrator took the grant between the answer and the press: re-read, it says so.
   scenario = { access: ACCOUNTANT }
   await tid('change-request-approve').click()
   await page.waitForFunction(() => /no longer hold settlement supervision/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {})
   await settle()
   check('🔑 a bare 403 is named — the change request was not decided', /You no longer hold settlement supervision, so this change request was not decided/.test(await page.locator('body').innerText()))
-  check('🔑 …the probe is re-read, and Approve / Reject go away', accessCalls > probesBefore && (await tid('change-request-approve').count()) === 0 && (await tid('change-request-reject').count()) === 0, `${accessCalls - probesBefore} probe(s)`)
+  check('🔑 …the permissions answer is re-read, and Approve / Reject go away', permissionsCalls > permissionsBefore && (await tid('change-request-approve').count()) === 0 && (await tid('change-request-reject').count()) === 0, `${permissionsCalls - permissionsBefore} re-read(s)`)
   check('…while the card itself stays — a fact about the entry', (await tid('change-request-card').count()) === 1)
 
   scenario = { access: SUPERVISOR }

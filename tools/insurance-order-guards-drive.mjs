@@ -3,7 +3,7 @@
 //
 // Drives the REAL app in Chromium against STUBS (no live SIS.Api). Doors stubbed:
 //   GET  SdDocumentWeb/DeliveryDocumentList        → rows with `guardState` (none|actionNeeded|pending|unchecked)
-//   GET  SdDocumentWeb/Access                      → + guessed `canOverrideGuard` (INS_GUARD), `canReleaseGuardHold`
+//   GET  Auth/Permissions                      → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  SdDocumentWeb/(Delivery|Document)/{no}    → the 078 capture 8000000121 + `guardState` + `guards`
 //   GET  Guards/Reasons                            → NCPDP intervention / outcome / reason, accepts, caps
 //   POST Guards/{checkId}/Answer                   → { decisionId } (409 GUARD-LINES-CHANGED on a stale lineHash)
@@ -26,6 +26,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { envelope, orderGuardsStub, ORDER_GUARDS_HELD, ORDER_GUARD_LINES } from './insurance-rules-stubs.mjs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -118,8 +119,7 @@ async function open(dir, grants) {
     const p = req.url().split('/api/')[1].split('?')[0]
     const method = req.method()
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1017' }))
-    if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, ...grants }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, ...grants })))
     if (p === 'SdDocumentWeb/DeliveryDocumentList')
       return route.fulfill(envelope([ROW(HELD, 'actionNeeded'), ROW(PENDING, 'pending'), ROW('8000000123', 'none'), ROW('8000000124', 'unchecked'), ROW('8000000125')]))
     const doorNo = p.match(/^Oms\/Orders\/(\d+)\/Guards\//)?.[1]
@@ -138,7 +138,6 @@ async function open(dir, grants) {
     }
     if (/\/(Logs|Outbox|DonorRequests|PrescriptionSessions)$/.test(p)) return route.fulfill(envelope([]))
     if (/\/Callout$/.test(p)) return route.fulfill(envelope({ asOf: '2026-10-27T10:00:00', deliveryNumber: '', callouts: [] }))
-    if (/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, writes, opts, orders, reads }

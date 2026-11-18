@@ -3,12 +3,12 @@
 // Drives the REAL app in Chromium against a STUB of the spec 430 wire contract — the door
 // (`GET SdDocumentWeb/DonorRequests`, BackOffice ask BO-2) is NOT built, so there is no live
 // SIS.Api to point at. Stubbed, exactly as D2/D3 propose (plus the `requestNo` param 431 adds):
-//   GET SdDocumentWeb/Access          → { canOpenList, canOpenDetail, canOpenDonorRequests? }
+//   GET Auth/Permissions          → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET SdDocumentWeb/DonorRequests   → { rows: DonorRequestModel[], limited }
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`), it asserts:
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows
 //      the denied card, with no list call;
-//   2. with it, the leaf sits right after Central invoices, and the group costs ONE probe call;
+//   2. with it, the leaf sits right after Central invoices, and the group costs ONE permissions call;
 //   3. the screen opens on today: fromDate = toDate = today, no state, no store;
 //   4. refused/expired rows are amber (attention), a cancelled one muted, a cancel after pick is
 //      marked, an open unpicked one shows its wait and a picked one its pick time;
@@ -30,6 +30,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -138,11 +139,7 @@ async function open(dir, { grant, list = 'today' }) {
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(
-        envelope(grant ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true } : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
-      )
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Oms', grant ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true } : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }), 'CentralInvoice:03']))
     if (p === 'SdDocumentWeb/DonorRequests') {
       listQueries.push(url.searchParams)
       const mode = typeof list === 'function' ? list(url.searchParams) : list
@@ -156,8 +153,6 @@ async function open(dir, { grant, list = 'today' }) {
     }
     // Document Details' own reads: not this drive's to draw — only that it was asked for.
     if (/^SdDocumentWeb\/(?:Delivery|Document)\/\d+/.test(p)) return route.fulfill(envelope(null))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, listQueries }
@@ -311,9 +306,9 @@ async function drive(dir) {
     await page.locator('nav a[href="/oms/donor-requests"]').first().click()
     await waitRows(page, 5)
     check(
-      `${label}: the OMS group and the page gate cost ONE probe call`,
-      calls.filter((c) => c === 'SdDocumentWeb/Access').length === 1,
-      String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
+      `${label}: the OMS group and the page gate cost ONE permissions call`,
+      calls.filter((c) => c === 'Auth/Permissions').length === 1,
+      String(calls.filter((c) => c === 'Auth/Permissions').length),
     )
     const first = listQueries[0]
     check(

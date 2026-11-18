@@ -5,7 +5,7 @@
 // built, so there is no live SIS.Api to point at. 🚩 Never point this at a live SIS.Api: the
 // re-run (435) posts stock in DRS.
 // Stubbed, exactly as D2/D5 propose:
-//   GET SdDocumentWeb/Access               → { canOpenList, canOpenDetail, canOpenFailedTransfers?, canReRunFailedTransfer? }
+//   GET Auth/Permissions                   → screens: DocumentList:03, DocumentDetails:03, FailedDonorTransfers:03?, FailedDonorTransfers:06?
 //   GET SdDocumentWeb/FailedDonorTransfers → FailedDonorTransferRow[]
 //   POST SdDocumentWeb/FailedDonorTransfers/{outboxId}/Run → { success, error }; refusal NOT_RERUNNABLE
 //   GET SdDocumentWeb/DonorRequests        → { rows, limited } (only to see the `?request=` seed arrive)
@@ -13,7 +13,7 @@
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows the
 //      denied card, with no queue call;
 //   2. with it, the leaf sits between Donor requests and Document payments, the group costs ONE
-//      probe call, and the queue loads on open;
+//      permissions call, and the queue loads on open;
 //   3. each line says what it asks — re-run, retrying on its own, reverse STO … in DRS — with the
 //      job label, a raw unknown status, blank unset times, and the STO and DRS's error isolated;
 //   4. a grant holder sees Re-run on the failed line only — not on a retrying, reverse-by-hand or
@@ -34,6 +34,7 @@
 //   2. node tools/failed-donor-transfers-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -144,13 +145,14 @@ async function open(dir, { grant, reRun = false, queue = () => 'rows', run = () 
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') {
-      const flags = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true, canOpenDocumentPayments: true }
-      if (grant) flags.canOpenFailedTransfers = true
-      if (reRun) flags.canReRunFailedTransfer = true
-      return route.fulfill(envelope(flags))
-    }
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
+    if (p === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([
+          'DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', 'DonorRequestInquiry:03', 'DocumentPaymentInquiry:03', 'CentralInvoice:03',
+          ...(grant ? ['FailedDonorTransfers:03'] : []),
+          ...(reRun ? ['FailedDonorTransfers:06'] : []),
+        ]),
+      )
     if (p === 'SdDocumentWeb/FailedDonorTransfers') {
       queueCalls++
       const mode = queue(queueCalls)
@@ -180,8 +182,6 @@ async function open(dir, { grant, reRun = false, queue = () => 'rows', run = () 
     }
     // Document Details' own reads: not this drive's to draw — only that it was asked for.
     if (/^SdDocumentWeb\/(?:Delivery|Document)\/\d+/.test(p)) return route.fulfill(envelope(null))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, donorQueries, runCalls, browserDialogs, queueCount: () => queueCalls }
@@ -278,9 +278,9 @@ async function drive(dir) {
     await waitRows(page, 4)
     check(`${label}: the queue loads on open, once`, queueCount() === 1, String(queueCount()))
     check(
-      `${label}: the OMS group and the page gate cost ONE probe call`,
-      calls.filter((c) => c === 'SdDocumentWeb/Access').length === 1,
-      String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
+      `${label}: the OMS group and the page gate cost ONE permissions call`,
+      calls.filter((c) => c === 'Auth/Permissions').length === 1,
+      String(calls.filter((c) => c === 'Auth/Permissions').length),
     )
     check(`${label}: dir is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
 

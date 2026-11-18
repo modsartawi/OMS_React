@@ -33,7 +33,7 @@ import PromotionStateBadge from './PromotionStateBadge'
  * publishing: nothing here writes a version, and there is no promotion budget or promotion-wide
  * disable.
  *
- * Readers (03) see it; there is no access probe, so a session without the grant is a bare 403 that
+ * Readers (03) see it; there is no client gate, so a session without the grant is a bare 403 that
  * reads "You do not have access to this action", never an empty list. New promotion is offered to
  * everyone for the same reason: an author's grant (02) is HQ's to check, and a refusal reads in the dialog.
  */

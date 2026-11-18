@@ -3,7 +3,7 @@
  * document and the data and answers what the engine saw. Shapes are the brief's (`@/core/insurance-rules/playground`)
  * until 691 reconciles them with the door as built.
  *
- * No access probe yet (691): a session without `BackOfficeScreen[InsuranceRulePlayground, 01]` is answered a bare 403
+ * No client gate yet (691): a session without `BackOfficeScreen[InsuranceRulePlayground, 01]` is answered a bare 403
  * (`isBareDenial`); a refusal comes as a `PLAYGROUND_*` code in the rule-request refusal envelope.
  */
 import { api } from '@/core/api'

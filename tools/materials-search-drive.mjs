@@ -4,7 +4,7 @@
 // (C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md) — none of the
 // `MaterialWeb/*` doors is built, so there is no live SIS.Api to point at. Every stub is built from
 // the contract's own example values (material 101234, vendor 200345, A006/B010/C0101, …):
-//   GET MaterialWeb/Access   → { canSearchMaterials, canCheckStock, canCheckGs1 }
+//   GET Auth/Permissions   → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET MaterialWeb/Search   → { resolvedAs, resolvedFrom, limited, rows }; MAT-00006 refusal
 //   GET MaterialWeb/Levels   → [{ code, description }] under the levels above
 //   GET MaterialWeb/Facets   → [{ value, label }]
@@ -12,7 +12,7 @@
 // errors: [{ errorCode, errorMessage, internalErrorCode }] — not the contract's abbreviation.
 //
 // It asserts:
-//   1. the Materials group follows Pricing with its three leaves, and costs ONE probe call;
+//   1. the Materials group follows Pricing with its three leaves, and costs ONE permissions call;
 //      without `canSearchMaterials` the search leaf is hidden and the URL shows the denied card
 //      with no search call; without `canCheckStock` the stock leaf and "check stock" are hidden;
 //   2. each query kind renders rows — text, barcode, a raw GS1 scan (GS byte kept on the wire),
@@ -35,6 +35,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -178,7 +179,7 @@ async function open(dir, { access = ALL } = {}) {
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Material', access), 'PosSimulation:03']))
     if (p === 'MaterialWeb/Search') {
       searches.push(url.search.slice(1))
       const answer = searchAnswer(url.searchParams)
@@ -204,9 +205,6 @@ async function open(dir, { access = ALL } = {}) {
       return route.fulfill(envelope((FACETS[kind] ?? []).filter((f) => f.label.toLowerCase().includes(q))))
     }
     // Pricing's leaves are shown so the Materials group's place after it can be read.
-    if (p === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, searches, levelCalls, facetCalls }
@@ -316,7 +314,7 @@ function sheetText(files) {
   await page.locator('nav a[href="/materials"]').first().click()
   await page.locator('[data-material-box]').waitFor({ timeout: 20000 })
   await page.waitForTimeout(300)
-  check('1: the group, its three leaves and the page gate cost ONE probe call', calls.filter((c) => c === 'MaterialWeb/Access').length === 1, String(calls.filter((c) => c === 'MaterialWeb/Access').length))
+  check('1: the group, its three leaves and the page gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1, String(calls.filter((c) => c === 'Auth/Permissions').length))
   check('1: the landing page asks for nothing until a search', !calls.includes('MaterialWeb/Search') && (await page.locator('[data-material-not-searched]').count()) === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -336,13 +334,13 @@ function sheetText(files) {
   await context.close()
 }
 {
-  // An older drive's world: the probe answers nothing this client knows (an unstubbed door).
+  // An older drive's world: the answer grants nothing this client knows.
   const { context, page } = await open('ltr', { access: [] })
   await page.goto(`${BASE}/materials`)
   await page.locator('nav button[aria-expanded]', { hasText: /^Pricing/ }).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(400)
   const groups = await page.locator('nav button[aria-expanded]').evaluateAll((els) => els.map((e) => e.textContent.trim()))
-  check('1: a probe answer with no flags hides the whole group (fails closed)', !groups.includes('Materials') && (await page.locator('nav a[href^="/materials"]').count()) === 0, groups.join(' · '))
+  check('1: an answer with no Materials key hides the whole group (fails closed)', !groups.includes('Materials') && (await page.locator('nav a[href^="/materials"]').count()) === 0, groups.join(' · '))
   await context.close()
 }
 

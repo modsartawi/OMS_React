@@ -1,15 +1,13 @@
 // Settlement account drive (spec 267, ticket 268) — drives the REAL app in Chromium
-// against a MOCKED CollectionWeb/Access envelope. This is the wave's screens drive;
+// against a MOCKED `Auth/Permissions` answer (oms 909; the CollectionWeb/Access probe is gone). This is the wave's screens drive;
 // 269–274 and spec 282's slices (283 onwards) EXTEND this file rather than starting a
 // second one — its last section is 283's: the four views as PATHS, and the
 // compatibility shim that keeps yesterday's `?view=` links landing.
 //
-// ⚠️ The envelope is stubbed for a reason that is not going away soon: the fifth
-// grant `canOpenSettlement` does not exist on the live door (BackOffice spec 1173,
-// joined by ticket 274), so a live probe answers FOUR booleans and this screen is
-// shut for every real session today. Both of 268's Proof bullets are about which of
-// two things a session sees, and only a stub can put a session on each side of that
-// line. (Spec 267 §Testing Decisions: do not repoint a drive at live — its
+// ⚠️ The answer is stubbed: both of 268's Proof bullets are about which of two things a
+// session sees (`SettlementAccount:03` held or not), and only a stub can put a session on
+// each side of that line. The scenarios keep the Collections area's old flag names
+// (`flagKeys('Collection', …)`). (Spec 267 §Testing Decisions: do not repoint a drive at live — its
 // assertions are about behaviour on SPECIFIC responses.)
 //
 // Verifies ticket 268's Proof:
@@ -19,11 +17,11 @@
 //   2. ungranted → the leaf is ABSENT and a hand-typed /collection/settlement
 //      renders the denied backstop rather than a broken screen — while the four
 //      inquiry leaves the session DOES hold stay put (the ragged group);
-//   3. the four-boolean answer the live door returns today behaves exactly as
+//   3. the four inquiry keys without SettlementAccount:03 behave exactly as
 //      ungranted — no leaf, route refused — with the other four untouched;
-//   4. a 403 reads as a REFUSAL (see an administrator) and a 500 as UNREACHABLE
-//      (try again); both deny, only the sentence differs;
-//   5. the five leaves + the screen's own gate cost ONE CollectionWeb/Access call;
+//   4. a missing key reads as a REFUSAL (see an administrator) and a failed answer (500)
+//      as UNREACHABLE (try again); both deny, only the sentence differs;
+//   5. the five leaves + the screen's own gate cost ONE Auth/Permissions call;
 //   6. every t() call renders a real string — the `settlement` namespace is
 //      registered, not merely created (a raw `settlement:menu.settlement` on screen
 //      is the failure this catches).
@@ -33,6 +31,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -79,7 +78,7 @@ const ALL = {
   // accountant's view of them is `tools/settlement-supervision-drive.mjs`'s.
   canSuperviseSettlement: true,
 }
-/** What `CollectionWeb/Access` actually answers today: four flags, no fifth. */
+/** The four inquiry grants without the fifth (no SettlementAccount:03). */
 const FOUR_FLAGS = {
   canOpenCollections: true,
   canOpenAcrs: true,
@@ -87,8 +86,8 @@ const FOUR_FLAGS = {
   canOpenAttempts: true,
 }
 
-let scenario = { accessBody: ALL, access403: false, access500: false }
-let accessCalls = 0
+let scenario = { accessBody: ALL, access500: false }
+let permissionsCalls = 0
 /** The six hostile branches, filled from `settlement-fixture.ts` once the app is up. */
 let ACCOUNTS = {}
 /** Ticket 270's estate: 1394 fleet rows and the wrong-money lane, both read out of
@@ -789,17 +788,15 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'CollectionWeb/Access') {
-      accessCalls++
-      // The bare 403 the default-deny inversion (issue 802) hands a browser while a
-      // route is unmarked — the realistic answer for a young door, not a hypothetical.
-      if (scenario.access403)
-        return route.fulfill(envelope(null, { status: 403, success: false, message: 'Forbidden' }))
-      if (scenario.access500)
-        return route.fulfill(
-          envelope(null, { status: 500, success: false, message: 'Server error' }),
-        )
-      return route.fulfill(envelope(scenario.accessBody))
+    if (path === 'Auth/Permissions') {
+      permissionsCalls++
+      if (scenario.access500) return route.fulfill(permissionsFailed(500))
+      // 284's blast-radius check needs a SECOND, ordinary two-level group in another
+      // area to compare the settlement node against. ⚠️ Off unless the scenario asks,
+      // so no earlier scenario's nav silently changes shape under it.
+      return route.fulfill(
+        permissions([...flagKeys('Collection', scenario.accessBody), ...(scenario.reportsGranted ? ['RetailInvoice:03'] : [])]),
+      )
     }
     // The neighbours' doors, answered with an empty LIST rather than the empty
     // object below: scenario 3 reads the nav from `/collection/collections`, whose
@@ -812,12 +809,7 @@ async function run() {
     )
       return route.fulfill(envelope([]))
     if (path === 'CollectionWeb/Deposits') return route.fulfill(envelope({ rows: [], balances: [] }))
-    // 284's blast-radius check needs a SECOND, ordinary two-level group in another
-    // area to compare the settlement node against. ⚠️ Off unless the scenario asks,
-    // so no earlier scenario's nav silently changes shape under it.
-    if (path === 'RetailInvoice/Access')
-      return route.fulfill(envelope(scenario.reportsGranted ? { screenAllowed: true } : {}))
-    // Any other probe/endpoint → benign empty success so no other leaf crashes.
+    // Any other endpoint → benign empty success so no other leaf crashes.
     // ⚠️ 268 fetches NOTHING of its own, and that is a thing this drive asserts
     // rather than merely tolerates — see the Settlement/* counter below.
     return route.fulfill(envelope({}))
@@ -840,7 +832,7 @@ async function run() {
   const groupCount = async () => page.getByRole('button', { name: /^Collections$/ }).count()
   const mainText = async () => page.locator('main').innerText()
   const open = async (body, flags = {}) => {
-    scenario = { accessBody: body, access403: false, access500: false, ...flags }
+    scenario = { accessBody: body, access500: false, ...flags }
     await page.goto(BASE + ROUTE)
     await page.waitForLoadState('networkidle')
     return mainText()
@@ -938,14 +930,14 @@ async function run() {
   check('granted → the Settlement leaf is the FIFTH item', (await leafCount()) === 1 && (await inquiryLeaves()) === 4)
   check('🚩 the namespace is REGISTERED — no raw t() key on screen', !/settlement:|\bshell\.|\bscope\./.test(text + (await page.locator('nav').allInnerTexts()).join(' ')))
 
-  // ONE probe for the whole area: five leaves + the screen's own gate share the key,
-  // so react-query dedupes them into a single request per page life. The fifth grant
+  // ONE permissions call for the whole area: five leaves + the screen's own gate share the
+  // one answer, so react-query dedupes them into a single request per page life. The fifth grant
   // must not have cost a sixth round trip.
-  accessCalls = 0
+  permissionsCalls = 0
   settlementCalls = 0
   await page.goto(BASE + ROUTE)
   await page.waitForLoadState('networkidle')
-  check('the five leaves + the screen gate cost ONE CollectionWeb/Access call', accessCalls === 1, `${accessCalls} calls`)
+  check('the five leaves + the screen gate cost ONE Auth/Permissions call', permissionsCalls === 1, `${permissionsCalls} calls`)
   // 🚩 The door costs exactly THREE calls: the fleet, the worklist and — since 288 —
   // the open lane behind the signpost's counts. No account, and no ledger LOOKUP: the
   // ledger is filter-first and the account is a destination, so neither is fetched by
@@ -962,10 +954,10 @@ async function run() {
   check('ungranted → the Settlement leaf is absent', (await leafCount()) === 0)
 
   // ---- Scenario 3: settlement refused, the four inquiries granted ----
-  // The ragged group, and the case that matters most: this is the LIVE door today.
+  // The ragged group.
   text = await open(FOUR_FLAGS)
-  check("🚩 today's four-boolean answer → the route refuses", text.includes(DENIED) && !text.includes(TITLE))
-  check("🚩 today's four-boolean answer → no Settlement leaf…", (await leafCount()) === 0)
+  check("🚩 four inquiry keys, no SettlementAccount:03 → the route refuses", text.includes(DENIED) && !text.includes(TITLE))
+  check("🚩 four inquiry keys, no SettlementAccount:03 → no Settlement leaf…", (await leafCount()) === 0)
   // …read from a screen this session CAN open: the shell expands a group around the
   // leaf the current route belongs to, and on a refused settlement route there is no
   // such leaf, so the group is collapsed and its children are not in the DOM to count.
@@ -974,10 +966,9 @@ async function run() {
   check('🚩 …and the four inquiry leaves are untouched', (await inquiryLeaves()) === 4, `${await inquiryLeaves()} links`)
   check('🚩 …with no Settlement leaf beside them', (await leafCount()) === 0)
 
-  // ---- Scenario 4: the probe itself fails ----
-  text = await open(NONE, { access403: true })
-  check('a 403 reads as a REFUSAL, not an outage', text.includes(DENIED) && !text.includes(UNREACHABLE))
-  check('a 403 → the leaf is hidden too', (await leafCount()) === 0)
+  // ---- Scenario 4: the permissions answer itself fails ----
+  // (A missing key is the REFUSAL — scenario 2 reads its sentence; the old probe's 403 has no counterpart.)
+  check('a missing key reads as a REFUSAL, not an outage', (await open(NONE)).includes(DENIED) && !(await mainText()).includes(UNREACHABLE))
   text = await open(NONE, { access500: true })
   check('a 500 reads as UNREACHABLE — try again, not see an administrator', text.includes(UNREACHABLE) && !text.includes(DENIED))
   check('a 500 → the leaf is hidden too', (await leafCount()) === 0)
@@ -988,7 +979,7 @@ async function run() {
   // chose because each broke a layout that looked fine on the easy case. There is
   // deliberately no happy-path branch in this section.
   const openAccount = async (code) => {
-    scenario = { accessBody: ALL, access403: false, access500: false }
+    scenario = { accessBody: ALL, access500: false }
     await page.goto(`${BASE}${ROUTE}?store=${code}`)
     await page.waitForLoadState('networkidle')
     return mainText()
@@ -1127,7 +1118,7 @@ async function run() {
   // assigned to nobody. That size is the point: 269's six branches cannot prove a
   // door whose every claim is about what happens at scale.
   const openDoor = async (scope = '') => {
-    scenario = { accessBody: ALL, access403: false, access500: false }
+    scenario = { accessBody: ALL, access500: false }
     await page.goto(`${BASE}${ROUTE}${scope ? `?scope=${scope}` : ''}`)
     await page.waitForLoadState('networkidle')
     return mainText()
@@ -1890,7 +1881,7 @@ async function run() {
   const CSV_ROWS = 'store,amount,reason\n0142,500,july\n0207,1250.50,july\n0331,4300,july\n0455,120000,july\n0688,2650,july\n'
 
   const openUpload = async () => {
-    scenario = { accessBody: ALL, access403: false, access500: false }
+    scenario = { accessBody: ALL, access500: false }
     await page.goto(BASE + ROUTE)
     await page.waitForLoadState('networkidle')
     await page.locator('[data-testid="bulk-open"]').click()
@@ -2187,7 +2178,7 @@ async function run() {
   // made the first read of a column race the render: it passed, then failed, then
   // passed, which is a check nobody can trust.
   const openLedger = async (search) => {
-    scenario = { accessBody: ALL, access403: false, access500: false }
+    scenario = { accessBody: ALL, access500: false }
     // 283: the ledger is a PATH. Its criteria stay parameters — they are a question,
     // which is what a query string is for.
     const criteria = search.replace(/^&/, '')
@@ -2382,7 +2373,7 @@ async function run() {
   // address draws its own screen and nobody else's — which the old `?view=` grammar
   // could state but could not enforce, because a chain of ternaries can be reordered
   // and a route cannot.
-  scenario = { accessBody: ALL, access403: false, access500: false }
+  scenario = { accessBody: ALL, access500: false }
 
   /** What is on screen, named by the region each of the four screens owns. */
   const drawn = async () => {
@@ -2499,7 +2490,7 @@ async function run() {
   // this section exists for is silent and permanent: the Overview's path is a PREFIX
   // of its three siblings', so a plain prefix match lights two leaves at once on
   // three of the four screens — the reader learns to stop trusting the highlight.
-  scenario = { accessBody: ALL, access403: false, access500: false }
+  scenario = { accessBody: ALL, access500: false }
 
   /** The node's own row — a link beside a chevron, not a bare button. */
   const nodeLink = () => page.getByRole('link', { name: LEAF, exact: true })
@@ -2573,7 +2564,7 @@ async function run() {
   ]) {
     await page.goto(BASE + (label === 'Overview' ? OPEN_ROUTE : ROUTE))
     await page.waitForLoadState('networkidle')
-    // Let the shell settle before clicking: the access probe resolving re-renders
+    // Let the shell settle before clicking: the permissions answer resolving re-renders
     // the whole nav, and a click landing on the node React just replaced is a flake,
     // not a routing bug.
     await page.waitForTimeout(200)

@@ -2,7 +2,7 @@
 //
 // 🚩 SIS.Api withholds the serial ITSELF for a caller without `PickSupportSerial,03`, and marks the
 // unit `serialWithheld`. This only reads that mark: it never works out visibility, and never from
-// the probe flag (`canSeePickSupportSerial` is advisory). If the flag and the data disagree, the data wins.
+// the key (`PickSupportSerial:03` is advisory). If the flag and the data disagree, the data wins.
 
 import type { PickDocumentUnitModel } from '@/core/models/pick-support'
 

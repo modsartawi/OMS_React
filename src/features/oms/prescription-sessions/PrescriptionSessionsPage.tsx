@@ -14,7 +14,7 @@ const PANEL_ID = 'ps-hq-tab-panel'
  * **Ended** (547). Each tab is its own file and owns the rest of the address while shown, so the
  * three tickets do not touch one another's code.
  *
- * No access probe exists (BackOffice 3015 built none): the menu leaf shows to everyone and the tab
+ * No client gate exists (BackOffice 3015 built none): the menu leaf shows to everyone and the tab
  * that meets the bare 403 names the missing grant (`./Denied`).
  */
 export default function PrescriptionSessionsPage() {

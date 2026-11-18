@@ -2,7 +2,7 @@
 // STUBBED `IDocInspector/*` envelopes.
 //
 // ⚠️ Stubbed because the door is NOT BUILT: BackOffice 1387 (the grant seed, the
-// screen gate, the grant filter and `Access`) is open. Everything ticket 296
+// screen gate and the grant filter) is open. Everything ticket 296
 // asserts is a client decision and is assertable on stubs; what a stub cannot
 // prove is that the server answers this shape, and 1387's own tests are where
 // that lives.
@@ -18,9 +18,9 @@
 //   3. a hand-typed /reports/idoc-inspector on a denied session → the inspector's
 //      OWN no-access sentence, not an error, not a retry, and not the invoices
 //      screen's wording.
-//   4. the access probe is called ONCE per visit (nav leaf + screen gate share
-//      one key) and a refused probe is NOT retried.
-//   5. an unreachable probe (500) reads as unavailable — the other sentence.
+//   4. the one permissions answer (`Auth/Permissions`, oms 909) is read ONCE per visit (nav leaf + screen gate
+//      share it), a denial included.
+//   5. a failed permissions answer (500) reads as unavailable — the other sentence.
 //   6. the local required-field refusal: Look up with a blank half issues nothing
 //      and says which half is missing.
 //   7. no raw i18n keys anywhere — the `reports` namespace carries the screen.
@@ -100,6 +100,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/idoc-inspector-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -118,10 +119,9 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
 
-// Scenario state, mutated between reloads. `accessBody` is the probe's 200
-// answer; `accessStatus` lets a scenario refuse the probe itself (an unmarked
-// route, or a cookie branch that said no — issue 802), which is a DIFFERENT arm
-// from a 200 denial and must read differently.
+// Scenario state, mutated between reloads. `accessBody.screenAllowed` puts `IDocInspector:03` in the one
+// permissions answer; `accessStatus` lets a scenario fail the answer itself (500), which is a DIFFERENT arm
+// from a denial and must read differently.
 let scenario = { accessBody: { screenAllowed: true }, accessStatus: 200 }
 // The invoices grant, answered independently: the point of scenario 2 is that
 // the two leaves in one nav group move apart.
@@ -371,13 +371,12 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'IDocInspector/Access') {
+    if (path === 'Auth/Permissions') {
       accessCalls++
-      if (scenario.accessStatus !== 200)
-        return route.fulfill(
-          envelope(null, { status: scenario.accessStatus, success: false, message: 'Forbidden.' }),
-        )
-      return route.fulfill(envelope(scenario.accessBody))
+      if (scenario.accessStatus !== 200) return route.fulfill(permissionsFailed(scenario.accessStatus))
+      return route.fulfill(
+        permissions({ 'IDocInspector:03': scenario.accessBody.screenAllowed, 'RetailInvoice:03': invoiceAllowed }),
+      )
     }
     if (path === 'IDocInspector/Metadata') {
       metadataCalls++
@@ -423,9 +422,7 @@ async function run() {
       transactionQueries.push(url.split('?')[1] || '')
       return route.fulfill(envelope(transactionBody))
     }
-    if (path === 'RetailInvoice/Access')
-      return route.fulfill(envelope({ screenAllowed: invoiceAllowed }))
-    // Any other probe/endpoint → benign empty success so no other leaf crashes.
+    // Any other endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
   })
 
@@ -494,7 +491,7 @@ async function run() {
     transactionQueries.join(' | '),
   )
   check(
-    '🚩 the access probe is called ONCE per visit (nav leaf + gate share one key)',
+    '🚩 the permissions answer is read ONCE per visit (nav leaf + gate share it)',
     accessCalls === 1,
     `${accessCalls} call(s)`,
   )
@@ -562,8 +559,8 @@ async function run() {
   )
 
   // ---- Scenario 2: denied, arriving from elsewhere ------------------------
-  // The probe answers a denial with 200 — a boolean to read, never an error to
-  // catch — so this is the ORDINARY refusal, not an outage.
+  // A denial is a key absent from a 200 answer — never an error to catch — so this is the ORDINARY refusal,
+  // not an outage.
   scenario = { accessBody: { screenAllowed: false }, accessStatus: 200 }
   await visit(BASE + '/')
   check(
@@ -576,7 +573,7 @@ async function run() {
   )
 
   // ---- Scenario 3: denied, hand-typed URL ---------------------------------
-  // 🚩 The probe only HIDES the menu. A user who pastes the URL reaches the
+  // 🚩 The answer only HIDES the menu. A user who pastes the URL reaches the
   // screen and must be told, in words, that they have no access.
   await visit(URL)
   const deniedText = await page.locator('main').innerText()
@@ -610,38 +607,20 @@ async function run() {
     `${accessCalls} call(s)`,
   )
 
-  // ---- Scenario 4: the probe itself refuses (403) -------------------------
-  // A different arm from a 200 denial: the route is unmarked, or the cookie
-  // branch said no (issue 802). Still a REFUSAL rather than an outage, so it
-  // must not invite a retry loop against a permanently shut door.
-  scenario = { accessBody: null, accessStatus: 403 }
-  await visit(URL)
-  const refusedText = await page.locator('main').innerText()
-  check(
-    'a 403 on the probe reads as a refusal, not as "try again in a moment"',
-    /No access to the IDoc inspector/i.test(refusedText) && !/Try again/i.test(refusedText),
-    refusedText.split('\n').join(' ').slice(0, 160),
-  )
-  check(
-    '🚩 a refused probe is not retried (retry:false travels with the key)',
-    accessCalls === 1,
-    `${accessCalls} call(s)`,
-  )
-
-  // ---- Scenario 5: the probe is unreachable (500) -------------------------
+  // ---- Scenario 5: the permissions answer fails (500) ---------------------
   // The other sentence: an outage the user can retry, distinct from a refusal
-  // they cannot. ⚠️ The door is unbuilt today, so this is the arm a real session
-  // would hit right now — and it must NOT read as "you lack the grant".
+  // they cannot — it must NOT read as "you lack the grant". (Scenario 4, a 403 on the old probe, has no
+  // counterpart: a 403 invalidates the one answer rather than standing in for it.)
   scenario = { accessBody: null, accessStatus: 500 }
   await visit(URL)
   const downText = await page.locator('main').innerText()
   check(
-    'an unreachable probe reads as unavailable (a retry), not as a refusal',
+    'a failed permissions answer reads as unavailable (a retry), not as a refusal',
     /unavailable/i.test(downText) && !/No access to the IDoc inspector/i.test(downText),
     downText.split('\n').join(' ').slice(0, 160),
   )
   check(
-    'an unreachable probe hides the leaf too — fail-closed, not fail-open',
+    'a failed permissions answer hides the leaf too — fail-closed, not fail-open',
     (await page.getByRole('link', { name: /^IDoc inspector$/i }).count()) === 0,
   )
 
@@ -1477,7 +1456,7 @@ async function run() {
     `${await page.locator('[data-document-card]').count()} card(s)`,
   )
   check(
-    '…while the access probe is still called ONCE (the lookup waits on the same key)',
+    '…while the permissions answer is still read ONCE (the lookup waits on the same answer)',
     accessCalls === 1,
     `${accessCalls} call(s)`,
   )

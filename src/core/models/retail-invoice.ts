@@ -11,7 +11,7 @@
  *
  * `api-envelope` puts wire types in `core/models/` rather than in the feature.
  *
- * Ticket 263 landed **only the access probe's shape**; ticket 264 pastes
+ * Ticket 263 landed **only the screen's gate**; ticket 264 pastes
  * contract §2 — `InvoiceCandidate`, `InvoiceSearchResult` and
  * `RetailInvoiceKey` — as the slice that first has a caller for the search
  * shapes. §2 is pasted as **one block** rather than field by field: it is the

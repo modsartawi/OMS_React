@@ -2,7 +2,7 @@
 // against STUBBED envelopes, with every `/api/**` request RECORDED. The sibling of `mark-delivered-drive.mjs`.
 //
 // The wire, as BackOffice 3434–3436 build it:
-//   - `GET  SdDocumentWeb/Access` → `{ …, canMarkDelivered, canMarkReturnedBack }` (grant-free probe);
+//   - `GET  Auth/Permissions` → screens …, OmsMarkDelivered:06, OmsReturnBack:06 (the one answer);
 //   - `GET  SdDocumentWeb/MarkReturnedBackReasons` → `[{ code, description }]`, `CARB`, `DAPB`, `OTHB`, `STOR`;
 //   - `POST SdDocumentWeb/MarkReturnedBack` `{ deliveryNo, reasonCode, note? }` → `data: true`; a refusal is the
 //     standard 400 envelope with an `SDD-` code (3434, 3435); without either grant a BARE 403.
@@ -30,6 +30,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -97,7 +98,7 @@ async function open(browser, { access = ONLY_THIS, status = ['O', ''], express =
     const p = req.url().split('/api/')[1].split('?')[0]
     calls.push(`${req.method()} ${p}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', access)))
     if (p === 'SdDocumentWeb/MarkReturnedBackReasons') return route.fulfill(envelope(REASONS))
     if (p === 'SdDocumentWeb/MarkReturnedBack' && req.method() === 'POST') {
       const body = JSON.parse(req.postData() ?? '{}')
@@ -112,8 +113,6 @@ async function open(browser, { access = ONLY_THIS, status = ['O', ''], express =
       const base = DOCS[doc[2]]
       return route.fulfill(envelope(doc[2] === DELIVERY ? withStatus(base, current[0], current[1], express) : base))
     }
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
     return route.fulfill(envelope([]))
   })
 
@@ -196,7 +195,7 @@ async function run() {
     check('A: success reloads the delivery', count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/) === 2, `${count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/)}`)
     check('A: success reloads the log', count(calls, /^GET SdDocumentWeb\/Document\/.+\/Logs$/) === 2, `${count(calls, /Logs$/)}`)
     check('A: the reloaded delivery (now B) disables the command with its reason', (await command(page).getAttribute('aria-disabled')) === 'true')
-    check('A: ONE reasons read and ONE Access call', count(calls, /MarkReturnedBackReasons$/) === 1 && count(calls, /^GET SdDocumentWeb\/Access$/) === 1)
+    check('A: ONE reasons read and ONE permissions call', count(calls, /MarkReturnedBackReasons$/) === 1 && count(calls, /^GET Auth\/Permissions$/) === 1)
     check('A: no page errors', errors.length === 0, errors.join(' | '))
     await shot(page, 'mark-returned-back-after')
     await context.close()
@@ -249,7 +248,7 @@ async function run() {
   // ============================================ C · hidden
   for (const [label, access, no] of [
     ['no grant', { ...BASE_ACCESS, canMarkDelivered: false, canMarkReturnedBack: false }, DELIVERY],
-    ['an older API (field absent)', { ...BASE_ACCESS }, DELIVERY],
+    ['the key absent from the answer', { ...BASE_ACCESS }, DELIVERY],
     ['a delivery-return (T)', ONLY_THIS, RETURN],
   ]) {
     const { context, page, calls } = await open(browser, { access })

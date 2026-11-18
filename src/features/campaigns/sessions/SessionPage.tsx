@@ -29,7 +29,7 @@ const TABS: readonly Tab[] = ['events', 'cart', 'campaigns']
  * `GET Rules/Support/Session`: its header, then three tabs — Events (every call, journal line and
  * budget event), Cart items (each line's effects and units) and Campaigns (what each campaign did
  * and was refused). **Cancel session** is drawn on a session that holds something to roll back.
- * There is no access probe for `RuleSupport` 02 yet (BO ask B, ticket 529): a reader without the
+ * There is no client gate for `RuleSupport` 02 yet (BO ask B, ticket 529): a reader without the
  * grant meets the door's bare 403, which the dialog explains. It asks why first, then the page
  * shows HQ's rollback.
  */

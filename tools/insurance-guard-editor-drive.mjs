@@ -31,6 +31,7 @@
 //   2. node tools/insurance-guard-editor-drive.mjs        (DRIVE_PORT overrides 5201)
 import { createRequire } from 'node:module'
 import { RULES, WIRE_RULESET, envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -74,7 +75,7 @@ async function open(dir) {
       insuranceListsStub(req.method(), p, body, { state: registry, query: new URL(req.url()).searchParams }) ??
       insuranceRulesStub(req.method(), p, body, { reads })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, store }

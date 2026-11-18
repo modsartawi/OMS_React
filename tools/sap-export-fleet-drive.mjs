@@ -36,6 +36,7 @@
 //   2. node tools/sap-export-fleet-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -203,7 +204,7 @@ async function open({ access = { screenAllowed: true }, computedAt = localStamp(
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SapExport/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('SapExport', access)))
     if (p === 'SapExport/Fleet/Summary') {
       summaries.push(url.searchParams)
       return route.fulfill(envelope(summary(computedAt)))
@@ -245,7 +246,6 @@ async function open({ access = { screenAllowed: true }, computedAt = localStamp(
     if (p === 'SapExport/Store') return route.fulfill(envelope(STORE_STUB(url.searchParams.get('code'))))
     if (p === 'SapExport/Store/Days') return route.fulfill(envelope({ items: [] }))
     if (p === 'SapExport/IdentityBreaks') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, summaries, runnerReads, doubleSends }

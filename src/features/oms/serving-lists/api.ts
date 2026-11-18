@@ -1,7 +1,7 @@
 /**
  * The Serving lists screen's server calls (BackOffice spec 3042; door 3045 `ServingListWebEndpoints`, oms
- * tickets 567-571). Every `ServingListWeb/*` door is here; 567 calls only `lists()`. The probe
- * (`GET ServingListWeb/Access`) lives in `@/core/serving-list/access`, because the Dispatch board (572) reads
+ * tickets 567-571). Every `ServingListWeb/*` door is here; 567 calls only `lists()`. The predicates
+ * (`ServingList:03` / `:06`) live in `@/core/serving-list/access`, because the Dispatch board (572) reads
  * it too and a feature may not import another.
  *
  * Reads are Display 03, writes Execute 06; every write acts as the signed-in user (no body names the user)

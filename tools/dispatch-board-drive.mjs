@@ -32,6 +32,7 @@
 //   1. run the app:  npx vite --port 5201
 //   2. node tools/dispatch-board-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -296,8 +297,7 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DispatchBoard/Access') return route.fulfill(envelope(access))
-    if (p === 'ServingListWeb/Access') return route.fulfill(envelope(servingAccess))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('DispatchBoard', access), ...flagKeys('ServingList', servingAccess)]))
     if (p === 'DispatchBoard/Board') {
       boards.push(url.searchParams)
       if (boardStatus === 403) return route.fulfill({ status: 403, body: '' })
@@ -323,7 +323,6 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
       if (mode === 'SD-500') return route.fulfill(envelope(null, { status: 500, success: false, message: 'Database timeout.', errorCode: 'SD-500' }))
       return route.fulfill(envelope(null, { status: 400, success: false, message: 'server words', errorCode: mode }))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, boards, releases, state }

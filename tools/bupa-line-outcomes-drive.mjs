@@ -2,7 +2,7 @@
 //
 // Drives the REAL app in Chromium against a STUB of the doors — 3889–3891 are not on staging yet. The stub answers the
 // brief's shapes (`C:\Work\DMSCO\BackOffice\.issues\assets\3888-oms-react-bupa-outcomes-brief.md`), camelCase:
-//   GET BupaLineOutcomes/Access         → { canView }
+//   GET Auth/Permissions         → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET BupaLineOutcomes/report         → { from, to, summary[], details[], totals }
 //   GET BupaLineOutcomes/report/export  → an .xlsx body with a Content-Disposition name
 // and a coded refusal on the report when asked for store `REFUSE`.
@@ -21,6 +21,7 @@
 //   2. DRIVE_PORT=5208 node tools/bupa-line-outcomes-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -117,8 +118,7 @@ async function open(dir, { access = 'allowed' } = {}) {
     const p = url.pathname.split('/api/')[1]
     ;(queries[p] ??= []).push(url.searchParams)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
-    if (p === 'BupaLineOutcomes/Access') return route.fulfill(envelope({ canView: access === 'allowed' }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', ...(access === 'allowed' ? ['BupaLineOutcomes:03'] : [])]))
     if (p === 'BupaLineOutcomes/report') {
       if (url.searchParams.get('store') === 'REFUSE')
         return route.fulfill(
@@ -138,7 +138,6 @@ async function open(dir, { access = 'allowed' } = {}) {
         headers: { 'Content-Disposition': `attachment; filename="bupa-line-outcomes_${url.searchParams.get('from')}_${url.searchParams.get('to')}.xlsx"` },
         body: Buffer.from('PK-stub-xlsx'),
       })
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false, canView: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, queries }

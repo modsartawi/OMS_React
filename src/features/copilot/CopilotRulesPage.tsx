@@ -79,7 +79,7 @@ const NO_STARTERS: StartersDraft = { executive: [], operations: [] }
  * (BackOffice 3600): the starters, each proven by its own "Try" and saved, shown and restored with the house rules;
  * a `COPILOT-412` naming a starter marks that starter (`StartersEditor`).
  *
- * 🚩 Fails closed twice: the gate reads `canCurate` off `GET Copilot/Access`, and a `COPILOT-410` from any of
+ * 🚩 Fails closed twice: the gate reads `canCurateCopilot`, and a `COPILOT-410` from any of
  * the five doors shows the same no-access state.
  *
  * Bidi: the core, the house rules and the note are free text in either script (`dir="auto"`, `<bdi>`); the

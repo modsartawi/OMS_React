@@ -6,7 +6,7 @@
 // the contract's fields, on the REAL envelope { statusCode, success, message,
 // errors: [{ errorCode, internalErrorCode, errorMessage }], data }, and every refusal's errorMessage is
 // "<English> / <Arabic>":
-//   GET  DeliverectWeb/Access                         → { canManageStores, canManageCatalog, canViewOrders, canManageTerms }
+//   GET  Auth/Permissions                         → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  DeliverectWeb/Orders?from=&to=&platform=&store=&outcome=&q=&skip=&take=
 //                                                     → { total, rows: [{ deliverectOrderId, platformKey, channelOrderId,
 //                                                         channelDisplayId, storeCode, accountKey, receivedAt, documentNumber,
@@ -23,7 +23,7 @@
 //
 // With the browser in Asia/Riyadh and its clock fixed at 2026-10-12 11:00 local, it asserts:
 //   1. the Orders leaf joins the Deliverect group on canViewOrders, after Stores; without canViewOrders
-//      it is hidden and the URL shows the denied card with no Orders call; one probe call;
+//      it is hidden and the URL shows the denied card with no Orders call; one permissions call;
 //   2. a bare /deliverect/orders writes from=to=today into the URL and sends both; "today" is the
 //      LOCAL date (at 00:30 on the 13th it is the 13th — never toISOString's 12th);
 //   3. each of the five outcomes renders in words; the last status reads "20 · Accepted" etc.; the
@@ -57,6 +57,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -212,7 +213,7 @@ async function open(dir, { access = ALL, platforms = 'ok', orders = ORDERS, tota
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Deliverect', access), 'ItemInquiryCustome:03', 'MaterialStockInquiry:03', 'Gs1SerialInquiry:03']))
     if (p === 'DeliverectWeb/Platforms') {
       if (platforms === 'ok') return route.fulfill(envelope(PLATFORMS))
       return route.fulfill(envelope(null, { status: 403, success: false, message: 'Access denied. / تم رفض الوصول.', errorCode: 'Forbidden' }))
@@ -237,11 +238,8 @@ async function open(dir, { access = ALL, platforms = 'ok', orders = ORDERS, tota
       if (id === '64fA004') return route.fulfill(refuse('DLV-00006'))
       return row ? route.fulfill(envelope(detailOf(row))) : route.fulfill(refuse('DLV-00006'))
     }
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope({ canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }))
     if (p === 'DeliverectWeb/Stores') return route.fulfill(envelope([]))
     if (p === 'DeliverectWeb/Accounts') return route.fulfill(envelope([]))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, lists, retries }
@@ -322,7 +320,7 @@ function sheetRows(files) {
   check('1: the leaf reads "Orders"', (await page.locator('nav a[href="/deliverect/orders"]').first().innerText()).trim() === 'Orders')
   await page.locator('nav a[href="/deliverect/orders"]').first().click()
   await waitRows(page, ORDERS.length)
-  check('1: the group, its leaves and the page gate cost ONE probe call', calls.filter((c) => c === 'DeliverectWeb/Access').length === 1)
+  check('1: the group, its leaves and the page gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

@@ -52,8 +52,6 @@ export const DELIVERECT_ERRORS = {
   stockPushInvalid: 'DLV-00015',
 } as const
 
-// ── GET DeliverectWeb/Access ─────────────────────────────────────────────────────────────────────
-
 // ── Stores (2616; sync by 2624, status by 2625) ──────────────────────────────────────────────────
 
 /** `linked` on `GET DeliverectWeb/Stores` — `any` is the default. */

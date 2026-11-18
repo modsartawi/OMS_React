@@ -37,6 +37,7 @@
 // Screenshots (light + dark, one per grid module) → tools/.grid-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, ALL_SCREENS } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -176,11 +177,8 @@ const routeApi = (dir) => async (route) => {
         { districtCode: 'D2', districtName: 'Al Malaz', cityCode: 'C1', cityName: 'Riyadh', storeCode: '1001' },
       ]),
     )
-  // Every screen-open probe answers yes so each grid module is reachable.
-  // canOpenList/canOpenDetail answer the OMS probe added in ticket 125; the other flags
-  // answer every sibling screen probe.
-  if (/Access$/.test(path))
-    return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
+  // Every gated screen is granted, so each grid module is reachable.
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
   // Anything else (notifications, slots, …) → benign empty success.
   return route.fulfill(envelope({}))
 }

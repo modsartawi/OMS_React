@@ -1,4 +1,5 @@
-// Authz batch pickers drive (spec 805). Mocked `AuthzAdminWeb/*`, real app, real browser (the
+// Authz batch pickers drive (spec 805). Mocked `AuthzAdminWeb/*` and `Auth/Permissions` (`AuthzAdmin:03` + the
+// maint extras; `AuthzAdminWeb/Access` answers only the role lists, oms 909), real app, real browser (the
 // tools/ua-bulk-create-drive.mjs idiom). Run in LTR and again with `dir="rtl"`.
 //
 // Ticket 806 — a composite's Add member dialog:
@@ -40,6 +41,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/authz-batch-drive.mjs          (DRIVE_PORT=<port> for another port)
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -94,10 +96,10 @@ async function drive(browser, dir) {
     const path = decodeURIComponent(req.url().split('/api/')[1].split('?')[0])
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'AuthzAdminWeb/Access')
-      return route.fulfill(
-        envelope({ screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles: ['*'], revocableRoles: ['*'] }),
-      )
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(['AuthzAdmin:03'], { canManageRoles: true, canManageUsers: true }))
+    // The role lists stay on the page's own read (brief 3995, "Not covered"); every boolean comes from Auth/Permissions.
+    if (path === 'AuthzAdminWeb/Access') return route.fulfill(envelope({ assignableRoles: ['*'], revocableRoles: ['*'] }))
     if (path === 'AuthzAdminWeb/Roles') return route.fulfill(envelope(CATALOG))
     if (path === 'AuthzAdminWeb/Roles/AddMember') {
       const body = JSON.parse(req.postData() || '{}')
@@ -221,10 +223,10 @@ async function driveNewComposite(browser, dir) {
     const path = decodeURIComponent(req.url().split('/api/')[1].split('?')[0])
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'AuthzAdminWeb/Access')
-      return route.fulfill(
-        envelope({ screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles: ['*'], revocableRoles: ['*'] }),
-      )
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(['AuthzAdmin:03'], { canManageRoles: true, canManageUsers: true }))
+    // The role lists stay on the page's own read (brief 3995, "Not covered"); every boolean comes from Auth/Permissions.
+    if (path === 'AuthzAdminWeb/Access') return route.fulfill(envelope({ assignableRoles: ['*'], revocableRoles: ['*'] }))
     if (path === 'AuthzAdminWeb/Roles') return route.fulfill(envelope(catalog))
     if (path === 'AuthzAdminWeb/Roles/CreateComposite') {
       const body = JSON.parse(req.postData() || '{}')
@@ -329,10 +331,10 @@ async function driveAssign(browser, dir, assignableRoles) {
     const path = decodeURIComponent(req.url().split('/api/')[1].split('?')[0])
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'AuthzAdminWeb/Access')
-      return route.fulfill(
-        envelope({ screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles, revocableRoles: assignableRoles }),
-      )
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(['AuthzAdmin:03'], { canManageRoles: true, canManageUsers: true }))
+    // The role lists stay on the page's own read (brief 3995, "Not covered"); every boolean comes from Auth/Permissions.
+    if (path === 'AuthzAdminWeb/Access') return route.fulfill(envelope({ assignableRoles, revocableRoles: assignableRoles }))
     // PHARM_COMPOSITE is served protected: its kind tag reads "system" in the attention tone.
     if (path === 'AuthzAdminWeb/Roles')
       return route.fulfill(envelope(CATALOG.map((r) => (r.roleName === 'PHARM_COMPOSITE' ? { ...r, isProtected: true } : r))))
@@ -458,10 +460,10 @@ async function driveHolders(browser, dir, assignableRoles) {
     const path = decodeURIComponent(req.url().split('/api/')[1].split('?')[0])
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'AuthzAdminWeb/Access')
-      return route.fulfill(
-        envelope({ screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles, revocableRoles: assignableRoles }),
-      )
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(['AuthzAdmin:03'], { canManageRoles: true, canManageUsers: true }))
+    // The role lists stay on the page's own read (brief 3995, "Not covered"); every boolean comes from Auth/Permissions.
+    if (path === 'AuthzAdminWeb/Access') return route.fulfill(envelope({ assignableRoles, revocableRoles: assignableRoles }))
     if (path === 'AuthzAdminWeb/Roles') return route.fulfill(envelope(CATALOG))
     if (path === 'AuthzAdminWeb/Employees') {
       const term = (url.searchParams.get('term') || '').toLowerCase()

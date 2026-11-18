@@ -21,13 +21,14 @@
 //   8. an older door's answer (no flags, held, reason or accounting) still draws, reading `agrees`;
 //      a newer door's unknown label count is shown as a plain chip, not a filter;
 //   9. a refusal (`DAY_OUT_OF_WINDOW`) shows its own sentence;
-//  10. with `screenAllowed: false` (and with a 403 on the probe) the leaf is hidden and the page guards
+//  10. without `SapExportConsole:03` (and with a failed `Auth/Permissions` answer) the leaf is hidden and the page guards
 //      itself, with no store-day read.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sap-export-storeday-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, permissionsFailed, flagKeys, ALL_SCREENS } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -124,7 +125,7 @@ const STORE_DAY_STUB = { day: DAY, noData: false, total: 10, worst: 'exported', 
 
 const browser = await chromium.launch()
 
-async function open({ access = { screenAllowed: true }, accessStatus = 200, othersOpen = false, refuse = null, old = false, newer = false } = {}) {
+async function open({ access = { screenAllowed: true }, permissionsDown = false, othersOpen = false, refuse = null, old = false, newer = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 } })
   const page = await context.newPage()
   const errors = []
@@ -139,11 +140,12 @@ async function open({ access = { screenAllowed: true }, accessStatus = 200, othe
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SapExport/Access') {
-      // The contract: a refused caller gets a bare 403 with no body on every door but Access; a
-      // 403 here too stands for a broken door, which must hide the leaf all the same.
-      if (accessStatus !== 200) return route.fulfill({ status: accessStatus, body: '' })
-      return route.fulfill(envelope(access))
+    // `access` keeps the old flag (screenAllowed → SapExportConsole:03); `othersOpen` grants every other screen, to see
+    // where the leaf sits among its siblings. A failed answer must hide the leaf all the same.
+    if (p === 'Auth/Permissions') {
+      if (permissionsDown) return route.fulfill(permissionsFailed(500))
+      const others = othersOpen ? ALL_SCREENS.filter((k) => k !== 'SapExportConsole:03') : []
+      return route.fulfill(permissions([...others, ...flagKeys('SapExport', access)]))
     }
     if (p === 'SapExport/StoreDay') {
       calls.push(url.searchParams)
@@ -168,8 +170,6 @@ async function open({ access = { screenAllowed: true }, accessStatus = 200, othe
     if (p === 'SapExport/Store') return route.fulfill(envelope(STORE_STUB(url.searchParams.get('code'))))
     if (p === 'SapExport/Store/Days') return route.fulfill(envelope({ items: [STORE_DAY_STUB] }))
     if (p === 'SapExport/IdentityBreaks') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
-    // Every other probe: shut, or (to see where the leaf sits among its siblings) open.
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: othersOpen, screenAllowed: othersOpen, allowed: othersOpen, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls }
@@ -339,12 +339,12 @@ const STORE_DAY_URL = `${BASE}/reports/sap-export/store/${CODE}/day/${DAY}`
 
 // ── 10: no view grant ─────────────────────────────────────────────────────────────────────────
 for (const [name, opts] of [
-  ['screenAllowed: false', { access: { screenAllowed: false } }],
-  ['a 403 on the probe', { accessStatus: 403 }],
+  ['no SapExportConsole:03', { access: { screenAllowed: false } }],
+  ['a failed permissions answer', { permissionsDown: true }],
 ]) {
   const { context, page, errors, calls } = await open(opts)
   await page.goto(STORE_DAY_URL)
-  await page.getByText(name === 'a 403 on the probe' ? /No access to SAP export|This screen is unavailable/ : 'No access to SAP export').first().waitFor({ timeout: 20000 })
+  await page.getByText(name === 'a failed permissions answer' ? /No access to SAP export|This screen is unavailable/ : 'No access to SAP export').first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(300)
   check(`10. ${name} → the leaf is hidden`, (await page.locator('nav a[href="/reports/sap-export"]').count()) === 0)
   check(`10. ${name} → the page guards itself, with no store-day read`, (await page.locator('[data-store-day-page]').count()) === 0 && calls.length === 0, String(calls.length))

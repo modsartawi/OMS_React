@@ -3,7 +3,7 @@
 // Drives the REAL app in Chromium against STUBS on the REAL envelope (`tools/insurance-rules-stubs.mjs`, section 3981):
 //   GET InsuranceRules/RuleHits?from&to&rule&payer&store&kind → RULE_HITS (filtered, 3980's defaults and 400s)
 //   GET InsuranceRules/RuleHits/Excel                          → an .xlsx named by Content-Disposition
-//   GET InsuranceRules/Access                                  → canRuleHits (true, or false for the hidden check)
+//   GET Auth/Permissions                                  → the screen keys the drive grants (`permissions-stub.mjs`)
 //
 // It verifies, in LTR and RTL:
 //   1. the Rule hits leaf is in the rail; the page opens on last calendar month, live;
@@ -17,7 +17,7 @@
 //   2. node tools/insurance-rule-hits-drive.mjs        (DRIVE_PORT overrides 5139)
 import { createRequire } from 'node:module'
 import { envelope, ruleHitsStub } from './insurance-rules-stubs.mjs'
-import { GRANTED_852 } from './access-852-grants.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -48,10 +48,9 @@ async function open(dir, { canRuleHits = true } = {}) {
     const url = new URL(req.url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'InsuranceRules/Access') return route.fulfill(envelope({ ...GRANTED_852['InsuranceRules/Access'], canRuleHits }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...GRANTED_852.filter((k) => k !== 'InsuranceRuleHits:03'), ...(canRuleHits ? ['InsuranceRuleHits:03'] : [])]))
     const hit = ruleHitsStub(req.method(), p, url.searchParams, { asked })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, asked }

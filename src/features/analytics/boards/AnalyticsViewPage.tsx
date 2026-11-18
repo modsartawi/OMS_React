@@ -34,7 +34,7 @@ import { viewTitleOf } from './ViewChart'
 /**
  * One analytics view at `/analytics/view/:id` (spec 766 §F, ticket 767 — Slice 0).
  *
- * Behind `canViewAnalytics` on `GET Analytics/Access`, the predicate the menu reads, failing closed.
+ * Behind `canViewAnalytics` (`Analytics:03`), the predicate the menu reads, failing closed.
  * It reads the item and the model, then asks `Analytics/Query` for the saved view by id, with
  * `placeholderData: keepPreviousData` so a re-ask keeps the previous chart, dimmed (`ChartFrame`).
  *

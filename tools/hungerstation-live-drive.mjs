@@ -60,7 +60,8 @@ const TODAY = daysFromToday(0)
 // ── The contract's keys, door by door ─────────────────────────────────────────────────────────────
 // Restated by hand from src/core/models/hungerstation.ts (a plain-node drive cannot import TypeScript):
 // a contract change edits both.
-const ACCESS = ['canManageStores', 'canManageCatalog', 'canViewOrders']
+// The keys each screen reads off the one permissions answer (oms 909).
+const SCREEN_KEYS = { canManageStores: 'HungerStationStores:03', canManageCatalog: 'HungerStationCatalog:03', canViewOrders: 'HungerStationOrders:03' }
 const STORE = ['storeCode', 'storeName', 'chainKey', 'vendorId', 'onboardedAt', 'onboardedBy', 'updatedAt', 'updatedBy', 'sync']
 const SYNC = ['active', 'lastFullRun', 'lastDeltaRun', 'lastRun', 'lastStatus', 'lastError', 'health']
 const LOG = ['logId', 'syncType', 'startTime', 'endTime', 'status', 'rows', 'error']
@@ -166,11 +167,12 @@ async function door(path, params) {
 const refusal = (r) => r.body?.errors?.[0]?.errorCode
 const onEnvelope = (r) => hasKeys(r.body, ENVELOPE)
 
-// ═══ 1. Access ════════════════════════════════════════════════════════════════════════════════════
-const access = await door('HungerStationWeb/Access')
-check('1: Access answers 200 on the envelope', access.status === 200 && onEnvelope(access), `HTTP ${access.status}`)
-check('1: Access holds exactly the three flags', hasKeys(access.body?.data, ACCESS), JSON.stringify(access.body?.data))
-const flags = access.body?.data ?? {}
+// ═══ 1. Permissions ═══════════════════════════════════════════════════════════════════════════════
+const answer = await door('Auth/Permissions')
+check('1: Auth/Permissions answers 200 on the envelope', answer.status === 200 && onEnvelope(answer), `HTTP ${answer.status}`)
+const screens = answer.body?.data?.screens
+check('1: the answer carries a screens list', Array.isArray(screens), JSON.stringify(answer.body?.data))
+const flags = Object.fromEntries(Object.entries(SCREEN_KEYS).map(([flag, key]) => [flag, (screens ?? []).includes(key)]))
 console.log(`      flags: ${JSON.stringify(flags)}`)
 
 // ═══ 2. Stores (doors) ════════════════════════════════════════════════════════════════════════════

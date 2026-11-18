@@ -12,7 +12,7 @@
  * through `./guard-wire` into the editor's model. ONE cache entry holds the draft (`GUARD_DRAFT_KEY`):
  * `guardDraftQuery` selects its document, `guardDraftStateQuery` the whole draft (611's approval panel).
  *
- * No access probe: BackOffice has no insurance-rules grant probe yet (618's list for the coordinator), so a session
+ * No client gate: BackOffice has no insurance-rules grant probe yet (618's list for the coordinator), so a session
  * without the grant is answered a bare 403 by each door.
  */
 import type { GuardIssue } from './checks'

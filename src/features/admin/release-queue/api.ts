@@ -85,7 +85,7 @@ export const AUDIT_PAGE_SIZE = 50
 
 /**
  * After a resize or a free: re-read everything it can have moved, so the page shows HQ's answer, not a guess. One
- * sweep of the prefix (never the access probe, which shares it), so a read added later is covered without a list.
+ * sweep of the prefix, so a read added later is covered without a list.
  */
 export function invalidateManagedReads(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: RELEASE_QUEUE_KEY, predicate: (q) => isManagedRead(q.queryKey) })

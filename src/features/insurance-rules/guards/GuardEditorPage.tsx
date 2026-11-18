@@ -44,7 +44,7 @@ import { Issues } from '@/core/insurance-rules/controls'
  * act on it. The checks pill asks HQ's Validate about the draft on screen and pins each issue on the rule, a
  * block or a field.
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on the read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on the read is "You do not have access".
  */
 export default function GuardEditorPage() {
   const { t } = useTranslation('insurance-guards')

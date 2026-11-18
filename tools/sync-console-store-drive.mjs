@@ -99,6 +99,7 @@
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -495,7 +496,7 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
     const code = url.searchParams.get('code')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     // 474: without the grant the door's older shape, no canReplay member at all (as sections 1–20 always had).
-    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate, canOnboard: false, ...(canReplay ? { canReplay } : {}) }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('ActionSync', { screenAllowed: true, canOperate, canOnboard: false, ...(canReplay ? { canReplay } : {}) })))
     if (p === 'ActionSync/Store') {
       if (calls.filter((c) => c.startsWith('ActionSync/Store?')).length > failStoreAfter)
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'The store read failed.', errorCode: 'BOOM' }))
@@ -594,7 +595,6 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
     if (p === 'ActionSync/Store/Location') return route.fulfill(envelope(LOCATION))
     // The store's audit feed is 447's; here it is only an empty page of the contract's shape.
     if (p === 'ActionSync/Audit') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     if (p === 'ActionSync/Commands') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     return route.fulfill(envelope([]))
   })

@@ -8,7 +8,7 @@ import type {
 } from '@/core/models/hungerstation'
 
 // The HungerStation orders monitor doors (BackOffice spec 3028; contract § Orders monitor). The
-// area's shared reads — the access probe and the chain list — live in `@/core/hungerstation/api`.
+// area's shared read — the chain list — lives in `@/core/hungerstation/api`; its grants in `@/core/hungerstation/access`.
 //
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md).
 

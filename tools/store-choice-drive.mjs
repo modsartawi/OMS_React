@@ -27,6 +27,7 @@
 //     7. on a COLLECTION order the same chip opens the picker as before.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -116,7 +117,7 @@ async function open(browser, { state = COLLECTION, setStore = 'stuck-version' } 
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (path === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (path === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: current, existing: null }))
     if (path === 'CallCenterWeb/State') return route.fulfill(envelope(current))
@@ -165,10 +166,6 @@ async function open(browser, { state = COLLECTION, setStore = 'stuck-version' } 
           { storeCode: '1001', city: 'Riyadh', region: 'Central', storeAddress: 'King AbdelAziz Road' },
           { storeCode: CHOSEN, city: 'Riyadh', region: 'Central', storeAddress: 'Al Rawdah' },
         ]),
-      )
-    if (/Access$/.test(path))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
       )
     return route.fulfill(envelope([]))
   })

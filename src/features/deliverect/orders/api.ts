@@ -7,7 +7,7 @@ import type {
 } from '@/core/models/deliverect'
 
 // The Deliverect orders monitor doors (BackOffice 2626; contract § Orders monitor). The area's shared
-// reads — the access probe and the platform list — live in `@/core/deliverect/api`.
+// reads — the platform list — live in `@/core/deliverect/api`; its grants in `@/core/deliverect/access`.
 //
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md).
 

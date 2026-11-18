@@ -24,6 +24,7 @@
 // Screenshots → tools/.lf-returns-queue-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -77,10 +78,7 @@ function routeApi(state) {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1017' }),
       )
-    if (path === 'SdDocumentWeb/Access')
-      return route.fulfill(
-        envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canCreateLocalFulfillmentReturn: state.grant03 }),
-      )
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', ...(state.grant03 ? ['LocalFulfillmentReturn:03'] : [])]))
     if (path === NEEDING_PATH) {
       // A business refusal (enveloped, success:false) carries its message through; a bare 500 would
       // read core's generic server wording instead, by api.ts's taxonomy.
@@ -91,7 +89,6 @@ function routeApi(state) {
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return route.fulfill(envelope([]))
     if (/^SdDocumentWeb\/(Delivery|Document)\//.test(path))
       return route.fulfill(envelope(null, { success: false, message: 'Not found in this drive' }))
-    if (/Access$/.test(path)) return route.fulfill(envelope({ allowed: true, screenAllowed: true }))
     return route.fulfill(envelope({}))
   }
 }

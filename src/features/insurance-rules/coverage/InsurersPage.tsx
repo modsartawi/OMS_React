@@ -41,7 +41,7 @@ import { CodeInput, NumberInput, Select } from '@/core/insurance-rules/controls'
  * creates a new insurer's row). Not versioned and not approved: every save is a line in the change log beneath.
  * An insurer's 0 or empty value inherits the `*` row. `?payer=` is the insurer open (its SAP customer id).
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 is "You do not have access".
  */
 export default function InsurersPage() {
   const { t } = useTranslation('insurance-coverage')

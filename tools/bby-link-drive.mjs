@@ -21,6 +21,7 @@
 //     7. closing the modal leaves an ordinary inquiry screen on that record, and
 //        the param is gone so a refresh does not reopen it.
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -164,7 +165,7 @@ async function open(browser, { offerId = OFFER } = {}) {
           currentStoreCode: '1001',
         }),
       )
-    if (path === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (path === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: STATE(offerId), existing: null }))
     if (path === 'CallCenterWeb/State') return route.fulfill(envelope(STATE(offerId)))
@@ -177,10 +178,6 @@ async function open(browser, { offerId = OFFER } = {}) {
       return route.fulfill(envelope({ rows: [BBY_ROW], capReached: false }))
     }
     if (path === 'Bby/Detail') return route.fulfill(envelope(DETAIL))
-    if (/Access$/.test(path))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
-      )
     return route.fulfill(envelope([]))
   })
   return { context, page }

@@ -71,6 +71,7 @@
 //  plus AND (a met arm offers no add) and an arm the stock filter emptied.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -261,13 +262,12 @@ async function open(browser, nearMisses, opts = {}) {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ ...OPEN_RESULT, outcome: 'opened', state, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(state))
     if (p === 'CallCenterWeb/ItemSearch')
       return route.fulfill(envelope({ truncated: false, atpAvailable: true, rows: [] }))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
 

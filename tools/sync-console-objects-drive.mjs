@@ -17,6 +17,7 @@
 //   2. node tools/sync-console-objects-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -76,8 +77,7 @@ async function open({ canEnrol = true, busyOnce = null } = {}) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access')
-      return route.fulfill(envelope({ screenAllowed: true, canOperate: true, canOnboard: false, canEnrol, canReplay: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ActionSyncConsole:03', 'ActionSyncConsole:06', ...(canEnrol ? ['SyncObjectEnrol:06'] : [])]))
     if (p === 'ActionSync/Objects') return route.fulfill(envelope({ items: objects }))
     // The shell's notification bell polls on every page.
     if (p === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))

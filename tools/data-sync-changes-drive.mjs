@@ -22,6 +22,7 @@
 //   2. node tools/data-sync-changes-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -160,7 +161,7 @@ async function open({ canOperate = true } = {}) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DataSyncConsole:03', ...(canOperate ? ['DataSyncConsole:06'] : [])]))
     if (p === 'DataSync/Health') return route.fulfill(envelope({ stateDb: 'Ok', workerEnabled: true, lastWorkerTick: new Date().toISOString() }))
     if (p === 'DataSync/Profiles') return route.fulfill(envelope([{ profileId: PROFILE, name: 'Products', source: { server: 'OMS-HQ', database: 'DMSCO' }, tableSet: [], allowsApply: true }]))
     for (const [cid, mode] of [[CID_R, 'ReportOnly'], [CID_A, 'Apply']]) {
@@ -185,7 +186,6 @@ async function open({ canOperate = true } = {}) {
       const rows = ALL_ROWS.filter((r) => (!table || r.table.toLowerCase() === table.toLowerCase()) && (!kind || r.kind.toLowerCase() === kind.toLowerCase()))
       return route.fulfill(envelope(rows.slice((pg - 1) * size, pg * size)))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, consoleText, calls }

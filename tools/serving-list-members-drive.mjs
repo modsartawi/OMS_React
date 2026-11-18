@@ -19,6 +19,7 @@
 //   1. run the app:  npx vite --port 5208 --strictPort
 //   2. DRIVE_PORT=5208 node tools/serving-list-members-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -126,7 +127,7 @@ async function open(dir, { listsFail = false } = {}) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ServingListWeb/Access') return route.fulfill(envelope({ canViewServingLists: true, canEditServingLists: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ServingList:03', 'ServingList:06']))
     if (p === 'ServingListWeb/Lists') {
       if (listsFail) return route.fulfill(envelope(null, { status: 500, success: false, message: '' }))
       return route.fulfill(envelope(LISTS))
@@ -143,7 +144,6 @@ async function open(dir, { listsFail = false } = {}) {
       if (!rows) return route.fulfill(envelope(null, { status: 400, success: false, message: 'Unknown duty filter', errorCode: 'SVL-00009' }))
       return route.fulfill(envelope(rows))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls }

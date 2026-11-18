@@ -26,6 +26,7 @@
 //        basket is *abandon*, which asks first.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -93,7 +94,7 @@ async function open(browser, { states = [EMPTY] } = {}) {
           currentStoreCode: '1001',
         }),
       )
-    if (path === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (path === 'CallCenterWeb/Open') {
       current = states[Math.min(opened, states.length - 1)]
       opened += 1
@@ -106,10 +107,6 @@ async function open(browser, { states = [EMPTY] } = {}) {
     }
     if (path === 'CallCenterWeb/MyDocumentSources')
       return route.fulfill(envelope([{ documentSource: 'CLCN', name: 'Call centre' }]))
-    if (/Access$/.test(path))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
-      )
     return route.fulfill(envelope([]))
   })
   return { context, page, opens: () => opened }

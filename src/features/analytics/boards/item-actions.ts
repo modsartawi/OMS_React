@@ -46,7 +46,7 @@ export interface ItemActions {
 }
 
 /**
- * Who is acting: the session's user and the `Analytics/Access` grants. 822 (spec 819 §C): `canAuthor` is the
+ * Who is acting: the session's user and the Analytics grants (`@/core/analytics-access`). 822 (spec 819 §C): `canAuthor` is the
  * builder's grant; without it the actor is a **runner**. Curate implies author.
  */
 export interface ItemActor {

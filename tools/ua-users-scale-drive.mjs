@@ -53,6 +53,7 @@
 //   2. node tools/ua-users-scale-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -143,7 +144,7 @@ await page.route('**/api/**', async (route) => {
   const q = url.searchParams
   if (path === 'Auth/Me')
     return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-  if (path === 'UaAdminWeb/Access') return route.fulfill(envelope({ canOpen: true }))
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(['UaUsers:03']))
   if (path === 'UaAdminWeb/ReportCounts') {
     countsReads += 1
     return route.fulfill(

@@ -48,7 +48,7 @@ import { Issues } from '@/core/insurance-rules/controls'
  * (`PUT InsuranceRules/{Categories|Coverage}/Draft` with its `revision`; a stale one is a 409); Undo / Redo /
  * Cancel / Save act on it, and "Check" asks HQ's Validate about the draft on screen. `?rule=` is the rule open.
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on the read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on the read is "You do not have access".
  */
 export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
   const { t } = useTranslation('insurance-coverage')

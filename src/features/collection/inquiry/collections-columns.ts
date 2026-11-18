@@ -96,8 +96,8 @@ export const MORE_FIELDS = [
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
- * The column the slip probe gates (ticket 320, BackOffice 2034): drawn only when
- * `AttachmentWeb/Access` holds `CASH_CLOSE`, right after Saud's *Card Slips*
+ * The column the slip gate gates (ticket 320, BackOffice 2034): drawn only when
+ * the session reads `Attachments:03:CASH_CLOSE` on a ready File Server, right after Saud's *Card Slips*
  * (`cardTransactionCount`, `COLLECTIONS_SLIP_ANCHOR`) since spec 2423. That column is in the
  * tail, so with the tail folded the count is the last column. Drawn or not, the
  * 31 sheet columns keep their order around it.

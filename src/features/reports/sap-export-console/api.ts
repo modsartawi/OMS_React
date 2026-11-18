@@ -1,7 +1,7 @@
 /**
  * The SAP export console's server calls (BackOffice spec 2579; ticket 461 lands the store-day
  * read, 463 the fleet's two, 464 the store's two and the recompute, 465 the runners, the double sends and
- * the identity breaks). The access probe is `./access`, apart, so the menu that
+ * the identity breaks). The predicate is `./access`, apart, so the menu that
  * imports it does not pull this module (and the wire and helpers behind it) into the main bundle.
  *
  * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`): the envelope, the

@@ -16,6 +16,7 @@
 //   2. node tools/coupon-template-limits-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -60,7 +61,7 @@ async function open(dir) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'CouponsAdminWeb/Access') return route.fulfill(envelope({ canAdmin: true, canSupport: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CouponsAdmin:03', 'CouponsSupport:03']))
     if (p === `CouponsAdminWeb/Templates/${TEMPLATE}`) {
       if (route.request().method() === 'PUT') {
         const body = route.request().postDataJSON()
@@ -72,7 +73,6 @@ async function open(dir) {
       }
       return route.fulfill(envelope({ ...stored }))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, puts, stored }

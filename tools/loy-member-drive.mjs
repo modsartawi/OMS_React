@@ -23,10 +23,10 @@
 //
 // And ticket 234's (scenarios 10–12 below):
 //  10. granted — the Loyalty group appears in the nav and its item routes to the
-//      screen, on ONE shared probe call;
+//      screen, on ONE shared `Auth/Permissions` call (oms 909: `LoyMember:03`);
 //  11. 🚩 denied — the group is absent AND a typed deep link to `/loy/members`
 //      lands on the denied backstop, not on the lookup field;
-//  12. 🚩 a probe that THROWS behaves exactly like a denial (fail-closed), and
+//  12. 🚩 a permissions answer that THROWS behaves exactly like a denial (fail-closed), and
 //      the member read never fires on the way to the backstop.
 //
 // And ticket 235's (scenarios 14–19):
@@ -42,8 +42,8 @@
 // And ticket 635's (scenario 19b, BackOffice 3176 stubbed — no door is deployed):
 //  19b. 🚩 the member's group chips show ONLY under the groups view grant: named
 //       from the core groups list (a code the list lacks shows as its code), an
-//       empty field under the grant says "In no group", and absent / no grant /
-//       a probe that throws draws no groups row at all.
+//       empty field under the grant (`LoyaltyGroup:03`) says "In no group", and absent / no grant
+//       draws no groups row at all.
 //
 // And ticket 236's (scenarios 20–26):
 //  20. Activities is the landing tab and fetches ON LANDING — one call, and the
@@ -88,6 +88,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -342,7 +343,7 @@ const actionsPage = (rows, page, total) => ({
 // "two calls" assertions read.
 //
 // `access` is ticket 234's axis: `granted` | `denied` | `throws`. The last one is
-// the case the whole ticket exists for — a probe that errors must be
+// the case the whole ticket exists for — a permissions answer that errors must be
 // indistinguishable from a refusal, never "probably fine".
 // `memberOver` is ticket 235's axis: the fields the header derives its chips and
 // its points block from, overridden per scenario so one stubbed member can be an
@@ -365,8 +366,7 @@ let scenario = {
   activities: ACTIVITY_ROWS,
   sales: SALES_ROWS,
   actions: { total: 312 },
-  // Ticket 635: `LoyGroupWeb/Access` — null = the benign `{}` every other probe
-  // gets (no grant), 'view' = canView, 'throws' = a raw 500.
+  // Ticket 635: null = no `LoyaltyGroup:03` in the answer, 'view' = the key held.
   groupsAccess: null,
 }
 // The groups list (`LoyGroupWeb/Groups`), logged so "no grant ⇒ no list call" is counted.
@@ -375,7 +375,7 @@ const GROUP_LIST = [
   { groupId: 'g1', code: 'STAFF', nameEn: 'Staff', nameAr: 'الموظفون', isActive: true, mobileCount: 40, liveBonusBuys: [] },
   { groupId: 'g2', code: 'VIP', nameEn: 'Ramadan VIP', nameAr: 'كبار رمضان ٢', isActive: true, mobileCount: 12, liveBonusBuys: [] },
 ]
-// The member reads only. The probe is logged apart so the "one call" / "two
+// The member reads only. The permissions answer is logged apart so the "one call" / "two
 // calls" cascade assertions keep meaning what they said before the gate existed,
 // and the report calls are logged apart again so "a tab fetches only when it is
 // opened" is counted and not inferred.
@@ -408,26 +408,18 @@ async function run() {
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
 
-    // The area's ONE probe (234). Not grant-gated server-side — it must be able
-    // to answer a session that holds nothing — so a denial is a 200 saying no,
-    // while `throws` is the transport falling over on the way.
-    if (path === 'LoyWeb/Access') {
+    // The ONE permissions answer (oms 909). Not grant-gated server-side — it answers a
+    // session that holds nothing — so a denial is a key absent from a 200, while `throws`
+    // is the answer failing on the way.
+    if (path === 'Auth/Permissions') {
       accessCalls += 1
-      if (scenario.access === 'throws') return route.fulfill({ status: 500, body: 'boom' })
-      // 🚩 A BARE 403 — no envelope, no code: what a portal call to a route
-      // missing `.AllowCookieSession()`, or refused by the grant filter, comes
-      // back as (224). A refusal, not an outage.
-      if (scenario.access === 'refused') return route.fulfill({ status: 403, body: 'Forbidden' })
-      return route.fulfill(envelope({ canOpenLoyMember: scenario.access === 'granted' }))
+      if (scenario.access === 'throws') return route.fulfill(permissionsFailed())
+      return route.fulfill(
+        permissions({ 'LoyMember:03': scenario.access === 'granted', 'LoyaltyGroup:03': scenario.groupsAccess === 'view' }),
+      )
     }
 
-    // Ticket 635 — the loyalty-groups probe and list (BackOffice 3174/3176, stubbed).
-    if (path === 'LoyGroupWeb/Access') {
-      if (scenario.groupsAccess === 'throws') return route.fulfill({ status: 500, body: 'boom' })
-      if (scenario.groupsAccess === 'view')
-        return route.fulfill(envelope({ canView: true, canMaintain: false }))
-      return route.fulfill(envelope({}))
-    }
+    // Ticket 635 — the loyalty-groups list (BackOffice 3174/3176, stubbed).
     if (path === 'LoyGroupWeb/Groups') {
       groupListCalls.push(new URL(url).search)
       return route.fulfill(envelope(GROUP_LIST))
@@ -504,7 +496,7 @@ async function run() {
       return route.fulfill(notFound(`Customer ${key} doesn't exists`))
     }
 
-    // Any other probe → benign empty success so no other leaf crashes.
+    // Anything else → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
   })
 
@@ -733,9 +725,9 @@ async function run() {
     /Searched/.test(coldBody) && /100001293/.test(coldBody))
 
   // ---- Scenario 10: granted — the nav offers the screen (234) -------------
-  // Every OTHER leaf's probe answers `{}` from the catch-all above, so a
-  // fail-closed shell leaves exactly one group standing: this one.
-  // Counted from this load onwards: every earlier `goto` legitimately re-probed,
+  // The answer holds no OTHER leaf's key, so a fail-closed shell leaves exactly
+  // one group standing: this one.
+  // Counted from this load onwards: every earlier `goto` legitimately re-asked,
   // and what is being asserted is one call per PAGE LIFE shared by two consumers.
   accessCalls = 0
   await page.goto(BASE + '/')
@@ -754,7 +746,7 @@ async function run() {
   await lookUp.waitFor({ timeout: 10000 })
   check('the item routes to the lookup screen', /\/loy\/members$/.test(page.url()), page.url())
   check(
-    'the nav and the screen share ONE probe call, not one each',
+    'the nav and the screen share ONE permissions call, not one each',
     accessCalls === 1,
     `accessCalls=${accessCalls}`,
   )
@@ -781,14 +773,14 @@ async function run() {
     calls.join(', '),
   )
 
-  // ---- Scenario 12: 🚩 a probe that THROWS is a denial --------------------
+  // ---- Scenario 12: 🚩 a permissions answer that THROWS is a denial --------
   scenario.access = 'throws'
   calls = []
   await page.goto(BASE + '/loy/members/100001293')
   await page.getByRole('alert').first().waitFor({ timeout: 15000 })
   const thrownBody = await page.textContent('body')
   check(
-    '🚩 a thrown probe FAILS CLOSED — the screen is denied, not opened',
+    '🚩 a thrown permissions answer FAILS CLOSED — the screen is denied, not opened',
     (await page.getByLabel('Look up a loyalty member', { exact: true }).count()) === 0 &&
       !/Nouf Al-Harbi/.test(thrownBody),
   )
@@ -797,29 +789,16 @@ async function run() {
     /unavailable|could not be checked|500/.test(thrownBody),
   )
   check(
-    '🚩 the Loyalty group is absent for a thrown probe too',
+    '🚩 the Loyalty group is absent for a thrown answer too',
     (await rail.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
   )
   check(
-    '🚩 a thrown probe never fires the member read either',
+    '🚩 a thrown answer never fires the member read either',
     calls.length === 0,
     calls.join(', '),
   )
-  // ---- Scenario 13: 🚩 a bare 403 reads as a REFUSAL, not an outage --------
-  scenario.access = 'refused'
-  calls = []
-  await page.goto(BASE + '/loy/members')
-  await page.getByRole('alert').first().waitFor({ timeout: 15000 })
-  const refusedBody = await page.textContent('body')
-  check(
-    '🚩 a bare 403 denies with the ADMINISTRATOR sentence, not "try again in a moment"',
-    /No access to Loyalty/.test(refusedBody) && !/Try again in a moment/.test(refusedBody),
-  )
-  check(
-    'a 403 hides the group and never fires the member read either',
-    (await rail.getByRole('button', { name: /^Loyalty$/ }).count()) === 0 && calls.length === 0,
-    calls.join(', '),
-  )
+  // (Scenario 13, a bare 403 on the old probe, has no counterpart since oms 909: a 403 invalidates the one
+  // answer rather than standing in for it.)
   scenario.access = 'granted'
 
   // ---- Ticket 235: the member header ------------------------------------
@@ -1011,12 +990,8 @@ async function run() {
     (await groupsRow.count()) === 0 && !/In no group/.test(ungrantedEmpty),
   )
 
-  scenario.groupsAccess = 'throws'
-  await showMember({ groups: ['VIP'] })
-  await page.waitForTimeout(300)
-  check('🚩 a groups probe that throws hides the row (fail-closed)', (await groupsRow.count()) === 0)
-  check('and the member header still renders', /Gold/.test(await page.textContent('body')))
-  scenario.groupsAccess = null
+  // (A groups probe that threw while the member read held has no counterpart since oms 909: one answer carries
+  // both keys, and its failure is scenario 12.)
   scenario.memberOver = {}
 
   // ---- Ticket 236: the tab shell and the Activities tab -------------------

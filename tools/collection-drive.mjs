@@ -1,6 +1,6 @@
 // Collections drive (ticket 253) — drives the REAL app in Chromium against a MOCKED
-// CollectionWeb/Access envelope, because SIS.Api's CollectionWeb door doesn't exist yet
-// (BackOffice 1090; ticket 259 is the wave-joining event). This is the wave's screens
+// `Auth/Permissions` answer (oms 909; the Collection keys — `CollectionInquiry:03`, `AcrInquiry:03`, …)
+// and stubbed CollectionWeb doors (BackOffice 1090; ticket 259 is the wave-joining event). This is the wave's screens
 // drive — later slices (254–258) EXTEND this file rather than starting a third.
 //
 // Verifies ticket 253's flow Proof bullet:
@@ -10,10 +10,9 @@
 //      render the denied backstop rather than a broken screen;
 //   3. none granted → NO group at all, and a hand-typed /collection/collections renders
 //      the denied backstop;
-//   4. the probe FAILING (a bare 403, which is exactly what the unbuilt door answers
-//      today) → same as none-granted, hidden rather than crashing — and a 403 reads as
-//      a REFUSAL (see an administrator), while a 500 reads as UNREACHABLE (try again).
-//      Both deny; only the sentence differs.
+//   4. the permissions answer FAILING (the server's fail-closed 500) → the group hidden
+//      rather than crashing, and the page reads UNREACHABLE (try again), not the
+//      administrator sentence.
 //
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs).
 //
@@ -22,6 +21,7 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -121,7 +121,7 @@ function sheetCells(files) {
 }
 
 // ---- ticket 254: the Cash Collections rows ----
-// A stubbed CollectionWeb/Collections envelope, for the same reason Access is
+// A stubbed CollectionWeb/Collections envelope, because the door did not exist yet
 // stubbed: the door is BackOffice 1090's and ticket 259 is the wave-joining event.
 const pad = (n) => String(n).padStart(2, '0')
 const todayIso = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -368,7 +368,7 @@ function makeBalances() {
 }
 
 // scenario state, mutated between reloads
-let scenario = { accessBody: ALL, access403: false }
+let scenario = { accessBody: ALL }
 let accessCalls = 0
 let collectionsRows = makeRows(347)
 let acrRows = makeAcrRows(213)
@@ -407,19 +407,11 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'CollectionWeb/Access') {
+    if (path === 'Auth/Permissions') {
       accessCalls++
-      // The bare 403 the default-deny inversion (issue 802) hands a browser while
-      // the door is unmarked — the realistic pre-1090 answer, not a hypothetical.
-      if (scenario.access403)
-        return route.fulfill(
-          envelope(null, { status: 403, success: false, message: 'Forbidden' }),
-        )
-      if (scenario.access500)
-        return route.fulfill(
-          envelope(null, { status: 500, success: false, message: 'Server error' }),
-        )
-      return route.fulfill(envelope(scenario.accessBody))
+      // The one permissions answer (oms 909); a 500 is the server's fail-closed answer.
+      if (scenario.access500) return route.fulfill(permissionsFailed(500))
+      return route.fulfill(permissions(flagKeys('Collection', scenario.accessBody)))
     }
     // The two DOCUMENT doors (ticket 259). This is the screens drive, so it does not assert
     // anything about how a document looks — collection-print-drive.mjs owns that. What it does
@@ -465,14 +457,14 @@ async function run() {
       lastAttemptsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
       return route.fulfill(envelope(attemptRows))
     }
-    // Any other probe/endpoint → benign empty success so no other leaf crashes.
+    // Any other endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
   })
 
   // The four receipts and four ACRs, read out of the app's OWN fixture modules rather than copied
   // in here: they are TypeScript, this drive is plain node, and vite is already serving `/src/**.ts`
   // as a transformed ES module. One transcription, and it is the one the tests pin.
-  scenario = { accessBody: ALL, access403: false }
+  scenario = { accessBody: ALL }
   await page.goto(BASE + '/login')
   await page.waitForLoadState('networkidle')
   DOCS = await page.evaluate(async () => {
@@ -491,7 +483,7 @@ async function run() {
   const mainText = async () => page.locator('main').innerText()
 
   // ---- Scenario 1: all four granted ----
-  scenario = { accessBody: ALL, access403: false }
+  scenario = { accessBody: ALL }
   for (const [key, route] of Object.entries(ROUTES)) {
     await page.goto(BASE + route)
     await page.waitForLoadState('networkidle')
@@ -505,19 +497,19 @@ async function run() {
   check('all granted → the Collections group renders', (await groupCount()) === 1)
   check('all granted → four items under it', (await railLinks()) === 4, `${await railLinks()} links`)
 
-  // ONE probe for the whole area: four leaves + the screen's own guard share the
-  // key, so react-query dedupes them into a single request per page life.
+  // ONE permissions call: four leaves + the screen's own guard read the one answer,
+  // so react-query dedupes them into a single request per page life.
   accessCalls = 0
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
   check(
-    'the four leaves + the screen guard cost ONE CollectionWeb/Access call',
+    'the four leaves + the screen guard cost ONE Auth/Permissions call',
     accessCalls === 1,
     `${accessCalls} calls`,
   )
 
   // ---- Scenario 2: one granted → a ragged group ----
-  scenario = { accessBody: { ...NONE, canOpenDeposits: true }, access403: false }
+  scenario = { accessBody: { ...NONE, canOpenDeposits: true } }
   await page.goto(BASE + ROUTES.deposits)
   await page.waitForLoadState('networkidle')
   check('Deposits only → the group is still there', (await groupCount()) === 1)
@@ -539,7 +531,7 @@ async function run() {
   )
 
   // ---- Scenario 3: none granted ----
-  scenario = { accessBody: NONE, access403: false }
+  scenario = { accessBody: NONE }
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
   check('none granted → NO Collections group at all', (await groupCount()) === 0)
@@ -552,34 +544,20 @@ async function run() {
   )
   check('none granted → and NOT a blank screen', noneText.trim().length > 0)
 
-  // ---- Scenario 4: the probe FAILS (the bare 403 the unbuilt door answers today) ----
-  scenario = { accessBody: null, access403: true }
-  for (const route of [ROUTES.acrs, ROUTES.attempts]) {
-    await page.goto(BASE + route)
-    await page.waitForLoadState('networkidle')
-    check(`probe 403 → ${route} hides the group (fails closed)`, (await groupCount()) === 0)
-    const text = await mainText()
-    check(
-      `probe 403 → ${route} renders the denied backstop, not a crash`,
-      text.includes(DENIED),
-      text.replace(/\n/g, ' ').slice(0, 80),
-    )
-  }
-
-  // ---- Scenario 5: the probe is UNREACHABLE (500) → deny, but the other sentence ----
-  scenario = { accessBody: null, access403: false, access500: true }
+  // ---- Scenario 4: the permissions answer FAILS (500) → deny, with the unreachable sentence ----
+  scenario = { accessBody: null, access500: true }
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
-  check('probe 500 → the group is hidden too (fails closed)', (await groupCount()) === 0)
+  check('answer 500 → the group is hidden (fails closed)', (await groupCount()) === 0)
   const unreachable = await mainText()
   check(
-    'probe 500 → the UNREACHABLE sentence (a retry), not the administrator one',
+    'answer 500 → the UNREACHABLE sentence (a retry), not the administrator one',
     unreachable.includes('unavailable') && !unreachable.includes(DENIED),
     unreachable.replace(/\n/g, ' ').slice(0, 90),
   )
 
   // ================= ticket 254 — Cash Collections (opens BLANK since 423) =================
-  scenario = { accessBody: ALL, access403: false, access500: false }
+  scenario = { accessBody: ALL, access500: false }
   const TODAY = todayIso()
   const LANDING_TITLE = 'Press Search to see collections'
 
@@ -1704,7 +1682,7 @@ async function run() {
   // ⚠️ A RAGGED SESSION is an ordinary one: the four grants are independent, so an
   // account that can read ACRs and not Cash Collections exists. It keeps Form ▸
   // and is not offered a drill-down that would walk it into a denial screen.
-  scenario = { accessBody: { ...NONE, canOpenAcrs: true }, access403: false, access500: false }
+  scenario = { accessBody: { ...NONE, canOpenAcrs: true }, access500: false }
   await page.goto(BASE + ROUTES.acrs)
   await page.waitForLoadState('networkidle')
   // ACRs land blank since spec 2423 (ticket 425): the rows come with the first Search.
@@ -1718,7 +1696,7 @@ async function run() {
       (await raggedActions.first().getAttribute('href')) === '/collection/acr/three-pages',
     `${await raggedActions.count()} actions`,
   )
-  scenario = { accessBody: ALL, access403: false, access500: false }
+  scenario = { accessBody: ALL, access500: false }
 
   await page.goto(BASE + '/collection/acr/three-pages')
   await page.waitForLoadState('networkidle')
@@ -2206,7 +2184,7 @@ async function run() {
     )
   }
 
-  // Scenarios 4 and 5 intentionally 403/500 CollectionWeb/Access, which the browser logs
+  // Scenario 4 intentionally 500s Auth/Permissions, which the browser logs
   // as a resource-load failure — expected, not an app fault. Filter them out.
   const realErrors = errors.filter((e) => !/status of (403|500)/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))

@@ -25,8 +25,8 @@ import { money, termsTimeline } from './terms-timeline'
  * effective-dated terms as a timeline. A new terms row closes the previous one the day before it
  * starts; rows are never edited or deleted, so there is no edit or delete affordance on a row.
  *
- * Behind `canManageTerms` on the ONE Deliverect probe, the same predicate the menu leaf reads. Its
- * doors are BackOffice 2627. **Add platform** shows only with the probe's `canAddPlatform` — its
+ * Behind `canManageTerms` (`DeliverectTerms:03`), the same predicate the menu leaf reads. Its
+ * doors are BackOffice 2627. **Add platform** shows only with `DeliverectPlatformAdd:03` — its
  * own grant, since a platform is a new SAP credit-customer route; the door re-checks it.
  */
 export default function TermsPage() {

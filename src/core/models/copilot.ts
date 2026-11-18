@@ -309,7 +309,7 @@ export interface CopilotAskRequest {
   confirmation?: CopilotConfirmation
   /**
    * BackOffice spec 3632 Q27 (3673, oms-react 888): the panel's SQL mode toggle. Sent `true` only while the toggle is on,
-   * and the toggle shows only on `Analytics/Access`'s `canSql`. The server reads it per request (send it on a reply to
+   * and the toggle shows only on `canSqlAnalytics` (`Analytics:07`). The server reads it per request (send it on a reply to
    * an ask too) and ignores it, never refuses, for a reader without the grant or off the panel. Absent: a normal question.
    */
   sqlMode?: boolean

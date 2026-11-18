@@ -1,14 +1,14 @@
 // Copilot drive (ticket 735, spec 734 D7/D10/D11/D12) — "ask-and-answer".
 //
-// Drives the REAL app in Chromium against a STUB of the two doors — `Copilot/Access` and `Copilot/Ask`
-// are BackOffice BO-1, unbuilt, so there is no live SIS.Api to point at. The stub answers EXACTLY the
+// Drives the REAL app in Chromium against a STUB of the grant and the door — `Copilot:01` in the one
+// `Auth/Permissions` answer (oms 909) and `Copilot/Ask` (BackOffice BO-1). The stub answers EXACTLY the
 // D10 wire, camelCase:
-//   GET  Copilot/Access → { canAsk, canUseMcp }        (granted, refused, absent = a bare 404)
+//   GET  Auth/Permissions → `Copilot:01` held (granted), absent (refused), or the answer failing (a 500)
 //   POST Copilot/Ask    { question, conversationId? }
 //        → { conversationId, questionNo, answer, orderRefs, trace, outcome, stoppedEarly, servedBy, askedAt }
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl") it asserts:
 //   1. no grant (`canAsk: false`): no button in the top bar, and `/copilot` shows the denied card;
-//   2. an absent probe (a bare 404): no button, `/copilot` closed — the probe fails closed;
+//   2. a failed permissions answer (a 500): no button, `/copilot` closed — the answer fails closed;
 //   3. granted: the button opens the panel, which shows the two D12 example questions;
 //   4. an example fills the question box (the order placeholder selected, so typing replaces it);
 //   5. sending shows the working state for the whole call, posts `{ question }`, then shows the stubbed
@@ -23,6 +23,7 @@
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. DRIVE_PORT=5201 node tools/copilot-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -98,9 +99,9 @@ async function open(dir, { access = 'granted', onAsk = null } = {}) {
         envelope({ success: true, errorCode: null, message: null, challengeId: null, requiresTotp: false, mustChangePassword: false, displayName: session.userId, userId: session.userId }),
       )
     }
-    if (p === 'Copilot/Access') {
-      if (access === 'absent') return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
-      return route.fulfill(envelope({ canAsk: access === 'granted', canUseMcp: false }))
+    if (p === 'Auth/Permissions') {
+      if (access === 'failed') return route.fulfill(permissionsFailed(500))
+      return route.fulfill(permissions(access === 'granted' ? ['Copilot:01'] : []))
     }
     if (p === 'Copilot/Ask') {
       asks.push({ method: req.method(), body: req.postDataJSON() })
@@ -109,7 +110,6 @@ async function open(dir, { access = 'granted', onAsk = null } = {}) {
       await new Promise((r) => setTimeout(r, ASK_DELAY_MS))
       return route.fulfill(envelope(ANSWER))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, asks, session }
@@ -144,16 +144,16 @@ async function drive(dir) {
     await context.close()
   }
 
-  // ── 2: an absent probe ──
+  // ── 2: a failed permissions answer ──
   {
-    const { context, page } = await open(dir, { access: 'absent' })
+    const { context, page } = await open(dir, { access: 'failed' })
     await page.goto(`${BASE}/`)
     await page.locator('#layout-topbar').waitFor({ timeout: 20000 })
     await page.waitForTimeout(1200)
-    check(`${label}: absent probe (404) — no button (fails closed)`, (await button(page).count()) === 0)
+    check(`${label}: failed answer (500) — no button (fails closed)`, (await button(page).count()) === 0)
     await page.goto(`${BASE}/copilot`)
     await page.locator('[role="alert"]', { hasText: WORDS.unavailable }).waitFor({ timeout: 20000 })
-    check(`${label}: absent probe — /copilot stays closed`, (await page.locator('[data-copilot-panel]').count()) === 0)
+    check(`${label}: failed answer — /copilot stays closed`, (await page.locator('[data-copilot-panel]').count()) === 0)
     await context.close()
   }
 
@@ -529,7 +529,7 @@ async function followUpAndRefusals(dir) {
 //   i. with `/copilot` and the top-bar sheet open together, a question asked in one locks BOTH boxes, and
 //      only one ask is ever in flight; its answer shows in both;
 //   j. "New conversation" while a question is in flight drops that question's late reply;
-//   k. signing out and signing in as another user empties the thread, and the probe is asked afresh.
+//   k. signing out and signing in as another user empties the thread, and Auth/Permissions is asked afresh.
 const SLOW_MS = 1500
 const slowly = (body) =>
   new Promise((r) => setTimeout(() => r(reply(body.question === 'late reply' ? 'c-late' : 'c-0900', 1, { answer: `Answer to ${body.question}.` })), SLOW_MS))
@@ -620,9 +620,9 @@ async function inFlightAndUserChange(dir) {
   await onPage.locator('[data-copilot-turn] [data-copilot-answer]').first().waitFor({ timeout: 10000 })
   check(`${label}: the next question starts its own conversation (no id posted)`, JSON.stringify(asks.at(-1).body) === JSON.stringify({ question: 'after the drop' }), JSON.stringify(asks.at(-1).body))
 
-  // k. Sign out, sign in as another user: the thread is empty and the probe is asked again.
+  // k. Sign out, sign in as another user: the thread is empty and Auth/Permissions is asked again.
   await page.evaluate(() => (window.__noReload = true))
-  const probesBefore = calls.filter((c) => c === 'Copilot/Access').length
+  const permissionsBefore = calls.filter((c) => c === 'Auth/Permissions').length
   await page.locator('[data-user-menu-button]').click()
   await page.locator('[data-user-menu] [role="menuitem"]').last().click()
   await page.locator('#userId').waitFor({ timeout: 20000 })
@@ -631,7 +631,7 @@ async function inFlightAndUserChange(dir) {
   await page.locator('#password').press('Enter')
   await button(page).waitFor({ timeout: 20000 })
   check(`${label}: signing in again is no reload (a reload would empty the store anyway)`, (await page.evaluate(() => window.__noReload)) === true && session.userId === 'b.user')
-  check(`${label}: the new user's grant is asked afresh`, calls.filter((c) => c === 'Copilot/Access').length > probesBefore)
+  check(`${label}: the new user's grant is asked afresh`, calls.filter((c) => c === 'Auth/Permissions').length > permissionsBefore)
   await button(page).click()
   await sheet.locator('[data-copilot-panel]').waitFor({ timeout: 20000 })
   check(

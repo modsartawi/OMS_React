@@ -1,6 +1,7 @@
 // Bonus-buy maintenance loyalty-group picker drive (oms ticket 636; BackOffice spec 3173, doors 3174 + 3179).
 //
-// Drives the REAL app in Chromium against STUBBED envelopes: `LoyGroupWeb/Access`, `LoyGroupWeb/Groups`
+// Drives the REAL app in Chromium against STUBBED envelopes: `Auth/Permissions` (`BbyMaintain:03/04`, and
+// `LoyaltyGroup:03` for the view grant; oms 909), `LoyGroupWeb/Groups`
 // (3174) and the bonus-buy save's new loyalty-group findings (3179) are deployed nowhere yet. It asserts:
 //   1. with the view grant, the Engine Rules "Loyalty groups" field is a picker over
 //      `Groups?includeInactive=true`: the inactive group greyed and marked, the bonus-buy's undefined code
@@ -17,6 +18,7 @@
 //   2. DRIVE_PORT=5206 node tools/bby-loy-groups-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -68,7 +70,7 @@ const UNKNOWN = refusal('BBY-LOYGROUP-UNKNOWN', 'Loyalty groups: STAFF_X is not 
 const INACTIVE = refusal('BBY-LOYGROUP-INACTIVE', 'Loyalty groups: RAMADAN_24 is inactive.', 'مجموعات الولاء: RAMADAN_24 غير نشطة.')
 const OTHER = refusal('BBY-QUANTITY', 'Buy line 1: the quantity must be more than 0.', 'سطر الشراء ١: يجب أن تكون الكمية أكبر من ٠.')
 
-async function open(dir, { canView, probe404 = false }) {
+async function open(dir, { canView }) {
   const browser = await chromium.launch()
   const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } })
   const page = await context.newPage()
@@ -84,11 +86,10 @@ async function open(dir, { canView, probe404 = false }) {
     const req = route.request()
     const [path, qs = ''] = req.url().split('/api/')[1].split('?')
     if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'BbyMaintainWeb/Access') return route.fulfill(envelope({ screenAllowed: true, canTest: true }))
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(['BbyMaintain:03', 'BbyMaintain:04', ...(canView ? ['LoyaltyGroup:03'] : [])]))
     if (path === 'BbyMaintainWeb/Promotion/P000000001') return route.fulfill(envelope(PROMO))
     if (path === 'BbyMaintainWeb/BonusBuy/OMS000000124' && req.method() === 'GET') return route.fulfill(envelope(DOC))
-    if (path === 'LoyGroupWeb/Access' && probe404) return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
-    if (path === 'LoyGroupWeb/Access') return route.fulfill(envelope({ canView, canMaintain: false }))
     if (path === 'LoyGroupWeb/Groups') {
       asked.push(qs)
       return route.fulfill(envelope(GROUPS))
@@ -189,29 +190,10 @@ async function denied(dir) {
   await browser.close()
 }
 
-/** Review fix 2 (owner decision): a probe that 404s (the door deployed nowhere) keeps the pre-636 free-text box. */
-async function probeMissing(dir) {
-  const { browser, page, errors, posts, asked } = await open(dir, { canView: false, probe404: true })
-  const field = page.locator('[data-testid="bby-engine-loyGroups"]')
-  await field.waitFor()
-  check(`${dir} 6. a 404 probe keeps the editable free-text box, not read-only text`,
-    (await field.evaluate((e) => e.tagName)) === 'TEXTAREA' && (await field.isEditable()) && (await field.inputValue()) === 'GOLD,STAFF_X')
-  check(`${dir} 6. …with no picker and no groups list asked`, (await page.locator('[data-multi-select]').count()) === 0 && asked.length === 0)
-  await field.fill('GOLD,SILVER')
-  await page.locator('button', { hasText: /^Save$/ }).click()
-  await page.waitForFunction(() => document.querySelector('[role="status"]'), null, { timeout: 5000 }).catch(() => {})
-  const sv = posts.find(([op]) => op === 'BonusBuy/Save')?.[1]
-  check(`${dir} 6. Save posts the typed text`, sv?.engineRules?.loyGroups === 'GOLD,SILVER', JSON.stringify(sv?.engineRules?.loyGroups))
-  const real = errors.filter((e) => !/status of 4\d\d/.test(e))
-  check(`${dir} 6. no page errors`, real.length === 0, real.slice(0, 3).join(' | '))
-  await browser.close()
-}
-
 async function run() {
   for (const dir of ['ltr', 'rtl']) {
     await granted(dir)
     await denied(dir)
-    await probeMissing(dir)
   }
   const failed = results.filter((r) => !r.pass).length
   console.log(`\n${results.length - failed}/${results.length} passed`)

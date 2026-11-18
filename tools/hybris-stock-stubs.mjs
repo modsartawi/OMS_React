@@ -7,7 +7,7 @@
 // [{ errorCode, internalErrorCode, errorMessage }], data }; every errorMessage is "<English> / <Arabic>"; a
 // missing grant is a BARE 403. The staging walk (851) still owes the proof against the live doors.
 //
-//   GET  HybrisStockWeb/Access                                   → { canView, canManage }
+//   GET  Auth/Permissions                                        → screens: HybrisStock:03 (canView), HybrisStock:06 (canManage)
 //   GET  HybrisStockWeb/Status                                   → { mode, target, targetPath, …, alerts: [{ kind, title, raisedAt }] }
 //   GET  HybrisStockWeb/Stores?flag=&health=&q=                  → store rows (open stores + marked closed ones)
 //   POST HybrisStockWeb/Stores/{store}/Mark    { reason }        → the row; HYS-00001/2/3/4
@@ -25,6 +25,7 @@
 //   GET  HybrisStockWeb/Pushes/{id}/Lines?store=&material=&skip=&take= → { pushId, linesKept, total, lines }; HYS-00020
 //   GET  HybrisStockWeb/Stores/{store}/Materials/{n}/History?take= → [{ pushId, type, status, sentAt, quantity }]
 import { createHash } from 'node:crypto'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 
 export const envelope = (data, { status = 200, success = true, message = '', errorCode } = {}) => ({
   status,
@@ -306,7 +307,7 @@ const WORDS = { take: (qs, d) => Number(qs.get('take') ?? d) }
 
 /**
  * Install the stubs on a page. Each browser context holds its OWN state (stores, materials, pushes),
- * so a write in one test never leaks into the next. `opts.access` (an object, or 403), `opts.mode`,
+ * so a write in one test never leaks into the next. `opts.access` (`{ canView, canManage }` → the permissions answer's keys, or 403 → a failed answer), `opts.mode`,
  * `opts.alerts`, `opts.status` ('ok' | 'fail'), `opts.extraPushes` (N older deltas, for Show more). Returns the recorded calls and a `gate` the drive
  * releases to finish a slow push.
  */
@@ -344,9 +345,8 @@ export async function installStubs(page, opts = {}) {
     calls.push(p)
     const json = () => req.postDataJSON()
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'HybrisStockWeb/Access') return route.fulfill(access === 403 ? bare403 : envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(access === 403 ? permissionsFailed() : permissions(flagKeys('HybrisStock', access)))
     if (!p.startsWith('HybrisStockWeb/')) {
-      if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
       return route.fulfill(envelope([]))
     }
     // Every other door wants the view grant; a write wants manage.

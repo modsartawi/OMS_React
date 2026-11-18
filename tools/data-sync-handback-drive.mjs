@@ -20,6 +20,7 @@
 //   2. node tools/data-sync-handback-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -115,9 +116,7 @@ async function open({ mode = 'Apply', status = 'Running', actionSyncOperate = tr
     const url = new URL(req.url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: dataSyncOperate }))
-    if (p === 'ActionSync/Access')
-      return route.fulfill(envelope({ screenAllowed: true, canOperate: actionSyncOperate, canOnboard: false, canEnrol: false, canReplay: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DataSyncConsole:03', ...(dataSyncOperate ? ['DataSyncConsole:06'] : []), 'ActionSyncConsole:03', ...(actionSyncOperate ? ['ActionSyncConsole:06'] : [])]))
     if (p === 'DataSync/Health') return route.fulfill(envelope({ stateDb: 'Ok', workerEnabled: true, lastWorkerTick: new Date().toISOString() }))
     if (p === 'DataSync/Profiles') return route.fulfill(envelope([]))
     if (p === 'ActionSync/Stores/Control' && req.method() === 'POST') {
@@ -141,7 +140,6 @@ async function open({ mode = 'Apply', status = 'Running', actionSyncOperate = tr
       jobPages.push(pg)
       return route.fulfill(envelope(JOBS.slice((pg - 1) * size, pg * size)))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/admin/data-sync/campaigns/${CID}`)

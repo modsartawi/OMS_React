@@ -14,7 +14,7 @@ import { usePermissions } from '@/core/permissions'
  *
  * Returns the footer, or `undefined` — so the drawer draws no footer at all — unless the campaign
  * is report-only (only those jobs write a manifest) and the reader holds `DataSync.Operate` (the
- * shared access probe; the door re-checks). Absent, never disabled.
+ * shared permissions answer; the door re-checks). Absent, never disabled.
  */
 export function useChangesLinkFooter(mode: Mode | undefined): ((job: Job) => ReactNode) | undefined {
   const permissions = usePermissions()

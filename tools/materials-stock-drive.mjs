@@ -5,7 +5,7 @@
 // `MaterialWeb/*` doors is built, so there is no live SIS.Api to point at. Every stub is built from
 // the contract's own example values (material 101234, stores 1001/1002 "Riyadh - Olaya", the
 // CENTRAL set of 212, ATP 12 / SAP 15 / POS -2 / OMS -1 at 2026-10-09T10:42:00):
-//   GET  MaterialWeb/Access                       → { canSearchMaterials, canCheckStock, canCheckGs1 }
+//   GET  Auth/Permissions                       → the screen keys the drive grants (`permissions-stub.mjs`)
 //   POST MaterialWeb/Stock                        → { cells, storesAsked, materialsAsked }; MAT-00004
 //   GET  MaterialWeb/StoreSets?kind=              → [{ value, label, storeCount }]
 //   GET  MaterialWeb/StoreSets/{kind}/{value}     → [{ storeCode, storeName, city, closed }]
@@ -32,6 +32,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -132,7 +133,7 @@ async function open({ access = ALL } = {}) {
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Material', access)))
     if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'MaterialWeb/Stock') {
       const body = JSON.parse(route.request().postData() ?? '{}')
@@ -155,8 +156,6 @@ async function open({ access = ALL } = {}) {
       setCalls.push(`${decodeURIComponent(set[1])}/${decodeURIComponent(set[2])}?${url.searchParams.toString()}`)
       return route.fulfill(envelope(setStores(decodeURIComponent(set[1]), decodeURIComponent(set[2]), url.searchParams.get('includeClosed') === 'true')))
     }
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, stockBodies, setCalls }

@@ -3,8 +3,8 @@
 //   1. run the app:  npx vite --port 5210
 //   2. node tools/callcenter-drive.mjs
 //
-// Nothing about the app is stubbed except the wire. `CallCenterWeb/Access` and
-// `CallCenterWeb/Open` DO NOT EXIST server-side yet (BackOffice 800 carries the grant,
+// Nothing about the app is stubbed except the wire. `Auth/Permissions` (`CallCenter:03`, oms 909)
+// is stubbed; `CallCenterWeb/Open` DID NOT EXIST server-side yet (BackOffice 800 carries the grant,
 // 801 the route table), so this run answers them from the contract's own committed
 // fixture — `.issues/assets/136-cc-contract/01-open-empty.json` — rather than from a
 // hand-rolled mock. That is the point: the client is driven against the frozen shape.
@@ -19,14 +19,12 @@
 //        console fills the content area below the bar with no page scroll;
 //     3. the receipt's payable is the fixture's `totals.payable`, and *Place order* is
 //        disabled with `submitBlockers` named under it (nothing client-computed);
-//     4. the nav leaf appears for a granted agent, on ONE shared Access call.
+//     4. the nav leaf appears for a granted agent, on ONE shared Auth/Permissions call.
 //   aRefusedConsoleIsNotADeadEnd
-//     5. canOpenConsole:false → the denial, with BOTH ways home, and NO Open call;
-//     6. an ERRORED probe → the "check unavailable" copy (not "ask for a grant"),
+//     5. no `CallCenter:03` → the denial, with BOTH ways home, and NO Open call;
+//     6. an ERRORED permissions answer → the "check unavailable" copy (not "ask for a grant"),
 //        both ways home, and still no Open call;
-//     7. a probe that throws CONSOLE_NOT_GRANTED → the DENIAL copy, not "server
-//        problem, try again shortly" — the machine code, not `isError`, decides;
-//     8. the door refusing Open with CONSOLE_NOT_GRANTED (the probe is show/hide
+//     8. the door refusing Open with CONSOLE_NOT_GRANTED (the answer is show/hide
 //        hygiene, never the enforcement) → the denial, with no dead "try again";
 //     9. the leaf is absent from the nav in both refused cases.
 //   (The rail is collapsed by default since 385, so a group reads by its aria-label.)
@@ -197,6 +195,7 @@
 //        an Arabic-layout Ctrl+K (key "ن" on KeyK) opens it.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, ALL_SCREENS } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -828,12 +827,11 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
 })
 
 /**
- * A fresh context per scenario — each answers the probe differently, and react-query
+ * A fresh context per scenario — each answers `Auth/Permissions` differently, and react-query
  * caches per page anyway.
  *
- * @param opts.granted `canOpenConsole` the probe answers
- * @param opts.probe   'ok' | 'unreachable' | 'notGranted' — how Access answers:
- *                     a 500 with no code, or a 403 carrying CONSOLE_NOT_GRANTED
+ * @param opts.granted whether the answer holds `CallCenter:03`
+ * @param opts.probe   'ok' | 'unreachable' — how `Auth/Permissions` answers: 'unreachable' is a 500
  * @param opts.door    'ok' | 'notGranted' — whether Open itself refuses
  * @param opts.existing  when set, the FIRST Open answers `refusedExisting` with it
  *                       (163's whole subject); every later Open opens normally
@@ -1302,11 +1300,10 @@ async function open(
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'CallCenterWeb/Access') {
-      if (probe === 'unreachable')
-        return route.fulfill(envelope(null, { status: 500, success: false, message: 'boom' }))
-      if (probe === 'notGranted') return route.fulfill(REFUSAL)
-      return route.fulfill(envelope({ canOpenConsole: granted }))
+    // Every other screen allowed, so the rest of the shell is normal; the console's key per scenario.
+    if (p === 'Auth/Permissions') {
+      if (probe === 'unreachable') return route.fulfill(permissionsFailed(500))
+      return route.fulfill(permissions([...ALL_SCREENS.filter((k) => k !== 'CallCenter:03'), ...(granted ? ['CallCenter:03'] : [])]))
     }
     if (p === 'CallCenterWeb/Open') {
       opens += 1
@@ -1340,11 +1337,6 @@ async function open(
       const result = existing || openState ? freshOpenResult() : OPEN_RESULT
       return route.fulfill(envelope({ ...result, state: speak(result.state) }))
     }
-    // Every other screen's probe: allowed, so the rest of the shell is normal.
-    if (/Access$/.test(p))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
-      )
     return route.fulfill(envelope([]))
   }
   await page.route('**/api/**', apiRoutes)
@@ -1366,9 +1358,9 @@ async function run() {
 
     check('opens exactly one order', count(calls, /^CallCenterWeb\/Open$/) === 1, `${count(calls, /^CallCenterWeb\/Open$/)} Open call(s)`)
     check(
-      'one Access call, shared by the guard (no second probe)',
-      count(calls, /^CallCenterWeb\/Access$/) === 1,
-      `${count(calls, /^CallCenterWeb\/Access$/)} Access call(s)`,
+      'one permissions call, shared by the guard (no second call)',
+      count(calls, /^Auth\/Permissions$/) === 1,
+      `${count(calls, /^Auth\/Permissions$/)} permissions call(s)`,
     )
     check(
       'does not fetch state it was just handed',
@@ -1433,7 +1425,7 @@ async function run() {
     await context.close()
   }
 
-  // ---- 4. the nav leaf, for a granted agent, off the same probe ----
+  // ---- 4. the nav leaf, for a granted agent, off the same answer ----
   {
     const { context, page, calls } = await open(browser, { granted: true })
     await page.goto(`${BASE}/`)
@@ -1444,7 +1436,7 @@ async function run() {
       .locator('button, a')
       .evaluateAll((els) => els.map((e) => e.innerText.trim() || e.getAttribute('aria-label') || ''))
     check('the granted agent sees the Call center group (its one leaf, Console, is under it)', labels.some((l) => /call center/i.test(l)), labels.join(' | '))
-    check('the leaf costs one Access call', count(calls, /^CallCenterWeb\/Access$/) === 1)
+    check('the leaf costs one permissions call', count(calls, /^Auth\/Permissions$/) === 1)
     check('the nav opens no order', count(calls, /^CallCenterWeb\/Open$/) === 0)
     await context.close()
   }
@@ -1472,35 +1464,22 @@ async function run() {
     await context.close()
   }
 
-  // ---- 6. the probe itself errors: unavailable copy, still no order ----
+  // ---- 6. the permissions answer errors: unavailable copy, still no order ----
   {
     const { context, page, calls } = await open(browser, { probe: 'unreachable' })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-notice]').waitFor({ timeout: 10_000 })
 
     check(
-      'an errored probe says the CHECK failed, not "ask for a grant"',
+      'an errored answer says the CHECK failed, not "ask for a grant"',
       (await page.locator('[data-cc-notice]').getAttribute('data-cc-notice')) === 'unavailable',
     )
-    check('an errored probe opens NO order', count(calls, /^CallCenterWeb\/Open$/) === 0)
-    check('an errored probe still carries both ways home', (await page.locator('[data-cc-home]').isVisible()) && (await page.locator('[data-cc-signout]').isVisible()))
+    check('an errored answer opens NO order', count(calls, /^CallCenterWeb\/Open$/) === 0)
+    check('an errored answer still carries both ways home', (await page.locator('[data-cc-home]').isVisible()) && (await page.locator('[data-cc-signout]').isVisible()))
     await context.close()
   }
 
-  // ---- 7. the probe REFUSES with a code: the denial, not the server-fault copy ----
-  {
-    const { context, page, calls } = await open(browser, { probe: 'notGranted' })
-    await page.goto(`${BASE}/callcenter`)
-    await page.locator('[data-cc-notice]').waitFor({ timeout: 10_000 })
-    check(
-      'CONSOLE_NOT_GRANTED reads as a refusal, not "try again shortly"',
-      (await page.locator('[data-cc-notice]').getAttribute('data-cc-notice')) === 'denied',
-    )
-    check('a coded refusal opens NO order', count(calls, /^CallCenterWeb\/Open$/) === 0)
-    await context.close()
-  }
-
-  // ---- 8. the DOOR refuses Open, though the probe admitted ----
+  // ---- 8. the DOOR refuses Open, though the answer admitted ----
   {
     const { context, page } = await open(browser, { granted: true, door: 'notGranted' })
     await page.goto(`${BASE}/callcenter`)
@@ -1527,7 +1506,7 @@ async function run() {
       .locator('button, a')
       .evaluateAll((els) => els.map((e) => e.innerText.trim() || e.getAttribute('aria-label') || ''))
     check(
-      `the leaf is hidden (${scenario.probe === 'unreachable' ? 'probe errored' : 'not granted'})`,
+      `the leaf is hidden (${scenario.probe === 'unreachable' ? 'answer errored' : 'not granted'})`,
       !labels.some((l) => /call center/i.test(l)),
       labels.join(' | '),
     )

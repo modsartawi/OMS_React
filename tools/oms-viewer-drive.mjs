@@ -18,6 +18,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -88,11 +89,10 @@ async function open(browser, access, { forbidWrites = false } = {}) {
     if (req.method() === 'POST') writes.push(p)
     if (req.method() === 'POST' && forbidWrites) return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1017' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', access)))
     if (p === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope([LIST_ROW]))
     const doc = /^SdDocumentWeb\/(Document|Delivery)\/([^/]+)$/.exec(p)
     if (doc && DOCS[doc[2]]) return route.fulfill(envelope(DOCS[doc[2]]))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     if (p.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope({ slots: [] }))
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(p) || /\/(Logs|Outbox|DonorRequests)$/.test(p))
       return route.fulfill(envelope([]))
@@ -161,7 +161,7 @@ async function run() {
       await context.close()
     }
 
-    // E. a stale grant: the probe says change, the door says 403 — the change commands go
+    // E. a stale grant: the answer says change, the door says 403 — the change commands go
     {
       const { context, page, errors, writes } = await open(browser, { ...BASE_ACCESS, canChangeDetail: true }, { forbidWrites: true })
       await openDelivery(page)

@@ -20,6 +20,7 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { envelope, coverageStub, insuranceRulesStub, newCoverageState } from './insurance-rules-stubs.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -62,7 +63,7 @@ async function open(dir, setup) {
     }
     const hit = coverageStub(req.method(), p, body, { state, deny: [], reads, query: url.searchParams, user: 'msartawi' }) ?? insuranceRulesStub(req.method(), p, body, { reads })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, state }

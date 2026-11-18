@@ -17,6 +17,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-authorizations-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -443,11 +444,9 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'Nphies/Access') {
-      if (scenario.accessDown)
-        return route.fulfill(envelope(null, { status: 500, success: false, message: 'down' }))
-      return route.fulfill(envelope(scenario.access))
-    }
+    // `scenario.access` keeps the old flag names (canOpenNphies → Nphies:03); accessDown = the answer fails (500).
+    if (path === 'Auth/Permissions')
+      return route.fulfill(scenario.accessDown ? permissionsFailed() : permissions(flagKeys('Nphies', scenario.access)))
     // 🚩 The lookups answer `{ contractVersion, items }` — SIS.Api's own
     // `NphiesLookupResponse<T>`, because law 10 puts the contract version on the payload
     // model and a bare array has nowhere to hang it. This drive serves the WRAPPED shape
@@ -1316,7 +1315,7 @@ async function run() {
     'no grant → the nav leaf is HIDDEN',
     (await page.getByRole('link', { name: /^Authorizations$/ }).count()) === 0,
   )
-  // The detail is behind the same one probe, and it fails closed the same way — a
+  // The detail is behind the same one permissions answer, and it fails closed the same way — a
   // linkable route is a route somebody can arrive at without passing the list.
   await page.goto(BASE + '/nphies/authorizations/AUTH-1')
   await page.waitForSelector('[role="alert"]', { timeout: 15000 })
@@ -1326,7 +1325,7 @@ async function run() {
       detailCalls === detailCallsBefore + 1,
   )
 
-  // ---- Scenario 24: an errored probe FAILS CLOSED -------------------------
+  // ---- Scenario 24: an errored permissions answer FAILS CLOSED -------------------------
   // 🚩 The grant goes back to TRUE first. Without it scenario 19's
   // `canOpenNphies:false` is still in force and both assertions below would pass
   // with the 500 branch deleted — the path this scenario exists for, untested.
@@ -1336,7 +1335,7 @@ async function run() {
   await page.waitForSelector('[role="alert"]', { timeout: 15000 })
   const probeDown = await page.locator('main').innerText()
   check(
-    '🚩 an ERRORED probe fails closed — the screen stays shut',
+    '🚩 an ERRORED permissions answer fails closed — the screen stays shut',
     (await page.getByRole('button', { name: /^Search$/ }).count()) === 0,
   )
   check(

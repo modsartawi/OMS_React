@@ -17,6 +17,7 @@
 //   1. run the app:  npx vite --port 5263 --strictPort
 //   2. DRIVE_PORT=5263 node tools/action-types-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -80,8 +81,7 @@ async function open(dir, { canEdit = true, stale = false, moved = false } = {}) 
     const body = req.postData() ? JSON.parse(req.postData()) : null
     calls.push({ method: req.method(), p, body })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: false, canOpenDetail: false }))
-    if (p === 'SdDocTypeConfigWeb/Access') return route.fulfill(envelope({ canViewDocTypeConfig: true, canEditDocTypeConfig: canEdit }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', ...(canEdit ? ['DocumentList:03', 'SdDocTypeConfig:06'] : [])]))
     if (p === 'SdDocTypeConfigWeb/ActionTypeCategories') return route.fulfill(envelope(['D', 'O', 'T', 'X']))
     if (p === 'SdDocTypeConfigWeb/ActionTypeCategories/O')
       return route.fulfill(envelope({ category: 'O', actionTypes: Object.values(rows), affectedTypes: AFFECTED_O }))
@@ -99,7 +99,6 @@ async function open(dir, { canEdit = true, stale = false, moved = false } = {}) 
       rows[code] = { ...body.after }
       return route.fulfill(envelope(rows[code]))
     }
-    if (p.endsWith('/Access')) return route.fulfill(envelope({}))
     return route.fulfill(envelope(null))
   })
   return { context, page, errors, calls }

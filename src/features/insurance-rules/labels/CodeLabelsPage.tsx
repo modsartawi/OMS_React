@@ -16,7 +16,7 @@ import WorkbookUpload, { WorkbookName } from './WorkbookUpload'
  * every past load: who, when, the file hash and the version. There is no second approver for an upload. A curated
  * label does have one: the worklist ranks what lacks Arabic and its rows open the override editor (L12, L13; ticket 707).
  *
- * 🚩 UNGATED: no access probe; a bare 403 on the read is "You do not have access".
+ * 🚩 UNGATED: no client gate; a bare 403 on the read is "You do not have access".
  */
 export default function CodeLabelsPage() {
   const { t } = useTranslation('insurance-labels')

@@ -18,6 +18,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-invoices-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -107,8 +108,7 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'LoyWeb/Access')
-      return route.fulfill(envelope({ canOpenLoyMember: true, canEditLoyMember: state.edit, canRemoveLoyMemberMobile: false }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(['LoyMember:03', ...(state.edit ? ['LoyMember:02'] : [])]))
     if (path === `LoyWeb/Member/${LOYID}`) return route.fulfill(envelope(MEMBER))
     if (path === `LoyWeb/Reports/Invoices/${LOYID}`) {
       invoiceReads += 1

@@ -137,11 +137,11 @@ export interface CommandContext {
   /** An action is posting, its follow-up reload is running, or a dialog is open. */
   busy: boolean
   /**
-   * The probe's `canChangeDetail` (BackOffice 2763): draws every command but Return Document.
+   * `canChangeDetail` = `DocumentDetails:02` (BackOffice 2763): draws every command but Return Document.
    * The caller reads it strictly (`@/core/oms/access`), so absent is `false`.
    */
   canChangeDetail: boolean
-  /** The probe's `canCreateReturn` (BackOffice 2763): draws Return Document on a NON-LF delivery. */
+  /** `canCreateReturn` = `OmsCreateReturn:01` (BackOffice 2763): draws Return Document on a NON-LF delivery. */
   canCreateReturn: boolean
   // ── The LF arm (spec 759 F2, ticket 760; BackOffice 3369). Optional so a context built before it
   // (and the bonded suite) reads as "not LF, no LF grant".
@@ -154,7 +154,7 @@ export interface CommandContext {
   returnRefusal?: string | null
   /** The last day of the LF return window, a local date (3373), for the `outsideWindow` reason. */
   returnWindowEndsOn?: string | null
-  /** The probe's `canCreateLocalFulfillmentReturn` (03): draws Return Document on an LF delivery. */
+  /** `canCreateLocalFulfillmentReturn` = `LocalFulfillmentReturn:03`: draws Return Document on an LF delivery. */
   canCreateLocalFulfillmentReturn?: boolean
 }
 

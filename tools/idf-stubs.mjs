@@ -10,6 +10,7 @@
 
 export { envelope } from './insurance-rules-stubs.mjs'
 import { envelope } from './insurance-rules-stubs.mjs'
+import { permissions, flagKeys, GRANTED_852 } from './permissions-stub.mjs'
 
 /** A bare 403: no envelope code, so the page draws its own "no access". */
 export const bare403 = () => ({ status: 403, body: '' })
@@ -56,15 +57,17 @@ export function newIdfState() {
   return { masters: structuredClone(IDF_MASTERS) }
 }
 
-// --- 654 --- the grant probe (`GET IdfPriority/Access`, 3191): `{ canViewIdf, canEditIdf, canEditGeneral }`, every flag
-// true unless `opts.access` / `state.access` overrides it (a drive sets `{ canEditIdf: false }` to see the draft
-// read-only, `{ canEditGeneral: false }` to see the general master and the groups without their writes).
+// --- 654 --- the grant (oms 909: the one `GET Auth/Permissions` answer, keys by BackOffice brief 3995 row 13):
+// IdfPriority:03/06/07 from `{ canViewIdf, canEditIdf, canEditGeneral }`, every flag true unless `opts.access` /
+// `state.access` overrides it (a drive sets `{ canEditIdf: false }` to see the draft read-only, `{ canEditGeneral: false }`
+// to see the general master and the groups without their writes). The Insurance rules group's keys ride along (852).
 export const IDF_ALL_GRANTS = { canViewIdf: true, canEditIdf: true, canEditGeneral: true }
-export function idfAccessStub(method, path, opts = {}) {
-  if (method !== 'GET' || path !== 'IdfPriority/Access') return null
+export function idfPermissionsStub(method, path, opts = {}) {
+  if (method !== 'GET' || path !== 'Auth/Permissions') return null
   const reads = opts.reads ?? {}
   reads.access = (reads.access ?? 0) + 1
-  return envelope({ ...IDF_ALL_GRANTS, ...(opts.state?.access ?? {}), ...(opts.access ?? {}) })
+  const flags = { ...IDF_ALL_GRANTS, ...(opts.state?.access ?? {}), ...(opts.access ?? {}) }
+  return permissions([...GRANTED_852.filter((k) => !k.startsWith('IdfPriority:')), ...flagKeys('Idf', flags)])
 }
 
 /** `deny` names the doors answered a bare 403 (`'masters'`). */
@@ -1208,8 +1211,8 @@ export function idfGroupsImportStub(method, path, body, opts = {}) {
 export function idfStub(method, path, body, opts = {}) {
   const bare = path.split('?')[0]
   return (
-    // 654 · the grant probe
-    idfAccessStub(method, bare, opts) ??
+    // 654 · the grant (Auth/Permissions)
+    idfPermissionsStub(method, bare, opts) ??
     idfMastersStub(method, bare, opts) ??
     // 620 · store lists
     idfStoreListsStub(method, bare, body, opts) ??

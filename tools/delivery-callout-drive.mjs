@@ -29,6 +29,7 @@
 //   2. node tools/delivery-callout-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -404,17 +405,21 @@ async function drive(dir) {
   const access = { canOpenDispatchBoard: true, canReleaseLock: true }
   const releases = []
   const calloutDelay = {}
-  // 567's probe: without View the serving list is plain text; with it, a link (572).
+  // 567's grant (`ServingList:03`): without View the serving list is plain text; with it, a link (572).
   const servingAccess = { canViewServingLists: false, canEditServingLists: false }
   await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
-    if (p === 'DispatchBoard/Access') {
-      return route.fulfill(envelope({ ...access }))
-    }
+    // The one permissions answer (oms 909), read afresh on each page load: OMS, the dispatch board, serving lists.
+    if (p === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([
+          'DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01',
+          ...flagKeys('DispatchBoard', access),
+          ...flagKeys('ServingList', servingAccess),
+        ]),
+      )
     if (p === 'DispatchBoard/ReleaseLock') {
       const body = JSON.parse(route.request().postData() || '{}')
       releases.push(body)
@@ -427,9 +432,6 @@ async function drive(dir) {
       return route.fulfill(
         envelope({ deliveryNumber: body.deliveryNumber, calloutId: c.calloutId, heldBy: c.awardedParty, releasedAt: at, releasedBy: 'msartawi', reason: body.reason, note: '' }),
       )
-    }
-    if (p === 'ServingListWeb/Access') {
-      return route.fulfill(envelope({ ...servingAccess }))
     }
     const co = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/Callout$/)
     if (co) {
@@ -714,7 +716,7 @@ async function drive(dir) {
     milestones: document.querySelectorAll('[data-entry="milestone"]').length,
   }))
   check(`${label}: empty list — no sub-tabs, no callout moment, spine as before`, none.tabs === 0 && none.moments === 0 && none.milestones === 2, JSON.stringify(none))
-  // The board's probe is asked by the menu leaf (541) on every page anyway: only the action is checked.
+  // The board's grant rides the one permissions answer on every page anyway: only the action is checked.
   check(`${label}: empty list — no Release lock`, (await releaseAction()) === 0)
 
   // ── 8: Release lock on Delivery details ─────────────────────────────────────────────────────

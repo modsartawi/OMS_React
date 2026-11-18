@@ -12,7 +12,7 @@
 //      names the act and the supervisor, and draws NO button;
 //   2. a supervisor cancels (body = the contract's two fields) and writes off;
 //   3. a cancel refused with REMAINING_INSUFFICIENT recovers into the write-off;
-//   4. a bare 403 on cancel is named, re-reads the probe, and the button goes;
+//   4. a bare 403 on cancel is named, re-reads the permissions answer, and the button goes;
 //   5. a 400 (reason too long) is the server's sentence, and the box keeps the text;
 //   6. the batch withdrawal: an accountant sees the batch and who withdraws it, no box
 //      and no button; a supervisor withdraws (the contract's three rows land in their
@@ -23,6 +23,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-supervision-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -85,7 +86,7 @@ let entries = []
 let cancelCalls = []
 let closeOutCalls = []
 let bulkCancelCalls = []
-let accessCalls = 0
+let permissionsCalls = 0
 /** Held open to show a loading state; released by the scenario. */
 let hold = null
 
@@ -99,7 +100,7 @@ const reset = (flags = {}) => {
   cancelCalls = []
   closeOutCalls = []
   bulkCancelCalls = []
-  accessCalls = 0
+  permissionsCalls = 0
 }
 
 async function run() {
@@ -119,11 +120,11 @@ async function run() {
 
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') {
-      accessCalls++
-      // After a 403 the probe is re-read and — as an administrator took the grant —
-      // now answers without supervision.
-      return route.fulfill(envelope(scenario.revoked ? ACCOUNTANT : scenario.access))
+    if (path === 'Auth/Permissions') {
+      permissionsCalls++
+      // After a 403 the permissions answer is re-read (oms 909) and — as an administrator took the
+      // grant — now answers without supervision. The scenario's flags are the Collections area's.
+      return route.fulfill(permissions(flagKeys('Collection', scenario.revoked ? ACCOUNTANT : scenario.access)))
     }
     if (path === 'Settlement/Account') {
       if (hold) await hold.promise
@@ -302,7 +303,7 @@ async function run() {
   // ---- 4. the bare 403 ----
   reset({ access: SUPERVISOR, forbidden: true })
   await go(`${ROUTE}?store=${FX.store}&entry=1201`)
-  const probesBefore = accessCalls
+  const readsBefore = permissionsCalls
   scenario.revoked = true
   await page.locator('[data-testid="correction-act"]').click()
   await page.locator('[data-testid="correction-reason"]').fill('posted twice')
@@ -311,7 +312,7 @@ async function run() {
   await settle()
   text = await bodyText()
   check('🔑 a bare 403 on Cancel is named — never "unexpected"', text.includes('Only an accountant supervisor can cancel an entry') && !/unexpected/i.test(text))
-  check('…the probe is re-read, and the button and the reason box go', accessCalls > probesBefore && (await page.locator('[data-testid="correction-act"], [data-testid="correction-reason"]').count()) === 0 && (await correctionKind()) === 'supervisor-only', `${accessCalls - probesBefore} probe(s)`)
+  check('…the permissions answer is re-read, and the button and the reason box go', permissionsCalls > readsBefore && (await page.locator('[data-testid="correction-act"], [data-testid="correction-reason"]').count()) === 0 && (await correctionKind()) === 'supervisor-only', `${permissionsCalls - readsBefore} re-read(s)`)
   await shot('310-cancel-403')
 
   // ---- 5. a 400: the server's sentence, and the words stay ----
@@ -376,14 +377,14 @@ async function run() {
 
   reset({ access: SUPERVISOR, forbidden: true })
   await go(`${UPLOAD_ROUTE}?batch=${BATCH}`)
-  const batchProbes = accessCalls
+  const batchReads = permissionsCalls
   scenario.revoked = true
   await page.locator('[data-testid="batch-reason"]').fill('wrong file')
   await page.locator('[data-testid="batch-commit"]').click()
   await appears('text=Only an accountant supervisor can withdraw a batch')
   await settle()
   check('🔑 a bare 403 on the withdrawal is named in the banner', (await page.locator('[data-region="batch-withdraw"] [role="alert"]').innerText()).includes('nothing was withdrawn'))
-  check('…the probe is re-read, and the act is taken away', accessCalls > batchProbes && (await page.locator('[data-testid="batch-commit"]').count()) === 0 && (await page.locator('[data-testid="batch-supervisor-only"]').count()) === 1)
+  check('…the permissions answer is re-read, and the act is taken away', permissionsCalls > batchReads && (await page.locator('[data-testid="batch-commit"]').count()) === 0 && (await page.locator('[data-testid="batch-supervisor-only"]').count()) === 1)
 
   // ---- 7. the bulk upload's confirmation ----
   const commitAs = async (access) => {

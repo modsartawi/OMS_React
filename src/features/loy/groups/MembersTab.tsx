@@ -37,7 +37,7 @@ import RefusalLine from './RefusalLine'
  *
  * Add one and remove one (after a confirm naming the mobile) are writes: absent on a view-only grant.
  * After either, this group's members and detail and the lists refetch (`memberWriteKeys`), so the
- * group's mobile count follows — never the access probe or another group's pages.
+ * group's mobile count follows — never another group's pages.
  */
 export default function MembersTab({ groupId, mobileCount, canMaintain }: { groupId: string; mobileCount: number; canMaintain: boolean }) {
   const { t, i18n } = useTranslation('loy-groups')

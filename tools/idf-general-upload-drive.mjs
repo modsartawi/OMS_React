@@ -70,7 +70,6 @@ async function open(dir, { refuseGeneralApply = false } = {}) {
     calls.push({ method: req.method(), path: p, multipart, body })
     const hit = idfStub(req.method(), p + url.search, body, { state, reads, writes, generalUploads, refuseGeneralApply })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/insurance-rules/idf/general`)

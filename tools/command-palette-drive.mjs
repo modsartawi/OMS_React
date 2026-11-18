@@ -60,6 +60,7 @@
 //   DRIVE_PORT=5280 node tools/command-palette-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, permissionsFailed, ALL_SCREENS } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -193,7 +194,7 @@ async function open(scenario, mode = MODES[0]) {
           currentStoreCode: '1001',
         }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
@@ -211,9 +212,6 @@ async function open(scenario, mode = MODES[0]) {
           state: { ...served, status: 'submitted' },
         }),
       )
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
 
@@ -695,9 +693,9 @@ const DOCUMENT_OF = (no) => ({
 })
 
 /**
- * A signed-in app with every screen granted. `oms` decides the OMS probe's answer:
- * `granted` (list + detail), `noDetail`, `errored` (a 500) or `held` (unanswered until
- * the returned `release()` is called — a probe still pending).
+ * A signed-in app with every screen granted. `oms` decides the `Auth/Permissions` answer:
+ * `granted` (every key), `noDetail` (no `DocumentDetails:03`), `errored` (a 500) or `held`
+ * (unanswered until the returned `release()` is called — the answer still pending).
  */
 async function openCore({ theme = 'light', dir = 'ltr', oms = 'granted', path = '/oms/deliveries' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -727,12 +725,11 @@ async function openCore({ theme = 'light', dir = 'ltr', oms = 'granted', path = 
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'SdDocumentWeb/Access') {
-      if (oms === 'errored') return route.fulfill(envelope(null, { status: 500, success: false, message: 'boom' }))
+    if (p === 'Auth/Permissions') {
+      if (oms === 'errored') return route.fulfill(permissionsFailed(500))
       if (oms === 'held') await held
-      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: oms !== 'noDetail' }))
+      return route.fulfill(permissions(ALL_SCREENS.filter((k) => oms !== 'noDetail' || k !== 'DocumentDetails:03')))
     }
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: SCENARIOS.live, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(SCENARIOS.live))
@@ -747,10 +744,6 @@ async function openCore({ theme = 'light', dir = 'ltr', oms = 'granted', path = 
     // The print route's own read answers "not found": the page's state is not the subject.
     if (p.startsWith('CollectionWeb/Receipt/'))
       return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not found' }))
-    if (/Access$/.test(p))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenNphies: true, canOpenConsole: true }),
-      )
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(p) || /\/(Outbox|Logs)$/.test(p))
       return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
@@ -1085,7 +1078,7 @@ console.log('\nthe palette fails closed')
   await page.waitForTimeout(300)
   await ctrlK(page)
   await page.waitForSelector('[data-palette]')
-  ok(!(await rowsShown(page)).includes('goto:/oms/deliveries'), '🚩 an ERRORED probe hides its Go to leaf')
+  ok(!(await rowsShown(page)).includes('goto:/oms/deliveries'), '🚩 an ERRORED permissions answer hides its Go to leaf')
   await page.locator('[data-palette-input]').fill(JUMP_NO)
   await page.waitForTimeout(150)
   ok(!(await groupsShown(page)).includes('jump'), '🚩 and hides Jump to number')
@@ -1099,7 +1092,7 @@ console.log('\nthe palette fails closed')
   await page.waitForSelector('[data-palette]')
   await page.locator('[data-palette-input]').fill(JUMP_NO)
   await page.waitForTimeout(150)
-  ok(!(await groupsShown(page)).includes('jump'), '🚩 a PENDING probe hides Jump to number…')
+  ok(!(await groupsShown(page)).includes('jump'), '🚩 a PENDING permissions answer hides Jump to number…')
   release()
   await page.waitForSelector('[data-palette-group="jump"]', { timeout: 5000 }).catch(() => {})
   ok((await groupsShown(page)).includes('jump'), '…until it confirms, and then it appears')
@@ -1244,7 +1237,7 @@ const seedRecent = (page, mine) =>
   await ctrlK(page)
   await page.waitForSelector('[data-palette]')
   await page.waitForTimeout(150)
-  ok(!(await groupsShown(page)).includes('recent'), '🚩 a PENDING probe hides Recent…')
+  ok(!(await groupsShown(page)).includes('recent'), '🚩 a PENDING permissions answer hides Recent…')
   release()
   await page.waitForSelector('[data-palette-group="recent"]', { timeout: 5000 }).catch(() => {})
   ok(

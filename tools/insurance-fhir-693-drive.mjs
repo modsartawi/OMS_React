@@ -12,6 +12,7 @@ import { createRequire } from 'node:module'
 import { fhirCatalogStub } from './fhir-rules-stubs-692.mjs'
 import { OUTCOME_SYSTEM, codeSystemStub } from './fhir-rules-stubs-693.mjs'
 import { coverageStub, envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newCoverageState, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -66,7 +67,7 @@ for (const dir of ['ltr', 'rtl']) {
       insuranceListsStub(req.method(), p, body, { state: registry, query: url.searchParams }) ??
       insuranceRulesStub(req.method(), p, body, { reads: {} })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
 

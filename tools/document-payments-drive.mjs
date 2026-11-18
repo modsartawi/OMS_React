@@ -3,13 +3,13 @@
 // Drives the REAL app in Chromium against a STUB of the spec 430 wire contract — the door
 // (`GET SdDocumentWeb/DocumentPayments`, BackOffice ask BO-3) is NOT built, so there is no live
 // SIS.Api to point at. Stubbed, exactly as D2/D4 propose:
-//   GET SdDocumentWeb/Access            → { canOpenList, canOpenDetail, canOpenDocumentPayments? }
+//   GET Auth/Permissions            → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET SdDocumentWeb/DocumentPayments  → { rows: DocumentPaymentModel[], limited }; refusal TOO_MANY_VALUES
 //   GET SdDocument/DocumentTypes        → the existing cookie-open lookup
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`), it asserts:
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows the
 //      denied card, with no list call;
-//   2. with it, the leaf follows Donor requests, the group costs ONE probe call, and the screen
+//   2. with it, the leaf follows Donor requests, the group costs ONE permissions call, and the screen
 //      opens on today and limit 200 WITHOUT asking for the list (it loads on Search);
 //   3. more than 1,000 numbers across both boxes is refused before the call, naming the count;
 //      exactly 1,000 is allowed;
@@ -27,6 +27,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -137,15 +138,7 @@ async function open(dir, { grant, list = 'rows' }) {
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(
-        envelope(
-          grant
-            ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true, canOpenDocumentPayments: true }
-            : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true },
-        ),
-      )
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Oms', grant ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true, canOpenDocumentPayments: true } : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true }), 'CentralInvoice:03']))
     if (p === 'SdDocument/DocumentTypes') return route.fulfill(envelope(DOC_TYPES))
     if (p === 'SdDocumentWeb/DocumentPayments') {
       listQueries.push(url.searchParams)
@@ -164,8 +157,6 @@ async function open(dir, { grant, list = 'rows' }) {
     }
     // Document Details' own reads: not this drive's to draw — only that it was asked for.
     if (/^SdDocumentWeb\/(?:Delivery|Document)\/\d+/.test(p)) return route.fulfill(envelope(null))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, listQueries }
@@ -292,9 +283,9 @@ async function drive(dir) {
     await page.waitForFunction(() => document.querySelectorAll('[data-payment-filter="documentType"] option').length === 3, null, { timeout: 10000 })
     await page.waitForTimeout(300)
     check(
-      `${label}: the OMS group and the page gate cost ONE probe call`,
-      calls.filter((c) => c === 'SdDocumentWeb/Access').length === 1,
-      String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
+      `${label}: the OMS group and the page gate cost ONE permissions call`,
+      calls.filter((c) => c === 'Auth/Permissions').length === 1,
+      String(calls.filter((c) => c === 'Auth/Permissions').length),
     )
     const from = await page.locator('[data-payment-filter="from"]').inputValue()
     const to = await page.locator('[data-payment-filter="to"]').inputValue()

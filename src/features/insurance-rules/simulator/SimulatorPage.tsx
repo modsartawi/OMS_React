@@ -15,7 +15,7 @@ const PANEL_ID = 'insurance-simulator-panel'
  *   (patient key masked), SAR, distinct patients / stores / pharmacists and the overlap with live guards.
  * The address keeps the tab, the window and the back-test followed (`?tab&days&id`).
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on a door is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on a door is "You do not have access".
  */
 export default function SimulatorPage() {
   const { t } = useTranslation('insurance-simulator')

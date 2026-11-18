@@ -6,7 +6,7 @@
 // fixture emits EXACTLY the contract's fields, on the REAL envelope { statusCode, success, message,
 // errors: [{ errorCode, internalErrorCode, errorMessage }], data }, every refusal's errorMessage is
 // "<English> / <Arabic>", and a refusal for a missing grant is a BARE 403 (no envelope):
-//   GET  HungerStationWeb/Access                        → { canManageStores, canManageCatalog, canViewOrders }
+//   GET  Auth/Permissions                               → screens: HungerStationStores/Catalog/Orders:03 (+ Deliverect's)
 //   GET  HungerStationWeb/Chains                        → ["OlaCare", "AlDawaa"]
 //   GET  HungerStationWeb/Stores?chain=&sync=&health=&q= → store rows, each with its sync block
 //   POST HungerStationWeb/Stores                        → the row; DHS-00001/2/3/4/5/6/8
@@ -22,9 +22,9 @@
 //
 // ── 551 (this slice) ── it asserts:
 //   1. the HungerStation group is its OWN group, LAST, right after Deliverect, with a leaf per flag
-//      (Stores, Materials, Orders); the group, its leaves and the page gate cost ONE probe call;
+//      (Stores, Materials, Orders); the group, its leaves and the page gate cost ONE permissions call;
 //      without canManageStores the Stores leaf is hidden (the others stay) and the URL shows the
-//      denied card with no Stores call; a bare-403 probe hides the whole group; the Materials and
+//      denied card with no Stores call; a failed permissions answer hides the whole group; the Materials and
 //      Orders pages (555, 556) render behind their own flags;
 //   2. the rows render every column; a null onboardedAt / updatedAt and a "" store name are blank;
 //      health reads OK / Failing / Silent / Paused — a failing row RED, a silent row AMBER, a paused
@@ -96,6 +96,7 @@
 //   2. DRIVE_PORT=5234 node tools/hungerstation-stores-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -293,7 +294,9 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'HungerStationWeb/Access') return route.fulfill(access === 403 ? bare403 : envelope(access))
+    // Deliverect's group is shown so the HungerStation group's place after it can be read.
+    if (p === 'Auth/Permissions')
+      return route.fulfill(access === 403 ? permissionsFailed() : permissions([...flagKeys('HungerStation', access), ...flagKeys('Deliverect', DLV_ALL)]))
     if (p === 'HungerStationWeb/Chains') return route.fulfill(chains === 'ok' ? envelope(CHAINS) : bare403)
     if (p === 'HungerStationWeb/Stores' && req.method() === 'GET') {
       lists.push(url.search.slice(1))
@@ -405,10 +408,6 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
         return route.fulfill(envelope(HISTORY[material] ?? []))
       }
     }
-    // Deliverect's group is shown so the HungerStation group's place after it can be read.
-    if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(DLV_ALL))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, lists, writes, gate, reads }
@@ -481,9 +480,9 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   await waitRows(page, 4)
   check('1: the page title reads HungerStation stores', (await page.locator('h1').innerText()) === 'HungerStation stores')
   check(
-    '1: the group, its leaves and the page gate cost ONE probe call',
-    calls.filter((c) => c === 'HungerStationWeb/Access').length === 1,
-    String(calls.filter((c) => c === 'HungerStationWeb/Access').length),
+    '1: the group, its leaves and the page gate cost ONE permissions call',
+    calls.filter((c) => c === 'Auth/Permissions').length === 1,
+    String(calls.filter((c) => c === 'Auth/Permissions').length),
   )
   await page.locator('nav a[href="/hungerstation/materials"]').first().click()
   await page.locator('[data-materials-grid]').waitFor({ timeout: 10000 })
@@ -491,7 +490,7 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   await page.locator('nav a[href="/hungerstation/orders"]').first().click()
   await page.locator('[data-orders-grid]').waitFor({ timeout: 10000 })
   check('1: Orders opens its own page (ticket 556)', (await page.locator('h1').innerText()) === 'HungerStation orders')
-  check('1: still ONE probe call after three pages', calls.filter((c) => c === 'HungerStationWeb/Access').length === 1)
+  check('1: still ONE permissions call after three pages', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -515,7 +514,7 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   await page.goto(`${BASE}/`)
   await page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/ }).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(600)
-  check('1: a bare-403 probe hides the whole group (fail closed)', !(await groupHeaders(page)).includes('HungerStation'))
+  check('1: a failed permissions answer hides the whole group (fail closed)', !(await groupHeaders(page)).includes('HungerStation'))
   await page.goto(`${BASE}/hungerstation/orders`)
   await page.getByText(/No access to HungerStation orders|This screen is unavailable/).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(400)

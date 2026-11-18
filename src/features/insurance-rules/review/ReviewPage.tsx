@@ -35,7 +35,7 @@ import { DeniedCard, TD, TH } from '@/core/insurance-rules/parts'
  * address); a reviewer marks each row OK or Questioned with a note. Monitor and not-evaluated items (702) share
  * the list and are cleared with a note instead (`./ReviewItems`).
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on the read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on the read is "You do not have access".
  */
 export default function ReviewPage() {
   const { t } = useTranslation('insurance-review')

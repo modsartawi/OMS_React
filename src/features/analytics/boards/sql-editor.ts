@@ -184,7 +184,7 @@ export function sqlSaveBody(item: AnalyticsSqlItem, statement: string, baseRevis
 export const removesVerified = (item: Pick<AnalyticsSqlItem, 'verified' | 'definition'>, statement: string): boolean =>
   item.verified && statement !== item.definition.statement
 
-/** Who is acting on a SQL item: the session's user and the `Analytics/Access` grants. */
+/** Who is acting on a SQL item: the session's user and the Analytics grants (`@/core/analytics-access`). */
 export interface SqlActor {
   userId: string | null
   canView: boolean

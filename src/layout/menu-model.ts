@@ -136,16 +136,16 @@ export const MENU: ShellMenuItem[] = [
         // The list and the document it drills into (two routes) — not the whole `/oms`
         // prefix, which would co-highlight the central-invoice leaf below.
         activePrefix: ['/oms/deliveries', '/oms/document', '/oms/delivery'],
-        // Same key + call as BOTH OMS page guards → one shared probe (ticket 125).
+        // Same predicate as BOTH OMS page guards (ticket 125).
         // Gated on the LIST grant: the leaf opens the list, and a session that holds
         // the detail grant but not the list one has no business in the nav here.
-        // This probe FAILS CLOSED — see `@/core/oms/api`.
+        // It FAILS CLOSED — see `@/core/oms/access`.
         key: 'DocumentList:03',
       },
       {
         // Bupa line outcomes (oms 899, BackOffice spec 3888) — beside Delivery documents, as the brief places it.
-        // Its own grant, `BupaLineOutcomes.View` (`[BupaLineOutcomes, 03]`), read off `GET BupaLineOutcomes/Access`;
-        // the leaf and the page's gate share the one predicate. 🚩 FAILS CLOSED.
+        // Its own grant, `BupaLineOutcomes:03`, read off the one permissions answer; the leaf and the page's gate
+        // share the one predicate. 🚩 FAILS CLOSED.
         labelKey: 'bupa-line-outcomes:menu.bupaLineOutcomes',
         icon: FileDiff,
         routerLink: '/oms/bupa-line-outcomes',
@@ -154,7 +154,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // The Order / ERX list (ticket 786, BackOffice 3391): behind the same OMS LIST grant as the
-        // delivery list, on the same shared probe (one call). A row opens Document details, which
+        // delivery list, on the same key. A row opens Document details, which
         // lights the Deliveries leaf (its `activePrefix` owns `/oms/document`).
         labelKey: 'orders:menu.orders',
         icon: ListChecks,
@@ -177,7 +177,7 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenCentralInvoice,
       },
       {
-        // The raised central invoices (ticket 333) — the same grant and the SAME probe entry
+        // The raised central invoices (ticket 333) — the same grant and the SAME key
         // as the raise leaf above, so one 403 drops both.
         labelKey: 'central-invoice:menu.list',
         icon: ListChecks,
@@ -187,8 +187,7 @@ export const MENU: ShellMenuItem[] = [
       },
       // ── Spec 430's five OMS screens, in its D18 order: Donor requests, Failed donor
       // transfers, Document payments, Cities & districts, Document source users. Each reads
-      // ITS OWN flag off the ONE `OMS_ACCESS_KEY` entry, so the group still costs one call;
-      // an absent flag (a server that has not learned it) hides the leaf. 🚩 FAILS CLOSED.
+      // ITS OWN key off the one permissions answer; an absent key hides the leaf. 🚩 FAILS CLOSED.
       {
         // Donor requests (ticket 431) — `DonorRequestInquiry,03`.
         labelKey: 'donor-requests:menu.donorRequests',
@@ -235,7 +234,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // HQ prescription sessions (tickets 545-548, BackOffice spec 2994) — `BackOfficeScreen[PrescriptionSessionHq]`
-        // read off `GET PrescriptionSessionWeb/Access` (oms 852, BackOffice 3459). 🚩 FAILS CLOSED. The page
+        // (`PrescriptionSessionHq:03`, oms 852, BackOffice 3459). 🚩 FAILS CLOSED. The page
         // still names its doors' bare 403 itself for a deep link.
         labelKey: 'prescription-sessions:menu.prescriptionSessions',
         icon: Pill,
@@ -245,9 +244,8 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // The Dispatch board (ticket 541, BackOffice spec 2952) — `BackOfficeScreen[DispatchBoard, Display]`
-        // read off `GET DispatchBoard/Access`. The SAME key, call and predicate as the board's own
-        // `ScreenGate`, so the two never disagree. 🚩 FAILS CLOSED: a pending, errored, 403 or malformed
-        // probe hides the leaf (BackOffice 2949's pattern). Before Pick support, which 496 keeps just before Delivery statistics.
+        // (`DispatchBoard:03`). The SAME predicate as the board's own `ScreenGate`, so the two never disagree.
+        // 🚩 FAILS CLOSED: a pending, errored or malformed permissions answer hides the leaf. Before Pick support, which 496 keeps just before Delivery statistics.
         labelKey: 'dispatch-board:menu.dispatchBoard',
         icon: Radar,
         routerLink: '/oms/dispatch-board',
@@ -255,9 +253,9 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenDispatchBoard,
       },
       {
-        // Serving lists (ticket 567, BackOffice spec 3042) — `BackOfficeScreen[ServingList]` Display 03 read off
-        // `GET ServingListWeb/Access`. The SAME key, call and predicate as the screen's own `ScreenGate`.
-        // 🚩 FAILS CLOSED: a pending, errored, 403 or malformed probe hides the leaf. Beside the Dispatch board.
+        // Serving lists (ticket 567, BackOffice spec 3042) — `ServingList:03`. The SAME predicate as the screen's
+        // own `ScreenGate`. 🚩 FAILS CLOSED: a pending, errored or malformed permissions answer hides the leaf.
+        // Beside the Dispatch board.
         labelKey: 'serving-lists:menu.servingLists',
         icon: ListTree,
         routerLink: '/oms/serving-lists',
@@ -276,7 +274,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,
-        // `BackOfficeScreen[DispatchScorecard, 03]`, on its own probe; the leaf and the page's gate
+        // `BackOfficeScreen[DispatchScorecard, 03]`, on its own key; the leaf and the page's gate
         // share the one predicate and fail closed (ruling 2950 point 5). After the board and before
         // Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
         labelKey: 'dispatch-scorecard:menu.dispatchScorecard',
@@ -287,7 +285,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Closes after a take (ticket 758, spec 3326): the scorecard's report of every close after a take, on
-        // the SAME probe and predicate (no new grant). Its longer prefix wins the rail on its own page
+        // the SAME predicate (no new grant). Its longer prefix wins the rail on its own page
         // (`markedLeaf`). Right after the scorecard; Serial refusals follows it.
         labelKey: 'dispatch-scorecard:menu.closesAfterTake',
         icon: ClipboardX,
@@ -297,7 +295,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Serial refusals (ticket 573, BackOffice 3065) — its own grant, `BackOfficeScreen[SerialRefusal, 03]`, on its own
-        // probe; the leaf and the page's gate share the one predicate and fail closed. After the scorecard and before
+        // key; the leaf and the page's gate share the one predicate and fail closed. After the scorecard and before
         // Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
         labelKey: 'serial-refusals:menu.serialRefusals',
         icon: ShieldAlert,
@@ -308,7 +306,7 @@ export const MENU: ShellMenuItem[] = [
       {
         // Expired approval picks (BackOffice ticket 3874, spec 3849) — the insurance team's weekly report of approval picks
         // that expired with no sale, per store and pharmacist. Its own grant, `BackOfficeScreen[ExpiredApprovalPick, 03]`
-        // (role INSURANCE_EXPIRED_PICK_VIEWER), on its own probe; the leaf and the page's gate share the one predicate and
+        // (role INSURANCE_EXPIRED_PICK_VIEWER), on its own key; the leaf and the page's gate share the one predicate and
         // fail closed. Right after Serial refusals, before Pick support.
         labelKey: 'expired-approval-picks:menu.expiredApprovalPicks',
         icon: CalendarX,
@@ -319,7 +317,7 @@ export const MENU: ShellMenuItem[] = [
       {
         // Take refusals (BackOffice ticket 3873, spec 3849) — HQ's refusal report, read before a held-stock switch is moved.
         // The two held-stock reports share one grant, `BackOfficeScreen[HeldStockReport, 03]` (role HELD_STOCK_REPORT_VIEWER),
-        // on one probe; both leaves and both pages read the one predicate and fail closed. After Expired approval picks.
+        // on one key; both leaves and both pages read the one predicate and fail closed. After Expired approval picks.
         labelKey: 'held-stock-report:menu.refusals',
         icon: Ban,
         routerLink: '/oms/held-stock-report/refusals',
@@ -327,7 +325,7 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenHeldStockReport,
       },
       {
-        // Held stock impact (BackOffice ticket 3873) — what held would take off the channels' figure; same probe and grant.
+        // Held stock impact (BackOffice ticket 3873) — what held would take off the channels' figure; same grant.
         labelKey: 'held-stock-report:menu.held',
         icon: PackageMinus,
         routerLink: '/oms/held-stock-report/held',
@@ -336,7 +334,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Till-side gate figures (BackOffice ticket 3900, spec 3849 A) — per store over 14 days, the gates the till and OMS
-        // own before a store blocks; read by the same people, so the same probe and grant. After Held stock impact.
+        // own before a store blocks; read by the same people, so the same grant. After Held stock impact.
         labelKey: 'held-stock-report:menu.gates',
         icon: Gauge,
         routerLink: '/oms/held-stock-report/gates',
@@ -346,7 +344,7 @@ export const MENU: ShellMenuItem[] = [
       {
         // Holds that should have ended (BackOffice ticket 3872, spec 3849) — HQ's daily list of holds standing longer than
         // they should, each traced to its document, unit and take. Its own grant, `BackOfficeScreen[HoldDailyList, 03]`
-        // (role HOLD_DAILY_LIST_VIEWER), on its own probe; the leaf and the page's gate share the one predicate and fail
+        // (role HOLD_DAILY_LIST_VIEWER), on its own key; the leaf and the page's gate share the one predicate and fail
         // closed. After Held stock impact.
         labelKey: 'hold-daily-list:menu.holdDailyList',
         icon: Hourglass,
@@ -357,7 +355,7 @@ export const MENU: ShellMenuItem[] = [
       {
         // Store stages (BackOffice ticket 3899, spec 3849 phase 2) — each store's stage at Stock Visibility and its last move;
         // a named permission moves it through SIS.Stock 064. Its own grant, `BackOfficeScreen[StoreStage, 03]` to see and
-        // `02` to move (roles STORE_STAGE_VIEWER / STORE_STAGE_MOVER), on its own probe; the leaf and the page's gate share
+        // `02` to move (roles STORE_STAGE_VIEWER / STORE_STAGE_MOVER), on its own key; the leaf and the page's gate share
         // the one predicate and fail closed. After Holds that should have ended.
         labelKey: 'store-stages:menu.storeStages',
         icon: Layers,
@@ -367,7 +365,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,
-        // on its own probe in `@/core/` (Delivery details' "Why this store?" link reads it too); fails closed.
+        // on its own predicate in `@/core/` (Delivery details' "Why this store?" link reads it too); fails closed.
         // Before Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
         labelKey: 'sourcing-advisor:menu.sourcingAdvisor',
         icon: Route,
@@ -376,9 +374,8 @@ export const MENU: ShellMenuItem[] = [
         requires: canViewSourcingAdvisor,
       },
       {
-        // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport,03`, read off the ONE
-        // `OMS_ACCESS_KEY` entry, placed before Delivery statistics (which 484 keeps last). The
-        // fix's own flag (`canFixPickSupport`) is the screen's to read, not the leaf's.
+        // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport:03`, placed before Delivery statistics
+        // (which 484 keeps last). The fix's own key (`PickSupport:06`) is the screen's to read, not the leaf's.
         labelKey: 'pick-support:menu.pickSupport',
         icon: ScanSearch,
         routerLink: '/oms/pick-support',
@@ -387,7 +384,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Delivery statistics (ticket 484, BackOffice brief 2641) — the door checks the OMS LIST
-        // grant, so the leaf reads it off the ONE `OMS_ACCESS_KEY` entry. Last, after D18's five.
+        // grant, so the leaf reads `DocumentList:03`. Last, after D18's five.
         labelKey: 'delivery-statistics:menu.deliveryStatistics',
         icon: ChartColumn,
         routerLink: '/oms/delivery-statistics',
@@ -407,7 +404,7 @@ export const MENU: ShellMenuItem[] = [
         // Own route as the active prefix so the sibling Authorization Admin leaf
         // (also under /admin) doesn't co-highlight.
         activePrefix: '/admin/ua-users',
-        // Same key + call as UaAdminUsersPage's own guard → one shared probe.
+        // Same key as UaAdminUsersPage's own guard.
         key: 'UaUsers:03',
       },
       {
@@ -415,7 +412,7 @@ export const MENU: ShellMenuItem[] = [
         icon: KeyRound,
         routerLink: '/admin/authz',
         activePrefix: '/admin/authz',
-        // Same key + call as AuthzAdminPage's own guard → one shared probe.
+        // Same key as AuthzAdminPage's own guard.
         key: 'AuthzAdmin:03',
       },
       {
@@ -423,15 +420,14 @@ export const MENU: ShellMenuItem[] = [
         icon: Activity,
         routerLink: '/admin/sessions',
         activePrefix: '/admin/sessions',
-        // Same key + call as ActiveSessionsPage's own guard → one shared probe.
+        // Same key as ActiveSessionsPage's own guard.
         // Gated by its OWN grant, separate from Ua Users (spec 006).
         key: 'UaSessions:03',
       },
       {
         // Send Broadcast (spec 031). Gated on the NotificationBroadcast grant (038) via the SAME
-        // ['broadcast','access'] probe the page's own guard uses → one shared call. 🚩 FAILS CLOSED
-        // since oms 852: a 404 (notification center off) hides the leaf; BackOffice 3459 makes the
-        // probe answer `{ canBroadcast: false }` there instead.
+        // `canBroadcast` the page's own guard uses: `NotificationBroadcast:01` AND
+        // `extras.notificationCenterOn`, so the leaf hides where the notification center is off. 🚩 FAILS CLOSED.
         labelKey: 'broadcast:menu.sendBroadcast',
         icon: Send,
         routerLink: '/admin/broadcast',
@@ -440,13 +436,11 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // The store sync console (spec 444, ticket 445) — LAST in the Admin group, on its own
-        // grant (`ActionSync.Health.View`) read off `GET ActionSync/Access`. The SAME key, call
-        // and predicate as the console's own gate, so the two can never disagree.
+        // grant (`ActionSyncConsole:03`). The SAME predicate as the console's own gate, so the two
+        // can never disagree.
         //
-        // 🚩 FAILS CLOSED — see `features/admin/sync-console/api`. The screen controls the
-        // whole fleet's sync and its door (BackOffice 2539) is not deployed anywhere yet, so a
-        // pending, errored or malformed probe hides the leaf; the `Bby/Access` unknown ⇒ shown
-        // precedent does not transfer.
+        // 🚩 FAILS CLOSED — see `features/admin/sync-console/access`. The screen controls the
+        // whole fleet's sync, so a pending, errored or malformed permissions answer hides the leaf.
         labelKey: 'sync-console:menu.syncConsole',
         icon: ArrowUpDown,
         routerLink: '/admin/sync',
@@ -454,9 +448,8 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenSyncConsole,
       },
       {
-        // Release download queue (ticket 791, BackOffice spec 3396) — `canView` (`PosRelease.Queue.View`) off
-        // `GET PosReleaseQueue/Access`, the SAME key, call and predicate as the page's gate. 🚩 Fails closed: a
-        // pending, errored or malformed probe (a server before 3401) hides the leaf.
+        // Release download queue (ticket 791, BackOffice spec 3396) — `PosReleaseQueue:03`, the SAME predicate as
+        // the page's gate. 🚩 Fails closed: a pending, errored or malformed permissions answer hides the leaf.
         labelKey: 'release-queue:menu.releaseQueue',
         icon: CloudDownload,
         routerLink: '/admin/release-queue',
@@ -464,9 +457,9 @@ export const MENU: ShellMenuItem[] = [
         requires: canViewReleaseQueue,
       },
       {
-        // Copilot rules (ticket 790, BackOffice 3395) — the copilot's house rules, for curators: `canCurate` off
-        // `GET Copilot/Access`, the SAME key and call as the top-bar button and the page's gate. 🚩 Fails closed:
-        // absent (a pre-3395 server), false or failed hides the leaf.
+        // Copilot rules (ticket 790, BackOffice 3395) — the copilot's house rules, for curators: `canCurateCopilot`
+        // (`Copilot:01` and `Copilot:06`), the SAME predicate as the page's gate. 🚩 Fails closed: an absent key or
+        // a failed answer hides the leaf.
         labelKey: 'copilot:menu.rules',
         icon: ScrollText,
         routerLink: '/copilot/rules',
@@ -474,10 +467,10 @@ export const MENU: ShellMenuItem[] = [
         requires: canCurateCopilot,
       },
       {
-        // Data sync (spec 558, ticket 559) — DataSync's campaigns and profiles, on `DataSync.View`
-        // read off `GET DataSync/Access`. The SAME key, call and predicate as the page's own gate.
-        // 🚩 FAILS CLOSED: a pending, errored or malformed probe hides the leaf (DataSync is a
-        // separate service that may not be deployed behind this host).
+        // Data sync (spec 558, ticket 559) — DataSync's campaigns and profiles, on `DataSyncConsole:03`
+        // (`DataSync.View`). The SAME predicate as the page's own gate. 🚩 FAILS CLOSED: a pending, errored or
+        // malformed permissions answer hides the leaf. A granted user sees it even where the DataSync service is
+        // not deployed; the page's own health banner says so (BackOffice brief 3995, "The Data sync exception").
         labelKey: 'data-sync:menu.dataSync',
         icon: DatabaseZap,
         routerLink: '/admin/data-sync',
@@ -486,7 +479,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Delivery types (BackOffice spec 3148, ticket 3154) — delivery document types, read on the existing OMS access:
-        // the SAME probe key, call and View predicate as Document types. Placed BEFORE Document sources (which 3156 pins
+        // the SAME View predicate as Document types. Placed BEFORE Document sources (which 3156 pins
         // just before Action types) so 3155's, 3152's and 3149's pinned order holds. 🚩 Fails closed.
         labelKey: 'doc-type-config:menu.deliveryTypes',
         icon: Truck,
@@ -495,8 +488,8 @@ export const MENU: ShellMenuItem[] = [
         requires: canViewDocTypeConfig,
       },
       {
-        // Document sources (BackOffice spec 3148, ticket 3156) — read on the existing OMS access: the SAME probe key,
-        // call and View predicate as Document types (editing and copying are the probe's second flag). Placed BEFORE
+        // Document sources (BackOffice spec 3148, ticket 3156) — read on the existing OMS access: the SAME View
+        // predicate as Document types (editing and copying add `SdDocTypeConfig:06`). Placed BEFORE
         // Action types so 3155's, 3152's and 3149's pinned order holds. 🚩 Fails closed.
         labelKey: 'doc-type-config:menu.documentSources',
         icon: Radio,
@@ -506,7 +499,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Action types (BackOffice spec 3148, ticket 3155) — per document category, read on the existing OMS access:
-        // the SAME probe key, call and View predicate as Document types (editing is the probe's second flag). Placed
+        // the SAME View predicate as Document types (editing adds `SdDocTypeConfig:06`). Placed
         // BEFORE Config changes so 3152's and 3149's pinned order holds. 🚩 Fails closed.
         labelKey: 'doc-type-config:menu.actionTypes',
         icon: Workflow,
@@ -516,7 +509,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Config changes (BackOffice spec 3148, ticket 3152) — the document configuration's change log, read on the
-        // existing OMS access: the SAME probe key, call and View predicate as Document types. Placed BEFORE that leaf
+        // existing OMS access: the SAME View predicate as Document types. Placed BEFORE that leaf
         // so 3149's pinned order (Document types, then the engine switch, last) holds. 🚩 Fails closed.
         labelKey: 'doc-type-config:menu.configChanges',
         icon: History,
@@ -526,8 +519,8 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Document types (BackOffice spec 3148, ticket 3149) — the OMS document configuration, read on the existing
-        // OMS access (`canViewDocTypeConfig` off `GET SdDocTypeConfigWeb/Access`), the SAME key, call and predicate
-        // as the pages' own gate. Editing is a second flag on the same probe. 🚩 Fails closed.
+        // OMS access (`canViewDocTypeConfig` = `DocumentList:03`), the SAME predicate as the pages' own gate.
+        // Editing adds `SdDocTypeConfig:06` (`canEditDocTypeConfig`). 🚩 Fails closed.
         labelKey: 'doc-type-config:menu.documentTypes',
         icon: FileCog,
         routerLink: '/admin/doc-types',
@@ -536,7 +529,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // The store engine switch (BackOffice spec 2737, ticket 517) — at the END of the Admin group, on
-        // `canSwitchEngine` off the rule engine's ONE probe (oms 852). 🚩 FAILS CLOSED.
+        // `RuleEngineSwitch:02` (oms 852). 🚩 FAILS CLOSED.
         labelKey: 'engine-switch:menu.engineSwitch',
         icon: Repeat,
         routerLink: '/admin/engine-switch',
@@ -559,8 +552,8 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/callcenter',
         activePrefix: '/callcenter',
         // FAILS CLOSED — see `features/callcenter/console/api`. What is behind
-        // this leaf mints real OMS orders, so a pending or errored probe hides
-        // it rather than revealing it.
+        // this leaf mints real OMS orders, so a pending or errored permissions
+        // answer hides it rather than revealing it.
         key: 'CallCenter:03',
       },
     ],
@@ -584,14 +577,12 @@ export const MENU: ShellMenuItem[] = [
         // network call, and a nav and a screen that can never disagree.
         // 🚩 FAILS CLOSED — see `features/loy/member/api`. What is behind this
         // leaf is a customer-PII lookup, so a pending, errored or malformed
-        // probe hides it rather than revealing it (224: the bonus-buy
-        // unknown ⇒ shown precedent explicitly does not transfer here).
+        // permissions answer hides it rather than revealing it.
         requires: canOpenLoyMember,
       },
       {
-        // Loyalty groups (BackOffice spec 3173, oms ticket 629). HQ-only. Its own probe on its own key —
-        // `LoyGroupWeb/Access` — read by the page's gate too. 🚩 FAILS CLOSED: the door is deployed nowhere
-        // yet, so a pending, errored, 403 or malformed probe hides the leaf.
+        // Loyalty groups (BackOffice spec 3173, oms ticket 629). HQ-only. Its own key — `LoyaltyGroup:03` — read
+        // by the page's gate too. 🚩 FAILS CLOSED: a pending, errored or malformed permissions answer hides the leaf.
         labelKey: 'loy-groups:menu.groups',
         icon: UsersRound,
         routerLink: '/loy/groups',
@@ -620,10 +611,9 @@ export const MENU: ShellMenuItem[] = [
         // The eligibility DETAIL routes (213, `/nphies/eligibility/:id`) are what
         // this prefix is for.
         activePrefix: '/nphies/eligibility',
-        // Both leaves share the ONE probe on the ONE key — §1 gives the whole
-        // area a single grant, so a gated area costs one network call.
+        // Both leaves read the ONE key — §1 gives the whole area a single grant.
         // FAILS CLOSED — see `@/core/nphies/api`. What is behind these leaves
-        // talks to the national exchange, so a pending or errored probe hides
+        // talks to the national exchange, so a pending or errored answer hides
         // them rather than revealing them (ticket 211's Boundaries).
         requires: canOpenNphies,
       },
@@ -637,7 +627,7 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // The area's second feature (ticket 214) — the list an agent watches an
-        // authorization on. Its own namespace, and the SAME one probe on the SAME
+        // authorization on. Its own namespace, and the SAME
         // one key: §1 gives the whole area a single grant.
         labelKey: 'authorizations:menu.authorizations',
         icon: FileCheck2,
@@ -706,8 +696,8 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // Ready for collection (ticket 317, BackOffice 1994) — what still waits for a
-        // collector. A read, so it sits with the four reads above; its probe reads
-        // `canOpenReady` and nothing else — its own grant, bundled into the
+        // collector. A read, so it sits with the four reads above; its key is
+        // `CollectionReady:03` and nothing else — its own grant, bundled into the
         // accountant roles and the collector supervisor's (1995) on its own.
         labelKey: 'collection:menu.ready',
         icon: Hourglass,
@@ -719,7 +709,7 @@ export const MENU: ShellMenuItem[] = [
         // The area's one WRITE screen (BackOffice 1169) — who serves each branch,
         // which is what the four grids above filter by.
         //
-        // 🚩 Its probe reads `canOpenAssignment` and nothing else. The grant
+        // 🚩 Its key is `CollectionAssignment:03` and nothing else. The grant
         // behind it is genuinely new rather than a WPF ControllerID reused, and
         // it binds NOBODY on day one: the item stays hidden for everyone until an
         // administrator assigns COLLECTION_ASSIGNMENT in Authz Admin. A ragged
@@ -800,9 +790,8 @@ export const MENU: ShellMenuItem[] = [
         //
         // 🚩 FAILS CLOSED — see `features/reports/retail-invoice/api`. What is
         // behind this leaf reaches every retail transaction in the estate behind
-        // ONE grant (988 D16), so a pending, errored or malformed probe hides it
-        // rather than revealing it. The `Bby/Access` unknown ⇒ shown precedent
-        // does not transfer: that door was unbuilt, this one is live.
+        // ONE grant (988 D16), so a pending, errored or malformed permissions
+        // answer hides it rather than revealing it.
         //
         // 🚩 And it only HIDES. `Search`/`Download` re-check the grant and refuse
         // with a bare 403 carrying no body — that filter is the boundary, which
@@ -813,12 +802,10 @@ export const MENU: ShellMenuItem[] = [
         // The IDoc Inspector (spec 1386, ticket 296). Same group, same URL
         // prefix, and a SEPARATE grant — a consultant who can print a receipt
         // has no claim on every IDoc the SAP rail ever generated, so this leaf
-        // gets its own probe rather than riding the invoices one.
+        // gets its own key rather than riding the invoices one.
         //
-        // 🚩 FAILS CLOSED, and here for a sharper reason than usual: the door
-        // (BackOffice 1387) is not built yet. A probe that degraded to *shown*
-        // while its endpoint was missing — the `Bby/Access` precedent — would
-        // advertise a screen nobody can hold the grant for.
+        // 🚩 FAILS CLOSED: a pending, errored or malformed permissions answer
+        // hides the leaf.
         labelKey: 'reports:menu.idocInspector',
         icon: FileSearch,
         routerLink: '/reports/idoc-inspector',
@@ -827,13 +814,11 @@ export const MENU: ShellMenuItem[] = [
       },
       {
         // The SAP export console (BackOffice spec 2579, ticket 461) — after the IDoc inspector,
-        // whose transactions it links into, on its OWN grant (`BackOfficeScreen[SapExportConsole,03]`)
-        // read off `GET SapExport/Access`. The SAME key, call and predicate as the console's own
-        // gate, so the two can never disagree.
+        // whose transactions it links into, on its OWN grant (`SapExportConsole:03`).
+        // The SAME predicate as the console's own gate, so the two can never disagree.
         //
-        // 🚩 FAILS CLOSED — see `features/reports/sap-export-console/access`. Its door (BackOffice
-        // 2580) is not deployed anywhere yet, so a pending, errored, 403 or malformed probe hides
-        // the leaf; the `Bby/Access` unknown ⇒ shown precedent does not transfer.
+        // 🚩 FAILS CLOSED — see `features/reports/sap-export-console/access`: a pending, errored or
+        // malformed permissions answer hides the leaf.
         labelKey: 'sap-export-console:menu.sapExport',
         icon: CloudUpload,
         routerLink: '/reports/sap-export',
@@ -854,7 +839,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Calculator,
         routerLink: '/pricing/simulation',
         activePrefix: '/pricing/simulation',
-        // Same key + call as SimulationPage's own guard → one shared probe.
+        // Same key as SimulationPage's own guard.
         // Gated by its OWN grant (POS_SIMULATION_ADMIN), spec 503 / BackOffice 509.
         key: 'PosSimulation:03',
       },
@@ -865,11 +850,8 @@ export const MENU: ShellMenuItem[] = [
         icon: Search,
         routerLink: '/pricing/bonus-buy-inquiry',
         activePrefix: '/pricing/bonus-buy-inquiry',
-        // Same key + call as BonusBuyInquiryPage's own guard → one shared probe.
-        // Gated by its OWN screen grant (BackOfficeScreen[BbyInquiry]). ⚠️ GET Bby/Access
-        // doesn't exist server-side yet: the probe maps 404/network to screenAllowed=true
-        // (fail-open) so this read-only inquiry degrades gracefully; the list endpoint's
-        // 403 ACCESS_DENIED stays the real boundary (spec 061 / contract 057 §4).
+        // Gated by its OWN screen grant (`BbyInquiry:03`), the same key as BonusBuyInquiryPage's own
+        // guard. The list endpoint's 403 ACCESS_DENIED stays the real boundary (spec 061 / contract 057 §4).
         key: 'BbyInquiry:03',
       },
       {
@@ -877,10 +859,8 @@ export const MENU: ShellMenuItem[] = [
         icon: FilePen,
         routerLink: '/pricing/bonus-buy-maintenance',
         activePrefix: '/pricing/bonus-buy-maintenance',
-        // Same key + call as the screen's own gate → one shared probe. Gated by its OWN
-        // grant, BackOfficeScreen[BbyMaintain,03] (spec 2374), and it FAILS CLOSED: this
-        // screen writes every till's offers, so the `Bby/Access` unknown ⇒ shown
-        // precedent does not transfer.
+        // The same predicate as the screen's own gate. Gated by its OWN grant, `BbyMaintain:03`
+        // (spec 2374), and it FAILS CLOSED: this screen writes every till's offers.
         requires: canOpenBbyMaintain,
       },
       {
@@ -888,9 +868,9 @@ export const MENU: ShellMenuItem[] = [
         icon: Ticket,
         routerLink: '/pricing/coupons',
         activePrefix: '/pricing/coupons',
-        // Same key + call as CouponsAdminPage's own guard → one shared probe.
-        // The Templates + Import workspaces are admin-only, so the leaf shows on
-        // CanAdmin (ticket 521 widens to CanAdmin || CanSupport with Inquiry).
+        // Same predicate as CouponsAdminPage's own guard. The Templates + Import
+        // workspaces are admin-only, so the leaf shows on `canAdminCoupons`
+        // (`CouponsAdmin:03`).
         requires: canAdminCoupons,
       },
       {
@@ -898,9 +878,9 @@ export const MENU: ShellMenuItem[] = [
         icon: LifeBuoy,
         routerLink: '/pricing/coupon-support',
         activePrefix: '/pricing/coupon-support',
-        // Shares the ONE ['coupons','access'] probe with the Admin leaf + both pages
-        // (issue 429). Support screen shows on CanSupport, which the server sets =
-        // support OR admin — so a support-only agent sees this leaf but NOT the
+        // Shares the Coupons predicates with the Admin leaf + both pages (issue 429).
+        // Support screen shows on `canSupportCoupons` = `CouponsSupport:03` OR
+        // `CouponsAdmin:03` — so a support-only agent sees this leaf but NOT the
         // admin Coupons leaf above (ticket 523).
         requires: canSupportCoupons,
       },
@@ -914,9 +894,9 @@ export const MENU: ShellMenuItem[] = [
     // Coupon finder and Customers (519), Campaign upload (530) and Campaign uploads (532) each append their leaf with the
     // page it opens.
     //
-    // Every leaf rides the rule engine's ONE probe (`GET Rules/Access`, oms 852, BackOffice 3459) on its family's
-    // flag: the authoring screens on author OR approver, Campaign upload on author alone, support's three on
-    // support. The group drops when no leaf is visible. 🚩 FAILS CLOSED; each page still names its doors' bare 403.
+    // Every leaf reads the rule engine's keys (oms 852, BackOffice 3459) for its family: the authoring screens on
+    // author OR approver (`RuleAuthoring:02` / `:06`), Campaign upload on author alone, support's three on
+    // `RuleSupport:03`. The group drops when no leaf is visible. 🚩 FAILS CLOSED; each page still names its doors' bare 403.
     labelKey: 'campaigns:menu.group',
     icon: Megaphone,
     items: [
@@ -1061,7 +1041,7 @@ export const MENU: ShellMenuItem[] = [
     // Its own top-level group, LAST, right after Deliverect (BackOffice spec 3028, ticket 551):
     // `/hungerstation/*` is a new URL prefix and a new nav group — the DIRECT HungerStation rail,
     // not HungerStation through Deliverect. All leaf labels live in `hungerstation-stores` (the
-    // area's first namespace). 551 shipped every leaf, one per probe flag; Materials (555) and Orders
+    // area's first namespace). 551 shipped every leaf, one per key; Materials (555) and Orders
     // (556) now route to their own pages.
     labelKey: 'hungerstation-stores:menu.hungerstation',
     icon: Bike,
@@ -1176,7 +1156,7 @@ export function matchLength(item: ShellMenuItem, pathname: string): number {
  * never marked (see `SubGroupLink`).
  *
  * ⚠️ The rail passes the full `MENU`, as the crumb does, not the granted slice. That is
- * sound while two leaves that compete for an address share one access probe (the two
+ * sound while two leaves that compete for an address share one predicate (the two
  * eligibility leaves do); a more specific leaf gated differently would win while hidden.
  * The rail compares the answer by identity, which holds because `useVisibleMenu` passes
  * leaves through unchanged (it copies only groups).

@@ -28,7 +28,7 @@ import UploadStateBadge from './UploadStateBadge'
  * per promotion, newest upload first (`Uploads/List`), filtered by state — `pending` by default, held in
  * the address. A row opens the upload, where an approver activates or sends it back as a whole.
  *
- * Readers (03) see it; there is no access probe, so a session without the grant is a bare 403 that
+ * Readers (03) see it; there is no client gate, so a session without the grant is a bare 403 that
  * reads "You do not have access to this action", never an empty list.
  */
 export default function UploadsPage() {

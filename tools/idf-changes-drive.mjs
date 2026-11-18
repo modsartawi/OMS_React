@@ -55,7 +55,6 @@ async function open(dir, opts = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     const hit = idfStub(req.method(), p + url.search, null, { state, reads, ...opts })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads }

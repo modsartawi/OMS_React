@@ -2,7 +2,7 @@
 //
 // Drives the REAL app in Chromium against a STUB of the two doors BackOffice BO-2 has not built, answering
 // EXACTLY the D20 wire (camelCase):
-//   GET SourcingAdvisor/Access  → { canView }                       (granted, not granted, a bare 403)
+//   GET Auth/Permissions        → SourcingAdvisor:01 held or not, or a failed answer (oms 909; the probe is gone)
 //   GET SourcingAdvisor/Explain → { orderNo, deliveryType, city, promisedBy, actual, best, candidates[],
 //                                   saving, reasons[], rateVersion, placeholderRates }
 //   and `SOURCING-403` (order not found or not scored yet) for order 8000000999.
@@ -10,7 +10,7 @@
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl") it asserts:
 //   1. not granted: no menu item, no "Why this store?" on delivery details, the URL shows the denied card,
 //      and Explain is never asked;
-//   2. a bare 403 on the probe: the same — the probe fails closed;
+//   2. a failed permissions answer: the same (the unavailable card) — the answer fails closed;
 //   3. granted: the leaf is in the OMS group; delivery details shows "Why this store?", and it opens the
 //      explanation, which asks Explain for that order;
 //   4. the order (delivery type, city, promised time), actual against cheapest with km, SAR, ready and
@@ -45,6 +45,7 @@
 //   2. DRIVE_PORT=5202 node tools/sourcing-advisor-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, permissionsFailed } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -162,11 +163,9 @@ async function open(dir, { access = 'granted' } = {}) {
     calls.push(p)
     ;(queries[p] ??= []).push(url.searchParams)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
-    if (p === 'SourcingAdvisor/Access') {
-      // A bare 403: no envelope at all, as a route without AllowCookieSession answers.
-      if (access === 'bare403') return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
-      return route.fulfill(envelope({ canView: access === 'granted' }))
+    if (p === 'Auth/Permissions') {
+      if (access === 'failed') return route.fulfill(permissionsFailed(500))
+      return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', ...(access === 'granted' ? ['SourcingAdvisor:01'] : [])]))
     }
     if (p === 'SourcingAdvisor/Explain') {
       const orderNo = url.searchParams.get('orderNo')
@@ -207,7 +206,6 @@ async function open(dir, { access = 'granted' } = {}) {
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(doc[1] === DELIVERY ? CAPTURE : null))
     if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canView: false, canViewServingLists: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, queries }
@@ -245,6 +243,7 @@ const isLtrIsolate = (locator) => locator.evaluate((el) => el.tagName === 'BDI' 
 
 const WORDS = {
   denied: 'No access to the sourcing advisor',
+  unavailable: 'This screen is unavailable',
   why: 'Why this store?',
   notScored: `Order ${UNSCORED} is not found, or has not been scored yet.`,
 }
@@ -271,22 +270,22 @@ async function drive(dir) {
     await context.close()
   }
 
-  // 2. A bare 403 on the probe.
+  // 2. A failed permissions answer.
   {
-    const { context, page, errors, calls } = await open(dir, { access: 'bare403' })
+    const { context, page, errors, calls } = await open(dir, { access: 'failed' })
     await page.goto(`${BASE}/oms/delivery/${DELIVERY}`)
     await page.locator('[data-now-step]').waitFor({ timeout: 20000 })
     await page.waitForTimeout(1200)
     const links = await omsLinks(page)
     check(
-      `${label}: a bare 403 on the probe — no menu item and no link`,
+      `${label}: a failed permissions answer — no menu item and no link`,
       !links.includes('/oms/sourcing-advisor') && (await page.locator('[data-why-this-store]').count()) === 0,
     )
     await page.goto(`${BASE}/oms/sourcing-advisor/order/${DELIVERY}`)
-    const denied = page.locator('[role="alert"]', { hasText: WORDS.denied })
+    const denied = page.locator('[role="alert"]', { hasText: WORDS.unavailable })
     await denied.waitFor({ timeout: 20000 })
-    check(`${label}: a bare 403 — the denied card, no Explain call`, !calls.includes('SourcingAdvisor/Explain'))
-    check(`${label}: no page errors (bare 403)`, errors.length === 0, errors.join(' | '))
+    check(`${label}: a failed answer — the unavailable card, no Explain call`, !calls.includes('SourcingAdvisor/Explain'))
+    check(`${label}: no page errors (failed answer)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

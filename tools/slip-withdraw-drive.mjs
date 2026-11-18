@@ -1,9 +1,9 @@
 // Withdraw drive (spec 319, ticket 323) — drives the REAL app in Chromium against STUBBED
 // envelopes shaped exactly as BackOffice 2035 records them under `## Web contract` (Access and
-// Withdraw), cross-checked against AttachmentWebEndpoints.cs, AttachmentWithdrawResult.cs,
+// Withdraw; oms 909 reads the grant off `Auth/Permissions` now), cross-checked against AttachmentWebEndpoints.cs, AttachmentWithdrawResult.cs,
 // AttachmentWithdrawReasons.cs, AttachmentWithdrawGrantEndpointFilter.cs, WithdrawnAttachmentDto.cs
 // and AttachmentMessages.cs on pricing2:
-//   - `GET AttachmentWeb/Access` answers `{ categories, withdrawCategories }`;
+//   - `GET Auth/Permissions` carries `Attachments:03:CASH_CLOSE` (read) and `Attachments:04:CASH_CLOSE` (withdraw);
 //   - `POST AttachmentWeb/{attachmentId}/Withdraw`, JSON `{ reasonCode, note }`, answers the
 //     withdrawn item at 200 (the row UNCHANGED when it was already withdrawn), a bilingual coded
 //     400 `reasonCode` / `note`, 404 `NOT_FOUND`, 503 `NOT_SET_UP`, or a bare 403 with no body.
@@ -27,6 +27,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/slip-withdraw-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys, attachmentKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -181,7 +182,8 @@ const asWithdrawn = (s, reasonCode, note, withdrawnBy, withdrawnAt) => ({
 
 // ---- the stubbed register ----
 let register = {}
-let probe = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
+/** The slip categories the `Auth/Permissions` answer grants (read, withdraw). */
+let slipGrants = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
 let withdrawAnswers = []
 let withdrawHold = null
 let withdrawCalls = []
@@ -252,10 +254,15 @@ async function run() {
     const path = url.pathname.split('/api/')[1]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(ACCESS))
+    // oms 909: the Collections keys plus the slip's Attachments keys (`slipGrants` keeps the old categories shape).
+    if (path === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([...flagKeys('Collection', ACCESS), ...attachmentKeys(slipGrants.categories, slipGrants.withdrawCategories ?? [])], {
+          fileServerReady: true,
+        }),
+      )
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(envelope({ accountants: [], collectors: [], supervisors: [], defaultScope: null }))
-    if (path === 'AttachmentWeb/Access') return route.fulfill(envelope(probe))
     if (path === 'CollectionWeb/Ready') {
       readyCalls += 1
       return route.fulfill(envelope(READY_ROWS, { siblings: { slipCountsUnavailable: false } }))
@@ -562,13 +569,12 @@ async function run() {
 
   // ════════════════════ WITHOUT THE WITHDRAW GRANT ════════════════════
   for (const [name, answer] of [
-    ['a collector (no withdrawCategories)', { categories: ['CASH_CLOSE'] }],
-    ['an empty withdrawCategories', { categories: ['CASH_CLOSE'], withdrawCategories: [] }],
-    ['a bare string "CASH_CLOSE"', { categories: ['CASH_CLOSE'], withdrawCategories: 'CASH_CLOSE' }],
+    ['a collector (read key, no Attachments:04:CASH_CLOSE)', { categories: ['CASH_CLOSE'] }],
+    ['a withdraw key for another category only', { categories: ['CASH_CLOSE'], withdrawCategories: ['OTHER'] }],
   ]) {
     seed()
     reset()
-    probe = answer
+    slipGrants = answer
     await load(READY)
     await openDay(readyCell())
     await preview(KEEP)
@@ -576,14 +582,14 @@ async function run() {
     check(`hidden — ${name}: Withdrawn (n) is still shown`, (await withdrawnCount()) === 'Withdrawn (1)', await withdrawnCount())
     await closeDrawer()
   }
-  probe = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
+  slipGrants = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
 
-  // ---- a fresh drawer reads the probe again (the 403 was this drawer's) ----
+  // ---- a fresh drawer reads the answer again (the 403 was this drawer's) ----
   seed()
   await load(READY)
   await openDay(readyCell())
   await preview(KEEP)
-  check('a new drawer — Withdraw is offered again from the probe', (await withdrawButton().count()) === 1)
+  check('a new drawer — Withdraw is offered again from the answer', (await withdrawButton().count()) === 1)
   await closeDrawer()
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))

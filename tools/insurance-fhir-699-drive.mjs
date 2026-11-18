@@ -10,6 +10,7 @@
 import { createRequire } from 'node:module'
 import { envelope, guardEditorStub, insuranceRulesStub, newGuardStore } from './insurance-rules-stubs.mjs'
 import { monitorStub } from './fhir-rules-stubs-699.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -43,7 +44,7 @@ for (const dir of ['ltr', 'rtl']) {
     const body = req.method() === 'GET' ? null : req.postDataJSON()
     const hit = monitorStub(req.method(), p, store) ?? guardEditorStub(req.method(), p, body, { store, reads: {} }) ?? insuranceRulesStub(req.method(), p, body, {})
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
 

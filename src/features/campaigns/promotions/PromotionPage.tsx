@@ -41,7 +41,7 @@ import PromotionStateBadge from './PromotionStateBadge'
  * no assign, unassign or delete — its campaigns are its upload's. A hand-made promotion (ticket 536)
  * is renamed, assigned campaigns (a search over every campaign), unassigned the ticked rows and
  * deleted once empty; every write happens at once and its refusal reads in the dialog that made it.
- * The buttons are offered to every reader: there is no access probe, so the author's grant is HQ's to
+ * The buttons are offered to every reader: there is no client gate, so the author's grant is HQ's to
  * check. The no-promotion page keeps the old list's create actions and lists the drafts never
  * published. Grouping is not publishing: there is no promotion budget and no promotion-wide disable.
  */

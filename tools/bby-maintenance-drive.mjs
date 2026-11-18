@@ -75,7 +75,7 @@
 // Ticket 420 — the six Engine Rules lists and the coupon template's origin filter are multi-line
 // paste boxes (BackOffice spec 2396 stories 34-39; 2400 and 2403 open). No new door: the client
 // normalises each list as the server stores it, so the save bodies are what is asserted. The
-// coupon template's SHIPPED CouponsAdminWeb Access + Templates (create) are stubbed for step 41.
+// coupon template's SHIPPED Templates (create) and the CouponsAdmin keys are stubbed for step 41.
 //  37. six textareas, none with a maxlength (a browser cap would cut a pasted column).
 //  38. a pasted 500-row CRLF column of store codes keeps every row: "500 codes".
 //  39. the cap reads the normalised length and stays 50 until 2403: past it the box says so.
@@ -107,6 +107,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -210,7 +211,7 @@ async function run() {
     const path = req.url().split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'BbyMaintainWeb/Access') return route.fulfill(envelope({ screenAllowed: allowed, canTest }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions([...(allowed ? ['BbyMaintain:03'] : []), ...(canTest ? ['BbyMaintain:03', 'BbyMaintain:04'] : []), 'CouponsAdmin:03', 'CouponsSupport:03']))
     if (path === 'BbyMaintainWeb/Promotion/List') return route.fulfill(envelope([PROMO, EMPTY]))
     if (path.startsWith('BbyMaintainWeb/BonusBuy/') && req.method() === 'GET') {
       const n = decodeURIComponent(path.slice('BbyMaintainWeb/BonusBuy/'.length))
@@ -343,7 +344,6 @@ async function run() {
     }
     if (path === `BbyMaintainWeb/Promotion/${EMPTY.promoNumber}`) return route.fulfill(envelope(EMPTY))
     // Ticket 420: the coupon template door, in its SHIPPED shape (517).
-    if (path === 'CouponsAdminWeb/Access') return route.fulfill(envelope({ canAdmin: true, canSupport: true }))
     if (path === 'CouponsAdminWeb/Templates' && req.method() === 'POST') {
       const body = JSON.parse(req.postData() || '{}')
       posts.push(['CouponsAdminWeb/Templates', body])

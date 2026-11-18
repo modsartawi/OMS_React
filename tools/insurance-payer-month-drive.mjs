@@ -9,6 +9,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/insurance-payer-month-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -99,7 +100,7 @@ async function run() {
       const path = decodeURIComponent(url.pathname.split('/api/')[1])
       const method = req.method()
       if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-      if (path === 'InsurancePayerMonthWeb/Access') return route.fulfill(envelope(scenario.access))
+      if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('PayerMonth', scenario.access)))
       let m = path.match(/^InsurancePayerMonthWeb\/Months\/(\d+)\/(\d+)$/)
       if (m && method === 'GET') {
         const activity = url.searchParams.get('activity') === 'true'
@@ -267,7 +268,7 @@ async function run() {
   check('INS-16264 shows its sentence, and the dialog stays open', await page.isVisible('[data-testid=payer-month-reason]'))
   await page.close()
 
-  // 11 — the access probe: no → denied, no read, and no leaf.
+  // 11 — the grant: no → denied, no read, and no leaf.
   reset({ access: { canManage: false } })
   page = await open()
   await page.goto(PAGE_URL)

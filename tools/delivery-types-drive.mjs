@@ -21,6 +21,7 @@
 //   1. run the app:  npx vite --port 5274 --strictPort
 //   2. DRIVE_PORT=5274 node tools/delivery-types-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -105,8 +106,7 @@ async function open(dir, { canEdit = true } = {}) {
     }
     calls.push({ method, p, body })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: false, canOpenDetail: false }))
-    if (p === 'SdDocTypeConfigWeb/Access') return route.fulfill(envelope({ canViewDocTypeConfig: true, canEditDocTypeConfig: canEdit }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', ...(canEdit ? ['DocumentList:03', 'SdDocTypeConfig:06'] : [])]))
     const forced = force.get(`${method} ${p}`)
     if (forced) {
       force.delete(`${method} ${p}`)
@@ -139,7 +139,6 @@ async function open(dir, { canEdit = true } = {}) {
     if (p === 'SdDocTypeConfigWeb/DocumentTypes/CASH' && method === 'GET') return route.fulfill(envelope(docType))
     if (p === 'SdDocTypeConfigWeb/DocumentTypeFields') return route.fulfill(envelope([]))
     if (/\/(ItemCategoryAssignments|PlantNetworks|History)$/.test(p) || /(ItemCategories|PlantNetworkIds|CodeOnlyBehaviour)$/.test(p)) return route.fulfill(envelope([]))
-    if (p.endsWith('/Access')) return route.fulfill(envelope({}))
     return route.fulfill(envelope(null))
   })
   return { context, page, errors, calls, force }

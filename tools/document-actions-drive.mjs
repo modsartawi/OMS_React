@@ -39,6 +39,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -215,7 +216,7 @@ async function run() {
    */
   let updateDelayMs = 0
 
-  /** The probe's answer. Section 12 (ticket 760) swaps in an LF-granted / ungranted session. */
+  /** The OMS grants, as flags (`flagKeys('Oms', …)`). Section 12 (ticket 760) swaps in an LF-granted / ungranted session. */
   const BONDED_ACCESS = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }
   let access = BONDED_ACCESS
 
@@ -233,10 +234,10 @@ async function run() {
     }
     if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'SdDocument/Districts') return route.fulfill(envelope([]))
-    // Ticket 125 put the OMS screens behind SdDocumentWeb/Access; the detail page
-    // guards on canOpenDetail, so this drive must answer the probe or every
+    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 909); the detail page
+    // guards on it, so this drive must answer Auth/Permissions or every
     // assertion below meets the denied card instead of the screen.
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', access)))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
@@ -609,7 +610,7 @@ async function run() {
     !ungranted.includes('Return Document') && ungranted.includes('Reschedule'),
     ungranted.join(' | '),
   )
-  // A probe answering 04 without 03 grants nothing either.
+  // 04 without 03 grants nothing either.
   access = { ...BONDED_ACCESS, canCreateReturn: false, canForceLocalFulfillmentReturnRefund: true }
   await openDelivery('8000000253')
   check('and 04 without 03 draws nothing', !(await shownLabels()).includes('Return Document'))

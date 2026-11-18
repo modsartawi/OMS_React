@@ -6,13 +6,13 @@
 // is 557). Every fixture emits EXACTLY the contract's fields, on the REAL envelope { statusCode,
 // success, message, errors: [{ errorCode, internalErrorCode, errorMessage }], data }, every refusal's
 // errorMessage is "<English> / <Arabic>", and a missing grant is a BARE 403:
-//   GET  HungerStationWeb/Access                         → { canManageStores, canManageCatalog, canViewOrders }
+//   GET  Auth/Permissions                                → screens: HungerStationStores/Catalog/Orders:03 (+ Deliverect's)
 //   GET  HungerStationWeb/Materials?q=&state=&skip=&take= → { total, rows }
 //   PUT  HungerStationWeb/Materials/{materialNumber}     → the row; DHS-00008/00009
 //   POST HungerStationWeb/Materials/Import               → { added, updated, unknown }; DHS-00008/00010
 //
 // It asserts:
-//   1. the Materials leaf opens the page (one probe call); without canManageCatalog the leaf is
+//   1. the Materials leaf opens the page (one permissions call); without canManageCatalog the leaf is
 //      hidden and the URL shows the denied card with no Materials call;
 //   2. the list asks state=active, skip=0, take=100; the columns show; a null updatedAt is blank;
 //      a set flag reads as a badge; the status bar says "Showing 1–100 of 250";
@@ -34,6 +34,7 @@
 //   2. DRIVE_PORT=5235 node tools/hungerstation-materials-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -201,7 +202,8 @@ async function open(dir, { access = ALL } = {}) {
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'HungerStationWeb/Access') return route.fulfill(access === 403 ? bare403 : envelope(access))
+    if (p === 'Auth/Permissions')
+      return route.fulfill(access === 403 ? permissionsFailed() : permissions([...flagKeys('HungerStation', access), ...flagKeys('Deliverect', { ...ALL, canManageTerms: true })]))
     if (p === 'HungerStationWeb/Materials' && req.method() === 'GET') {
       lists.push(url.search.slice(1))
       return route.fulfill(envelope(materialsAnswer(url.searchParams)))
@@ -225,9 +227,6 @@ async function open(dir, { access = ALL } = {}) {
       const row = MATERIALS.find((m) => m.materialNumber === number)
       return route.fulfill(envelope({ ...row, disabled: body.disabled, deleted: body.deleted, updatedAt: '2026-10-24T11:30:00', updatedBy: 'MSARTAWI' }))
     }
-    if (p === 'DeliverectWeb/Access') return route.fulfill(envelope({ ...ALL, canManageTerms: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, lists, writes }
@@ -284,7 +283,7 @@ const lastList = (lists) => lists.at(-1)
   await page.locator('nav a[href="/hungerstation/materials"]').first().click()
   await waitRows(page, 100)
   check('1: the Materials leaf opens the page', (await page.locator('h1').innerText()) === 'HungerStation materials')
-  check('1: the leaf and the page gate cost ONE probe call', calls.filter((c) => c === 'HungerStationWeb/Access').length === 1)
+  check('1: the leaf and the page gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

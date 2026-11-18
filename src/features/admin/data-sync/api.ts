@@ -1,5 +1,5 @@
 /**
- * The Data sync screen's server calls (spec 558; ticket 559 lands the access probe and the
+ * The Data sync screen's server calls (spec 558; ticket 559 lands the gate and the
  * campaigns page's reads, 560–565 add theirs here).
  *
  * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`) as a bare `DataSync/…`

@@ -5,7 +5,7 @@ import CopilotPanel from './CopilotPanel'
 
 /**
  * `/copilot` — the copilot as a full page (ticket 735, spec 734 D11): the same panel the top bar's
- * "Ask the OMS" opens, behind `canAskCopilot` on `GET Copilot/Access`, the predicate the button reads.
+ * "Ask the OMS" opens, behind `canAskCopilot` (`Copilot:01`), the predicate the button reads.
  *
  * 🚩 Fails closed (D7): pending shows the check, and anything but an explicit `canAsk` shows the denial,
  * because the panel sends the question to an external AI service.

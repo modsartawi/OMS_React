@@ -20,7 +20,7 @@ const PANEL_ID = 'insurance-metrics-panel'
  *   where a live guard already covers the kind.
  * The address is the state (`useUrlQuery`). Read-only.
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on a read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on a read is "You do not have access".
  */
 export default function MetricsPage() {
   const { t } = useTranslation('insurance-metrics')

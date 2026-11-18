@@ -1,7 +1,7 @@
 /**
  * The Rule hits page's doors (BackOffice spec 3972, door ticket 3980, oms side 3981). Both cookie-session, gated on
  * `BackOfficeScreen[InsuranceRuleHits, 03]`: a session without it is answered a bare 403 (`isBareDenial`); the menu
- * hides the leaf off the area probe's `canRuleHits`.
+ * hides the leaf off the same key (`canRuleHits`).
  *
  * 🚩 The rows carry national ids (`patientKey`) — never log them client-side.
  */

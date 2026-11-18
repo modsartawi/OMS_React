@@ -3,7 +3,7 @@
  *
  * Reconciled in oms 618 with 3140 as built: a trace step's `value` arrives as the TEXT `"true" | "false" | "unknown"`
  * (`GuardTraceStep.Value`), read here as the screen's `true | false | 'unknown'`; `why` is one English line.
- * No access probe — a session without the grant is answered a bare 403 (`isBareDenial`). The back-test reads (`GET …/Backtests`, `GET …/Backtests/{id}`) are core's (`@/core/insurance-rules/backtest`): 611 reads them too.
+ * No client gate — a session without the grant is answered a bare 403 (`isBareDenial`). The back-test reads (`GET …/Backtests`, `GET …/Backtests/{id}`) are core's (`@/core/insurance-rules/backtest`): 611 reads them too.
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'

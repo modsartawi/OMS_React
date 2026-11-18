@@ -10,7 +10,7 @@
 // ⚠️ Stubbed, never live: this proves the client half. The ticket's Proof is the owner's smoke test on dev SIS.Api.
 //
 // Asserts:
-//   A. granted: the "Central invoices" leaf opens /oms/central-invoices and is lit ALONE; ONE Access call; the landing
+//   A. granted: the "Central invoices" leaf opens /oms/central-invoices and is lit ALONE; ONE permissions call; the landing
 //      GET asks for the last 30 days by request day and names no store and no status.
 //   B. the rows: a billed row shows its invoice number, total and cash remainder; a stranded row "Stranded" + its code;
 //      a queued row shows NO money (never 0.00) and no billed-at; a Bahraini remainder keeps its third decimal; the GS1
@@ -32,6 +32,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
 import path from 'node:path'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -111,18 +112,15 @@ async function open(browser, { probe = 'granted', answer } = {}) {
     calls.push(`${req.method()} ${p}`)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: probe === 'granted' }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...(probe === 'granted' ? ['CentralInvoice:03'] : []), 'DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01']))
     if (p === 'Sd/CentralInvoice' && req.method() === 'GET') {
       const q = Object.fromEntries(url.searchParams)
       gets.push(q)
       if (answer) return route.fulfill(answer(q))
       return route.fulfill(envelope({ rows: ROWS }))
     }
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     if (p === 'SdDocumentWeb/DeliveryDocumentList')
       return route.fulfill(envelope([{ deliveryNo: '8000000253', documentNo: '2000000551', storeCode: 'P001', netAmount: 12.5 }]))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, gets }
@@ -199,7 +197,7 @@ async function download(page, click) {
       check('A: the leaf opens /oms/central-invoices', page.url().endsWith('/oms/central-invoices'))
       const lit = await page.locator('nav a[aria-current="page"]').allInnerTexts()
       check('A: the list leaf is lit alone', lit.length === 1 && /Central invoices/.test(lit[0]), JSON.stringify(lit))
-      check('A: one Access call for the page life', count(calls, /Sd\/CentralInvoice\/Access$/) === 1, String(count(calls, /Sd\/CentralInvoice\/Access$/)))
+      check('A: one permissions call for the page life', count(calls, /Auth\/Permissions$/) === 1, String(count(calls, /Auth\/Permissions$/)))
       const today = new Date()
       const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)
       const q = gets[0] ?? {}

@@ -14,6 +14,7 @@
 //   2. node tools/coupon-import-file-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -80,7 +81,7 @@ async function drive(dir) {
   await page.route('**/api/**', async (route) => {
     const p = new URL(route.request().url()).pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'CouponsAdminWeb/Access') return route.fulfill(envelope({ canAdmin: true, canSupport: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CouponsAdmin:03', 'CouponsSupport:03']))
     if (p === `CouponsAdminWeb/Templates/${TEMPLATE}/Jobs`) return route.fulfill(envelope(jobs))
     if (p === `CouponsAdminWeb/Templates/${TEMPLATE}/Import`) {
       const body = route.request().postDataJSON()
@@ -89,7 +90,6 @@ async function drive(dir) {
       jobs.unshift(created)
       return route.fulfill(envelope(created))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
 

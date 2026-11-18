@@ -7,8 +7,8 @@
 // just those tickets' scenarios. A scenario opens its own page with `open({ dir, dark, ...stubOptions })`
 // and reports with `check(name, pass, detail)`; screenshots go under SHOTS.
 //
-// 767 — the view page draws its bar, behind the probe:
-//   1. the probe absent (a bare 404), or `canView: false`: the Analytics group is not in the nav, a typed
+// 767 — the view page draws its bar, behind the `Analytics:03` grant:
+//   1. the permissions answer failing, or no `Analytics:03` in it: the Analytics group is not in the nav, a typed
 //      `/analytics/view/:id` shows the denied card, and no Item/Query call is made;
 //   2. allowed, en light: the group and its leaf show; the view asks `Analytics/Query` for `{ viewId, revision }`,
 //      shows the loading frame (`aria-busy`) while the answer is held, then draws five bars in the
@@ -329,7 +329,7 @@ async function catalog843({ dir }) {
 // 845 — the catalog prints as a bilingual PDF (BackOffice spec 3437 §G, BO 3444), en and ar: the Catalog page's
 // Print control asks `POST Analytics/Catalog/Render` with the chosen language and saves the server's file; a 408
 // toasts the PDF's own words; the print route under a ticket (`?lang=…&ticket=…`) reads ONLY `Render/Catalog` with
-// the ticket header — no Access, no Model, no Catalog — lays out every area then the Planned and untapped section in
+// the ticket header — no Model, no Catalog — lays out every area then the Planned and untapped section in
 // the ticket's language (RTL for ar), and says `data-print-ready`; no page errors.
 async function print845({ dir }) {
   const tag = `845 ${dir}`
@@ -729,11 +729,11 @@ async function multiSeriesBars820({ dir, dark }) {
 
 // ── 767 ──────────────────────────────────────────────────────────────────────────────────────────────
 async function probeHides() {
-  for (const access of ['absent', { canView: false, canCurate: true }]) {
-    const label = access === 'absent' ? 'probe absent' : 'canView false'
+  for (const access of ['failed', { canView: false }]) {
+    const label = access === 'failed' ? 'answer failed' : 'no Analytics:03'
     const { context, page, calls, errors } = await open({ access })
     await page.goto(`${BASE}/analytics/view/v-bar`)
-    // A refused probe is the denial sentence; an absent door (404) the unreachable one. Both deny.
+    // A missing key is the denial sentence; a failed answer the unreachable one. Both deny.
     const card = page.locator('[role="alert"]', { hasText: /No access to analytics|Analytics can.t be reached/ })
     await card.waitFor({ timeout: 10000 })
     check(`767 ${label}: a typed view URL shows the denied card`, true, (await card.innerText()).split('\n')[0])
@@ -1183,16 +1183,16 @@ async function homeEmpty() {
 }
 
 // 782 — the ask box on /analytics hands its question to the ONE copilot panel:
-//   1. the copilot probe denies (or is absent): no ask box on the home;
+//   1. no `Copilot:01` in the permissions answer: no ask box on the home;
 //   2. granted: the top-bar button opens the panel EMPTY (the examples, an empty box, no Ask call);
 //      then the ask box opens the same panel with the question sent — one `Copilot/Ask` carrying
 //      exactly `{ question }` — and its answer in the thread; the ask box is emptied;
 //   3. ar: the same, sent by Enter; no page errors.
-// It waits on the probes' answers, not on the home's markup, which 770 rewrites.
+// It waits on the permissions answer, not on the home's markup, which 770 rewrites.
 async function askBox({ dir = 'ltr' } = {}) {
   const tag = `782 ${dir}`
-  const probed = (page) => page.waitForResponse((r) => r.url().includes('/api/Copilot/Access'), { timeout: 10000 })
-  for (const copilot of ['denied', 'absent']) {
+  const probed = (page) => page.waitForResponse((r) => r.url().includes('/api/Auth/Permissions'), { timeout: 10000 })
+  for (const copilot of ['denied']) {
     const { context, page, errors } = await open({ dir, copilot })
     const answered = probed(page)
     await page.goto(`${BASE}/analytics`)

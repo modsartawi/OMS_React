@@ -29,7 +29,7 @@ import { DeniedCard } from '@/core/insurance-rules/parts'
  * from any rule. "Use this template" asks for its blanks and makes an independent draft rule, opened in the
  * editor.
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on the read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on the read is "You do not have access".
  */
 export default function TemplatesPage() {
   const { t } = useTranslation('insurance-templates')

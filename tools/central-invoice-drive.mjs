@@ -2,7 +2,7 @@
 // Chromium against STUBBED envelopes, with every `/api/**` request RECORDED.
 //
 // The wire, as BackOffice 2099 shipped it (`CentralInvoiceWebEndpoints.cs`, `CentralInvoiceGrantEndpointFilter.cs`):
-//   - `GET  Sd/CentralInvoice/Access` → `{ canOpen }` (cookie-only, NOT grant-gated: a denial is a 200);
+//   - the grant is `CentralInvoice:03` in the one `GET Auth/Permissions` answer (oms 909; was `Sd/CentralInvoice/Access`);
 //   - `POST Sd/CentralInvoice` `{ deliveryNos, reason }` → `data.results[] = { deliveryNo, verdict, code, message }`,
 //     verdict `accepted` / `wait` / `refused`; a whole-request refusal (no reason, > 200) is the standard 400
 //     envelope; without the grant a BARE 403 with no body.
@@ -17,8 +17,8 @@
 //      ONCE; the answer shows Queued + the message verbatim; wait and refused show their code + message; a 400
 //      shows the server's sentence and keeps the reason.
 //   B. granted, a delivery-return (category T) and an order: no action.
-//   C. ungranted: no action, no nav leaf, the deep link is the denied card, zero POSTs; an unreachable probe (500)
-//      is the same (fail closed); ONE Access call per page life.
+//   C. ungranted: no action, no nav leaf, the deep link is the denied card, zero POSTs; a failed permissions answer (500)
+//      is the same (fail closed); ONE permissions call per page life.
 //   D. a 403 from the dialog's POST: the dialog closes, the action AND the nav leaf disappear.
 //   E. the bulk screen: reached from its nav leaf (Deliveries NOT co-lit); a pasted list of five (commas, spaces,
 //      one duplicate) counts four + "1 duplicate collapsed"; the POST carries the four distinct numbers; four rows
@@ -32,6 +32,7 @@
 import { createRequire } from 'node:module'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, permissionsFailed, ALL_SCREENS } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -74,7 +75,7 @@ const NOT_DELIVERY_MSG = '6314628864841 is not a delivery.'
 
 /**
  * A fresh context per scenario.
- * @param opts.probe  'granted' | 'denied' | 'unreachable'
+ * @param opts.probe  'granted' | 'denied' | 'unreachable' — `CentralInvoice:03` held, absent, or the answer failing (500)
  * @param opts.answer (body) => fulfilment for each POST Sd/CentralInvoice; default answers every number accepted
  */
 async function open(browser, { probe = 'granted', answer } = {}) {
@@ -97,9 +98,10 @@ async function open(browser, { probe = 'granted', answer } = {}) {
     calls.push(`${req.method()} ${p}`)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Sd/CentralInvoice/Access') {
-      if (probe === 'unreachable') return route.fulfill(envelope(null, { status: 500, success: false, message: 'boom' }))
-      return route.fulfill(envelope({ canOpen: probe === 'granted' }))
+    // Every other screen granted; `CentralInvoice:03` per scenario; 'unreachable' fails the whole answer.
+    if (p === 'Auth/Permissions') {
+      if (probe === 'unreachable') return route.fulfill(permissionsFailed(500))
+      return route.fulfill(permissions([...ALL_SCREENS.filter((k) => k !== 'CentralInvoice:03'), ...(probe === 'granted' ? ['CentralInvoice:03'] : [])]))
     }
     if (p === 'Sd/CentralInvoice' && req.method() === 'POST') {
       const body = JSON.parse(req.postData() ?? '{}')
@@ -112,11 +114,8 @@ async function open(browser, { probe = 'granted', answer } = {}) {
         }),
       )
     }
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     const doc = /^SdDocumentWeb\/(Document|Delivery)\/([^/]+)$/.exec(p)
     if (doc) return route.fulfill(envelope(DOCS[doc[2]]))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
     return route.fulfill(envelope([]))
   })
 
@@ -194,7 +193,7 @@ async function run() {
     check('A: re-opening starts a fresh request (empty reason, no verdict)', (await dialog(page).locator('textarea').inputValue()) === '' && (await dialog(page).locator('[data-central-invoice-answer]').count()) === 0)
     await dialog(page).getByRole('button', { name: 'Cancel' }).click()
     check('A: no Document reload after a send (only queued, nothing changed yet)', count(calls, /^GET SdDocumentWeb\/Delivery\//) === 1, `${count(calls, /^GET SdDocumentWeb\/Delivery\//)}`)
-    check('A: ONE Access call for the menu, the page and the dialog', count(calls, /^GET Sd\/CentralInvoice\/Access$/) === 1, `${count(calls, /Sd\/CentralInvoice\/Access/)}`)
+    check('A: ONE permissions call for the menu, the page and the dialog', count(calls, /^GET Auth\/Permissions$/) === 1, `${count(calls, /Auth\/Permissions/)}`)
     check('A: no page errors', errors.length === 0, errors.join(' | '))
     await context.close()
   }

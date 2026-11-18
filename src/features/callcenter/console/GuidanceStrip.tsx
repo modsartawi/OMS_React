@@ -547,13 +547,11 @@ function Card({
  * be listed. An unaddressable offer draws nothing here rather than a link to an
  * unfiltered grid, which would read as *this bonus buy could not be found*.
  *
- * ⚠ **Not gated on `Bby/Access`.** The Simulation screen's own details control
- * is (`probed && screenAllowed`, unknown ⇒ ABSENT) because it opens the record
- * IN PLACE and a missing grant would fail under the operator's hand. This one
- * navigates, and the screen it navigates to is its own guard: the inquiry route
- * self-guards on the probe and `Bby/List` answers its own 403. Reusing the
- * stricter gate would cost a probe call from every console session to hide a
- * link whose denial is already stated where it lands.
+ * ⚠ **Not gated on `BbyInquiry:03`.** The Simulation screen's own details control
+ * is, because it opens the record IN PLACE and a missing grant would fail under
+ * the operator's hand. This one navigates, and the screen it navigates to is its
+ * own guard: the inquiry route self-guards on the key and `Bby/List` answers its
+ * own 403, so the denial is already stated where the link lands.
  */
 function BbyDetailsLink({ offerId }: { offerId: string }) {
   const { t } = useTranslation('callcenter')

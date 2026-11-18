@@ -21,9 +21,9 @@
 
 import { markDeliveredGate } from './mark-delivered'
 
-/** What the gate reads: the probe's grant, the payload's category and two status codes. */
+/** What the gate reads: the grant, the payload's category and two status codes. */
 export interface MarkReturnedBackContext {
-  /** `SdDocumentWeb/Access`'s `canMarkReturnedBack` (3436). Absent on an older SIS.Api. */
+  /** `canMarkReturnedBack` = `OmsReturnBack:06` (3436). */
   canMarkReturnedBack: boolean | null | undefined
   documentCategory: string | null | undefined
   /** `status.deliveryStatus` — `O` is out for delivery. */

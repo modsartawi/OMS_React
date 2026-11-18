@@ -16,7 +16,7 @@ import { syncActivePath, syncNowPath } from './sync'
 import { LOGS_TAKE, logsPath, materialLinesPath, syncLinesPath } from './sync-history'
 
 // The HungerStation stores doors (BackOffice 3030; contract § Stores). The area's shared reads —
-// the access probe and the chain list — live in `@/core/hungerstation/api`. 552 (remove), 553
+// the chain list — live in `@/core/hungerstation/api`; its grants in `@/core/hungerstation/access`. 552 (remove), 553
 // (pause / resume, sync now) and 554 (logs, lines, material history) add their doors here; every
 // shape is already typed in `@/core/models/hungerstation`.
 //

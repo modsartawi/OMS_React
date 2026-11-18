@@ -84,7 +84,6 @@ async function open(dir) {
     }
     const hit = idfStub(req.method(), p + url.search, body, { state, reads, draftWrites, published })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, draftWrites, published, state }
@@ -447,7 +446,7 @@ for (const dir of ['ltr', 'rtl']) {
     await panel(page, 'mine')
     await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
     await page.waitForTimeout(500)
-    check(`${dir} 17. the probe is read`, (reads.access ?? 0) >= 1)
+    check(`${dir} 17. the permissions answer is read`, (reads.access ?? 0) >= 1)
     check(`${dir} 17. my draft without canEditIdf: its header and rows show, no edits / Publish / Discard / row actions`, (await page.locator('[data-idf-draft]').count()) === 1 && (await editControls(page)) === 0 && (await page.locator('[data-idf-draft-discard]').count()) === 0)
     check(`${dir} 17. the panel says it is view-only`, (await page.locator('[data-idf-draft-view-only]').count()) === 1)
     await context.close()

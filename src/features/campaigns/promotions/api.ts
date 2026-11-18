@@ -5,7 +5,7 @@ import { RULE_PROMOTIONS_KEY } from '@/core/rules/api'
 
 // A hand-made promotion's writes (ticket 536; BackOffice 2847 renamed by 2862, the 2737 brief's
 // `Promotions/Create|Update|Assign|Unassign|Delete` rows): every door POST, cookie session, the 02
-// author grant on `BackOfficeScreen[RuleAuthoring, command]`. There is no access probe: a session
+// author grant on `BackOfficeScreen[RuleAuthoring, command]`. There is no client gate: a session
 // without the grant is a BARE 403 with no body, said in the dialog that made the call. No promotion
 // door writes a ruleset version or asks for approval: each write happens at once. The reads stay in
 // `@/core/rules/promotion-api` (the workspace reads them too). Calls go through @/core/api

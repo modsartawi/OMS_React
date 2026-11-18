@@ -18,6 +18,7 @@
 //   2. node tools/insurance-playground-flatten-drive.mjs        (DRIVE_PORT overrides 5385)
 import { createRequire } from 'node:module'
 import { envelope, insuranceRulesStub, newPlaygroundStore, NPHIES_ANSWER, playgroundStub } from './insurance-rules-stubs.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -55,7 +56,7 @@ async function open(dir) {
     }
     const hit = playgroundStub(req.method(), p, body, { store }) ?? insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, store }

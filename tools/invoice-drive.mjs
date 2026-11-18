@@ -16,8 +16,8 @@
 //   2. screenAllowed:false → NO Reports group at all in the menu.
 //   3. a hand-typed /reports/invoice on a denied session → the no-access SENTENCE,
 //      not an empty screen and not a generic "something went wrong".
-//   4. the access probe is called ONCE per visit (nav leaf + screen gate share one
-//      key, so a gated area costs one round trip).
+//   4. the one permissions answer (`Auth/Permissions`, oms 909) is read ONCE per visit (nav leaf + screen gate
+//      share it, so a gated area costs no round trip of its own).
 //   5. every string on the screen came out of the `reports` namespace — no raw
 //      `reports:` keys leaked to the page, which is what an unregistered namespace
 //      would render.
@@ -57,6 +57,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/invoice-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -81,12 +82,10 @@ const envelope = (
   body: JSON.stringify({ statusCode: status, success, message, errors, data, ...(attemptId ? { attemptId } : {}) }),
 })
 
-// Scenario state, mutated between reloads. `accessBody` is the probe's 200 answer;
-// `accessStatus` lets a scenario refuse the probe itself (an unmarked route, or a
-// cookie branch that said no — issue 802), which is a different arm from a 200
-// denial.
+// Scenario state, mutated between reloads. `accessBody.screenAllowed` puts `RetailInvoice:03` in the one
+// permissions answer; `accessStatus` lets a scenario fail the answer itself (500), a different arm from a denial.
 let scenario = { accessBody: { screenAllowed: true }, accessStatus: 200 }
-// How many times `RetailInvoice/Access` was asked, per visit.
+// How many times `Auth/Permissions` was asked, per visit.
 let accessCalls = 0
 
 // ---- 264: the Search stub ---------------------------------------------------
@@ -156,18 +155,10 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'RetailInvoice/Access') {
+    if (path === 'Auth/Permissions') {
       accessCalls++
-      if (scenario.accessStatus !== 200)
-        return route.fulfill(
-          envelope(null, {
-            status: scenario.accessStatus,
-            success: false,
-            message: 'Forbidden.',
-            errors: [],
-          }),
-        )
-      return route.fulfill(envelope(scenario.accessBody))
+      if (scenario.accessStatus !== 200) return route.fulfill(permissionsFailed(scenario.accessStatus))
+      return route.fulfill(permissions({ 'RetailInvoice:03': scenario.accessBody.screenAllowed }))
     }
     if (path === 'RetailInvoice/Search') {
       searchQueries.push(url.split('?')[1] || '')
@@ -208,7 +199,7 @@ async function run() {
         body: Buffer.from('%PDF-1.4\n% a receipt\n%%EOF\n'),
       })
     }
-    // Any other probe/endpoint → benign empty success so no other leaf crashes.
+    // Any other endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
   })
 
@@ -281,7 +272,7 @@ async function run() {
     searchQueries.join(' | '),
   )
   check(
-    '🚩 the access probe is called ONCE per visit (nav leaf + gate share one key)',
+    '🚩 the permissions answer is read ONCE per visit (nav leaf + gate share it)',
     accessCalls === 1,
     `${accessCalls} call(s)`,
   )
@@ -303,8 +294,8 @@ async function run() {
   )
 
   // ---- Scenario 2: denied, arriving from elsewhere ------------------------
-  // The probe answers a denial with 200 — a boolean to read, never an error to
-  // catch — so this is the ORDINARY refusal, not an outage.
+  // A denial is a key absent from a 200 answer — never an error to catch — so this is the ORDINARY refusal,
+  // not an outage.
   scenario = { accessBody: { screenAllowed: false }, accessStatus: 200 }
   await visit(BASE + '/')
   check(
@@ -317,7 +308,7 @@ async function run() {
   )
 
   // ---- Scenario 3: denied, hand-typed URL ---------------------------------
-  // 🚩 The probe only HIDES the menu. A user who pastes the URL reaches the screen
+  // 🚩 The answer only HIDES the menu. A user who pastes the URL reaches the screen
   // and must be told, in words, that they have no access.
   await visit(URL)
   const deniedText = await page.locator('main').innerText()
@@ -341,32 +332,15 @@ async function run() {
     (await page.getByRole('button', { name: /^Reports$/i }).count()) === 0,
   )
 
-  // ---- Scenario 4: the probe itself refuses (403) -------------------------
-  // A different arm from a 200 denial: the route is unmarked, or the cookie branch
-  // said no (issue 802). Still a REFUSAL rather than an outage, so it must not
-  // invite a retry loop against a permanently shut door.
-  scenario = { accessBody: null, accessStatus: 403 }
-  await visit(URL)
-  const refusedText = await page.locator('main').innerText()
-  check(
-    'a 403 on the probe reads as a refusal, not as "try again in a moment"',
-    /No access to invoices/i.test(refusedText) && !/Try again/i.test(refusedText),
-    refusedText.replace(/\n/g, ' ').slice(0, 120),
-  )
-  check(
-    '🚩 a refused probe is not retried (retry:false travels with the key)',
-    accessCalls === 1,
-    `${accessCalls} call(s)`,
-  )
-
-  // ---- Scenario 5: the probe is unreachable (500) -------------------------
+  // ---- Scenario 5: the permissions answer fails (500) ---------------------
   // The other sentence: an outage the user can retry, distinct from a refusal
-  // they cannot.
+  // they cannot. (Scenario 4, a 403 on the old probe, has no counterpart: a 403
+  // invalidates the one answer rather than standing in for it.)
   scenario = { accessBody: null, accessStatus: 500 }
   await visit(URL)
   const downText = await page.locator('main').innerText()
   check(
-    'an unreachable probe reads as unavailable (a retry), not as a refusal',
+    'a failed permissions answer reads as unavailable (a retry), not as a refusal',
     /unavailable/i.test(downText) && !/No access to invoices/i.test(downText),
     downText.replace(/\n/g, ' ').slice(0, 120),
   )

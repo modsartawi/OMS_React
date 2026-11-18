@@ -2,7 +2,7 @@
 //
 // Drives the REAL app in Chromium against a STUB of the scorecard's doors, answering EXACTLY the shapes of
 // `DispatchScorecardModels.cs`, camelCase:
-//   GET DispatchScorecard/Access → { screenAllowed }                         (allowed, not allowed)
+//   GET Auth/Permissions → the screen keys the drive grants (`permissions-stub.mjs`)                         (allowed, not allowed)
 //   GET DispatchScorecard/Drill  → { asOf, from, to, figure, store, staff, rows[] }
 //     figure=failedTakeRate  every take won in the range (closed or not)
 //     figure=fallbackCancels the FallbackStoreClosed rows (callout-level, bidId '')
@@ -32,6 +32,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -207,8 +208,7 @@ async function open(dir, { access = 'allowed' } = {}) {
     const p = url.pathname.split('/api/')[1]
     ;(queries[p] ??= []).push(url.searchParams)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
-    if (p === 'DispatchScorecard/Access') return route.fulfill(envelope({ screenAllowed: access === 'allowed' }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', ...(access === 'allowed' ? ['DispatchScorecard:03'] : [])]))
     if (p === 'DispatchScorecard/Drill') {
       if (url.searchParams.get('store') === 'REFUSE')
         return route.fulfill(
@@ -221,7 +221,6 @@ async function open(dir, { access = 'allowed' } = {}) {
         )
       return route.fulfill(envelope(drill(url.searchParams)))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, queries }

@@ -10,12 +10,14 @@
 //   3. the pointing-type chips: the code, the description as the tooltip, competed marked;
 //   4. the flag: no enabled member under a competed type, deactivated-but-pointed-at, empty;
 //   5. a row opens /oms/serving-lists/:id (568's detail);
-//   6. Access with neither flag → the gate's denial, no leaf, no Lists read; a bare 403 on Access → denial;
+//   6. `Auth/Permissions` with neither ServingList:03 nor :06 → the gate's denial, no leaf, no Lists read; a failed
+//      answer (500) → "Access could not be checked", no leaf, no Lists read;
 //   7. a bare 403 on Lists → "You do not have access", never an empty grid.
 //
 //   1. run the app:  npx vite --port 5207
 //   2. node tools/serving-lists-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -70,11 +72,11 @@ const LISTS = [
 
 const browser = await chromium.launch()
 
-async function open(dir, { access = { canViewServingLists: true, canEditServingLists: true }, accessStatus = 200, listsStatus = 200 } = {}) {
+async function open(dir, { access = { canViewServingLists: true, canEditServingLists: true }, permissionsDown = false, listsStatus = 200 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
   const errors = []
-  const reads = { lists: 0, access: 0 }
+  const reads = { lists: 0, permissions: 0 }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -85,10 +87,11 @@ async function open(dir, { access = { canViewServingLists: true, canEditServingL
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ServingListWeb/Access') {
-      reads.access++
-      if (accessStatus === 403) return route.fulfill({ status: 403, body: '' })
-      return route.fulfill(envelope(access))
+    // `access` keeps the old flags (canViewServingLists → ServingList:03, canEditServingLists → ServingList:06).
+    if (p === 'Auth/Permissions') {
+      reads.permissions++
+      if (permissionsDown) return route.fulfill(permissionsFailed(500))
+      return route.fulfill(permissions(flagKeys('ServingList', access)))
     }
     if (p === 'ServingListWeb/Lists') {
       reads.lists++
@@ -96,7 +99,6 @@ async function open(dir, { access = { canViewServingLists: true, canEditServingL
       if (listsStatus === 'coded403') return route.fulfill(envelope(null, { status: 403, success: false, message: 'Lists are closed for audit. / القوائم مغلقة للتدقيق.', errorCode: 'SVL-00042' }))
       return route.fulfill(envelope(LISTS))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads }
@@ -178,11 +180,11 @@ for (const dir of ['ltr', 'rtl']) {
     await context.close()
   }
   {
-    const { context, page, reads } = await open(dir, { accessStatus: 403 })
+    const { context, page, reads } = await open(dir, { permissionsDown: true })
     await page.goto(URL_)
     await page.locator('[role="alert"]').first().waitFor({ timeout: 20000 }).catch(() => {})
     await page.waitForTimeout(500)
-    check(`${dir} 6. a bare 403 on Access → "You do not have access", no leaf, no read`, (await page.locator('[role="alert"]').first().innerText()).includes('You do not have access') && (await leaf(page).count()) === 0 && reads.lists === 0)
+    check(`${dir} 6. a failed permissions answer → "Access could not be checked", no leaf, no read`, (await page.locator('[role="alert"]').first().innerText()).includes('Access could not be checked') && (await leaf(page).count()) === 0 && reads.lists === 0)
     await context.close()
   }
 

@@ -20,7 +20,6 @@
 //   2. node tools/idf-masters-drive.mjs        (DRIVE_PORT overrides 5201)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
-import { granted852 } from './access-852-grants.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -55,8 +54,6 @@ async function open(dir, { deny = [] } = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     const hit = idfStub(req.method(), p + url.search, req.postDataJSON?.() ?? null, { state, deny, reads, sent })
     if (hit) return route.fulfill(hit)
-    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, sent }

@@ -289,8 +289,6 @@ async function open(dir, path, { list = 'ok', campaigns = 'ok', askJ = false } =
     }
     if (p === 'Rules/Authoring/Drafts/List') return route.fulfill(envelope(DRAFTS))
     if (p === 'Rules/Authoring/Drafts/Save') return route.fulfill(envelope(savedDraft(JSON.parse(req.postData() || '{}'))))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}${path}`)
@@ -807,7 +805,6 @@ async function open536(dir, path, world, { writes = 'ok' } = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: ME, currentStoreCode: 'P001' }))
     if (!p.startsWith(PROMOTIONS_DOOR)) {
       if (p === 'Rules/Authoring/Drafts/List') return route.fulfill(envelope(DRAFTS))
-      if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
       return route.fulfill(envelope([]))
     }
     const door = p.slice(PROMOTIONS_DOOR.length)

@@ -98,7 +98,6 @@ const HOUR_TOTALS = [
 ]
 const KEYS = {
   // canEnrol is the enrolment doors' (BackOffice 2558); the console does not read it yet.
-  access: ['screenAllowed', 'canOperate', 'canOnboard', 'canEnrol'],
   worker: ['rail', 'instance', 'version', 'gateOn', 'pushWidth', 'pullWidth', 'pushInFlight', 'pullInFlight', 'lastFlushAt', 'isStale', 'settings'],
   mirrorWorker: [
     'rail', 'instance', 'version', 'startedAt', 'lastTickAt', 'lastTickOutcome', 'lastTickMessage', 'inboxPending',
@@ -279,13 +278,24 @@ const openStore = async (code) => {
   await page.locator('[data-store-header], [data-store-page]').first().waitFor({ timeout: 20000 })
 }
 
-// ── The access probe ──────────────────────────────────────────────────────────────────────────────
+// ── The permissions answer (oms 909: one `Auth/Permissions`, no ActionSync/Access probe) ─────────────
 
 await page.goto(`${BASE}/admin/sync`)
-const probe = await waitAnswer('ActionSync/Access', 0)
-check('access: ActionSync/Access answers', ok(probe), why(probe))
-const grants = probe?.body?.data ?? {}
-shapeCheck('access: exactly the four flags', grants, KEYS.access)
+const perms = await waitAnswer('Auth/Permissions', 0)
+check('access: Auth/Permissions answers', ok(perms), why(perms))
+const screens = perms?.body?.data?.screens
+check('access: screens is a string array', Array.isArray(screens) && screens.every((s) => typeof s === 'string'), typeof screens)
+const held = (key) => Array.isArray(screens) && screens.includes(key)
+// The store sync console's keys (brief 3995, row 1), as the handles the rest of this drive reads.
+const grants = {
+  screenAllowed: held('ActionSyncConsole:03'),
+  canOperate: held('ActionSyncConsole:06'),
+  canOnboard: held('StoreOnboard:06'),
+  canEnrol: held('SyncObjectEnrol:06'),
+  canReplay: held('ReceiptReplay:06'),
+  canRunScripts: held('SyncStoreScript:06'),
+}
+check('access: no */Access probe was asked', !answers.some((a) => /\/Access$/.test(a.path)), answers.filter((a) => /\/Access$/.test(a.path)).map((a) => a.path).join(', '))
 console.log(`      this session: ${JSON.stringify(grants)}`)
 await page.locator('nav a[href="/admin/sync"]').first().waitFor({ timeout: 20000 }).catch(() => {})
 check(`access: the menu ${grants.screenAllowed ? 'offers' : 'hides'} the Store sync leaf`,

@@ -34,7 +34,7 @@ import { localMomentKey, momentText } from './timeline'
  * or one looked up by its sale id. A row opens the session: its events, its cart and its campaigns,
  * and Cancel session.
  *
- * No access probe on the leaf yet (BO ask B, ticket 529): the doors answer a reader without
+ * No client gate on the leaf yet (BO ask B, ticket 529): the doors answer a reader without
  * `BackOfficeScreen[RuleSupport,03]` a bare 403, which the page explains. The store picker reads the
  * builder's store lookup, under the author's grant: a support reader without it types the store
  * code instead.

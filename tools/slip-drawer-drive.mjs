@@ -23,6 +23,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/slip-drawer-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys, attachmentKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -217,7 +218,8 @@ let byOwnerHold = null
 let byOwnerCalls = []
 let contentCalls = {}
 let goneIds = new Set()
-let probe = 'holder'
+/** 'holder' reads + withdraws CASH_CLOSE; 'notSetUp' is that with the File Server not ready. */
+let grants = 'holder'
 
 async function run() {
   const browser = await chromium.launch()
@@ -271,13 +273,14 @@ async function run() {
     const path = url.pathname.split('/api/')[1]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(ACCESS))
+    if (path === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([...flagKeys('Collection', ACCESS), ...attachmentKeys(['CASH_CLOSE'], ['CASH_CLOSE'])], {
+          fileServerReady: grants !== 'notSetUp',
+        }),
+      )
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(envelope({ accountants: [], collectors: [], supervisors: [], defaultScope: null }))
-    if (path === 'AttachmentWeb/Access') {
-      if (probe === 'notSetUp') return route.fulfill(refusal(503, 'NOT_SET_UP', NOT_SET_UP))
-      return route.fulfill(envelope({ categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }))
-    }
     if (path === 'CollectionWeb/Ready')
       return route.fulfill(envelope(READY_ROWS, { siblings: { slipCountsUnavailable: false } }))
     if (path === 'CollectionWeb/Collections')
@@ -553,11 +556,11 @@ async function run() {
   check('collections — still on the collection screen', page.url().endsWith(COLLECTIONS))
   await noRawKeys('collections')
 
-  // A refused probe hides the column, so no count can open anything.
-  probe = 'notSetUp'
+  // The File Server not ready hides the column, so no count can open anything.
+  grants = 'notSetUp'
   await load(COLLECTIONS)
-  check('probe refused — no slip button anywhere', (await page.locator('[data-slip-open]').count()) === 0)
-  probe = 'holder'
+  check('File Server not ready — no slip button anywhere', (await page.locator('[data-slip-open]').count()) === 0)
+  grants = 'holder'
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

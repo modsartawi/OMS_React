@@ -24,7 +24,7 @@ interface Props {
 
 /**
  * Assign roles to one person, many at once (spec 805, ticket 809). The picker offers the assignable
- * list from the Access probe (delegation-tiered) minus roles the person already holds: a delegated
+ * list from the role lists (delegation-tiered) minus roles the person already holds: a delegated
  * admin sees only the roles they may assign; a full admin (`["*"]`) sees the whole catalog. The
  * server re-checks the assign entitlement regardless of what the picker showed.
  *

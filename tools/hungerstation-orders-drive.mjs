@@ -6,7 +6,7 @@
 // fixture emits EXACTLY the contract's fields, on the REAL envelope { statusCode, success, message,
 // errors: [{ errorCode, internalErrorCode, errorMessage }], data }, every refusal's errorMessage is
 // "<English> / <Arabic>", and a refusal for a missing grant is a BARE 403 (no envelope):
-//   GET  HungerStationWeb/Access                              → { canManageStores, canManageCatalog, canViewOrders }
+//   GET  Auth/Permissions                              → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  HungerStationWeb/Chains                              → ["OlaCare", "AlDawaa"] OR bare 403
 //   GET  HungerStationWeb/Orders?from=&to=&store=&chain=&outcome=&q=&skip=&take=
 //                                                             → { total, rows: [{ orderId, orderCode, chainKey, vendorId,
@@ -22,7 +22,7 @@
 //   POST HungerStationWeb/Orders/{orderId}/Retry { reason }   → { orderId, receiveId, requeued }; DHS-00008/00011/00012
 //
 // With the browser in Asia/Riyadh and its clock fixed at 2026-10-24 11:00 local, it asserts:
-//   1. the Orders leaf rides canViewOrders on the ONE probe (one call); without it the leaf is hidden
+//   1. the Orders leaf rides `HungerStationOrders:03` on the one permissions answer (one call); without it the leaf is hidden
 //      and the URL shows the denied card with no Orders call;
 //   2. the grid: a bare URL is written out as today..today and sent with take=100; every column; the
 //      four outcomes in words; a null store / document blank; the total and its currency ONE value
@@ -54,6 +54,7 @@
 //   2. DRIVE_PORT=5236 node tools/hungerstation-orders-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -234,7 +235,7 @@ async function open(dir, { access = ALL, chains = 'ok', many = false } = {}) {
     const p = url.pathname.split('/api/')[1]
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'HungerStationWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('HungerStation', access)))
     if (p === 'HungerStationWeb/Chains') return route.fulfill(chains === 'ok' ? envelope(CHAINS) : bare403)
     if (p === 'HungerStationWeb/Stores') return route.fulfill(envelope([]))
     if (p === 'HungerStationWeb/Orders' && req.method() === 'GET') {
@@ -267,7 +268,6 @@ async function open(dir, { access = ALL, chains = 'ok', many = false } = {}) {
       if (id === 'hs-a003') return route.fulfill(refuse('DHS-00011'))
       return row ? route.fulfill(envelope(detailOf(row))) : route.fulfill(refuse('DHS-00011'))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, lists, retries, orders }
@@ -330,7 +330,7 @@ const chip = async (page, o) => {
   await page.locator('nav a[href="/hungerstation/orders"]').first().click()
   await waitRows(page, N)
   check('1: the leaf opens the monitor, not the placeholder', (await page.locator('[data-hs-placeholder]').count()) === 0)
-  check('1: the group, its leaves and the page gate cost ONE probe call', calls.filter((c) => c === 'HungerStationWeb/Access').length === 1)
+  check('1: the group, its leaves and the page gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

@@ -1,15 +1,16 @@
 // Simulation loyalty-group picker drive (oms ticket 637; BackOffice spec 3173, door 3174).
 //
-// Drives the REAL app in Chromium against STUBBED envelopes: `LoyGroupWeb/Access` and
-// `LoyGroupWeb/Groups` (3174) are deployed nowhere yet, and `Pricing/Simulate` serves a captured
+// Drives the REAL app in Chromium against STUBBED envelopes: the one `Auth/Permissions` answer
+// (oms 909: LoyaltyGroup:03 is the view grant) and `LoyGroupWeb/Groups` (3174, deployed nowhere yet), and `Pricing/Simulate` serves a captured
 // payload. It asserts:
 //   1. with the view grant, the header's "Loyalty group" field is the core picker over
 //      `Groups?includeInactive=true`, not a text box;
 //   2. ticking GOLD and SILVER: Escape closes the panel and NOT the run form;
 //   3. Process posts `loyGroups: ["GOLD","SILVER"]` (the engine binds string[]) and the collapsed strip's LOY chip
 //      shows it; taking every group off posts `null` and the LOY chip goes;
-//   4. without the grant (D3) — and while the probe is pending, and when it has failed — the field is
-//      today's FREE TEXT (not the picker's read-only fallback), sent as typed, and no list is asked;
+//   4. without the grant (D3) the field is today's FREE TEXT (not the picker's read-only fallback), sent
+//      as typed, and no list is asked (a pending or failed answer now shuts the whole screen, so the old
+//      pending / failed / late-probe cases went with the probe);
 //   5. under RTL the picker still draws; no raw keys, no page errors.
 //
 //   1. run the app:  npx vite --port 5208 --strictPort
@@ -17,6 +18,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -43,12 +45,8 @@ const GROUPS = [
   { groupId: 'g3', code: 'RAMADAN_24', nameEn: 'Ramadan 2024', nameAr: 'رمضان ٢٠٢٤', isActive: false, mobileCount: 40, liveBonusBuys: [] },
 ]
 
-/** Answers the 'late' probe (granted) once the drive releases it. */
-let releaseLate = () => {}
-let lateGate = Promise.resolve()
-
-/** probe: 'granted' | 'denied' | 'pending' | 'failed' | 'late' */
-async function open(dir, probe) {
+/** grant: 'granted' | 'denied' — whether the answer holds LoyaltyGroup:03. */
+async function open(dir, grant) {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } })
   const errors = []
@@ -61,14 +59,8 @@ async function open(dir, probe) {
     const req = route.request()
     const [path, qs = ''] = req.url().split('/api/')[1].split('?')
     if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (path === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (path === 'Pricing/CacheAccess') return route.fulfill(envelope({ canClear: true }))
-    if (path === 'LoyGroupWeb/Access') {
-      if (probe === 'pending') return new Promise(() => {}) // never answers
-      if (probe === 'failed') return route.fulfill(envelope(null, { status: 500 }))
-      if (probe === 'late') return lateGate.then(() => route.fulfill(envelope({ canView: true, canMaintain: false })))
-      return route.fulfill(envelope({ canView: probe === 'granted', canMaintain: false }))
-    }
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(['PosSimulation:03', 'PricingCache:03', ...(grant === 'granted' ? ['LoyaltyGroup:03'] : [])]))
     if (path === 'LoyGroupWeb/Groups') {
       asked.push(qs)
       return route.fulfill(envelope(GROUPS))
@@ -149,7 +141,7 @@ async function granted(dir) {
 
 async function freeText(dir, probe) {
   const { browser, page, errors, posted, asked } = await open(dir, probe)
-  await page.waitForTimeout(probe === 'pending' ? 800 : 400)
+  await page.waitForTimeout(400)
   const box = textBox(page)
   check(`${dir} 4. ${probe}: the field is today's free text`, (await box.count()) === 1)
   check(`${dir} 4. ${probe}: …not the picker, not its read-only text`,
@@ -163,32 +155,11 @@ async function freeText(dir, probe) {
   await browser.close()
 }
 
-/** Review fix 9: the probe answers after free text was typed — the form takes the picker's normalised codes. */
-async function lateProbe(dir) {
-  lateGate = new Promise((r) => (releaseLate = r))
-  const { browser, page, errors, posted } = await open(dir, 'late')
-  const box = textBox(page)
-  await box.waitFor({ timeout: 10000 })
-  await box.locator('input').fill(' gold; silver ,gold')
-  releaseLate()
-  const picker = page.locator('[data-testid="sim-header-loyGroups"]')
-  await picker.locator('[data-multi-select-trigger]').waitFor({ timeout: 10000 })
-  const chips = await picker.locator('[data-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chip')))
-  check(`${dir} 6. late probe: the picker shows the typed codes normalised`, JSON.stringify(chips) === '["GOLD","SILVER"]', JSON.stringify(chips))
-  const body = await processRun(page, posted)
-  check(`${dir} 6. late probe: Process posts what the picker shows`, JSON.stringify(body?.header?.loyGroups) === '["GOLD","SILVER"]', JSON.stringify(body?.header?.loyGroups))
-  check(`${dir} 6. late probe: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
-  await browser.close()
-}
-
 async function run() {
   for (const dir of ['ltr', 'rtl']) {
     await granted(dir)
     await freeText(dir, 'denied')
   }
-  await freeText('ltr', 'pending')
-  await freeText('ltr', 'failed')
-  await lateProbe('ltr')
   const failed = results.filter((r) => !r.pass).length
   console.log(`\n${results.length - failed}/${results.length} passed`)
   process.exit(failed ? 1 : 0)

@@ -11,7 +11,7 @@ import type {
 } from '@/core/models/deliverect'
 
 // The Deliverect catalog doors (BackOffice 2623; contract § Catalog). The area's shared reads — the
-// access probe, the account list and the platform list — live in `@/core/deliverect/api`.
+// account list and the platform list — live in `@/core/deliverect/api`; its grants in `@/core/deliverect/access`.
 //
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md).
 

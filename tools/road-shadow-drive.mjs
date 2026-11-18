@@ -15,6 +15,7 @@
 //   1. run the app:  npx vite --port 5201
 //   2. node tools/road-shadow-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -83,7 +84,7 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DispatchBoard/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('DispatchBoard', access)))
     if (p === 'SdDocument/DeliveryDocumentTypes')
       return route.fulfill(envelope([{ documentType: 'NOR', description: 'Normal' }, { documentType: 'QC', description: 'Quick commerce' }]))
     if (p === 'DispatchBoard/RoadShadow') {
@@ -95,7 +96,6 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
         envelope({ asOf: `${TODAY}T10:15:00`, from: `${from}T00:00:00`, to: `${to}T00:00:00`, type: url.searchParams.get('type') ?? '', ...state.body }),
       )
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, state }

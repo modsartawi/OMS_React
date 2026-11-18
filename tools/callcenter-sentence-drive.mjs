@@ -23,6 +23,7 @@
 // Screenshots → tools/.callcenter-sentence-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -129,12 +130,11 @@ async function open({ theme, dir }, viewport) {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: DELIVERING, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(DELIVERING))
     if (p === 'CallCenterWeb/SetFulfilment') return route.fulfill(envelope(COLLECTING))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/callcenter`)

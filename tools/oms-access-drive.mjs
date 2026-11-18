@@ -5,23 +5,24 @@
 //
 // Port 5206 (124's empty-menu drive owns 5207; the two run in the same wave).
 //
-// Nothing about the app is stubbed except the wire: `Auth/Me`, `SdDocumentWeb/Access`,
-// every other `*/Access` probe and the two OMS data calls are fulfilled from here, so a
-// run needs no SIS.Api, no seeded user and no grant. Every `/api/**` request is RECORDED,
-// which is how the "fires no data request" and "exactly one Access call" boxes are proven
-// rather than asserted.
+// Nothing about the app is stubbed except the wire: `Auth/Me`, the one `Auth/Permissions` answer
+// (oms 909: DocumentList:03 / DocumentDetails:03 for OMS, every other area's keys granted) and the two
+// OMS data calls are fulfilled from here, so a run needs no SIS.Api, no seeded user and no grant. Every
+// `/api/**` request is RECORDED, which is how the "fires no data request" and "exactly one permissions
+// call" boxes are proven rather than asserted.
 //
 // Asserts the ticket's Proof:
 //   1. entitled → the OMS group is in the nav and on the home page, the list loads rows,
 //      and a document opens — all on the new `SdDocumentWeb/*` paths;
-//   2. canOpenList:false → no OMS group in the rail AND no OMS section card;
-//   3. canOpenList:false + deep link to /oms/deliveries → the denied card, and NO
+//   2. no DocumentList:03 → no OMS group in the rail AND no OMS section card;
+//   3. no DocumentList:03 + deep link to /oms/deliveries → the denied card, and NO
 //      DeliveryDocumentList request;
-//   4. canOpenList:true + canOpenDetail:false → the list opens, the document deep link
+//   4. DocumentList:03 without DocumentDetails:03 → the list opens, the document deep link
 //      shows the denied card and fires no Document request — the split a single grant loses;
-//   5. an unreachable probe (500) hides the screen instead of revealing it — fail-closed;
-//   6. one SdDocumentWeb/Access request per page life, shared by the menu and the guard.
+//   5. an unreachable permissions answer (500) hides the screen instead of revealing it — fail-closed;
+//   6. one Auth/Permissions request per page life, shared by the menu and the guard.
 import { createRequire } from 'node:module'
+import { permissions, permissionsFailed, ALL_SCREENS } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -61,12 +62,12 @@ const DOCUMENT = {
 }
 
 /**
- * A fresh context per scenario (each one answers the probe differently, and react-query
+ * A fresh context per scenario (each one answers the permissions differently, and react-query
  * caches per page anyway).
  *
- * @param opts.list    `canOpenList` the probe answers
- * @param opts.detail  `canOpenDetail` the probe answers
- * @param opts.probe   'ok' | 'unreachable' — 'unreachable' answers Access with a 500
+ * @param opts.list    whether the answer holds `DocumentList:03`
+ * @param opts.detail  whether the answer holds `DocumentDetails:03`
+ * @param opts.probe   'ok' | 'unreachable' — 'unreachable' answers Auth/Permissions with a 500
  */
 async function open(browser, { list = true, detail = true, probe = 'ok' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
@@ -86,28 +87,25 @@ async function open(browser, { list = true, detail = true, probe = 'ok' } = {}) 
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    if (p === 'SdDocumentWeb/Access') {
-      if (probe === 'unreachable')
-        return route.fulfill(envelope(null, { status: 500, success: false, message: 'boom' }))
-      return route.fulfill(envelope({ canOpenList: list, canOpenDetail: detail }))
+    if (p === 'Auth/Permissions') {
+      if (probe === 'unreachable') return route.fulfill(permissionsFailed(500))
+      return route.fulfill(
+        permissions([...OTHER_AREAS, ...(list ? ['DocumentList:03'] : []), ...(detail ? ['DocumentDetails:03'] : [])]),
+      )
     }
     if (p === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope([DELIVERY_ROW]))
     if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(p)) return route.fulfill(envelope(DOCUMENT))
-    // Central invoicing (ticket 332) puts a SECOND leaf in the OMS group behind its OWN grant, so
-    // the catch-all below would keep the group drawn while this drive denies the OMS grant. It is
-    // denied here so the group's presence is the OMS grant's alone — the subject of this drive.
-    // (`tools/central-invoice-drive.mjs` owns that leaf.)
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: false }))
-    // Every other screen's probe: allowed, so the rail around OMS is normal.
-    if (/Access$/.test(p))
-      return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
-      )
     return route.fulfill(envelope([]))
   })
 
   return { context, page, errors, calls }
 }
+
+// Every key outside the OMS group is granted, so the rail around OMS is normal. The OMS group's other leaves
+// (central invoicing, dispatch, serving lists, …) each ride their OWN key and would keep the group drawn while
+// this drive denies DocumentList:03, so they are left out: the group's presence is the OMS grant's alone.
+const OMS_GROUP = /^(DocumentList|DocumentDetails|BupaLineOutcomes|CentralInvoice|DonorRequestInquiry|FailedDonorTransfers|DocumentPaymentInquiry|SdCity|SdDistrict|DocumentSourceUsers|PrescriptionSession|DispatchBoard|ServingList|DispatchScorecard|SerialRefusal|ExpiredApprovalPick|HeldStockReport|HoldDailyList|StoreStage|StoreCountClose|SourcingAdvisor|PickSupport|Oms|LocalFulfillmentReturn):/
+const OTHER_AREAS = ALL_SCREENS.filter((k) => !OMS_GROUP.test(k))
 
 const count = (calls, re) => calls.filter((c) => re.test(c)).length
 
@@ -163,7 +161,7 @@ async function run() {
     await context.close()
   }
 
-  // ================================== 2 · canOpenList:false → the group vanishes, both places
+  // ================================== 2 · no DocumentList:03 → the group vanishes, both places
   {
     const { context, page, errors } = await open(browser, { list: false, detail: false })
     await page.goto(BASE + '/')
@@ -207,7 +205,7 @@ async function run() {
     const { context, page, errors, calls } = await open(browser, { list: true, detail: false })
     await page.goto(BASE + '/oms/deliveries')
     await page.getByRole('button', { name: /^Search$/ }).waitFor()
-    check('split grant: the LIST still opens on canOpenList alone', (await page.locator('[data-oms-denied]').count()) === 0)
+    check('split grant: the LIST still opens on DocumentList:03 alone', (await page.locator('[data-oms-denied]').count()) === 0)
 
     await page.goto(BASE + `/oms/document/${DOC_NO}`)
     await page.locator('[data-oms-denied="detail"]').waitFor()
@@ -227,16 +225,16 @@ async function run() {
     await context.close()
   }
 
-  // ============================================== 5 · an unreachable probe HIDES the screen
+  // ================================== 5 · an unreachable permissions answer HIDES the screen
   {
     const { context, page, calls } = await open(browser, { probe: 'unreachable' })
     await page.goto(BASE + '/')
     await page.locator('h1').waitFor()
-    // `retry: false` on both the menu probe and the guards, so this settles in one round trip.
+    // `retry: false` on the one permissions query, so this settles in one round trip.
     await page.waitForTimeout(1200)
     const titles = await sectionTitles(page)
     check(
-      'fail-closed: a 500 from the probe hides the OMS section card rather than revealing it',
+      'fail-closed: a 500 from Auth/Permissions hides the OMS section card rather than revealing it',
       !titles.some((x) => /OMS/i.test(x)),
       titles.join(' · '),
     )
@@ -264,16 +262,16 @@ async function run() {
     await context.close()
   }
 
-  // ======================================= 6 · one probe call, shared by the menu and the page
+  // ================================= 6 · one permissions call, shared by the menu and the page
   {
     const { context, page, calls } = await open(browser, { list: true, detail: true })
     await page.goto(BASE + '/oms/deliveries')
     await page.getByRole('button', { name: /^Search$/ }).waitFor()
     await page.waitForTimeout(800)
     check(
-      'shared cache entry: exactly ONE SdDocumentWeb/Access request for menu + list guard',
-      count(calls, /^SdDocumentWeb\/Access$/) === 1,
-      `${count(calls, /^SdDocumentWeb\/Access$/)} call(s)`,
+      'shared cache entry: exactly ONE Auth/Permissions request for menu + list guard',
+      count(calls, /^Auth\/Permissions$/) === 1,
+      `${count(calls, /^Auth\/Permissions$/)} call(s)`,
     )
 
     // The in-app route change is the case a mismatched `staleTime` would miss: the guard
@@ -286,20 +284,20 @@ async function run() {
     await page.waitForTimeout(800)
     check(
       'shared cache entry: navigating INTO the screen in-app re-asks nothing',
-      count(calls, /^SdDocumentWeb\/Access$/) === 0,
-      `${count(calls, /^SdDocumentWeb\/Access$/)} call(s) after the click`,
+      count(calls, /^Auth\/Permissions$/) === 0,
+      `${count(calls, /^Auth\/Permissions$/)} call(s) after the click`,
     )
 
     // The document screen is the same story with a THIRD consumer of the key — the menu
-    // probe, the list guard's cached entry and the detail guard. Counted over its own page
-    // life (a full reload legitimately re-probes, so the tally restarts with it).
+    // read, the list guard's cached entry and the detail guard. Counted over its own page
+    // life (a full reload legitimately re-asks, so the tally restarts with it).
     calls.length = 0
     await page.goto(BASE + `/oms/delivery/${DOC_NO}`)
     await page.waitForTimeout(1000)
     check(
       'shared cache entry: exactly ONE for menu + detail guard on the document page life',
-      count(calls, /^SdDocumentWeb\/Access$/) === 1,
-      `${count(calls, /^SdDocumentWeb\/Access$/)} call(s)`,
+      count(calls, /^Auth\/Permissions$/) === 1,
+      `${count(calls, /^Auth\/Permissions$/)} call(s)`,
     )
     await context.close()
   }

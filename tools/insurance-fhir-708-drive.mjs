@@ -18,6 +18,7 @@ import { envelope } from './insurance-rules-stubs.mjs'
 import { createReviewItemStubs } from './fhir-rules-stubs-702.mjs'
 import { REVIEW_ITEMS_708, SYSTEM_RULE, labelRepinStub, newLabelRepinStore } from './fhir-rules-stubs-708.mjs'
 import { labelsStub, newLabelsState } from './fhir-rules-stubs-706.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -53,7 +54,7 @@ async function open(dir, repins, user, path, { writes = [] } = {}) {
     const body = req.method() === 'GET' || !req.postData() ? null : JSON.parse(req.postData())
     const hit = labelRepinStub(req.method(), p, body, { store: repins, user }) ?? labelsStub(req.method(), p, { state: labels }) ?? (p.startsWith('InsuranceRules/Review') ? review(req.method(), p, body, url.searchParams) : null)
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}${path}`)

@@ -105,6 +105,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, ALL_SCREENS } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -229,8 +230,7 @@ const routeApi = (dir) => async (route) => {
   if (path === 'Slots/RescheduleReasons') return route.fulfill(envelope([]))
   if (/^SdDocumentWeb\/(Delivery|Document)\//.test(path))
     return route.fulfill(envelope(null, { success: false, message: 'Not found in this drive' }))
-  if (/Access$/.test(path))
-    return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
+  if (path === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
   return route.fulfill(envelope({}))
 }
 

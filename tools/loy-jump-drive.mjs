@@ -1,5 +1,5 @@
 // Loy jump drive (ticket 427) — the app-wide palette's *Open loyalty member N* row,
-// driven in Chromium against MOCKED envelopes (`LoyWeb/*`, `SdDocumentWeb/Access`).
+// driven in Chromium against MOCKED envelopes (`LoyWeb/*`, `Auth/Permissions`).
 // 🚩 NOTHING here is driven against a live SIS.Api — the `LoyWeb` door is the same
 // stubbed contract `loy-member-drive.mjs` asserts.
 //
@@ -13,11 +13,12 @@
 //   4. a double miss shows the field's own sentence, the box holding what was typed;
 //   5. an Arabic layout's digits resolve;
 //   6. both grants: delivery, document, then the member — delivery aimed;
-//   7. 🚩 a denied Loy probe offers no member row; words never offer one.
+//   7. 🚩 a denied Loy key offers no member row; words never offer one.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-jump-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -92,9 +93,7 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'LoyWeb/Access') return route.fulfill(envelope({ canOpenLoyMember: grants.loy }))
-    if (path === 'SdDocumentWeb/Access')
-      return route.fulfill(envelope({ canOpenList: grants.detail, canOpenDetail: grants.detail }))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions([...(grants.loy ? ['LoyMember:03'] : []), ...(grants.detail ? ['DocumentList:03'] : []), ...(grants.detail ? ['DocumentDetails:03'] : [])]))
     if (path.startsWith('LoyWeb/MemberByMobile/')) {
       const key = decodeURIComponent(path.split('LoyWeb/MemberByMobile/')[1] || '')
       calls.push(`byMobile:${key}`)
@@ -227,7 +226,7 @@ async function run() {
   await page.goto(BASE + '/')
   await page.waitForLoadState('networkidle')
   shown = await ask('80001237')
-  check('🚩 a denied Loy probe offers no member row', JSON.stringify(shown.jump) === '["jump:delivery","jump:document"]', shown.jump.join())
+  check('🚩 a denied Loy key offers no member row', JSON.stringify(shown.jump) === '["jump:delivery","jump:document"]', shown.jump.join())
   grants = { loy: true, detail: true }
   await page.goto(BASE + '/')
   await page.waitForLoadState('networkidle')

@@ -5,7 +5,7 @@ import type { RuleUploadActivation, RuleUploadDetail, RuleUploadReport, RuleUplo
 // uploads"): every door POST, cookie session, each with its OWN grant on
 // `BackOfficeScreen[RuleAuthoring, command]` — 03 reader for the template, the list and an opened
 // upload; 02 author for the read and the conversion; 06 approver to activate or send back.
-// There is no access probe: a session without the grant is a BARE 403 with no body, which the page
+// There is no client gate: a session without the grant is a BARE 403 with no body, which the page
 // names through `isBareDenial`. Calls go through @/core/api (.claude/rules/api-envelope.md).
 const TEMPLATE = 'Rules/Authoring/Uploads/Template'
 const READ = 'Rules/Authoring/Uploads/Read'

@@ -520,7 +520,7 @@ settlement receipt*).
 **Collector supervisor**:
 The Ua role `COLLECTOR_SUPERVISOR` (BackOffice 1995): the five collection read grants — Cash
 Collections, ACRs, Deposits, Collection Attempts, Ready for collection — and no act. The web keys
-nothing off the role name; each screen reads its own flag on the one probe.
+nothing off the role name; each screen reads its own key on the one permissions answer.
 _Avoid_: accountant supervisor (a different role, which holds settlement supervision).
 
 **Profit center** (of a store):

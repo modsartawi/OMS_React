@@ -4,7 +4,7 @@
 // (`GET SdDocumentWeb/DocumentSourceUsers` and `POST …/Import`, BackOffice asks BO-6/BO-7) are NOT
 // built, so there is no live SIS.Api to point at. Never point this at a live SIS.Api.
 // Stubbed, exactly as D2/D7/D8 propose:
-//   GET  SdDocumentWeb/Access                     → { canOpenList, canOpenDetail, canOpenDocumentSourceUsers?, canImportDocumentSourceUsers? }
+//   GET  Auth/Permissions                         → screens: DocumentList:03, DocumentDetails:03, DocumentSourceUsersInquiry:03?, DocumentSourceUsersImport:03?
 //   GET  SdDocumentWeb/DocumentSourceUsers        → SdDocumentSourceUserModel[]
 //   POST SdDocumentWeb/DocumentSourceUsers/Import { lines: [{ userId, documentSource, isDeleted }] }
 //                                                 → { applied, unchanged, skipped: [{ line, key, reason }] }
@@ -12,7 +12,7 @@
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows the
 //      denied card, with no list call; the import flag alone does not show it;
 //   2. with it, the leaf is LAST in the OMS group (D18), after Cities & districts; the group and the
-//      page gate cost ONE probe call; the list loads on open, once;
+//      page gate cost ONE permissions call; the list loads on open, once;
 //   3. the columns: user ID, document source, updated by, updated at (an unset time blank), every
 //      value isolated; no row edit (D20);
 //   4. the text filter narrows by user or source; the status bar says how many are shown; a filter
@@ -32,6 +32,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -107,16 +108,14 @@ async function open(dir, { grant, importGrant = false, importAnswer = () => null
           currentStoreCode: 'P001',
         }),
       )
-    if (p === 'SdDocumentWeb/Access') {
-      const flags = {
-        canOpenList: true,
-        canOpenDetail: true, canChangeDetail: true, canCreateReturn: true,
-        canOpenGeography: true,
-      }
-      if (grant) flags.canOpenDocumentSourceUsers = true
-      if (importGrant) flags.canImportDocumentSourceUsers = true
-      return route.fulfill(envelope(flags))
-    }
+    if (p === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([
+          'DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', 'SdCityInquiry:03', 'CentralInvoice:03',
+          ...(grant ? ['DocumentSourceUsersInquiry:03'] : []),
+          ...(importGrant ? ['DocumentSourceUsersImport:03'] : []),
+        ]),
+      )
     if (p === 'SdDocumentWeb/DocumentSourceUsers/Import') {
       const body = route.request().postDataJSON()
       importBodies.push({ method: route.request().method(), body })
@@ -142,17 +141,6 @@ async function open(dir, { grant, importGrant = false, importAnswer = () => null
         )
       return route.fulfill(envelope(USERS))
     }
-    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(
-        envelope({
-          canOpen: false,
-          screenAllowed: false,
-          allowed: false,
-          canAdmin: false,
-          canSupport: false,
-        }),
-      )
     return route.fulfill(envelope([]))
   })
   return {
@@ -294,9 +282,9 @@ async function drive(dir) {
     await waitRows(page, 3)
     check(`${label}: the list loads on open, once`, listCount() === 1, String(listCount()))
     check(
-      `${label}: the OMS group and the page gate cost ONE probe call`,
-      calls.filter((c) => c === 'SdDocumentWeb/Access').length === 1,
-      String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
+      `${label}: the OMS group and the page gate cost ONE permissions call`,
+      calls.filter((c) => c === 'Auth/Permissions').length === 1,
+      String(calls.filter((c) => c === 'Auth/Permissions').length),
     )
     check(`${label}: dir is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
     check(`${label}: without canImportDocumentSourceUsers there is no Import`, (await page.locator('[data-dsu-import]').count()) === 0)

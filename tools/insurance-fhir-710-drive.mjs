@@ -16,6 +16,7 @@
 import { createRequire } from 'node:module'
 import { createReviewStubs, envelope, insuranceRulesStub, newBacktestStore, simulatorStub } from './insurance-rules-stubs.mjs'
 import { inspectorStub, SYNTHETIC_MARKER, windowLimitStub } from './fhir-rules-stubs-710.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -61,7 +62,7 @@ async function open(dir, { deny = [], limit = 180 } = {}) {
       simulatorStub(req.method(), p, body, { store }) ??
       insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, store }

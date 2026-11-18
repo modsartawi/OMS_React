@@ -25,6 +25,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-theft-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -108,7 +109,7 @@ async function run() {
 
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(scenario.access))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Collection', scenario.access)))
     if (path === 'Settlement/Account') {
       accountCalls++
       if (q('storeId') !== FX.store)

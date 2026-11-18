@@ -25,7 +25,7 @@
 //
 // 649 / 650 / 651 extend this drive (their slots on the page).
 //
-// 654 (grants): 14. without `canEditGeneral` (`GET IdfPriority/Access`) no Set item, no row Edit / Clear and no Upload
+// 654 (grants): 14. without `canEditGeneral` (`IdfPriority:07` off the `Auth/Permissions` answer) no Set item, no row Edit / Clear and no Upload
 //     block shows; Export, the Template (moved into the action row) and the Change log tab still do.
 //
 // 651 (door 3195; `// --- 651 ---` in the stubs: GET IdfPriority/general/export · GET IdfPriority/general/template):
@@ -38,7 +38,6 @@
 //   2. node tools/idf-general-drive.mjs        (DRIVE_PORT overrides 5214)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
-import { granted852 } from './access-852-grants.mjs'
 import { IDF_GENERAL_EXPORT_NAME, IDF_GENERAL_TEMPLATE_NAME } from './idf-stubs.mjs' // 651
 import { IDF_GENERAL_ITEMS } from './idf-stubs.mjs' // 3185 review
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -81,8 +80,6 @@ async function open(dir, { deny = [], noFileName = false } = {}) {
     }
     const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny, noFileName, writes })
     if (hit) return route.fulfill(hit)
-    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads, writes, state }
@@ -381,7 +378,7 @@ for (const dir of ['ltr', 'rtl']) {
   await page.goto(`${BASE}/insurance-rules/idf/general`)
   await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
   await page.waitForTimeout(500)
-  check(`${dir} 14. the probe is read`, (reads.access ?? 0) >= 1)
+  check(`${dir} 14. the permissions answer is read`, (reads.access ?? 0) >= 1)
   check(
     `${dir} 14. without canEditGeneral: no Set item, no row Edit / Clear, no Upload block`,
     (await page.locator('[data-idf-general-set], [data-idf-general-edit], [data-idf-general-clear], [data-idf-general-upload]').count()) === 0,

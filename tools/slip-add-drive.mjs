@@ -19,12 +19,13 @@
 //   5. a 200 re-reading ByOwner (the new slip shows "Web · <uploadedBy>"), the grid NOT refetched;
 //   6. the drawer not dismissible while a file is in flight (close disabled, Escape, backdrop);
 //   7. a collected Collections row taking Add as readily, under its own day's key (C3);
-//   8. Add hidden when the probe lacks CASH_CLOSE (and for a bare string "CASH_CLOSE");
+//   8. Add hidden when the permissions answer lacks Attachments:03:CASH_CLOSE;
 //   9. no raw t() key and no page error anywhere.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/slip-add-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys, attachmentKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -128,7 +129,8 @@ const SHIFT = {
 const COLLECTION_ROWS = [SHIFT]
 
 // ---- the stubbed doors ----
-let probe = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
+/** The slip categories the `Auth/Permissions` answer grants (read, withdraw). */
+let slipGrants = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
 /** Queue of answers for the next uploads; an empty queue answers 200. */
 let uploadAnswers = []
 let uploadHold = null
@@ -174,10 +176,15 @@ async function run() {
     const path = url.pathname.split('/api/')[1]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(ACCESS))
+    // oms 909: the Collections keys plus the slip's Attachments keys (`slipGrants` keeps the old categories shape).
+    if (path === 'Auth/Permissions')
+      return route.fulfill(
+        permissions([...flagKeys('Collection', ACCESS), ...attachmentKeys(slipGrants.categories, slipGrants.withdrawCategories ?? [])], {
+          fileServerReady: true,
+        }),
+      )
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(envelope({ accountants: [], collectors: [], supervisors: [], defaultScope: null }))
-    if (path === 'AttachmentWeb/Access') return route.fulfill(envelope(probe))
     if (path === 'CollectionWeb/Ready') {
       readyCalls += 1
       return route.fulfill(envelope(READY_ROWS, { siblings: { slipCountsUnavailable: false } }))
@@ -411,16 +418,15 @@ async function run() {
   await noRawKeys('collections — Add')
   await closeDrawer()
 
-  // ════════════════════ THE PROBE HIDES ADD ════════════════════
+  // ════════════════════ THE ANSWER HIDES ADD ════════════════════
   for (const [name, answer] of [
-    ['a probe without CASH_CLOSE', { categories: ['OTHER'], withdrawCategories: [] }],
-    ['a bare string "CASH_CLOSE"', { categories: 'CASH_CLOSE', withdrawCategories: 'CASH_CLOSE' }],
+    ['an answer without Attachments:03:CASH_CLOSE', { categories: ['OTHER'], withdrawCategories: [] }],
   ]) {
-    probe = answer
+    slipGrants = answer
     await load(READY)
     check(`hidden — ${name}: no Add and no count to open`, (await page.getByTestId('slip-add').count()) === 0 && (await page.locator('[data-slip-open]').count()) === 0)
   }
-  probe = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
+  slipGrants = { categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

@@ -14,7 +14,7 @@
 // Never a live SIS.Api.
 //
 // It asserts:
-//   1. the Campaigns group has a Simulator leaf, gated on Rules/Access (852), that opens /campaigns/simulator and lights itself;
+//   1. the Campaigns group has a Simulator leaf, gated on the rule engine's keys (852), that opens /campaigns/simulator and lights itself;
 //   2. before a run: no result, Run off, today's LOCAL date and time, SA and the first channel;
 //   3. a TYPED basket: items found by SKU or name (with HQ's category), a repeat adds to its line, a
 //      quantity typed, a line removed; Run waits for a store AND a unit price on every line;
@@ -45,7 +45,7 @@
 import { createRequire } from 'node:module'
 import { CAMPAIGNS, draftsList, loadDraft, lookup, orderOf, promotionCampaignsOf } from './campaigns-fixtures.mjs'
 import { CATALOG, SIX_BASKETS, simulate } from './simulator-fixtures.mjs'
-import { granted852 } from './access-852-grants.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -127,9 +127,7 @@ async function open({ denyRuns = 0 } = {}) {
       const out = loadDraft(CAMPAIGNS, req.postDataJSON()?.campaign)
       return route.fulfill(out.draft ? envelope(out.draft) : envelope(null, { status: 404, success: false, message: out.message, errorCode: out.refused }))
     }
-    { const g = granted852(p); if (g) return route.fulfill(envelope(g)) } // 852: the leaf's probe answers granted
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, runs, stub }
@@ -176,7 +174,7 @@ const refusalCode = (page) => page.locator('[data-sim-refusal-code]').getAttribu
   await page.locator('[data-simulator]').waitFor({ timeout: 15000 })
   check('1: it opens /campaigns/simulator and lights itself, not Campaigns',
     (await leaf.getAttribute('aria-current')) === 'page' && (await page.locator('a[href="/campaigns"]').first().getAttribute('aria-current')) !== 'page')
-  check('1: gated (852) — the leaf rode GET Rules/Access', calls.some((c) => c === 'GET Rules/Access'), calls.filter((c) => /Access/.test(c)).join(' | '))
+  check('1: gated (852) — the leaf rode GET Auth/Permissions', calls.some((c) => c === 'GET Auth/Permissions'), calls.filter((c) => /Auth\/Permissions/.test(c)).join(' | '))
 
   // ── 2 ──
   check('2: no result yet, and Run is off', (await page.locator('[data-sim-no-result]').count()) === 1 && (await run(page).isDisabled()) && (await page.locator('[data-sim-needs]').count()) === 1)

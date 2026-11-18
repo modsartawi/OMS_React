@@ -6,7 +6,7 @@
 // EXACTLY the contract's fields, on the REAL envelope { statusCode, success, message, errors:
 // [{ errorCode, internalErrorCode, errorMessage }], data }, and every refusal's errorMessage is
 // "<English> / <Arabic>":
-//   GET  DeliverectWeb/Access                → { canManageStores, canManageCatalog, canViewOrders, canManageTerms }
+//   GET  Auth/Permissions                → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  DeliverectWeb/Accounts              → [{ accountKey, deliverectAccountId, active }]
 //   GET  DeliverectWeb/Platforms             → [{ platformKey, displayName, channelId, creditCustomer, active }]
 //   PUT  DeliverectWeb/Platforms/{key}       → body { displayName, channelId, creditCustomer, active, reason }
@@ -18,7 +18,7 @@
 //
 // It asserts:
 //   1. the Terms leaf joins the Deliverect group LAST on canManageTerms; without it the leaf is
-//      hidden and the URL shows the denied card with no Platforms / Terms call; one probe call;
+//      hidden and the URL shows the denied card with no Platforms / Terms call; one permissions call;
 //   2. the accounts, read only: account, Deliverect account id, active;
 //   3. the platforms: display name (bidi), key, channel id, credit customer (or "None"), active;
 //      the first platform's terms show by default; picking another lands on the door and the URL;
@@ -37,6 +37,7 @@
 //   2. DRIVE_PORT=5196 node tools/deliverect-terms-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -133,7 +134,7 @@ async function open(dir, { access = ALL } = {}) {
     calls.push(p)
     const body = () => JSON.parse(req.postData() ?? 'null')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Deliverect', access), 'ItemInquiryCustome:03', 'MaterialStockInquiry:03', 'Gs1SerialInquiry:03']))
     if (p === 'DeliverectWeb/Accounts') return route.fulfill(envelope(ACCOUNTS))
     if (p === 'DeliverectWeb/Platforms' && req.method() === 'GET') return route.fulfill(envelope(platforms))
     let m = /^DeliverectWeb\/Platforms\/([^/]+)$/.exec(p)
@@ -163,9 +164,6 @@ async function open(dir, { access = ALL } = {}) {
       rows.push({ termsId: `01NEW${rows.length}`, ...fields, validTo: null })
       return route.fulfill(envelope(null))
     }
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope({ canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, reads, writes }
@@ -196,7 +194,7 @@ const waitTerms = (page, key) => page.locator(`[data-terms-table="${key}"]`).wai
   check('1: the leaf reads "Platforms & terms"', (await page.locator('nav a[href="/deliverect/terms"]').first().innerText()).trim() === 'Platforms & terms')
   await page.locator('nav a[href="/deliverect/terms"]').first().click()
   await waitTerms(page, 'JAHEZ')
-  check('1: the group, its leaves and the page gate cost ONE probe call', calls.filter((c) => c === 'DeliverectWeb/Access').length === 1)
+  check('1: the group, its leaves and the page gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

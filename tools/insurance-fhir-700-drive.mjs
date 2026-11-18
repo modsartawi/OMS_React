@@ -11,6 +11,7 @@ import { createRequire } from 'node:module'
 import { approvalStub, envelope, insuranceRulesStub, newApprovalStore } from './insurance-rules-stubs.mjs'
 import { windowLimitStub } from './fhir-rules-stubs-710.mjs'
 import { monitorBacktestStub, monitorMetricsStub, monitorRule } from './fhir-rules-stubs-700.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -52,7 +53,7 @@ async function open(dir, store, who, stubOpts = {}) {
       approvalStub(req.method(), p, body, { store, ...who, now: '2026-10-27T10:30:00' }) ??
       insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   const go = async (path) => {

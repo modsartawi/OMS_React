@@ -28,6 +28,7 @@
 //   2. node tools/sync-console-disabled-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -156,7 +157,7 @@ async function open({ locale = 'en', previewFails = false } = {}) {
     const q = url.searchParams
     calls.push(p + url.search)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: true, canOnboard: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ActionSyncConsole:03', 'ActionSyncConsole:06']))
     if (p === 'ActionSync/Workers') return route.fulfill(envelope(WORKERS))
     if (p === 'ActionSync/Fleet/Summary') {
       const active = stores.filter((s) => !s.isDisabled)
@@ -214,7 +215,6 @@ async function open({ locale = 'en', previewFails = false } = {}) {
       audit.unshift({ id: `A-${audit.length + 1}`, at: '2026-11-15T12:05:00', who: 'msartawi', action: body.action, codes: body.codes, batchId: null, before: null, after: null, reason: body.reason })
       return route.fulfill(envelope({ auditId: `A-${audit.length}`, results: res }))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, posts, previews, byCode }

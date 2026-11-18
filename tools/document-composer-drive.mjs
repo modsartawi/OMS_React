@@ -36,6 +36,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, ALL_SCREENS } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -114,8 +115,7 @@ function wire() {
     const p = url.split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1017' }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(ALL_SCREENS))
     if (p === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope(LIST))
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes|Districts)$/.test(p))
       return route.fulfill(envelope([]))

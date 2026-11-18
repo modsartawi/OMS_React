@@ -4,7 +4,7 @@
 // built to BackOffice 3453/3456's contract — reconciled 2026-11-09), LTR and RTL.
 //
 // ── 847 ── it asserts:
-//   1. the Hybris stock group is its own, right after HungerStation, its leaves on ONE probe call;
+//   1. the Hybris stock group is its own, right after HungerStation, its leaves on ONE permissions call;
 //      without the view grant (or on a bare 403) the group is hidden and the URL shows the denied card;
 //   2. the mode banner reads Shadow (files Hybris does not import) / Live / Off, and "unknown" when
 //      Status fails — never live; a standing alert shows under it;
@@ -106,8 +106,8 @@ if (run('menu')) {
   await header.first().waitFor({ timeout: 20000 })
   const groups = await groupHeaders(page)
   // Its place among the groups (right after HungerStation) is pinned by src/layout/menu-hungerstation.test.ts;
-  // here the other areas' probes are denied, so only the shown groups can be compared.
-  // Since 852 the Insurance rules group is probe-gated too, so under these stubs it is hidden: only the group's
+  // here the answer grants no other area's keys, so only the shown groups can be compared.
+  // The Insurance rules group is gated too, so under these stubs it is hidden: only the group's
   // uniqueness is checked here.
   check('1: the Hybris stock group is its own', groups.filter((g) => g === 'Hybris stock').length === 1, groups.join(' · '))
   await header.first().click()
@@ -116,7 +116,7 @@ if (run('menu')) {
   check('1: the page title reads Hybris stock stores', (await page.locator('h1').innerText()) === 'Hybris stock stores')
   const leaves = await page.locator('nav a[href^="/hybris-stock"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('1: the leaves are Stores, Materials and Pushes', JSON.stringify(leaves) === JSON.stringify(['/hybris-stock/stores', '/hybris-stock/materials', '/hybris-stock/pushes']), leaves.join())
-  check('1: the group, its leaves and the gate cost ONE probe call', calls.filter((c) => c === 'HybrisStockWeb/Access').length === 1)
+  check('1: the group, its leaves and the gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

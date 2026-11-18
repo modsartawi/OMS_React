@@ -15,6 +15,7 @@ import { BUNDLE_REF, CHOICE_PATH, LINE_PATH, PATIENT_PATH, SENTINEL, bundleTreeS
 import { FHIR_CATALOG, fhirCatalogStub } from './fhir-rules-stubs-692.mjs'
 import { rawPathStub } from './fhir-rules-stubs-695.mjs'
 import { envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -70,7 +71,7 @@ async function open(dir, { url = '', deny = false } = {}) {
       insuranceListsStub(req.method(), p, body, { state: registry, query: u.searchParams }) ??
       insuranceRulesStub(req.method(), p, body, { reads: {} })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/insurance-rules/fields${url}`, { waitUntil: 'domcontentloaded' })

@@ -3,25 +3,26 @@
 // against CollectionReadyRowModel.cs, CollectionInquiryModel.cs, SlipCountedResponse.cs and
 // AttachmentWebEndpoints.cs on pricing2): `CollectionWeb/Ready` rows gain `cardTotal` + `slipCount`,
 // `CollectionWeb/Collections` rows gain `slipCount`, both answers carry `slipCountsUnavailable`
-// BESIDE `data`, and `GET AttachmentWeb/Access` answers `{ categories, withdrawCategories }` (or a
-// 503 NOT_SET_UP until the File Server key exists).
+// BESIDE `data`, and `GET Auth/Permissions` (oms 909) carries `Attachments:03:CASH_CLOSE` / `Attachments:04:CASH_CLOSE`
+// and `extras.fileServerReady` (false until the File Server key exists).
 //
 // ⚠️ Stubbed, never live: no SIS.Api with the File Server key set is up for this wave.
 //
 // Verifies ticket 320's drive Proof, on BOTH grids:
-//   1. the Slips column + the "No slip" filter shown when the probe holds CASH_CLOSE, and hidden
-//      for a 503 NOT_SET_UP, a bare 403, a network failure, a pending probe, a bare-string
-//      "CASH_CLOSE", an empty list and a withdraw-only answer;
+//   1. the Slips column + the "No slip" filter shown when the answer holds Attachments:03:CASH_CLOSE, and
+//      hidden for the File Server not ready, no Attachments key, another category and a withdraw-only
+//      answer (a failed or pending answer shuts the whole screen now, not the column: ScreenGate's business);
 //   2. a dash (with its accessible text) for a null count, a real 0 as 0, and on Ready a dash for a
 //      null card total (never 0.000) under the currency header;
 //   3. the "Slip counts unavailable" banner on `slipCountsUnavailable: true`, the rows still drawn;
 //   4. the filter keeping only the 0 rows, sending no query, and following Reset;
-//   5. loading, empty, error and refusal still as before; the probe asked once per page;
+//   5. loading, empty, error and refusal still as before; Auth/Permissions asked once per page;
 //   6. no raw t() key and no page error anywhere.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/slip-count-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys, attachmentKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -166,26 +167,19 @@ const COLLECTION_ROWS = [
   },
 ]
 
-/** The probe's answers, by name. */
-const PROBES = {
-  holder: () => envelope({ categories: ['CASH_CLOSE'], withdrawCategories: ['CASH_CLOSE'] }),
-  notSetUp: () =>
-    envelope(null, {
-      status: 503,
-      success: false,
-      message: 'The attachment store is not set up on this server. / مخزن المرفقات غير مُعدّ على هذا الخادم.',
-      errors: [{ errorCode: 'NOT_SET_UP', internalErrorCode: '', errorMessage: '' }],
-    }),
-  forbidden: () => ({ status: 403, body: '' }),
-  bareString: () => envelope({ categories: 'CASH_CLOSE', withdrawCategories: 'CASH_CLOSE' }),
-  empty: () => envelope({ categories: [], withdrawCategories: [] }),
-  withdrawOnly: () => envelope({ categories: [], withdrawCategories: ['CASH_CLOSE'] }),
-  malformed: () => envelope({}),
+/** The `Auth/Permissions` answers, by name: the Collections keys plus the slip's Attachments keys. */
+const slips = (read, withdraw, fileServerReady = true) =>
+  permissions([...flagKeys('Collection', ACCESS), ...attachmentKeys(read, withdraw)], { fileServerReady })
+const ANSWERS = {
+  holder: () => slips(['CASH_CLOSE'], ['CASH_CLOSE']),
+  notSetUp: () => slips(['CASH_CLOSE'], ['CASH_CLOSE'], false),
+  empty: () => slips([], []),
+  otherCategory: () => slips(['OTHER'], []),
+  withdrawOnly: () => slips([], ['CASH_CLOSE']),
 }
 
-let probe = 'holder'
-let probeCalls = 0
-let probeHold = null
+let answer = 'holder'
+let permissionsCalls = 0
 let scenario = {}
 let listCalls = 0
 let hold = null
@@ -205,14 +199,11 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(ACCESS))
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(envelope({ accountants: [], collectors: [], supervisors: [], defaultScope: null }))
-    if (path === 'AttachmentWeb/Access') {
-      probeCalls++
-      if (probeHold) await probeHold
-      if (probe === 'network') return route.abort('failed')
-      return route.fulfill(PROBES[probe]())
+    if (path === 'Auth/Permissions') {
+      permissionsCalls++
+      return route.fulfill(ANSWERS[answer]())
     }
     if (path === 'CollectionWeb/Ready' || path === 'CollectionWeb/Collections') {
       listCalls++
@@ -264,8 +255,8 @@ async function run() {
 
   // ════════════════════════════ READY ════════════════════════════
   // ---- 1. shown for a CASH_CLOSE holder ----
-  probe = 'holder'
-  probeCalls = 0
+  answer = 'holder'
+  permissionsCalls = 0
   await load(READY)
   await page.locator('.ag-row').first().waitFor()
   await shot('ready-holder')
@@ -274,7 +265,7 @@ async function run() {
   // Ticket 424: the owner-approved mapping puts Card slips fourteenth — last, after Days Waiting.
   check('ready — the Slips column is last, right after Days Waiting (ticket 424)', hs.indexOf('Slips') === hs.indexOf('Days Waiting') + 1 && hs.indexOf('Slips') === hs.length - 1, hs.join(' | '))
   check('ready — Card Total wears the currency header like its neighbours', hs.includes('Card Total (SAR)') && hs.includes('Cash to Hand Over (SAR)'))
-  check('ready — the probe is asked once for the page', probeCalls === 1, `${probeCalls} calls`)
+  check('ready — Auth/Permissions is asked once for the page', permissionsCalls === 1, `${permissionsCalls} calls`)
   check('ready — the "No slip" filter is offered', (await noSlipButton().count()) === 1)
 
   // ---- 2. dashes for null ----
@@ -320,17 +311,14 @@ async function run() {
   await shot('ready-unavailable')
   await noRawKeys('ready — unavailable')
 
-  // ---- 1b. hidden by the probe — every refusal and every malformed answer ----
-  for (const [name, answer] of [
-    ['a 503 NOT_SET_UP', 'notSetUp'],
-    ['a bare 403', 'forbidden'],
-    ['a network failure', 'network'],
-    ['a bare-string "CASH_CLOSE"', 'bareString'],
-    ['an empty categories list', 'empty'],
-    ['a withdraw-only answer', 'withdrawOnly'],
-    ['a malformed answer', 'malformed'],
+  // ---- 1b. hidden by the answer — every way it lacks a readable CASH_CLOSE ----
+  for (const [name, mode] of [
+    ['the File Server not ready (fileServerReady false)', 'notSetUp'],
+    ['no Attachments key at all', 'empty'],
+    ['a category not held (Attachments:03:OTHER)', 'otherCategory'],
+    ['a withdraw-only answer (Attachments:04:CASH_CLOSE alone)', 'withdrawOnly'],
   ]) {
-    probe = answer
+    answer = mode
     // Unavailable too, so the banner's own gating is proved alongside the column's.
     scenario = { unavailable: true }
     await load(READY)
@@ -343,25 +331,14 @@ async function run() {
       hs.join(' | '),
     )
   }
-  check('ready — …and Card Total still shows under a hidden probe', (await headers()).includes('Card Total (SAR)'))
-  probe = 'notSetUp'
+  check('ready — …and Card Total still shows under a hidden column', (await headers()).includes('Card Total (SAR)'))
+  answer = 'notSetUp'
   scenario = {}
   await load(READY)
   await page.locator('.ag-row').first().waitFor()
   await shot('ready-not-set-up')
 
-  // Pending: the probe never answers, the grid does.
-  let release
-  probe = 'holder'
-  probeHold = new Promise((r) => (release = r))
-  await page.goto(BASE + READY)
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
-  await page.locator('.ag-row').first().waitFor()
-  check('ready — hidden while the probe is pending', !(await headers()).includes('Slips') && (await noSlipButton().count()) === 0)
-  release()
-  probeHold = null
-  await page.getByRole('columnheader', { name: 'Slips' }).first().waitFor({ timeout: 8000 }).catch(() => {})
-  check('ready — …and shown once it answers yes', (await headers()).includes('Slips'))
+  answer = 'holder'
 
   // ---- 5. loading, empty, error, refusal — as before ----
   let releaseList
@@ -393,8 +370,8 @@ async function run() {
   scenario = {}
 
   // ═════════════════════════ CASH COLLECTIONS ═════════════════════════
-  probe = 'holder'
-  probeCalls = 0
+  answer = 'holder'
+  permissionsCalls = 0
   await load(COLLECTIONS)
   await page.locator('.ag-row').first().waitFor()
   await shot('collections-holder')
@@ -403,7 +380,7 @@ async function run() {
   // Ticket 423: the grid opens on Saud's thirteen and Card Slips is behind More columns, so
   // on arrival the count is the last column, after Business Date.
   check('collections — after Saud’s thirteen while Card Slips is folded', hs.indexOf('Slips') === hs.indexOf('Business Date') + 1 && hs.indexOf('Slips') === hs.length - 1, hs.join(' | '))
-  check('collections — the probe is asked once for the page', probeCalls === 1, `${probeCalls} calls`)
+  check('collections — Auth/Permissions is asked once for the page', permissionsCalls === 1, `${permissionsCalls} calls`)
   // The tail is wider than any viewport: open it on a wide one so its headers are all drawn.
   await page.setViewportSize({ width: 5200, height: 900 })
   await page.getByRole('button', { name: 'More columns' }).click()
@@ -444,16 +421,13 @@ async function run() {
   check('collections — the banner on slipCountsUnavailable, rows still drawn, every count a dash', text.includes(BANNER) && (await displayedRows()) === COLLECTION_ROWS.length && cDashes.every((d) => d === '—'), cDashes.join(','))
   await shot('collections-unavailable')
 
-  for (const [name, answer] of [
-    ['a 503 NOT_SET_UP', 'notSetUp'],
-    ['a bare 403', 'forbidden'],
-    ['a network failure', 'network'],
-    ['a bare-string "CASH_CLOSE"', 'bareString'],
-    ['an empty categories list', 'empty'],
-    ['a withdraw-only answer', 'withdrawOnly'],
-    ['a malformed answer', 'malformed'],
+  for (const [name, mode] of [
+    ['the File Server not ready (fileServerReady false)', 'notSetUp'],
+    ['no Attachments key at all', 'empty'],
+    ['a category not held (Attachments:03:OTHER)', 'otherCategory'],
+    ['a withdraw-only answer (Attachments:04:CASH_CLOSE alone)', 'withdrawOnly'],
   ]) {
-    probe = answer
+    answer = mode
     scenario = { unavailable: true }
     await load(COLLECTIONS)
     await page.locator('.ag-row').first().waitFor()
@@ -465,21 +439,11 @@ async function run() {
   await page.setViewportSize({ width: 5200, height: 900 })
   await page.getByRole('button', { name: 'More columns' }).click()
   await page.waitForTimeout(400)
-  check('collections — …and the existing Card Total still shows under a hidden probe, behind More columns', (await headers()).includes('Card Total (SAR)') && !(await headers()).includes('Slips'))
+  check('collections — …and the existing Card Total still shows under a hidden column, behind More columns', (await headers()).includes('Card Total (SAR)') && !(await headers()).includes('Slips'))
   await page.setViewportSize({ width: 2600, height: 900 })
 
-  // Pending: the probe never answers, the grid does.
-  probe = 'holder'
+  answer = 'holder'
   scenario = {}
-  probeHold = new Promise((r) => (release = r))
-  await page.goto(BASE + COLLECTIONS)
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
-  await page.locator('.ag-row').first().waitFor()
-  check('collections — hidden while the probe is pending', !(await headers()).includes('Slips') && (await noSlipButton().count()) === 0)
-  release()
-  probeHold = null
-  await page.getByRole('columnheader', { name: 'Slips' }).first().waitFor({ timeout: 8000 }).catch(() => {})
-  check('collections — …and shown once it answers yes', (await headers()).includes('Slips'))
 
   hold = new Promise((r) => (releaseList = r))
   await page.goto(BASE + COLLECTIONS)

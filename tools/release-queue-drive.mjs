@@ -3,7 +3,7 @@
 //
 // Drives the REAL app in Chromium against a STUB of 3401's doors, on its real wire (camelCase,
 // `Sartawi.Retail.Data/Modules/PosRelease/Models/DownloadSlotAdminModels.cs`):
-//   GET PosReleaseQueue/Access      → { canView, canManage }
+//   GET Auth/Permissions      → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET PosReleaseQueue/Pool        → { poolName, poolSize, paused, isDefault, updatedAt, updatedBy, activeSlots }
 //   GET PosReleaseQueue/Slots       → live slot[]
 //   GET PosReleaseQueue/Queue       → { queueLength, oldestWaitSeconds, entries[] }
@@ -14,6 +14,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. DRIVE_PORT=5199 node tools/release-queue-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -68,7 +69,7 @@ async function drive(dir) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'a.viewer', currentStoreCode: 'P001' }))
-    if (p === 'PosReleaseQueue/Access') return route.fulfill(envelope({ canView: true, canManage: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['PosReleaseQueue:03']))
     if (p === 'PosReleaseQueue/Pool') return route.fulfill(envelope(POOL))
     if (p === 'PosReleaseQueue/Slots') return route.fulfill(envelope(SLOTS))
     if (p === 'PosReleaseQueue/Queue') return route.fulfill(envelope(QUEUE))
@@ -82,7 +83,6 @@ async function drive(dir) {
       if (url.searchParams.get('store') === 'R101') return route.fulfill(envelope({ total: 120, skip, take: 50, rows: HISTORY_ROWS }))
       return route.fulfill(envelope({ total: rows.length, skip, take: 50, rows: rows.slice(skip, skip + 50) }))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
 
@@ -193,7 +193,7 @@ async function driveManage(dir) {
     const url = new URL(req.url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'a.owner', currentStoreCode: 'P001' }))
-    if (p === 'PosReleaseQueue/Access') return route.fulfill(envelope({ canView: true, canManage: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['PosReleaseQueue:03', 'PosReleaseQueue:06']))
     if (p === 'PosReleaseQueue/Pool' && req.method() === 'PUT') {
       const { poolSize } = JSON.parse(req.postData() || '{}')
       puts.push(poolSize)
@@ -221,7 +221,6 @@ async function driveManage(dir) {
     if (p === 'PosReleaseQueue/Queue') return route.fulfill(envelope(QUEUE))
     if (p === 'PosReleaseQueue/Convergence') return route.fulfill(envelope(CONVERGENCE))
     if (p === 'PosReleaseQueue/History') return route.fulfill(envelope({ total: 0, skip: 0, take: 50, rows: [] }))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
 

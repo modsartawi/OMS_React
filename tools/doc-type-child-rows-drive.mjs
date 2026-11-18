@@ -15,6 +15,7 @@
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/doc-type-child-rows-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -90,8 +91,7 @@ async function open(dir, { canEdit = true } = {}) {
     }
     calls.push({ method, p, body })
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: false, canOpenDetail: false }))
-    if (p === 'SdDocTypeConfigWeb/Access') return route.fulfill(envelope({ canViewDocTypeConfig: true, canEditDocTypeConfig: canEdit }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', ...(canEdit ? ['DocumentList:03', 'SdDocTypeConfig:06'] : [])]))
     const forced = force.get(`${method} ${p}`)
     if (forced) {
       force.delete(`${method} ${p}`)
@@ -114,7 +114,6 @@ async function open(dir, { canEdit = true } = {}) {
       state.pn = state.pn.filter((r) => r.plantNetworkId !== body.before.plantNetworkId)
       return route.fulfill(envelope(true))
     }
-    if (p.endsWith('/Access')) return route.fulfill(envelope({}))
     return route.fulfill(envelope(null))
   })
   return { context, page, errors, calls, force, state }

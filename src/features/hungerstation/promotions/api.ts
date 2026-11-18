@@ -15,8 +15,8 @@ import type {
 // The HungerStation promotion doors — every shape in `@/core/models/hungerstation` § Promotions,
 // field for field the BackOffice door contract
 // (`C:\Work\DMSCO\BackOffice\.issues\assets\3201-hungerstation-promotion-door-contract.md`; 3211–3216
-// are built). The area's shared reads (the access probe, the chain list) live in
-// `@/core/hungerstation/api`.
+// are built). The area's shared read (the chain list) lives in
+// `@/core/hungerstation/api`; its grants in `@/core/hungerstation/access`.
 //
 // 🚩 Still proven against STUBS only: no live SIS.Api call has been made from this page.
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md).

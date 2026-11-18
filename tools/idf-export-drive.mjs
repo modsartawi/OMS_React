@@ -57,7 +57,6 @@ async function open(dir, { deny = [], noFileName = false } = {}) {
     }
     const hit = idfStub(req.method(), p + url.search, body, { state, reads, deny, noFileName })
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, reads }

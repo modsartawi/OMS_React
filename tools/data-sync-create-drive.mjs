@@ -25,6 +25,7 @@
 //   2. node tools/data-sync-create-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -117,7 +118,7 @@ async function open({ access = { screenAllowed: true, canOperate: true } } = {})
     const p = url.pathname.replace(/^\/api\//, '')
     const method = route.request().method()
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('DataSync', access)))
     if (p === 'DataSync/Health') return route.fulfill(envelope({ stateDb: 'Ok', workerEnabled: true, lastWorkerTick: new Date().toISOString() }))
     if (p === 'DataSync/Profiles') return route.fulfill(envelope(PROFILES))
     if (p === 'DataSync/Campaigns' && method === 'POST') {
@@ -142,7 +143,6 @@ async function open({ access = { screenAllowed: true, canOperate: true } } = {})
     }
     if (p === `DataSync/Campaigns/${NEW_ID}`) return route.fulfill(envelope(campaignOf(state.status ?? 'Ready', state.body)))
     if (p === `DataSync/Campaigns/${NEW_ID}/Jobs`) return route.fulfill(envelope([]))
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, posts, state }

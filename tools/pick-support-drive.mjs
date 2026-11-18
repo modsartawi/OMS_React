@@ -6,7 +6,7 @@
 // stub emits the brief's JSON with its "…" placeholders filled with plain sentences, plus one shape
 // document (and a VOIDED fixture state) the brief's example leaves empty, to exercise the
 // per-document action tag:
-//   GET SdDocumentWeb/Access            → { canOpenList, canOpenDetail, canOpenPickSupport? }
+//   GET Auth/Permissions            → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET PickSupport/Resolve?key=        → PickSupportResolution
 //   GET PickSupport/Delivery/{no}       → PickSupportDiagnosis | PICK-00002 envelope
 //   POST PickSupport/Delivery/{no}/Fix  → PickSupportFixResult | PICK-00224 / PICK-00225 | bare 403
@@ -69,6 +69,7 @@
 //   2. node tools/pick-support-drive.mjs   (DRIVE_ONLY=console | details runs one half)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -495,14 +496,7 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
     const p = url.pathname.split('/api/')[1]
     calls.push(p + url.search)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'support01', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(
-        envelope(
-          grant
-            ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenPickSupport: true, ...(grant === 'fix' ? { canFixPickSupport: true } : {}) }
-            : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true },
-        ),
-      )
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', grant ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenPickSupport: true, ...(grant === 'fix' ? { canFixPickSupport: true } : {}) } : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true })))
     if (p === 'PickSupport/Resolve') {
       const key = url.searchParams.get('key') ?? ''
       // A 403 has NO body (brief "The envelope").
@@ -558,8 +552,6 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
       if (DIAGNOSIS[no]) return route.fulfill(envelope(DIAGNOSIS[no]))
       return route.fulfill(refusal('PICK-00002', `Delivery ${no} not found`))
     }
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, state }

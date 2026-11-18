@@ -2,7 +2,7 @@
 // against STUBBED envelopes, with every `/api/**` request RECORDED.
 //
 // The wire, as BackOffice 2418–2421 shipped it:
-//   - `GET  SdDocumentWeb/Access` → `{ canOpenList, canOpenDetail, canMarkDelivered }` (grant-free probe);
+//   - `GET  Auth/Permissions` → screens DocumentList:03, DocumentDetails:03, OmsMarkDelivered:06 (the one answer);
 //   - `GET  SdDocumentWeb/MarkDeliveredReasons` → `[{ code, description }]`, `CARR`, `CUST`, `DAPP`, `OTHR`;
 //   - `POST SdDocumentWeb/MarkDelivered` `{ deliveryNo, reasonCode, note? }` → `data: true`; a refusal is the
 //     standard 400 envelope with an `SDD-` code (2420); without either grant a BARE 403.
@@ -26,6 +26,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -71,7 +72,7 @@ const withStatus = (doc, deliveryStatus, closeStatus = '') => ({ ...doc, status:
 
 /**
  * A fresh context per scenario.
- * @param opts.access  the probe's data
+ * @param opts.access  the old SdDocumentWeb flags this scenario grants (→ keys via flagKeys('Oms'))
  * @param opts.status  the delivery's starting `deliveryStatus` / `closeStatus`
  * @param opts.answer  (body) => fulfilment for POST MarkDelivered; default `data: true` and the delivery turns `D`
  */
@@ -92,7 +93,7 @@ async function open(browser, { access = { canOpenList: true, canOpenDetail: true
     const p = req.url().split('/api/')[1].split('?')[0]
     calls.push(`${req.method()} ${p}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', access)))
     if (p === 'SdDocumentWeb/MarkDeliveredReasons') return route.fulfill(envelope(REASONS))
     if (p === 'SdDocumentWeb/MarkDelivered' && req.method() === 'POST') {
       const body = JSON.parse(req.postData() ?? '{}')
@@ -107,8 +108,6 @@ async function open(browser, { access = { canOpenList: true, canOpenDetail: true
       const base = DOCS[doc[2]]
       return route.fulfill(envelope(doc[2] === DELIVERY ? withStatus(base, current[0], current[1]) : base))
     }
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
     return route.fulfill(envelope([]))
   })
 
@@ -186,7 +185,7 @@ async function run() {
     check('A: success reloads the delivery', count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/) === 2, `${count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/)}`)
     check('A: success reloads the log', count(calls, /^GET SdDocumentWeb\/Document\/.+\/Logs$/) === 2, `${count(calls, /Logs$/)}`)
     check('A: the reloaded delivery (now D) disables the command with its reason', (await command(page).getAttribute('aria-disabled')) === 'true')
-    check('A: ONE reasons read and ONE Access call', count(calls, /MarkDeliveredReasons$/) === 1 && count(calls, /^GET SdDocumentWeb\/Access$/) === 1)
+    check('A: ONE reasons read and ONE permissions call', count(calls, /MarkDeliveredReasons$/) === 1 && count(calls, /^GET Auth\/Permissions$/) === 1)
     check('A: no page errors', errors.length === 0, errors.join(' | '))
     await shot(page, 'mark-delivered-after')
     await context.close()
@@ -212,7 +211,7 @@ async function run() {
   // ============================================ C · hidden
   for (const [label, access, no] of [
     ['no grant', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: false }, DELIVERY],
-    ['an older API (field absent)', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }, DELIVERY],
+    ['the key absent from the answer', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }, DELIVERY],
     ['a delivery-return (T)', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: true }, RETURN],
   ]) {
     const { context, page, calls } = await open(browser, { access })

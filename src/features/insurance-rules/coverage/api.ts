@@ -5,7 +5,7 @@
  * Coverage}/Draft`, Validate, Submit / Approve / SendBack, Versions / Restore).
  *
  * Reconciled with 3144-3146 as built in oms 618: the documents travel in SIS.Rules' spelling through core `guard-wire`
- * (`rulesetDoors`). No access probe: a session without the grant is answered a bare 403.
+ * (`rulesetDoors`). No client gate: a session without the grant is answered a bare 403.
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'

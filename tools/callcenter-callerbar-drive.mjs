@@ -29,6 +29,7 @@
 // Screenshots → tools/.callcenter-callerbar-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -160,7 +161,7 @@ async function open({ theme, dir }, { openState = OPENED } = {}) {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open') return route.fulfill(envelope({ outcome: 'opened', state, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(state))
     if (p.startsWith('CallCenterWeb/MemberByMobile/'))
@@ -168,7 +169,6 @@ async function open({ theme, dir }, { openState = OPENED } = {}) {
     if (p === 'CallCenterWeb/AttachCustomer') return route.fulfill(envelope((state = ATTACHED)))
     if (p === 'CallCenterWeb/RemoveCustomer') return route.fulfill(envelope((state = REMOVED)))
     if (p === 'CallCenterWeb/CustomerRequests') return route.fulfill(envelope(REQUESTS))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/callcenter`)

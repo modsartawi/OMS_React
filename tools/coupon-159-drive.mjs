@@ -55,6 +55,7 @@
 //  11. no state throws, and the centre column never scrolls sideways
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -193,7 +194,7 @@ async function open(scenario) {
           currentStoreCode: '1001',
         }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
@@ -236,8 +237,6 @@ async function open(scenario) {
       return route.fulfill(envelope(served))
     }
 
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
 
@@ -583,7 +582,7 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
           currentStoreCode: '1001',
         }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
@@ -614,8 +613,6 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
       return route.fulfill(envelope(served))
     }
 
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
     return route.fulfill(envelope([]))
   })
 

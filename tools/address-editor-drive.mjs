@@ -86,6 +86,7 @@
 //        omission only the courtesy, so the client handles the code.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -295,7 +296,7 @@ async function open(
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
@@ -341,8 +342,6 @@ async function open(
       return route.fulfill(envelope(served))
     }
 
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
     return route.fulfill(envelope([]))
   })
 

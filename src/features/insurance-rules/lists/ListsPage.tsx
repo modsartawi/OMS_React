@@ -16,7 +16,7 @@ const PANEL_ID = 'insurance-lists-panel'
  * **Policies** — the keyed lists a rule excludes (VIP), with who added each entry, why, until when, and the log;
  * **Classes** (BackOffice 3172) — policy class codes, each for one insurer or any.
  *
- * 🚩 UNGATED: no access probe until 618; a bare 403 on a read is "You do not have access".
+ * 🚩 UNGATED: no client gate until 618; a bare 403 on a read is "You do not have access".
  */
 export default function ListsPage() {
   const { t } = useTranslation('insurance-lists')

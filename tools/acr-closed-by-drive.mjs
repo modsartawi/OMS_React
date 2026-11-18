@@ -16,7 +16,7 @@
 //   2. the floating filter and the sort work on what the cell shows; the raw id (SYSTEM
 //      verbatim) is in the More-columns tail;
 //   3. loading, empty, error (500), refusal (a 400 envelope) and a bare 403 on the list, and
-//      the access probe's denial;
+//      the denied backstop (no Collection key in `Auth/Permissions`);
 //   4. the ACR form prints أُغلق بواسطة as the last cell of the الحالة row (the THIRD since
 //      ticket 341 took الوصف out of it) — the server's
 //      string as given, its two spaces kept, blank when '' — and a miss is still the miss;
@@ -25,6 +25,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/acr-closed-by-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -113,10 +114,8 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') {
-      if (scenario.access403) return route.fulfill({ status: 403, body: '' })
-      return route.fulfill(envelope(ACCESS))
-    }
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(scenario.denied ? [] : flagKeys('Collection', ACCESS)))
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(envelope({ accountants: [], collectors: [], supervisors: [], defaultScope: null }))
     if (path === 'CollectionWeb/Acrs') {
@@ -178,7 +177,7 @@ async function run() {
   const headers = async () =>
     (await page.locator('.ag-header-cell-text').allInnerTexts()).map((s) => s.trim())
   // Spec 2423 (ticket 425): the list opens blank and asks nothing until Search, so
-  // every load presses it. The access-probe denial has no toolbar to press.
+  // every load presses it. The denied backstop has no toolbar to press.
   const search = async () => {
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     await page.waitForLoadState('networkidle')
@@ -331,9 +330,9 @@ async function run() {
   )
   await noRawKeys('states')
 
-  scenario = { access403: true }
+  scenario = { denied: true }
   await load({ press: false })
-  check('the probe refusing → the denied backstop', (await mainText()).includes(DENIED))
+  check('no Collection key in the answer → the denied backstop', (await mainText()).includes(DENIED))
 
   // ---- 4. the ACR form's header ----
   scenario = {}

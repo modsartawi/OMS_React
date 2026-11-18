@@ -1,9 +1,9 @@
 // Loyalty groups list drive (oms ticket 629; BackOffice spec 3173, brief 3173-oms-react-loyalty-groups-brief.md).
 //
-// Drives the REAL app in Chromium against a STUB of the brief's doors — `LoyGroupWeb/Access` and
-// `LoyGroupWeb/Groups?includeInactive=bool` (BackOffice 3174; `liveBonusBuys` 3179) are deployed nowhere
+// Drives the REAL app in Chromium against a STUB of the brief's doors — the one `Auth/Permissions` answer (oms 909;
+// `LoyaltyGroup:03` view, `LoyaltyGroup:02` maintain) and `LoyGroupWeb/Groups?includeInactive=bool` (BackOffice 3174; `liveBonusBuys` 3179) are deployed nowhere
 // yet, so every envelope here is stubbed. In LTR (en) and RTL (ar) it asserts:
-//   1. a view grant shows the "Loyalty groups" leaf; a denied, malformed or maintain-only probe hides it,
+//   1. a view grant shows the "Loyalty groups" leaf; a denied, malformed or maintain-only answer hides it,
 //      and a deep link then shows the denial instead of the grid;
 //   2. Active (the default) asks `includeInactive=false` and shows active rows only; All asks `true` and
 //      adds the inactive row;
@@ -24,6 +24,7 @@
 //   2. DRIVE_PORT=5201 node tools/loy-groups-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -117,7 +118,9 @@ async function open(dir, access) {
       if (handled) return handled
     }
     if (p === 'Auth/Me') return answer({ authenticated: true, userId: 'hq01', currentStoreCode: 'P001' })
-    if (p === 'LoyGroupWeb/Access') return answer(access)
+    // `access`: the old LoyGroupWeb flags (→ keys), or 'malformed' (screens not a list: the app fails closed).
+    if (p === 'Auth/Permissions')
+      return access === 'malformed' ? answer({ screens: 'LoyaltyGroup:03', extras: {} }) : route.fulfill(permissions(flagKeys('LoyGroups', access)))
     if (p === 'LoyGroupWeb/Groups') {
       const inactive = url.searchParams.get('includeInactive')
       asked.push(inactive)
@@ -133,7 +136,6 @@ async function open(dir, access) {
       if (digits.endsWith('501234567')) return answer([LOOKUP_VIP, LOOKUP_OLD])
       return answer([])
     }
-    if (/Access$/.test(p)) return answer({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canOpenLoyMember: false })
     return answer([])
   })
   return { context, page, errors, asked, looked }
@@ -151,10 +153,10 @@ check('the ar bundle ships every en key, key for key', keysOf(AR).join() === key
 
 async function drive(dir) {
 
-  // ── Denied, malformed and maintain-only probes hide the leaf ──
+  // ── Denied, malformed and maintain-only answers hide the leaf ──
   for (const [label, access] of [
     ['denied', { canView: false, canMaintain: false }],
-    ['malformed', { canView: 'true' }],
+    ['malformed', 'malformed'],
     ['maintain-only', { canMaintain: true }],
   ]) {
     const { context, page, errors } = await open(dir, access)
@@ -850,7 +852,7 @@ async function drive633(dir) {
 // 4. A detail that omits `liveBonusBuys` borrows the list entry's; with neither, the confirm says it does
 //    not know — never "stops no live offer".
 // 5. A paste of two Excel columns (tab-separated) sends the first column only.
-// 6. A member write never re-asks the access probe.
+// 6. A member write never re-asks the permissions answer.
 
 const gReview = { on: false, writes: 0, members: [], probes: 0, bulk: [], createGate: null }
 const REVIEW_GROUP = { groupId: 'g-r', code: 'REVIEW_1', nameEn: 'Review group', nameAr: 'مجموعة المراجعة', isActive: true, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null }
@@ -863,7 +865,7 @@ ROUTES.unshift((route, url, p) => {
   if (!gReview.on) return undefined
   const body = () => JSON.parse(route.request().postData() || '{}')
   const stamped = () => ({ ...REVIEW_GROUP, mobileCount: gReview.members.length, updatedAt: gReview.writes ? `2026-10-28T10:00:0${gReview.writes % 10}` : null })
-  if (p === 'LoyGroupWeb/Access') {
+  if (p === 'Auth/Permissions') {
     gReview.probes++
     return undefined
   }
@@ -908,7 +910,7 @@ async function driveReview(dir) {
   const countIs = (n) =>
     page.waitForFunction((v) => document.querySelector('[data-loy-group-mobile-count]')?.getAttribute('data-loy-group-mobile-count') === v, String(n), { timeout: 10000 })
 
-  // ── 1 + 6: a member write keeps the page, and never re-asks the probe ──
+  // ── 1 + 6: a member write keeps the page, and never re-asks the permissions answer ──
   await page.goto(`${BASE}/loy/groups/g-r`)
   await page.locator('[data-loy-group-members-grid] .ag-row').first().waitFor({ timeout: 10000 })
   const nameEn = page.locator('[data-loy-group-field="nameEn"]')
@@ -920,7 +922,7 @@ async function driveReview(dir) {
   await page.locator('[data-loy-group-stamp="updated"] [data-stamp-at]').waitFor({ timeout: 10000 })
   check(`${dir} review 1: a name typed but not saved survives a member add's refetch`, (await nameEn.inputValue()) === 'Typed, not saved', await nameEn.inputValue())
   check(`${dir} review 1: …and Save still offers it`, !(await page.locator('[data-loy-group-save]').isDisabled()))
-  check(`${dir} review 6: a member add never re-asks the access probe`, gReview.probes === probesBefore, `${probesBefore} → ${gReview.probes}`)
+  check(`${dir} review 6: a member add never re-asks the permissions answer`, gReview.probes === probesBefore, `${probesBefore} → ${gReview.probes}`)
 
   // ── 1 + 5: the bulk results stay open across the refetch; two pasted Excel columns send the first ──
   await page.locator('[data-members-bulk-open]').click()
@@ -934,7 +936,7 @@ async function driveReview(dir) {
   await page.waitForTimeout(300)
   check(`${dir} review 1: the bulk results are still open after the group refetched`, (await dialog.locator('[data-members-bulk-result]').count()) === 1)
   check(`${dir} review 1: …and the typed name is still there`, (await nameEn.inputValue()) === 'Typed, not saved')
-  check(`${dir} review 6: a bulk load never re-asks the access probe`, gReview.probes === probesBefore, `${probesBefore} → ${gReview.probes}`)
+  check(`${dir} review 6: a bulk load never re-asks the permissions answer`, gReview.probes === probesBefore, `${probesBefore} → ${gReview.probes}`)
   await dialog.locator('[data-members-bulk-done]').click()
   await dialog.waitFor({ state: 'detached', timeout: 10000 })
 

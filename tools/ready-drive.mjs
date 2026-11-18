@@ -1,6 +1,6 @@
 // Ready for collection drive (spec 308, ticket 317) — drives the REAL app in Chromium against
 // STUBBED envelopes shaped exactly as BackOffice 1994 and 1995 record them under `## Web contract`:
-// `CollectionWeb/Access` gains `canOpenReady`, and `GET CollectionWeb/Ready` lists closed days and
+// the grant is `CollectionReady:03`, and `GET CollectionWeb/Ready` lists closed days and
 // prepared receipts, oldest first, with CollectorId / ServedByKind+ServedById / BusinessDateFrom/To.
 //
 // ⚠️ Stubbed, never live: no SIS.Api with 1994 is up for this wave, and the assertions are about
@@ -27,6 +27,7 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/ready-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -157,7 +158,7 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(access))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Collection', access)))
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(
         envelope({

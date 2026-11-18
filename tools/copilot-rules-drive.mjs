@@ -2,7 +2,7 @@
 //
 // Drives the REAL app in Chromium against a STATEFUL STUB of BackOffice 3395's doors, on its real wire (camelCase,
 // `Services/SIS.Api/Copilot/Prompt/CopilotPromptService.cs`):
-//   GET  Copilot/Access               → { canAsk, canUseMcp, canCurate }
+//   GET  Auth/Permissions               → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  Copilot/Prompt               → { core, houseRules, version, savedBy, savedAt, note, maxLength }
 //   GET  Copilot/Prompt/History?take= → version[] (newest first)
 //   POST Copilot/Prompt               { houseRules, note, baseVersion } → version   (COPILOT-411 when stale)
@@ -18,6 +18,7 @@
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/copilot-rules-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -85,7 +86,7 @@ async function open(dir, { curate = true, state = stubState() } = {}) {
     const p = new URL(req.url()).pathname.split('/api/')[1]
     const s = state
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'a.curator', currentStoreCode: 'P001' }))
-    if (p === 'Copilot/Access') return route.fulfill(envelope({ canAsk: true, canUseMcp: false, canCurate: curate }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['Copilot:01', ...(curate ? ['Copilot:01', 'Copilot:06'] : [])]))
     // The grant filter's bare 403: no envelope, no code.
     if (p.startsWith('Copilot/Prompt') && s.refuse410) return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
     if (p === 'Copilot/Prompt' && req.method() === 'GET') {
@@ -120,7 +121,6 @@ async function open(dir, { curate = true, state = stubState() } = {}) {
         envelope({ conversationId: 'c-1', questionNo: 1, answer: 'Fine.', orderRefs: [], trace: [], outcome: 'answered', stoppedEarly: false, servedBy: 'gemini/gemini-3-pro', promptVersion: s.active, askedAt: '2026-11-06T10:00:00' }),
       )
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, state }

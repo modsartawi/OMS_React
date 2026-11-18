@@ -1,11 +1,11 @@
 // Pure, framework-free helpers for the Authorization-Admin screen: role-kind
 // classification for the assigned-role chips, grant rendering for the effective-authz
-// inspector, delegation-scope tests over the Access probe, and zone-safe stamp
+// inspector, delegation-scope tests over the role lists, and zone-safe stamp
 // formatting. i18n text lives in the authz-admin namespace; these return data/tones.
 
 import type { EffectiveAuthorization, RoleCatalogEntry } from '@/core/models/authz-admin'
 
-/** The `["*"]` collapse value the Access probe passes through raw for a full admin. */
+/** The `["*"]` collapse value the role lists pass through raw for a full admin. */
 export const FULL_SCOPE = '*'
 
 /** True when the delegation list is full-admin (`["*"]`) — everything is in scope. */
@@ -15,7 +15,7 @@ export function isFullScope(list: string[] | undefined): boolean {
 
 /**
  * Whether `roleName` is in the actor's delegated scope, given an assignable/revocable
- * list from the Access probe. Full scope (`["*"]`) covers everything; otherwise the
+ * list from the role lists. Full scope (`["*"]`) covers everything; otherwise the
  * exact name must be present. The server re-checks every mutation regardless — this
  * only tiers the UI (out-of-scope chips read-only, picker filtered).
  */

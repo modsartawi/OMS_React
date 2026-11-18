@@ -11,7 +11,7 @@
 //        403 `GUARDS_SELF_APPROVAL` for whoever submitted or last edited it, 409 `GUARDS_DRAFT_NOT_PENDING`;
 //   GET  …/Versions → newest first; POST …/Versions/{v}/Restore → a new draft (409 `GUARDS_DRAFT_EXISTS`).
 // An approved category / coverage document publishes LIVE: no shadow state per rule, no promote, no back-test.
-// No access probe yet: actions follow the draft's state and the user; HQ refuses a missing grant.
+// No client gate yet: actions follow the draft's state and the user; HQ refuses a missing grant.
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from './api'
 import type { GuardIssue } from './checks'

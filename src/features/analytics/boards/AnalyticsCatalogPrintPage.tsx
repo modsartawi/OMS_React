@@ -23,7 +23,7 @@ const CATALOG_PATH = '/analytics/catalog'
 /**
  * The catalog's print page at `/analytics/print/catalog` (ticket 845, BackOffice spec 3437 §G, story 52) — outside the
  * shell, A4. Under a render ticket (`?lang=…&ticket=…`, BO 3444) it is the server's headless Chromium printing
- * `POST Analytics/Catalog/Render`: its ONE read is `Render/Catalog` (`catalogPrintQueries`) — no access probe, no
+ * `POST Analytics/Catalog/Render`: its ONE read is `Render/Catalog` (`catalogPrintQueries`) — no client gate, no
  * model — and it says it is ready with `data-print-ready`, never opening the print dialog. Opened by a person (no
  * ticket, session-guarded by the route) it reads `Analytics/Catalog` and opens the print dialog.
  *

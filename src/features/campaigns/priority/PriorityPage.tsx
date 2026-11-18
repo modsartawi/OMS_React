@@ -59,7 +59,7 @@ const SCOPES: RuleOrderGroupScope[] = ['session', 'item']
  * keeps showing the order that draft carries (edits build on it) until the reader asks for the live
  * order again.
  *
- * No access probe yet (BO ask B): the door fails closed on the server.
+ * No client gate yet (BO ask B): the door fails closed on the server.
  */
 export default function PriorityPage() {
   const { t } = useTranslation('campaign-priority')

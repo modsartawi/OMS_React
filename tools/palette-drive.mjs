@@ -283,8 +283,7 @@ if (gridRows === 0) {
   check('document details rendered in both themes', !page.url().endsWith('/deliveries'), page.url())
 }
 
-// 404s are recorded, not asserted: `Notifications/Access` is a known-missing
-// backend endpoint (ticket 038 ships the graceful path) and is not this
+// 404s are recorded, not asserted: a known-missing backend endpoint is not this
 // ticket's business. Fail only on real JS errors.
 if (notFound.length) {
   console.log(`  note  ${notFound.length} 404(s): ${[...new Set(notFound)].slice(0, 5).join(', ')}`)

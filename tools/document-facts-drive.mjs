@@ -29,6 +29,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { permissions, attachmentKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -214,9 +215,9 @@ async function drive({ theme, dir, width }) {
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
+    if (p === 'Auth/Permissions')
+      return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01', ...attachmentKeys(['P2E', 'ALTIBBI'])], { fileServerReady: true }))
     if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
-    if (p === 'AttachmentWeb/Access') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: [] }))
     if (p === 'AttachmentWeb/ByOwner') {
       byOwnerCalls += 1
       return route.fulfill(envelope(STORED, { siblings: { withdrawn: [], withdrawReasons: [] } }))

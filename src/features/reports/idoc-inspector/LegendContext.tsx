@@ -16,8 +16,8 @@ import { EMPTY_LEGEND, indexLegend, type LegendIndex } from './code-legend'
  *
  * 🚩 **The provider is the ONLY caller of the query**, so "once per session" is
  * structural rather than a convention every render site has to remember. The key
- * and its options live in `api.ts` beside the call, exactly as the access probe's
- * do, so no second consumer can drift.
+ * and its options live in `api.ts` beside the call, exactly as `@/core/permissions` keeps
+ * its one query's, so no second consumer can drift.
  *
  * ⚠️ **The screen renders without it.** A legend still in flight, or refused,
  * yields `EMPTY_LEGEND` and every code renders alone — which is the honest answer

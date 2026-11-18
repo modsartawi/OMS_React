@@ -147,8 +147,8 @@ export const router = createBrowserRouter([
         path: 'copilot',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotPage')).default }),
       },
-      // The copilot's house rules (ticket 790, BackOffice 3395) — curators only, behind `canCurateCopilot` on the same
-      // `GET Copilot/Access`, failing closed. Its nav item is under Administration.
+      // The copilot's house rules (ticket 790, BackOffice 3395) — curators only, behind `canCurateCopilot` (`Copilot:01` and
+      // `Copilot:06`), failing closed. Its nav item is under Administration.
       {
         path: 'copilot/rules',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotRulesPage')).default }),
@@ -737,7 +737,7 @@ export const router = createBrowserRouter([
       // 🚩 The URL holds the LoyId, never what was typed, so a refresh re-reads
       // by key and does not replay the resolution cascade — that runs on submit
       // only. There is no menu item yet: the screen is reachable by URL alone
-      // until 234 adds the nav item WITH its access probe, so it never exists in
+      // until 234 adds the nav item WITH its key, so it never exists in
       // the nav ungated.
       {
         path: 'loy/members',
@@ -1115,7 +1115,7 @@ export const router = createBrowserRouter([
       // (the dashboard is the index; 504+ add `rules`, `settings/:page`, `coupons`, `versions`).
       // Static leaves (`/campaigns/priority`, `/campaigns/simulator`, …) are declared BESIDE
       // `campaigns/:id` as their slices land — react-router ranks a static segment above `:id`.
-      // No access probe yet (no Ua permission exists until BackOffice 2759); the doors fail closed.
+      // No client gate yet (no Ua permission exists until BackOffice 2759); the doors fail closed.
       {
         path: 'campaigns',
         lazy: async () => ({

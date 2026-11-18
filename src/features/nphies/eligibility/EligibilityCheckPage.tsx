@@ -32,7 +32,7 @@ import { usePermissions } from '@/core/permissions'
 /**
  * The eligibility check form (ticket 211, spec 209) — slice 0 of the Nphies area
  * and the tracer through its whole spine: area → namespace → route → nav →
- * access probe → envelope → model → render.
+ * permissions answer → envelope → model → render.
  *
  * Three things it does that the till's dialog does not. **The provider is a free
  * per-act pick** with no default and no memory, and submit is held until one is

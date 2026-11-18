@@ -5,7 +5,7 @@
 // 🚩 NOTHING here is driven against a live DataSync: ticket 566 is the live walk.
 //
 // It verifies:
-//   1. the Admin menu shows the Data sync leaf when `screenAllowed` is true, the first read asks for
+//   1. the Admin menu shows the Data sync leaf when `DataSyncConsole:03` is held (`screenAllowed`), the first read asks for
 //      page 1 of 50, and the grid renders: a name linking to the campaign page, the profile's NAME
 //      (resolved from Profiles), the mode and status in words, the jobs by state, the total and the
 //      created time in LOCAL time (the browser runs in Asia/Riyadh, UTC+3);
@@ -17,13 +17,14 @@
 //   5. a URL with a status and a page opens on them;
 //   6. the service banner: none when healthy; worker off; stale tick; a 503 from Health;
 //   7. the list refetches every 30 s;
-//   8. with `screenAllowed: false` the leaf is hidden and the page guards itself, with no list read;
+//   8. without `DataSyncConsole:03` the leaf is hidden and the page guards itself, with no list read;
 //   9. a row's link opens the campaign page (a placeholder until 560).
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/data-sync-campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions, flagKeys, ALL_SCREENS } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -132,9 +133,12 @@ async function open({ access = { screenAllowed: true, canOperate: true }, health
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') {
+    // The one permissions answer (oms 909): the DataSync keys per `access` (`DataSyncConsole:03/06`), every OTHER
+    // feature's keys shut, or open to see the leaf among its siblings.
+    if (p === 'Auth/Permissions') {
       counts.access++
-      return route.fulfill(envelope(access))
+      const others = othersOpen ? ALL_SCREENS.filter((k) => !k.startsWith('DataSyncConsole:')) : []
+      return route.fulfill(permissions([...others, ...flagKeys('DataSync', access)]))
     }
     if (p === 'DataSync/Health') {
       if (health === 'ok') return route.fulfill(envelope(healthy()))
@@ -158,9 +162,6 @@ async function open({ access = { screenAllowed: true, canOperate: true }, health
       const rows = CAMPAIGNS.filter((c) => !status || c.status === status)
       return route.fulfill(envelope(rows.slice((pg - 1) * size, pg * size))) // plain array, no total
     }
-    // Every OTHER feature's access probe: shut, or open to see the leaf among its siblings.
-    if (/\/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: othersOpen, screenAllowed: othersOpen, allowed: othersOpen, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, counts }
@@ -328,7 +329,7 @@ for (const [health, kind, text] of [
   await page.waitForTimeout(300)
   check('8. without the grant the leaf is hidden', (await page.locator('nav a[href="/admin/data-sync"]').count()) === 0)
   check('8. …and the page guards itself, with no list read', (await page.locator('[data-campaigns]').count()) === 0 && counts.campaigns === 0, `reads ${counts.campaigns}`)
-  check('8. the leaf and the gate share one probe call', counts.access === 1, `access calls ${counts.access}`)
+  check('8. the leaf and the gate share one Auth/Permissions call', counts.access === 1, `access calls ${counts.access}`)
   await page.screenshot({ path: `${SHOTS}/denied.png`, fullPage: true })
   check('no page errors (denied)', errors.length === 0, errors.join(' | '))
   await context.close()

@@ -30,6 +30,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { BATCHES, CAMPAIGNS, budgetsOf, catalogueFor, listBatches, loadDraft, promotionCampaignsOf, validationOf } from './campaigns-fixtures.mjs'
+import { permissionsBody, ALL_SCREENS } from './permissions-stub.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -88,11 +89,8 @@ const DELIVERY = (i) => ({
 // `stubs` (same shape, checked first). `data` may be a function of the path (and the request).
 const COMMON_STUBS = [
   [/^Auth\/Me$/, { authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }],
-  // Every screen-open probe answers yes so every menu entry and screen is reachable.
-  [
-    /Access$/,
-    { screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true },
-  ],
+  // The one permissions answer (oms 909) grants every screen, so every menu entry and screen is reachable.
+  [/^Auth\/Permissions$/, permissionsBody(ALL_SCREENS, { canManageRoles: true, canManageUsers: true }).data],
   [/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/, []],
   [/^SdDocumentWeb\/DeliveryDocumentList$/, Array.from({ length: 60 }, (_, i) => DELIVERY(i))],
 ]
@@ -1146,7 +1144,8 @@ const AUTHZ_PEOPLE = [
 ]
 const ADMIN_STUBS = [
   // Authz admin
-  [/^AuthzAdminWeb\/Access$/, { screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles: ['*'], revocableRoles: ['*'] }],
+  // The role lists stay on the page's own read (brief 3995, "Not covered"); every boolean comes from Auth/Permissions.
+  [/^AuthzAdminWeb\/Access$/, { assignableRoles: ['*'], revocableRoles: ['*'] }],
   [/^AuthzAdminWeb\/Employees$/, { rows: AUTHZ_PEOPLE, totalMatches: 2, rowCap: 50, isCapped: false }],
   [/^AuthzAdminWeb\/Users\/[^/]+\/Roles$/, ['OMS_VIEWER', 'CC_AGENT']],
   [/^AuthzAdminWeb\/Users\/[^/]+\/EffectiveAuthorizations$/, []],
@@ -1160,7 +1159,6 @@ const ADMIN_STUBS = [
     return { ...r, memberSingleRoleNames: r.isComposite ? ['OMS_VIEWER'] : [], boundGrants: [] }
   }],
   // UA admin
-  [/^UaAdminWeb\/Access$/, { canOpen: true }],
   [/^UaAdminWeb\/ReportCounts$/, { allPeople: 1200, notSeeded: 4, phoneGap: 12, awaitingActivation: 30, mustChangePassword: 7, disabled: 9, completedActivation: 1100 }],
   [/^UaAdminWeb\/(Employees|ReportCards\/[^/]+)$/, { rows: AUTHZ_PEOPLE, totalMatches: 2, rowCap: 50, isCapped: false }],
 ]
@@ -1280,7 +1278,6 @@ SCREENS.push({
 const SYNC_PAGED = { items: [], total: 0, page: 1, pageSize: 50 }
 const SYNC_HOUR = (hour, n) => ({ hour, pushPasses: 11820 * n, pullPasses: 23400 * n, connectFailures: 312 * n, chunksPushed: 40 * n, actionsPushed: 4912 * n, trxPulled: 18230 * n, errors: 9 * n })
 const SYNC_STUBS = [
-  [/^ActionSync\/Access$/, { screenAllowed: true, canOperate: true, canOnboard: true, canReplay: true }],
   [/^ActionSync\/Workers$/, { items: [] }],
   [/^ActionSync\/Fleet\/Summary$/, { asOf: '2026-10-09T12:04:31', total: 120, counts: { all: 120, onWorker: 119, onWpf: 1, paused: 0, offline: 1, behind: 7, erroring: 2, controlPending: 1 } }],
   [/^ActionSync\/Fleet\/LastHour$/, { current: SYNC_HOUR('2026-10-09T12:00:00', 1), previous: SYNC_HOUR('2026-10-09T11:00:00', 2) }],
@@ -1382,7 +1379,6 @@ const CC_DISTRICT = {
   storeCode: '1101',
 }
 const CALLCENTER_STUBS = [
-  [/^CallCenterWeb\/Access$/, { canOpenConsole: true }],
   [/^CallCenterWeb\/Open$/, () => ({ outcome: 'opened', state: ccState(), existing: null })],
   [/^CallCenterWeb\/State$/, () => ccState()],
   [/^CallCenterWeb\/MemberByMobile\//, null],
@@ -1522,13 +1518,9 @@ const BBY_DOC = {
   },
 }
 const PRICING_STUBS = [
-  [/^BbyMaintainWeb\/Access$/, { screenAllowed: true, canTest: true }],
   [/^BbyMaintainWeb\/Promotion\/List$/, [BBY_PROMO]],
   [/^BbyMaintainWeb\/Promotion\/P000000001$/, BBY_PROMO],
   [/^BbyMaintainWeb\/BonusBuy\/OMS000000124$/, BBY_DOC],
-  [/^Pricing\/Access$/, { canOpen: true }],
-  [/^Pricing\/CacheAccess$/, { canClear: true }],
-  [/^CouponsAdminWeb\/Access$/, { canAdmin: true, canSupport: true }],
   [/^CouponsAdminWeb\//, []],
 ]
 
@@ -1662,16 +1654,6 @@ SCREENS.push({
 // Every field labelled, every icon button named, every field on the shared look,
 // the role tokens resolved. Data is the area drives' own shapes, trimmed.
 
-const COLLECTION_ACCESS = {
-  canOpenCollections: true,
-  canOpenAcrs: true,
-  canOpenDeposits: true,
-  canOpenAttempts: true,
-  canOpenAssignment: true,
-  canOpenSettlement: true,
-  canSuperviseSettlement: true,
-  canOpenReady: true,
-}
 const COLLECTION_ROSTER = {
   accountants: [{ staffId: '4466', displayName: 'ضحى' }],
   collectors: [{ staffId: 'COLL-9', displayName: 'فهد القحطاني' }],
@@ -1696,7 +1678,6 @@ const SETTLEMENT_BRANCHES = [
   { storeId: '0719', storeName: 'Al-Dawaa 0719', city: 'Riyadh', area: 'Central', servedBy: 'ضحى', isMine: true },
 ]
 const COLLECTION_STUBS = [
-  [/^CollectionWeb\/Access$/, COLLECTION_ACCESS],
   [/^CollectionWeb\/AssignmentOptions$/, COLLECTION_ROSTER],
   [/^CollectionWeb\/Assignment\/People$/, COLLECTION_PEOPLE],
   [/^CollectionWeb\/Assignment\/Branches$/, COLLECTION_BRANCHES],
@@ -1924,7 +1905,6 @@ const NPHIES_ELIGIBILITY = {
 }
 const NPHIES_LOOKUP = (items) => ({ contractVersion: '1.0', items })
 const NPHIES_STUBS = [
-  [/^Nphies\/Access$/, { canOpenNphies: true }],
   [/^Nphies\/EligibilityResponse\/ELG-1$/, NPHIES_ELIGIBILITY],
   [/^Nphies\/Session\/Open$/, { outcome: 'opened', state: NPHIES_STATE }],
   [/^Nphies\/Session\/(State|SetHeader|SetInsurance|UpdateLineMeta|UpdateLineInsurance|ChangeQty)$/, NPHIES_STATE],
@@ -1947,7 +1927,6 @@ const REPORTS_SAP_STORE = (i) => ({
   computedAt: '2026-10-11T08:00:00',
 })
 const REPORTS_STUBS = [
-  [/^SapExport\/Access$/, { screenAllowed: true }],
   [/^SapExport\/Fleet\/Summary$/, {
     windowDays: 30, computedAt: '2026-10-11T08:00:00', stores: 3,
     tiles: { storesBehind: 1, storesStuck: 1, storesHeldForInventory: 0, doubleSent: 2, doubleSendPending: 1, accountingBreaks: 0, legacyStalled: 0 },
@@ -1955,7 +1934,6 @@ const REPORTS_STUBS = [
   [/^SapExport\/Fleet$/, { items: [1, 2, 3].map(REPORTS_SAP_STORE), total: 3, page: 1, pageSize: 50 }],
   [/^SapExport\/Runners$/, { items: [] }],
   [/^SapExport\/DoubleSends$/, { items: [], total: 0, page: 1, pageSize: 50 }],
-  [/^(IDocInspector|RetailInvoice)\/Access$/, { screenAllowed: true, canOpen: true, allowed: true }],
 ]
 
 /** Goes to an area page and waits for its own hook; fonts settled, mouse parked. */
@@ -2103,7 +2081,6 @@ const OMS_DELIVERY = (() => {
   return { ...doc, status: { ...doc.status, deliveryStatus: 'O', closeStatus: '' } }
 })()
 const OMS_STUBS = [
-  [/^SdDocumentWeb\/Access$/, { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: true }],
   [/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/, OMS_DELIVERY],
   [/^SdDocumentWeb\/MarkDeliveredReasons$/, [
     { code: 'CARR', description: 'Carrier did not update the status' },
@@ -2112,7 +2089,7 @@ const OMS_STUBS = [
   [/^PrescriptionSessionWeb\/Sessions(\/Owed)?$/, { rows: [], total: 0, stalled: 3, aboutToLapse: 1, owed: 2, isTruncated: false }],
   [/^PrescriptionSessionWeb\/(Ended|ToOpen)/, []],
   // Every other door of these screens answers an empty list (logs, jobs, donors, callouts, …).
-  [/^(SdDocument|PrescriptionSession)(?!.*Access$)/, []],
+  [/^(SdDocument|PrescriptionSession)/, []],
 ]
 
 /** Goes to an oms page and waits for its own hook; fonts settled, mouse parked. */
@@ -2243,7 +2220,6 @@ const R605_STORES = [
 const R605_STUBS = [
   [/^SdDocument\/StoreDetails$/, R605_STORES],
   // Deliverect
-  [/^DeliverectWeb\/Access$/, { canManageStores: true, canManageCatalog: true, canViewOrders: true, canManageTerms: true }],
   [/^DeliverectWeb\/Platforms$/, [
     { platformKey: 'JAHEZ', displayName: 'Jahez', channelId: 0, creditCustomer: '0001100001', active: true },
     { platformKey: 'KEETA', displayName: 'Keeta', channelId: 7, creditCustomer: '0001100002', active: true },
@@ -2251,17 +2227,14 @@ const R605_STUBS = [
   [/^DeliverectWeb\/Orders$/, { total: 0, rows: [] }],
   [/^DeliverectWeb\/(Stores|Accounts)$/, []],
   // HungerStation
-  [/^HungerStationWeb\/Access$/, { canManageStores: true, canManageCatalog: true, canViewOrders: true }],
   [/^HungerStationWeb\/Chains$/, ['OlaCare', 'AlDawaa']],
   [/^HungerStationWeb\/Orders$/, { total: 0, rows: [] }],
   [/^HungerStationWeb\/Stores$/, []],
   // Materials
-  [/^MaterialWeb\/Access$/, { canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }],
   [/^MaterialWeb\/StoreSets$/, [{ value: 'RUH', label: 'Riyadh', storeCount: 2 }]],
   [/^MaterialWeb\/(Levels|Facets)$/, []],
   [/^MaterialWeb\/Search$/, { resolvedAs: 'text', resolvedFrom: null, limited: false, rows: [] }],
   // Loy: an editor who may also remove a mobile, on one member.
-  [/^LoyWeb\/Access$/, { canOpenLoyMember: true, canEditLoyMember: true, canRemoveLoyMemberMobile: true }],
   [/^LoyWeb\/BlockedReasons$/, [{ code: 'IA', description: 'Inactive', systemReason: false }]],
   [/^LoyWeb\/(Member|MemberByMobile)\//, {
     loyId: '100001293', mobileCountry: 'SA', mobile: '966555000111', fullName: 'Nouf Al-Harbi',
@@ -2483,7 +2456,6 @@ const doctypeAction = (code, description) => ({
   activateDocument: false, completeDocument: false, allowedWhenCompleted: false,
 })
 const DOCTYPE_STUBS = [
-  [/^SdDocTypeConfigWeb\/Access$/, { canViewDocTypeConfig: true, canEditDocTypeConfig: true }],
   [/^SdDocTypeConfigWeb\/DocumentTypes$/, [
     { documentType: 'BUPA', description: 'Bupa insurance', documentCategory: 'O', engineType: 'SISPRICING' },
     { documentType: 'CASH', description: 'Cash order', documentCategory: 'O', engineType: '' },

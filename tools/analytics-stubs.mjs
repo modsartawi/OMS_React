@@ -11,6 +11,7 @@
 import { sampleReport } from '../src/features/analytics/boards/sample-report.ts'
 // 841: the data catalog fixtures live beside this file.
 import { CATALOG_841, previewAnswer843, rawAnswer844 } from './analytics-catalog-stubs.mjs'
+import { permissions, permissionsFailed, flagKeys } from './permissions-stub.mjs'
 
 export const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
@@ -679,7 +680,9 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
 
 /**
  * Install the analytics doors on `page`. Every option overrides one door's answer:
- *   access:   an `{ canView, canAuthor, canCurate }` object (default an author, 822), `'absent'` (a bare 404, the door not deployed) or `'bare403'`;
+ *   access:   the Analytics grants in `Auth/Permissions` (oms 909), as an `{ canView, canAuthor, canCurate, canSql }` object
+ *             (default an author, 822, mapped to `Analytics:03/02/06/07` by `flagKeys`), or `'failed'` (the answer 500s:
+ *             every gated item hidden);
  *   items:    id → item, or id → a `refusal(...)` fulfil object;
  *   list:     the `Analytics/Items` answer (an array of items), or a `refusal(...)` fulfil object;
  *   draftRefuse: (body) => a `refusal(...)` fulfil object refusing a `{ draft }` ask as a whole (853), or null;
@@ -688,7 +691,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
  *   querySequence: view id → answers taken in order, the last one standing (773's time-out then retry);
  *   queryDelayFor: view id → ms, held instead of `queryDelayMs` for that view (771's one-by-one landing);
  *   members:  dimension → `DimensionValues` members (default `MEMBERS`), narrowed by `search`;
- *   copilot:  `Copilot/Access` — `'denied'` (the default: `canAsk: false`), `'granted'`, or `'absent'` (a bare 404);
+ *   copilot:  `Copilot:01` in the same answer — `'denied'` (the default) or `'granted'`;
  *   copilotAnswer: the `Copilot/Ask` answer (default `COPILOT_ANSWER`), or `(body, n) => answer` for the nth ask (832).
  *   inlineQuery: (body) → result or `refusal(...)` for a Query with an inline `definition` (default `inlineAnswer`);
  *   paramAnswer: (body, answer) → the answer to a by-item Query (823: `{ itemId, revision, panelId, values }`), given
@@ -1028,14 +1031,17 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (req.method() === 'PUT') (bodies[`PUT ${p}`] ??= []).push(req.postDataJSON())
 
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Analytics/Access') {
-      if (access === 'absent') return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
-      if (access === 'bare403') return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
-      return route.fulfill(envelope(access))
-    }
-    if (p === 'Copilot/Access') {
-      if (copilot === 'absent') return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
-      return route.fulfill(envelope({ canAsk: copilot === 'granted', canUseMcp: false }))
+    // The one permissions answer (oms 909): the Analytics grants, Copilot's ask, and the Deliveries list (774) only
+    // when a scenario hands it rows. Every other screen is absent, so the nav holds only what a scenario grants.
+    if (p === 'Auth/Permissions') {
+      if (access === 'failed') return route.fulfill(permissionsFailed(500))
+      return route.fulfill(
+        permissions([
+          ...flagKeys('Analytics', access),
+          ...(copilot === 'granted' ? ['Copilot:01'] : []),
+          ...(deliveries ? ['DocumentList:03', 'DocumentDetails:03'] : []),
+        ]),
+      )
     }
     if (p === 'Copilot/Ask') return route.fulfill(envelope(typeof copilotAnswer === 'function' ? copilotAnswer(req.postDataJSON() ?? {}, bodies[p].length) : copilotAnswer))
     if (p === 'Analytics/Model') return route.fulfill(envelope(model))
@@ -1352,13 +1358,10 @@ export async function installAnalyticsStubs(page, opts = {}) {
       return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
     // 774: the Deliveries list, granted only when a scenario hands it rows.
-    if (deliveries && p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
     if (deliveries && p === 'SdDocumentWeb/DeliveryDocumentList') {
       ;(gets[p] ??= []).push(Object.fromEntries(url.searchParams))
       return route.fulfill(envelope(deliveries))
     }
-    // Every other screen's probe denies, so the nav holds only what a scenario grants.
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canView: false }))
     return route.fulfill(envelope([]))
   })
   return { calls, bodies, gets, ticketsSeen }

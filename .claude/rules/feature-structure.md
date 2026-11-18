@@ -41,8 +41,8 @@ A new area folder appears **only when a new nav group / URL prefix does** (e.g. 
   by two features graduates **up to `@/core/*`**, it does not cross sideways.
 - **`core/` → any feature: forbidden.** Shared code must never depend on a feature.
 - **`app/` + `layout/` → any feature: allowed.** They are the composition root — `app/router.tsx`
-  lazy-imports Pages; `layout/menu-model.ts` imports a feature's OWN access call to build its
-  `accessProbe`; `layout/AppShell.tsx` imports `authApi` / `StoreSwitcher`.
+  lazy-imports Pages; `layout/menu-model.ts` imports a feature's OWN predicate (`canOpenX`) for its
+  `requires`; `layout/AppShell.tsx` imports `authApi` / `StoreSwitcher`.
 - **No per-feature barrel** (`index.ts`). `app`/`layout` deep-import exact paths
   (`@/features/oms/deliveries/api`) — keeps router lazy-import code-splitting clean.
 
@@ -65,7 +65,8 @@ A new feature touches exactly these (the `/new-feature` scaffold skill, ticket 4
 1. `src/features/<area>/<feature>/` — folder + `<Feature>Page.tsx` + `api.ts`.
 2. `src/locales/en/<feature>.json` **and** register in `src/core/i18n.ts` (import, `ns[]`, `resources`).
 3. `src/app/router.tsx` — one lazy route entry under the area's URL prefix.
-4. `src/layout/menu-model.ts` — one menu item (optional `accessProbe` for a permission-gated screen).
+4. `src/layout/menu-model.ts` — one menu item (`key: 'X:03'` or `requires: canOpenX` for a permission-gated screen,
+   read off the one `Auth/Permissions` answer in `@/core/permissions`).
 
 ## The tell
 

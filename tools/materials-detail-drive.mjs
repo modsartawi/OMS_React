@@ -6,10 +6,10 @@
 // the contract's own example values (material 101234 "PANADOL 500MG 24 TAB", A006 MEDICINE, vendor
 // 200345 GSK, price 12.500, barcode 6281234567890, batch 0000123456 / A12 / 2027-03-31, store 1001
 // "Riyadh - Olaya" at ATP 12 / SAP 15 / POS -2 / OMS -1 at 2026-10-09T10:42:00):
-//   GET  MaterialWeb/Access               → { canSearchMaterials, canCheckStock, canCheckGs1 }
+//   GET  Auth/Permissions               → the screen keys the drive grants (`permissions-stub.mjs`)
 //   GET  MaterialWeb/Material/{no}        → { master, barcodes, batches }; MAT-00001 (404)
 //   POST MaterialWeb/Stock                → { cells, storesAsked, materialsAsked }; MAT-00004 (502)
-//   GET  Pricing/Access                   → { canOpen } (the simulator's own gate)
+//   GET  Auth/Permissions                   → the screen keys the drive grants (`permissions-stub.mjs`) (the simulator's own gate)
 // The refusal envelope is the REAL SIS.Api shape `@/core/api` reads —
 // errors: [{ errorCode, errorMessage, internalErrorCode }] — not the contract's abbreviation.
 //
@@ -36,6 +36,7 @@
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -174,7 +175,7 @@ async function open({ access = ALL } = {}) {
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'MaterialWeb/Access') return route.fulfill(envelope(access))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions([...flagKeys('Material', access), 'PosSimulation:03']))
     const material = /^MaterialWeb\/Material\/(.+)$/.exec(p)
     if (material) {
       const answer = MATERIALS[decodeURIComponent(material[1])]
@@ -199,9 +200,6 @@ async function open({ access = ALL } = {}) {
         )
       return route.fulfill(envelope(answer))
     }
-    if (p === 'Pricing/Access') return route.fulfill(envelope({ canOpen: true }))
-    if (/Access$/.test(p))
-      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false, canClear: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, stockBodies }

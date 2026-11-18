@@ -15,9 +15,9 @@
  * explain itself before a round trip, and maps the server's refusal codes to words.
  */
 
-/** What the gate reads: the probe's grant, the payload's category and two status codes. */
+/** What the gate reads: the grant, the payload's category and two status codes. */
 export interface MarkDeliveredContext {
-  /** `SdDocumentWeb/Access`'s `canMarkDelivered` (2421). Absent on an older SIS.Api. */
+  /** `canMarkDelivered` = `OmsMarkDelivered:06` (2421). */
   canMarkDelivered: boolean | null | undefined
   documentCategory: string | null | undefined
   /** `status.deliveryStatus` — `O` is out for delivery. */

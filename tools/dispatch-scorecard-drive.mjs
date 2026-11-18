@@ -1,16 +1,15 @@
 // Dispatch scorecard drive (ticket 543; BackOffice spec 2952, doors 2965).
 //
-// Drives the REAL app in Chromium against a STUB of the four doors — 2965 is merged on pricing2 but
+// Drives the REAL app in Chromium against a STUB of the grant and the three doors — 2965 is merged on pricing2 but
 // not deployed, so there is no live SIS.Api to point at. The stub answers EXACTLY the shapes of
 // `DispatchScorecardModels.cs`, camelCase:
-//   GET DispatchScorecard/Access    → { screenAllowed }            (allowed, not allowed, a bare 403)
+//   GET Auth/Permissions            → `DispatchScorecard:03` held or not (oms 909)
 //   GET DispatchScorecard/Grid      → { asOf, from, to, minimumBids, minimumAnswers, stores[], staff[] }
 //   GET DispatchScorecard/Drill     → { asOf, from, to, figure, store, staff, rows[] }
 //   GET DispatchScorecard/StoreCard → { asOf, from, to, row, measures[], classes[], staff[] }
 // and a `CALLOUT-301` refusal on the Grid when asked for store `REFUSE`.
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl") it asserts:
-//   1. not allowed (`screenAllowed: false`): the leaf is hidden, the URL shows the denied card, no Grid call;
-//   2. a bare 403 on the probe: the denied card, no Grid call;
+//   1. not allowed (no `DispatchScorecard:03`): the leaf is hidden, the URL shows the denied card, no Grid call;
 //   3. allowed: the leaf is in the OMS group; the Grid is asked for the last 30 days ending today;
 //   4. each of the five ranked headers carries its better direction; a context header carries none
 //      and does not sort;
@@ -45,6 +44,7 @@
 //   2. DRIVE_PORT=5203 node tools/dispatch-scorecard-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -293,12 +293,8 @@ async function open(dir, { access = 'allowed' } = {}) {
     calls.push(p)
     ;(queries[p] ??= []).push(url.searchParams)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
-    if (p === 'DispatchScorecard/Access') {
-      // A bare 403: no envelope at all, as a route without AllowCookieSession answers.
-      if (access === 'bare403') return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
-      return route.fulfill(envelope({ screenAllowed: access === 'allowed' }))
-    }
+    if (p === 'Auth/Permissions')
+      return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', ...(access === 'allowed' ? ['DispatchScorecard:03'] : [])]))
     if (p === 'DispatchScorecard/Grid') {
       if (url.searchParams.get('store') === 'REFUSE')
         return route.fulfill(
@@ -313,7 +309,6 @@ async function open(dir, { access = 'allowed' } = {}) {
     }
     if (p === 'DispatchScorecard/Drill') return route.fulfill(envelope(drill(url.searchParams)))
     if (p === 'DispatchScorecard/StoreCard') return route.fulfill(envelope(card(url.searchParams.get('store'))))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, queries }
@@ -483,21 +478,6 @@ async function drive(dir) {
     await page.waitForTimeout(300)
     check(`${label}: not allowed — the URL shows the denied card and never asks for the Grid`, !calls.includes('DispatchScorecard/Grid'))
     check(`${label}: no page errors (not allowed)`, errors.length === 0, errors.join(' | '))
-    await context.close()
-  }
-
-  // ── 2: a bare 403 ──
-  {
-    const { context, page, calls } = await open(dir, { access: 'bare403' })
-    await page.goto(`${BASE}/oms/dispatch-scorecard`)
-    const denied = page.locator('[role="alert"]', { hasText: words.denied })
-    await denied.waitFor({ timeout: 20000 })
-    await page.waitForTimeout(300)
-    const links = await omsLinks(page)
-    check(
-      `${label}: a bare 403 on the probe — the denied card, the leaf hidden, no Grid call`,
-      (await denied.count()) === 1 && !links.includes('/oms/dispatch-scorecard') && !calls.includes('DispatchScorecard/Grid'),
-    )
     await context.close()
   }
 

@@ -56,7 +56,6 @@ const ROW_KEYS = [
   'itemType', 'blocked', 'serialised', 'unitPriceExVat', 'hasInfo',
 ]
 const KEYS = {
-  access: ['canSearchMaterials', 'canCheckStock', 'canCheckGs1'],
   search: ['resolvedAs', 'resolvedFrom', 'limited', 'rows'],
   resolvedFrom: ['gtin', 'barcode'],
   row: ROW_KEYS,
@@ -159,13 +158,20 @@ const why = (a) => (a ? `HTTP ${a.status} ${a.body?.errors?.[0]?.errorCode ?? ''
 const gridRows = (sel) =>
   page.evaluate((s) => new Set([...document.querySelectorAll(`${s} .ag-row[row-index]`)].map((r) => r.getAttribute('row-index'))).size, sel)
 
-// ── The access probe ──────────────────────────────────────────────────────────────────────────────
+// ── The grants (the one permissions answer, oms 909) ─────────────────────────────────────────────
 
 await page.goto(`${BASE}/materials`)
-const probe = await waitAnswer('MaterialWeb/Access', 0)
-check('access: MaterialWeb/Access answers', ok(probe), why(probe))
-const grants = probe?.body?.data ?? {}
-shapeCheck('access: exactly the three flags', grants, KEYS.access)
+const answer = await waitAnswer('Auth/Permissions', 0)
+check('access: Auth/Permissions answers', ok(answer), why(answer))
+const screens = answer?.body?.data?.screens
+check('access: the answer carries a screens list', Array.isArray(screens), JSON.stringify(answer?.body?.data))
+// The keys each screen reads (`@/core/materials/access`; `ItemInquiryCustome` is the seed's spelling).
+const held = (key) => (screens ?? []).includes(key)
+const grants = {
+  canSearchMaterials: held('ItemInquiryCustome:03'),
+  canCheckStock: held('MaterialStockInquiry:03'),
+  canCheckGs1: held('Gs1SerialInquiry:03'),
+}
 console.log(`      this session: ${JSON.stringify(grants)}`)
 // The menu offers only what the session may open.
 if (grants.canSearchMaterials === true) {

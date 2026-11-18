@@ -12,6 +12,7 @@
 //   3. images land in .issues/assets/304-profile-form/
 import { mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -97,7 +98,7 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    if (path === 'LoyWeb/Access') return route.fulfill(envelope(SESSIONS[access]))
+    if (path === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Loy', SESSIONS[access])))
 
     if (/^LoyWeb\/Member\/[^/]+\/Profile$/.test(path)) {
       if (profileRefusal) return route.fulfill(profileRefusal)

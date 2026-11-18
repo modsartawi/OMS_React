@@ -12,6 +12,7 @@ import { createRequire } from 'node:module'
 import { coverageStub, envelope, guardEditorStub, insuranceRulesStub, newCoverageState, newGuardStore } from './insurance-rules-stubs.mjs'
 import { fhirCatalogStub } from './fhir-rules-stubs-692.mjs'
 import { createDriftStubs, SAMPLE_URL } from './fhir-rules-stubs-703.mjs'
+import { permissions, GRANTED_852 } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -53,7 +54,7 @@ async function open(dir, opts = {}) {
     if (covered) return route.fulfill(covered)
     const hit = guardEditorStub(req.method(), p, body, { store, reads: {} }) ?? insuranceRulesStub(req.method(), p, body, {})
     if (hit) return route.fulfill(hit)
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(GRANTED_852))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, writes }

@@ -89,11 +89,14 @@ export const <camel>Api = {
 ```
 
 **If the screen is permission-gated**, model it on `features/admin/ua-admin` instead of writing the
-minimal stub blind: add an `access()` call to `api.ts` returning a typed access result, have the Page
-guard on `useQuery({ queryKey: ['<feature>','access'], queryFn: () => <camel>Api.access() })` and show a
-"no access" backstop when denied, and give the menu item an `accessProbe` (Step 4). Read
-`features/admin/ua-admin/api.ts` + `UaAdminUsersPage.tsx` and mirror the shape — the server enforces
-the grant on every call regardless; the nav hide is show/hide hygiene sharing the same query key.
+minimal stub blind: the grant is a `BackOfficeScreen` key on the ONE `Auth/Permissions` answer
+(`@/core/permissions`, oms 909) — never a per-screen `*/Access` call. Add the key to `SCREEN_KEYS` (seed
+spelling, e.g. `'<Controller>:03'`), export a named predicate from `api.ts`
+(`export const canOpen<Camel> = (p: Permissions) => p.has('<Controller>:03')`), have the Page read it through
+`usePermissions()` (or stand behind `ScreenGate` with `can={canOpen<Camel>}`) and show the "no access" backstop when
+denied, and give the menu item the same predicate (Step 4). Read `features/admin/ua-admin/api.ts` +
+`UaAdminUsersPage.tsx` and mirror the shape — the server enforces the grant on every call regardless; the nav hide is
+show/hide hygiene reading the same predicate.
 
 ## Step 3 — Register the i18n namespace
 
@@ -151,14 +154,10 @@ The leaf (always-visible):
 },
 ```
 
-Gated leaf — add an `access` probe sharing the Page's query key (import `<camel>Api` at the top too):
+Gated leaf — the Page's own predicate (import it at the top too), or the `key:` shorthand for one key:
 
 ```tsx
-  access: accessProbe({
-    key: ['<feature>', 'access'],
-    run: () => <camel>Api.access(),
-    visible: (r) => r.canOpen === true, // match your access result's field
-  }),
+  requires: canOpen<Camel>, // or: key: '<Controller>:03'
 ```
 
 ## Step 6 — Verify

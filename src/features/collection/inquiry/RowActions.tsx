@@ -101,7 +101,7 @@ export function buildReceiptActionColumn(t: TFunction): ColDef<CollectionInquiry
  *
  * 🚩 The second is a router `Link`, not an `<a>`: it is an in-app navigation
  * between two screens of the same feature, and a full document load would throw
- * away the app shell and re-run the access probe to arrive at the same place. The
+ * away the app shell and ask the permissions answer again to arrive at the same place. The
  * first is an `<a>` precisely because it is *not* that — a print page is a fresh
  * document by design.
  *

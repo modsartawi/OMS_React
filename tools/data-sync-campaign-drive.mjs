@@ -29,6 +29,7 @@
 //   2. node tools/data-sync-campaign-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -165,7 +166,7 @@ async function open({ clock = false } = {}) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DataSyncConsole:03']))
     if (p === 'DataSync/Health') return route.fulfill(envelope({ stateDb: 'Ok', workerEnabled: true, lastWorkerTick: new Date().toISOString() }))
     if (p === 'DataSync/Profiles') return route.fulfill(envelope(PROFILES))
     if (p === `DataSync/Campaigns/${GONE}` || p === `DataSync/Campaigns/${GONE}/Jobs`)
@@ -195,7 +196,6 @@ async function open({ clock = false } = {}) {
       if (!job) return route.fulfill(refusal(404, 'DATASYNC_JOB_NOT_FOUND', 'DS-0404-02', 'Job not found.', `No job ${id}.`))
       return route.fulfill(envelope(job))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, state }

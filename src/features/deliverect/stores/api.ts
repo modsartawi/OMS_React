@@ -17,7 +17,7 @@ import type {
 // The Deliverect stores doors (BackOffice 2616; contract § Stores) and the stock sync doors
 // (BackOffice 2624; contract § Stock sync) and the store status doors (BackOffice 2625; contract
 // § Store status). The area's shared reads —
-// the access probe and the account list — live in `@/core/deliverect/api`.
+// the account list — live in `@/core/deliverect/api`; its grants in `@/core/deliverect/access`.
 //
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md).
 

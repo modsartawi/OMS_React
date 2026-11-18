@@ -18,6 +18,7 @@
 //   1. run the app:  npx vite --port 5211 --strictPort
 //   2. DRIVE_PORT=5211 node tools/serving-list-history-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -119,7 +120,7 @@ async function open(dir) {
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ServingListWeb/Access') return route.fulfill(envelope({ canViewServingLists: true, canEditServingLists: false }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['ServingList:03']))
     if (p === 'ServingListWeb/Lists') return route.fulfill(envelope(LISTS))
     let m
     if ((m = p.match(/^ServingListWeb\/Lists\/([^/]+)\/Changes$/))) {
@@ -132,7 +133,6 @@ async function open(dir) {
       const take = Math.min(1000, Math.max(1, Number(url.searchParams.get('take') ?? 200) || 200))
       return route.fulfill(envelope(CHANGES.slice(0, take)))
     }
-    if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls }

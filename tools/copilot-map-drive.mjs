@@ -2,7 +2,7 @@
 // with the view grant only sees the map on the local stack, in English and in Arabic".
 //
 // The REAL app (dev server) with the doors stubbed: the reader holds the analytics VIEW grant only
-// (`Analytics/Access` → canView, no author / curator / SQL; `Copilot/Access` → canAsk, no curate / MCP). The panel asks
+// (`Auth/Permissions` → `Analytics:03` and `Copilot:01` only: no author / curator / SQL, no curate). The panel asks
 // one question and `Copilot/Ask` answers with 3641's wire: one table carrying a map part — till sales by store (size)
 // with the change on the previous week (colour, kind `change`), 12 stores in the development base-map file's box
 // (central Riyadh, 46.60-46.80 E, 24.60-24.80 N; BackOffice 3634) plus one store with no coordinates, so the
@@ -19,6 +19,7 @@
 // Headless Edge with software graphics, as the map drives before it (879, 883).
 import { createRequire } from 'node:module'
 import { MODEL } from './analytics-stubs.mjs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -33,8 +34,8 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
 })
 
 // The reader: the analytics view grant, nothing more.
-const ANALYTICS_ACCESS = { canView: true, canAuthor: false, canCurate: false, canSql: false }
-const COPILOT_ACCESS = { canAsk: true, canUseMcp: false, canCurate: false }
+/** The reader's keys: the analytics view grant and the copilot ask, nothing else (oms 909). */
+const READER_KEYS = ['Analytics:03', 'Copilot:01']
 
 // [store, name, latitude, longitude, till sales SAR, change %, step]
 const STORES = [
@@ -158,10 +159,9 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
     const p = url.pathname.split('/api/')[1]
     if (p === undefined) return route.continue()
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'reader884', currentStoreCode: 'P001' }))
-    if (p === 'Copilot/Access') return route.fulfill(envelope(COPILOT_ACCESS))
-    if (p === 'Analytics/Access') {
+    if (p === 'Auth/Permissions') {
       accessReads.push(p)
-      return route.fulfill(envelope(ANALYTICS_ACCESS))
+      return route.fulfill(permissions(READER_KEYS))
     }
     if (p === 'Analytics/Model') return route.fulfill(envelope(MODEL))
     if (p === 'Copilot/Starters') return route.fulfill(envelope({ starters: [] }))
@@ -170,7 +170,6 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
       await new Promise((r) => setTimeout(r, 400))
       return route.fulfill(envelope(answerIn(lang)))
     }
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   const page = await context.newPage()
@@ -260,7 +259,7 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
     await page.locator('dialog[open]').last().screenshot({ path: largerFile })
   }
   await context.close()
-  return { name, mapState, largerState, largerFile, ...state, cardText, basemapStatuses: [...new Set(basemap)], asks: asks.length, analyticsAccessReads: accessReads.length, outsideRequests: outside.length, outside, consoleErrors: errors, file }
+  return { name, mapState, largerState, largerFile, ...state, cardText, basemapStatuses: [...new Set(basemap)], asks: asks.length, permissionsReads: accessReads.length, outsideRequests: outside.length, outside, consoleErrors: errors, file }
 }
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })

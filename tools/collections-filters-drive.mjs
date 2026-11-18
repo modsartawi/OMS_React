@@ -24,12 +24,13 @@
 //      ride beside the dates; Reset returns to the landing query;
 //   4. the `?acr=` scope disables all four date ends and sends none of them;
 //   5. loading, empty, error (500), refusal (the contract's 400 binding failure) and a bare 403
-//      on the list, and the access probe's denial;
+//      on the list, and the denied backstop (no Collection key in `Auth/Permissions`);
 //   6. no raw t() key and no page error anywhere.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/collections-filters-drive.mjs
 import { createRequire } from 'node:module'
+import { permissions, flagKeys } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -161,10 +162,8 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') {
-      if (scenario.access403) return route.fulfill({ status: 403, body: '' })
-      return route.fulfill(envelope(ACCESS))
-    }
+    if (path === 'Auth/Permissions')
+      return route.fulfill(permissions(scenario.denied ? [] : flagKeys('Collection', ACCESS)))
     if (path === 'CollectionWeb/AssignmentOptions')
       return route.fulfill(
         envelope({
@@ -517,9 +516,9 @@ async function run() {
   )
   await noRawKeys('states')
 
-  scenario = { access403: true }
+  scenario = { denied: true }
   await load()
-  check('the probe refusing → the denied backstop', (await mainText()).includes(DENIED))
+  check('no Collection key in the answer → the denied backstop', (await mainText()).includes(DENIED))
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

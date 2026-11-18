@@ -72,6 +72,7 @@
 // Screenshots → tools/.callcenter-location-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -305,7 +306,7 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
-    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open') {
       srv.opens++
       if (srv.opens > 1) srv.state = stateOf(TX2, canSendLocationLink, { address, customer, canCheckShortAddress })
@@ -402,7 +403,6 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
     }
     if (p === 'CallCenterWeb/Abandon')
       return route.fulfill(envelope({ outcome: 'abandoned', transactionId: srv.state.transactionId }))
-    if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
   await page.goto(`${BASE}/callcenter`)

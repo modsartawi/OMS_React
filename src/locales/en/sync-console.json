@@ -325,7 +325,8 @@
     "pending": "Sync pending",
     "replay": "Replay",
     "objects": "Objects",
-    "scripts": "Scripts"
+    "scripts": "Scripts",
+    "database": "Store database"
   },
   "controls": {
     "label": "Controls",
@@ -1392,5 +1393,80 @@
     "unrecorded": "Not recorded",
     "confirm_one": "Resume {{n}} store",
     "confirm_other": "Resume {{n}} stores"
+  },
+  "storeDb": {
+    "title": "Store database",
+    "subtitle": "Every store's POS database against its size cap: how full it is, how fast it grows, and when it was last read.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to the store databases",
+      "deniedHint": "Your account does not hold the grant to view the store databases. Ask an administrator if you need it.",
+      "unreachableTitle": "This screen is unavailable",
+      "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+    },
+    "fleet": {
+      "label": "Store databases",
+      "loading": "Reading the store databases…",
+      "failed": "The store databases could not be read.",
+      "empty": "No store database has been read yet.",
+      "emptyFiltered": "No store matches these filters.",
+      "shown": "Showing <n>{{n}}</n> of <total>{{total}}</total> stores",
+      "filters": {
+        "state": "State",
+        "engine": "Engine",
+        "edition": "Edition",
+        "all": "All",
+        "needs2019": "Needs 2019",
+        "needs2019Note": "Only the stores on the 4 GB cap, the nearest to it first."
+      },
+      "columns": {
+        "code": "Store",
+        "name": "Name",
+        "engine": "Engine",
+        "edition": "Edition",
+        "bitness": "Bitness",
+        "used": "Used / cap",
+        "share": "Used",
+        "driveFree": "Drive free",
+        "daysToCap": "Days to cap",
+        "state": "State",
+        "takenAt": "Taken at"
+      },
+      "bitness": {
+        "x64": "64-bit",
+        "x86": "32-bit"
+      },
+      "share": "{{n}}%",
+      "noCap": "No cap"
+    },
+    "units": {
+      "gb": "{{n}} GB",
+      "mb": "{{n}} MB",
+      "kb": "{{n}} KB"
+    },
+    "states": {
+      "Ok": "OK",
+      "Watch": "Watch",
+      "Critical": "Critical",
+      "DiskLow": "Disk low",
+      "NotChecked": "Not checked"
+    },
+    "engines": {
+      "2008": "2008",
+      "2008 R2": "2008 R2",
+      "2019": "2019",
+      "other": "Other"
+    },
+    "store": {
+      "back": "All store databases"
+    },
+    "readings": {},
+    "live": {},
+    "health": {},
+    "space": {},
+    "backup": {},
+    "jobs": {},
+    "restore": {},
+    "blitz": {}
   }
 }

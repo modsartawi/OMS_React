@@ -173,3 +173,5 @@ tools/.delivery-money-strip-shots/
 tools/.document-family-shots/
 # Stock health drive screenshots (tools/stock-health-drive.mjs, ticket 912)
 tools/.stock-health-shots/
+# Store database drive screenshots (tools/store-db-*-drive.mjs, tickets 915-919)
+tools/.store-db-*-shots/

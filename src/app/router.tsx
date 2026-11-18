@@ -581,6 +581,20 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/ReplayPage')).default,
         }),
       },
+      // The store databases against their size caps (oms 915, BackOffice spec 4016): the fleet, and one store's
+      // database page (916–919 fill it). Pages of the console, linked from its own nav behind their own View grant.
+      {
+        path: 'admin/sync/database',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/store-db/StoreDbFleetPage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/database/:code',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/store-db/StoreDbStorePage')).default,
+        }),
+      },
       // Data sync (spec 558): the campaigns + profiles page (559) and one campaign's page (560;
       // a placeholder until then).
       {

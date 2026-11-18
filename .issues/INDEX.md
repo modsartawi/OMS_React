@@ -1522,7 +1522,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Store database tab (BackOffice spec 4016, doors 4030-4039, filed 2026-11-18)
 
-- [915](915-the-store-database-tab-lists-the-fleet-by-state.md) — The Store database tab lists the fleet by state, with the needs-2019 ranking · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4030 · Store database tab: fleet list by state, filters, needs-2019 ranking
+- [915](915-the-store-database-tab-lists-the-fleet-by-state.md) — The Store database tab lists the fleet by state, with the needs-2019 ranking · *(ticket · BackOffice spec 4016)* · **done** · blocked by: BO 4030 · Store database tab: fleet list by state, filters, needs-2019 ranking
 - [916](916-the-store-page-shows-readings-history-and-largest-tables.md) — The store page shows readings, history chart, largest tables and Not checked · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4031, 915 · store page Readings panel: reading, forecast, history chart, largest tables
 - [917](917-the-store-page-shows-live-activity-and-health-check.md) — The store page's Live activity and Health check panels, and Check now · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4032, 916 · Live activity (refreshable), Health check, Check now
 - [918](918-space-backup-and-jobs-panels.md) — Space, Backup and Jobs panels: shrink log/data, back up now, schedule, run cleanup · *(ticket · BackOffice spec 4016)* · **open** · blocked by: BO 4034, BO 4035, BO 4036, BO 4037, 916 · Space/Backup/Jobs panels: shrink log/data, cleanup, back up now, schedules

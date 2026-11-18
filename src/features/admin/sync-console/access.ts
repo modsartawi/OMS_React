@@ -22,3 +22,16 @@ export const canEnrolObjects = (p: Permissions): boolean => p.has('SyncObjectEnr
 
 /** `ActionSync.RunStoreScript` (spec 3202 D3) — Send, Withdraw and Retry on the Scripts page. Independent of Operate. */
 export const canRunStoreScripts = (p: Permissions): boolean => p.has('SyncStoreScript:06')
+
+// ── Store database (oms 915, BackOffice spec 4016 D9) ───────────────────────────
+// 🚩 The keys are GUESSED: BO names the grants StoreDatabase.View / .Act / .Restore (each its own controller under
+// `BackOfficeScreen`), not their `CONTROLLER:COMMAND` spelling. Reconcile when BO writes the 4016 brief.
+
+/** `StoreDatabase.View` — the Store database tab, its store page and every read. */
+export const canViewStoreDb = (p: Permissions): boolean => p.has('StoreDatabase:03')
+
+/** `StoreDatabase.Act` — Check now, the jobs and the backup schedule. Counts only beside View: the page needs it. */
+export const canActStoreDb = (p: Permissions): boolean => canViewStoreDb(p) && p.has('StoreDatabase:06')
+
+/** `StoreDatabase.Restore` — restore a backup as a side copy. Counts only beside View, as Act does. */
+export const canRestoreStoreDb = (p: Permissions): boolean => canViewStoreDb(p) && p.has('StoreDatabaseRestore:06')

@@ -32,6 +32,10 @@ export const SCREEN_KEYS = [
   'SyncObjectEnrol:06',
   'ReceiptReplay:06',
   'SyncStoreScript:06',
+  // Store database (BackOffice spec 4016 D9) — GUESSED spelling: BO names the grants, not their keys (oms 915)
+  'StoreDatabase:03',
+  'StoreDatabase:06',
+  'StoreDatabaseRestore:06',
   // Analytics
   'Analytics:02',
   'Analytics:03',

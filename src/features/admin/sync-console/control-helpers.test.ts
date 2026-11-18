@@ -618,6 +618,7 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'disableWarnings',
       'failures',
       'fleetView',
+      'nav',
       'replay',
       'results',
       'resumeAll',
@@ -625,6 +626,7 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'selection',
       'states',
       'store',
+      'storeDb',
     ])
     expect(Object.keys((ar as Record<string, object>).store)).toEqual(['disabled', 'unrecorded'])
   })

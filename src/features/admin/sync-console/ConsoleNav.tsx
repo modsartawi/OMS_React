@@ -1,8 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import { canReplayReceipts } from './api'
-import { wizardStart } from './onboard-helpers'
-import { REPLAY_PATH } from './replay-draft'
+import { consolePages } from './console-pages'
 import { usePermissions } from '@/core/permissions'
 
 /**
@@ -22,25 +20,13 @@ import { usePermissions } from '@/core/permissions'
  *
  * Scripts (ticket 663) is a read too, shown to every console holder: the store scripts sent and
  * each store's state. Its Send, Withdraw and Retry (664) are the page's, behind `canRunScripts`.
+ *
+ * Store database (oms 915, BackOffice spec 4016) is shown only with its own View grant.
+ * The pages and their gating live in `./console-pages` (pure, tested).
  */
-const PAGES = [
-  { to: '/admin/sync', key: 'fleet', end: true },
-  { to: '/admin/sync/passes', key: 'passes', end: false },
-  { to: '/admin/sync/commands', key: 'commands', end: false },
-  { to: '/admin/sync/audit', key: 'audit', end: false },
-  { to: '/admin/sync/new-store', key: 'newStore', end: false },
-  { to: '/admin/sync/pending', key: 'pending', end: false },
-  { to: '/admin/sync/objects', key: 'objects', end: false },
-  { to: '/admin/sync/scripts', key: 'scripts', end: false },
-  { to: REPLAY_PATH, key: 'replay', end: false },
-] as const
-
 export default function ConsoleNav() {
   const { t } = useTranslation('sync-console')
-  const permissions = usePermissions()
-  const canOnboardAny = wizardStart(permissions, null) !== null
-  const canReplay = canReplayReceipts(permissions)
-  const pages = PAGES.filter((p) => (p.key !== 'newStore' || canOnboardAny) && (p.key !== 'replay' || canReplay))
+  const pages = consolePages(usePermissions())
   return (
     <nav aria-label={t('nav.label')} className="flex gap-1 border-b border-border/60" data-console-nav="">
       {pages.map((p) => (

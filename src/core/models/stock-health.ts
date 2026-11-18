@@ -1,5 +1,5 @@
 /**
- * The Stock health page (oms 908, BackOffice spec 4011 / door 4012) — wire shapes mirrored field for field, camelCase, from
+ * The Stock health page (oms 912, BackOffice spec 4011 / door 4012) — wire shapes mirrored field for field, camelCase, from
  * BackOffice `Sartawi.Retail.Data\Modules\Stock_v2\Health\StockHealthModels.cs` and the brief
  * (`C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md`). A shape change goes there first, then here.
  *

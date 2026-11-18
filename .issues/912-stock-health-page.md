@@ -4,7 +4,7 @@ spec: BackOffice 4011 (brief C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-re
 blocked-by: BO 4012 (done), BO 3994 (grant seed)
 ---
 
-# 908 — Stock health page
+# 912 — Stock health page
 
 ## What to build
 

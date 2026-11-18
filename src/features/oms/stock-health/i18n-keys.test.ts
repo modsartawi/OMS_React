@@ -1,5 +1,5 @@
 /**
- * oms 908 — the `stock-health` namespace ships English and Arabic together, and the Arabic file mirrors the English keys
+ * oms 912 — the `stock-health` namespace ships English and Arabic together, and the Arabic file mirrors the English keys
  * exactly. Every key the page builds from data (a signal, a verdict, a tone) exists in both.
  */
 import { describe, expect, it } from 'vitest'

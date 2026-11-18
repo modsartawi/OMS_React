@@ -1513,4 +1513,4 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Stock health (BackOffice spec 4011, brief C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md, filed 2026-11-17)
 
-- [908](908-stock-health-page.md) — Stock health page · *(ticket · BackOffice spec 4011; door 4012, grant 3994)* · **open** (built on `spec/4011-stock-health`, stubbed drive green; staging walk owed) · blocked by: BO 4012 (done), BO 3994 (seed on the target DB before the walk)
+- [912](912-stock-health-page.md) — Stock health page · *(ticket · BackOffice spec 4011; door 4012, grant 3994)* · **open** (built on `spec/4011-stock-health`, stubbed drive green; staging walk owed) · blocked by: BO 4012 (done), BO 3994 (seed on the target DB before the walk)

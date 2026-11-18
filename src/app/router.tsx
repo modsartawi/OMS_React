@@ -386,7 +386,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/store-stages/StoreStagesPage')).default,
         }),
       },
-      // Stock health (oms 908, BackOffice spec 4011 / door 4012) - whether batch stock is in good shape, one tile per
+      // Stock health (oms 912, BackOffice spec 4011 / door 4012) - whether batch stock is in good shape, one tile per
       // signal, re-read every minute. Behind its own `StockHealth/Access` probe.
       {
         path: 'oms/stock-health',

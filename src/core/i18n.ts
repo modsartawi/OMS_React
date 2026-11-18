@@ -193,7 +193,7 @@ import holdDailyList from '@/locales/en/hold-daily-list.json'
 import holdDailyListAr from '@/locales/ar/hold-daily-list.json'
 import storeStages from '@/locales/en/store-stages.json'
 import storeStagesAr from '@/locales/ar/store-stages.json'
-// Stock health (oms 908, BackOffice spec 4011). Namespace == feature name, English and Arabic together; the Arabic reasons
+// Stock health (oms 912, BackOffice spec 4011). Namespace == feature name, English and Arabic together; the Arabic reasons
 // are keyed by signal + verdict (the server sends English only).
 import stockHealth from '@/locales/en/stock-health.json'
 import stockHealthAr from '@/locales/ar/stock-health.json'

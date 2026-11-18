@@ -66,7 +66,7 @@ import {
 } from '@/features/oms/hold-daily-list/access'
 // The stage screen's probe stays with its feature (BackOffice ticket 3899): it is its only consumer.
 import { STORE_STAGE_ACCESS_KEY, canOpenStoreStages, storeStageAccessApi } from '@/features/oms/store-stages/access'
-// The Stock health page's probe stays with its feature (oms 908): it is its only consumer.
+// The Stock health page's probe stays with its feature (oms 912): it is its only consumer.
 import { STOCK_HEALTH_ACCESS_KEY, canOpenStockHealth, stockHealthAccessApi } from '@/features/oms/stock-health/access'
 import { Ban, CalendarX, ClipboardX, FileDiff, Gauge, Layers, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
 // The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
@@ -648,7 +648,7 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // Stock health (oms 908, BackOffice spec 4011) - one page that says whether batch stock is in good shape, one tile
+        // Stock health (oms 912, BackOffice spec 4011) - one page that says whether batch stock is in good shape, one tile
         // per signal. Its own grant, `BackOfficeScreen[StockHealth, 03]` (role STOCK_HEALTH_VIEWER, seeded by BackOffice
         // 3994), on its own probe; the leaf and the page's gate share the one predicate and fail closed. Beside Store stages.
         labelKey: 'stock-health:menu.stockHealth',

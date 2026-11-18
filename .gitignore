@@ -171,5 +171,5 @@ tools/.insurance-section-shots/
 tools/.delivery-money-strip-shots/
 # Document family drive screenshots (tools/document-family-drive.mjs, ticket 906)
 tools/.document-family-shots/
-# Stock health drive screenshots (tools/stock-health-drive.mjs, ticket 908)
+# Stock health drive screenshots (tools/stock-health-drive.mjs, ticket 912)
 tools/.stock-health-shots/

@@ -14,6 +14,7 @@ import CodeBadgeView from '../CodeBadgeView'
 import ConsoleNav from '../ConsoleNav'
 import Loading from '../Loading'
 import { storeDbStoreQuery } from './api'
+import CheckNowButton from './CheckNowButton'
 import { storeDbStateBadge } from './fleet-helpers'
 import { notCheckedBanner } from './reading-helpers'
 import StoreDbPanels from './StoreDbPanels'
@@ -111,7 +112,8 @@ function Header({ store }: { store: StoreDbStore }) {
         <CodeBadgeView badge={storeDbStateBadge(store.state)} code={store.state} />
       </span>
       <div className="ms-auto flex flex-wrap items-center gap-2" data-store-db-actions="">
-        {/* Store-wide actions, one line each. 917: <CheckNowButton store={store} /> */}
+        {/* Store-wide actions, one line each. */}
+        <CheckNowButton store={store} />
       </div>
     </section>
   )

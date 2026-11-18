@@ -12,13 +12,18 @@
 import { api } from '@/core/api'
 import type {
   StoreDbBackupSchedule,
+  StoreDbCheckNowBody,
   StoreDbFleetRow,
+  StoreDbHealthCheck,
   StoreDbJob,
   StoreDbJobAccepted,
   StoreDbJobRequest,
+  StoreDbLiveActivity,
   StoreDbScheduleRequest,
   StoreDbStore,
 } from '@/core/models/store-database'
+import { healthCheckOf } from './health-helpers'
+import { liveActivityOf } from './live-helpers'
 
 /** The root of every Store database read. */
 export const STORE_DB_KEY = ['sync-console', 'store-db'] as const
@@ -61,6 +66,22 @@ export const storeDbApi = {
   store: async (code: string): Promise<StoreDbStore> => storeOf(await api.get<StoreDbStore>('StoreDatabase/Store', { code })),
 
   // ── 917 Live + Health ─────────────────────────────────────────────────────────
+
+  /** `GET StoreDatabase/LiveActivity?code=` (BO 4032) — View. One look: running, head blockers, worker sessions, long trans. */
+  liveActivity: async (code: string): Promise<StoreDbLiveActivity> =>
+    liveActivityOf(await api.get<Partial<StoreDbLiveActivity> | null>('StoreDatabase/LiveActivity', { code })),
+
+  /** `GET StoreDatabase/HealthCheck?code=` (BO 4032) — View. Findings with priority, check, detail and fix. */
+  healthCheck: async (code: string): Promise<StoreDbHealthCheck> =>
+    healthCheckOf(await api.get<Partial<StoreDbHealthCheck> | null>('StoreDatabase/HealthCheck', { code })),
+
+  /**
+   * `POST StoreDatabase/CheckNow` (BO 4032) — Act, reason, audited. Synchronous (~30 s at most, spec D3). GUESSED: it
+   * answers the store as `GET StoreDatabase/Store` does, so the page's read is replaced by it. A failed read is not a
+   * refusal: it comes back as a failed `lastAttempt`.
+   */
+  checkNow: async (body: StoreDbCheckNowBody): Promise<StoreDbStore> =>
+    storeOf(await api.post<StoreDbStore>('StoreDatabase/CheckNow', body)),
 
   // ── 918 Jobs + Space + Backup ─────────────────────────────────────────────────
 
@@ -106,6 +127,33 @@ export const storeDbStoreQuery = (code: string) => ({
 })
 
 // ── 917 Live + Health ───────────────────────────────────────────────────────────
+
+/** One store's live look. Nested under the store, so the strip's Refresh takes a new look too. */
+export const storeDbLiveKey = (code: string) => [...storeDbStoreKey(code), 'live'] as const
+
+/**
+ * The live look is taken when the panel opens and on Refresh — never polled, never re-taken on window focus: each
+ * look runs DMV queries on a till's database, and the agent decides when to take the next.
+ */
+export const storeDbLiveQuery = (code: string) => ({
+  queryKey: storeDbLiveKey(code),
+  queryFn: () => storeDbApi.liveActivity(code),
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnWindowFocus: false,
+  enabled: code !== '',
+})
+
+/** One store's health check. Nested under the store: Refresh and Check now re-run it. */
+export const storeDbHealthKey = (code: string) => [...storeDbStoreKey(code), 'health'] as const
+
+export const storeDbHealthQuery = (code: string) => ({
+  queryKey: storeDbHealthKey(code),
+  queryFn: () => storeDbApi.healthCheck(code),
+  staleTime: STORE_DB_STALE_MS,
+  refetchOnWindowFocus: false,
+  enabled: code !== '',
+})
 
 // ── 918 Jobs + Space + Backup ───────────────────────────────────────────────────
 

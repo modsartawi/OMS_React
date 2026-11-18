@@ -28,7 +28,7 @@ import {
 const READ_KEY = ['oms', 'stock-health', 'read'] as const
 
 /**
- * Stock health (oms 908, BackOffice spec 3991, door 3992): whether batch stock is in good shape, one tile per signal in the
+ * Stock health (oms 908, BackOffice spec 4011, door 4012): whether batch stock is in good shape, one tile per signal in the
  * server's order. The server judges; the page draws. Re-read every 60 seconds and on Refresh.
  *
  * Behind `canOpenStockHealth` on `StockHealth/Access` (`BackOfficeScreen[StockHealth, 03]`, role `STOCK_HEALTH_VIEWER`),

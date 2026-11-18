@@ -1,7 +1,7 @@
-// Stock health drive (oms 908; BackOffice spec 3991, door 3992, grant 3994).
+// Stock health drive (oms 908; BackOffice spec 4011, door 4012, grant 3994).
 //
-// Drives the REAL app in Chromium against a STUB of the doors, in the shapes 3992 shipped (the brief's "Changes" lines,
-// `C:\Work\DMSCO\BackOffice\.issues\assets\3991-oms-react-stock-health-brief.md`), camelCase:
+// Drives the REAL app in Chromium against a STUB of the doors, in the shapes 4012 shipped (the brief's "Changes" lines,
+// `C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md`), camelCase:
 //   GET StockHealth/Access → { screenAllowed }
 //   GET StockHealth        → { readAt, signals[] }   (S1..S7; S8 drsQueue only once 3993 ships)
 // In LTR and RTL, light and dark, it asserts:
@@ -40,7 +40,7 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
 
-// ── Fixtures, 3992's shapes ─────────────────────────────────────────────────────────────────────
+// ── Fixtures, 4012's shapes ─────────────────────────────────────────────────────────────────────
 const READ_AT = '2026-11-17T00:30:05' // just after midnight: a UTC shift would show the previous day
 const sig = (key, verdict, reason, figures, link = null, readAt = READ_AT) => ({ key, verdict, reason, figures, readAt, link })
 const SEVEN = [

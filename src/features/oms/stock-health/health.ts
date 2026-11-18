@@ -1,5 +1,5 @@
 /**
- * The Stock health page's rules (oms 908, BackOffice spec 3991). Pure, pinned by `health.test.ts`.
+ * The Stock health page's rules (oms 908, BackOffice spec 4011). Pure, pinned by `health.test.ts`.
  *
  * No verdict is decided here: the server judges, the page draws. What lives here is how a verdict is drawn, how the header
  * counts, and how a reason or a figure label is put into Arabic.

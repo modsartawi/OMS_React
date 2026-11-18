@@ -1504,6 +1504,6 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [906](906-an-order-page-shows-its-family-and-every-delivery-opens-in-one-click.md) — An order page shows its family and every delivery opens in one click · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (drift-checked against BO pricing2 b281ff971 - contract matches; live walk owed once SIS.Api with 3954 is deployed) · blocked by: BO 3954
 - [907](907-billings-fold-a-cut-short-family-warns-and-a-failed-load-stays-quiet.md) — Billings fold, a cut-short family warns, and a failed load stays quiet · *(ticket · BackOffice spec 3953)* · **done 2026-11-16** (drift-checked against BO pricing2 b281ff971 - contract matches; live walk owed once SIS.Api with 3956 is deployed) · blocked by: 906, BO 3956
 
-## Stock health (BackOffice spec 3991, brief C:\Work\DMSCO\BackOffice\.issues\assets\3991-oms-react-stock-health-brief.md, filed 2026-11-17)
+## Stock health (BackOffice spec 4011, brief C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md, filed 2026-11-17)
 
-- [908](908-stock-health-page.md) — Stock health page · *(ticket · BackOffice spec 3991; door 3992, grant 3994)* · **open** (built on `spec/3991-stock-health`, stubbed drive green; staging walk owed) · blocked by: BO 3992 (done), BO 3994 (seed on the target DB before the walk)
+- [908](908-stock-health-page.md) — Stock health page · *(ticket · BackOffice spec 4011; door 4012, grant 3994)* · **open** (built on `spec/4011-stock-health`, stubbed drive green; staging walk owed) · blocked by: BO 4012 (done), BO 3994 (seed on the target DB before the walk)

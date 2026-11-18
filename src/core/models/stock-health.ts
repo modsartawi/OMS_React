@@ -1,7 +1,7 @@
 /**
- * The Stock health page (oms 908, BackOffice spec 3991 / door 3992) — wire shapes mirrored field for field, camelCase, from
+ * The Stock health page (oms 908, BackOffice spec 4011 / door 4012) — wire shapes mirrored field for field, camelCase, from
  * BackOffice `Sartawi.Retail.Data\Modules\Stock_v2\Health\StockHealthModels.cs` and the brief
- * (`C:\Work\DMSCO\BackOffice\.issues\assets\3991-oms-react-stock-health-brief.md`). A shape change goes there first, then here.
+ * (`C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md`). A shape change goes there first, then here.
  *
  * - `GET StockHealth/Access` → `{ screenAllowed }`, cookie only, not grant-gated (the menu leaf reads it).
  * - `GET StockHealth` → `{ readAt, signals[] }`, behind `BackOfficeScreen[StockHealth, 03]` (role `STOCK_HEALTH_VIEWER`).
@@ -17,7 +17,7 @@ export interface StockHealthAccess {
   screenAllowed: boolean
 }
 
-/** The keys 3992 sends (S1..S7) and the one 3993 adds (S8). A key this list does not name still draws, in English. */
+/** The keys 4012 sends (S1..S7) and the one 3993 adds (S8). A key this list does not name still draws, in English. */
 export const STOCK_HEALTH_KEYS = [
   'feeds',
   'batchWorker',

@@ -1,7 +1,7 @@
 ---
 status: open
-spec: BackOffice 3991 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3991-oms-react-stock-health-brief.md)
-blocked-by: BO 3992 (done), BO 3994 (grant seed)
+spec: BackOffice 4011 (brief C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md)
+blocked-by: BO 4012 (done), BO 3994 (grant seed)
 ---
 
 # 908 — Stock health page
@@ -9,13 +9,13 @@ blocked-by: BO 3992 (done), BO 3994 (grant seed)
 ## What to build
 
 A new leaf under the **OMS** nav group, beside **Store stages**: **Stock health** / **صحة المخزون**
-(door BackOffice 3992, grant BackOffice 3994, [brief](C:\Work\DMSCO\BackOffice\.issues\assets\3991-oms-react-stock-health-brief.md)).
+(door BackOffice 4012, grant BackOffice 3994, [brief](C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md)).
 One page that says whether batch stock is in good shape, one tile per signal, so the owner stops opening five screens
 to find out.
 
 - **Doors:** `GET StockHealth` (`{ readAt, signals[] }`, signals in the spec's order) and `GET StockHealth/Access`
   (`{ screenAllowed }`), the usual OMS envelope. The brief has the exact shapes; read its **Changes** lines before
-  building (3992 shipped with no rename; S8 `drsQueue` appears only once BackOffice 3993 ships, so the page must not
+  building (4012 shipped with no rename; S8 `drsQueue` appears only once BackOffice 3993 ships, so the page must not
   assume a fixed count).
 - **Tiles:** one per signal, in order, coloured by verdict: good green, watch amber, bad red, **`noAnswer` red-outlined
   with "did not answer"** (never grey: a dead source is not fine), `null` neutral (a figure-only signal). Each tile
@@ -55,7 +55,7 @@ model/api (answer + access probe) · logic (header line, verdict → tone, AR re
 
 ## Blocked by
 
-- BackOffice 3992 (door - done). BackOffice 3994's seed must be run on the target DB before the walk, or every caller
+- BackOffice 4012 (door - done). BackOffice 3994's seed must be run on the target DB before the walk, or every caller
   but ADMIN is refused.
 
 ## Open questions
@@ -64,7 +64,7 @@ model/api (answer + access probe) · logic (header line, verdict → tone, AR re
 
 ## Comments
 
-**2026-11-18 — built (stubbed); the staging walk is owed.** Branch `spec/3991-stock-health`. Feature
+**2026-11-18 — built (stubbed); the staging walk is owed.** Branch `spec/4011-stock-health`. Feature
 `src/features/oms/stock-health/` (`access.ts`, `api.ts`, `health.ts`, `StockHealthPage.tsx`), model
 `src/core/models/stock-health.ts`, `locales/{en,ar}/stock-health.json`, route `oms/stock-health`, OMS leaf right after Store
 stages (lucide `HeartPulse`).
@@ -92,7 +92,7 @@ stages (lucide `HeartPulse`).
   S2 bad is either the alerts' text or the errored count; S7 `null` is either the stage summary or "the stage log did not
   answer"). The AR line is the summary; the figures carry the detail.
 
-**2026-11-18 — S8 filled, five figures.** BackOffice 3993 merged into `spec3991` (92a588ddc): `drsQueue` is the eighth
+**2026-11-18 — S8 filled, five figures.** BackOffice 3993 merged into `spec4011` (92a588ddc): `drsQueue` is the eighth
 signal, `link: null`, figures `Unsent`, `Oldest unsent (minutes)`, `Failed, waiting to retry`, `Last sent`,
 `Last heartbeat`; `null` with no figures = "DRS holds are off". Its AR reasons now carry the figures (watch and bad name the
 waiting count and the oldest row's age, bad also the last heartbeat, since a stale heartbeat is the other way to bad), the
@@ -101,7 +101,7 @@ waiting count and the oldest row's age, bad also the last heartbeat, since a sta
 first mismatch above is closed. Drive extended: S8 in 3993's shape (five figures, no link), and S8 `null` (neutral, no
 figures, not counted). Drive 82/82.
 
-**2026-11-18 — aligned with BackOffice review fixes (spec3991 b9f6b3403).** S8 now beats with holds on or off
+**2026-11-18 — aligned with BackOffice review fixes (spec4011 b9f6b3403).** S8 now beats with holds on or off
 (`holdsOn`) and judges each DRS instance, worst wins, the reason naming the instance(s); figures total the instances. The AR
 `null` line is now just "حجوزات DRS متوقفة." (it covers both "never beat" and "every instance switched off", where the
 figures still show). The AR watch and bad lines keep the totals and append the server's line, isolated, because only it
@@ -110,7 +110,7 @@ Visibility's stage list, or PickStoreStage with four figures when that does not 
 counts only and does not name the source. Drive: S8 holds-off with figures (neutral, not counted) and two instances
 (watch, reason names DRSWEB02, header counts 1). Drive 90/90; tests 11046/11046.
 
-**2026-11-18 — S5 wording (spec3991 ba6818ce4).** `takeDoor` figures are now `Takes`, `Failed calls`, `Failed calls per 100
+**2026-11-18 — S5 wording (spec4011 ba6818ce4).** `takeDoor` figures are now `Takes`, `Failed calls`, `Failed calls per 100
 takes` (null with no take), `Skipped at the time limit`; AR labels follow. AR reasons speak of failed door calls, never a
 share of takes that failed: good "لم يفشل أي طلب عند الباب اليوم."; watch gives the failed calls, the takes and the per-100
 figure; bad gives the failed calls and the takes only, so the same line reads right when there was no take (the per-100

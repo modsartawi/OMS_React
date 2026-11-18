@@ -648,7 +648,7 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // Stock health (oms 908, BackOffice spec 3991) - one page that says whether batch stock is in good shape, one tile
+        // Stock health (oms 908, BackOffice spec 4011) - one page that says whether batch stock is in good shape, one tile
         // per signal. Its own grant, `BackOfficeScreen[StockHealth, 03]` (role STOCK_HEALTH_VIEWER, seeded by BackOffice
         // 3994), on its own probe; the leaf and the page's gate share the one predicate and fail closed. Beside Store stages.
         labelKey: 'stock-health:menu.stockHealth',

@@ -1,5 +1,5 @@
 /**
- * The Stock health page's access probe (oms 908, BackOffice 3992 / grant 3994) — apart from `./api` so the OMS menu leaf,
+ * The Stock health page's access probe (oms 908, BackOffice 4012 / grant 3994) — apart from `./api` so the OMS menu leaf,
  * which imports it eagerly, costs the main bundle only this.
  *
  * Through `@/core/api` like every call (`.claude/rules/api-envelope.md`).

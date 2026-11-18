@@ -1514,6 +1514,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## Stock health (BackOffice spec 4011, brief C:\Work\DMSCO\BackOffice\.issues\assets\4011-oms-react-stock-health-brief.md, filed 2026-11-17)
 
 - [912](912-stock-health-page.md) — Stock health page · *(ticket · BackOffice spec 4011; door 4012, grant 3994)* · **open** (built on `spec/4011-stock-health`, stubbed drive green; staging walk owed) · blocked by: BO 4012 (done), BO 3994 (seed on the target DB before the walk)
+- [913](913-stock-health-shows-the-batch-book-against-sap-and-negative-stock.md) — Stock health shows the batch book against SAP, and negative stock · *(ticket · BackOffice spec 4013; door 4014)* · **open** (built on `spec/4013-stock-tiles`, stubbed drive green; staging walk owed with 912's) · blocked by: BO 4014 (built), SIS.Stock 073/074 (deploy before the walk)
 
 ## One permissions answer (BackOffice spec 4002, brief C:\Work\DMSCO\BackOffice\.issues\assets\3995-oms-react-permissions-brief.md, filed 2026-11-18)
 

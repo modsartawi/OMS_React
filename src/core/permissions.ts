@@ -308,10 +308,18 @@ export function invalidatePermissionsOnForbidden(client: QueryClient): () => voi
 /**
  * 🚩 Privacy: the answer lives for the page, so a user change (sign-in on another's tab, sign-out) resets it — no data,
  * fails closed — and the next reader asks afresh. Returns the unsubscribe.
+ *
+ * One exception keeps a cold load at ONE call: the answer is fetched in parallel with `Auth/Me`, so `Auth/Me` landing
+ * moves the session from no user to the user. That step keeps an answer that succeeded or is still in flight (it was
+ * asked with the same cookie `Auth/Me` just answered for) and drops only a failed one (the 401 of a signed-out page,
+ * so a sign-in fetches the real answer). At a sign-in nothing is in flight: the query lives in the protected shell,
+ * which `/login` does not mount. Staging 2026-11-18 showed two calls, at 736 and 776 ms, before this.
  */
 export function dropPermissionsOnUserChange(client: QueryClient): () => void {
   return useSession.subscribe((now, before) => {
     if (now.userId === before.userId) return
+    const firstUserOfThePage = before.userId === null && now.userId !== null
+    if (firstUserOfThePage && client.getQueryState(PERMISSIONS_KEY)?.status !== 'error') return
     void client.resetQueries({ queryKey: PERMISSIONS_KEY, exact: true })
   })
 }

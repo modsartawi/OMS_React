@@ -4,12 +4,13 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { CalendarPlus, ListOrdered, Pencil, Plus } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { deliverectAccessQuery, deliverectAccountsQuery, deliverectPlatformsQuery } from '@/core/deliverect/api'
+import { deliverectAccountsQuery, deliverectPlatformsQuery } from '@/core/deliverect/api'
 import { canAddPlatform, canManageTerms } from '@/core/deliverect/access'
 import type { DeliverectPlatform } from '@/core/models/deliverect'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import { usePermissions } from '@/core/permissions'
 import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatNumber } from '@/core/util/number-format'
@@ -31,7 +32,7 @@ import { money, termsTimeline } from './terms-timeline'
 export default function TermsPage() {
   const { t } = useTranslation('deliverect-terms')
   return (
-    <ScreenGate query={deliverectAccessQuery()} can={canManageTerms} ns="deliverect-terms" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canManageTerms} ns="deliverect-terms" title={t('title')} subtitle={t('subtitle')}>
       <Terms />
     </ScreenGate>
   )
@@ -54,8 +55,7 @@ function Terms() {
   const [editing, setEditing] = useState<DeliverectPlatform | null>(null)
   const [adding, setAdding] = useState(false)
   // The same probe ScreenGate read (cached); only an explicit grant shows the button.
-  const access = useQuery(deliverectAccessQuery())
-  const mayAdd = canAddPlatform(access.data)
+  const mayAdd = canAddPlatform(usePermissions())
 
   return (
     <div className="flex flex-col gap-4">

@@ -24,13 +24,13 @@ import {
 } from './acr-criteria'
 import AcrsToolbar from './AcrsToolbar'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { assignmentOptionsQuery, canOpenAcrs, canOpenCollections, collectionApi } from './api'
 import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { useXlsxExport } from './use-xlsx-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 import { buildAcrActionsColumn } from './RowActions'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * ACRs (`/collection/acrs`) — the accumulated collection receipts list (ticket
@@ -66,7 +66,6 @@ export default function AcrsPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenAcrs}
       ns="collection"
       title={t('acrs.title')}
@@ -130,7 +129,7 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
   // options, one call, and react-query hands this second reader the cached
   // answer. It is here for the `Collections ▸` action only (257): this screen's
   // own admission is the gate's.
-  const access = useQuery(collectionAccessQuery())
+  const permissions = usePermissions()
 
   const onChange = useCallback(
     (patch: Partial<AcrsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
@@ -169,9 +168,10 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
   // Collections. The four grants are independent, so this is an ordinary ragged
   // session rather than a hypothesis — and it reads the SAME cached probe the gate
   // above already resolved, so it costs no second call.
+  const collectionsOffered = canOpenCollections(permissions)
   const columns = useMemo(
-    () => [buildAcrActionsColumn(t, canOpenCollections(access.data)), ...buildAcrsColumns(t, showMore)],
-    [t, access.data, showMore],
+    () => [buildAcrActionsColumn(t, collectionsOffered), ...buildAcrsColumns(t, showMore)],
+    [t, collectionsOffered, showMore],
   )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say

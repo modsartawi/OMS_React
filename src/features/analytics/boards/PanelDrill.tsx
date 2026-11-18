@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import type { TFunction } from 'i18next'
@@ -6,7 +5,8 @@ import type { AnalyticsModel, AnalyticsViewDefinition } from '@/core/models/anal
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canAuthorAnalytics } from './access'
+import { canAuthorAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { deliveriesDrill } from './detail-drill'
 import { crumbsOf, drillTargets, type MarkPoint } from './drill'
 import { newViewLink } from './editor'
@@ -107,7 +107,7 @@ export default function PanelDrill({
 }) {
   const { t } = useTranslation('boards')
   const navigate = useNavigate()
-  const author = canAuthorAnalytics(useQuery(analyticsAccessQuery()).data)
+  const author = canAuthorAnalytics(useAnalyticsPermissions())
   if (steps.length === 0 && !point) return null
   const crumbs = crumbsOf(view, steps)
   // 822: "Save as view" opens the builder, which is the author grant's; a runner drills but keeps nothing.

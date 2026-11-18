@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useId, type KeyboardEvent, type PointerEvent } from 'react'
 import { useLocation } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Maximize2, Minimize2, Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
@@ -8,32 +7,33 @@ import IconButton from '@/core/ui/IconButton'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { useCopilotPanel } from '@/core/copilot-panel'
-import { canAskCopilot, copilotAccessQuery } from '@/features/copilot/access'
+import { usePermissions } from '@/core/permissions'
+import { canAskCopilot } from '@/features/copilot/access'
 import { clampSheetWidth, useCopilotSheetSize } from './copilot-sheet-size'
 
-// The panel is lazy: a session that never opens it pays for the probe only (`access` is its own module).
+// The panel is lazy: a session that never opens it pays for the grant check only (`access` is its own module).
 const CopilotPanel = lazy(() => import('@/features/copilot/CopilotPanel'))
 
 /**
  * "Ask the OMS" in the top bar (ticket 735, spec 734 D11), opening the copilot panel in a side sheet.
  *
- * 🚩 Fails closed (D7): the button exists only once `Copilot/Access` has answered `canAsk: true` —
- * pending, errored (404, unreachable, 403) or malformed draws nothing, because the panel sends the
+ * 🚩 Fails closed (D7): the button exists only once the one permissions answer (oms 909) holds `Copilot:01` —
+ * pending, errored or malformed draws nothing, because the panel sends the
  * question to an external AI service. The door's grant filter is the real boundary.
  *
  * Ticket 782: the open state lives in `@/core/copilot-panel`, not here, so a screen's ask box can open
- * this same sheet with a question the panel sends. The button publishes the probe's answer there as
+ * this same sheet with a question the panel sends. The button publishes the grant there as
  * `available`, which is what a screen gates its ask box on.
  */
 export default function CopilotButton() {
   const { t } = useTranslation('copilot')
-  const access = useQuery(copilotAccessQuery())
+  const permissions = usePermissions()
   const open = useCopilotPanel((s) => s.open)
   const openPanel = useCopilotPanel((s) => s.openPanel)
   const close = useCopilotPanel((s) => s.close)
   const setAvailable = useCopilotPanel((s) => s.setAvailable)
   const titleId = useId()
-  const allowed = access.isSuccess && canAskCopilot(access.data)
+  const allowed = canAskCopilot(permissions)
   useEffect(() => setAvailable(allowed), [allowed, setAvailable])
   // An answer's order link navigates (ticket 736): the modal sheet closes so the document is seen.
   const { pathname } = useLocation()

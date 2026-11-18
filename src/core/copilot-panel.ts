@@ -11,9 +11,9 @@ import type { CopilotSqlItemRef } from './models/copilot'
  * - `takeQuestion()` hands it over ONCE: the panel that takes it sends it, a second read gets null.
  * - `prefill(text)` (ticket 843) opens the sheet with the text IN THE BOX, sent by nobody: the user reads, edits
  *   and sends it. `takeDraft()` hands it over once, like `takeQuestion()`.
- * - `available` is published by the top-bar button from `Copilot/Access` (`canAsk === true`), so a
- *   feature can gate its ask box on the copilot probe without importing the copilot feature
- *   (feature-structure rule). It fails closed: false until the probe says yes, and going false closes
+ * - `available` is published by the top-bar button from the one permissions answer (`Copilot:01`, oms 909), so a
+ *   feature can gate its ask box on the copilot grant without importing the copilot feature
+ *   (feature-structure rule). It fails closed: false until the answer says yes, and going false closes
  *   the panel and drops any question.
  */
 export interface CopilotPanelState {
@@ -28,7 +28,7 @@ export interface CopilotPanelState {
    * feature hands it over here: neither feature imports the other.
    */
   sqlItem: CopilotSqlItemRef | null
-  /** The copilot probe answered `canAsk: true` — published by the shell's button. */
+  /** The permissions answer holds `Copilot:01` — published by the shell's button. */
   available: boolean
   openPanel: (question?: string) => void
   prefill: (text: string) => void

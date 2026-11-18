@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Play } from 'lucide-react'
 import { isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import type { Campaign } from '@/core/models/data-sync'
-import { campaignKey, canOperateDataSync, dataSyncAccessQuery, dataSyncApi } from './api'
+import { campaignKey, canOperateDataSync, dataSyncApi } from './api'
 import { startRefusalWords } from './create-helpers'
 import RefusalBanner from './RefusalBanner'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The campaign header's **Start** (spec 558, ticket 561): shown only while the campaign is `Ready`
@@ -22,7 +23,7 @@ import RefusalBanner from './RefusalBanner'
 export default function StartCampaignButton({ campaign }: { campaign: Campaign }) {
   const { t } = useTranslation('data-sync')
   const qc = useQueryClient()
-  const access = useQuery(dataSyncAccessQuery())
+  const permissions = usePermissions()
   const [denied, setDenied] = useState(false)
   const id = campaign.campaignId
   const start = useMutation({
@@ -35,7 +36,7 @@ export default function StartCampaignButton({ campaign }: { campaign: Campaign }
   })
 
   const error = start.error
-  if (!canOperateDataSync(access.data) || denied) return null
+  if (!canOperateDataSync(permissions) || denied) return null
   if (campaign.status !== 'Ready' && !error) return null
 
   const wordsKey = error ? startRefusalWords(error) : null

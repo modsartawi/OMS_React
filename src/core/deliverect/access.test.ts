@@ -1,76 +1,28 @@
 /**
- * Ticket 477 — the Deliverect probe's four flags (contract § `GET DeliverectWeb/Access`). Each leaf
- * and each page reads its flag through one predicate; only an explicit `true` grants, so a missing,
- * errored or malformed answer keeps every Deliverect screen hidden (fail closed).
+ * Ticket 477 — the Deliverect grants, off the one permissions answer since oms 909. Each leaf and each page reads its
+ * grant through one predicate; a missing or errored answer keeps every Deliverect screen hidden (fail closed).
  */
 import { describe, expect, it } from 'vitest'
-import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import {
-  DELIVERECT_FLAGS,
-  canAddPlatform,
-  canManageCatalog,
-  canManageStores,
-  canManageTerms,
-  canViewOrders,
-  deliverectGrants,
-} from './access'
+import { permissionsOf, type Permissions } from '@/core/permissions'
+import { canAddPlatform, canManageCatalog, canManageStores, canManageTerms, canViewOrders } from './access'
 
-const all = (value: boolean): DeliverectAccessResult => ({
-  canManageStores: value,
-  canManageCatalog: value,
-  canViewOrders: value,
-  canManageTerms: value,
-})
-
-describe('deliverectGrants', () => {
-  it('names exactly the four contract flags', () => {
-    expect([...DELIVERECT_FLAGS].sort()).toEqual(['canManageCatalog', 'canManageStores', 'canManageTerms', 'canViewOrders'])
-  })
-
-  it.each([null, undefined])('a %s answer grants nothing', (r) => {
-    expect(deliverectGrants(r)).toEqual(all(false))
-  })
-
-  it('🚩 a malformed answer grants nothing — an array (an unstubbed drive), a string "true", a 1', () => {
-    expect(deliverectGrants([] as unknown as DeliverectAccessResult)).toEqual(all(false))
-    expect(deliverectGrants({ canManageStores: 'true', canViewOrders: 1 } as unknown as DeliverectAccessResult)).toEqual(all(false))
-  })
-
-  it('each flag reads only its own field, proven true and false', () => {
-    for (const flag of DELIVERECT_FLAGS) {
-      const grants = deliverectGrants({ ...all(false), [flag]: true })
-      for (const other of DELIVERECT_FLAGS) expect([other, grants[other]]).toEqual([other, other === flag])
-    }
-  })
-})
+const KEYS = ['DeliverectStores:03', 'DeliverectCatalog:03', 'DeliverectOrders:03', 'DeliverectTerms:03', 'DeliverectPlatformAdd:03']
+const p = (...screens: string[]) => permissionsOf({ screens })
 
 describe('the per-leaf predicates', () => {
   it.each([
-    ['canManageStores', canManageStores],
-    ['canManageCatalog', canManageCatalog],
-    ['canViewOrders', canViewOrders],
-    ['canManageTerms', canManageTerms],
-  ] as const)('%s follows its own flag', (flag, can) => {
-    expect(can({ ...all(false), [flag]: true })).toBe(true)
-    expect(can({ ...all(true), [flag]: false })).toBe(false)
-    expect(can(undefined)).toBe(false)
-  })
-})
-
-describe('canAddPlatform — the Add platform button', () => {
-  it('only an explicit true grants it', () => {
-    expect(canAddPlatform({ ...all(true), canAddPlatform: true })).toBe(true)
+    ['DeliverectStores:03', canManageStores],
+    ['DeliverectCatalog:03', canManageCatalog],
+    ['DeliverectOrders:03', canViewOrders],
+    ['DeliverectTerms:03', canManageTerms],
+    ['DeliverectPlatformAdd:03', canAddPlatform],
+  ] as [string, (p: Permissions) => boolean][])('%s alone grants its own predicate only', (key, can) => {
+    expect(can(p(key))).toBe(true)
+    expect(can(p(...KEYS.filter((k) => k !== key)))).toBe(false)
+    expect(can(permissionsOf(null))).toBe(false)
   })
 
-  it('🚩 fails closed — absent (an older SIS.Api), false, a string "true", a null answer', () => {
-    expect(canAddPlatform(all(true))).toBe(false)
-    expect(canAddPlatform({ ...all(true), canAddPlatform: false })).toBe(false)
-    expect(canAddPlatform({ ...all(true), canAddPlatform: 'true' } as unknown as DeliverectAccessResult)).toBe(false)
-    expect(canAddPlatform(null)).toBe(false)
-  })
-
-  it('is not one of the menu flags, and the Terms grant does not imply it', () => {
-    expect(DELIVERECT_FLAGS).not.toContain('canAddPlatform')
-    expect(canAddPlatform({ ...all(false), canManageTerms: true })).toBe(false)
+  it('the Terms grant does not imply Add platform', () => {
+    expect(canAddPlatform(p('DeliverectTerms:03'))).toBe(false)
   })
 })

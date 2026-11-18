@@ -6,18 +6,14 @@
 // live in `ua-user.ts` and are imported where needed rather than re-declared here.
 
 /**
- * GET AuthzAdminWeb/Access — the rich entry probe (AuthzAdminAccess). Drives BOTH
- * the shell's permission-aware nav hiding (429) AND the in-page pane tiering:
- *  - `screenAllowed` = holds the BackOfficeScreen[AuthzAdmin,03] grant (open the screen);
- *  - `canManageRoles`/`canManageUsers` = the two maint tier flags (advisory — the server
- *    re-checks every mutation);
+ * The role lists the AuthzAdmin page reads from `GET AuthzAdminWeb/Access` (oms 909, BackOffice spec 4002 brief, "Not
+ * covered by the answer"): data, not a menu fact, so the one permissions answer does not carry them. The door still
+ * answers its booleans too; they are NOT read — screen access and the two maint tiers come from `@/core/permissions`
+ * (`AuthzAdmin:03`, `extras.canManageRoles`, `extras.canManageUsers`).
  *  - `assignableRoles`/`revocableRoles` = exact role names the actor may assign/revoke,
  *    OR the raw `["*"]` collapse value (full delegation) the client special-cases.
  */
-export interface AuthzAccessResult {
-  screenAllowed: boolean
-  canManageRoles: boolean
-  canManageUsers: boolean
+export interface AuthzRoleLists {
   assignableRoles: string[]
   revocableRoles: string[]
 }

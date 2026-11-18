@@ -1,24 +1,12 @@
 import type { LucideIcon } from 'lucide-react'
 import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, Unlock, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
-import { uaAdminApi } from '@/features/admin/ua-admin/api'
-import { authzAdminApi } from '@/features/admin/authz-admin/api'
-import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
-import { BROADCAST_ACCESS_KEY, broadcastApi } from '@/features/admin/broadcast/api'
-import { CALLCENTER_ACCESS_KEY, callCenterApi } from '@/features/callcenter/console/api'
-import { simulationApi } from '@/features/pricing/simulation/api'
-import { couponsApi } from '@/features/pricing/coupons/api'
-import {
-  BBY_MAINTAIN_ACCESS_KEY,
-  bbyMaintainApi,
-  canOpenBbyMaintain,
-} from '@/features/pricing/bonus-buy-maintenance/api'
-// The bonus-buy grant probe lives in `@/core/` (ticket 118): the Simulation screen is a
-// second consumer, and a feature may not import another feature's api.
-import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
-// The OMS probe likewise lives in `@/core/` (ticket 125): both OMS pages guard on it,
-// and a feature may not import another feature's api.
-import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
-// Spec 430's five OMS screens each read their own flag off that one probe (ticket 431).
+import type { Permissions, ScreenKey } from '@/core/permissions'
+// oms 909 (BackOffice spec 4002): every leaf reads the ONE permissions answer. Each predicate below is named beside its
+// area (its feature's or core's `access`/`api` module) so the leaf and that screen's `ScreenGate` read the same one;
+// a single-key leaf uses the `key:` shorthand instead. `layout` may import a feature.
+import { canBroadcast } from '@/features/admin/broadcast/api'
+import { canAdminCoupons, canSupportCoupons } from '@/features/pricing/coupons/api'
+import { canOpenBbyMaintain } from '@/features/pricing/bonus-buy-maintenance/api'
 import {
   canOpenDeliveryStatistics,
   canOpenDocumentPayments,
@@ -28,76 +16,22 @@ import {
   canOpenGeography,
   canOpenPickSupport,
 } from '@/core/oms/access'
-// The Nphies probe, same reason and one step further (ticket 211): contract 209 §1
-// gives the whole area ONE grant, so the leaf and every screen in both
-// `features/nphies/*` features share this single probe.
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
-// The dispatch scorecard's probe stays with its feature (ticket 543): it is its only consumer.
-import {
-  DISPATCH_SCORECARD_ACCESS_KEY,
-  canOpenDispatchScorecard,
-  dispatchScorecardAccessApi,
-} from '@/features/oms/dispatch-scorecard/access'
-// The serial refusal report's probe stays with its feature (ticket 573): it is its only consumer.
-import {
-  SERIAL_REFUSAL_ACCESS_KEY,
-  canOpenSerialRefusals,
-  serialRefusalAccessApi,
-} from '@/features/oms/serial-refusals/access'
-// Bupa line outcomes' probe stays with its feature (oms 899): the leaf and the page are its only readers.
-import { BUPA_OUTCOME_ACCESS_KEY, bupaOutcomeAccessApi, canViewBupaOutcomes } from '@/features/oms/bupa-line-outcomes/access'
-// The expired approval picks report's probe stays with its feature (BackOffice ticket 3874): it is its only consumer.
-import {
-  EXPIRED_APPROVAL_PICK_ACCESS_KEY,
-  canOpenExpiredApprovalPicks,
-  expiredApprovalPickAccessApi,
-} from '@/features/oms/expired-approval-picks/access'
-// The held-stock reports' probe stays with their feature (BackOffice ticket 3873): it is its only consumer.
-import {
-  HELD_STOCK_REPORT_ACCESS_KEY,
-  canOpenHeldStockReport,
-  heldStockReportAccessApi,
-} from '@/features/oms/held-stock-report/access'
-// The daily list of holds' probe stays with its feature (BackOffice ticket 3872): it is its only consumer.
-import {
-  HOLD_DAILY_LIST_ACCESS_KEY,
-  canOpenHoldDailyList,
-  holdDailyListAccessApi,
-} from '@/features/oms/hold-daily-list/access'
-// The stage screen's probe stays with its feature (BackOffice ticket 3899): it is its only consumer.
-import { STORE_STAGE_ACCESS_KEY, canOpenStoreStages, storeStageAccessApi } from '@/features/oms/store-stages/access'
-import { Ban, CalendarX, ClipboardX, FileDiff, Gauge, Layers, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
-// The sourcing advisor's probe lives in `@/core/` (ticket 738): Delivery details links to it too.
-import { SOURCING_ADVISOR_ACCESS_KEY, canViewSourcingAdvisor, sourcingAdvisorAccessApi } from '@/core/sourcing-advisor/access'
+import { canOpenNphies } from '@/core/nphies/access'
+import { canOpenDispatchScorecard } from '@/features/oms/dispatch-scorecard/access'
+import { canOpenSerialRefusals } from '@/features/oms/serial-refusals/access'
+import { canViewBupaOutcomes } from '@/features/oms/bupa-line-outcomes/access'
+import { canOpenExpiredApprovalPicks } from '@/features/oms/expired-approval-picks/access'
+import { canOpenHeldStockReport } from '@/features/oms/held-stock-report/access'
+import { canOpenHoldDailyList } from '@/features/oms/hold-daily-list/access'
+import { canOpenStoreStages } from '@/features/oms/store-stages/access'
+import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
-// The rule engine's probe lives in `@/core/` (oms 852, BackOffice 3459): the Campaigns group and the engine switch
-// both read it. ONE key; each leaf reads its own family's flag.
-import { RULES_ACCESS_KEY, canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine, rulesAccessApi } from '@/core/rules/access'
-import type { RulesAccess } from '@/core/models/rule-campaign'
-// HQ prescription sessions' probe stays with its feature (oms 852): the leaf and the page are its only readers.
-import {
-  PRESCRIPTION_SESSION_ACCESS_KEY,
-  canViewPrescriptionSessions,
-  prescriptionSessionAccessApi,
-} from '@/features/oms/prescription-sessions/access'
+import { canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from '@/core/rules/access'
+import { canViewPrescriptionSessions } from '@/features/oms/prescription-sessions/access'
 // Analytics (spec 766, ticket 767): declared in `./menu-analytics`, where 770–780 add their leaves.
 import { ANALYTICS_MENU } from './menu-analytics'
-// The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
-// only consumer today — the leaf below and that screen's own guard — which is the
-// `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
-// the OMS and Nphies probes into `@/core/`. `layout` may import a feature.
-import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi } from '@/features/loy/member/api'
-// The loyalty-groups probe lives in `@/core/` (ticket 629): bonus-buy maintenance, simulation and the
-// member screen read it too, and a feature may not import another.
-import { canViewLoyGroups, LOY_GROUPS_ACCESS_KEY, loyGroupsApi } from '@/core/loy-groups/api'
-import { UsersRound } from 'lucide-react'
-// The Collections probe moved to `@/core/` at ticket 268, for the OMS/Nphies reason
-// rather than the Loy one: `features/collection/settlement` is now a SECOND consumer
-// beside `features/collection/inquiry`, and a feature may not import another
-// feature's api. Only the shared half moved — each screen's own predicate still
-// travels with the screen, which is why the imports below come from three places
-// and should stay that way.
-import { COLLECTION_ACCESS_KEY, collectionAccessApi } from '@/core/collection/api'
+import { canOpenLoyMember } from '@/features/loy/member/api'
+import { canViewLoyGroups } from '@/core/loy-groups/api'
 import {
   canOpenAcrs,
   canOpenAssignment,
@@ -107,86 +41,36 @@ import {
   canOpenReady,
 } from '@/features/collection/inquiry/api'
 import { canOpenSettlement } from '@/features/collection/settlement/api'
-// The Retail Invoice probe stays with its feature for the Loy/Collections reason
-// (ticket 263): `features/reports/retail-invoice` is its only consumer — the leaf
-// below and that screen's own gate. `layout` may import a feature.
-import { canOpenRetailInvoice, RETAIL_INVOICE_ACCESS_KEY, retailInvoiceApi } from '@/features/reports/retail-invoice/api'
-// …and the IDoc Inspector's probe likewise stays with ITS feature: a second
-// screen in the same area is not a second consumer of the same probe. Two
-// screens, two grants, two keys — see `features/reports/idoc-inspector/api`.
-import {
-  canOpenIDocInspector,
-  IDOC_INSPECTOR_ACCESS_KEY,
-  idocInspectorApi,
-} from '@/features/reports/idoc-inspector/api'
-// …and the SAP export console's (BackOffice spec 2579, ticket 461) with ITS feature, a third
-// screen in the area on a third grant.
-import { SAP_EXPORT_ACCESS_KEY, canOpenSapExport, sapExportAccessApi } from '@/features/reports/sap-export-console/access'
-// The Dispatch board's probe lives in `@/core/` (ticket 541): Delivery details (542) reads its Execute
-// flag for the same Release lock, and a feature may not import another.
-import { DISPATCH_ACCESS_KEY, canOpenDispatchBoard, dispatchApi } from '@/core/dispatch/access'
-// The serving-list probe lives in `@/core/` (ticket 567): the Dispatch board (572) links a callout's
-// serving list only for a View holder, and a feature may not import another.
-import { SERVING_LIST_ACCESS_KEY, canViewServingLists, servingListAccessApi } from '@/core/serving-list/access'
-// Central invoicing's probe lives in `@/core/` (ticket 332) for the OMS/Nphies reason: the
-// delivery page's action (`features/oms/document`) and the bulk screen
-// (`features/oms/central-invoice`) both read it, and neither may import the other.
-import {
-  CENTRAL_INVOICE_ACCESS_KEY,
-  canOpenCentralInvoice,
-  centralInvoiceApi,
-} from '@/core/central-invoice/api'
-// The Materials probe lives in `@/core/` (ticket 451) for the OMS/Nphies reason: four features
-// (search, detail, stock check, GS1 check) read it, and none may import another. Each leaf reads
-// its OWN flag through its predicate off the ONE key, so the group costs one call.
-import { MATERIAL_ACCESS_KEY, materialAccessApi } from '@/core/materials/api'
+import { canOpenRetailInvoice } from '@/features/reports/retail-invoice/api'
+import { canOpenIDocInspector } from '@/features/reports/idoc-inspector/api'
+import { canOpenSapExport } from '@/features/reports/sap-export-console/access'
+import { canOpenDispatchBoard } from '@/core/dispatch/access'
+import { canViewServingLists } from '@/core/serving-list/access'
+import { canOpenCentralInvoice } from '@/core/central-invoice/api'
 import { canCheckGs1, canCheckStock, canSearchMaterials } from '@/core/materials/access'
 import { STOCK_CHECK_PATH } from '@/core/materials/stock-cap'
-// The store sync console's probe stays with its feature (ticket 445): `features/admin/sync-console`
-// is its only consumer — the leaf below and the console's own gate. `layout` may import a feature.
-import {
-  SYNC_CONSOLE_ACCESS_KEY,
-  canOpenSyncConsole,
-  syncConsoleApi,
-} from '@/features/admin/sync-console/api'
-// Data sync (spec 558, ticket 559): the same shape — the leaf and the page's gate share one key.
-import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/admin/data-sync/api'
-// The document-type configuration's probe stays with its feature (BackOffice ticket 3149): its only consumer.
-import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } from '@/features/admin/doc-type-config/api'
-// The copilot's house rules (ticket 790): the SAME probe key, call and options the top-bar button reads, so one call.
-import { COPILOT_ACCESS_KEY, canCurateCopilot, copilotAccessApi } from '@/features/copilot/access'
-import { ScrollText } from 'lucide-react'
-import { Undo2 } from 'lucide-react'
-import { FileCog } from 'lucide-react'
-import { Workflow } from 'lucide-react'
-import { Radio } from 'lucide-react'
-import { DatabaseZap } from 'lucide-react'
-// The release download queue (ticket 791): its probe stays with its feature, the leaf below and the page's gate are
-// its only readers. `layout` may import a feature.
-import { CloudDownload } from 'lucide-react'
-import { RELEASE_QUEUE_ACCESS_KEY, canViewReleaseQueue, releaseQueueApi } from '@/features/admin/release-queue/api'
-import type { CollectionAccessResult } from '@/core/models/collection'
-import type { MaterialAccessResult } from '@/core/models/materials'
-// The Deliverect probe lives in `@/core/` (ticket 477) for the Materials reason: four features (stores,
-// orders, catalog, terms) read it, and none may import another. ONE key; each leaf reads its own flag.
-import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
+import { canOpenSyncConsole } from '@/features/admin/sync-console/api'
+import { canOpenDataSync } from '@/features/admin/data-sync/api'
+import { canViewDocTypeConfig } from '@/features/admin/doc-type-config/api'
+import { canCurateCopilot } from '@/features/copilot/access'
+import { canViewReleaseQueue } from '@/features/admin/release-queue/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
-import type { DeliverectAccessResult } from '@/core/models/deliverect'
-// The HungerStation probe lives in `@/core/` (ticket 551) for the same reason: three features
-// (stores, materials, orders) read it. ONE key; each leaf reads its own flag.
-import { HUNGERSTATION_ACCESS_KEY, hungerStationApi } from '@/core/hungerstation/api'
 import {
   canManageCatalog as canManageHsCatalog,
   canManageStores as canManageHsStores,
   canViewOrders as canViewHsOrders,
   canManagePromotions as canManageHsPromotions,
 } from '@/core/hungerstation/access'
-import type { HungerStationAccessResult } from '@/core/models/hungerstation'
-// The Hybris stock probe lives in `@/core/` (ticket 847): three features read it. ONE key; every
-// leaf reads the view grant.
-import { HYBRIS_STOCK_ACCESS_KEY, hybrisStockApi } from '@/core/hybris-stock/api'
 import { canViewHybrisStock } from '@/core/hybris-stock/access'
-import type { HybrisStockAccessResult } from '@/core/models/hybris-stock'
+import { Ban, CalendarX, ClipboardX, FileDiff, Gauge, Layers, ListTree, PackageMinus, Route, ShieldAlert, Trophy, Waypoints } from 'lucide-react'
+import { UsersRound } from 'lucide-react'
+import { ScrollText } from 'lucide-react'
+import { Undo2 } from 'lucide-react'
+import { FileCog } from 'lucide-react'
+import { Workflow } from 'lucide-react'
+import { Radio } from 'lucide-react'
+import { DatabaseZap } from 'lucide-react'
+import { CloudDownload } from 'lucide-react'
 import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -217,108 +101,28 @@ export interface ShellMenuItem {
   exact?: boolean
   items?: ShellMenuItem[]
   /**
-   * Optional permission-aware show/hide gate (issue 429, web-platform foundation).
-   * ABSENT = always visible. Since ticket 125 gated the OMS leaf, every leaf in
-   * `MENU` carries a probe — an ungated one is now the exception, not the rule, and
-   * a new one needs a reason. Present = the shell hides this
-   * item until the probe confirms access. This is show/hide hygiene only — the
-   * server grant stays authoritative (a deep-link still hits the screen's own
-   * in-page denied backstop). Build a probe with `accessProbe(...)`.
+   * Optional permission-aware show/hide gate (issue 429; one answer since oms 909, BackOffice spec 4002).
+   * ABSENT (and no `key`) = always visible; nearly every leaf is gated, and a new ungated one needs a reason.
+   * Present = the shell hides this item until the ONE permissions answer (`@/core/permissions`) is in and this
+   * predicate says yes; pending or failed hides it (fail-closed, no flash-then-hide). Show/hide only — the server
+   * grant stays authoritative, and the screen's own `ScreenGate` reads the SAME predicate.
    */
-  access?: AccessProbe
+  requires?: (p: Permissions) => boolean
+  /** The shorthand for a leaf behind exactly one key: `key: 'X:03'` ≡ `requires: (p) => p.has('X:03')`. */
+  key?: ScreenKey
+  /**
+   * NOT a permission: a leaf whose page is offered only while a door answers (886: "My schedules" hides while the
+   * personal-schedules switch is off). Asked once per page life, and only after the leaf's own grant says yes, so a
+   * reader without the grant never fires it. Absent = offered; pending or failed = hidden.
+   */
+  offered?: MenuOffer
 }
 
-/**
- * A per-item access probe: the module's OWN screen-access call, keyed so the
- * shell's probe and the screen's own route-guard share one react-query cache
- * entry (one network call, not two). The shell reads `visible(data)` only once
- * the probe has resolved successfully; pending OR error => hidden (fail-closed,
- * and no flash-then-hide). Adding a gated module = append an item with a probe;
- * no layout code changes.
- */
-export interface AccessProbe {
-  /** react-query key — MUST equal the screen guard's key so the call dedupes. */
-  key: readonly unknown[]
-  /** the module's screen-access call, verbatim; its raw result is cached & shared. */
-  run: () => Promise<unknown>
-  /** derive show/hide from the raw result; fail-closed edges handled by the shell. */
-  visible: (data: unknown) => boolean
+/** A data door the shell asks, after the grant, whether a leaf's page is offered at all (see `offered`). */
+export interface MenuOffer {
+  queryKey: readonly unknown[]
+  queryFn: () => Promise<boolean>
 }
-
-/**
- * Typed builder for {@link AccessProbe} — keeps `run` and `visible` in sync on
- * the module's own result type without leaking a generic onto `ShellMenuItem`.
- */
-export function accessProbe<T>(p: {
-  key: readonly unknown[]
-  run: () => Promise<T>
-  visible: (data: T) => boolean
-}): AccessProbe {
-  return p as AccessProbe
-}
-
-/**
- * The Collections area's leaves share ONE probe on ONE key (244 §10, and a fifth
- * grant on it since ticket 268): the menu needs every boolean at once, and a probe
- * each would be a round trip each to draw one group. Spelling the key and the call
- * once here rather than five times removes four chances to typo the very constant
- * `@/core/collection/api` exports to stop the nav and a screen splitting the cache
- * entry.
- *
- * Each leaf still passes its OWN predicate, so a session granted only Deposits
- * gets a RAGGED group — one item, rather than three that would bounce it.
- *
- * 🚩 FAILS CLOSED — see `features/collection/inquiry/api`. A pending, errored or
- * malformed probe hides the leaf; the `Bby/Access` unknown ⇒ shown precedent
- * does not transfer to the chain's cash. 🚩 And it only HIDES: the endpoint's
- * grant filter is the real boundary, which is why each Page carries its own
- * in-page backstop too.
- */
-const collectionProbe = (visible: (r: CollectionAccessResult) => boolean): AccessProbe =>
-  accessProbe({ key: COLLECTION_ACCESS_KEY, run: () => collectionAccessApi.access(), visible })
-
-/**
- * The Materials area's leaves share ONE probe on ONE key (ticket 451), the Collections shape: each
- * leaf passes its own flag's predicate, so a session granted only the stock check gets a one-leaf
- * group. 🚩 FAILS CLOSED — see `@/core/materials/api`: the door is deployed nowhere yet, and a
- * pending, errored or malformed probe hides every leaf.
- */
-const materialProbe = (visible: (r: MaterialAccessResult) => boolean): AccessProbe =>
-  accessProbe({ key: MATERIAL_ACCESS_KEY, run: () => materialAccessApi.access(), visible })
-
-/**
- * The Deliverect area's leaves share ONE probe on ONE key (ticket 477), the Materials shape: each
- * leaf passes its own flag's predicate, so a session granted only the orders monitor gets a
- * one-leaf group. 🚩 FAILS CLOSED — see `@/core/deliverect/api`.
- */
-const deliverectProbe = (visible: (r: DeliverectAccessResult) => boolean): AccessProbe =>
-  accessProbe({ key: DELIVERECT_ACCESS_KEY, run: () => deliverectApi.access(), visible })
-
-/**
- * The HungerStation area's leaves share ONE probe on ONE key (ticket 551), the Deliverect shape:
- * each leaf passes its own flag's predicate. 🚩 FAILS CLOSED — see `@/core/hungerstation/api`.
- */
-const hungerStationProbe = (visible: (r: HungerStationAccessResult) => boolean): AccessProbe =>
-  accessProbe({ key: HUNGERSTATION_ACCESS_KEY, run: () => hungerStationApi.access(), visible })
-
-/**
- * The Hybris stock area's leaves share ONE probe on ONE key (ticket 847). 🚩 FAILS CLOSED — see
- * `@/core/hybris-stock/api`.
- */
-const hybrisStockProbe = (visible: (r: HybrisStockAccessResult) => boolean): AccessProbe =>
-  accessProbe({ key: HYBRIS_STOCK_ACCESS_KEY, run: () => hybrisStockApi.access(), visible })
-
-/**
- * The rule engine's leaves — the eight Campaigns leaves and the store engine switch — share ONE probe on ONE key
- * (oms 852, BackOffice 3459), the Collections shape: each leaf passes its family's predicate, so a support-only
- * session gets a three-leaf Campaigns group and no engine switch. 🚩 FAILS CLOSED — see `@/core/rules/access`.
- */
-const rulesProbe = (visible: (r: RulesAccess) => boolean): AccessProbe =>
-  accessProbe({ key: RULES_ACCESS_KEY, run: () => rulesAccessApi.access(), visible })
-
-// The board's Display probe, ONE value for the board leaf and its Road distance (Shadow) leaf (ticket 859), so the two
-// leaves cannot read different grants.
-const DISPATCH_BOARD_PROBE = accessProbe({ key: DISPATCH_ACCESS_KEY, run: () => dispatchApi.access(), visible: canOpenDispatchBoard })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -336,11 +140,7 @@ export const MENU: ShellMenuItem[] = [
         // Gated on the LIST grant: the leaf opens the list, and a session that holds
         // the detail grant but not the list one has no business in the nav here.
         // This probe FAILS CLOSED — see `@/core/oms/api`.
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: (r) => r.canOpenList === true,
-        }),
+        key: 'DocumentList:03',
       },
       {
         // Bupa line outcomes (oms 899, BackOffice spec 3888) — beside Delivery documents, as the brief places it.
@@ -350,11 +150,7 @@ export const MENU: ShellMenuItem[] = [
         icon: FileDiff,
         routerLink: '/oms/bupa-line-outcomes',
         activePrefix: '/oms/bupa-line-outcomes',
-        access: accessProbe({
-          key: BUPA_OUTCOME_ACCESS_KEY,
-          run: () => bupaOutcomeAccessApi.access(),
-          visible: canViewBupaOutcomes,
-        }),
+        requires: canViewBupaOutcomes,
       },
       {
         // The Order / ERX list (ticket 786, BackOffice 3391): behind the same OMS LIST grant as the
@@ -364,11 +160,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ListChecks,
         routerLink: '/oms/orders',
         activePrefix: ['/oms/orders'],
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: (r) => r.canOpenList === true,
-        }),
+        key: 'DocumentList:03',
       },
       {
         // Central invoicing's bulk screen (ticket 332, BackOffice spec 2094). Its OWN grant
@@ -382,11 +174,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ReceiptText,
         routerLink: '/oms/central-invoice',
         activePrefix: '/oms/central-invoice',
-        access: accessProbe({
-          key: CENTRAL_INVOICE_ACCESS_KEY,
-          run: () => centralInvoiceApi.access(),
-          visible: canOpenCentralInvoice,
-        }),
+        requires: canOpenCentralInvoice,
       },
       {
         // The raised central invoices (ticket 333) — the same grant and the SAME probe entry
@@ -395,11 +183,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ListChecks,
         routerLink: '/oms/central-invoices',
         activePrefix: '/oms/central-invoices',
-        access: accessProbe({
-          key: CENTRAL_INVOICE_ACCESS_KEY,
-          run: () => centralInvoiceApi.access(),
-          visible: canOpenCentralInvoice,
-        }),
+        requires: canOpenCentralInvoice,
       },
       // ── Spec 430's five OMS screens, in its D18 order: Donor requests, Failed donor
       // transfers, Document payments, Cities & districts, Document source users. Each reads
@@ -411,11 +195,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ArrowLeftRight,
         routerLink: '/oms/donor-requests',
         activePrefix: '/oms/donor-requests',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenDonorRequests,
-        }),
+        requires: canOpenDonorRequests,
       },
       {
         // Failed donor transfers (ticket 434) — `FailedDonorTransfers,03`, second in D18's order.
@@ -424,11 +204,7 @@ export const MENU: ShellMenuItem[] = [
         icon: PackageX,
         routerLink: '/oms/failed-donor-transfers',
         activePrefix: '/oms/failed-donor-transfers',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenFailedTransfers,
-        }),
+        requires: canOpenFailedTransfers,
       },
       {
         // Document payments (ticket 433) — `DocumentPaymentInquiry,03`. 🚩 Its rows carry customer
@@ -437,11 +213,7 @@ export const MENU: ShellMenuItem[] = [
         icon: CreditCard,
         routerLink: '/oms/document-payments',
         activePrefix: '/oms/document-payments',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenDocumentPayments,
-        }),
+        requires: canOpenDocumentPayments,
       },
       {
         // Cities & districts (ticket 436) — `SdCityInquiry,03` OR `SdDistrictInquiry,03`, fourth in
@@ -450,11 +222,7 @@ export const MENU: ShellMenuItem[] = [
         icon: MapPinned,
         routerLink: '/oms/geography',
         activePrefix: '/oms/geography',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenGeography,
-        }),
+        requires: canOpenGeography,
       },
       {
         // Document source users (ticket 438) — `DocumentSourceUsersInquiry,03`, last in D18's order.
@@ -463,11 +231,7 @@ export const MENU: ShellMenuItem[] = [
         icon: UserCheck,
         routerLink: '/oms/document-source-users',
         activePrefix: '/oms/document-source-users',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenDocumentSourceUsers,
-        }),
+        requires: canOpenDocumentSourceUsers,
       },
       {
         // HQ prescription sessions (tickets 545-548, BackOffice spec 2994) — `BackOfficeScreen[PrescriptionSessionHq]`
@@ -477,11 +241,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Pill,
         routerLink: '/oms/prescription-sessions',
         activePrefix: '/oms/prescription-sessions',
-        access: accessProbe({
-          key: PRESCRIPTION_SESSION_ACCESS_KEY,
-          run: () => prescriptionSessionAccessApi.access(),
-          visible: canViewPrescriptionSessions,
-        }),
+        requires: canViewPrescriptionSessions,
       },
       {
         // The Dispatch board (ticket 541, BackOffice spec 2952) — `BackOfficeScreen[DispatchBoard, Display]`
@@ -492,7 +252,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Radar,
         routerLink: '/oms/dispatch-board',
         activePrefix: '/oms/dispatch-board',
-        access: DISPATCH_BOARD_PROBE,
+        requires: canOpenDispatchBoard,
       },
       {
         // Serving lists (ticket 567, BackOffice spec 3042) — `BackOfficeScreen[ServingList]` Display 03 read off
@@ -502,11 +262,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ListTree,
         routerLink: '/oms/serving-lists',
         activePrefix: '/oms/serving-lists',
-        access: accessProbe({
-          key: SERVING_LIST_ACCESS_KEY,
-          run: () => servingListAccessApi.access(),
-          visible: canViewServingLists,
-        }),
+        requires: canViewServingLists,
       },
       {
         // Road distance (Shadow) (ticket 859, BackOffice spec 3460 / door 3470): the board's Shadow report, on the
@@ -516,7 +272,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Waypoints,
         routerLink: '/oms/dispatch-board/road-shadow',
         activePrefix: '/oms/dispatch-board/road-shadow',
-        access: DISPATCH_BOARD_PROBE,
+        requires: canOpenDispatchBoard,
       },
       {
         // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,
@@ -527,11 +283,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Trophy,
         routerLink: '/oms/dispatch-scorecard',
         activePrefix: '/oms/dispatch-scorecard',
-        access: accessProbe({
-          key: DISPATCH_SCORECARD_ACCESS_KEY,
-          run: () => dispatchScorecardAccessApi.access(),
-          visible: canOpenDispatchScorecard,
-        }),
+        requires: canOpenDispatchScorecard,
       },
       {
         // Closes after a take (ticket 758, spec 3326): the scorecard's report of every close after a take, on
@@ -541,11 +293,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ClipboardX,
         routerLink: '/oms/dispatch-scorecard/closes',
         activePrefix: '/oms/dispatch-scorecard/closes',
-        access: accessProbe({
-          key: DISPATCH_SCORECARD_ACCESS_KEY,
-          run: () => dispatchScorecardAccessApi.access(),
-          visible: canOpenDispatchScorecard,
-        }),
+        requires: canOpenDispatchScorecard,
       },
       {
         // Serial refusals (ticket 573, BackOffice 3065) — its own grant, `BackOfficeScreen[SerialRefusal, 03]`, on its own
@@ -555,11 +303,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ShieldAlert,
         routerLink: '/oms/serial-refusals',
         activePrefix: '/oms/serial-refusals',
-        access: accessProbe({
-          key: SERIAL_REFUSAL_ACCESS_KEY,
-          run: () => serialRefusalAccessApi.access(),
-          visible: canOpenSerialRefusals,
-        }),
+        requires: canOpenSerialRefusals,
       },
       {
         // Expired approval picks (BackOffice ticket 3874, spec 3849) — the insurance team's weekly report of approval picks
@@ -570,11 +314,7 @@ export const MENU: ShellMenuItem[] = [
         icon: CalendarX,
         routerLink: '/oms/expired-approval-picks',
         activePrefix: '/oms/expired-approval-picks',
-        access: accessProbe({
-          key: EXPIRED_APPROVAL_PICK_ACCESS_KEY,
-          run: () => expiredApprovalPickAccessApi.access(),
-          visible: canOpenExpiredApprovalPicks,
-        }),
+        requires: canOpenExpiredApprovalPicks,
       },
       {
         // Take refusals (BackOffice ticket 3873, spec 3849) — HQ's refusal report, read before a held-stock switch is moved.
@@ -584,11 +324,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Ban,
         routerLink: '/oms/held-stock-report/refusals',
         activePrefix: '/oms/held-stock-report/refusals',
-        access: accessProbe({
-          key: HELD_STOCK_REPORT_ACCESS_KEY,
-          run: () => heldStockReportAccessApi.access(),
-          visible: canOpenHeldStockReport,
-        }),
+        requires: canOpenHeldStockReport,
       },
       {
         // Held stock impact (BackOffice ticket 3873) — what held would take off the channels' figure; same probe and grant.
@@ -596,11 +332,7 @@ export const MENU: ShellMenuItem[] = [
         icon: PackageMinus,
         routerLink: '/oms/held-stock-report/held',
         activePrefix: '/oms/held-stock-report/held',
-        access: accessProbe({
-          key: HELD_STOCK_REPORT_ACCESS_KEY,
-          run: () => heldStockReportAccessApi.access(),
-          visible: canOpenHeldStockReport,
-        }),
+        requires: canOpenHeldStockReport,
       },
       {
         // Till-side gate figures (BackOffice ticket 3900, spec 3849 A) — per store over 14 days, the gates the till and OMS
@@ -609,11 +341,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Gauge,
         routerLink: '/oms/held-stock-report/gates',
         activePrefix: '/oms/held-stock-report/gates',
-        access: accessProbe({
-          key: HELD_STOCK_REPORT_ACCESS_KEY,
-          run: () => heldStockReportAccessApi.access(),
-          visible: canOpenHeldStockReport,
-        }),
+        requires: canOpenHeldStockReport,
       },
       {
         // Holds that should have ended (BackOffice ticket 3872, spec 3849) — HQ's daily list of holds standing longer than
@@ -624,11 +352,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Hourglass,
         routerLink: '/oms/hold-daily-list',
         activePrefix: '/oms/hold-daily-list',
-        access: accessProbe({
-          key: HOLD_DAILY_LIST_ACCESS_KEY,
-          run: () => holdDailyListAccessApi.access(),
-          visible: canOpenHoldDailyList,
-        }),
+        requires: canOpenHoldDailyList,
       },
       {
         // Store stages (BackOffice ticket 3899, spec 3849 phase 2) — each store's stage at Stock Visibility and its last move;
@@ -639,11 +363,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Layers,
         routerLink: '/oms/store-stages',
         activePrefix: '/oms/store-stages',
-        access: accessProbe({
-          key: STORE_STAGE_ACCESS_KEY,
-          run: () => storeStageAccessApi.access(),
-          visible: canOpenStoreStages,
-        }),
+        requires: canOpenStoreStages,
       },
       {
         // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,
@@ -653,11 +373,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Route,
         routerLink: '/oms/sourcing-advisor',
         activePrefix: '/oms/sourcing-advisor',
-        access: accessProbe({
-          key: SOURCING_ADVISOR_ACCESS_KEY,
-          run: () => sourcingAdvisorAccessApi.access(),
-          visible: canViewSourcingAdvisor,
-        }),
+        requires: canViewSourcingAdvisor,
       },
       {
         // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport,03`, read off the ONE
@@ -667,11 +383,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ScanSearch,
         routerLink: '/oms/pick-support',
         activePrefix: '/oms/pick-support',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenPickSupport,
-        }),
+        requires: canOpenPickSupport,
       },
       {
         // Delivery statistics (ticket 484, BackOffice brief 2641) — the door checks the OMS LIST
@@ -680,11 +392,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ChartColumn,
         routerLink: '/oms/delivery-statistics',
         activePrefix: '/oms/delivery-statistics',
-        access: accessProbe({
-          key: OMS_ACCESS_KEY,
-          run: () => omsAccessApi.access(),
-          visible: canOpenDeliveryStatistics,
-        }),
+        requires: canOpenDeliveryStatistics,
       },
     ],
   },
@@ -700,11 +408,7 @@ export const MENU: ShellMenuItem[] = [
         // (also under /admin) doesn't co-highlight.
         activePrefix: '/admin/ua-users',
         // Same key + call as UaAdminUsersPage's own guard → one shared probe.
-        access: accessProbe({
-          key: ['ua-admin', 'access'],
-          run: () => uaAdminApi.access(),
-          visible: (r) => r.canOpen === true,
-        }),
+        key: 'UaUsers:03',
       },
       {
         labelKey: 'authz-admin:menu.authz',
@@ -712,11 +416,7 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/admin/authz',
         activePrefix: '/admin/authz',
         // Same key + call as AuthzAdminPage's own guard → one shared probe.
-        access: accessProbe({
-          key: ['authz-admin', 'access'],
-          run: () => authzAdminApi.access(),
-          visible: (r) => r.screenAllowed === true,
-        }),
+        key: 'AuthzAdmin:03',
       },
       {
         labelKey: 'active-sessions:menu.sessions',
@@ -725,11 +425,7 @@ export const MENU: ShellMenuItem[] = [
         activePrefix: '/admin/sessions',
         // Same key + call as ActiveSessionsPage's own guard → one shared probe.
         // Gated by its OWN grant, separate from Ua Users (spec 006).
-        access: accessProbe({
-          key: ['active-sessions', 'access'],
-          run: () => sessionMonitorApi.access(),
-          visible: (r) => r.canOpen === true,
-        }),
+        key: 'UaSessions:03',
       },
       {
         // Send Broadcast (spec 031). Gated on the NotificationBroadcast grant (038) via the SAME
@@ -740,11 +436,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Send,
         routerLink: '/admin/broadcast',
         activePrefix: '/admin/broadcast',
-        access: accessProbe({
-          key: BROADCAST_ACCESS_KEY,
-          run: () => broadcastApi.access(),
-          visible: (r) => r?.allowed === true,
-        }),
+        requires: canBroadcast,
       },
       {
         // The store sync console (spec 444, ticket 445) — LAST in the Admin group, on its own
@@ -759,11 +451,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ArrowUpDown,
         routerLink: '/admin/sync',
         activePrefix: '/admin/sync',
-        access: accessProbe({
-          key: SYNC_CONSOLE_ACCESS_KEY,
-          run: () => syncConsoleApi.access(),
-          visible: canOpenSyncConsole,
-        }),
+        requires: canOpenSyncConsole,
       },
       {
         // Release download queue (ticket 791, BackOffice spec 3396) — `canView` (`PosRelease.Queue.View`) off
@@ -773,11 +461,7 @@ export const MENU: ShellMenuItem[] = [
         icon: CloudDownload,
         routerLink: '/admin/release-queue',
         activePrefix: '/admin/release-queue',
-        access: accessProbe({
-          key: RELEASE_QUEUE_ACCESS_KEY,
-          run: () => releaseQueueApi.access(),
-          visible: canViewReleaseQueue,
-        }),
+        requires: canViewReleaseQueue,
       },
       {
         // Copilot rules (ticket 790, BackOffice 3395) — the copilot's house rules, for curators: `canCurate` off
@@ -787,11 +471,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ScrollText,
         routerLink: '/copilot/rules',
         activePrefix: '/copilot/rules',
-        access: accessProbe({
-          key: COPILOT_ACCESS_KEY,
-          run: () => copilotAccessApi.access(),
-          visible: canCurateCopilot,
-        }),
+        requires: canCurateCopilot,
       },
       {
         // Data sync (spec 558, ticket 559) — DataSync's campaigns and profiles, on `DataSync.View`
@@ -802,11 +482,7 @@ export const MENU: ShellMenuItem[] = [
         icon: DatabaseZap,
         routerLink: '/admin/data-sync',
         activePrefix: '/admin/data-sync',
-        access: accessProbe({
-          key: DATA_SYNC_ACCESS_KEY,
-          run: () => dataSyncApi.access(),
-          visible: canOpenDataSync,
-        }),
+        requires: canOpenDataSync,
       },
       {
         // Delivery types (BackOffice spec 3148, ticket 3154) — delivery document types, read on the existing OMS access:
@@ -816,11 +492,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Truck,
         routerLink: '/admin/delivery-types',
         activePrefix: '/admin/delivery-types',
-        access: accessProbe({
-          key: DOC_TYPE_CONFIG_ACCESS_KEY,
-          run: () => docTypeConfigApi.access(),
-          visible: canViewDocTypeConfig,
-        }),
+        requires: canViewDocTypeConfig,
       },
       {
         // Document sources (BackOffice spec 3148, ticket 3156) — read on the existing OMS access: the SAME probe key,
@@ -830,11 +502,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Radio,
         routerLink: '/admin/document-sources',
         activePrefix: '/admin/document-sources',
-        access: accessProbe({
-          key: DOC_TYPE_CONFIG_ACCESS_KEY,
-          run: () => docTypeConfigApi.access(),
-          visible: canViewDocTypeConfig,
-        }),
+        requires: canViewDocTypeConfig,
       },
       {
         // Action types (BackOffice spec 3148, ticket 3155) — per document category, read on the existing OMS access:
@@ -844,11 +512,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Workflow,
         routerLink: '/admin/action-types',
         activePrefix: '/admin/action-types',
-        access: accessProbe({
-          key: DOC_TYPE_CONFIG_ACCESS_KEY,
-          run: () => docTypeConfigApi.access(),
-          visible: canViewDocTypeConfig,
-        }),
+        requires: canViewDocTypeConfig,
       },
       {
         // Config changes (BackOffice spec 3148, ticket 3152) — the document configuration's change log, read on the
@@ -858,11 +522,7 @@ export const MENU: ShellMenuItem[] = [
         icon: History,
         routerLink: '/admin/config-changes',
         activePrefix: '/admin/config-changes',
-        access: accessProbe({
-          key: DOC_TYPE_CONFIG_ACCESS_KEY,
-          run: () => docTypeConfigApi.access(),
-          visible: canViewDocTypeConfig,
-        }),
+        requires: canViewDocTypeConfig,
       },
       {
         // Document types (BackOffice spec 3148, ticket 3149) — the OMS document configuration, read on the existing
@@ -872,11 +532,7 @@ export const MENU: ShellMenuItem[] = [
         icon: FileCog,
         routerLink: '/admin/doc-types',
         activePrefix: '/admin/doc-types',
-        access: accessProbe({
-          key: DOC_TYPE_CONFIG_ACCESS_KEY,
-          run: () => docTypeConfigApi.access(),
-          visible: canViewDocTypeConfig,
-        }),
+        requires: canViewDocTypeConfig,
       },
       {
         // The store engine switch (BackOffice spec 2737, ticket 517) — at the END of the Admin group, on
@@ -885,7 +541,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Repeat,
         routerLink: '/admin/engine-switch',
         activePrefix: '/admin/engine-switch',
-        access: rulesProbe(canSwitchEngine),
+        requires: canSwitchEngine,
       },
     ],
   },
@@ -905,11 +561,7 @@ export const MENU: ShellMenuItem[] = [
         // FAILS CLOSED — see `features/callcenter/console/api`. What is behind
         // this leaf mints real OMS orders, so a pending or errored probe hides
         // it rather than revealing it.
-        access: accessProbe({
-          key: CALLCENTER_ACCESS_KEY,
-          run: () => callCenterApi.access(),
-          visible: (r) => r.canOpenConsole === true,
-        }),
+        key: 'CallCenter:03',
       },
     ],
   },
@@ -934,11 +586,7 @@ export const MENU: ShellMenuItem[] = [
         // leaf is a customer-PII lookup, so a pending, errored or malformed
         // probe hides it rather than revealing it (224: the bonus-buy
         // unknown ⇒ shown precedent explicitly does not transfer here).
-        access: accessProbe({
-          key: LOY_ACCESS_KEY,
-          run: () => loyAccessApi.access(),
-          visible: canOpenLoyMember,
-        }),
+        requires: canOpenLoyMember,
       },
       {
         // Loyalty groups (BackOffice spec 3173, oms ticket 629). HQ-only. Its own probe on its own key —
@@ -948,11 +596,7 @@ export const MENU: ShellMenuItem[] = [
         icon: UsersRound,
         routerLink: '/loy/groups',
         activePrefix: '/loy/groups',
-        access: accessProbe({
-          key: LOY_GROUPS_ACCESS_KEY,
-          run: () => loyGroupsApi.access(),
-          visible: canViewLoyGroups,
-        }),
+        requires: canViewLoyGroups,
       },
     ],
   },
@@ -981,11 +625,7 @@ export const MENU: ShellMenuItem[] = [
         // FAILS CLOSED — see `@/core/nphies/api`. What is behind these leaves
         // talks to the national exchange, so a pending or errored probe hides
         // them rather than revealing them (ticket 211's Boundaries).
-        access: accessProbe({
-          key: NPHIES_ACCESS_KEY,
-          run: () => nphiesAccessApi.access(),
-          visible: (r) => r.canOpenNphies === true,
-        }),
+        requires: canOpenNphies,
       },
       {
         labelKey: 'eligibility:menu.newCheck',
@@ -993,11 +633,7 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/nphies/eligibility/new',
         // No `activePrefix`: its own exact route. The list leaf above owns the
         // eligibility subtree now that there is more than one screen under it.
-        access: accessProbe({
-          key: NPHIES_ACCESS_KEY,
-          run: () => nphiesAccessApi.access(),
-          visible: (r) => r.canOpenNphies === true,
-        }),
+        requires: canOpenNphies,
       },
       {
         // The area's second feature (ticket 214) — the list an agent watches an
@@ -1009,11 +645,7 @@ export const MENU: ShellMenuItem[] = [
         // Its own subtree, so 216's detail keeps this leaf lit and not the
         // eligibility one.
         activePrefix: '/nphies/authorizations',
-        access: accessProbe({
-          key: NPHIES_ACCESS_KEY,
-          run: () => nphiesAccessApi.access(),
-          visible: (r) => r.canOpenNphies === true,
-        }),
+        requires: canOpenNphies,
       },
       {
         // Release approval number (ticket 751, BackOffice spec 3342). Shown on the
@@ -1023,11 +655,7 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'approval-release:menu.release',
         icon: Unlock,
         routerLink: '/nphies/approval-release',
-        access: accessProbe({
-          key: NPHIES_ACCESS_KEY,
-          run: () => nphiesAccessApi.access(),
-          visible: (r) => r.canOpenNphies === true,
-        }),
+        requires: canOpenNphies,
       },
       {
         // Undispense (ticket 898, BackOffice spec 3208 Q7). The list reads under the Nphies grant,
@@ -1035,11 +663,7 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'undispense:menu.undispense',
         icon: Undo2,
         routerLink: '/nphies/undispense',
-        access: accessProbe({
-          key: NPHIES_ACCESS_KEY,
-          run: () => nphiesAccessApi.access(),
-          visible: (r) => r.canOpenNphies === true,
-        }),
+        requires: canOpenNphies,
       },
     ],
   },
@@ -1057,28 +681,28 @@ export const MENU: ShellMenuItem[] = [
         icon: Banknote,
         routerLink: '/collection/collections',
         activePrefix: '/collection/collections',
-        access: collectionProbe(canOpenCollections),
+        requires: canOpenCollections,
       },
       {
         labelKey: 'collection:menu.acrs',
         icon: FileSpreadsheet,
         routerLink: '/collection/acrs',
         activePrefix: '/collection/acrs',
-        access: collectionProbe(canOpenAcrs),
+        requires: canOpenAcrs,
       },
       {
         labelKey: 'collection:menu.deposits',
         icon: Landmark,
         routerLink: '/collection/deposits',
         activePrefix: '/collection/deposits',
-        access: collectionProbe(canOpenDeposits),
+        requires: canOpenDeposits,
       },
       {
         labelKey: 'collection:menu.attempts',
         icon: History,
         routerLink: '/collection/attempts',
         activePrefix: '/collection/attempts',
-        access: collectionProbe(canOpenAttempts),
+        requires: canOpenAttempts,
       },
       {
         // Ready for collection (ticket 317, BackOffice 1994) — what still waits for a
@@ -1089,7 +713,7 @@ export const MENU: ShellMenuItem[] = [
         icon: Hourglass,
         routerLink: '/collection/ready',
         activePrefix: '/collection/ready',
-        access: collectionProbe(canOpenReady),
+        requires: canOpenReady,
       },
       {
         // The area's one WRITE screen (BackOffice 1169) — who serves each branch,
@@ -1104,7 +728,7 @@ export const MENU: ShellMenuItem[] = [
         icon: ClipboardCheck,
         routerLink: '/collection/assignment',
         activePrefix: '/collection/assignment',
-        access: collectionProbe(canOpenAssignment),
+        requires: canOpenAssignment,
       },
       {
         // The accountant's settlement account (spec 267 D1, ticket 268) — and since
@@ -1139,7 +763,7 @@ export const MENU: ShellMenuItem[] = [
         // its emphasis from having an active child, so the group says "you are
         // somewhere in here" rather than competing with the leaf that says where.
         activePrefix: '/collection/settlement',
-        access: collectionProbe(canOpenSettlement),
+        requires: canOpenSettlement,
         items: [
           {
             // 🚩 The ONE leaf that sets `exact`. Its path is a prefix of the three
@@ -1183,11 +807,7 @@ export const MENU: ShellMenuItem[] = [
         // 🚩 And it only HIDES. `Search`/`Download` re-check the grant and refuse
         // with a bare 403 carrying no body — that filter is the boundary, which
         // is why the Page carries its own in-page backstop too.
-        access: accessProbe({
-          key: RETAIL_INVOICE_ACCESS_KEY,
-          run: () => retailInvoiceApi.access(),
-          visible: canOpenRetailInvoice,
-        }),
+        requires: canOpenRetailInvoice,
       },
       {
         // The IDoc Inspector (spec 1386, ticket 296). Same group, same URL
@@ -1203,11 +823,7 @@ export const MENU: ShellMenuItem[] = [
         icon: FileSearch,
         routerLink: '/reports/idoc-inspector',
         activePrefix: '/reports/idoc-inspector',
-        access: accessProbe({
-          key: IDOC_INSPECTOR_ACCESS_KEY,
-          run: () => idocInspectorApi.access(),
-          visible: canOpenIDocInspector,
-        }),
+        requires: canOpenIDocInspector,
       },
       {
         // The SAP export console (BackOffice spec 2579, ticket 461) — after the IDoc inspector,
@@ -1222,11 +838,7 @@ export const MENU: ShellMenuItem[] = [
         icon: CloudUpload,
         routerLink: '/reports/sap-export',
         activePrefix: '/reports/sap-export',
-        access: accessProbe({
-          key: SAP_EXPORT_ACCESS_KEY,
-          run: () => sapExportAccessApi.access(),
-          visible: canOpenSapExport,
-        }),
+        requires: canOpenSapExport,
       },
     ],
   },
@@ -1244,11 +856,7 @@ export const MENU: ShellMenuItem[] = [
         activePrefix: '/pricing/simulation',
         // Same key + call as SimulationPage's own guard → one shared probe.
         // Gated by its OWN grant (POS_SIMULATION_ADMIN), spec 503 / BackOffice 509.
-        access: accessProbe({
-          key: ['simulation', 'access'],
-          run: () => simulationApi.access(),
-          visible: (r) => r.canOpen === true,
-        }),
+        key: 'PosSimulation:03',
       },
       // Bonus Buy Download is hidden from the menu for now (owner, 2026-10-09): not being worked on.
       // The route and page stay; restore the entry (gated by BackOfficeScreen[BbyDownload,03]) to bring it back.
@@ -1262,11 +870,7 @@ export const MENU: ShellMenuItem[] = [
         // doesn't exist server-side yet: the probe maps 404/network to screenAllowed=true
         // (fail-open) so this read-only inquiry degrades gracefully; the list endpoint's
         // 403 ACCESS_DENIED stays the real boundary (spec 061 / contract 057 §4).
-        access: accessProbe({
-          key: BBY_ACCESS_KEY,
-          run: () => bonusBuyAccessApi.access(),
-          visible: (r) => r.screenAllowed === true,
-        }),
+        key: 'BbyInquiry:03',
       },
       {
         labelKey: 'bonus-buy-maintenance:menu.bonusBuyMaintenance',
@@ -1277,11 +881,7 @@ export const MENU: ShellMenuItem[] = [
         // grant, BackOfficeScreen[BbyMaintain,03] (spec 2374), and it FAILS CLOSED: this
         // screen writes every till's offers, so the `Bby/Access` unknown ⇒ shown
         // precedent does not transfer.
-        access: accessProbe({
-          key: BBY_MAINTAIN_ACCESS_KEY,
-          run: () => bbyMaintainApi.access(),
-          visible: canOpenBbyMaintain,
-        }),
+        requires: canOpenBbyMaintain,
       },
       {
         labelKey: 'coupons:menu.coupons',
@@ -1291,11 +891,7 @@ export const MENU: ShellMenuItem[] = [
         // Same key + call as CouponsAdminPage's own guard → one shared probe.
         // The Templates + Import workspaces are admin-only, so the leaf shows on
         // CanAdmin (ticket 521 widens to CanAdmin || CanSupport with Inquiry).
-        access: accessProbe({
-          key: ['coupons', 'access'],
-          run: () => couponsApi.access(),
-          visible: (r) => r.canAdmin === true,
-        }),
+        requires: canAdminCoupons,
       },
       {
         labelKey: 'coupons:menu.couponSupport',
@@ -1306,11 +902,7 @@ export const MENU: ShellMenuItem[] = [
         // (issue 429). Support screen shows on CanSupport, which the server sets =
         // support OR admin — so a support-only agent sees this leaf but NOT the
         // admin Coupons leaf above (ticket 523).
-        access: accessProbe({
-          key: ['coupons', 'access'],
-          run: () => couponsApi.access(),
-          visible: (r) => r.canSupport === true,
-        }),
+        requires: canSupportCoupons,
       },
     ],
   },
@@ -1335,7 +927,7 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.promotions',
         icon: Megaphone,
         routerLink: '/campaigns',
-        access: rulesProbe(canReadAuthoring),
+        requires: canReadAuthoring,
       },
       {
         // The evaluation order (ticket 513): more specific than the list's `/campaigns`, so it
@@ -1343,14 +935,14 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.priority',
         icon: ListOrdered,
         routerLink: '/campaigns/priority',
-        access: rulesProbe(canReadAuthoring),
+        requires: canReadAuthoring,
       },
       {
         // The rule engine's dry run (ticket 514); not Pricing's bonus-buy Simulation.
         labelKey: 'campaigns:menu.simulator',
         icon: FlaskConical,
         routerLink: '/campaigns/simulator',
-        access: rulesProbe(canReadAuthoring),
+        requires: canReadAuthoring,
       },
       {
         // Support's view of the customer sessions (ticket 518); a session
@@ -1358,14 +950,14 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.sessions',
         icon: Receipt,
         routerLink: '/campaigns/sessions',
-        access: rulesProbe(canSupportRules),
+        requires: canSupportRules,
       },
       {
         // Support finds a coupon code across every campaign (ticket 519).
         labelKey: 'campaigns:menu.couponFinder',
         icon: Ticket,
         routerLink: '/campaigns/coupon-finder',
-        access: rulesProbe(canSupportRules),
+        requires: canSupportRules,
       },
       {
         // Support reads a member's wallet, balance and budgets used (ticket 519) — the rule
@@ -1373,14 +965,14 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.customers',
         icon: UserSearch,
         routerLink: '/campaigns/customers',
-        access: rulesProbe(canSupportRules),
+        requires: canSupportRules,
       },
       {
         // One workbook for one promotion, read all or none (ticket 530) — the author's act, so author alone.
         labelKey: 'campaigns:menu.upload',
         icon: FileSpreadsheet,
         routerLink: '/campaigns/upload',
-        access: rulesProbe(canAuthorRules),
+        requires: canAuthorRules,
       },
       {
         // The approver's list of every promotion's upload (ticket 532); an opened upload
@@ -1388,7 +980,7 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaigns:menu.uploads',
         icon: ClipboardCheck,
         routerLink: '/campaigns/uploads',
-        access: rulesProbe(canReadAuthoring),
+        requires: canReadAuthoring,
       },
     ],
   },
@@ -1408,7 +1000,7 @@ export const MENU: ShellMenuItem[] = [
         // leaf lit. The stock and GS1 leaves claim their own longer prefixes, and the rail marks
         // the most specific leaf (`markedLeaf`), so they win on their own pages.
         activePrefix: '/materials',
-        access: materialProbe(canSearchMaterials),
+        requires: canSearchMaterials,
       },
       {
         labelKey: 'materials-search:menu.stockCheck',
@@ -1416,14 +1008,14 @@ export const MENU: ShellMenuItem[] = [
         // The same constant "check stock for selected" links to.
         routerLink: STOCK_CHECK_PATH,
         activePrefix: STOCK_CHECK_PATH,
-        access: materialProbe(canCheckStock),
+        requires: canCheckStock,
       },
       {
         labelKey: 'materials-search:menu.gs1Check',
         icon: ScanBarcode,
         routerLink: '/materials/gs1',
         activePrefix: '/materials/gs1',
-        access: materialProbe(canCheckGs1),
+        requires: canCheckGs1,
       },
     ],
   },
@@ -1440,28 +1032,28 @@ export const MENU: ShellMenuItem[] = [
         icon: Store,
         routerLink: '/deliverect/stores',
         activePrefix: '/deliverect/stores',
-        access: deliverectProbe(canManageStores),
+        requires: canManageStores,
       },
       {
         labelKey: 'deliverect-stores:menu.orders',
         icon: ShoppingBag,
         routerLink: '/deliverect/orders',
         activePrefix: '/deliverect/orders',
-        access: deliverectProbe(canViewOrders),
+        requires: canViewOrders,
       },
       {
         labelKey: 'deliverect-stores:menu.catalog',
         icon: BookCheck,
         routerLink: '/deliverect/catalog',
         activePrefix: '/deliverect/catalog',
-        access: deliverectProbe(canManageCatalog),
+        requires: canManageCatalog,
       },
       {
         labelKey: 'deliverect-stores:menu.terms',
         icon: Handshake,
         routerLink: '/deliverect/terms',
         activePrefix: '/deliverect/terms',
-        access: deliverectProbe(canManageTerms),
+        requires: canManageTerms,
       },
     ],
   },
@@ -1479,21 +1071,21 @@ export const MENU: ShellMenuItem[] = [
         icon: Store,
         routerLink: '/hungerstation/stores',
         activePrefix: '/hungerstation/stores',
-        access: hungerStationProbe(canManageHsStores),
+        requires: canManageHsStores,
       },
       {
         labelKey: 'hungerstation-stores:menu.materials',
         icon: PackageSearch,
         routerLink: '/hungerstation/materials',
         activePrefix: '/hungerstation/materials',
-        access: hungerStationProbe(canManageHsCatalog),
+        requires: canManageHsCatalog,
       },
       {
         labelKey: 'hungerstation-stores:menu.orders',
         icon: ShoppingBag,
         routerLink: '/hungerstation/orders',
         activePrefix: '/hungerstation/orders',
-        access: hungerStationProbe(canViewHsOrders),
+        requires: canViewHsOrders,
       },
       {
         // HungerStation promotions (BackOffice spec 3201, ticket 665) — made here, SENT to HungerStation.
@@ -1501,7 +1093,7 @@ export const MENU: ShellMenuItem[] = [
         icon: BadgePercent,
         routerLink: '/hungerstation/promotions',
         activePrefix: '/hungerstation/promotions',
-        access: hungerStationProbe(canManageHsPromotions),
+        requires: canManageHsPromotions,
       },
     ],
   },
@@ -1517,21 +1109,21 @@ export const MENU: ShellMenuItem[] = [
         icon: Store,
         routerLink: '/hybris-stock/stores',
         activePrefix: '/hybris-stock/stores',
-        access: hybrisStockProbe(canViewHybrisStock),
+        requires: canViewHybrisStock,
       },
       {
         labelKey: 'hybris-stock-stores:menu.materials',
         icon: PackageSearch,
         routerLink: '/hybris-stock/materials',
         activePrefix: '/hybris-stock/materials',
-        access: hybrisStockProbe(canViewHybrisStock),
+        requires: canViewHybrisStock,
       },
       {
         labelKey: 'hybris-stock-stores:menu.pushes',
         icon: ScrollText,
         routerLink: '/hybris-stock/pushes',
         activePrefix: '/hybris-stock/pushes',
-        access: hybrisStockProbe(canViewHybrisStock),
+        requires: canViewHybrisStock,
       },
     ],
   },

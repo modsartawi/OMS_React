@@ -51,11 +51,8 @@ interface Props {
   hotBby: string | null
   onHotChange: (bby: string | null) => void
   /** Open a promotion's bonus-buy record as a modal in place. `null` while the grant is
-   *  unprobed or denied — UNKNOWN MEANS ABSENT here (ticket 118). The inquiry screen's
-   *  probe degrades an unreachable endpoint to *granted*, which is right for a read-only
-   *  inquiry and wrong on a card: reused verbatim it would put a button on every card
-   *  that fails on every click, today, on live SIS.Api. The Page therefore gates on
-   *  `probed && screenAllowed` and passes null otherwise. */
+   *  pending or denied (ticket 118): the Page gates on `canOpenBbyInquiry` and passes
+   *  null otherwise. */
   onOpenBbyDetails: ((bbyNumber: string) => void) | null
 }
 

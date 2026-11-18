@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Ban, Check, Loader2, X } from 'lucide-react'
 import { ApiError } from '@/core/api'
@@ -12,7 +11,8 @@ import Textarea from '@/core/ui/Textarea'
 import { formatCount } from '@/core/util/bidi'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { BbyOverrides } from '@/core/models/bonus-buy-download'
-import { bonusBuyDownloadApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { bonusBuyDownloadApi, canOpenBbyDownload } from './api'
 
 // Screen half of map 489 / spec 504 (ticket 516). Full-width single column so EVERY
 // override field is visible at once (owner: attributes must show completely, no
@@ -70,10 +70,7 @@ function parseNumbers(text: string): string[] {
 export default function BonusBuyDownloadPage() {
   const { t } = useTranslation('bonus-buy-download')
 
-  const access = useQuery({
-    queryKey: ['bonus-buy-download', 'access'],
-    queryFn: () => bonusBuyDownloadApi.access(),
-  })
+  const permissions = usePermissions()
 
   // --- form state ---
   const [numbersText, setNumbersText] = useState('')
@@ -189,7 +186,7 @@ export default function BonusBuyDownloadPage() {
   }, [rows])
 
   // --- access gate (spinner → denied → content) ---
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -197,7 +194,7 @@ export default function BonusBuyDownloadPage() {
       </div>
     )
   }
-  if (access.data?.screenAllowed !== true) {
+  if (!canOpenBbyDownload(permissions)) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
         <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>

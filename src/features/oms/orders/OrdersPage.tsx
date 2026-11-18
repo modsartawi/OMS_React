@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { AlertTriangle, Bookmark, Loader2, Search } from 'lucide-react'
@@ -35,8 +35,9 @@ import {
   type InspectorPrefs,
 } from '@/core/list/list-keys'
 import type { OrderDocumentRow, OrderSearchCriteria } from '@/core/models/order-document'
-import { omsAccessQuery } from '@/core/oms/api'
 import { canViewInsurance } from '@/core/oms/insurance-grant'
+import { canOpenList as canOpenListGrant } from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import { fromListState } from '@/core/oms/open-intent'
 import { useSession } from '@/core/session'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -118,10 +119,10 @@ export default function OrdersPage() {
   const activeView = viewStore.views.find((v) => v.id === activeViewId) ?? null
   const [viewDialog, setViewDialog] = useState<ViewNameMode<SavedView> | null>(null)
   const defaultColumns = useRef<ColumnState[] | null>(null)
-  // The shared OMS probe (same key and options as the menu and both OMS pages: one call).
-  const access = useQuery(omsAccessQuery())
-  const canOpenList = access.data?.canOpenList === true
-  const insuranceGrant = canViewInsurance(access.data)
+  // The one permissions answer (oms 909), shared with the menu and both OMS pages.
+  const permissions = usePermissions()
+  const canOpenList = canOpenListGrant(permissions)
+  const insuranceGrant = canViewInsurance(permissions)
   const grants = useMemo(() => ({ canViewInsurance: insuranceGrant }), [insuranceGrant])
 
   // Drift is measured on what this session may hold: a view's hidden patient ID is not a change.
@@ -418,7 +419,7 @@ export default function OrdersPage() {
   )
 
   // ----- access states ------------------------------------------------------
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -427,12 +428,12 @@ export default function OrdersPage() {
     )
   }
   if (!canOpenList) {
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-oms-denied="orders">
         <div className="text-base font-semibold tracking-tight">{t(unreachable ? 'access.unavailableTitle' : 'access.deniedTitle')}</div>
         <p className="mt-2 text-sm text-muted-foreground">
-          {unreachable ? apiErrorMessage(access.error, t('access.unavailableHint')) : t('access.deniedHint')}
+          {unreachable ? t('access.unavailableHint') : t('access.deniedHint')}
         </p>
       </div>
     )

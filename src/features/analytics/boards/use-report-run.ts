@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useReducer } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { AnalyticsReport } from '@/core/models/analytics'
-import { analyticsAccessQuery, canAuthorAnalytics } from './access'
+import { canAuthorAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { analyticsApi, analyticsWordsKey } from './api'
 import { NO_WAVE } from './board'
 import type { ParamNotice } from './BoardPanel'
@@ -30,8 +31,8 @@ export function useReportRun(report: AnalyticsReport, values: ParamValues, linkF
   const onFetching = useCallback((id: string, on: boolean) => report_([id, on]), [])
 
   // 823: the author reads every "not filtered by …" line; a runner only those for parameters moved off their defaults.
-  const access = useQuery(analyticsAccessQuery())
-  const role: 'author' | 'runner' = canAuthorAnalytics(access.data) ? 'author' : 'runner'
+  const access = useAnalyticsPermissions()
+  const role: 'author' | 'runner' = canAuthorAnalytics(access) ? 'author' : 'runner'
 
   const body = useMemo(() => ({ revision: report.revision, values: runValues(params, values) }), [report.revision, params, values])
   const asked = useMemo(() => wordsAsked(report.definition), [report.definition])

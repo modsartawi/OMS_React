@@ -9,7 +9,8 @@ import type { AnalyticsBoard, AnalyticsModel } from '@/core/models/analytics'
 import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canAuthorAnalytics, canViewAnalytics } from './access'
+import { canAuthorAnalytics, canViewAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey } from './api'
 import AskBox from './AskBox'
 import { inLogicalOrder, NO_WAVE } from './board'
@@ -54,7 +55,7 @@ import { useItemActor } from './use-item-save'
 export default function AnalyticsBoardPage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('board.title')} subtitle={t('board.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('board.title')} subtitle={t('board.subtitle')}>
       <BoardBody />
     </ScreenGate>
   )
@@ -99,8 +100,8 @@ function BoardView({ board, model }: { board: AnalyticsBoard; model: AnalyticsMo
   const onParamNotice = useCallback((id: string, n: ParamNotice) => notice([id, n]), [])
   const { fellBack, invalid } = stripNotices(declared.params, link.fellBack, notices)
   // 823: the author reads every "not filtered by …" line; a runner only those for parameters moved off their defaults.
-  const access = useQuery(analyticsAccessQuery())
-  const role = canAuthorAnalytics(access.data) ? 'author' : 'runner'
+  const access = useAnalyticsPermissions()
+  const role = canAuthorAnalytics(access) ? 'author' : 'runner'
 
   const panels = useMemo(() => inLogicalOrder(board.definition.panels), [board.definition.panels])
   const viewPanels = panels.filter((p): p is ViewPanel => p.kind === 'view')

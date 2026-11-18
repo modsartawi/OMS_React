@@ -9,7 +9,8 @@ import Chip from '@/core/ui/Chip'
 import IconButton from '@/core/ui/IconButton'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
-import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
+import type { AuthzRoleLists, RoleCatalogEntry } from '@/core/models/authz-admin'
+import { usePermissions } from '@/core/permissions'
 import { authzAdminApi } from './api'
 import { formatStamp, grantText, inScope } from './helpers'
 import EditRoleModal from './EditRoleModal'
@@ -22,15 +23,17 @@ type Tab = 'grants' | 'heldby' | 'audit'
 
 interface Props {
   roleName: string
-  access: AuthzAccessResult
+  roleLists: AuthzRoleLists
   catalog: RoleCatalogEntry[]
   onJumpToUser: (userId: string) => void
   onDeleted: () => void
 }
 
-export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser, onDeleted }: Props) {
+export default function RoleDetailPane({ roleName, roleLists, catalog, onJumpToUser, onDeleted }: Props) {
   const { t } = useTranslation('authz-admin')
   const qc = useQueryClient()
+  // The maint tier comes from the one permissions answer (`extras.canManageRoles`, oms 909), not the role-lists read.
+  const { canManageRoles } = usePermissions().extras
   const [tab, setTab] = useState<Tab>('grants')
   const [editOpen, setEditOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
@@ -91,7 +94,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
   }
 
   const d = detail.data
-  const canManage = access.canManageRoles
+  const canManage = canManageRoles
   const isProtected = d?.isProtected ?? false
 
   async function unbindGrant(authorizationId: string, label: string) {
@@ -377,7 +380,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
               <span className="text-muted-foreground">{t('roleDetail.noHolders')}</span>
             ) : (
               holders.data.map((h) => {
-                const revocable = inScope(roleName, access.revocableRoles)
+                const revocable = inScope(roleName, roleLists.revocableRoles)
                 return (
                   <div
                     key={h.userId}
@@ -420,7 +423,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
             {/* Add holders: only for a role in the admin's assignable scope (the person-side assign's rule),
                 and only once the holders are known — the dialog greys "Already holds" from that list, so
                 it never opens over a pending or failed read (it would offer current holders as pickable). */}
-            {inScope(roleName, access.assignableRoles) && (
+            {inScope(roleName, roleLists.assignableRoles) && (
               <div>
                 <Button
                   variant="secondary"

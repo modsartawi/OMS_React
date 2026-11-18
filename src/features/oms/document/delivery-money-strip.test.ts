@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OrderDocumentRow } from '@/core/models/order-document'
+import { permissionsOf } from '@/core/permissions'
 import { asksDeliveryMoneyStrip, deliveryMoneyStrip, orderRowKey, orderRowOf, stripRefreshKey } from './delivery-money-strip'
 
 /** The order 1006358459's search row, as 3391 would answer an identifier search for it. */
@@ -41,8 +42,9 @@ const ROW: OrderDocumentRow = {
 }
 
 const DELIVERY = { refDocumentNo: '1006358459', amountDue: 40.5 }
-const GRANTED = { canOpenList: true, canOpenDetail: true, canViewInsurance: true }
-const NO_INSURANCE_GRANT = { canOpenList: true, canOpenDetail: true }
+const GRANTED = permissionsOf({ screens: ['DocumentList:03', 'DocumentDetails:03', 'OmsInsuranceView:03'] })
+const NO_INSURANCE_GRANT = permissionsOf({ screens: ['DocumentList:03', 'DocumentDetails:03'] })
+const LIST_ONLY = permissionsOf({ screens: ['DocumentList:03'] })
 
 describe('delivery money strip: shows source, patient, insurer and the delivery\'s amount due', () => {
   it('1006358459: CHANNEL, patient 63.65, insurer 2.66 and the delivery\'s own 40.50, linked to the order\'s Insurance section', () => {
@@ -82,12 +84,12 @@ describe('delivery money strip: shows source, patient, insurer and the delivery\
   })
 
   it('the row is asked only on a delivery with an order, under the list grant', () => {
-    const ctx = { openedAs: 'delivery' as const, refDocumentNo: '1006358459', access: NO_INSURANCE_GRANT }
+    const ctx = { openedAs: 'delivery' as const, refDocumentNo: '1006358459', permissions: NO_INSURANCE_GRANT }
     expect(asksDeliveryMoneyStrip(ctx)).toBe(true)
     expect(asksDeliveryMoneyStrip({ ...ctx, openedAs: 'document' })).toBe(false)
     expect(asksDeliveryMoneyStrip({ ...ctx, refDocumentNo: ' ' })).toBe(false)
-    expect(asksDeliveryMoneyStrip({ ...ctx, access: { canOpenDetail: true } })).toBe(false)
-    expect(asksDeliveryMoneyStrip({ ...ctx, access: undefined })).toBe(false)
+    expect(asksDeliveryMoneyStrip({ ...ctx, permissions: permissionsOf({ screens: ['DocumentDetails:03'] }) })).toBe(false)
+    expect(asksDeliveryMoneyStrip({ ...ctx, permissions: permissionsOf(null) })).toBe(false)
   })
 })
 
@@ -99,8 +101,8 @@ describe('delivery money strip: no link without the insurance grant', () => {
     expect(strip.link).toBeNull()
   })
 
-  it('a pending or failed probe is no grant', () => {
-    expect(deliveryMoneyStrip(ROW, DELIVERY, undefined)!.link).toBeNull()
+  it('a pending or failed answer is no grant', () => {
+    expect(deliveryMoneyStrip(ROW, DELIVERY, permissionsOf(null))!.link).toBeNull()
   })
 
   it('an order number that needs encoding is encoded in the link', () => {
@@ -111,14 +113,14 @@ describe('delivery money strip: no link without the insurance grant', () => {
 
 describe("delivery money strip: the page's Refresh re-reads it", () => {
   it("a delivery whose strip is asked hands Refresh its order row's key", () => {
-    const key = stripRefreshKey({ openedAs: 'delivery', refDocumentNo: ' 1006358459 ', access: { canOpenList: true } })
+    const key = stripRefreshKey({ openedAs: 'delivery', refDocumentNo: ' 1006358459 ', permissions: LIST_ONLY })
     expect(key).toEqual(['document', 'order-row', '1006358459'])
     expect(key).toEqual(orderRowKey('1006358459'))
   })
 
   it('no strip asked, nothing to refresh: a document, a delivery without its order, or without the list grant', () => {
-    expect(stripRefreshKey({ openedAs: 'document', refDocumentNo: '1006358459', access: { canOpenList: true } })).toBeNull()
-    expect(stripRefreshKey({ openedAs: 'delivery', refDocumentNo: '', access: { canOpenList: true } })).toBeNull()
-    expect(stripRefreshKey({ openedAs: 'delivery', refDocumentNo: '1006358459', access: {} })).toBeNull()
+    expect(stripRefreshKey({ openedAs: 'document', refDocumentNo: '1006358459', permissions: LIST_ONLY })).toBeNull()
+    expect(stripRefreshKey({ openedAs: 'delivery', refDocumentNo: '', permissions: LIST_ONLY })).toBeNull()
+    expect(stripRefreshKey({ openedAs: 'delivery', refDocumentNo: '1006358459', permissions: permissionsOf({ screens: [] }) })).toBeNull()
   })
 })

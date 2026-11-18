@@ -7,7 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
+import { canViewDocTypeConfig } from './api'
 import { deliveryTypesQuery } from './delivery-types-api'
 
 /**
@@ -19,7 +19,6 @@ export default function DeliveryTypesPage() {
   const { t } = useTranslation('doc-type-config')
   return (
     <ScreenGate
-      query={docTypeConfigAccessQuery()}
       can={canViewDocTypeConfig}
       ns="doc-type-config"
       title={t('deliveryTypes.title')}

@@ -8,17 +8,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { materialStockApi, materialStockQuery } from '@/core/materials/stock'
-import type { MaterialAccessResult, MaterialStockCell } from '@/core/models/materials'
+import type { MaterialStockCell } from '@/core/models/materials'
+import { permissionsOf, type Permissions, type ScreenKey } from '@/core/permissions'
 import { detailStockRequest, detailStockRows, detailTabs, resolveDetailTab, simulatorHref, stockTabVisible } from './detail-view'
 
-const grants = (search: boolean, stock: boolean): MaterialAccessResult => ({ canSearchMaterials: search, canCheckStock: stock, canCheckGs1: false })
+const grants = (search: boolean, stock: boolean): Permissions =>
+  permissionsOf({
+    screens: [...(search ? ['ItemInquiryCustome:03'] : []), ...(stock ? ['MaterialStockInquiry:03'] : [])] as ScreenKey[],
+  })
+/** No answer at all — the permissions call failed. */
+const none = permissionsOf(null)
 
 describe('stockTabVisible', () => {
   it('needs both the search and the stock grant', () => {
     expect(stockTabVisible(grants(true, true))).toBe(true)
     expect(stockTabVisible(grants(true, false))).toBe(false)
     expect(stockTabVisible(grants(false, true))).toBe(false)
-    expect(stockTabVisible(undefined)).toBe(false)
+    expect(stockTabVisible(none)).toBe(false)
   })
 })
 
@@ -35,7 +41,7 @@ describe('detailStockRequest', () => {
 
   it('is null without the stock grant — there is nothing to ask', () => {
     expect(detailStockRequest('101234', grants(true, false), false)).toBeNull()
-    expect(detailStockRequest('101234', undefined, false)).toBeNull()
+    expect(detailStockRequest('101234', none, false)).toBeNull()
   })
 })
 
@@ -43,7 +49,7 @@ describe('🚩 the Stock tab makes no request without canCheckStock', () => {
   afterEach(() => vi.restoreAllMocks())
 
   /** Mount the Stock tab's very query against a real observer and let it settle. */
-  async function observe(access: MaterialAccessResult | undefined) {
+  async function observe(access: Permissions) {
     const stock = vi.spyOn(materialStockApi, 'stock').mockResolvedValue({ cells: [], storesAsked: 0, materialsAsked: 1 })
     const client = new QueryClient()
     const observer = new QueryObserver(client, materialStockQuery(detailStockRequest('101234', access, false)))
@@ -58,8 +64,8 @@ describe('🚩 the Stock tab makes no request without canCheckStock', () => {
     expect((await observe(grants(true, false))).mock.calls).toEqual([])
   })
 
-  it('with no probe answer at all: no call', async () => {
-    expect((await observe(undefined)).mock.calls).toEqual([])
+  it('with no permissions answer at all: no call', async () => {
+    expect((await observe(none)).mock.calls).toEqual([])
   })
 
   it('with both grants: exactly one call, with the contract body', async () => {

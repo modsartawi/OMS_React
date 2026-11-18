@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import { useCopilotPanel } from '@/core/copilot-panel'
 import type { AnalyticsSqlItem } from '@/core/models/analytics-sql'
 import Button from '@/core/ui/Button'
-import { analyticsAccessQuery, canEditSql } from './access'
+import { canSqlAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { changeByAsking } from './sql-editor'
 
 /**
@@ -17,7 +17,7 @@ export default function ChangeByAsking({ item }: { item: AnalyticsSqlItem }) {
   const { t } = useTranslation('boards')
   const copilot = useCopilotPanel((s) => s.available)
   const openSqlItem = useCopilotPanel((s) => s.openSqlItem)
-  const canSql = canEditSql(useQuery(analyticsAccessQuery()).data)
+  const canSql = canSqlAnalytics(useAnalyticsPermissions())
   if (!changeByAsking(item, { copilot, canSql })) return null
   return (
     <Button

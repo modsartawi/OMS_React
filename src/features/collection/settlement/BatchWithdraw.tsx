@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { COLLECTION_ACCESS_KEY, collectionAccessQuery } from '@/core/collection/api'
 import { formatMoneyOfUnknownCurrency } from '@/core/money'
 import type { SettlementBulkCancelResult, SettlementBulkCancelRow } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
@@ -19,6 +18,7 @@ import { supersedeWarning } from './change-request'
 import { REASON_MAX } from './posting'
 import ReasonField from './ReasonField'
 import SupersedeNote from './SupersedeNote'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * **Cancel as a unit** — a posted batch withdrawn in one act (ticket 273, spec 267
@@ -69,8 +69,8 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
   const [outcome, setOutcome] = useState<SettlementBulkCancelResult | null>(null)
   // The area's ONE probe, already in the cache — the gate above this screen read it
   // with the same key and options, so this costs no second request.
-  const access = useQuery(collectionAccessQuery())
-  const canSupervise = canSuperviseSettlement(access.data)
+  const permissions = usePermissions()
+  const canSupervise = canSuperviseSettlement(permissions)
 
   const withdraw = useMutation({
     mutationFn: () => settlementApi.bulkCancel(batchId, reason.trim()),
@@ -88,12 +88,9 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
     // 🚩 A refused ROW is not an error — it arrives inside a 200 and is reported
     // below by name. `onError` is only for the call itself failing, which leaves the
     // whole batch's state unknown rather than decided.
-    onError: (error) => {
-      // 310: the bare 403 — this session does not supervise (any more). Re-reading the
-      // probe is what takes the act away; the banner below names the refusal.
-      if (supervisionFailure(error) === 'forbidden')
-        void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
-    },
+    // 310: the bare 403 — this session does not supervise (any more). `@/core/api`
+    // invalidates the one permissions answer on it, which takes the act away; the
+    // banner below names the refusal.
   })
 
   const ready = reason.trim().length > 0 && !withdraw.isPending

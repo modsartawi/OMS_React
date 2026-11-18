@@ -5,10 +5,9 @@ import type { BbyListResult } from '@/core/models/bonus-buy-inquiry'
 // unwraps the SIS.Api envelope, returns `.data`, and maps failures to ApiError. The
 // inquiry read endpoints share the `Bby/*` prefix (contracts 057/058) — this module
 // owns the one the SCREEN alone needs: the list search. Detail and GroupingMembers
-// moved to `@/core/bonus-buy/api` with the modal they feed (ticket 112), and the ACCESS
-// PROBE followed them there (ticket 118) once the Simulation screen became a second
-// consumer — a feature may never import another feature. Its behaviour is unchanged by
-// the move; `bonusBuyAccessApi.access` is the same call, read from the shared layer.
+// moved to `@/core/bonus-buy/api` with the modal they feed (ticket 112), and the screen's
+// grant predicate (`canOpenBbyInquiry`) followed them there (ticket 118) once the
+// Simulation screen became a second consumer — a feature may never import another feature.
 // All are DESIGNED contracts, built later on SIS.Api.
 const BASE = 'Bby'
 

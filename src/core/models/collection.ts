@@ -1,112 +1,13 @@
 /**
  * Collections area models (spec 249).
  *
- * The whole area's wire vocabulary: the access probe, the four grids' row models,
+ * The whole area's wire vocabulary: the four grids' row models,
  * and — since ticket 259 joined the two waves — the two documents' print-ready
  * contracts. The rule governing all of it is spec 249's §0: **the client cannot
  * format**, so a money field on a document contract is a pre-formatted `string`
  * and never a `number`.
  */
 import type { AttachmentOwnerSiblings, StoredAttachment, WithdrawnAttachment } from './attachment'
-
-/**
- * `GET CollectionWeb/Access` — the whole area's probe (spec 249 §"Getting in",
- * 244 §10). **One call, one boolean per screen**: the menu needs them all at once
- * to draw one group, and a probe each would be a round trip each to answer one
- * question.
- *
- * The first four flags map 1:1 onto the four existing WPF `ControllerID` grants —
- * `CollectionInquiry`, `AcrInquiry`, `DepositInquiry`, `CollectionAttempts` —
- * reused unchanged, so a WPF user's current rights carry to the web and no new
- * permission is designed or seeded. Supervisor versus accountant is which of
- * these four finance assigned, not a different screen.
- *
- * ⚠️ **The probe only hides the menu.** The endpoint grant filter is the real
- * boundary: a hand-typed URL must be refused by the server, not merely unlinked
- * by the client. Both exist for different reasons and neither substitutes for
- * the other.
- *
- * ⚠️ **The door does not exist yet** — BackOffice 1090 owns it, and ticket 259
- * is the wave-joining event. Until then this route answers a bare 403 (issue
- * 802's default-deny inversion), which the client reads as "no group", the
- * correct posture for an unbuilt door.
- */
-export interface CollectionAccessResult {
-  canOpenCollections: boolean
-  canOpenAcrs: boolean
-  canOpenDeposits: boolean
-  canOpenAttempts: boolean
-  /**
-   * **Collection Assignment** (BackOffice 1169) — the fifth flag, and the only
-   * one that is not a read.
-   *
-   * 🚩 **Its grant is genuinely new, and it is never OR-ed with the four above.**
-   * The others reuse WPF `ControllerID`s a finance user may already hold;
-   * `CollectionAssignment` is web-only and gates the screen that REWRITES the
-   * pairing all four of those grids filter by, so holding a read grant must never
-   * light it.
-   *
-   * ⚠️ **False for everybody on day one.** The seed mints the grant and binds
-   * nobody, so the item simply does not appear until an administrator assigns
-   * `COLLECTION_ASSIGNMENT` in Authz Admin. That is the staged rollout, not a
-   * defect — the same situation `CollectionAttempts` shipped in.
-   *
-   * Optional so a SIS.Api released ahead of this slice answers the four it knows
-   * and the fifth item stays hidden, rather than the whole probe reading as
-   * malformed and hiding the area.
-   */
-  canOpenAssignment?: boolean
-  /**
-   * The **settlement grant** the accountant's account rides on (spec 267 D1,
-   * ticket 268). Not a new probe and not a new area: the accountant's screen is a
-   * further item in the same nav group under the same `/collection/*` prefix, so
-   * it is one more boolean on the same one call.
-   *
-   * ⚠️ **The door does not answer it yet** — BackOffice spec 1173 owns the flag,
-   * and ticket 274 is the wave-joining event. Until it lands the field arrives
-   * `undefined`, `canOpenSettlement` reads that as a denial (`=== true`, nothing
-   * looser), and the leaf and the route stay shut. That is the correct posture for
-   * an unbuilt grant and it is why 268 needs no feature flag: the grant IS the
-   * off-switch (D1), and today it is off.
-   *
-   * 🚩 Declared **required** rather than optional on purpose — deliberately
-   * unlike `canOpenAssignment` above, whose ticket wanted a SIS.Api released
-   * ahead of it to still answer a well-formed probe. Here the contract owes the
-   * boolean; an optional field would let a screen read a missing grant as an
-   * acceptable shape and quietly grow a `?? true` somewhere.
-   */
-  canOpenSettlement: boolean
-  /**
-   * **Settlement supervision** (BackOffice spec 1976, ticket 1977) — not a screen but a
-   * POWER on one: whether the settlement screens offer the accountant supervisor's
-   * acts: **Approve** and **Reject** on a pending surplus (ticket 309), and **Cancel**,
-   * **Close-out** and **batch withdrawal** (ticket 310, BackOffice 1979).
-   *
-   * 🚩 **UX only, and the server says so.** `Settlement/Approve`, `Reject`, `Cancel`,
-   * `CloseOut` and `Bulk/Cancel` sit behind their own grant filter and answer a bare 403 to a session without it,
-   * whatever this flag said — hiding the buttons is courtesy, the 403 is the guard,
-   * and the screen handles the 403 anyway.
-   *
-   * 🚩 Required, and read `=== true` (`canSuperviseSettlement`), for the reason
-   * `canOpenSettlement` gives above: the contract owes the boolean, and an optional
-   * field is how a missing grant quietly becomes a `?? true`.
-   */
-  canSuperviseSettlement: boolean
-  /**
-   * **Ready for collection** (BackOffice spec 1976, ticket 1994) — whether the
-   * session holds `BackOfficeScreen[CollectionReady,03]`, the read-only screen of
-   * closed days and prepared receipts still waiting for a collector (ticket 317).
-   *
-   * 🚩 **Its own grant, independent of every other flag.** Holding Collections does
-   * not light it, nor the reverse; the accountant roles and the collector
-   * supervisor (1995) are bound to it on their own.
-   *
-   * 🚩 Required, and read `=== true` (`canOpenReady`), for the reason
-   * `canOpenSettlement` gives above: the contract owes the boolean, and an optional
-   * field is how a missing grant quietly becomes a `?? true`.
-   */
-  canOpenReady: boolean
-}
 
 /**
  * `GET CollectionWeb/Collections` — one row of the Cash Collections grid (ticket
@@ -1021,8 +922,6 @@ export interface SlipCountedSiblings {
  * 325 they are ALIASES of the shared ones in `./attachment`, which the order page's
  * prescriptions read too: nothing is renamed on the wire, and no slip reader changes.
  */
-export type { AttachmentAccess } from './attachment'
-
 /** One STORED slip of a store day — `StoredAttachment` (`AttachmentDto`). */
 export type StoredSlip = StoredAttachment
 

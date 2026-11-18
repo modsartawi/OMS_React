@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
@@ -10,12 +10,13 @@ import { toast } from 'sonner'
 // renders zero grids, so the setup side-effect import and the column-definition builder
 // went with it.
 import { apiErrorMessage } from '@/core/api'
-import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
+import { canOpenBbyInquiry } from '@/core/bonus-buy/api'
 import DetailModal from '@/core/bonus-buy/DetailModal'
 import { useCommands } from '@/core/commands/registry'
 import { confirmAction } from '@/core/services/confirm'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
-import { simulationApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { canClearPricingCache, canOpenSimulation, simulationApi } from './api'
 // The header form is no longer rendered here — it is the run strip's expansion
 // (ticket 113); only its state shape and defaults are the Page's.
 import { defaultHeader, type SimHeaderState } from './SimHeaderForm'
@@ -33,8 +34,8 @@ import { buildSimulateRequest } from './request'
 import { isStaleRun } from './staleness'
 import { simulationMaterialParam } from './material-param'
 
-// Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
-// pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
+// Ticket 013 — the POS Simulation tracer. Self-guards on `canOpenSimulation` (the one
+// permissions answer the menu leaf reads too, oms 909), then: a 4-column
 // header form + a basic items entry → Process (POST Pricing/Simulate) → Net Total +
 // per-line results grid with red/amber/green status dots + an error/warning banner.
 // The condition-card detail (014), bonus-buy tabs (015) and editable grids (016)
@@ -42,17 +43,14 @@ import { simulationMaterialParam } from './material-param'
 export default function SimulationPage() {
   const { t } = useTranslation('simulation')
 
-  const access = useQuery({ queryKey: ['simulation', 'access'], queryFn: () => simulationApi.access() })
+  // The one permissions answer (oms 909): the screen grant, the cache-admin grant and the
+  // bonus-buy grant all read off it.
+  const permissions = usePermissions()
 
-  // Pricing-cache-admin probe (ticket 051, spec 022). Its OWN key — a DISTINCT grant
-  // from screen-open — gating the "Clear cache" button below. Show/hide hygiene only:
-  // the server enforces the grant on the clear call (ticket 052). Errors/absence leave
-  // canClear falsy → no button, the safe default for a not-yet-deployed endpoint.
-  const cacheAccess = useQuery({
-    queryKey: ['simulation', 'cacheAccess'],
-    queryFn: () => simulationApi.cacheAccess(),
-  })
-  const canClearCache = cacheAccess.data?.canClear === true
+  // Pricing-cache-admin grant (ticket 051, spec 022) — a DISTINCT grant from screen-open —
+  // gating the "Clear cache" button below. Show/hide hygiene only: the server enforces the
+  // grant on the clear call (ticket 052). A pending or failed answer → no button.
+  const canClearCache = canClearPricingCache(permissions)
 
   // Whole-cache clear (ticket 052). On success a confirmation toast; on the server's
   // rate-limit (a success:false BUSINESS envelope, thrown as ApiError) surface its
@@ -75,28 +73,11 @@ export default function SimulationPage() {
   }
 
   // The bonus-buy grant (ticket 118) — a grant this screen does not own, over a record
-  // this screen does not own. It is the SAME `Bby/Access` screen-open probe the menu and
-  // the inquiry screen read, consumed unchanged and under the same cache key, so the
-  // three of them cost one call. There is no details-specific endpoint; what differs
-  // here is only how strictly the answer is read.
-  //
-  // It degrades an unreachable
-  // endpoint to `{ screenAllowed: true, probed: false }` — correct for the read-only
-  // inquiry screen it was written for, wrong on a promotion card: reused verbatim it
-  // would put a button on every card that fails on every click, today, because
-  // GET Bby/Detail is a designed, unbuilt contract. So the gate is
-  // `probed && screenAllowed` — UNKNOWN MEANS ABSENT — and the affordance ships DARK
-  // until the backend endpoint exists.
-  //
-  // Nothing on the screen waits on this query. It is not a route guard; the rail renders
-  // off the promo view the moment a run returns, and the control appears if and when the
-  // probe resolves to a confirmed grant.
-  const bbyAccess = useQuery({
-    queryKey: BBY_ACCESS_KEY,
-    queryFn: () => bonusBuyAccessApi.access(),
-  })
-  const canOpenBbyDetails =
-    bbyAccess.data?.probed === true && bbyAccess.data.screenAllowed === true
+  // this screen does not own: the SAME `canOpenBbyInquiry` the menu and the inquiry screen
+  // read. Nothing on the screen waits on it; the control appears once the answer is in
+  // and holds `BbyInquiry:03`. (The old probe's 404 "unknown" reading is gone with the
+  // probe: a permissions answer is pending or in, never unknown.)
+  const canOpenBbyDetails = canOpenBbyInquiry(permissions)
 
   // Which bonus buy has its detail modal open (null = none). The ONE exception to this
   // screen's expand-in-place rule: another record, another endpoint, another grant — so
@@ -227,7 +208,7 @@ export default function SimulationPage() {
   // a refused press does nothing. The same command is the palette's Process row.
   // A denied session registers nothing.
   useCommands(
-    access.data?.canOpen === true
+    canOpenSimulation(permissions)
       ? [processCommand({ reason: processReason, run: runProcess })]
       : [],
   )
@@ -245,7 +226,7 @@ export default function SimulationPage() {
   }
 
   // ----- access states ------------------------------------------------------
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -253,7 +234,7 @@ export default function SimulationPage() {
       </div>
     )
   }
-  if (access.data?.canOpen !== true) {
+  if (!canOpenSimulation(permissions)) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
         <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>

@@ -14,7 +14,7 @@ const { readRuleHitsQuery, writeRuleHitsQuery } = await import('./query')
 const { ruleHitsApi, ruleHitsFileName } = await import('./api')
 const { MENU } = await import('@/layout/menu-model')
 const { resolveMenu } = await import('@/layout/useVisibleMenu')
-const { INSURANCE_RULES_ACCESS_KEY } = await import('@/core/insurance-rules/access')
+const { permissionsOf } = await import('@/core/permissions')
 
 const TODAY = '2026-11-16'
 const read = (qs: string) => readRuleHitsQuery(new URLSearchParams(qs), TODAY)
@@ -56,24 +56,16 @@ describe('3981 — the Rule hits page', () => {
 
   it('RuleHitsPage_HiddenWithoutGrant', () => {
     type Item = (typeof MENU)[number]
-    const keyOf = (k: readonly unknown[]) => JSON.stringify(k)
-    const gated = (items: Item[]): Item[] => items.flatMap((i) => [...(i.access ? [i] : []), ...gated(i.items ?? [])])
     const leaves = (items: Item[]): Item[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
-    // Every probe but the insurance area's errors; the area answers `access`.
-    const shown = (access: Record<string, unknown>) => {
-      const states = gated(MENU).map((i) =>
-        keyOf(i.access!.key) === keyOf(INSURANCE_RULES_ACCESS_KEY)
-          ? { isPending: false, isSuccess: true, data: access }
-          : { isPending: false, isSuccess: false, data: undefined },
-      )
-      return leaves(resolveMenu(MENU, states).items).map((l) => [l.labelKey, l.routerLink])
-    }
+    // The one permissions answer (oms 909) holding exactly `screens`.
+    const shown = (...screens: string[]) =>
+      leaves(resolveMenu(MENU, permissionsOf({ screens })).items).map((l) => [l.labelKey, l.routerLink])
     const leaf = ['insurance-rules:menu.ruleHits', '/insurance-rules/rule-hits']
 
-    expect(shown({ canRuleHits: true })).toEqual([leaf])
-    // Every insurance-rules grant but this one: the leaf stays hidden, and so does an absent or non-true flag.
-    expect(shown({ canGuards: true, canMetrics: true, canPatientLists: true, canRuleHits: false })).not.toContainEqual(leaf)
-    expect(shown({ canGuards: true })).not.toContainEqual(leaf)
-    expect(shown({ canRuleHits: 'true' })).toEqual([])
+    expect(shown('InsuranceRuleHits:03')).toContainEqual(leaf)
+    // Every other insurance-rules grant but this one: the leaf stays hidden, and so does a neighbouring command.
+    expect(shown('InsuranceRuleAuthoring:03', 'InsurancePatientBlock:03', 'InsurerSettings:03')).not.toContainEqual(leaf)
+    expect(shown('InsuranceRuleHits:02')).not.toContainEqual(leaf)
+    expect(shown()).not.toContainEqual(leaf)
   })
 })

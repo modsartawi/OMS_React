@@ -16,21 +16,6 @@ export interface AttachmentOwner {
 }
 
 /**
- * `GET AttachmentWeb/Access` — which attachment categories the session holds
- * (BackOffice 2034) and which it may withdraw from (BackOffice 2035). Cookie-only,
- * not grant-gated, and a 503 `NOT_SET_UP` until the File Server key exists.
- *
- * ⚠️ **For drawing only**: every AttachmentWeb route checks the grant again.
- * Both lists are read with a strict array-membership test, never truthiness — a
- * malformed answer (a bare string, a missing field) is a denial.
- */
-export interface AttachmentAccess {
-  categories: string[]
-  /** The withdraw grant's categories (BackOffice 2035). Optional: an older SIS.Api omits it. */
-  withdrawCategories?: string[]
-}
-
-/**
  * `GET AttachmentWeb/ByOwner?ownerKind=…&ownerKey=…` — one STORED attachment of an
  * owner (BackOffice 2034 + 2035, `AttachmentDto` on pricing2), camel-cased by the
  * serializer, with **nothing added and nothing renamed**. `data` is these, newest

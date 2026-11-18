@@ -8,7 +8,7 @@ import { CalendarClock, RotateCcw } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { canViewSourcingAdvisor, sourcingAdvisorAccessQuery } from '@/core/sourcing-advisor/access'
+import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Button from '@/core/ui/Button'
@@ -51,7 +51,7 @@ import {
 export default function SourcingAdvisorPage() {
   const { t } = useTranslation('sourcing-advisor')
   return (
-    <ScreenGate query={sourcingAdvisorAccessQuery()} can={canViewSourcingAdvisor} ns="sourcing-advisor" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewSourcingAdvisor} ns="sourcing-advisor" title={t('title')} subtitle={t('subtitle')}>
       <Summary />
     </ScreenGate>
   )

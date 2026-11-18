@@ -1,6 +1,6 @@
 /**
- * The Material search's server calls (ticket 451, BackOffice spec 2544). The area's access probe
- * is shared and lives in `@/core/materials/api`; these three doors are this feature's alone.
+ * The Material search's server calls (ticket 451, BackOffice spec 2544). The area's grants are
+ * shared and live in `@/core/materials/access`; these three doors are this feature's alone.
  *
  * Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its. A
  * refusal arrives as an `ApiError` — branch on it with `apiErrorCode` (`MAT-00006`), show it with

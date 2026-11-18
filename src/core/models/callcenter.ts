@@ -942,11 +942,6 @@ export interface AgentDocumentSource {
   isDefault: boolean
 }
 
-/** The screen-access probe (134 §6). One boolean; open implies act. */
-export interface CallCenterAccessResult {
-  canOpenConsole: boolean
-}
-
 /**
  * One catalogue row as `GET CallCenterWeb/ItemSearch` answers it (BackOffice
  * [799](C:\Work\DMSCO\BackOffice\.issues\799-cc-item-search-endpoint.md)).

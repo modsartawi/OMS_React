@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Input from '@/core/ui/Input'
-import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
+import type { AuthzRoleLists, RoleCatalogEntry } from '@/core/models/authz-admin'
+import { usePermissions } from '@/core/permissions'
 import { roleKind } from './helpers'
 import RoleDetailPane from './RoleDetailPane'
 import NewRoleModal from './NewRoleModal'
@@ -16,15 +17,17 @@ type CardKey = 'all' | 'single' | 'composite' | 'system'
 const CARD_KEYS: CardKey[] = ['all', 'single', 'composite', 'system']
 
 interface Props {
-  access: AuthzAccessResult
+  roleLists: AuthzRoleLists
   catalog: RoleCatalogEntry[]
   /** Jump to a person in the Users workspace (from a role's Held-by tab). */
   onJumpToUser: (userId: string) => void
 }
 
-export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props) {
+export default function RolesWorkspace({ roleLists, catalog, onJumpToUser }: Props) {
   const { t } = useTranslation('authz-admin')
   const qc = useQueryClient()
+  // The maint tier comes from the one permissions answer (`extras.canManageRoles`, oms 909), not the role-lists read.
+  const { canManageRoles } = usePermissions().extras
 
   const [term, setTerm] = useState('')
   const [card, setCard] = useState<CardKey>('all')
@@ -76,7 +79,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
           autoFocus
           data-authz-roles-search=""
         />
-        {access.canManageRoles && (
+        {canManageRoles && (
           <Button variant="primary" onClick={() => setNewOpen(true)} data-authz-new-role="">
             <Plus className="h-4 w-4" aria-hidden />
             {t('rolesWs.newRole')}
@@ -179,7 +182,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
             <RoleDetailPane
               key={selected}
               roleName={selected}
-              access={access}
+              roleLists={roleLists}
               catalog={catalog}
               onJumpToUser={onJumpToUser}
               onDeleted={() => setSelected(null)}

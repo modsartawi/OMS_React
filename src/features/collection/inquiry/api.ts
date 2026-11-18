@@ -28,7 +28,6 @@ import type { AttachmentTarget } from '@/core/attachments/upload'
 import type {
   AcrDocument,
   AcrInquiryRow,
-  CollectionAccessResult,
   CollectionAttemptRow,
   CollectionInquiryRow,
   CollectionReadyRow,
@@ -36,6 +35,7 @@ import type {
   SlipCountedSiblings,
   VoucherDocument,
 } from '@/core/models/collection'
+import type { Permissions } from '@/core/permissions'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
 import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignment-upload'
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
@@ -64,8 +64,7 @@ export const ACR_NOT_FOUND = 'AcrNotFound'
 /**
  * The ONE cache key and options the *Served by* picker and every screen that lands
  * on its `defaultScope` share (BackOffice 1163 for the picker, 1165 for the
- * landing), on `collectionAccessQuery`'s shape and for its reasons: react-query
- * merges concurrent observers' options, so the key and its options travel together
+ * landing): react-query merges concurrent observers' options, so the key and its options travel together
  * rather than being re-spelled per consumer.
  *
  * 🚩 Unlike that one it stays **here**, in the feature: the picker's roster is the
@@ -167,12 +166,10 @@ export function markRosterChanged(
  * feature became the probe's second consumer, because a feature may not import
  * another feature's api. What stays here is what this feature owns.
  */
-type Access = CollectionAccessResult | null | undefined
-
-export const canOpenCollections = (r: Access): boolean => r?.canOpenCollections === true
-export const canOpenAcrs = (r: Access): boolean => r?.canOpenAcrs === true
-export const canOpenDeposits = (r: Access): boolean => r?.canOpenDeposits === true
-export const canOpenAttempts = (r: Access): boolean => r?.canOpenAttempts === true
+export const canOpenCollections = (p: Permissions): boolean => p.has('CollectionInquiry:03')
+export const canOpenAcrs = (p: Permissions): boolean => p.has('AcrInquiry:03')
+export const canOpenDeposits = (p: Permissions): boolean => p.has('DepositInquiry:03')
+export const canOpenAttempts = (p: Permissions): boolean => p.has('CollectionAttempts:03')
 
 /**
  * The fifth predicate (BackOffice 1169) — the Collection Assignment admin screen.
@@ -183,7 +180,7 @@ export const canOpenAttempts = (r: Access): boolean => r?.canOpenAttempts === tr
  * master data those four grids filter by. `=== true` for the same reason as its
  * siblings, and because an older SIS.Api simply omits the field.
  */
-export const canOpenAssignment = (r: Access): boolean => r?.canOpenAssignment === true
+export const canOpenAssignment = (p: Permissions): boolean => p.has('CollectionAssignment:03')
 
 /**
  * **Ready for collection** (ticket 317, BackOffice 1994) — the read-only list of
@@ -193,7 +190,7 @@ export const canOpenAssignment = (r: Access): boolean => r?.canOpenAssignment ==
  * `=== true` for the siblings' reason: the contract owes the boolean, and anything
  * that is not an explicit grant is a denial.
  */
-export const canOpenReady = (r: Access): boolean => r?.canOpenReady === true
+export const canOpenReady = (p: Permissions): boolean => p.has('CollectionReady:03')
 
 export const collectionApi = {
   /**

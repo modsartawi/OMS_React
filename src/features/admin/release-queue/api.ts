@@ -1,16 +1,16 @@
 /**
  * The release download queue's server calls (BackOffice spec 3396, ticket 3401; oms-react ticket 791).
  *
- * Doors under `PosReleaseQueue/` (`Services/SIS.Api/Endpoints/Pos/DownloadSlotAdminEndpoints.cs`): `Access` is cookie
- * only and answers `{ canView, canManage }`; every read door needs a cookie session plus `PosRelease.Queue.View`
+ * Doors under `PosReleaseQueue/` (`Services/SIS.Api/Endpoints/Pos/DownloadSlotAdminEndpoints.cs`): the grants are read off the one
+ * permissions answer (oms 909: `PosReleaseQueue:03` / `:06`); every read door needs a cookie session plus `PosRelease.Queue.View`
  * (`BackOfficeScreen[PosReleaseQueue, 03]`) and is a bare 403 without it. Ticket 792 adds `Audit`
  * (View) and the Manage doors (`PUT Pool`, `POST Slots/{leaseId}/Free`, `PosRelease.Queue.Manage`).
  */
 import { keepPreviousData, type QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
+import type { Permissions } from '@/core/permissions'
 import type {
   LiveSlot,
-  ReleaseQueueAccess,
   SlotAuditPage,
   SlotConvergence,
   SlotFreeAnswer,
@@ -24,21 +24,8 @@ import { HISTORY_PAGE_SIZE, historyParams, isManagedRead, type HistoryFilter } f
 
 const BASE = 'PosReleaseQueue'
 
-/** The ONE key the Admin menu leaf and the page's gate share, so the probe costs one call. */
-export const RELEASE_QUEUE_ACCESS_KEY = ['release-queue', 'access'] as const
-
-/** The probe's options, shared by every reader (a refusal is an answer, so no retry). */
-export function releaseQueueAccessQuery() {
-  return {
-    queryKey: RELEASE_QUEUE_ACCESS_KEY,
-    queryFn: () => releaseQueueApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/** `PosRelease.Queue.View` — the nav leaf and the gate read this one predicate. `=== true`: malformed is a denial. */
-export const canViewReleaseQueue = (r: ReleaseQueueAccess | null | undefined): boolean => r?.canView === true
+/** `PosRelease.Queue.View` (`PosReleaseQueue:03`, off the one permissions answer, oms 909) — the nav leaf and the gate. */
+export const canViewReleaseQueue = (p: Permissions): boolean => p.has('PosReleaseQueue:03')
 
 /** How often the live panels re-read: a slot renews every 60 s, so 15 s keeps progress current without load. */
 export const RELEASE_QUEUE_REFRESH_MS = 15_000
@@ -47,11 +34,6 @@ export const RELEASE_QUEUE_REFRESH_MS = 15_000
 export const RELEASE_QUEUE_KEY = ['release-queue'] as const
 
 export const releaseQueueApi = {
-  /** `GET PosReleaseQueue/Access` → `{ canView, canManage }`. 🚩 Fails closed: no catch. */
-  access(): Promise<ReleaseQueueAccess> {
-    return api.get<ReleaseQueueAccess>(`${BASE}/Access`)
-  },
-
   /** `GET PosReleaseQueue/Pool` — size (0 = paused), who/when last changed, slots in use. */
   pool(): Promise<SlotPool> {
     return api.get<SlotPool>(`${BASE}/Pool`)

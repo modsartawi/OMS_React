@@ -18,8 +18,8 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { materialAccessQuery } from '@/core/materials/api'
 import { canCheckStock, canSearchMaterials } from '@/core/materials/access'
+import { usePermissions } from '@/core/permissions'
 import { STOCK_CAP_REFUSAL_KEY, STOCK_MATERIAL_CAP, overStockCap, stockCheckHref } from '@/core/materials/stock-cap'
 import {
   MATERIAL_ERRORS,
@@ -53,13 +53,13 @@ import Select from '@/core/ui/Select'
  * Material search (ticket 451, BackOffice spec 2544): one smart box, the A → E level cascade, the
  * side filters, a grid that opens a material, an xlsx export, and "check stock for selected".
  *
- * Behind `canSearchMaterials` on the ONE Materials probe, the same predicate the menu leaf reads.
+ * Behind `canSearchMaterials` on the one permissions answer, the same predicate the menu leaf reads.
  * Its doors (`MaterialWeb/Search`, `Levels`, `Facets`) are BackOffice 2545/2546.
  */
 export default function MaterialSearchPage() {
   const { t } = useTranslation('materials-search')
   return (
-    <ScreenGate query={materialAccessQuery()} can={canSearchMaterials} ns="materials-search" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canSearchMaterials} ns="materials-search" title={t('title')} subtitle={t('subtitle')}>
       <MaterialSearch />
     </ScreenGate>
   )
@@ -130,8 +130,7 @@ function MaterialSearch() {
     [setParams],
   )
 
-  const access = useQuery(materialAccessQuery())
-  const stockAllowed = canCheckStock(access.data)
+  const stockAllowed = canCheckStock(usePermissions())
 
   const gridApi = useRef<GridApi<Row> | null>(null)
   const [shown, setShown] = useState(0)

@@ -1,25 +1,12 @@
 import type { AnalyticsBoardDefinition, AnalyticsLabel, AnalyticsMapLegend, AnalyticsReportDefinition } from './analytics'
 
 /**
- * The copilot's wire shapes (spec 734 D10; doors `Copilot/Access` and `Copilot/Ask`, BackOffice BO-1,
- * unbuilt). camelCase, as ASP.NET Core emits. A shape change goes into the spec's D10 first, then here.
+ * The copilot's wire shapes (spec 734 D10; door `Copilot/Ask`, BackOffice BO-1 — its grants are the one permissions
+ * answer's since oms 909). camelCase, as ASP.NET Core emits. A shape change goes into the spec's D10 first, then here.
  *
  * Refusals are not here: they are envelope business outcomes (`COPILOT-401` … `COPILOT-406`, D7)
  * read through `@/core/api`'s `apiErrorCode`. Only a refusal's `data` is (`CopilotPromptFieldRefusal`).
  */
-
-/** `GET Copilot/Access` — both flags read `BackOfficeScreen[Copilot, 01]` (D7). */
-export interface CopilotAccess {
-  /** May open the panel and ask (`POST Copilot/Ask`). */
-  canAsk: boolean
-  /** May reach the same tools over `/mcp` (D8) — not read by the web. */
-  canUseMcp: boolean
-  /**
-   * May edit the house rules at `/copilot/rules` (ticket 790, BackOffice 3395). Absent on a pre-3395
-   * server, and read as denied.
-   */
-  canCurate?: boolean
-}
 
 /**
  * One saved version of the copilot's house rules, as the screen holds it (ticket 790). Read off BackOffice 3395's

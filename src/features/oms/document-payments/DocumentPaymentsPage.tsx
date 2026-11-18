@@ -19,7 +19,6 @@ import { lookupQueries } from '@/core/services/lookups'
 import { fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { fromListState } from '@/core/oms/open-intent'
-import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDocumentPayments } from '@/core/oms/access'
 import type { DocumentPaymentModel } from '@/core/models/document-payment'
 import { TOO_MANY_VALUES, documentPaymentsApi } from './api'
@@ -51,7 +50,7 @@ import Textarea from '@/core/ui/Textarea'
 export default function DocumentPaymentsPage() {
   const { t } = useTranslation('document-payments')
   return (
-    <ScreenGate query={omsAccessQuery()} can={canOpenDocumentPayments} ns="document-payments" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenDocumentPayments} ns="document-payments" title={t('title')} subtitle={t('subtitle')}>
       <DocumentPaymentList />
     </ScreenGate>
   )

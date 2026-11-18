@@ -13,7 +13,7 @@ import type { AgreementDay, AgreementGap, StoreAgreement, StoreDetail } from '@/
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
-import { AUDIT_KEY, FLEET_KEY, storeAgreementQuery, storeKey, storeTabKey, syncConsoleAccessQuery, syncConsoleApi } from './api'
+import { AUDIT_KEY, FLEET_KEY, storeAgreementQuery, storeKey, storeTabKey, syncConsoleApi } from './api'
 import { agreementBadge, figure } from './helpers'
 import { AGREEMENT_PAGE_SIZE, applyRecheck, dayVerdict, isOnMirror, recheckRefusalLabel } from './store-helpers'
 import { buildGapColumns } from './agreement-columns'
@@ -21,6 +21,8 @@ import CodeBadgeView from './CodeBadgeView'
 import Loading from './Loading'
 import ReasonDialog from './ReasonDialog'
 import TabGrid from './TabGrid'
+import { usePermissions } from '@/core/permissions'
+import { canOperateSyncConsole } from './access'
 
 /** A gap's row id: the door's key (store, day, receipt, kind) within one store. */
 const gapId = (g: AgreementGap) => `${g.businessDay}-${g.receiptNumber}-${g.kind}`
@@ -67,8 +69,8 @@ function AgreementLists({ row }: { row: StoreDetail }) {
   const { t } = useTranslation('sync-console')
   const code = row.code
   const qc = useQueryClient()
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOperate = access.data?.canOperate === true
+  const permissions = usePermissions()
+  const canOperate = canOperateSyncConsole(permissions)
   const [day, setDay] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [rechecking, setRechecking] = useState<string | null>(null)

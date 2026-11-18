@@ -14,11 +14,12 @@ import type {
   RePushResponse,
   StoreRow,
   SyncCommand,
-  SyncConsoleAccess,
 } from '@/core/models/sync-console'
 import { toIsoDate, fromIsoDate } from '@/core/util/date-format'
 import { formatPair } from '@/core/util/bidi'
 import { allowedControls } from './control-helpers'
+import { canOperateSyncConsole } from './access'
+import type { Permissions } from '@/core/permissions'
 import { codeBadge, figure, type CodeBadge } from './helpers'
 
 // ── What a store's page offers ──────────────────────────────────────────────────
@@ -33,9 +34,9 @@ export type StoreAction = ControlAction | CommandKind
  */
 export function allowedCommands(
   row: Pick<StoreRow, 'host' | 'isDisabled'>,
-  access: Pick<SyncConsoleAccess, 'canOperate'> | null | undefined,
+  permissions: Permissions,
 ): CommandKind[] {
-  if (access?.canOperate !== true) return []
+  if (!canOperateSyncConsole(permissions)) return []
   // A disabled store refuses every command (BackOffice 3913, `DISABLED`): none is offered.
   if (row.isDisabled === true) return []
   if (row.host === 'Wpf') return ['ConnectionTest']
@@ -50,10 +51,10 @@ export function allowedCommands(
  */
 export function storeActions(
   row: Pick<StoreRow, 'host' | 'isPaused' | 'isDisabled'>,
-  access: Pick<SyncConsoleAccess, 'canOperate'> | null | undefined,
+  permissions: Permissions,
 ): StoreAction[] {
-  const controls = allowedControls(row, access)
-  const commands = allowedCommands(row, access)
+  const controls = allowedControls(row, permissions)
+  const commands = allowedCommands(row, permissions)
   const order: StoreAction[] = ['RetryNow', 'Move', 'Pause', 'Resume', 'RePush', 'ConnectionTest', 'Disable', 'HandBack', 'Enable']
   const offered = new Set<StoreAction>([...controls, ...commands])
   return order.filter((a) => offered.has(a))

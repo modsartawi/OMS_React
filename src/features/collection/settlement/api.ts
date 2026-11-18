@@ -12,19 +12,17 @@
  * and `Settlement/CloseOut`.** The two bulk doors (spec 267 D7) arrive with 273;
  * the joining ticket 274 settles every route string against a live SIS.Api.
  *
- * ⚠️ **There is no `Settlement/Access` probe and there must not be one.** The
- * settlement account is a **fifth grant on the Collections probe** (spec 267 D1),
- * not an area of its own — same nav group, same `/collection/*` prefix, same one
- * `CollectionWeb/Access` call. The key, the options and the call live in
- * `@/core/collection/api`, where ticket 268 graduated them the moment this feature
- * became their second consumer: a feature may not import another feature's api
- * (`.claude/rules/feature-structure.md`).
+ * ⚠️ The settlement account is a **fifth grant of the Collections area** (spec 267
+ * D1), not an area of its own — same nav group, same `/collection/*` prefix. Its
+ * grants (`SettlementAccount:03`, `SettlementSupervision:03`) come off the one
+ * permissions answer (oms 909), like every other screen's.
  */
 import { queryOptions } from '@tanstack/react-query'
 
 import { api } from '@/core/api'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { AssignmentRoster, CollectionAccessResult } from '@/core/models/collection'
+import type { AssignmentRoster } from '@/core/models/collection'
+import type { Permissions } from '@/core/permissions'
 import type {
   SettlementAccount,
   SettlementBranch,
@@ -82,8 +80,7 @@ import type { PostRequest } from './posting'
  * predicate rather than two spellings of it, which is what stops the menu and the
  * screen disagreeing about whether the session is allowed in.
  */
-export const canOpenSettlement = (r: CollectionAccessResult | null | undefined): boolean =>
-  r?.canOpenSettlement === true
+export const canOpenSettlement = (p: Permissions): boolean => p.has('SettlementAccount:03')
 
 /**
  * **Settlement supervision** — whether this session is offered an accountant
@@ -99,8 +96,7 @@ export const canOpenSettlement = (r: CollectionAccessResult | null | undefined):
  * ⚠️ Deliberately NOT read by `canOpenSettlement`, and it opens no screen of its own:
  * a power on a screen is not permission to reach it.
  */
-export const canSuperviseSettlement = (r: CollectionAccessResult | null | undefined): boolean =>
-  r?.canSuperviseSettlement === true
+export const canSuperviseSettlement = (p: Permissions): boolean => p.has('SettlementSupervision:03')
 
 /**
  * **The ONE query key of the change-request History read** (spec 342, ticket 343) —

@@ -1,7 +1,7 @@
 /**
  * The material detail's own server call (ticket 452, BackOffice spec 2544): the master, barcodes and
  * batches of one material. The Stock tab's door is shared with the stock check and lives in
- * `@/core/materials/stock`; the access probe is the area's one, in `@/core/materials/api`.
+ * `@/core/materials/stock`; the grants are the area's predicates, in `@/core/materials/access`.
  *
  * Through `@/core/api` (`api-envelope`). An unknown material is `MAT-00001` (404) — an `ApiError`
  * the page branches on with `apiErrorCode`. The door is BackOffice 2547; its

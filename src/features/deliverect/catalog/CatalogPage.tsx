@@ -10,7 +10,6 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
-import { deliverectAccessQuery } from '@/core/deliverect/api'
 import { canManageCatalog } from '@/core/deliverect/access'
 import type {
   DeliverectStockPushResult,
@@ -49,7 +48,7 @@ import Chip from '@/core/ui/Chip'
 export default function CatalogPage() {
   const { t } = useTranslation('deliverect-catalog')
   return (
-    <ScreenGate query={deliverectAccessQuery()} can={canManageCatalog} ns="deliverect-catalog" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canManageCatalog} ns="deliverect-catalog" title={t('title')} subtitle={t('subtitle')}>
       <Catalog />
     </ScreenGate>
   )

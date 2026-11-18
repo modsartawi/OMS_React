@@ -13,9 +13,10 @@
  *
  * Pure: no React, no network, no i18n.
  */
-import type { OmsAccessResult } from '@/core/models/oms-access'
 import type { OrderDocumentRow } from '@/core/models/order-document'
+import { canOpenList } from '@/core/oms/access'
 import { canViewInsurance } from '@/core/oms/insurance-grant'
+import type { Permissions } from '@/core/permissions'
 import type { OpenedAs } from './actions'
 import { INSURANCE_SECTION_ID, moneyCell, moneySourceBadge, type MoneyCell } from './insurance-section'
 
@@ -26,16 +27,16 @@ export interface DeliveryMoneyStripContext {
   openedAs: OpenedAs
   /** The order the delivery delivers (the sales document) — never `orderNo`, the channel's number. */
   refDocumentNo: string | null | undefined
-  access: Partial<OmsAccessResult> | null | undefined
+  permissions: Permissions
 }
 
 /**
  * Is the order's search row asked at all? Only on Delivery Details, only for a delivery that names
- * its order, and only under the list grant the search door needs (explicit `true`; pending or
- * failed probe reads as no).
+ * its order, and only under the list grant the search door needs (`DocumentList:03`; a pending or
+ * failed answer reads as no).
  */
 export function asksDeliveryMoneyStrip(ctx: DeliveryMoneyStripContext): boolean {
-  return ctx.openedAs === 'delivery' && (ctx.refDocumentNo ?? '').trim() !== '' && ctx.access?.canOpenList === true
+  return ctx.openedAs === 'delivery' && (ctx.refDocumentNo ?? '').trim() !== '' && canOpenList(ctx.permissions)
 }
 
 /** The query key of a delivery's order search row (ticket 789), by the order's document number. */
@@ -72,7 +73,7 @@ export interface DeliveryMoneyStripView {
 export function deliveryMoneyStrip(
   row: OrderDocumentRow | null | undefined,
   delivery: { refDocumentNo: string; amountDue: number | null | undefined },
-  access: Partial<OmsAccessResult> | null | undefined,
+  permissions: Permissions,
 ): DeliveryMoneyStripView | null {
   if (!row || row.isInsuranceOrder !== true) return null
   // The search row carries no currency (BackOffice sends none): figures read in the 2-decimal default.
@@ -83,7 +84,7 @@ export function deliveryMoneyStrip(
     patient: moneyCell(row.patientTotal, currency, NONE),
     insurer: moneyCell(row.insurerTotal, currency, NONE),
     amountDue: moneyCell(delivery.amountDue, currency, NONE),
-    link: canViewInsurance(access)
+    link: canViewInsurance(permissions)
       ? `/oms/document/${encodeURIComponent(delivery.refDocumentNo.trim())}#${INSURANCE_SECTION_ID}`
       : null,
   }

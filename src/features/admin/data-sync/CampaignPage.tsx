@@ -31,7 +31,6 @@ import {
   campaignQuery,
   campaignSummaryKey,
   canOpenDataSync,
-  dataSyncAccessQuery,
   profilesQuery,
 } from './api'
 import CampaignHeader from './CampaignHeader'
@@ -66,7 +65,7 @@ import StartCampaignButton from './StartCampaignButton'
 export default function CampaignPage() {
   const { t } = useTranslation('data-sync')
   return (
-    <ScreenGate query={dataSyncAccessQuery()} can={canOpenDataSync} ns="data-sync" title={t('campaign.placeholderTitle')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenDataSync} ns="data-sync" title={t('campaign.placeholderTitle')} subtitle={t('subtitle')}>
       <CampaignView />
     </ScreenGate>
   )

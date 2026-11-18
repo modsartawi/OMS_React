@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDeliveryStatistics } from '@/core/oms/access'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -51,7 +50,7 @@ import Input from '@/core/ui/Input'
 export default function DeliveryStatisticsPage() {
   const { t } = useTranslation('delivery-statistics')
   return (
-    <ScreenGate query={omsAccessQuery()} can={canOpenDeliveryStatistics} ns="delivery-statistics" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenDeliveryStatistics} ns="delivery-statistics" title={t('title')} subtitle={t('subtitle')}>
       <Statistics />
     </ScreenGate>
   )

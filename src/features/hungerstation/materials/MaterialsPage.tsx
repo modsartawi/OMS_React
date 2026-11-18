@@ -10,7 +10,6 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
-import { hungerStationAccessQuery } from '@/core/hungerstation/api'
 import { canManageCatalog } from '@/core/hungerstation/access'
 import type {
   HungerStationMaterialImportResult,
@@ -44,7 +43,7 @@ import Select from '@/core/ui/Select'
 export default function MaterialsPage() {
   const { t } = useTranslation('hungerstation-materials')
   return (
-    <ScreenGate query={hungerStationAccessQuery()} can={canManageCatalog} ns="hungerstation-materials" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canManageCatalog} ns="hungerstation-materials" title={t('title')} subtitle={t('subtitle')}>
       <Materials />
     </ScreenGate>
   )

@@ -4,14 +4,6 @@
 // (branch `spec3148`), field for field in the camelCase ASP.NET Core emits. Later 3148 slices (3150-3156) add their
 // shapes here.
 
-/** `GET SdDocTypeConfigWeb/Access` — cookie-only, not grant-gated; a check that throws reads false. */
-export interface DocTypeConfigAccess {
-  /** The existing OMS access (`BackOfficeScreen[DocumentList,03]`): the menu leaf, the `ScreenGate`, every read. */
-  canViewDocTypeConfig: boolean
-  /** The one configuration grant `BackOfficeScreen[SdDocTypeConfig,06]` (and OMS access): every write affordance. */
-  canEditDocTypeConfig: boolean
-}
-
 /** `GET SdDocTypeConfigWeb/DocumentTypes` — one row per type, by code. */
 export interface DocumentTypeListRow {
   documentType: string

@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { AnalyticsCatalogMart } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
-import { analyticsAccessQuery } from './access'
+import { useAnalyticsPermissions } from './access'
 import { rawOffer, type RawOffer } from './catalog-raw'
 import { DetailShell, Fact, KeyList, ServerText } from './CatalogDetailParts'
 import CatalogRawPreview from './CatalogRawPreview'
@@ -19,8 +18,8 @@ import CatalogRawPreview from './CatalogRawPreview'
  */
 export default function CatalogMartDetail({ martKey, mart }: { martKey: string; mart: AnalyticsCatalogMart | null }) {
   const { t } = useTranslation('boards')
-  const probe = useQuery(analyticsAccessQuery())
-  const offer = rawOffer(mart, probe.data)
+  const probe = useAnalyticsPermissions()
+  const offer = rawOffer(mart, probe)
   // Which mart's preview is open: moving to another mart closes it.
   const [previewing, setPreviewing] = useState<string | null>(null)
   const open = offer !== null && previewing === martKey

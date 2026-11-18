@@ -19,7 +19,8 @@ import {
 } from '@/core/theme/ag-grid-theme'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import DetailModal from '@/core/bonus-buy/DetailModal'
-import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
+import { canOpenBbyInquiry } from '@/core/bonus-buy/api'
+import { usePermissions } from '@/core/permissions'
 import { BBY_DETAIL_PARAM } from '@/core/bonus-buy/deep-link'
 import { bonusBuyInquiryApi } from './api'
 import { DEFAULT_CRITERIA, buildListParams, isDefaultCriteria, type BbyListCriteria } from './list-params'
@@ -27,9 +28,8 @@ import { buildDefaultColDef, buildInquiryColumns } from './columns'
 import SearchToolbar from './SearchToolbar'
 import { exportBbyToCsv } from './export'
 
-// The BBY Inquiry screen (spec 061). Self-guards on Bby/Access (issue-429 pattern,
-// shared ['bonus-buy-inquiry','access'] key with the menu probe; FAIL-OPEN while the
-// endpoint 404s — a read-only inquiry), then opens on the currently-active BBYs.
+// The BBY Inquiry screen (spec 061). Self-guards on `canOpenBbyInquiry` (the one
+// permissions answer the menu leaf reads too, oms 909), then opens on the currently-active BBYs.
 //
 // Search (064; reshaped by 443) reaches beyond that default: the toolbar produces criteria
 // (number, status filter, valid today, validity dates), the pure `buildListParams` maps them
@@ -45,10 +45,8 @@ const DATE_ERROR_CODES = new Set(['INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE'])
 export default function BonusBuyInquiryPage() {
   const { t } = useTranslation('bonus-buy-inquiry')
 
-  const access = useQuery({
-    queryKey: BBY_ACCESS_KEY,
-    queryFn: () => bonusBuyAccessApi.access(),
-  })
+  const permissions = usePermissions()
+  const allowed = canOpenBbyInquiry(permissions)
 
   // Where the operator was SENT — `?bby=<number>`, the address another screen
   // linked to (`bbyDetailHref`). It seeds two things and then stops mattering:
@@ -73,7 +71,7 @@ export default function BonusBuyInquiryPage() {
   const list = useQuery({
     queryKey: ['bonus-buy-inquiry', 'list', appliedParams],
     queryFn: () => bonusBuyInquiryApi.list(appliedParams),
-    enabled: access.data?.screenAllowed === true,
+    enabled: allowed,
   })
 
   const onChange = useCallback(
@@ -128,7 +126,7 @@ export default function BonusBuyInquiryPage() {
   }, [t])
 
   // --- access gate (spinner → denied → content) ---
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -139,7 +137,7 @@ export default function BonusBuyInquiryPage() {
       </div>
     )
   }
-  if (access.data?.screenAllowed !== true) {
+  if (!allowed) {
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"

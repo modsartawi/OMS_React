@@ -1,10 +1,11 @@
 /**
  * The Insurance rules nav group (oms 607, BackOffice spec 3126). Read out of the REAL `MENU`. Gated per leaf
- * since oms 852 (`menu-access-852.test.ts`).
+ * since oms 852, on the one permissions answer since oms 909 (`menu-access-852.test.ts`).
  */
 import { describe, expect, it } from 'vitest'
 import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
-import { resolveMenu } from './useVisibleMenu'
+import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
+import { isGated, resolveMenu } from './useVisibleMenu'
 import { deriveCrumb } from './crumb'
 
 const group = MENU.find((g) => g.labelKey === 'insurance-rules:menu.group')
@@ -60,9 +61,10 @@ describe('the Insurance rules nav group', () => {
     }
   })
 
-  it('852: every leaf carries a probe, and an unanswered probe hides the whole group', () => {
-    for (const leaf of leaves([group!])) expect(leaf.access).toBeDefined()
-    expect(group!.access).toBeUndefined()
-    expect(resolveMenu([group!], []).items).toHaveLength(0)
+  it('852: every leaf is gated (the group is not), and no grant or a pending answer hides the whole group', () => {
+    for (const leaf of leaves([group!])) expect(isGated(leaf)).toBe(true)
+    expect(isGated(group!)).toBe(false)
+    expect(resolveMenu([group!], permissionsOf({ screens: [] })).items).toHaveLength(0)
+    expect(resolveMenu([group!], permissionsFromQuery({ isPending: true, isError: false, data: undefined })).items).toHaveLength(0)
   })
 })

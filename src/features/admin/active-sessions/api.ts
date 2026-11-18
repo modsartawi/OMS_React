@@ -2,23 +2,21 @@ import { api } from '@/core/api'
 import type {
   ActiveSessionSearchResult,
   RevokeAllForUserResult,
-  SessionAccessResult,
   SessionCountsResult,
 } from '@/core/models/session-monitor'
+import type { Permissions } from '@/core/permissions'
 import { buildSessionsQuery, type SessionChip } from './helpers'
 
 const BASE = 'UaAdminWeb'
 
+/**
+ * May open the active-sessions screen (`UaSessions:03`): the in-page guard and the shell's nav leaf read this one
+ * predicate off the one permissions answer (oms 909). The server enforces the grant on every UaAdminWeb/Sessions* route
+ * via UaSessionsGrantEndpointFilter.
+ */
+export const canOpenActiveSessions = (p: Permissions): boolean => p.has('UaSessions:03')
+
 export const sessionMonitorApi = {
-  // Screen-open grant probe. Drives BOTH the in-page route-guard (the "no
-  // access" card) AND the shell's permission-aware nav hiding — the shell's
-  // probe shares this exact ['active-sessions','access'] cache entry, so it's
-  // one call, not two. `Access` is cookie-gated, NOT grant-gated (it REPORTS the
-  // BackOfficeScreen[UaSessions,03] grant); the server enforces the grant on
-  // every other UaAdminWeb/Sessions* route via UaSessionsGrantEndpointFilter.
-  access(): Promise<SessionAccessResult> {
-    return api.get<SessionAccessResult>(`${BASE}/Sessions/Access`)
-  },
 
   // Estate-wide live-session search. `term` matches userId / display name / store
   // code / IP; the server searches + caps at 50 and reports the true total, so a

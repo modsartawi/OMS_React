@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -9,7 +9,6 @@ import type { ColDef } from 'ag-grid-community'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { COLLECTION_ACCESS_KEY, collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Chip from '@/core/ui/Chip'
 import {
@@ -63,6 +62,7 @@ import {
   type OpenLaneTabCounts,
   type OpenLaneView,
 } from './open-lane'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * **Open settlements** — `/collection/settlement/open` (spec 282, ticket 285), the
@@ -129,8 +129,8 @@ export default function OpenSettlements() {
 
   /** The area's one probe, from the cache the gate filled — draws the queue's buttons and
    *  353's Change requests tab. */
-  const access = useQuery(collectionAccessQuery())
-  const canSupervise = canSuperviseSettlement(access.data)
+  const permissions = usePermissions()
+  const canSupervise = canSuperviseSettlement(permissions)
   const tab = readOpenTab(searchParams, { supervise: canSupervise })
   /**
    * 🚩 **Component state, not an address.** Spec 282 story 39 asks for the *scope* and
@@ -200,12 +200,8 @@ export default function OpenSettlements() {
     staleTime: 60_000,
     retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
   })
-  // W1: a bare 403 means the grant went between the probe and the read — the probe is
-  // re-read, which takes the tab away. Never decided from the probe alone.
-  const changesForbidden = changes.isError && changeRequestFailure(changes.error) === 'forbidden'
-  useEffect(() => {
-    if (changesForbidden) void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
-  }, [changesForbidden, queryClient])
+  // W1: a bare 403 means the grant went between the permissions answer and the read —
+  // `@/core/api` invalidates the answer on that 403, which takes the tab away.
 
   // ⚠️ Named, not `!isEntryTab(tab)`: with five tabs, *not an entry tab* is three tabs.
   const onCash = tab === 'cash'

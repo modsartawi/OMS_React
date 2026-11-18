@@ -170,15 +170,3 @@ export interface BbyGroupMembersDto {
   pageSize: number
   members: BbyGroupMember[]
 }
-
-/**
- * GET Bby/Access — the screen-open grant probe (nav show/hide + in-page guard).
- * `screenAllowed` is the server's answer; `probed` records whether the endpoint
- * actually answered. While the endpoint is absent (404 / network) the client FAILS
- * OPEN (`screenAllowed:true, probed:false`) — this is a read-only inquiry and the
- * list endpoint's own `403 ACCESS_DENIED` is the real boundary (spec 061 / 056).
- */
-export interface BbyInquiryAccessResult {
-  screenAllowed: boolean
-  probed: boolean
-}

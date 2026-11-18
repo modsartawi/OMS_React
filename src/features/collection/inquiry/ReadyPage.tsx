@@ -14,7 +14,6 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { READY_GRID_KEY, assignmentOptionsQuery, canOpenReady, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { AttentionBanner, CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
@@ -56,7 +55,6 @@ export default function ReadyPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenReady}
       ns="collection"
       title={t('ready.title')}

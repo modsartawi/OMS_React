@@ -1,102 +1,80 @@
 import { describe, expect, it } from 'vitest'
-import { accessProbe, type ShellMenuItem } from './menu-model'
-import { resolveMenu, type ProbeState } from './useVisibleMenu'
+import { permissionsFromQuery, permissionsOf, type Permissions } from '@/core/permissions'
+import type { ShellMenuItem } from './menu-model'
+import { offerAsked, resolveMenu } from './useVisibleMenu'
 
-// Ticket 124: the settled flag. `resolveMenu` is the pure half of `useVisibleMenu` —
-// the hook only feeds it `useQueries`' results, so every rule about WHAT is visible and
-// WHEN the answer is trustworthy is provable here, with no renderer.
+// Ticket 124's settled flag, on the one permissions answer since oms 909. `resolveMenu` is the pure half of
+// `useVisibleMenu` — the hook only feeds it `usePermissions()` — so every rule about WHAT is visible and WHEN the answer
+// is trustworthy is provable here, with no renderer.
 
-const probe = (visible: boolean) =>
-  accessProbe<{ canOpen: boolean }>({
-    key: ['t', String(visible)],
-    run: async () => ({ canOpen: true }),
-    visible: (r) => r.canOpen === visible,
-  })
-
-/** Two gated leaves under one group, plus an ungated group. */
+/** Two gated leaves under one group (one by key, one by predicate), plus an ungated group. */
 const MENU: ShellMenuItem[] = [
   { labelKey: 'g.open', items: [{ labelKey: 'l.open', routerLink: '/open' }] },
   {
     labelKey: 'g.gated',
     items: [
-      { labelKey: 'l.a', routerLink: '/a', access: probe(true) },
-      { labelKey: 'l.b', routerLink: '/b', access: probe(true) },
+      { labelKey: 'l.a', routerLink: '/a', key: 'DocumentList:03' },
+      { labelKey: 'l.b', routerLink: '/b', requires: (p) => p.has('Nphies:03') && p.has('NphiesUndispense:03') },
     ],
   },
 ]
 
-const pending: ProbeState = { isPending: true, isSuccess: false, data: undefined }
-const ok: ProbeState = { isPending: false, isSuccess: true, data: { canOpen: true } }
-const errored: ProbeState = { isPending: false, isSuccess: false, data: undefined }
+const pending: Permissions = permissionsFromQuery({ isPending: true, isError: false, data: undefined })
+const errored: Permissions = permissionsFromQuery({ isPending: false, isError: true, data: undefined })
+const holding = (...screens: string[]): Permissions => permissionsOf({ screens })
+const all = holding('DocumentList:03', 'Nphies:03', 'NphiesUndispense:03')
 
-const labels = (items: ShellMenuItem[]): string[] =>
-  items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
+const labels = (items: ShellMenuItem[]): string[] => items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
 
 describe('resolveMenu — settled', () => {
-  it('is false while ANY probe is still pending', () => {
-    expect(resolveMenu(MENU, [pending, pending]).settled).toBe(false)
-    expect(resolveMenu(MENU, [ok, pending]).settled).toBe(false)
+  it('is false while the answer is pending, and every gated item hides', () => {
+    const r = resolveMenu(MENU, pending)
+    expect(r.settled).toBe(false)
+    expect(labels(r.items)).toEqual(['g.open', 'l.open'])
   })
 
-  it('is true once every probe has resolved', () => {
-    expect(resolveMenu(MENU, [ok, ok]).settled).toBe(true)
+  it('is true once the answer is in', () => {
+    expect(resolveMenu(MENU, all).settled).toBe(true)
   })
 
-  it('is true when a probe ERRORED — an errored probe must not hang the flag forever', () => {
-    expect(resolveMenu(MENU, [errored, errored]).settled).toBe(true)
-    expect(resolveMenu(MENU, [ok, errored]).settled).toBe(true)
+  it('is true when the answer ERRORED — and every gated item hides', () => {
+    const r = resolveMenu(MENU, errored)
+    expect(r.settled).toBe(true)
+    expect(labels(r.items)).toEqual(['g.open', 'l.open'])
   })
 
-  it('is true immediately when the menu has no gated items at all', () => {
-    expect(resolveMenu([MENU[0]], []).settled).toBe(true)
-  })
-
-  it('is false when the results array has not caught up with the gated items', () => {
-    // Defensive: a short/absent result is "not answered yet", never "answered no".
-    expect(resolveMenu(MENU, []).settled).toBe(false)
-    expect(resolveMenu(MENU, [ok]).settled).toBe(false)
+  it('an errored answer grants nothing even if a predicate would say yes to anything', () => {
+    const lax: ShellMenuItem[] = [{ labelKey: 'g', items: [{ labelKey: 'l', routerLink: '/l', requires: () => true }] }]
+    expect(resolveMenu(lax, errored).items).toEqual([])
+    expect(resolveMenu(lax, pending).items).toEqual([])
+    expect(labels(resolveMenu(lax, holding()).items)).toEqual(['g', 'l'])
   })
 })
 
 describe('resolveMenu — items', () => {
   it('keeps the ungated group and both granted leaves', () => {
-    expect(labels(resolveMenu(MENU, [ok, ok]).items)).toEqual([
+    expect(labels(resolveMenu(MENU, all).items)).toEqual(['g.open', 'l.open', 'g.gated', 'l.a', 'l.b'])
+  })
+
+  it('a key leaf is an exact lookup', () => {
+    expect(labels(resolveMenu(MENU, holding('DocumentList:02', 'Nphies:03')).items)).toEqual(['g.open', 'l.open'])
+  })
+
+  it('a predicate leaf shows only on its whole combination (half-grant hidden)', () => {
+    expect(labels(resolveMenu(MENU, holding('DocumentList:03', 'NphiesUndispense:03')).items)).toEqual([
       'g.open',
       'l.open',
       'g.gated',
       'l.a',
-      'l.b',
     ])
   })
 
-  it('drops a group whose gated children all failed closed', () => {
-    expect(labels(resolveMenu(MENU, [errored, errored]).items)).toEqual(['g.open', 'l.open'])
-  })
-
-  it('hides a gated leaf while its probe is pending (no flash-then-hide)', () => {
-    expect(labels(resolveMenu(MENU, [pending, ok]).items)).toEqual([
-      'g.open',
-      'l.open',
-      'g.gated',
-      'l.b',
-    ])
-  })
-
-  it('hides a leaf whose probe resolved to a DENIAL', () => {
-    const denied: ShellMenuItem[] = [
-      { labelKey: 'g', items: [{ labelKey: 'l', routerLink: '/l', access: probe(false) }] },
-    ]
-    const r = resolveMenu(denied, [ok])
-    expect(r.items).toEqual([])
-    expect(r.settled).toBe(true)
+  it('drops a group whose gated children are all denied', () => {
+    expect(labels(resolveMenu(MENU, holding()).items)).toEqual(['g.open', 'l.open'])
   })
 
   it('🚩 a NESTED node whose children all hide disappears with them', () => {
-    // Ticket 284 added one more level to the nav (Settlement Account → its four
-    // screens). The permission machinery needed NO change for it — `collectGated`
-    // and `filterMenu` already recurse, so the drop-an-empty-group rule holds at any
-    // depth. This test is what keeps that true: the failure it stops is an expander
-    // left standing over nothing, one click from an empty panel.
+    // Ticket 284 added one more level to the nav; the drop-an-empty-group rule holds at any depth.
     const nested: ShellMenuItem[] = [
       {
         labelKey: 'g',
@@ -106,19 +84,16 @@ describe('resolveMenu — items', () => {
             labelKey: 'n',
             routerLink: '/n',
             items: [
-              { labelKey: 'n.a', routerLink: '/n/a', access: probe(true) },
-              { labelKey: 'n.b', routerLink: '/n/b', access: probe(true) },
+              { labelKey: 'n.a', routerLink: '/n/a', key: 'AcrInquiry:03' },
+              { labelKey: 'n.b', routerLink: '/n/b', key: 'DepositInquiry:03' },
             ],
           },
         ],
       },
     ]
-    // Both children denied → the node goes too, not just its leaves.
-    expect(labels(resolveMenu(nested, [errored, errored]).items)).toEqual(['g', 'l.plain'])
-    // One granted → the node survives, carrying exactly that child.
-    expect(labels(resolveMenu(nested, [ok, errored]).items)).toEqual(['g', 'l.plain', 'n', 'n.a'])
-    // Both granted → the whole subtree.
-    expect(labels(resolveMenu(nested, [ok, ok]).items)).toEqual([
+    expect(labels(resolveMenu(nested, holding()).items)).toEqual(['g', 'l.plain'])
+    expect(labels(resolveMenu(nested, holding('AcrInquiry:03')).items)).toEqual(['g', 'l.plain', 'n', 'n.a'])
+    expect(labels(resolveMenu(nested, holding('AcrInquiry:03', 'DepositInquiry:03')).items)).toEqual([
       'g',
       'l.plain',
       'n',
@@ -128,9 +103,6 @@ describe('resolveMenu — items', () => {
   })
 
   it('🚩 a gated node takes its ungated children with it — the settlement shape', () => {
-    // How `MENU` actually carries the settlement account: ONE grant on the node, four
-    // ungated children. A denied node must not leave four leaves behind, and the
-    // group above must not be left holding an empty header.
     const gatedNode: ShellMenuItem[] = [
       {
         labelKey: 'g',
@@ -138,7 +110,7 @@ describe('resolveMenu — items', () => {
           {
             labelKey: 'n',
             routerLink: '/n',
-            access: probe(true),
+            key: 'SettlementAccount:03',
             items: [
               { labelKey: 'n.a', routerLink: '/n' },
               { labelKey: 'n.b', routerLink: '/n/b' },
@@ -147,16 +119,42 @@ describe('resolveMenu — items', () => {
         ],
       },
     ]
-    expect(labels(resolveMenu(gatedNode, [ok]).items)).toEqual(['g', 'n', 'n.a', 'n.b'])
-    expect(resolveMenu(gatedNode, [errored]).items).toEqual([])
+    expect(labels(resolveMenu(gatedNode, holding('SettlementAccount:03')).items)).toEqual(['g', 'n', 'n.a', 'n.b'])
+    expect(resolveMenu(gatedNode, holding()).items).toEqual([])
   })
 
   it('reports an EMPTY menu as settled — the empty-state case ticket 124 exists for', () => {
-    const allGated: ShellMenuItem[] = [
-      { labelKey: 'g', items: [{ labelKey: 'l', routerLink: '/l', access: probe(true) }] },
-    ]
-    const r = resolveMenu(allGated, [errored])
+    const allGated: ShellMenuItem[] = [{ labelKey: 'g', items: [{ labelKey: 'l', routerLink: '/l', key: 'CallCenter:03' }] }]
+    const r = resolveMenu(allGated, holding())
     expect(r.items).toEqual([])
     expect(r.settled).toBe(true)
+  })
+})
+
+describe('resolveMenu — offered (a data door, not a permission)', () => {
+  const offer = { queryKey: ['t', 'offered'], queryFn: async () => true }
+  const menu: ShellMenuItem[] = [
+    { labelKey: 'g', items: [{ labelKey: 'l', routerLink: '/l', key: 'Analytics:03', offered: offer }] },
+  ]
+  const granted = holding('Analytics:03')
+
+  it('shows the leaf only when its grant holds AND the door offered it', () => {
+    expect(labels(resolveMenu(menu, granted, () => true).items)).toEqual(['g', 'l'])
+    expect(resolveMenu(menu, granted, () => false).items).toEqual([])
+    expect(resolveMenu(menu, holding(), () => true).items).toEqual([])
+  })
+
+  it('fails closed: not told it is offered ⇒ hidden', () => {
+    expect(resolveMenu(menu, granted).items).toEqual([])
+  })
+})
+
+describe('offerAsked', () => {
+  it('asks the door only once the grant says yes', () => {
+    const item: ShellMenuItem = { labelKey: 'l', key: 'Analytics:03', offered: { queryKey: ['x'], queryFn: async () => true } }
+    expect(offerAsked(item, pending)).toBe(false)
+    expect(offerAsked(item, errored)).toBe(false)
+    expect(offerAsked(item, holding())).toBe(false)
+    expect(offerAsked(item, holding('Analytics:03'))).toBe(true)
   })
 })

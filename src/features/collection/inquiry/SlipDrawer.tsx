@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { X } from 'lucide-react'
 
 import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
-import { READ_ON_EVERY_OPENING, attachmentAccessQuery } from '@/core/attachments/api'
+import { READ_ON_EVERY_OPENING } from '@/core/attachments/api'
+import { usePermissions } from '@/core/permissions'
 import type { AttachmentsPanelWords } from '@/core/attachments/panel-words'
 import IconButton from '@/core/ui/IconButton'
 import { SHEET } from '@/core/ui/overlay'
@@ -140,12 +141,12 @@ function DrawerFrame({
  * A day's body: the shared attachments panel (`@/core/attachments`, ticket 326), with
  * the slip's parameters — its owner and codes (`slipTarget`), a new read on every
  * opening, its five client reasons, its own words, and the gates the grids read off
- * the one shared probe. A change re-reads the day and marks both grids stale.
+ * the one permissions answer. A change re-reads the day and marks both grids stale.
  */
 function SlipDayBody({ day }: { day: SlipDay }) {
   const { t } = useTranslation('collection')
   const queryClient = useQueryClient()
-  const access = useQuery(attachmentAccessQuery())
+  const permissions = usePermissions()
   const reasons = useMemo(() => slipWithdrawReasons((key) => t(key)), [t])
   const words = useMemo(() => slipPanelWords(t), [t])
   const { target, onChanged } = slipDayPanelOwner(queryClient, day.ownerKey)
@@ -155,8 +156,8 @@ function SlipDayBody({ day }: { day: SlipDay }) {
       freshness={READ_ON_EVERY_OPENING}
       reasons={reasons}
       words={words}
-      addOffered={canSeeSlips(access.data)}
-      withdrawOffered={canWithdrawSlips(access.data)}
+      addOffered={canSeeSlips(permissions)}
+      withdrawOffered={canWithdrawSlips(permissions)}
       onChanged={onChanged}
     />
   )

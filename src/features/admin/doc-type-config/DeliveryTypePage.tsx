@@ -10,13 +10,14 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair } from '@/core/util/bidi'
-import { canEditDocTypeConfig, canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
+import { canEditDocTypeConfig, canViewDocTypeConfig } from './api'
 import { DELIVERY_FIELD_GROUPS, isDeliveryLocked } from './delivery-type-form'
 import type { DeliveryTypeSettings } from './delivery-type-types'
 import { DELIVERY_TYPE_ERRORS, courierAssignmentsQuery, deliveryTypeHistoryQuery, deliveryTypeQuery } from './delivery-types-api'
 import DeliveryTypeDialog from './DeliveryTypeDialog'
 import DeliveryTypeValueText from './DeliveryTypeValueText'
 import DocumentTypeTabs from './DocumentTypeTabs'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * One delivery document type — `/admin/delivery-types/:deliveryType` (BackOffice spec 3148 stories 33-37, ticket
@@ -29,7 +30,6 @@ export default function DeliveryTypePage() {
   const { deliveryType = '' } = useParams()
   return (
     <ScreenGate
-      query={docTypeConfigAccessQuery()}
       can={canViewDocTypeConfig}
       ns="doc-type-config"
       title={t('deliveryTypes.title')}
@@ -47,8 +47,8 @@ export default function DeliveryTypePage() {
 function DeliveryType({ code }: { code: string }) {
   const { t } = useTranslation('doc-type-config')
   const detail = useQuery(deliveryTypeQuery(code))
-  const access = useQuery(docTypeConfigAccessQuery())
-  const canEdit = canEditDocTypeConfig(access.data)
+  const permissions = usePermissions()
+  const canEdit = canEditDocTypeConfig(permissions)
   const [dialog, setDialog] = useState<'edit' | 'copy' | null>(null)
 
   if (detail.isError) {

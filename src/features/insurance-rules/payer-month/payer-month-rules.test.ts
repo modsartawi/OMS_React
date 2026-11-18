@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
+import { permissionsOf } from '@/core/permissions'
 import type { PayerMonthAuditEntry, PayerMonthRow } from '@/core/models/insurance-payer-month'
 import {
   REASON_MAX,
@@ -44,11 +45,12 @@ const ROW = (over: Partial<PayerMonthRow> = {}): PayerMonthRow => ({
 const coded = (code: string | null, status = 400) =>
   new ApiError('business', 'server sentence', status, code === null ? [] : [{ errorCode: code, errorMessage: '' } as never])
 
-describe('the access probe', () => {
-  it('only an explicit canManage: true opens the leaf and the page', () => {
-    expect(canManagePayerMonths({ canManage: true })).toBe(true)
-    for (const r of [{ canManage: false }, { canManage: 'true' }, {}, null, undefined])
-      expect(canManagePayerMonths(r as never)).toBe(false)
+describe('the grant (oms 909)', () => {
+  it('only InsurancePayerMonth:03 opens the leaf and the page', () => {
+    expect(canManagePayerMonths(permissionsOf({ screens: ['InsurancePayerMonth:03'] }))).toBe(true)
+    for (const screens of [[], ['InsurancePayerMonth:02'], ['InsuranceRuleAuthoring:03']])
+      expect(canManagePayerMonths(permissionsOf({ screens }))).toBe(false)
+    expect(canManagePayerMonths(permissionsOf(null))).toBe(false)
   })
 })
 

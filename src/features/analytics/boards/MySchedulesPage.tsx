@@ -18,7 +18,7 @@ import Select from '@/core/ui/Select'
 import type { Severity } from '@/core/ui/severity'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { canViewAnalytics } from '@/core/analytics-access'
 import { ANALYTICS_MY_SCHEDULES_KEY, analyticsApi } from './api'
 import { actOnMySchedules, myScheduleRow, mySchedulesOff, type MyScheduleAct, type MyScheduleState } from './my-schedules'
 import Refused from './Refused'
@@ -40,7 +40,7 @@ const TITLE_MAX = 80
 export default function MySchedulesPage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('mySchedules.title')} subtitle={t('mySchedules.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('mySchedules.title')} subtitle={t('mySchedules.subtitle')}>
       <MySchedulesBody />
     </ScreenGate>
   )

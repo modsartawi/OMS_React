@@ -24,7 +24,7 @@ import { formatParts, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay, toIsoDate } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { formatFigure } from '@/core/util/number-format'
-import { canOpenHeldStockReport, heldStockReportAccessQuery } from './access'
+import { canOpenHeldStockReport } from './access'
 import { heldStockReportApi } from './api'
 import {
   REFUSAL_TEXT_COLUMNS,
@@ -58,7 +58,7 @@ import { canStepForward, normalizeStores, stepDay } from './shared'
  * door's refusals and a shadow store's would-be refusals by store, material and batch, with the SAP and POS feed ages on
  * each; the lines of the day that span more than one batch; and each take of last-resort stock. A group opens its log rows.
  *
- * Behind `canOpenHeldStockReport` on `HeldStockReport/Access` (`BackOfficeScreen[HeldStockReport, 03]`), the predicate the
+ * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 909), the predicate the
  * menu leaves read, failing closed.
  *
  * 🚩 A store Stock Visibility did not answer is named above the grids: its refusals are missing, not zero.
@@ -67,7 +67,6 @@ export default function RefusalsPage() {
   const { t } = useTranslation('held-stock-report')
   return (
     <ScreenGate
-      query={heldStockReportAccessQuery()}
       can={canOpenHeldStockReport}
       ns="held-stock-report"
       title={t('refusals.title')}

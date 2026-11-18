@@ -15,7 +15,9 @@ import { useCopilotPanel } from '@/core/copilot-panel'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import { COPILOT_STARTERS_KEY, canUseSqlMode, copilotSqlAccessQuery } from './access'
+import { canSqlAnalytics } from '@/core/analytics-access'
+import { usePermissions } from '@/core/permissions'
+import { COPILOT_STARTERS_KEY } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, boxOpen, canAskMore, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
 import { Answer, QuestionButtons, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
@@ -126,7 +128,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
   // 888 (spec 3632 Q27): the SQL mode toggle, only for a holder of the SQL grant (`Analytics/Access` `canSql`).
-  const canSql = canUseSqlMode(useQuery(copilotSqlAccessQuery()).data)
+  const canSql = canSqlAnalytics(usePermissions())
   const sqlOn = useCopilotConversation((s) => s.sqlMode) && canSql
   const setSqlMode = useCopilotConversation((s) => s.setSqlMode)
   const box = useRef<HTMLTextAreaElement>(null)

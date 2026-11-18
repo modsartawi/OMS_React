@@ -31,7 +31,6 @@ import {
   historyQuery,
   poolQuery,
   queueQuery,
-  releaseQueueAccessQuery,
   slotsQuery,
 } from './api'
 import { RELEASE_QUEUE_COL_DEF, historyColumns, queueColumns, queueRows, slotColumns } from './columns'
@@ -52,6 +51,7 @@ import {
   type ReleaseQueueTab,
 } from './helpers'
 import { FreeSlotDialog, LastChange, PoolEditor } from './ManageControls'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * Admin ▸ Release download queue (ticket 791, BackOffice spec 3396 / 3401) — `/admin/release-queue`.
@@ -64,7 +64,7 @@ import { FreeSlotDialog, LastChange, PoolEditor } from './ManageControls'
 export default function ReleaseQueuePage() {
   const { t } = useTranslation('release-queue')
   return (
-    <ScreenGate query={releaseQueueAccessQuery()} can={canViewReleaseQueue} ns="release-queue" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewReleaseQueue} ns="release-queue" title={t('title')} subtitle={t('subtitle')}>
       <ReleaseQueue />
     </ScreenGate>
   )
@@ -165,10 +165,10 @@ function Refreshing({ on }: { on: boolean }) {
 function PoolStrip() {
   const { t } = useTranslation('release-queue')
   const pool = useQuery(poolQuery())
-  const access = useQuery(releaseQueueAccessQuery())
+  const permissions = usePermissions()
   const stamp = pool.data ? `${pool.data.updatedAt}|${pool.data.updatedBy}` : ''
   const audit = useQuery({ ...auditQuery(stamp), enabled: pool.isSuccess })
-  const manage = showsControls(access.data)
+  const manage = showsControls(permissions)
   if (pool.isPending) return <p className="text-xs text-muted-foreground">{t('pool.loading')}</p>
   if (pool.isError) return <ReadError error={pool.error} what={t('pool.heading')} />
   const p = pool.data
@@ -239,8 +239,8 @@ function PanelHeader({ heading, children }: { heading: string; children?: ReactN
 function SlotsPanel() {
   const { t } = useTranslation('release-queue')
   const slots = useQuery(slotsQuery())
-  const access = useQuery(releaseQueueAccessQuery())
-  const manage = showsControls(access.data)
+  const permissions = usePermissions()
+  const manage = showsControls(permissions)
   const [freeing, setFreeing] = useState<LiveSlot | null>(null)
   const columns = useMemo(() => slotColumns(t, manage ? setFreeing : undefined), [t, manage])
   return (

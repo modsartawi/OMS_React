@@ -19,7 +19,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { gridSheet, textSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { canOpenDispatchScorecard, dispatchScorecardAccessQuery } from './access'
+import { canOpenDispatchScorecard } from './access'
 import { dispatchScorecardApi } from './api'
 import {
   CLOSES_TABS,
@@ -51,7 +51,6 @@ export default function ClosesPage() {
   const { t } = useTranslation('dispatch-scorecard')
   return (
     <ScreenGate
-      query={dispatchScorecardAccessQuery()}
       can={canOpenDispatchScorecard}
       ns="dispatch-scorecard"
       title={t('closes.title')}

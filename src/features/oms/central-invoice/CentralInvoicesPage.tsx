@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, GridApi } from 'ag-grid-community'
@@ -13,12 +13,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
-import {
-  canOpenCentralInvoice,
-  centralInvoiceAccessQuery,
-  isGrantRefused,
-  revokeCentralInvoiceAccess,
-} from '@/core/central-invoice/api'
+import { canOpenCentralInvoice, isGrantRefused } from '@/core/central-invoice/api'
 import type { CentralInvoiceListRow } from '@/core/models/central-invoice'
 import { gridSheet, textSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { centralInvoiceListApi } from './api'
@@ -52,7 +47,6 @@ export default function CentralInvoicesPage() {
   const { t } = useTranslation('central-invoice')
   return (
     <ScreenGate
-      query={centralInvoiceAccessQuery()}
       can={canOpenCentralInvoice}
       ns="central-invoice"
       title={t('list.title')}
@@ -73,7 +67,6 @@ const DEFAULT_COL_DEF: ColDef<CentralInvoiceListRow> = {
 
 function CentralInvoiceList() {
   const { t } = useTranslation('central-invoice')
-  const queryClient = useQueryClient()
   const gridApi = useRef<GridApi<CentralInvoiceListRow> | null>(null)
 
   // The toolbar edits a draft; only Search promotes it, so the grid keeps showing the answer
@@ -97,12 +90,6 @@ function CentralInvoiceList() {
     queryFn: () => centralInvoiceListApi.list(applied),
     retry: false,
   })
-
-  // A 403 revokes the grant for the page life: the gate above becomes the denied card, and
-  // the two leaves and the delivery page's action go with it.
-  useEffect(() => {
-    if (isGrantRefused(list.error)) revokeCentralInvoiceAccess(queryClient)
-  }, [list.error, queryClient])
 
   const columns = useMemo(() => listColumns(t, setSerialsOf), [t])
   const rows = list.data ?? []

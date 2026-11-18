@@ -16,7 +16,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { CHANGE_KINDS, DATA_SYNC_PAGE_SIZE, type ChangeKind, type ChangeManifestRow } from '@/core/models/data-sync'
-import { canOperateDataSync, changesJobQuery, changesListQuery, dataSyncAccessQuery } from './api'
+import { canOperateDataSync, changesJobQuery, changesListQuery } from './api'
 import { buildChangeColumns } from './change-columns'
 import { campaignPath, DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
 import { changesFromParams, changesToParams, isManifestPruned, truncatedTables } from './changes-helpers'
@@ -39,7 +39,6 @@ export default function ChangesPage() {
   const { t } = useTranslation('data-sync')
   return (
     <ScreenGate
-      query={dataSyncAccessQuery()}
       can={canOperateDataSync}
       ns="data-sync"
       keyPrefix="changes.access"

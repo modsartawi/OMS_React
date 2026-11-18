@@ -26,7 +26,6 @@ import {
   canOpenSyncConsole,
   fleetStoresQuery,
   fleetSummaryQuery,
-  syncConsoleAccessQuery,
   syncConsoleApi,
 } from './api'
 import {
@@ -62,6 +61,8 @@ import ResumeAllDialog from './ResumeAllDialog'
 import WorkerCard from './WorkerCard'
 import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
 import { disabledCountOf } from './wire'
+import { usePermissions } from '@/core/permissions'
+import { canOperateSyncConsole } from './access'
 
 /**
  * The store sync console's Fleet page (spec 444, ticket 445) — `/admin/sync`.
@@ -97,7 +98,6 @@ export default function FleetPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('title')}
@@ -140,8 +140,8 @@ function Fleet() {
   }, [search])
 
   const summary = useQuery(fleetSummaryQuery())
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOperate = access.data?.canOperate === true
+  const permissions = usePermissions()
+  const canOperate = canOperateSyncConsole(permissions)
   const stores = useQuery({ ...fleetStoresQuery(filter), placeholderData: keepPreviousData })
   const columns = useMemo(() => buildFleetColumns(t), [t])
 

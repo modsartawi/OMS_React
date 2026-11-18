@@ -1,12 +1,13 @@
 /**
  * The Campaigns nav group (ticket 501, BackOffice spec 2737).
  *
- * Read out of the **real** `MENU`, never re-declared. Since oms 852 every leaf is gated on `Rules/Access`
- * (`menu-access-852.test.ts` proves the gating); a leaf that drifts out of the group's place after Pricing fails here.
+ * Read out of the **real** `MENU`, never re-declared. Since oms 852 every leaf is gated on the rule-engine keys, one
+ * permissions answer since oms 909 (`menu-access-852.test.ts` proves the gating); a leaf that drifts out of the group's place after Pricing fails here.
  */
 import { describe, expect, it } from 'vitest'
 import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
-import { resolveMenu } from './useVisibleMenu'
+import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
+import { isGated, resolveMenu } from './useVisibleMenu'
 import { deriveCrumb } from './crumb'
 
 const campaigns = MENU.find((g) => g.labelKey === 'campaigns:menu.group')
@@ -34,10 +35,20 @@ describe('the Campaigns nav group', () => {
     })
   })
 
-  it('852: every leaf carries a probe, and an unanswered probe hides the whole group', () => {
-    for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeDefined()
-    expect(campaigns!.access).toBeUndefined()
-    expect(resolveMenu([campaigns!], []).items).toHaveLength(0)
+  it('852: every leaf is gated (the group is not), and no grant or a pending answer hides the whole group', () => {
+    for (const leaf of leaves([campaigns!])) expect(isGated(leaf)).toBe(true)
+    expect(isGated(campaigns!)).toBe(false)
+    expect(resolveMenu([campaigns!], permissionsOf({ screens: [] })).items).toHaveLength(0)
+    expect(resolveMenu([campaigns!], permissionsFromQuery({ isPending: true, isError: false, data: undefined })).items).toHaveLength(0)
+  })
+
+  it('909: canReadAuthoring is RuleAuthoring:02 OR :06; RuleSupport:03 alone shows only the support leaves', () => {
+    const shown = (...screens: string[]) =>
+      leaves(resolveMenu([campaigns!], permissionsOf({ screens })).items).map((l) => l.labelKey)
+    const authoring = ['campaigns:menu.promotions', 'campaigns:menu.priority', 'campaigns:menu.simulator', 'campaigns:menu.uploads']
+    expect(shown('RuleAuthoring:06')).toEqual(authoring)
+    expect(shown('RuleAuthoring:02')).toEqual([...authoring.slice(0, 3), 'campaigns:menu.upload', 'campaigns:menu.uploads'])
+    expect(shown('RuleSupport:03')).toEqual(['campaigns:menu.sessions', 'campaigns:menu.couponFinder', 'campaigns:menu.customers'])
   })
 
   it('a campaign’s workspace lights the Promotions leaf and puts its id in the crumb', () => {

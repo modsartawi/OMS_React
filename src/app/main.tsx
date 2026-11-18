@@ -6,7 +6,8 @@ import '@/core/i18n'
 import '@/app/global.css'
 import { router } from '@/app/router'
 import { ConfirmHost } from '@/core/services/confirm'
-import { dropCopilotAccessOnUserChange } from '@/features/copilot/access'
+import { dropPermissionsOnUserChange, invalidatePermissionsOnForbidden } from '@/core/permissions'
+import { dropCopilotStartersOnUserChange } from '@/features/copilot/access'
 import ToasterHost from '@/layout/ToasterHost'
 
 const queryClient = new QueryClient({
@@ -15,8 +16,12 @@ const queryClient = new QueryClient({
   },
 })
 
-// The copilot's grant is cached for the page's life: never past its user (spec 734 review item 1).
-dropCopilotAccessOnUserChange(queryClient)
+// The one permissions answer (oms 909): a 403 from any door refetches it, and it never outlives its user.
+invalidatePermissionsOnForbidden(queryClient)
+dropPermissionsOnUserChange(queryClient)
+
+// The copilot reader's starters are the user's own: never past their user (spec 734 review item 1, 873).
+dropCopilotStartersOnUserChange(queryClient)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

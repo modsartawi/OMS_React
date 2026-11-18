@@ -18,8 +18,8 @@ import Ltr from '@/core/ui/Ltr'
 import { apiErrorMessage } from '@/core/api'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { fromListState } from '@/core/oms/open-intent'
-import { omsAccessQuery } from '@/core/oms/api'
-import { canOpenFailedTransfers, omsGrants } from '@/core/oms/access'
+import { canOpenFailedTransfers, canReRunFailedTransfer } from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import { failedDonorTransfersApi } from './api'
 import { failedLine, type FailedLine } from './failed-line'
 import { EMPTY_FILTER, isFiltering, isReversed, keepsLine, type LineFilter } from './filter'
@@ -44,7 +44,7 @@ import Input from '@/core/ui/Input'
 export default function FailedDonorTransfersPage() {
   const { t } = useTranslation('failed-donor-transfers')
   return (
-    <ScreenGate query={omsAccessQuery()} can={canOpenFailedTransfers} ns="failed-donor-transfers" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenFailedTransfers} ns="failed-donor-transfers" title={t('title')} subtitle={t('subtitle')}>
       <FailedTransferQueue />
     </ScreenGate>
   )
@@ -67,8 +67,7 @@ function FailedTransferQueue() {
   const [filter, setFilter] = useState<LineFilter>(EMPTY_FILTER)
 
   // The gate above has already read this entry; it is the same cache entry, not a second call.
-  const access = useQuery(omsAccessQuery())
-  const canReRun = omsGrants(access.data).canReRunFailedTransfer
+  const canReRun = canReRunFailedTransfer(usePermissions())
   const list = useQuery({
     queryKey: ['failed-donor-transfers', 'list'],
     queryFn: () => failedDonorTransfersApi.list(),

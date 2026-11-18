@@ -319,8 +319,3 @@ export interface DispatchScorecardDrill {
   staff: string
   rows: DispatchScorecardDrillRow[]
 }
-
-/** `GET DispatchScorecard/Access`. */
-export interface DispatchScorecardAccess {
-  screenAllowed: boolean
-}

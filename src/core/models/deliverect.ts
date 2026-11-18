@@ -54,25 +54,6 @@ export const DELIVERECT_ERRORS = {
 
 // ── GET DeliverectWeb/Access ─────────────────────────────────────────────────────────────────────
 
-/**
- * The keys the probe returns. Cookie-gated, not grant-gated. Each flag is one
- * `BackOfficeScreen[…,03]` grant:
- *
- * - `canManageStores` ← `DeliverectStores`: Stores/*, Sync/*, StoreStatus/*.
- * - `canManageCatalog` ← `DeliverectCatalog`: Whitelist/*, Exclusions/*, Catalog/Push, Stock/Push (3481).
- * - `canViewOrders` ← `DeliverectOrders`: Orders/*.
- * - `canManageTerms` ← `DeliverectTerms`: Accounts, `GET`/`PUT` Platforms, Terms/*.
- * - `canAddPlatform` ← `DeliverectPlatformAdd`: `POST` Platforms. Not a menu flag — it shows the
- *   "Add platform" button only. Optional: an older SIS.Api does not send it, which reads as `false`.
- */
-export interface DeliverectAccessResult {
-  canManageStores: boolean
-  canManageCatalog: boolean
-  canViewOrders: boolean
-  canManageTerms: boolean
-  canAddPlatform?: boolean
-}
-
 // ── Stores (2616; sync by 2624, status by 2625) ──────────────────────────────────────────────────
 
 /** `linked` on `GET DeliverectWeb/Stores` — `any` is the default. */

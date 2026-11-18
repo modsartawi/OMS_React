@@ -23,11 +23,11 @@
  * importing each other. Same file, one directory deeper; nothing else moves.
  */
 import { api, apiErrorCode } from '@/core/api'
+import type { Permissions } from '@/core/permissions'
 import type {
   AbandonResult,
   AgentDocumentSource,
   ApplyLocationRequest,
-  CallCenterAccessResult,
   CustomerAddressBookEntry,
   CustomerAddressCapture,
   CustomerRequest,
@@ -55,12 +55,10 @@ import type {
 } from '@/core/models/callcenter'
 
 /**
- * The ONE cache key the nav leaf and the route guard share, so a gated console
- * costs one network call and not two (134 §6, ticket 125's pattern). Exported
- * rather than re-spelled at each site: a typo in a string literal would not fail
- * a build, it would silently split the cache entry.
+ * May open the console (`CallCenter:03`): one boolean, open implies act (134 §1). The nav leaf and the route guard
+ * read this one predicate off the one permissions answer (oms 909); every CallCenterWeb door re-checks the grant.
  */
-export const CALLCENTER_ACCESS_KEY = ['callcenter', 'access'] as const
+export const canOpenCallCenter = (p: Permissions): boolean => p.has('CallCenter:03')
 
 /**
  * `LoyaltyErrorCodes.CustomerNotExists` — the loyalty service's machine code for
@@ -219,20 +217,6 @@ export interface PickedSlot {
 }
 
 export const callCenterApi = {
-  /**
-   * `GET CallCenterWeb/Access` → `{ canOpenConsole }`. One boolean: open implies
-   * act (134 §1), so there is no second capability to probe for.
-   *
-   * ⚠️ **Fails closed, deliberately** — no 404/network-tolerant catch, unlike the
-   * `Notifications/Access` and `Bby/Access` probes. What sits behind this one
-   * mints real OMS orders, so an unreachable probe must draw the refusal rather
-   * than the console; the endpoint ships with BackOffice 800, so there is no
-   * window in which a tolerant catch would be doing anything useful.
-   */
-  access(): Promise<CallCenterAccessResult> {
-    return api.get<CallCenterAccessResult>('CallCenterWeb/Access')
-  },
-
   /**
    * `POST CallCenterWeb/Open` → `OpenResult`. Opens a real engine transaction:
    * from this moment everything the agent does is on one transaction the server

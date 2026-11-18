@@ -44,9 +44,9 @@ import { copilotApi } from './api'
 import { WALKED_STEP_TOOLS, pollSteps, walkedStepKey } from './steps'
 import SqlSaveDialog from './SqlSaveDialog'
 import { sqlEditLink } from './sql-save'
-import { canUseSqlMode, copilotSqlAccessQuery } from './access'
+import { canSqlAnalytics } from '@/core/analytics-access'
+import { usePermissions } from '@/core/permissions'
 import { useCopilotConversation, type ReadingOfferState } from './conversation-store'
-import { useQuery } from '@tanstack/react-query'
 import type { AnalyticsItem } from '@/core/models/analytics'
 
 /**
@@ -529,7 +529,7 @@ export function SqlAnswer({ sql, question }: { sql: AnswerSql; question?: string
   // 890: Edit opens the SQL editor on this statement, beside Save; for a SQL grant holder only.
   // Q46: in a conversation opened on a SQL item, Edit opens that item's editor, where Save is the item's PUT.
   const item = useCopilotConversation((s) => s.sqlItem)
-  const edit = sqlEditLink(sql, question, canUseSqlMode(useQuery(copilotSqlAccessQuery()).data), item)
+  const edit = sqlEditLink(sql, question, canSqlAnalytics(usePermissions()), item)
   // A new item is saved from an ordinary answer only: an opened item is saved through its own editor (Edit).
   const canSave = item === null && sql.ran && sql.columns.length > 0 && sql.statement !== '' && question !== undefined
   return (

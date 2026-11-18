@@ -6,18 +6,26 @@ import { Loader2, RefreshCw, Route } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { OMS_ACCESS_KEY, omsAccessApi, revokeOnForbidden } from '@/core/oms/api'
-import { canChangeDetail, canCreateLocalFulfillmentReturn, canCreateReturn, canForceLocalFulfillmentReturnRefund } from '@/core/oms/access'
+import {
+  canChangeDetail,
+  canCreateLocalFulfillmentReturn,
+  canCreateReturn,
+  canForceLocalFulfillmentReturnRefund,
+  canMarkDelivered,
+  canMarkReturnedBack,
+  canOpenDetail as canOpenDetailGrant,
+} from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import { pickSupportKeys } from '@/core/pick-support/api'
 import { orderSessionsView } from '@/core/prescription-session/lines'
-import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
+import { canOpenCentralInvoice } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
-import { canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
+import { canReleaseLock } from '@/core/dispatch/access'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
 import OrderGuardPanel from '@/core/insurance-rules/OrderGuardPanel'
 import { canOverrideGuard, canReleaseGuardHold } from '@/core/insurance-rules/order-guards'
-import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
-import { canViewSourcingAdvisor, sourcingAdvisorAccessQuery } from '@/core/sourcing-advisor/access'
+import { canViewServingLists } from '@/core/serving-list/access'
+import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { buttonClass } from '@/core/ui/control-classes'
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import { calloutsOf, lockedCallout } from '@/core/oms/callout-moments'
@@ -146,9 +154,9 @@ function updateFor(
  *
  * Self-guards on `canOpenDetail` (ticket 125) — the grant that matters, since this is a
  * deep-linkable route carrying the update/reschedule write doors and `router.tsx` has no
- * per-route permission metadata. Spinner → denied card → content, sharing the ONE
- * `OMS_ACCESS_KEY` cache entry with the menu probe and the list guard; the document load
- * itself waits on the probe, so a denied session fires no document request at all.
+ * per-route permission metadata. Spinner → denied card → content, reading the one
+ * permissions answer (oms 909) the menu and the list guard read; the document load
+ * itself waits on it, so a denied session fires no document request at all.
  */
 export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }) {
   const { t } = useTranslation('document')
@@ -160,29 +168,15 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const singleKeyScreen = singleKeyScreenOf(useMatches().map((m) => m.handle))
   const hints = keyHints(singleKeyScreen)
 
-  // Both options MATCH the menu probe's own on this shared key (see useVisibleMenu), and
-  // matching is the point: `staleTime: Infinity` keeps this observer from marking the
-  // shared entry stale and refetching on mount — a second answer that failed would empty
-  // the OMS group from the nav while this screen is happily open. `retry: false` lands a
-  // fail-closed grant on the card at once instead of holding "Checking access…" through a
-  // retry backoff.
-  const access = useQuery({
-    queryKey: OMS_ACCESS_KEY,
-    queryFn: () => omsAccessApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  })
-  const canOpenDetail = access.data?.canOpenDetail === true
+  // The one permissions answer (oms 909): read once per page life, shared with the menu.
+  const permissions = usePermissions()
+  const canOpenDetail = canOpenDetailGrant(permissions)
   // The write grants (BackOffice 2763, ticket 521): the screen opens on `canOpenDetail` alone,
   // and these decide which of its commands — and whether the note composer — are drawn.
-  const mayChange = canChangeDetail(access.data)
-  const mayCreateReturn = canCreateReturn(access.data)
+  const mayChange = canChangeDetail(permissions)
+  const mayCreateReturn = canCreateReturn(permissions)
   // The LF return grant (ticket 760, BackOffice 3369 D14): draws Return on an `LF` delivery instead.
-  const mayCreateLfReturn = canCreateLocalFulfillmentReturn(access.data)
-  // Central invoicing's own grant (ticket 332) — the SAME key and options as the menu leaf
-  // and the bulk screen's gate, so it costs no extra call, and a 403 from the dialog (which
-  // overwrites the entry) removes the action here too.
-  const centralInvoiceAccess = useQuery(centralInvoiceAccessQuery())
+  const mayCreateLfReturn = canCreateLocalFulfillmentReturn(permissions)
   const queryClient = useQueryClient()
 
   const [document, setDocument] = useState<SdDocumentHeaderModel | null>(null)
@@ -362,7 +356,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   )
 
   // Initial load. Keyed on the route id, so navigating between documents without
-  // unmounting still reloads. Gated on the access probe: until it says yes, nothing is
+  // unmounting still reloads. Gated on the permissions answer: until it says yes, nothing is
   // requested — the denied card below must not be preceded by a document fetch.
   useEffect(() => {
     if (!canOpenDetail) return
@@ -448,14 +442,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         return null
       } catch (err) {
         setActionRunning(false)
-        revokeOnForbidden(queryClient, err, 'canChangeDetail')
         const refusalKey = REFUSAL_KEY_OF[kind]?.(apiErrorCode(err)) ?? null
         if (refusalKey) notify.error(t('toast.failed', { label }), t(refusalKey))
         else notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
         return err
       }
     },
-    [document, actionBusy, reload, t, queryClient],
+    [document, actionBusy, reload, t],
   )
 
   /**
@@ -482,7 +475,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       await post(body)
     } catch (err) {
       failure = { err }
-      revokeOnForbidden(queryClient, err, 'canChangeDetail')
     }
     setActionRunning(false)
     setNotePosting(false)
@@ -570,13 +562,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   /**
    * The Delivery cluster (tickets 2422, 838): Mark delivered and Mark returned back, each drawn
    * only for its own grant on a category-`D` delivery, each disabled with a reason off the
-   * delivery's own status. A 403 from either dialog revokes only that grant on the shared probe
-   * entry, which hides only that command here again.
+   * delivery's own status. A 403 from either dialog re-reads the one permissions answer, which
+   * hides the command here once it lands.
    */
   const deliveryCluster = document
     ? deliveryCorrections({
-        canMarkDelivered: access.data?.canMarkDelivered,
-        canMarkReturnedBack: access.data?.canMarkReturnedBack,
+        canMarkDelivered: canMarkDelivered(permissions),
+        canMarkReturnedBack: canMarkReturnedBack(permissions),
         documentCategory: document.documentCategory,
         deliveryStatus: document.status?.deliveryStatus,
         closeStatus: document.status?.closeStatus,
@@ -617,7 +609,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       void reload()
     } catch (err) {
       setActionRunning(false)
-      revokeOnForbidden(queryClient, err, 'canChangeDetail')
       notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
     }
   }
@@ -671,10 +662,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   /**
    * The Insurance section (ticket 787, BackOffice 3390): an order on Document Details, for an
    * insurance-view holder, asks the insurance read; the read alone says whether it IS an insurance
-   * order (`null` = refused by name, no section). A 403 drops the grant for the page life, which
+   * order (`null` = refused by name, no section). A 403 re-reads the one permissions answer, which
    * hides the section; any other failure is said in place. Keyed by the number.
    */
-  const insuranceContext = { openedAs, documentCategory: document?.documentCategory, access: access.data }
+  const insuranceContext = { openedAs, documentCategory: document?.documentCategory, permissions }
   const insuranceAsked = document !== null && document.documentNo !== '' && asksInsurance(insuranceContext)
   const insuranceRead = useQuery({
     queryKey: insuranceKey(document?.documentNo ?? ''),
@@ -682,9 +673,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     enabled: insuranceAsked,
     retry: false,
   })
-  useEffect(() => {
-    if (insuranceRead.isError) revokeOnForbidden(queryClient, insuranceRead.error, 'canViewInsurance')
-  }, [insuranceRead.isError, insuranceRead.error, queryClient])
 
   /**
    * The page's own Refresh: the document, Log and Jobs as always — and the order's
@@ -696,13 +684,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const refresh = () => {
     void reload()
     attachments.refresh()
-    if (document && pickSupportSectionGate(openedAs, access.data))
+    if (document && pickSupportSectionGate(openedAs, permissions))
       void queryClient.invalidateQueries({ queryKey: pickSupportKeys.delivery(document.documentNo) })
     if (document) void queryClient.invalidateQueries({ queryKey: prescriptionSessionsKey(document.documentNo) })
     if (document && lfReturnAsked) void queryClient.invalidateQueries({ queryKey: lfReturnKey(document.documentNo) })
     if (document && insuranceAsked) void queryClient.invalidateQueries({ queryKey: insuranceKey(document.documentNo) })
     // The delivery money strip's order row (789): it asks its own read, so Refresh re-reads it too.
-    const stripKey = document ? stripRefreshKey({ openedAs, refDocumentNo: document.refDocumentNo, access: access.data }) : null
+    const stripKey = document ? stripRefreshKey({ openedAs, refDocumentNo: document.refDocumentNo, permissions }) : null
     if (stripKey) void queryClient.invalidateQueries({ queryKey: stripKey })
     // The Family section (906) asks its own read, so Refresh re-reads it too.
     if (document) void queryClient.invalidateQueries({ queryKey: familyKey(document.documentNo, document.documentCategory) })
@@ -724,35 +712,29 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
   /**
    * Release lock (BackOffice 2951, ticket 542): drawn only on a delivery a competed callout locks
-   * now, and only with the dispatch board's Execute grant — the board's own probe (541), asked
-   * only once a lock is on screen, on the one key the board's gate shares.
+   * now, and only with the dispatch board's Execute grant (`DispatchBoard:06`).
    */
   const locked = lockedCallout(callouts.rows)
-  const dispatchAccess = useQuery({ ...dispatchAccessQuery(), enabled: locked !== null })
-  const mayReleaseLock = locked !== null && canReleaseLock(dispatchAccess.data)
+  const mayReleaseLock = locked !== null && canReleaseLock(permissions)
   const hasCallout = (callouts.rows?.length ?? 0) > 0
   /**
-   * A callout's serving list links to its screen only for a View holder (ticket 572; 567's probe, on
-   * the key the menu leaf shares), asked only once a callout drawn from a list is on screen.
+   * A callout's serving list links to its screen only for a View holder (ticket 572, `ServingList:03`).
    */
   const hasServingList = (callouts.rows ?? []).some((c) => (c.servingListId ?? '').trim() !== '')
-  const servingListAccess = useQuery({ ...servingListAccessQuery(), enabled: hasServingList })
-  const canLinkServingList = hasServingList && canViewServingLists(servingListAccess.data)
+  const canLinkServingList = hasServingList && canViewServingLists(permissions)
   const showCallout = hasCallout && activityView === 'callout'
   /**
    * "Why this store?" (ticket 738, spec 734 D21): a delivery's link into the sourcing advisor's
-   * explanation, drawn only for an advisor holder — its probe in `@/core/`, on the key the menu leaf
-   * shares, failing closed. A delivery only: the advisor scores deliveries.
+   * explanation, drawn only for an advisor holder (`SourcingAdvisor:01`), failing closed. A delivery only: the advisor scores deliveries.
    */
   // The CATEGORY alone (not `commands.isDelivery`, which also counts the route): the advisor scores `D` records.
   const isDeliveryCategoryRecord = document !== null && isDeliveryCategory(document.documentCategory)
-  const sourcingAccess = useQuery({ ...sourcingAdvisorAccessQuery(), enabled: isDeliveryCategoryRecord })
-  const canExplainSourcing = isDeliveryCategoryRecord && canViewSourcingAdvisor(sourcingAccess.data)
+  const canExplainSourcing = isDeliveryCategoryRecord && canViewSourcingAdvisor(permissions)
 
   // ----- access states ------------------------------------------------------
   // After every hook, before any render. The header is not rendered either: a
   // denied session should not learn the document number resolves to anything.
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -761,8 +743,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     )
   }
   if (!canOpenDetail) {
-    // Same split as the list guard: a failed probe is a server fault, not a missing grant.
-    const unreachable = access.isError
+    // Same split as the list guard: a failed answer is a server fault, not a missing grant.
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -773,7 +755,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
           {t(unreachable ? 'access.unavailableTitle' : 'access.deniedTitle')}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          {unreachable ? apiErrorMessage(access.error, t('access.unavailableHint')) : t('access.deniedHint')}
+          {unreachable ? t('access.unavailableHint') : t('access.deniedHint')}
         </p>
       </div>
     )
@@ -844,7 +826,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 // A delivery's page only (category `D`, the payload's answer): a central
                 // invoice invoices a delivery, and the server refuses anything else anyway.
                 onCentralInvoice={
-                  canOpenCentralInvoice(centralInvoiceAccess.data) && isDeliveryCategory(document.documentCategory)
+                  canOpenCentralInvoice(permissions) && isDeliveryCategory(document.documentCategory)
                     ? () => setCentralInvoiceOpen(true)
                     : null
                 }
@@ -874,8 +856,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 const line = (document.lines ?? []).find((l) => l.lineNumber === n)
                 return line ? { code: line.itemNumber, name: line.itemDescription } : null
               }}
-              canOverride={canOverrideGuard(access.data)}
-              canRelease={canReleaseGuardHold(access.data)}
+              canOverride={canOverrideGuard()}
+              canRelease={canReleaseGuardHold()}
               onChanged={() => void reload()}
             />
 
@@ -894,7 +876,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                   actions={
                     // Force refund (ticket 763): absent without 04, disabled on refunded / forced.
                     <ForceRefundCommand
-                      canForce={canForceLocalFulfillmentReturnRefund(access.data)}
+                      canForce={canForceLocalFulfillmentReturnRefund(permissions)}
                       returnDeliveryNo={document!.documentNo}
                       detail={lfReturnRead.data!}
                       watchKey={lfReturnKey(document!.documentNo)}
@@ -905,7 +887,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             )}
 
             {/* The delivery money strip (ticket 789): a delivery of an insurance order; asks its own read. */}
-            <DeliveryMoneyStrip openedAs={openedAs} document={document!} access={access.data} />
+            <DeliveryMoneyStrip openedAs={openedAs} document={document!} permissions={permissions} />
 
             {/*
               The Insurance section (ticket 787): full width above the two columns — Money's three
@@ -982,7 +964,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 attachments={attachments}
                 prescriptionSessions={sessionsView}
                 pickSupport={
-                  pickSupportSectionGate(openedAs, access.data)
+                  pickSupportSectionGate(openedAs, permissions)
                     ? {
                         deliveryNo: document.documentNo,
                         // A fix changed the delivery's picking state under the page: its own load is

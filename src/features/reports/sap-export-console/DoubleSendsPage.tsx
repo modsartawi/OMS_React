@@ -15,7 +15,7 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { useUrlQuery } from '@/core/ui/use-url-query'
-import { canOpenSapExport, sapExportAccessQuery } from './access'
+import { canOpenSapExport } from './access'
 import { doubleSendsQuery } from './api'
 import { DOUBLE_SEND_DEFAULT_COL_DEF, buildDoubleSendColumns } from './double-send-columns'
 import {
@@ -49,7 +49,7 @@ import Select from '@/core/ui/Select'
 export default function DoubleSendsPage() {
   const { t } = useTranslation('sap-export-console')
   return (
-    <ScreenGate query={sapExportAccessQuery()} can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
       <DoubleSends />
     </ScreenGate>
   )

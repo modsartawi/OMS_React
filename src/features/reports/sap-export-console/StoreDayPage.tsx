@@ -17,7 +17,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
-import { canOpenSapExport, sapExportAccessQuery } from './access'
+import { canOpenSapExport } from './access'
 import { storeDayQuery } from './api'
 import { LABEL_TOKEN_CLASS, WORST_FIRST, accountingToken, labelToken, unknownLabelCounts } from './label-helpers'
 import { presentStates, stateMeaningKey } from './state-helpers'
@@ -52,7 +52,7 @@ export default function StoreDayPage() {
   const { t } = useTranslation('sap-export-console')
   const { code = '', day = '' } = useParams()
   return (
-    <ScreenGate query={sapExportAccessQuery()} can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
       {/* Keyed on the store-day, so a link to another one starts from its own filters and page. */}
       <StoreDayView key={`${code}/${day}`} code={code} day={day} />
     </ScreenGate>

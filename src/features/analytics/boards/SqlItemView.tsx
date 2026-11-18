@@ -7,7 +7,8 @@ import i18n from '@/core/i18n'
 import { saysIn } from '@/core/rules/sentence'
 import { useSession } from '@/core/session'
 import { buttonClass } from '@/core/ui/control-classes'
-import { analyticsAccessQuery, canCurateAnalytics, canEditSql, canViewAnalytics } from './access'
+import { canCurateAnalytics, canSqlAnalytics, canViewAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { analyticsApi, analyticsSqlItemKey } from './api'
 import ChangeByAsking from './ChangeByAsking'
 import Refused from './Refused'
@@ -24,7 +25,7 @@ export default function SqlItemView({ id }: { id: string }) {
   const { t } = useTranslation('boards')
   const lang = i18n.language
   const item = useQuery({ queryKey: analyticsSqlItemKey(id), queryFn: () => analyticsApi.sqlItem(id), retry: false })
-  const access = useQuery(analyticsAccessQuery()).data
+  const access = useAnalyticsPermissions()
   const userId = useSession((s) => s.userId)
   if (item.error) return <Refused err={item.error} fallbackKey="sqlEditor.loadFailed" />
   if (!item.data) {
@@ -35,7 +36,7 @@ export default function SqlItemView({ id }: { id: string }) {
     )
   }
   const sql = item.data
-  const acts = sqlItemActions(sql, { userId, canView: canViewAnalytics(access), canSql: canEditSql(access), canCurate: canCurateAnalytics(access) })
+  const acts = sqlItemActions(sql, { userId, canView: canViewAnalytics(access), canSql: canSqlAnalytics(access), canCurate: canCurateAnalytics(access) })
   const title = saysIn(sql.title, lang)
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-analytics-view={sql.id} data-analytics-sql-item>

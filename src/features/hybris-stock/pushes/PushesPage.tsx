@@ -11,7 +11,6 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { canViewHybrisStock } from '@/core/hybris-stock/access'
-import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
 import type { HybrisStockPushRow, HybrisStockPushStatus, HybrisStockPushType, HybrisStockPushesQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
@@ -43,7 +42,7 @@ import { PUSHES_STEP, drawerFromParams, mayHoldMore, moreTake, pushesFilterKey, 
 export default function PushesPage() {
   const { t } = useTranslation('hybris-stock-pushes')
   return (
-    <ScreenGate query={hybrisStockAccessQuery()} can={canViewHybrisStock} ns="hybris-stock-pushes" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewHybrisStock} ns="hybris-stock-pushes" title={t('title')} subtitle={t('subtitle')}>
       <Pushes />
     </ScreenGate>
   )

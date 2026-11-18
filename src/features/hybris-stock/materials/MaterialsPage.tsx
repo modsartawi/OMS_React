@@ -11,7 +11,6 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { canManageHybrisStock, canViewHybrisStock } from '@/core/hybris-stock/access'
-import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
 import type { HybrisStockEnabledFilter, HybrisStockMaterialRow, HybrisStockMaterialsQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
@@ -20,6 +19,7 @@ import Field from '@/core/ui/Field'
 import GridPager from '@/core/ui/GridPager'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import { usePermissions } from '@/core/permissions'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { saveBlob } from '@/core/util/download-file'
@@ -41,7 +41,7 @@ import { ENABLED_FILTERS, MATERIALS_PAGE_SIZE, materialsFromParams, materialsToP
 export default function MaterialsPage() {
   const { t } = useTranslation('hybris-stock-materials')
   return (
-    <ScreenGate query={hybrisStockAccessQuery()} can={canViewHybrisStock} ns="hybris-stock-materials" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewHybrisStock} ns="hybris-stock-materials" title={t('title')} subtitle={t('subtitle')}>
       <Materials />
     </ScreenGate>
   )
@@ -70,8 +70,8 @@ function Materials() {
   // A filter change takes the text box as it reads, and starts again on the first page.
   const update = (change: Partial<HybrisStockMaterialsQuery>) => setParams(materialsToParams({ ...query, q: draft.trim() || null, page: 1, ...change }), { replace: true })
 
-  const access = useQuery(hybrisStockAccessQuery())
-  const canManage = canManageHybrisStock(access.data)
+  const permissions = usePermissions()
+  const canManage = canManageHybrisStock(permissions)
 
   const materials = useQuery({
     queryKey: [...MATERIALS_KEY, materialsToParams(query).toString()],
@@ -191,7 +191,7 @@ function Materials() {
                 <Trans t={t} i18nKey="results.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
               </span>
             )}
-            {!canManage && access.isSuccess && (
+            {!canManage && permissions.settled && !permissions.failed && (
               <span data-view-only="">{t('results.viewOnly')}</span>
             )}
             {pagerTotal > MATERIALS_PAGE_SIZE && (

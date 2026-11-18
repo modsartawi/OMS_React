@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ScriptStoreRow, SentScript } from '@/core/models/sync-console'
+import { permissionsOf } from '@/core/permissions'
 import {
   SCRIPT_MAX_CHARS,
   firstNonAscii,
@@ -51,6 +52,9 @@ const store = (code: string, state: string): ScriptStoreRow => ({
   lastAttempt: null,
   errorMessage: null,
 })
+
+/** A script sender (`SyncStoreScript:06`), which is not Operate. */
+const can = permissionsOf({ screens: ['ActionSyncConsole:03', 'SyncStoreScript:06'] })
 
 describe('the state counts', () => {
   it('reads the five derived states in the ticket order, each with its own words', () => {
@@ -198,22 +202,20 @@ describe("the withdraw and retry previews' sentences", () => {
 })
 
 describe('when Withdraw and Retry are offered', () => {
-  const can = { canRunScripts: true }
 
   it('a live script with stores not yet run offers Withdraw; one with exhausted stores offers Retry all', () => {
     expect(scriptControls(script(), can)).toEqual({ withdraw: true, retryAll: true })
   })
 
-  it('without canRunScripts nothing is offered, and an absent flag (a door older than 3205) is a no', () => {
-    expect(scriptControls(script(), { canRunScripts: false })).toEqual({ withdraw: false, retryAll: false })
-    expect(scriptControls(script(), {})).toEqual({ withdraw: false, retryAll: false })
-    expect(scriptControls(script(), null)).toEqual({ withdraw: false, retryAll: false })
+  it('without SyncStoreScript:06 nothing is offered (Operate is not it), nor before the answer is in', () => {
+    expect(scriptControls(script(), permissionsOf({ screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06'] }))).toEqual({ withdraw: false, retryAll: false })
+    expect(scriptControls(script(), permissionsOf(null))).toEqual({ withdraw: false, retryAll: false })
   })
 
   it('a legacy script with exhausted stores offers Retry all, never Withdraw (the door: LEGACY_SCRIPT on a withdraw only)', () => {
     expect(scriptControls(script({ isLegacy: true, title: null }), can)).toEqual({ withdraw: false, retryAll: true })
     expect(scriptControls(script({ isLegacy: true, exhausted: 0 }), can)).toEqual({ withdraw: false, retryAll: false })
-    expect(scriptControls(script({ isLegacy: true }), { canRunScripts: false })).toEqual({ withdraw: false, retryAll: false })
+    expect(scriptControls(script({ isLegacy: true }), permissionsOf({ screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06'] }))).toEqual({ withdraw: false, retryAll: false })
     expect(storeRetryOffered(store('P003', 'exhausted'), script({ isLegacy: true, title: null }), can)).toBe(true)
     expect(storeRetryOffered(store('P003', 'pending'), script({ isLegacy: true }), can)).toBe(false)
   })
@@ -239,7 +241,7 @@ describe('when Withdraw and Retry are offered', () => {
     for (const state of ['executed', 'pending', 'retrying', 'withdrawn', 'quarantined']) {
       expect(storeRetryOffered(store('P003', state), live, can)).toBe(false)
     }
-    expect(storeRetryOffered(store('P003', 'exhausted'), live, { canRunScripts: false })).toBe(false)
+    expect(storeRetryOffered(store('P003', 'exhausted'), live, permissionsOf({ screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06'] }))).toBe(false)
     expect(storeRetryOffered(store('P003', 'exhausted'), script({ withdrawnAt: '2026-10-29T11:00:00' }), can)).toBe(false)
   })
 })
@@ -341,7 +343,7 @@ describe('a state in any case the door sends (review 2)', () => {
   })
 
   it('offers a row Retry on an exhausted store in any case', () => {
-    expect(storeRetryOffered(store('P002', 'Exhausted'), script(), { canRunScripts: true })).toBe(true)
+    expect(storeRetryOffered(store('P002', 'Exhausted'), script(), can)).toBe(true)
   })
 })
 
@@ -349,8 +351,8 @@ describe('a withdrawn time the door leaves out (review 4)', () => {
   it('reads as not withdrawn, so the controls stay', () => {
     const { withdrawnAt: _omitted, ...rest } = script()
     const s = rest as SentScript
-    expect(scriptControls(s, { canRunScripts: true })).toEqual({ withdraw: true, retryAll: true })
-    expect(storeRetryOffered(store('P002', 'exhausted'), s, { canRunScripts: true })).toBe(true)
+    expect(scriptControls(s, can)).toEqual({ withdraw: true, retryAll: true })
+    expect(storeRetryOffered(store('P002', 'exhausted'), s, can)).toBe(true)
   })
 })
 
@@ -363,7 +365,7 @@ describe("the detail's own counts (the Detail door sends its stores, not the lis
   it('a legacy detail (title null, no counts on the wire) with an exhausted store offers Retry all', () => {
     const stores = [store('P1', 'exhausted'), store('P2', 'executed')]
     const detail = { isLegacy: true, title: null, withdrawnAt: null, ...scriptStateCounts(stores) }
-    expect(scriptControls(detail, { canRunScripts: true })).toEqual({ withdraw: false, retryAll: true })
+    expect(scriptControls(detail, can)).toEqual({ withdraw: false, retryAll: true })
   })
 })
 

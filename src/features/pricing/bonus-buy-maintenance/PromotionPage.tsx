@@ -29,13 +29,13 @@ import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import {
-  bbyMaintainAccessQuery,
   bbyMaintainApi,
-  canMarkTested,
+  canTestBbyMaintain,
   canOpenBbyMaintain,
   promotionKey,
   promotionListKey,
 } from './api'
+import { usePermissions } from '@/core/permissions'
 import ActReport, { type Report, type ReportRow } from './ActReport'
 import { TEST_NOTE_MAX } from './editor'
 import { DateInput, TextInput } from './fields'
@@ -70,7 +70,6 @@ export default function PromotionPage() {
   const { promoNumber = '' } = useParams()
   return (
     <ScreenGate
-      query={bbyMaintainAccessQuery()}
       can={canOpenBbyMaintain}
       ns="bonus-buy-maintenance"
       title={t('promotion.title')}
@@ -177,7 +176,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
   // The tester grant, off the access answer the screen gate already holds (no second probe).
-  const canTest = canMarkTested(useQuery(bbyMaintainAccessQuery()).data)
+  const canTest = canTestBbyMaintain(usePermissions())
 
   // The overview's filter: search + status chip narrow the rows handed to the grid; the grid's
   // own column filters (the toggled filter row) narrow them further.

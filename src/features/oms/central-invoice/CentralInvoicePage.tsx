@@ -7,12 +7,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { copyText } from '@/core/util/copy-text'
-import {
-  CENTRAL_INVOICE_MAX_DELIVERIES,
-  canOpenCentralInvoice,
-  centralInvoiceAccessQuery,
-  isGrantRefused,
-} from '@/core/central-invoice/api'
+import { CENTRAL_INVOICE_MAX_DELIVERIES, canOpenCentralInvoice, isGrantRefused } from '@/core/central-invoice/api'
 import { RaiseButton, ReasonField, useRaiseCentralInvoice } from '@/core/central-invoice/raise'
 import { retryList, verdictTally } from '@/core/central-invoice/verdicts'
 import { xlsxRows } from '@/core/util/xlsx-read'
@@ -39,7 +34,6 @@ export default function CentralInvoicePage() {
   const { t } = useTranslation('central-invoice')
   return (
     <ScreenGate
-      query={centralInvoiceAccessQuery()}
       can={canOpenCentralInvoice}
       ns="central-invoice"
       title={t('bulk.title')}
@@ -66,7 +60,7 @@ function BulkRaise() {
   const list = useMemo(() => parseDeliveryList(text, CENTRAL_INVOICE_MAX_DELIVERIES), [text])
   const trimmedReason = reason.trim()
 
-  // A 403 revokes the grant for the page life (`useRaiseCentralInvoice`): the gate above
+  // A 403 re-reads the one permissions answer (`@/core/api`, oms 909): the gate above
   // re-renders as the denial, and the menu leaf and the delivery page's action go with it.
   const { mutation: raise, send } = useRaiseCentralInvoice()
 

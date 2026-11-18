@@ -21,7 +21,6 @@
  */
 import { api } from '@/core/api'
 import type {
-  LoyAccessResult,
   LoyActivityRow,
   LoyInvoiceRequeueResult,
   LoyInvoiceRow,
@@ -31,27 +30,17 @@ import type {
   LoyMemberPayload,
   LoySalesRow,
 } from '@/core/models/loy'
+import type { Permissions } from '@/core/permissions'
 import type { ContactRemoval } from './contact-removal'
 import type { ProfileUpdateRequest } from './profile-form'
 import type { MemberReads } from './resolve-member'
 
 /**
- * The ONE cache key the Loyalty nav leaf and this screen's own in-page guard
- * share, so a gated area costs one network call and not one per consumer
- * (ticket 234). Exported rather than re-spelled at each site: a typo in a string
- * literal would not fail a build, it would silently split the cache entry and
- * let the nav and the screen disagree about whether the session is allowed in.
+ * Whether the session may open the member screen — `LoyMember:03` on the one
+ * permissions answer (oms 909). The nav leaf, this screen's guard and the
+ * palette's member row read this same predicate.
  */
-export const LOY_ACCESS_KEY = ['loy', 'access'] as const
-
-/**
- * Whether a probe answer admits the session. The predicate is a named export
- * because it is the ticket's pure Proof: `=== true` and nothing looser, so a
- * malformed answer (`{}`, `null`, a string `"true"`) is a denial and not an
- * accident of truthiness.
- */
-export const canOpenLoyMember = (r: LoyAccessResult | null | undefined): boolean =>
-  r?.canOpenLoyMember === true
+export const canOpenLoyMember = (p: Permissions): boolean => p.has('LoyMember:03')
 
 /**
  * Whether the session may **edit** the member on screen — spec 301's second tier
@@ -59,21 +48,17 @@ export const canOpenLoyMember = (r: LoyAccessResult | null | undefined): boolean
  * one-line predicate rather than a parameterised reader: the three flags are
  * three authorities, and a shared `has(flag)` helper would make it possible to
  * ask for a flag that does not exist and be told `false` by a typo.
- *
- * 🚩 `=== true` and nothing looser. A denial, an absent flag, a string `"true"`,
- * an empty object and a probe that never answered are all *no* — being wrong
- * here fails **open** on a customer-PII surface.
+ * `LoyMember:02`; a pending or failed answer is *no* — being wrong here fails
+ * **open** on a customer-PII surface.
  */
-export const canEditLoyMember = (r: LoyAccessResult | null | undefined): boolean =>
-  r?.canEditLoyMember === true
+export const canEditLoyMember = (p: Permissions): boolean => p.has('LoyMember:02')
 
 /**
  * Whether the session may **remove the member's mobile** — the third tier, and
  * the narrowest: it destroys a login and one of the only two ways a member can
  * be found. Same fail-closed rule.
  */
-export const canRemoveLoyMemberMobile = (r: LoyAccessResult | null | undefined): boolean =>
-  r?.canRemoveLoyMemberMobile === true
+export const canRemoveLoyMemberMobile = (p: Permissions): boolean => p.has('LoyMember:04')
 
 /**
  * What one session may do on this screen, read off ONE probe answer.
@@ -90,49 +75,13 @@ export interface MemberAuthority {
   mayRemoveMobile: boolean
 }
 
-export function memberAuthority(r: LoyAccessResult | null | undefined): MemberAuthority {
-  const mayLook = canOpenLoyMember(r)
+export function memberAuthority(p: Permissions): MemberAuthority {
+  const mayLook = canOpenLoyMember(p)
   return {
     mayLook,
-    mayEdit: mayLook && canEditLoyMember(r),
-    mayRemoveMobile: mayLook && canRemoveLoyMemberMobile(r),
+    mayEdit: mayLook && canEditLoyMember(p),
+    mayRemoveMobile: mayLook && canRemoveLoyMemberMobile(p),
   }
-}
-
-export const loyAccessApi = {
-  /**
-   * `GET LoyWeb/Access` → the area's three authority flags: `canOpenLoyMember`
-   * (spec 231) plus `canEditLoyMember` and `canRemoveLoyMemberMobile` (spec 301,
-   * ADR 0001). 🚩 **One route, one answer, one cache key** — the nav leaf, the
-   * in-page guard and the Profile tab all read this call, so the menu and the
-   * screen cannot disagree about the same session.
-   *
-   * ⚠️ **Fails closed, and that is the point of ticket 234** — no 404-tolerant
-   * catch, unlike the `Notifications/Access` and `Bby/Access` probes which
-   * degrade to allowed while their endpoints are unbuilt. 224 ruled the
-   * bonus-buy precedent (*unknown ⇒ shown*) does not transfer here: this screen
-   * is a customer-PII surface, so an unseeded grant, a missing table or an
-   * engine fault hides the nav item and denies the screen. The shell already
-   * treats a pending or errored probe as hidden, so failing closed is the
-   * *absence* of a catch rather than code.
-   */
-  access(): Promise<LoyAccessResult> {
-    return api.get<LoyAccessResult>('LoyWeb/Access')
-  },
-}
-
-/**
- * The probe's query options — the SAME two options the shell gives every nav probe
- * (`staleTime: Infinity`, `retry: false`), so the leaf, this screen's guard and the
- * palette's member row (427) are ONE call and not three.
- */
-export function loyAccessQuery() {
-  return {
-    queryKey: LOY_ACCESS_KEY,
-    queryFn: () => loyAccessApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
 }
 
 /**

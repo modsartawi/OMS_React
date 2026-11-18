@@ -1,4 +1,5 @@
 import { api } from '@/core/api'
+import type { Permissions } from '@/core/permissions'
 import type {
   CreateNotificationRequest,
   CreateNotificationResult,
@@ -11,43 +12,15 @@ import type {
 // with code NC_FORBIDDEN, which the screen shows via apiErrorMessage.
 
 /**
- * The compose access probe's normalized result (038). `allowed` = the server says
- * the caller holds NotificationBroadcast[01].
+ * May broadcast (oms 909, BackOffice spec 4002 Broadcast row): the `NotificationBroadcast:01` grant AND the
+ * notification center switched on (`extras.notificationCenterOn` — the create route is mapped only then). Off the one
+ * permissions answer; the menu leaf and the page read this one predicate. The old 404-tolerant probe is gone.
  */
-export interface BroadcastAccessResult {
-  allowed: boolean
-}
-
-/** Raw wire shape of GET Notifications/Access. */
-interface BroadcastAccessWire {
-  canBroadcast: boolean
-}
-
-/** The ONE key the menu leaf and the page share, and the options both pass (oms 852): a refusal is an answer. */
-export const BROADCAST_ACCESS_KEY = ['broadcast', 'access'] as const
-export function broadcastAccessQuery() {
-  return {
-    queryKey: BROADCAST_ACCESS_KEY,
-    queryFn: () => broadcastApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
+export const canBroadcast = (p: Permissions): boolean =>
+  p.has('NotificationBroadcast:01') && p.extras.notificationCenterOn
 
 export const broadcastApi = {
   create(request: CreateNotificationRequest): Promise<CreateNotificationResult> {
     return api.post<CreateNotificationResult>('Notifications', request)
-  },
-
-  // Screen-open grant probe. Drives BOTH the shell's permission-aware nav hiding
-  // AND the page's own route-guard (shared ['broadcast','access'] cache key → one
-  // call). 🚩 FAILS CLOSED (oms 852): the route is mapped only while the
-  // notification center is on, so a 404 means nothing about the grant — it now
-  // rejects like any other failure and the nav hides the leaf, instead of the old
-  // "unknown → allowed". BackOffice 3459 makes it always answer.
-  access(): Promise<BroadcastAccessResult> {
-    return api
-      .get<BroadcastAccessWire>('Notifications/Access')
-      .then((r) => ({ allowed: r?.canBroadcast === true }))
   },
 }

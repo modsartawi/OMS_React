@@ -8,13 +8,14 @@ import { Loader2, Plus } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { canMaintainLoyGroups, canViewLoyGroups, loyGroupsAccessQuery, loyGroupsQuery } from '@/core/loy-groups/api'
+import { canMaintainLoyGroups, canViewLoyGroups, loyGroupsQuery } from '@/core/loy-groups/api'
 import type { LoyGroup } from '@/core/models/loy-groups'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
+import { usePermissions } from '@/core/permissions'
 import { GROUPS_DEFAULT_COL_DEF, buildGroupColumns } from './columns'
 import CreateGroupDialog from './CreateGroupDialog'
 import MobileLookup from './MobileLookup'
@@ -23,14 +24,14 @@ import MobileLookup from './MobileLookup'
  * Loyalty groups — `/loy/groups` (BackOffice spec 3173, oms ticket 629). Every loyalty group: code, name in
  * the UI language, active flag, mobile count and the live bonus-buys naming it. HQ-only.
  *
- * Behind `canViewLoyGroups` on `GET LoyGroupWeb/Access` — the menu leaf reads the same predicate and key.
+ * Behind `canViewLoyGroups` (`LoyaltyGroup:03`) — the menu leaf reads the same predicate.
  * The shared half (model, doors, predicates, keys) lives in `@/core/loy-groups` because bonus-buy
  * maintenance, simulation and the member screen read it too.
  */
 export default function LoyGroupsPage() {
   const { t } = useTranslation('loy-groups')
   return (
-    <ScreenGate query={loyGroupsAccessQuery()} can={canViewLoyGroups} ns="loy-groups" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewLoyGroups} ns="loy-groups" title={t('title')} subtitle={t('subtitle')}>
       <Groups />
     </ScreenGate>
   )
@@ -54,7 +55,7 @@ function Groups() {
 
   const groups = useQuery(loyGroupsQuery(scope === 'all'))
   // Create is a write: absent on a view-only grant (ticket 630).
-  const canMaintain = canMaintainLoyGroups(useQuery(loyGroupsAccessQuery()).data)
+  const canMaintain = canMaintainLoyGroups(usePermissions())
   const [creating, setCreating] = useState(false)
   const lang = i18n.language
   const columns = useMemo(() => buildGroupColumns(t, lang), [t, lang])

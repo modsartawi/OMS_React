@@ -12,7 +12,8 @@ import Chip from '@/core/ui/Chip'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import type { ActiveSessionRow } from '@/core/models/session-monitor'
-import { sessionMonitorApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { canOpenActiveSessions, sessionMonitorApi } from './api'
 import { isDormant, relativeTime, singleDistinctUser, type SessionChip, type SingleUser } from './helpers'
 import type { ActiveSessionSearchResult, SessionCountsResult } from '@/core/models/session-monitor'
 
@@ -42,22 +43,20 @@ export default function ActiveSessionsPage() {
   const [term, setTerm] = useState('')
   const [query, setQuery] = useState<Query | null>(null)
 
-  const access = useQuery({
-    queryKey: ['active-sessions', 'access'],
-    queryFn: () => sessionMonitorApi.access(),
-  })
+  const permissions = usePermissions()
+  const canOpen = canOpenActiveSessions(permissions)
 
   const counts = useQuery({
     queryKey: ['active-sessions', 'counts'],
     queryFn: () => sessionMonitorApi.counts(),
-    enabled: access.data?.canOpen === true,
+    enabled: canOpen,
   })
 
   const listKey = ['active-sessions', 'list', query] as const
   const list = useQuery({
     queryKey: listKey,
     queryFn: () => sessionMonitorApi.search(query!.term, query!.chip),
-    enabled: query !== null && access.data?.canOpen === true,
+    enabled: query !== null && canOpen,
     // Keep the monitor live: re-run the CURRENT capped query every 30s (ticket
     // 012). The queryKey holds the term+chip, so the poll only ever reloads the
     // view on screen — a tab left open doesn't fan out. `refetchIntervalInBackground`
@@ -171,7 +170,7 @@ export default function ActiveSessionsPage() {
   }
 
   // ----- access states ------------------------------------------------------
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -179,7 +178,7 @@ export default function ActiveSessionsPage() {
       </div>
     )
   }
-  if (access.data?.canOpen !== true) {
+  if (!canOpen) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
         <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>

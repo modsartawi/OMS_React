@@ -3,13 +3,7 @@
  * suite (`return-order.test.ts`, spec 289 / tickets 290-294) stays byte-for-byte unchanged.
  */
 import { describe, expect, it } from 'vitest'
-import { QueryClient } from '@tanstack/react-query'
-import { ApiError } from '@/core/api'
-import { OMS_ACCESS_KEY, revokeOnForbidden } from '@/core/oms/api'
-import { omsGrants } from '@/core/oms/access'
-import type { OmsAccessResult } from '@/core/models/oms-access'
 import {
-  RETURN_GRANT,
   buildCreateReturnRequest,
   pickupAddressFrom,
   refundableFees,
@@ -173,34 +167,5 @@ describe('buildCreateReturnRequest on an LF draft (ticket 761)', () => {
     expect(Object.keys(body).sort()).toEqual(
       ['conditionTypes', 'lines', 'note', 'reason', 'refDeliveryNo', 'requestId', 'shippingAddress'].sort(),
     )
-  })
-})
-
-describe('a 403 from the create door revokes the grant of the return being raised (760 open item)', () => {
-  const seeded = () => {
-    const client = new QueryClient()
-    client.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, {
-      canOpenList: true,
-      canOpenDetail: true,
-      canCreateReturn: true,
-      canCreateLocalFulfillmentReturn: true,
-    })
-    return client
-  }
-  const grantsOf = (client: QueryClient) => omsGrants(client.getQueryData<OmsAccessResult>(OMS_ACCESS_KEY))
-  const forbidden = new ApiError('unknown', 'Forbidden', 403)
-
-  it('an LF 403 revokes the LF grant, never the bonded one', () => {
-    const client = seeded()
-    revokeOnForbidden(client, forbidden, RETURN_GRANT.lf)
-    expect(grantsOf(client).canCreateLocalFulfillmentReturn).toBe(false)
-    expect(grantsOf(client).canCreateReturn).toBe(true)
-  })
-
-  it('a bonded 403 still revokes the bonded grant, and leaves the LF one', () => {
-    const client = seeded()
-    revokeOnForbidden(client, forbidden, RETURN_GRANT.bonded)
-    expect(grantsOf(client).canCreateReturn).toBe(false)
-    expect(grantsOf(client).canCreateLocalFulfillmentReturn).toBe(true)
   })
 })

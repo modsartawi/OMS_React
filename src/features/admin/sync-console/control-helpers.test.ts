@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CONTROL_ACTIONS, type DisablePreviewStore } from '@/core/models/sync-console'
+import { permissionsOf } from '@/core/permissions'
 import {
   AUDIT_PAGE_SIZE,
   EMPTY_AUDIT_FILTER,
@@ -40,8 +41,8 @@ import ar from '@/locales/ar/sync-console.json'
 const lookup = (key: string): unknown =>
   key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], en)
 
-const operate = { canOperate: true }
-const viewOnly = { canOperate: false }
+const operate = permissionsOf({ screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06'] })
+const viewOnly = permissionsOf({ screens: ['ActionSyncConsole:03'] })
 
 describe('allowedControls', () => {
   it('offers a worker store Pause, Disable and Hand back (allowedControls_activeWorker_offersDisable)', () => {
@@ -74,10 +75,9 @@ describe('allowedControls', () => {
     expect(allowedControls({ host: 'Wpf', isPaused: false }, viewOnly)).toEqual([])
   })
 
-  it('fails closed on an unread or malformed access answer', () => {
-    expect(allowedControls({ host: 'Worker', isPaused: false }, undefined)).toEqual([])
-    expect(allowedControls({ host: 'Worker', isPaused: false }, null)).toEqual([])
-    expect(allowedControls({ host: 'Worker', isPaused: false }, { canOperate: 'yes' as unknown as boolean })).toEqual([])
+  it('fails closed on an unread answer, and on a neighbouring key', () => {
+    expect(allowedControls({ host: 'Worker', isPaused: false }, permissionsOf(null))).toEqual([])
+    expect(allowedControls({ host: 'Worker', isPaused: false }, permissionsOf({ screens: ['ActionSyncConsole:03', 'StoreOnboard:06'] }))).toEqual([])
   })
 
   it('labels every control', () => {

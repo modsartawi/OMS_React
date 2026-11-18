@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'
-import type { AnalyticsAccess, AnalyticsCatalogMart } from '@/core/models/analytics'
+import type { AnalyticsCatalogMart } from '@/core/models/analytics'
+import { permissionsOf } from '@/core/permissions'
 import { rawOffer, rawRefusal, rawRequest, readRaw } from './catalog-raw'
 import { refusalWords } from './wire'
 
-const CURATOR: AnalyticsAccess = { canView: true, canAuthor: true, canCurate: true }
-const VIEWER: AnalyticsAccess = { canView: true, canAuthor: false, canCurate: false }
+const CURATOR = permissionsOf({ screens: ['Analytics:03', 'Analytics:02', 'Analytics:06'] })
+const VIEWER = permissionsOf({ screens: ['Analytics:03'] })
 
 /** `mart_item_sales_daily` as a curator reads it (BackOffice 3442: columns in table order, previewable flagged). */
 const CURATED: AnalyticsCatalogMart = {
@@ -35,9 +36,11 @@ describe('raw preview', () => {
     expect(rawOffer(CURATED, CURATOR)).toEqual({ rows: 1_284_311, sizeMb: 412.5, hiddenColumns: 2, orderBy: ['day', 'store_code', 'item_code'] })
     // A viewer gets nothing: no action, no hidden-column note, no row count or size (ruling 7).
     expect(rawOffer(AS_VIEWER, VIEWER)).toBeNull()
-    // Even were the curator fields in the answer, the probe decides the action.
+    // Even were the curator fields in the answer, the grant decides the action.
     expect(rawOffer(CURATED, VIEWER)).toBeNull()
-    expect(rawOffer(CURATED, undefined)).toBeNull()
+    expect(rawOffer(CURATED, permissionsOf(null))).toBeNull()
+    // Half a curator — the curate key without the author grant — is no curator.
+    expect(rawOffer(CURATED, permissionsOf({ screens: ['Analytics:03', 'Analytics:06'] }))).toBeNull()
     // A curator on a mart the catalog does not describe, or whose columns the store could not read: no action.
     expect(rawOffer(null, CURATOR)).toBeNull()
     expect(rawOffer(AS_VIEWER, CURATOR)).toBeNull()

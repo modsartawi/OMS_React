@@ -157,12 +157,6 @@ export interface FleetStoreRow {
   computedAt: string | null
 }
 
-// ── Access probe (2580) ─────────────────────────────────────────────────────────
-
-/** `GET SapExport/Access` — cookie only, no grant. Drives the menu's `accessProbe`. */
-export interface SapExportAccess {
-  screenAllowed: boolean
-}
 
 // ── Store-day, live (2580; reasons 2581/2582; flags and verdict 2583) ──────────
 

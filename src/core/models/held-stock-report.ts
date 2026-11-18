@@ -16,10 +16,6 @@
  * formatted through `@/core/util/date-format`. Feed ages are whole seconds; null where the row carried none.
  */
 
-export interface HeldStockReportAccess {
-  screenAllowed: boolean
-}
-
 // ----- the refusal report -----
 
 /** The refusal report's query: one local day (`yyyy-MM-dd`; absent = today) and the stores (blank = every open store). */

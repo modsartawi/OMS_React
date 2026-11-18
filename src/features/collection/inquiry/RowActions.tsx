@@ -109,8 +109,8 @@ export function buildReceiptActionColumn(t: TFunction): ColDef<CollectionInquiry
  * session**: the four grants are independent (253), so an account holding
  * `AcrInquiry` and not `CollectionInquiry` is ordinary rather than hypothetical.
  * Offering it the link would walk it, in its own tab, out of a grid it can read
- * and into a denial screen. The probe is already cached under
- * `COLLECTION_ACCESS_KEY`, so asking costs nothing.
+ * and into a denial screen. The one permissions answer is already cached, so asking
+ * costs nothing.
  */
 export function buildAcrActionsColumn(t: TFunction, canOpenCollections: boolean): ColDef<AcrInquiryRow> {
   return actionColumn<AcrInquiryRow>(

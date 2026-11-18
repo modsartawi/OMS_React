@@ -16,8 +16,8 @@ import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { omsAccessQuery } from '@/core/oms/api'
-import { canOpenDocumentSourceUsers, omsGrants } from '@/core/oms/access'
+import { canImportDocumentSourceUsers, canOpenDocumentSourceUsers } from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import ImportDialog from '@/core/import/ImportDialog'
 import type { ImportOkLine } from '@/core/import/parse-import'
 import type { SdDocumentSourceUserModel } from '@/core/models/document-source-user'
@@ -47,7 +47,6 @@ export default function DocumentSourceUsersPage() {
   const { t } = useTranslation('document-source-users')
   return (
     <ScreenGate
-      query={omsAccessQuery()}
       can={canOpenDocumentSourceUsers}
       ns="document-source-users"
       title={t('title')}
@@ -67,7 +66,7 @@ const figure = (n: number) => n.toLocaleString('en-US')
 function DocumentSourceUsers() {
   const { t } = useTranslation('document-source-users')
   const queryClient = useQueryClient()
-  const grants = omsGrants(useQuery(omsAccessQuery()).data)
+  const permissions = usePermissions()
   const users = useQuery(sourceUsersQuery())
   const rows = users.data
   const loading = users.isFetching
@@ -131,7 +130,7 @@ function DocumentSourceUsers() {
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
             {t('export.button')}
           </Button>
-          {grants.canImportDocumentSourceUsers && (
+          {canImportDocumentSourceUsers(permissions) && (
             <Button variant="outlined" onClick={() => setImporting(true)} data-dsu-import="">
               <Upload className="h-3.5 w-3.5" aria-hidden />
               {t('importButton')}

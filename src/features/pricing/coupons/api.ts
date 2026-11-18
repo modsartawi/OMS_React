@@ -1,7 +1,6 @@
 import { api } from '@/core/api'
 import type {
   CouponDetails,
-  CouponsAccessResult,
   CouponTemplate,
   CreateImportJobRequest,
   CreateTemplateRequest,
@@ -11,6 +10,7 @@ import type {
   ImportJobResult,
   UpdateTemplateRequest,
 } from '@/core/models/coupons'
+import type { Permissions } from '@/core/permissions'
 
 // Every server call goes through @/core/api (see .claude/rules/api-envelope.md): it
 // unwraps the SIS.Api envelope, returns `.data`, and maps a failed CouponResult to an
@@ -20,14 +20,17 @@ import type {
 const BASE = 'CouponsAdminWeb'
 const encode = (segment: string) => encodeURIComponent(segment)
 
+/**
+ * The Templates + Import workspaces (admin-only): `CouponsAdmin:03`, off the one permissions
+ * answer (oms 909). Read by the nav leaf and the admin screen's guard. The server re-checks the
+ * grant on every mutation; this is show/hide hygiene only.
+ */
+export const canAdminCoupons = (p: Permissions): boolean => p.has('CouponsAdmin:03')
+
+/** Inquiry: support OR admin (ticket 521) — `CouponsSupport:03` or `CouponsAdmin:03`. */
+export const canSupportCoupons = (p: Permissions): boolean => p.has('CouponsSupport:03') || p.has('CouponsAdmin:03')
+
 export const couponsApi = {
-  // Screen-open probe. Drives BOTH the in-page route-guard AND the shell's permission-
-  // aware nav hiding (issue 429) — the shell's probe shares this exact ['coupons','access']
-  // cache entry, so it's one call, not two. The server re-checks the grant on every
-  // mutation regardless; the menu hide is show/hide hygiene only.
-  access(): Promise<CouponsAccessResult> {
-    return api.get<CouponsAccessResult>(`${BASE}/Access`)
-  },
 
   // ── Templates (517) ──────────────────────────────────────────────────────
   getTemplate(templateId: string): Promise<CouponTemplate> {

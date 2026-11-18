@@ -15,7 +15,6 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { collectionAccessQuery } from '@/core/collection/api'
 import {
   ASSIGNMENT_OPTIONS_KEY,
   ASSIGNMENT_ROSTER_KEY,
@@ -114,7 +113,6 @@ export default function CollectionAssignmentPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenAssignment}
       ns="collection"
       title={t('assignment.title')}

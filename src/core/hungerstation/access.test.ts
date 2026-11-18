@@ -1,49 +1,28 @@
 /**
- * Ticket 551 — the HungerStation probe's three flags (contract § `GET HungerStationWeb/Access`). Each
- * leaf and each page reads its flag through one predicate; only an explicit `true` grants, so a
- * missing, errored or malformed answer keeps every HungerStation screen hidden (fail closed).
+ * Ticket 551 — the HungerStation grants, off the one permissions answer since oms 909. Each leaf and each page reads
+ * its grant through one predicate; a missing or errored answer keeps every HungerStation screen hidden (fail closed).
  */
 import { describe, expect, it } from 'vitest'
-import type { HungerStationAccessResult } from '@/core/models/hungerstation'
-import { HUNGERSTATION_FLAGS, canManageCatalog, canManagePromotions, canManageStores, canViewOrders, hungerStationGrants } from './access'
+import { permissionsOf, type Permissions } from '@/core/permissions'
+import { canManageCatalog, canManagePromotions, canManageStores, canViewOrders } from './access'
 
-const all = (value: boolean): HungerStationAccessResult => ({ canManageStores: value, canManageCatalog: value, canViewOrders: value, canManagePromotions: value })
-
-describe('hungerStationGrants', () => {
-  it('names exactly the four contract flags (665 added canManagePromotions)', () => {
-    expect([...HUNGERSTATION_FLAGS].sort()).toEqual(['canManageCatalog', 'canManagePromotions', 'canManageStores', 'canViewOrders'])
-  })
-
-  it.each([null, undefined])('a %s answer grants nothing', (r) => {
-    expect(hungerStationGrants(r)).toEqual(all(false))
-  })
-
-  it('🚩 a malformed answer grants nothing — an array (an unstubbed drive), a string "true", a 1', () => {
-    expect(hungerStationGrants([] as unknown as HungerStationAccessResult)).toEqual(all(false))
-    expect(hungerStationGrants({ canManageStores: 'true', canViewOrders: 1 } as unknown as HungerStationAccessResult)).toEqual(all(false))
-  })
-
-  it('🚩 Deliverect’s fourth flag means nothing here', () => {
-    expect(hungerStationGrants({ canManageTerms: true } as unknown as HungerStationAccessResult)).toEqual(all(false))
-  })
-
-  it('each flag reads only its own field', () => {
-    for (const flag of HUNGERSTATION_FLAGS) {
-      const grants = hungerStationGrants({ ...all(false), [flag]: true })
-      for (const other of HUNGERSTATION_FLAGS) expect([other, grants[other]]).toEqual([other, other === flag])
-    }
-  })
-})
+const KEYS = ['HungerStationStores:03', 'HungerStationCatalog:03', 'HungerStationOrders:03', 'HungerStationPromotions:03']
+const p = (...screens: string[]) => permissionsOf({ screens })
 
 describe('the per-leaf predicates', () => {
   it.each([
-    ['canManageStores', canManageStores],
-    ['canManageCatalog', canManageCatalog],
-    ['canViewOrders', canViewOrders],
-    ['canManagePromotions', canManagePromotions],
-  ] as const)('%s follows its own flag', (flag, can) => {
-    expect(can({ ...all(false), [flag]: true })).toBe(true)
-    expect(can({ ...all(true), [flag]: false })).toBe(false)
-    expect(can(undefined)).toBe(false)
+    ['HungerStationStores:03', canManageStores],
+    ['HungerStationCatalog:03', canManageCatalog],
+    ['HungerStationOrders:03', canViewOrders],
+    ['HungerStationPromotions:03', canManagePromotions],
+  ] as [string, (p: Permissions) => boolean][])('%s alone grants its own predicate only', (key, can) => {
+    expect(can(p(key))).toBe(true)
+    expect(can(p(...KEYS.filter((k) => k !== key)))).toBe(false)
+    expect(can(permissionsOf(null))).toBe(false)
+  })
+
+  it('🚩 Deliverect’s grants mean nothing here', () => {
+    const deliverect = p('DeliverectStores:03', 'DeliverectCatalog:03', 'DeliverectOrders:03', 'DeliverectTerms:03')
+    expect([canManageStores, canManageCatalog, canViewOrders, canManagePromotions].some((can) => can(deliverect))).toBe(false)
   })
 })

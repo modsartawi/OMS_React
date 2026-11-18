@@ -11,7 +11,8 @@ vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/cor
 
 const { ApiError } = await import('@/core/api')
 const { analyticsApi } = await import('./api')
-const { canEditSql } = await import('./access')
+const { canSqlAnalytics } = await import('@/core/analytics-access')
+const { permissionsOf } = await import('@/core/permissions')
 const { changeByAsking, readSqlItem, refusalSpot, removesVerified, sqlCells, sqlItemActions, sqlRunRefusal, sqlSaveBody } = await import('./sql-editor')
 const { saveRefusal } = await import('./item-save')
 const { revisionList } = await import('./revisions')
@@ -87,12 +88,12 @@ describe('Run', () => {
     expect(refusalSpot('SELECT 1\r\nFROM x', 2, 1)).toMatchObject({ before: '', at: 'F', after: 'ROM x' })
   })
 
-  it('the editor shows only on the SQL grant, held beside the view grant', () => {
-    expect(canEditSql({ canView: true, canAuthor: true, canCurate: false, canSql: true })).toBe(true)
-    expect(canEditSql({ canView: true, canAuthor: true, canCurate: false })).toBe(false)
-    expect(canEditSql({ canView: true, canAuthor: true, canCurate: false, canSql: 'true' as never })).toBe(false)
-    expect(canEditSql({ canView: false, canAuthor: true, canCurate: true, canSql: true })).toBe(false)
-    expect(canEditSql(undefined)).toBe(false)
+  it('the editor shows only on the SQL grant, held beside the author grant', () => {
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:03', 'Analytics:02', 'Analytics:07'] }))).toBe(true)
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:03', 'Analytics:02'] }))).toBe(false)
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:03', 'Analytics:07'] }))).toBe(false)
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:02', 'Analytics:06', 'Analytics:07'] }))).toBe(false)
+    expect(canSqlAnalytics(permissionsOf(null))).toBe(false)
   })
 })
 

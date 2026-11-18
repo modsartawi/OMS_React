@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { reportEditHref } from '@/core/analytics-routes'
 import { apiErrorMessage } from '@/core/api'
-import type { AnalyticsAccess, AnalyticsBoard, AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
+import type { AnalyticsBoard, AnalyticsItem, AnalyticsModel } from '@/core/models/analytics'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
-import { ANALYTICS_ACCESS_KEY, needsAuthor, withoutAuthor } from './access'
+import { needsAuthor, refreshAfterLostGrant } from './access'
 import { ANALYTICS_ITEMS_KEY, analyticsApi } from './api'
 import { boardToReport } from './board-to-report'
 
@@ -32,7 +32,7 @@ export default function SaveAsReport({ board, views, pending, model }: { board: 
       navigate(reportEditHref(item.id))
     },
     onError: (err) => {
-      if (needsAuthor(err)) queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, withoutAuthor)
+      if (needsAuthor(err)) refreshAfterLostGrant(queryClient)
       toast.error(apiErrorMessage(err, t('board.saveAsReport.failed')))
     },
   })

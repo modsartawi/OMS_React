@@ -7,12 +7,13 @@ import type {
   SendScriptResponse,
   SentScript,
   StoreScript,
-  SyncConsoleAccess,
   WithdrawScriptResponse,
 } from '@/core/models/sync-console'
 import { formatCount } from '@/core/util/bidi'
 import { codeBadge, figure, type CodeBadge } from './helpers'
 import { scriptBadge } from './store-helpers'
+import { canRunStoreScripts } from './access'
+import type { Permissions } from '@/core/permissions'
 
 /**
  * The Scripts page's pure rules (ticket 663, BackOffice spec 3202 D6/D11, door 3207). Every
@@ -166,11 +167,9 @@ export const withdrawPreviewSentence = (r: WithdrawScriptResponse): PreviewSente
 /** The retry preview: how many exhausted stores would get five fresh attempts. */
 export const retryPreviewSentence = (r: RetryScriptResponse): PreviewSentence => counted('scriptRetry.preview', r.storesRetried)
 
-type RunScriptsAccess = Pick<SyncConsoleAccess, 'canRunScripts'> | null | undefined
-
 /** A sender, on a script not withdrawn (a left-out `withdrawnAt` is not): the door's `WITHDRAWN` refuses both writes. */
-const writable = (s: Pick<SentScript, 'withdrawnAt'>, access: RunScriptsAccess): boolean =>
-  access?.canRunScripts === true && s.withdrawnAt == null
+const writable = (s: Pick<SentScript, 'withdrawnAt'>, permissions: Permissions): boolean =>
+  canRunStoreScripts(permissions) && s.withdrawnAt == null
 
 /**
  * The detail footer's controls. Absent, never disabled, without `canRunScripts` (`=== true`, so a
@@ -189,9 +188,9 @@ const writable = (s: Pick<SentScript, 'withdrawnAt'>, access: RunScriptsAccess):
  */
 export function scriptControls(
   s: Pick<SentScript, 'isLegacy' | 'title' | 'withdrawnAt' | 'pending' | 'retrying' | 'exhausted'>,
-  access: RunScriptsAccess,
+  permissions: Permissions,
 ): { withdraw: boolean; retryAll: boolean } {
-  if (!writable(s, access)) return { withdraw: false, retryAll: false }
+  if (!writable(s, permissions)) return { withdraw: false, retryAll: false }
   return { withdraw: !scriptIsLegacy(s) && s.pending + s.retrying + s.exhausted > 0, retryAll: s.exhausted > 0 }
 }
 
@@ -199,9 +198,9 @@ export function scriptControls(
 export function storeRetryOffered(
   row: Pick<ScriptStoreRow, 'state'>,
   s: Pick<SentScript, 'withdrawnAt'>,
-  access: RunScriptsAccess,
+  permissions: Permissions,
 ): boolean {
-  return writable(s, access) && scriptStateKey(row.state) === 'exhausted'
+  return writable(s, permissions) && scriptStateKey(row.state) === 'exhausted'
 }
 
 /**

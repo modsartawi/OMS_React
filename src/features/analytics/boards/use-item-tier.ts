@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import type { AnalyticsAccess, AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
-import { ANALYTICS_ACCESS_KEY, needsAuthor, withoutAuthor } from './access'
+import type { AnalyticsAudienceWrite, AnalyticsBoard, AnalyticsItem, AnalyticsReport } from '@/core/models/analytics'
+import { needsAuthor, refreshAfterLostGrant } from './access'
 import { ANALYTICS_FOLDERS_KEY, ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsItemsKey, analyticsReportKey, analyticsRevisionsKey } from './api'
 import { itemActions } from './item-actions'
 import { certifiedCopyOf, needsCurator, tierActionsOf, type TierActionKey } from './item-tier'
@@ -81,11 +81,9 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
       if (answer && answer.id !== item.id) reread(answer.id)
     },
     onError: (err) => {
-      // 822: `ANALYTICS-415` (needs the author grant) hides every author's action next time.
-      if (needsAuthor(err)) queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, withoutAuthor)
-      if (needsCurator(err)) {
-        queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, (prev) => (prev ? { ...prev, canCurate: false } : prev))
-      }
+      // 822: `ANALYTICS-415` (needs the author grant) or the curator's refusal hides the lost actions next time:
+      // the one permissions answer is asked again (oms 909).
+      if (needsAuthor(err) || needsCurator(err)) refreshAfterLostGrant(queryClient)
     },
   })
 

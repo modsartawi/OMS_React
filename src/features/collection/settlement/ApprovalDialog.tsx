@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { apiErrorMessage } from '@/core/api'
-import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
@@ -135,9 +134,8 @@ export default function ApprovalDialog({
     onError: (error) => {
       if (supervisionFailure(error) === 'forbidden') {
         toast.error(t('approval.errors.forbidden'))
-        // The probe is read once per page life (`staleTime: Infinity`); re-reading it
-        // is what takes the buttons away from a session that no longer holds the grant.
-        void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
+        // The 403 itself invalidated the one permissions answer (`@/core/api`); re-reading
+        // it is what takes the buttons away from a session that no longer holds the grant.
         onClose()
         return
       }

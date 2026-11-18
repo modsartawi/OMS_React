@@ -18,41 +18,6 @@
  * nowhere (spec 231 §5), and a model field is an invitation to draw it.
  */
 
-/**
- * `GET LoyWeb/Access` — the area's screen-access probe (spec 231 §11), and the
- * one route on the door that is not a read. Cookie-only and deliberately **not**
- * grant-gated: it must be able to answer a session that holds nothing.
- *
- * 🚩 It reads the same `ILoyMemberScreenGate` object the route filter reads, so
- * the probe and the gate cannot disagree — and it **fails closed** on the client
- * side (ticket 234): a missing flag, a malformed answer, an unseeded grant or a
- * thrown error all read as denied. `=== true`, never truthiness.
- */
-export interface LoyAccessResult {
-  canOpenLoyMember: boolean
-  /**
-   * 🚩 **The two write flags are OPTIONAL, and that is a statement about the
-   * wire rather than a convenience.** The backend half of spec 301 is unwritten,
-   * so today's door answers neither — declaring them required would let a future
-   * `access.data.canEditLoyMember` read type as `boolean` and arrive
-   * `undefined`. Optional makes the fail-closed predicates in the feature's
-   * `api.ts` the only legal way to consume them.
-   */
-  /**
-   * *May edit* — the second of spec 301's three tiers (ADR 0001). Gates the
-   * profile edit, the mobile change, block/unblock and the **email** removal.
-   * 🚩 Email removal sits here rather than behind the removal grant on purpose:
-   * an editor can blank the field through the ordinary profile command anyway,
-   * so gating it higher would be an authority that looks enforced and is not.
-   */
-  canEditLoyMember?: boolean
-  /**
-   * *May make unreachable* — the third tier, and the narrowest. Best read as
-   * *"may destroy a login"*: it guards the member's mobile, and the mobile only.
-   */
-  canRemoveLoyMemberMobile?: boolean
-}
-
 /** The member payload as the wire carries it — `LoyMemberModel`, verbatim. */
 export interface LoyMemberPayload {
   loyId: string

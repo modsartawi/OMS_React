@@ -10,9 +10,9 @@
  * - `none`: the channel sent no money at all.
  */
 import { formatMoneyIn } from '@/core/money'
-import type { OmsAccessResult } from '@/core/models/oms-access'
 import type { Severity } from '@/core/ui/severity'
 import { canViewInsurance } from '@/core/oms/insurance-grant'
+import type { Permissions } from '@/core/permissions'
 import { describeConditionType } from '@/core/constants/oms-codes'
 import { isDeliveryCategory, type OpenedAs } from './actions'
 import type { InsuranceCondition, InsuranceLine, InsuranceMoney, OrderInsuranceRead } from '@/core/models/order-insurance'
@@ -172,7 +172,7 @@ export function pricingSteps(conditions: readonly InsuranceCondition[], currency
 export interface InsuranceSectionContext {
   openedAs: OpenedAs
   documentCategory: string | null | undefined
-  access: Partial<OmsAccessResult> | null | undefined
+  permissions: Permissions
 }
 
 /**
@@ -182,7 +182,7 @@ export interface InsuranceSectionContext {
  * whether it IS an insurance order is the read's own answer (`insuranceSectionGate`).
  */
 export function asksInsurance(ctx: InsuranceSectionContext): boolean {
-  return ctx.openedAs === 'document' && !isDeliveryCategory(ctx.documentCategory) && canViewInsurance(ctx.access)
+  return ctx.openedAs === 'document' && !isDeliveryCategory(ctx.documentCategory) && canViewInsurance(ctx.permissions)
 }
 
 /**

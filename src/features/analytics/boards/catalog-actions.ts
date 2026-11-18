@@ -1,5 +1,6 @@
-import type { AnalyticsAccess, AnalyticsCatalogArea } from '@/core/models/analytics'
-import { canAuthorAnalytics } from './access'
+import type { AnalyticsCatalogArea } from '@/core/models/analytics'
+import { canAuthorAnalytics } from '@/core/analytics-access'
+import type { Permissions } from '@/core/permissions'
 import { PREVIEW_PERIOD } from './catalog-preview'
 import { newViewLink } from './editor'
 
@@ -31,7 +32,7 @@ export function newViewFrom(area: AnalyticsCatalogArea, measure?: string) {
  * Which author actions a node offers (story 51): both need the author grant, so a runner sees neither; "Ask about
  * this area" also needs the copilot probe (`@/core/copilot-panel` `available`), as the ask box does. Fails closed.
  */
-export function catalogAuthorActions(probe: AnalyticsAccess | null | undefined, copilotAvailable: boolean): { newView: boolean; ask: boolean } {
+export function catalogAuthorActions(probe: Permissions, copilotAvailable: boolean): { newView: boolean; ask: boolean } {
   const author = canAuthorAnalytics(probe)
   return { newView: author, ask: author && copilotAvailable }
 }

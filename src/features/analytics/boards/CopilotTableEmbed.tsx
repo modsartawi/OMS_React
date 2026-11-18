@@ -12,7 +12,8 @@ import { fsi } from '@/core/util/bidi'
 import { downloadCsv } from '@/core/util/download-file'
 import { writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { listText } from '@/core/util/list-format'
-import { analyticsAccessQuery, canAuthorAnalytics } from './access'
+import { canAuthorAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { ANALYTICS_MODEL_KEY, analyticsApi } from './api'
 import AreaNotes, { useAreaNoteWords, useTableWords } from './AreaNotes'
 import ComputedColumnsNote from './ComputedColumnsNote'
@@ -65,7 +66,7 @@ export default function CopilotTableEmbed({ table, index = 0 }: { table: Copilot
   const { t: tc } = useTranslation('common')
   const lang = i18n.language
   const navigate = useNavigate()
-  const author = canAuthorAnalytics(useQuery(analyticsAccessQuery()).data)
+  const author = canAuthorAnalytics(useAnalyticsPermissions())
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false }).data ?? NO_MODEL
   const noteWords = useAreaNoteWords()
   const tableWords = useTableWords()

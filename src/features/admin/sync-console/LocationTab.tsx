@@ -5,9 +5,11 @@ import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
-import { storeLocationQuery, syncConsoleAccessQuery } from './api'
+import { storeLocationQuery } from './api'
 import EditLocationDialog from './EditLocationDialog'
 import Loading from './Loading'
+import { usePermissions } from '@/core/permissions'
+import { canOperateSyncConsole } from './access'
 
 /**
  * The Location tab (ticket 446): the store's sync location as the door returns it.
@@ -21,7 +23,7 @@ import Loading from './Loading'
 export default function LocationTab({ code }: { code: string }) {
   const { t } = useTranslation('sync-console')
   const location = useQuery(storeLocationQuery(code))
-  const access = useQuery(syncConsoleAccessQuery())
+  const permissions = usePermissions()
   const [editing, setEditing] = useState(false)
 
   if (location.isPending) return <Loading label={t('location.loading')} />
@@ -60,7 +62,7 @@ export default function LocationTab({ code }: { code: string }) {
           <span className="font-sans text-muted-foreground">{t('location.credentialsNote')}</span>
         </Row>
       </dl>
-      {access.data?.canOperate === true && (
+      {canOperateSyncConsole(permissions) && (
         <div>
           <Button variant="secondary" onClick={() => setEditing(true)} data-edit-location-open="">
             {t('editLocation.open')}

@@ -46,10 +46,6 @@ export interface HoldDailyListQuery {
   stores?: string
 }
 
-export interface HoldDailyListAccess {
-  screenAllowed: boolean
-}
-
 /** Rows per kind and store. */
 export interface HoldDailyListCount {
   kind: string

@@ -1,17 +1,8 @@
 // Wire shapes for the CouponsAdminWeb/* endpoints (map 497 / spec 505; server slices
 // 517 templates + 519 import). Field casing is the camelCase ASP.NET Core emits. The
 // two screens are gated by their OWN new-engine grants (CouponsAdmin / CouponsSupport) —
-// the server re-checks every mutation; Access only shapes nav visibility + tab tiering.
-
-/**
- * GET CouponsAdminWeb/Access — the entry probe (CouponsAdminAccess). `canAdmin` opens
- * the Templates + Import workspaces (admin-only); `canSupport` opens Inquiry (support
- * OR admin, ticket 521). The server enforces the grant on every mutation regardless.
- */
-export interface CouponsAccessResult {
-  canAdmin: boolean
-  canSupport: boolean
-}
+// the server re-checks every mutation; the predicates in `features/pricing/coupons/api` only
+// shape nav visibility + tab tiering.
 
 /**
  * A coupon template (CouponTemplate) — the load-then-edit form model. Times come back

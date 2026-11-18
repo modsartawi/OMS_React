@@ -1,27 +1,29 @@
 /**
- * Ticket 654 — the IDF grant probe (`GET IdfPriority/Access` → `{ canViewIdf, canEditIdf, canEditGeneral }`, BackOffice
- * 3191). Only an explicit `true` grants, so a missing, errored or malformed answer hides every write (fail closed).
+ * Ticket 654 — the IDF grants (BackOffice 3191), read off the one permissions answer since oms 909: `IdfPriority:03`
+ * view, `:06` master edit, `:07` general edit. A missing or errored answer hides every write (fail closed).
  * The draft's actions follow `canEditIdf`; the general master's and the IDF groups' writes follow `canEditGeneral`.
  */
 import { describe, expect, it } from 'vitest'
-import { IDF_ACCESS_FLAGS, draftActions, idfGrants } from './access'
+import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
+import { draftActions, idfGrants } from './access'
 
 const all = (value: boolean) => ({ canViewIdf: value, canEditIdf: value, canEditGeneral: value })
 
+const held = (...screens: string[]) => permissionsOf({ screens })
+
 describe('idfGrants', () => {
-  it('names exactly the three flags of the door', () => {
-    expect([...IDF_ACCESS_FLAGS].sort()).toEqual(['canEditGeneral', 'canEditIdf', 'canViewIdf'])
+  it('no answer, a pending one or an errored one grants nothing', () => {
+    expect(idfGrants(permissionsOf(null))).toEqual(all(false))
+    expect(idfGrants(permissionsFromQuery({ isPending: true, isError: false, data: undefined }))).toEqual(all(false))
+    expect(idfGrants(permissionsFromQuery({ isPending: false, isError: true, data: undefined }))).toEqual(all(false))
   })
-  it.each([null, undefined])('a %s answer grants nothing', (r) => {
-    expect(idfGrants(r)).toEqual(all(false))
+  it('every IDF command held grants all three', () => {
+    expect(idfGrants(held('IdfPriority:03', 'IdfPriority:06', 'IdfPriority:07'))).toEqual(all(true))
   })
-  it('a malformed answer grants nothing — an array (an unstubbed drive), a string "true", a 1', () => {
-    expect(idfGrants([] as never)).toEqual(all(false))
-    expect(idfGrants({ canEditIdf: 'true', canEditGeneral: 1 } as never)).toEqual(all(false))
-  })
-  it('each flag reads only its own field', () => {
-    expect(idfGrants({ canEditGeneral: true })).toEqual({ canViewIdf: false, canEditIdf: false, canEditGeneral: true })
-    expect(idfGrants({ canEditIdf: true })).toEqual({ canViewIdf: false, canEditIdf: true, canEditGeneral: false })
+  it('each grant reads only its own command', () => {
+    expect(idfGrants(held('IdfPriority:07'))).toEqual({ canViewIdf: false, canEditIdf: false, canEditGeneral: true })
+    expect(idfGrants(held('IdfPriority:06'))).toEqual({ canViewIdf: false, canEditIdf: true, canEditGeneral: false })
+    expect(idfGrants(held('IdfPriority:03'))).toEqual({ canViewIdf: true, canEditIdf: false, canEditGeneral: false })
   })
 })
 

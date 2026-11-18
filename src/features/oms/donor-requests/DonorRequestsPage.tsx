@@ -26,7 +26,6 @@ import { INSPECTOR_WIDTH } from '@/core/ui/inspector-pane'
 import { fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { fromListState } from '@/core/oms/open-intent'
-import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDonorRequests } from '@/core/oms/access'
 import type { DonorRequestState } from '@/core/models/sd-document'
 import { waitingOnDonor } from '@/core/oms/donor-moments'
@@ -61,7 +60,7 @@ export default function DonorRequestsPage() {
   const [searchParams] = useSearchParams()
   const requestParam = searchParams.get('request')
   return (
-    <ScreenGate query={omsAccessQuery()} can={canOpenDonorRequests} ns="donor-requests" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenDonorRequests} ns="donor-requests" title={t('title')} subtitle={t('subtitle')}>
       <DonorRequestList key={requestParam ?? ''} requestParam={requestParam} />
     </ScreenGate>
   )

@@ -14,9 +14,7 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import {
-  NPHIES_ACCESS_KEY,
   PROVIDERS_KEY,
-  nphiesAccessApi,
   nphiesLookupApi,
 } from '@/core/nphies/api'
 import { eligibilityApi } from './api'
@@ -29,6 +27,8 @@ import {
 } from './list-params'
 import { ELIGIBILITY_LIST_DEFAULT_COL_DEF, buildEligibilityListColumns } from './list-columns'
 import ListFilters from './ListFilters'
+import { canOpenNphies } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The eligibility list (ticket 212, spec 209 §6) — the screen an agent lands on.
@@ -52,11 +52,8 @@ export default function EligibilityListPage() {
   // The area's ONE probe, on the key the nav leaf and the check page share → one
   // network call for the whole area. Fails closed: pending and errored both draw
   // something other than the list.
-  const access = useQuery({
-    queryKey: NPHIES_ACCESS_KEY,
-    queryFn: () => nphiesAccessApi.access(),
-  })
-  const allowed = access.data?.canOpenNphies === true
+  const permissions = usePermissions()
+  const allowed = canOpenNphies(permissions)
 
   const providers = useQuery({
     queryKey: PROVIDERS_KEY,
@@ -120,7 +117,7 @@ export default function EligibilityListPage() {
 
   const columns = useMemo(() => buildEligibilityListColumns(t), [t])
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -135,7 +132,7 @@ export default function EligibilityListPage() {
     // The in-page backstop behind the hidden nav leaf, and it distinguishes the
     // two reasons: an unreachable probe is a retry, a refused one is an
     // administrator. Same rule as the check page (211).
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -147,7 +144,7 @@ export default function EligibilityListPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            ? t('access.unreachableHint')
             : t('access.deniedHint')}
         </p>
       </div>

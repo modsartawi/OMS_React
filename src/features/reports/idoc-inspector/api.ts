@@ -8,11 +8,11 @@
  * **Modelled on `features/reports/retail-invoice/api.ts`, file for file.** The
  * spec says outright that this feature copies that rail rather than re-deciding
  * it: both are a keyed lookup that renders a document and serves a download,
- * both sit behind one screen grant whose probe answers a denial with a 200.
+ * both sit behind one screen grant.
  * ⚠️ **Copied, not imported** — a feature may not import a feature
  * ([feature-structure](../../../../.claude/rules/feature-structure.md)).
  *
- * Ticket 296 landed the access probe, 297 added `Transaction`, 300 added
+ * Ticket 296 landed the access spine, 297 added `Transaction`, 300 added
  * `Metadata`, and **299 closes the set with `Download`** — through `api.blob`,
  * because the enveloped helper would try to unwrap raw XML.
  *
@@ -26,82 +26,22 @@
  */
 import { api, type FileResponse } from '@/core/api'
 import type {
-  IDocInspectorAccessResult,
   IDocInspectorMetadata,
   IDocInspectorTransaction,
 } from '@/core/models/idoc-inspector'
+import type { Permissions } from '@/core/permissions'
 import type { LookupKey } from './lookup-key'
 
 /**
- * The ONE cache key the Reports nav leaf and the screen's own in-page guard
- * share, so a gated screen costs **one** network call and not one per consumer.
+ * The screen's one grant (oms 909: off the one permissions answer), read by BOTH the nav leaf and the screen's guard.
  *
- * Exported rather than re-spelled at each site: a typo in a string literal would
- * not fail a build, it would silently split the cache entry and let the nav and
- * the screen disagree about whether the session is allowed in. (Same reasoning
- * as `RETAIL_INVOICE_ACCESS_KEY` beside it.)
- *
- * 🚩 A **separate key from retail-invoice's**, because it is a separate grant.
- * The two screens share an area, a namespace and a nav group; they share no
- * permission, and one probe answering for both would hand a consultant the
- * inspector because they can print receipts.
+ * 🚩 Its OWN key, `IDocInspector:03`, not the invoices one: the two screens share an area, a namespace and a nav
+ * group, and no permission — one grant answering for both would hand a consultant the inspector because they can
+ * print receipts. ⚠️ It only hides: `Transaction`, `Download` and `Metadata` re-check the grant server-side.
  */
-export const IDOC_INSPECTOR_ACCESS_KEY = ['reports', 'idoc-inspector', 'access'] as const
-
-/**
- * …and the ONE set of options every reader of that key passes.
- *
- * 🚩 The key alone is not enough once there are two readers (the nav leaf and
- * `ScreenGate`): react-query merges the options of concurrent observers, so a
- * consumer that quietly dropped `retry: false` would make a refused probe retry
- * under a gate whose whole ruling is to fail closed on the first no.
- *
- * `staleTime: Infinity` because a grant does not change inside a page life;
- * `retry: false` because 🔑 **a refusal is an answer and not an outage** — the
- * single decision this ticket exists to get right.
- */
-export function idocInspectorAccessQuery() {
-  return {
-    queryKey: IDOC_INSPECTOR_ACCESS_KEY,
-    queryFn: () => idocInspectorApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/**
- * The probe's one predicate, read by BOTH the nav leaf and the screen's guard.
- *
- * `=== true` and nothing looser, so a malformed answer (`{}`, `null`, a string
- * `"true"`) is a denial and not an accident of truthiness. This is the whole of
- * "hidden from the nav without the grant" and "guards itself when reached
- * directly": one function, two callers, no second reading to drift.
- */
-export const canOpenIDocInspector = (
-  r: IDocInspectorAccessResult | null | undefined,
-): boolean => r?.screenAllowed === true
+export const canOpenIDocInspector = (p: Permissions): boolean => p.has('IDocInspector:03')
 
 export const idocInspectorApi = {
-  /**
-   * `GET IDocInspector/Access` → `{ screenAllowed }` (spec 1386, BackOffice 1387).
-   *
-   * Cookie-gated and deliberately **not** grant-gated: it must be able to answer
-   * a session that holds nothing, and 🔑 **it answers a denial with 200**. The
-   * client's job is to render that as a shut door — not as an error, and above
-   * all not as something to retry.
-   *
-   * ⚠️ **Fails closed.** No 404-tolerant catch, unlike the `Bby/Access` and
-   * `Notifications/Access` probes which degrade to *allowed* while their
-   * endpoints are unbuilt. This one must not degrade open even now that 1387 has
-   * shipped it: what is behind it is every IDoc the
-   * SAP rail has generated, behind one grant that ships bound to nobody. The
-   * shell already treats a pending or errored probe as hidden, so failing closed
-   * is the *absence* of a catch rather than code.
-   */
-  access(): Promise<IDocInspectorAccessResult> {
-    return api.get<IDocInspectorAccessResult>('IDocInspector/Access')
-  },
-
   /**
    * `GET IDocInspector/Transaction?storeCode=…&trxNumber=…` → the verdict, an
    * optional attention block and **the whole nested document graph**
@@ -154,8 +94,7 @@ export const idocInspectorApi = {
    *
    * ⚠️ **Grant-gated with `Transaction` and `Download`**, and deliberately so: it
    * enumerates the estate's IDoc code sets and this process's registered
-   * workflows, which is no more public than the rows it explains. `Access` is the
-   * only ungated route and the only one that can be.
+   * workflows, which is no more public than the rows it explains.
    */
   metadata(): Promise<IDocInspectorMetadata> {
     return api.get<IDocInspectorMetadata>('IDocInspector/Metadata')
@@ -216,8 +155,8 @@ export const idocInspectorApi = {
 export const IDOC_INSPECTOR_METADATA_KEY = ['reports', 'idoc-inspector', 'metadata'] as const
 
 /**
- * …and the one set of options, spelled once beside the key for the same reason
- * `idocInspectorAccessQuery` is.
+ * …and the one set of options, spelled once beside the key so every reader passes
+ * the same ones (react-query merges the options of concurrent observers).
  *
  * `staleTime: Infinity` because the nine vocabularies are generated from C#
  * constants and change only by deployment — a second fetch inside a page life

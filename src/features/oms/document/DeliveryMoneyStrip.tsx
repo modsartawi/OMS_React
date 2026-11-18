@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ApiError, apiErrorMessage } from '@/core/api'
-import type { OmsAccessResult } from '@/core/models/oms-access'
+import type { Permissions } from '@/core/permissions'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -28,15 +28,15 @@ import InsuranceCell from './InsuranceCell'
 export default function DeliveryMoneyStrip({
   openedAs,
   document,
-  access,
+  permissions,
 }: {
   openedAs: OpenedAs
   document: Pick<SdDocumentHeaderModel, 'refDocumentNo' | 'amountDue'>
-  access: Partial<OmsAccessResult> | null | undefined
+  permissions: Permissions
 }) {
   const { t } = useTranslation('document')
   const refDocumentNo = (document.refDocumentNo ?? '').trim()
-  const asked = asksDeliveryMoneyStrip({ openedAs, refDocumentNo, access })
+  const asked = asksDeliveryMoneyStrip({ openedAs, refDocumentNo, permissions })
   const rows = useQuery({
     queryKey: orderRowKey(refDocumentNo),
     queryFn: () => documentApi.getOrderRows(refDocumentNo),
@@ -49,7 +49,7 @@ export default function DeliveryMoneyStrip({
     return <ErrorBanner message={apiErrorMessage(rows.error, t('moneyStrip.loadFailed'))} className="px-3 py-2" />
   }
 
-  const strip = deliveryMoneyStrip(orderRowOf(rows.data, refDocumentNo), { refDocumentNo, amountDue: document.amountDue }, access)
+  const strip = deliveryMoneyStrip(orderRowOf(rows.data, refDocumentNo), { refDocumentNo, amountDue: document.amountDue }, permissions)
   if (!strip) return null
 
   const figures = [

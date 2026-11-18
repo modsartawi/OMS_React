@@ -15,7 +15,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { saveBlob } from '@/core/util/download-file'
 import { formatFigure } from '@/core/util/number-format'
-import { canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
+import { canViewDocTypeConfig } from './api'
 import { CONFIG_CHANGES_PAGE_SIZE, changeLogApi, configChangesQuery } from './change-log-api'
 import { CONFIG_ENTITY_TYPES, type ConfigChangeFilter } from './change-log-types'
 import ChangeEntry from './ChangeEntry'
@@ -31,7 +31,6 @@ export default function ConfigChangesPage() {
   const { t } = useTranslation('doc-type-config')
   return (
     <ScreenGate
-      query={docTypeConfigAccessQuery()}
       can={canViewDocTypeConfig}
       ns="doc-type-config"
       title={t('changes.title')}

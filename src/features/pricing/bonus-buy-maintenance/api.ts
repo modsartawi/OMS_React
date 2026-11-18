@@ -15,40 +15,29 @@ import type {
   BbyBonusBuyWire,
   BbyCouponMaterialRequest,
   BbyCouponMaterialResult,
-  BbyMaintainAccessResult,
   BbyMarkTestedRequest,
   BbyMaintainOutcome,
   BbyPromotion,
   BbyPromotionSave,
 } from '@/core/models/bonus-buy-maintenance'
 import type { BbyUploadResult } from '@/core/models/bonus-buy-upload'
+import type { Permissions } from '@/core/permissions'
 import { uploadForm, type UploadOptions } from './upload'
 
 const BASE = 'BbyMaintainWeb'
 
-/** The ONE cache key the Pricing nav leaf and the screen's gate share (one call, not two). */
-export const BBY_MAINTAIN_ACCESS_KEY = ['bonus-buy-maintenance', 'access'] as const
-
-/** …and the one set of options every reader passes: a refusal is an answer, never retried. */
-export function bbyMaintainAccessQuery() {
-  return {
-    queryKey: BBY_MAINTAIN_ACCESS_KEY,
-    queryFn: () => bbyMaintainApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
+/**
+ * The screen grant (`BbyMaintain:03`), for the nav leaf and the screen gate alike, off the one
+ * permissions answer (oms 909). This screen WRITES to every till's offers: a pending or failed
+ * answer is a denial (fail closed).
+ */
+export const canOpenBbyMaintain = (p: Permissions): boolean => p.has('BbyMaintain:03')
 
 /**
- * The grant's one reading, for the nav leaf and the screen gate alike. `=== true` and
- * nothing looser: this screen WRITES to every till's offers, so unlike `Bby/Access` an
- * unknown or malformed answer is a denial (fail closed).
+ * The tester grant (`BbyMaintain:04`, spec 2396) — Mark Tested — and only BESIDE the screen
+ * grant: `:04` without `:03` offers nothing (brief 3995's BbyMaintain combination).
  */
-export const canOpenBbyMaintain = (r: BbyMaintainAccessResult | null | undefined): boolean =>
-  r?.screenAllowed === true
-
-/** The tester grant, read off the SAME access answer — no second probe. Fail closed, as above. */
-export const canMarkTested = (r: BbyMaintainAccessResult | null | undefined): boolean => r?.canTest === true
+export const canTestBbyMaintain = (p: Permissions): boolean => p.has('BbyMaintain:03') && p.has('BbyMaintain:04')
 
 export const promotionListKey = ['bonus-buy-maintenance', 'promotions'] as const
 export const promotionKey = (promoNumber: string) =>
@@ -56,9 +45,6 @@ export const promotionKey = (promoNumber: string) =>
 export const bonusBuyKey = (bbyNumber: string) => ['bonus-buy-maintenance', 'bonus-buy', bbyNumber] as const
 
 export const bbyMaintainApi = {
-  access(): Promise<BbyMaintainAccessResult> {
-    return api.get<BbyMaintainAccessResult>(`${BASE}/Access`)
-  },
 
   promotions(): Promise<BbyPromotion[]> {
     return api.get<BbyPromotion[]>(`${BASE}/Promotion/List`)

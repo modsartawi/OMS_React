@@ -1,43 +1,33 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
+import { permissionsOf, type ScreenKey } from '@/core/permissions'
 import { useSession } from '@/core/session'
-import { COPILOT_ACCESS_KEY, COPILOT_STARTERS_KEY, canAskCopilot, canCurateCopilot, dropCopilotAccessOnUserChange } from './access'
+import { COPILOT_STARTERS_KEY, canAskCopilot, canCurateCopilot, canUseMcp, dropCopilotStartersOnUserChange } from './access'
 
 afterEach(() => useSession.getState().clear())
 
-describe('the copilot probe (spec 734 D7)', () => {
-  it('copilotAccess_failsClosed', () => {
-    // Absent (a 404 or an unreachable door leaves no data), malformed, or refused: not allowed.
-    expect(canAskCopilot(undefined)).toBe(false)
-    expect(canAskCopilot(null)).toBe(false)
-    expect(canAskCopilot({} as never)).toBe(false)
-    expect(canAskCopilot({ canAsk: 'true', canUseMcp: true } as never)).toBe(false)
-    expect(canAskCopilot({ canAsk: false, canUseMcp: true })).toBe(false)
-    // Only an explicit grant opens it.
-    expect(canAskCopilot({ canAsk: true, canUseMcp: false })).toBe(true)
+const holding = (...screens: ScreenKey[]) => permissionsOf({ screens })
+
+// The Copilot row of the permissions brief (oms 909, BackOffice spec 4002).
+describe('the copilot grants', () => {
+  it('ask and MCP read Copilot:01; nothing else opens them', () => {
+    expect(canAskCopilot(holding('Copilot:01'))).toBe(true)
+    expect(canUseMcp(holding('Copilot:01'))).toBe(true)
+    expect(canAskCopilot(holding('Copilot:06'))).toBe(false)
+    expect(canUseMcp(holding('Copilot:06'))).toBe(false)
+    expect(canAskCopilot(permissionsOf(null))).toBe(false)
   })
 
-  it('copilotAccess_aGrantNeverOutlivesItsUser', () => {
-    const client = new QueryClient()
-    const stop = dropCopilotAccessOnUserChange(client)
-    useSession.getState().setSession({ userId: 'a.user' })
-    client.setQueryData(COPILOT_ACCESS_KEY, { canAsk: true, canUseMcp: false })
-    // A store switch is the same user: the answer stands.
-    useSession.getState().setCurrentStore('P002')
-    expect(client.getQueryData(COPILOT_ACCESS_KEY)).toEqual({ canAsk: true, canUseMcp: false })
-    // Another user: A's grant is gone, so B is asked afresh.
-    useSession.getState().setSession({ userId: 'b.user' })
-    expect(client.getQueryData(COPILOT_ACCESS_KEY)).toBeUndefined()
-    // Sign-out: gone too.
-    client.setQueryData(COPILOT_ACCESS_KEY, { canAsk: true, canUseMcp: false })
-    useSession.getState().clear()
-    expect(client.getQueryData(COPILOT_ACCESS_KEY)).toBeUndefined()
-    stop()
+  it('curate is Copilot:01 and Copilot:06; Copilot:06 without :01 is no curator', () => {
+    expect(canCurateCopilot(holding('Copilot:01', 'Copilot:06'))).toBe(true)
+    expect(canCurateCopilot(holding('Copilot:06'))).toBe(false)
+    expect(canCurateCopilot(holding('Copilot:01'))).toBe(false)
+    expect(canCurateCopilot(permissionsOf(null))).toBe(false)
   })
 
   it('theReadersStarters_neverOutliveTheirUser (3586 review item 1)', () => {
     const client = new QueryClient()
-    const stop = dropCopilotAccessOnUserChange(client)
+    const stop = dropCopilotStartersOnUserChange(client)
     useSession.getState().setSession({ userId: 'a.user' })
     const mine = { starters: [{ question: { en: 'A asks', ar: 'أ' }, blank: false }] }
     client.setQueryData(COPILOT_STARTERS_KEY, mine)
@@ -52,15 +42,5 @@ describe('the copilot probe (spec 734 D7)', () => {
     useSession.getState().clear()
     expect(client.getQueryData(COPILOT_STARTERS_KEY)).toBeUndefined()
     stop()
-  })
-
-  it('canCurateCopilot_onlyWhenTheReplySaysTrue (ticket 790)', () => {
-    // Failed (no data), malformed, absent (a pre-3395 server), or false: denied.
-    expect(canCurateCopilot(undefined)).toBe(false)
-    expect(canCurateCopilot(null)).toBe(false)
-    expect(canCurateCopilot({ canAsk: true, canUseMcp: false })).toBe(false)
-    expect(canCurateCopilot({ canAsk: true, canUseMcp: false, canCurate: false })).toBe(false)
-    expect(canCurateCopilot({ canAsk: true, canUseMcp: false, canCurate: 'true' } as never)).toBe(false)
-    expect(canCurateCopilot({ canAsk: true, canUseMcp: false, canCurate: true })).toBe(true)
   })
 })

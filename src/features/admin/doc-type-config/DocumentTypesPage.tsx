@@ -16,7 +16,7 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
-import { canViewDocTypeConfig, docTypeConfigAccessQuery, documentTypesQuery } from './api'
+import { canViewDocTypeConfig, documentTypesQuery } from './api'
 import { categoriesOf, filterDocumentTypes } from './list-filter'
 import type { DocumentTypeListRow } from './types'
 
@@ -31,7 +31,7 @@ const DEFAULT_COL_DEF: ColDef = { ...OMS_GRID_BASE_COL_DEF, sortable: true, filt
 export default function DocumentTypesPage() {
   const { t } = useTranslation('doc-type-config')
   return (
-    <ScreenGate query={docTypeConfigAccessQuery()} can={canViewDocTypeConfig} ns="doc-type-config" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewDocTypeConfig} ns="doc-type-config" title={t('title')} subtitle={t('subtitle')}>
       <DocumentTypes />
     </ScreenGate>
   )

@@ -9,8 +9,9 @@ import { PackageSearch, RefreshCw, RotateCcw, Search, Undo2 } from 'lucide-react
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import type { NphiesAccessResult, NphiesUndispenseRequest } from '@/core/models/nphies'
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
+import type { NphiesUndispenseRequest } from '@/core/models/nphies'
+import { canOpenNphies, canUndispense as holdsUndispense } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 import { formatClock } from '@/core/nphies/format'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
@@ -40,26 +41,17 @@ import {
  * undispenses that are pending or failed, retry a failed one, and undispense one authorization by
  * hand when its invoice is fully returned.
  *
- * 🚩 Two grants, one probe. The Nphies grant fences the page and the list (the `ScreenGate`, on the
- * area's ONE key); `canUndispense` on the same answer shows Retry and the manual Undispense.
+ * 🚩 Two grants, one permissions answer. The Nphies grant fences the page and the list (the
+ * `ScreenGate`); `canUndispense` (Nphies AND the undispense grant) shows Retry and the manual Undispense.
  * Neither is the gate — the two POSTs' own filter is.
  *
  * No `refetchInterval`: the worker sends a request on its own; a manual Refresh with the load time
  * beside it lets the agent judge how old the answer is (the authorizations list's precedent).
  */
-const nphiesAccessQuery = {
-  queryKey: NPHIES_ACCESS_KEY,
-  queryFn: () => nphiesAccessApi.access(),
-  staleTime: Infinity,
-  retry: false,
-} as const
-
-const canOpenNphies = (r: NphiesAccessResult | null | undefined) => r?.canOpenNphies === true
-
 export default function UndispensePage() {
   const { t } = useTranslation('undispense')
   return (
-    <ScreenGate query={nphiesAccessQuery} can={canOpenNphies} ns="undispense" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenNphies} ns="undispense" title={t('title')} subtitle={t('subtitle')}>
       <UndispenseBody />
     </ScreenGate>
   )
@@ -71,8 +63,7 @@ function UndispenseBody() {
   const [params] = useSearchParams()
   const linkedAuthId = (params.get('authId') ?? '').trim()
 
-  const access = useQuery(nphiesAccessQuery)
-  const canUndispense = access.data?.canUndispense === true
+  const canUndispense = holdsUndispense(usePermissions())
 
   // A link (751's "undispense it first") opens on that authorization in every state, and prefills
   // the manual box. Back/forward to another link follows it.

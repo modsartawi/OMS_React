@@ -12,7 +12,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import type { PushObject } from '@/core/models/sync-console'
-import { canEnrolObjects, canOpenSyncConsole, pushObjectsQuery, syncConsoleAccessQuery } from './api'
+import { canEnrolObjects, canOpenSyncConsole, pushObjectsQuery } from './api'
 import { CONSOLE_DEFAULT_COL_DEF } from './console-columns'
 import { figure } from './helpers'
 import { buildObjectColumns } from './objects-columns'
@@ -20,6 +20,7 @@ import { objectCounts, visibleObjects } from './objects-helpers'
 import ConsoleNav from './ConsoleNav'
 import EnrolDialog from './EnrolDialog'
 import Loading from './Loading'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * Push objects (ticket 662, BackOffice spec 2557 D10) — `/admin/sync/objects`: every table the
@@ -37,7 +38,6 @@ export default function ObjectsPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('objects.title')}
@@ -50,8 +50,8 @@ export default function ObjectsPage() {
 
 function Objects() {
   const { t } = useTranslation('sync-console')
-  const access = useQuery(syncConsoleAccessQuery())
-  const canEnrol = canEnrolObjects(access.data)
+  const permissions = usePermissions()
+  const canEnrol = canEnrolObjects(permissions)
   const objects = useQuery(pushObjectsQuery())
   const [showEnrolled, setShowEnrolled] = useState(false)
   const [enrolling, setEnrolling] = useState<PushObject | null>(null)
@@ -65,7 +65,7 @@ function Objects() {
     <div className="flex min-w-0 flex-col gap-3">
       <ConsoleNav />
       <p className="text-xs text-muted-foreground">{t('objects.note')}</p>
-      {!canEnrol && access.isSuccess && (
+      {!canEnrol && permissions.settled && !permissions.failed && (
         <p className="text-xs text-muted-foreground" data-objects-no-grant="">
           {t('objects.noGrant')}
         </p>

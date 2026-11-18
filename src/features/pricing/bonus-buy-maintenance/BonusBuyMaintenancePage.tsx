@@ -17,7 +17,7 @@ import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatDay } from '@/core/util/date-format'
 import { formatRange } from '@/core/util/bidi'
-import { bbyMaintainAccessQuery, bbyMaintainApi, canOpenBbyMaintain, promotionListKey } from './api'
+import { bbyMaintainApi, canOpenBbyMaintain, promotionListKey } from './api'
 import { RefusalList } from './ActReport'
 import { DateInput, TextInput } from './fields'
 import { PROMOTION_NAME_MAX, promotionPath } from './overview'
@@ -30,7 +30,6 @@ export default function BonusBuyMaintenancePage() {
   const { t } = useTranslation('bonus-buy-maintenance')
   return (
     <ScreenGate
-      query={bbyMaintainAccessQuery()}
       can={canOpenBbyMaintain}
       ns="bonus-buy-maintenance"
       title={t('title')}

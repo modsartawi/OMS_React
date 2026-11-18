@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
@@ -132,7 +131,6 @@ export default function EntryCorrection({
   const onCorrectionError = (error: unknown, fallback: string) => {
     if (supervisionFailure(error) === 'forbidden') {
       toast.error(t('correction.errors.forbidden'))
-      void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
       setAct(null)
       return
     }

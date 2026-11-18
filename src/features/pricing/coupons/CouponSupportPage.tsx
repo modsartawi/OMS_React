@@ -7,18 +7,19 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
-import { couponsApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { canSupportCoupons, couponsApi } from './api'
 import CouponDetailPane from './CouponDetailPane'
 
 // The web Coupon SUPPORT screen (ticket 523; map 497 / spec 505; server 518). A lean,
 // scoped screen for a CouponsSupport-only agent: no template/import tooling, no
 // refund/reset/deactivate — just a code search → the shared CouponDetailPane in
 // `mode="support"` (instance + read-only template + the "where redeemed" ledger + a
-// Reactivate action). An admin (superset) also sees it. Shares the ['coupons','access']
-// probe key with the Admin screen + nav (issue 429), so it's one call.
+// Reactivate action). An admin (superset) also sees it. Reads the one permissions answer
+// the Admin screen and the nav read (oms 909).
 //
 // This is the Inquiry workspace's single-panel twin, but a standalone page with its own
-// access gate: the gate opens on CanSupport (which the server sets = support OR admin),
+// access gate: the gate opens on `canSupportCoupons` (support OR admin),
 // and the pane's support tiering hides every admin-only action. The server 518 gate
 // stays authoritative — a support agent who deep-links a refund is refused 403.
 export default function CouponSupportPage() {
@@ -27,7 +28,7 @@ export default function CouponSupportPage() {
   // The committed code (set on Search) — drives the query key so a re-search refetches.
   const [code, setCode] = useState<string | null>(null)
 
-  const access = useQuery({ queryKey: ['coupons', 'access'], queryFn: () => couponsApi.access() })
+  const permissions = usePermissions()
 
   const details = useQuery({
     queryKey: ['coupons', 'detail', code],
@@ -41,7 +42,7 @@ export default function CouponSupportPage() {
     if (c) setCode(c)
   }
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -51,7 +52,7 @@ export default function CouponSupportPage() {
   }
   // Deep-link backstop: the nav hides this leaf without CanSupport, but a pasted URL still
   // lands here — deny it in-page (the server grant stays authoritative on every call).
-  if (access.data?.canSupport !== true) {
+  if (!canSupportCoupons(permissions)) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
         <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>

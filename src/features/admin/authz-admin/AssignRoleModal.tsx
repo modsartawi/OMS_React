@@ -6,7 +6,7 @@ import ChecklistPicker, { type ChecklistOption, type ChecklistPickerLabels } fro
 import BatchSummary from '@/core/ui/BatchSummary'
 import { useBatchRun } from '@/core/ui/use-batch-run'
 import { fsi } from '@/core/util/bidi'
-import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
+import type { AuthzRoleLists, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
 import { inScope, isFullScope, roleKind } from './helpers'
 
@@ -16,7 +16,7 @@ interface Props {
   employeeId: string
   /** Roles the person already holds (excluded from the picker). */
   assigned: string[]
-  access: AuthzAccessResult
+  roleLists: AuthzRoleLists
   catalog: RoleCatalogEntry[]
   /** After a batch that assigned at least one role: re-read the person's roles, effective grants and audit. */
   onAssigned: () => void | Promise<void>
@@ -38,7 +38,7 @@ export default function AssignRoleModal({
   onClose,
   employeeId,
   assigned,
-  access,
+  roleLists,
   catalog,
   onAssigned,
 }: Props) {
@@ -60,7 +60,7 @@ export default function AssignRoleModal({
     }
   }, [open])
 
-  const assignable = access.assignableRoles
+  const assignable = roleLists.assignableRoles
 
   // Full scope → the whole catalog; a delegated list → only those catalog rows. Held roles are
   // dropped by the picker's `exclude`, so a role assigned in this batch leaves the list on re-read.

@@ -615,7 +615,7 @@ const ACTIVATE_FROM: readonly OverviewStatus[] = ['tested', 'deactivated']
  * Mark Tested, Back to Planned, Activate and Deactivate are status acts, not edits: Display offers
  * them as Change does. Activate and Deactivate sit here too (ticket 493) so correcting a live bonus
  * buy never sends anyone back to the overview.
- * `canTest` is the access answer's tester grant (`canMarkTested`), read by the caller. There is no
+ * `canTest` is the tester grant (`canTestBbyMaintain`), read by the caller. There is no
  * four-eyes rule (owner ruling 2026-10-07): the last writer may mark it Tested.
  */
 export function editorAccess(

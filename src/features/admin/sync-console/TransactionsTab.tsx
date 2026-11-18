@@ -24,7 +24,7 @@ import {
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
-import { canReplayReceipts, storeTransactionsQuery, syncConsoleAccessQuery } from './api'
+import { canOperateSyncConsole, canReplayReceipts, storeTransactionsQuery } from './api'
 import { figure } from './helpers'
 import { isWpfStore } from './store-helpers'
 import {
@@ -39,6 +39,7 @@ import { buildTransactionColumns } from './transactions-columns'
 import Loading from './Loading'
 import SnapshotDrawer from './SnapshotDrawer'
 import TabGrid from './TabGrid'
+import { usePermissions } from '@/core/permissions'
 
 /** A receipt's row id: the door's transaction id, unique within the store. */
 const transactionId = (r: StoreTransaction) => r.transactionId
@@ -93,9 +94,9 @@ function TransactionsList({ code }: { code: string }) {
   const [draft, setDraft] = useState('')
   const [page, setPage] = useState(1)
 
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOperate = access.data?.canOperate === true
-  const canReplay = canReplayReceipts(access.data)
+  const permissions = usePermissions()
+  const canOperate = canOperateSyncConsole(permissions)
+  const canReplay = canReplayReceipts(permissions)
   // The open drawer's receipt and which opening it is: each opening is its own audited read.
   const [viewing, setViewing] = useState<{ row: StoreTransaction; opening: number } | null>(null)
   const openings = useRef(0)

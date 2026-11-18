@@ -11,7 +11,7 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange } from '@/core/util/bidi'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { canViewAnalytics } from '@/core/analytics-access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsQueryKey } from './api'
 import { editItemLink } from './editor'
 import { comparing } from './effective-query'
@@ -48,7 +48,7 @@ import { viewTitleOf } from './ViewChart'
 export default function AnalyticsViewPage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('view.title')} subtitle={t('view.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('view.title')} subtitle={t('view.subtitle')}>
       <ViewBody />
     </ScreenGate>
   )

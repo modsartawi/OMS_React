@@ -78,7 +78,6 @@ import type {
   SyncCommand,
   SyncCommandRequest,
   SyncCommandResponse,
-  SyncConsoleAccess,
   SyncWorkers,
 } from '@/core/models/sync-console'
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
@@ -106,73 +105,20 @@ import {
 } from './wire'
 import { SCRIPTS_PAGE_SIZE } from './scripts-helpers'
 
-/**
- * The ONE cache key the Admin menu leaf and the console's own in-page gate share, so
- * the probe costs one call — exported rather than re-spelled, because a typo would
- * silently split the entry and let the nav and the screen disagree.
- */
-export const SYNC_CONSOLE_ACCESS_KEY = ['sync-console', 'access'] as const
-
-/**
- * …and the one set of options every reader passes. `retry: false` because a refusal
- * is an answer, not an outage; `staleTime: Infinity` because a grant does not change
- * inside a page life.
- */
-export function syncConsoleAccessQuery() {
-  return {
-    queryKey: SYNC_CONSOLE_ACCESS_KEY,
-    queryFn: () => syncConsoleApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/**
- * The probe's one predicate, read by BOTH the nav leaf and the page's gate. `=== true`
- * and nothing looser, so a malformed answer is a denial.
- */
-export const canOpenSyncConsole = (r: SyncConsoleAccess | null | undefined): boolean =>
-  r?.screenAllowed === true
-
-/**
- * The Replay page's predicate (spec 470, ticket 472), read by BOTH the console nav's link
- * and the page's gate. `ActionSync.Replay` is independent of `canOperate`. `=== true`, so a
- * malformed answer (or a door not yet sending the flag) is a denial.
- */
-export const canReplayReceipts = (r: SyncConsoleAccess | null | undefined): boolean =>
-  r?.canReplay === true
-
-/**
- * The Objects page's Enrol predicate (BackOffice 2558, ticket 662). `ActionSync.EnrollObject` is
- * independent of `canOperate`. `=== true`, so a malformed answer (or a door older than 2558, which
- * leaves the flag out) is a denial.
- */
-export const canEnrolObjects = (r: SyncConsoleAccess | null | undefined): boolean =>
-  r?.canEnrol === true
-
-/**
- * The Scripts page's Send predicate (spec 3202 D3, ticket 664). `ActionSync.RunStoreScript` is
- * independent of `canOperate`; absent (a door older than 3205) is a no.
- */
-export const canRunStoreScripts = (r: SyncConsoleAccess | null | undefined): boolean =>
-  r?.canRunScripts === true
+// The console's grants read the one permissions answer (oms 909); re-exported here, where the menu leaf imports them.
+export {
+  canEnrolObjects,
+  canOnboardStores,
+  canOpenSyncConsole,
+  canOperateSyncConsole,
+  canReplayReceipts,
+  canRunStoreScripts,
+} from './access'
 
 /** The Fleet page's four reads share this prefix, so one invalidation refreshes them all. */
 export const FLEET_KEY = ['sync-console', 'fleet'] as const
 
 export const syncConsoleApi = {
-  /**
-   * `GET ActionSync/Access` → `{ screenAllowed, canOperate, canOnboard, canReplay }`.
-   *
-   * 🚩 **Fails closed** — no 404-tolerant catch, on the IDoc Inspector precedent and
-   * unlike `Bby/Access`: this screen controls the whole fleet's sync and its door is
-   * not deployed anywhere yet. The shell already hides a leaf whose probe is pending
-   * or errored, so failing closed is the absence of a catch, not code.
-   */
-  access(): Promise<SyncConsoleAccess> {
-    return api.get<SyncConsoleAccess>('ActionSync/Access')
-  },
-
   /** `GET ActionSync/Workers` → the store worker's and the mirror roles' heartbeats, not paged. */
   workers(): Promise<SyncWorkers> {
     return api.get<WireWorkers>('ActionSync/Workers').then(normaliseWorkers)

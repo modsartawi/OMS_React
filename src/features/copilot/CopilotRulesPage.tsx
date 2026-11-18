@@ -19,7 +19,7 @@ import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import { COPILOT_STARTERS_KEY, canCurateCopilot, copilotAccessQuery } from './access'
+import { COPILOT_STARTERS_KEY, canCurateCopilot } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { Answer, Refusal } from './AnswerParts'
 import { COPILOT_PROMPT_HISTORY_KEY, COPILOT_PROMPT_KEY, copilotRulesApi } from './rules-api'
@@ -89,7 +89,6 @@ export default function CopilotRulesPage() {
   const { t } = useTranslation('copilot')
   return (
     <ScreenGate
-      query={copilotAccessQuery()}
       can={canCurateCopilot}
       ns="copilot"
       keyPrefix="rules.access"

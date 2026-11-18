@@ -13,17 +13,7 @@ describe('order guards', () => {
     ])
   })
 
-  it('the override and release grants are read only from an explicit true', () => {
-    expect([canOverrideGuard({ canOverrideGuard: true }), canOverrideGuard({}), canOverrideGuard(null), canOverrideGuard({ canOverrideGuard: 'true' as never })]).toEqual([
-      true,
-      false,
-      false,
-      false,
-    ])
-    expect([canReleaseGuardHold({ canReleaseGuardHold: true }), canReleaseGuardHold(undefined), canReleaseGuardHold({ canOverrideGuard: true })]).toEqual([
-      true,
-      false,
-      false,
-    ])
+  it('the override and release grants are denied: the one permissions answer cannot carry INS_GUARD (909, brief row 43)', () => {
+    expect([canOverrideGuard(), canReleaseGuardHold()]).toEqual([false, false])
   })
 })

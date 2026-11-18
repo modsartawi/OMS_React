@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { ListTree } from 'lucide-react'
 
 import type { Job, Mode } from '@/core/models/data-sync'
 import { buttonClass } from '@/core/ui/control-classes'
-import { canOperateDataSync, dataSyncAccessQuery } from './api'
+import { canOperateDataSync } from './api'
 import { changesPath, showChangesLink } from './changes-helpers'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The job drawer's link to its Changes view (ticket 562), for 560's `jobDrawerFooter` seam.
@@ -17,8 +17,8 @@ import { changesPath, showChangesLink } from './changes-helpers'
  * shared access probe; the door re-checks). Absent, never disabled.
  */
 export function useChangesLinkFooter(mode: Mode | undefined): ((job: Job) => ReactNode) | undefined {
-  const access = useQuery(dataSyncAccessQuery())
-  if (!showChangesLink(mode, canOperateDataSync(access.data))) return undefined
+  const permissions = usePermissions()
+  if (!showChangesLink(mode, canOperateDataSync(permissions))) return undefined
   return (job) => <ChangesLink jobId={job.jobId} />
 }
 

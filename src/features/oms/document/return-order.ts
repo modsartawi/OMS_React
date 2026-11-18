@@ -48,16 +48,6 @@ export type ReturnMode = 'bonded' | 'lf'
  */
 export const LF_RETURN_REASON: ReturnReason = 'RTRF'
 
-/**
- * The access-probe flag each mode's create door is guarded by — the one a `403` from that door
- * revokes. An LF `403` is the LocalFulfillmentReturn 03 grant refusing; it says nothing about the
- * bonded `canCreateReturn`, and must not take Return off a bonded delivery (760's open item).
- */
-export const RETURN_GRANT = {
-  bonded: 'canCreateReturn',
-  lf: 'canCreateLocalFulfillmentReturn',
-} as const satisfies Record<ReturnMode, string>
-
 /** One line as the return screen offers it. */
 export interface ReturnableLine {
   lineNumber: number

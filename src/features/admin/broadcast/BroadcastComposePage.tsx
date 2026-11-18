@@ -13,7 +13,8 @@ import Select from '@/core/ui/Select'
 import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { lookupQueries } from '@/core/services/lookups'
-import { broadcastAccessQuery, broadcastApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { broadcastApi, canBroadcast } from './api'
 import {
   EMPTY_FORM,
   TITLE_MAX,
@@ -25,15 +26,15 @@ import {
 } from './helpers'
 
 // Send Broadcast screen (spec 031, features/admin). Soft-gates on the
-// NotificationBroadcast grant (038): the page runs the same access probe as the
-// shell's permission-aware nav (shared cache key). Denied ⇒ a soft gate naming
-// the grant; granted (or an absent/unknown probe) ⇒ the compose card. The server
+// NotificationBroadcast grant (038): the page reads the same `canBroadcast` as the
+// shell's permission-aware nav, off the one permissions answer (oms 909). Denied ⇒ a soft gate naming
+// the grant; granted (or an unreadable answer) ⇒ the compose card. The server
 // Create stays authoritative — a lost grant still refuses on send (NC_FORBIDDEN).
 export default function BroadcastComposePage() {
   const { t } = useTranslation('broadcast')
-  const access = useQuery(broadcastAccessQuery())
+  const permissions = usePermissions()
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -42,10 +43,10 @@ export default function BroadcastComposePage() {
     )
   }
 
-  // A definitive denial (endpoint answered, grant absent) shows the gate. A failed
-  // probe (a 404 included, since 852) still degrades to showing the screen for a deep
-  // link — the server refuses on send if the grant is truly missing; the nav hides it.
-  const denied = access.data ? !access.data.allowed : false
+  // A definitive denial (the answer is in, the grant absent) shows the gate. A failed
+  // answer still degrades to showing the screen for a deep link — the server refuses
+  // on send if the grant is truly missing; the nav hides it.
+  const denied = !permissions.failed && !canBroadcast(permissions)
   if (denied) {
     return (
       <div className="mx-auto mt-16 max-w-lg rounded-lg border border-border/60 bg-card p-8 text-center" role="alert">

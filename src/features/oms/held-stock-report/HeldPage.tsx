@@ -24,7 +24,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay, toIsoDate } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { formatFigure } from '@/core/util/number-format'
-import { canOpenHeldStockReport, heldStockReportAccessQuery } from './access'
+import { canOpenHeldStockReport } from './access'
 import { heldStockReportApi } from './api'
 import {
   HELD_DEFAULTS,
@@ -47,7 +47,7 @@ import { normalizeStores } from './shared'
  * line of their own — then per source type over the fleet, then each reserving document whose netting differs from what
  * Stock Visibility holds for it (ticket 3903), and last the check on held's repairs per day.
  *
- * Behind `canOpenHeldStockReport` on `HeldStockReport/Access` (`BackOfficeScreen[HeldStockReport, 03]`), the predicate the
+ * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 909), the predicate the
  * menu leaves read, failing closed.
  *
  * 🚩 Read live from Stock Visibility on every request, and a failed stock read fails the whole report (a partial impact
@@ -57,7 +57,6 @@ export default function HeldPage() {
   const { t } = useTranslation('held-stock-report')
   return (
     <ScreenGate
-      query={heldStockReportAccessQuery()}
       can={canOpenHeldStockReport}
       ns="held-stock-report"
       title={t('held.title')}

@@ -1,18 +1,19 @@
 /**
  * The Config changes leaf (BackOffice spec 3148, ticket 3152) — in the Admin group just before Document types (whose
- * place before the engine switch 3149 pins), riding the ONE configuration probe key with its View predicate: anyone
- * with OMS access reads the change log, the edit grant is not needed.
+ * place before the engine switch 3149 pins); anyone with OMS access reads the change log, the edit grant is not needed. Gated on the View predicate of the document-type configuration
+ * (`canViewDocTypeConfig` = `DocumentList:03`), read off the ONE permissions answer (oms 909).
  */
 import { describe, expect, it } from 'vitest'
-import { DOC_TYPE_CONFIG_ACCESS_KEY } from '@/features/admin/doc-type-config/api'
+import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
 import { MENU, type ShellMenuItem } from './menu-model'
-import { resolveMenu, type ProbeState } from './useVisibleMenu'
+import { resolveMenu } from './useVisibleMenu'
 
 const admin = MENU.find((g) => g.labelKey === 'ua-admin:menu.admin')!
 const leaf = admin.items!.find((i) => i.labelKey === 'doc-type-config:menu.configChanges')!
 
-const probed = (data: unknown): ProbeState => ({ isPending: false, isSuccess: true, data })
-const errored: ProbeState = { isPending: false, isSuccess: false, data: undefined }
+const holding = (...screens: string[]) => permissionsOf({ screens })
+const errored = permissionsFromQuery({ isPending: false, isError: true, data: undefined })
+const pending = permissionsFromQuery({ isPending: true, isError: false, data: undefined })
 const labels = (items: ShellMenuItem[]): string[] => items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
 
 describe('the Config changes leaf', () => {
@@ -22,16 +23,14 @@ describe('the Config changes leaf', () => {
     expect(leaf.routerLink).toBe('/admin/config-changes')
   })
 
-  it('rides the ONE configuration probe key', () => {
-    expect(leaf.access!.key).toBe(DOC_TYPE_CONFIG_ACCESS_KEY)
+  it('shows on OMS access (DocumentList:03) alone — the edit grant is not needed to read', () => {
+    const only = { ...leaf, items: undefined }
+    expect(labels(resolveMenu([only], holding('DocumentList:03')).items)).toEqual(['doc-type-config:menu.configChanges'])
   })
 
-  it('shows on OMS access alone, hides without it or on an error', () => {
+  it('🚩 hides on the edit grant alone (SdDocTypeConfig:06), a near-miss key, an error or while pending', () => {
     const only = { ...leaf, items: undefined }
-    expect(labels(resolveMenu([only], [probed({ canViewDocTypeConfig: true, canEditDocTypeConfig: false })]).items)).toEqual([
-      'doc-type-config:menu.configChanges',
-    ])
-    for (const state of [probed({ canViewDocTypeConfig: false, canEditDocTypeConfig: true }), errored, probed({})])
-      expect(resolveMenu([only], [state]).items).toEqual([])
+    for (const p of [holding('SdDocTypeConfig:06'), holding('DocumentList:02'), holding(), errored, pending])
+      expect(resolveMenu([only], p).items).toEqual([])
   })
 })

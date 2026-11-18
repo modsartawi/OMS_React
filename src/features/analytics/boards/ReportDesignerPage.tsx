@@ -17,7 +17,7 @@ import type { PaneBounds } from '@/core/ui/inspector-pane'
 import PaneSeparator, { useRememberedPaneWidth, useViewportWidth } from '@/core/ui/PaneSeparator'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
-import { analyticsAccessQuery, canAuthorAnalytics } from './access'
+import { canAuthorAnalytics } from '@/core/analytics-access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsItemKey, analyticsItemsKey, analyticsReportKey } from './api'
 import { BASE_FILTERS, NO_WAVE } from './board'
 import { addParam, bind, blankParam, removeParam, type Declarations } from './bindings'
@@ -70,7 +70,6 @@ export default function ReportDesignerPage() {
   const { id } = useParams()
   return (
     <ScreenGate
-      query={analyticsAccessQuery()}
       can={canAuthorAnalytics}
       ns="boards"
       keyPrefix="authorAccess"

@@ -3,16 +3,16 @@
  * no i18n — a reason is returned as its key's last segment (`deliveries:lfReturns.reason.<key>`).
  */
 import type { LfReturnNeedingActionRow } from '@/core/models/lf-returns-needing-action'
-import type { OmsAccessResult } from '@/core/models/oms-access'
 import { canCreateLocalFulfillmentReturn } from '@/core/oms/access'
+import type { Permissions } from '@/core/permissions'
 import { needsAction, normaliseLfReturnOutcome, type NeedingActionOutcome } from '@/core/oms/lf-return-outcome'
 
 /**
  * Whether the list offers the queue (spec 759 F1/F6): `LocalFulfillmentReturn,03`, read from the
- * probe and never inferred. The server re-checks the read; this only hides what it would refuse.
+ * one permissions answer and never inferred. The server re-checks the read; this only hides what it would refuse.
  */
-export const offersLfReturnsQueue = (access: OmsAccessResult | null | undefined): boolean =>
-  canCreateLocalFulfillmentReturn(access)
+export const offersLfReturnsQueue = (permissions: Permissions): boolean =>
+  canCreateLocalFulfillmentReturn(permissions)
 
 /** Why an LF return needs an operator: the three outcomes 3369's needing-action read returns. */
 export type NeedingActionReason = NeedingActionOutcome

@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react'
 import { useMatches, useNavigate } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
 import CommandPalette from '@/core/commands/CommandPalette'
 import ShortcutsSheet from '@/core/commands/ShortcutsSheet'
 import { reportRefusals, useKeyLayer } from '@/core/commands/key-layer'
@@ -10,9 +9,8 @@ import { singleKeyScreenOf, type PaletteRow } from '@/core/commands/palette-mode
 import { loadRecent } from '@/core/commands/recent'
 import { registeredNow, useRegisteredCommands } from '@/core/commands/registry'
 import { openShortcuts } from '@/core/commands/shortcuts-sheet'
-import { omsAccessQuery } from '@/core/oms/api'
+import { usePermissions } from '@/core/permissions'
 import { useSession } from '@/core/session'
-import { loyAccessQuery } from '@/features/loy/member/api'
 import { MENU } from './menu-model'
 import { paletteGroups } from './palette-groups'
 import { useVisibleMenu } from './useVisibleMenu'
@@ -42,8 +40,7 @@ export default function CommandPaletteHost() {
   const open = usePalette((s) => s.open)
   const commands = useRegisteredCommands()
   const menu = useVisibleMenu(MENU)
-  const detail = useQuery(omsAccessQuery())
-  const member = useQuery(loyAccessQuery())
+  const permissions = usePermissions()
   // K9: the signed-in user's Recent, re-read on every open — Details records while it is shut.
   const userId = useSession((s) => s.userId)
   const recent = useMemo(() => (open ? loadRecent(userId) : []), [open, userId])
@@ -64,8 +61,7 @@ export default function CommandPaletteHost() {
       openShortcuts: openShortcutsFromPalette,
       recent,
       menu: menu.items,
-      detail,
-      member,
+      permissions,
       query,
       textOf,
       navigate: (to, state) => void navigate(to, state === undefined ? undefined : { state }),

@@ -8,7 +8,8 @@ const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/core/api')>()), api }))
 
 const { payerMonthApi, ReasonRequiredError, monthKey, PAYER_MONTH_KEY } = await import('./api')
-const { payerMonthAccessApi } = await import('./access')
+const { canManagePayerMonths } = await import('./access')
+const { permissionsOf } = await import('@/core/permissions')
 
 const ROW: PayerMonthRow = {
   customerId: 'BUPA',
@@ -79,10 +80,11 @@ describe('the reads behind a row', () => {
   })
 })
 
-describe('the access probe', () => {
-  it('reads InsurancePayerMonthWeb/Access', async () => {
-    api.get.mockResolvedValueOnce({ canManage: true })
-    await expect(payerMonthAccessApi.access()).resolves.toEqual({ canManage: true })
-    expect(api.get).toHaveBeenLastCalledWith('InsurancePayerMonthWeb/Access')
+describe('the grant (oms 909)', () => {
+  it('reads InsurancePayerMonth:03 off the one permissions answer, and nothing else', () => {
+    expect(canManagePayerMonths(permissionsOf({ screens: ['InsurancePayerMonth:03'] }))).toBe(true)
+    expect(canManagePayerMonths(permissionsOf({ screens: ['InsurancePayerMonth:02', 'InsuranceRuleAuthoring:03'] }))).toBe(false)
+    expect(canManagePayerMonths(permissionsOf(null))).toBe(false)
+    expect(api.get).not.toHaveBeenCalled()
   })
 })

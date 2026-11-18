@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Minus, Plus, Undo2 } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
@@ -7,7 +7,6 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorKind, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
-import { revokeOnForbidden } from '@/core/oms/api'
 import { mintRequestId } from '@/core/util/request-id'
 import { formatMoney } from '@/core/util/number-format'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
@@ -17,7 +16,6 @@ import NoteField from './NoteField'
 import { isLocalFulfillment } from './commands'
 import {
   LF_RETURN_REASON,
-  RETURN_GRANT,
   buildCreateReturnRequest,
   clampReturnQuantity,
   pickedFeeTypes,
@@ -105,7 +103,6 @@ export default function ReturnDialog({
   document: SdDocumentHeaderModel
 }) {
   const { t } = useTranslation('document')
-  const queryClient = useQueryClient()
   const [lineState, setLineState] = useState<Record<number, LineState>>({})
   /**
    * **Neither reason pre-selected** (D5). `null` is the gate's third missing
@@ -167,8 +164,7 @@ export default function ReturnDialog({
   /**
    * **LF mode** (spec 759 F3, ticket 761): the same dialog on a local fulfillment delivery. There is
    * no reason fork — Return-and-Refund is the only LF reason (3369 D3), so it is STATED, never
-   * chosen, and Refund-Only cannot be picked by construction. Fees offer `FLFD` alone, and a `403`
-   * revokes the LF grant rather than the bonded one.
+   * chosen, and Refund-Only cannot be picked by construction. Fees offer `FLFD` alone.
    */
   const mode: ReturnMode = isLocalFulfillment(document.deliveryDocumentType) ? 'lf' : 'bonded'
   const lf = mode === 'lf'
@@ -227,11 +223,10 @@ export default function ReturnDialog({
       // them build detail — hard-coding one here is how this repo drifts from a
       // policy that moves. 401 is not ours either: `handle401` has already
       // cleared the session and redirected.
-      // A 403 is the grant refusing (ticket 521): the bar loses Return document behind this dialog.
-      // It is THIS mode's grant that refused — an LF 403 revokes LocalFulfillmentReturn 03, never
-      // the bonded `canCreateReturn` (ticket 761). The LF named refusals (outside window, Refund-Only,
-      // return open, grant missing) are business outcomes and land in the banner like any other.
-      revokeOnForbidden(queryClient, err, RETURN_GRANT[mode])
+      // A 403 is the grant refusing (ticket 521): `@/core/api` re-reads the one permissions answer
+      // (oms 909), so the bar loses Return document behind this dialog once it lands. The LF named
+      // refusals (outside window, Refund-Only, return open, grant missing) are business outcomes and
+      // land in the banner like any other.
       const refused = apiErrorKind(err) === 'business'
       const fallback = t('returnDocument.refused.fallback')
       setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err), refused })

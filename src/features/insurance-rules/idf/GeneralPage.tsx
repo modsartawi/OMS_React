@@ -44,7 +44,7 @@ const GENERAL_TIER = 4
  *   651 · Export (the action row); Template beside 649's Upload
  *
  * The reads are ungated (a bare 403 on the items is "You do not have access"); 654: Set item, a row's Edit / Clear and
- * the Upload block (upload, Apply) show only with `canEditGeneral` (`GET IdfPriority/Access`). Export, Template and
+ * the Upload block (upload, Apply) show only with `canEditGeneral` (`IdfPriority:07`). Export, Template and
  * the Change log stay on the view grant.
  */
 export default function GeneralPage() {

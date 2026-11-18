@@ -13,11 +13,9 @@ import { useStoreLock } from '@/core/engine-session/store-lock'
 import { newRequestId } from '@/core/engine-session/request-id'
 import { readSessionFault, type ShownSessionFault } from '@/core/engine-session/session-fault'
 import {
-  NPHIES_ACCESS_KEY,
   SELECTION_REASON_VALUE_SET,
   codeSystemKey,
   diagnosesKey,
-  nphiesAccessApi,
   nphiesLookupApi,
 } from '@/core/nphies/api'
 import { formatStamp } from '@/core/nphies/format'
@@ -70,6 +68,8 @@ import {
   refuseAdd,
   type AddItemRefusal,
 } from './auth-session'
+import { canOpenNphies } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The authorization form (ticket 217, spec 209 §2 + stories 22–32 · 64 · 65,
@@ -123,11 +123,8 @@ export default function AuthorizationFormPage() {
   const copyOf = (params.get('copyOf') ?? '').trim()
   const actingStore = useSession((s) => s.currentStoreCode)
 
-  const access = useQuery({
-    queryKey: NPHIES_ACCESS_KEY,
-    queryFn: () => nphiesAccessApi.access(),
-  })
-  const allowed = access.data?.canOpenNphies === true
+  const permissions = usePermissions()
+  const allowed = canOpenNphies(permissions)
 
   /**
    * The **write-ahead journal row** — the whole of what a reopen is prefilled
@@ -916,7 +913,7 @@ export default function AuthorizationFormPage() {
   }
 
   // ---- Gates --------------------------------------------------------------
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -928,7 +925,7 @@ export default function AuthorizationFormPage() {
     )
   }
   if (!allowed) {
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -940,7 +937,7 @@ export default function AuthorizationFormPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            ? t('access.unreachableHint')
             : t('access.deniedHint')}
         </p>
       </div>

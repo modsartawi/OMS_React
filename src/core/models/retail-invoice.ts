@@ -19,27 +19,6 @@
  * starts to drift.
  */
 
-/**
- * `GET RetailInvoice/Access` — the nav-visibility probe (contract §1, §6.7).
- *
- * **One boolean, and that is the whole shape.** Distinguishing a
- * search-permission from a download-permission would be BackOffice 989's to
- * settle and this type's to grow a field; the spec puts it out of scope.
- *
- * 🚩 **Cookie-only and deliberately NOT grant-gated**: it must be able to answer
- * a session that holds nothing, so a denial arrives as `200 { screenAllowed:
- * false }` — a boolean to read, never an error to catch.
- *
- * ⚠️ **The probe only hides the menu.** `Search` and `Download` re-check the
- * grant server-side and refuse a session that lacks it with a **bare 403 carrying
- * no body at all** — no envelope, no `errorCode`. So this answer is nav hygiene,
- * and the endpoint's grant filter is the boundary. Neither substitutes for the
- * other.
- */
-export interface RetailInvoiceAccessResult {
-  screenAllowed: boolean
-}
-
 /* -------------------------------------------------------------------------- *
  * Contract §2 — pasted VERBATIM (ticket 264).
  *

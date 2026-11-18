@@ -36,13 +36,11 @@ import {
   type PaletteGroup,
   type PaletteRow,
 } from '@/core/commands/palette-model'
-import type { OmsAccessResult } from '@/core/models/oms-access'
-import type { LoyAccessResult } from '@/core/models/loy'
+import type { Permissions } from '@/core/permissions'
 // `layout` is the composition root and may reach into a feature (feature-structure).
 import { canOpenLoyMember } from '@/features/loy/member/api'
 import { memberLookupKeyOf, memberLookupState } from '@/features/loy/member/lookup-intent'
 import type { ShellMenuItem } from './menu-model'
-import type { ProbeState } from './useVisibleMenu'
 
 /** Every leaf of the (already permission-filtered) menu, named under the group it sits in. */
 export function gotoRows(items: readonly ShellMenuItem[], navigate: (to: string) => void): PaletteRow[] {
@@ -70,17 +68,14 @@ export function gotoRows(items: readonly ShellMenuItem[], navigate: (to: string)
   return rows
 }
 
-/** `canOpenDetail`, read off the shared OMS probe — `true` only once it has answered yes. */
-export function detailGranted(probe: ProbeState): boolean {
-  if (!probe.isSuccess) return false
-  // Read defensively: a malformed answer is a denial.
-  const data = probe.data as Partial<OmsAccessResult> | null | undefined
-  return data?.canOpenDetail === true
+/** Delivery details' grant (`DocumentDetails:03`), off the one permissions answer — false while pending or failed. */
+export function detailGranted(p: Permissions): boolean {
+  return p.has('DocumentDetails:03')
 }
 
-/** `canOpenLoyMember`, read off the Loy probe — `true` only once it has answered yes. */
-export function memberGranted(probe: ProbeState): boolean {
-  return probe.isSuccess && canOpenLoyMember(probe.data as LoyAccessResult | null | undefined)
+/** The Loy member lookup's grant (`canOpenLoyMember`), off the one permissions answer. */
+export function memberGranted(p: Permissions): boolean {
+  return canOpenLoyMember(p)
 }
 
 /** The palette's navigation: a route, and optionally the router state to land with. */
@@ -171,18 +166,16 @@ export function paletteGroups(input: {
   recent: readonly RecentRecord[]
   /** `useVisibleMenu(MENU).items` — what the rail draws. */
   menu: readonly ShellMenuItem[]
-  /** The OMS access probe (`OMS_ACCESS_KEY`), as react-query reports it. */
-  detail: ProbeState
-  /** The Loy access probe (`LOY_ACCESS_KEY`), as react-query reports it (427). */
-  member: ProbeState
+  /** The one permissions answer (oms 909): Delivery details' grant gates Jump + Recent, Loy member's the member row. */
+  permissions: Permissions
   query: string
   textOf: (row: PaletteRow) => string
   navigate: PaletteNavigate
 }): PaletteGroup[] {
   // Recent and the record Jump rows land on Delivery details; a pending or errored probe
   // hides them. The member row lands on the Loy lookup, behind its own probe.
-  const detail = detailGranted(input.detail)
-  const member = memberGranted(input.member) ? memberJumpRow(input.query, input.navigate) : null
+  const detail = detailGranted(input.permissions)
+  const member = memberGranted(input.permissions) ? memberJumpRow(input.query, input.navigate) : null
   return composePalette({
     screen: [
       ...screenRows(input.commands, bindKeys(input.commands, { singleKeyScreen: input.singleKeyScreen })),

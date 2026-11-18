@@ -1,29 +1,32 @@
 /**
- * Ticket 3149 — the configuration probe: the menu leaf and the ScreenGate share one View predicate (the existing OMS
- * access) that fails closed; every write affordance reads its own Edit flag, so Edit is hidden without the grant.
+ * Ticket 3149, read off the one permissions answer since oms 909 (BackOffice spec 4002, the SdDocTypeConfig row): the
+ * menu leaf and the ScreenGate share one View predicate (the existing OMS access, `DocumentList:03`); every write
+ * affordance reads Edit, `DocumentList:03 && SdDocTypeConfig:06`, so Edit is hidden without both.
  */
 import { describe, expect, it } from 'vitest'
-import { DOC_TYPE_CONFIG_ACCESS_KEY, canEditDocTypeConfig, canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
-import type { DocTypeConfigAccess } from './types'
+import { permissionsOf } from '@/core/permissions'
+import { canEditDocTypeConfig, canViewDocTypeConfig } from './api'
 
-describe('the configuration probe', () => {
-  it('each flag reads only its own field', () => {
-    const view: DocTypeConfigAccess = { canViewDocTypeConfig: true, canEditDocTypeConfig: false }
-    expect([canViewDocTypeConfig(view), canEditDocTypeConfig(view)]).toEqual([true, false])
-    const both: DocTypeConfigAccess = { canViewDocTypeConfig: true, canEditDocTypeConfig: true }
-    expect([canViewDocTypeConfig(both), canEditDocTypeConfig(both)]).toEqual([true, true])
+const holding = (...screens: string[]) => permissionsOf({ screens })
+
+describe('the configuration grants', () => {
+  it('View is the OMS list grant alone', () => {
+    expect(canViewDocTypeConfig(holding('DocumentList:03'))).toBe(true)
+    expect(canEditDocTypeConfig(holding('DocumentList:03'))).toBe(false)
   })
 
-  it.each([null, undefined, [], {}, { canViewDocTypeConfig: 'true', canEditDocTypeConfig: 1 }])('🚩 %j grants nothing', (r) => {
-    expect(canViewDocTypeConfig(r as unknown as DocTypeConfigAccess)).toBe(false)
-    expect(canEditDocTypeConfig(r as unknown as DocTypeConfigAccess)).toBe(false)
+  it('Edit needs both keys', () => {
+    expect(canEditDocTypeConfig(holding('DocumentList:03', 'SdDocTypeConfig:06'))).toBe(true)
   })
 
-  it('one key, no retry, never stale in a page life', () => {
-    const q = docTypeConfigAccessQuery()
-    expect(q.queryKey).toEqual(['admin', 'doc-type-config', 'access'])
-    expect(DOC_TYPE_CONFIG_ACCESS_KEY).toEqual(['admin', 'doc-type-config', 'access'])
-    expect(q.retry).toBe(false)
-    expect(q.staleTime).toBe(Infinity)
+  it('half-grant: SdDocTypeConfig:06 without DocumentList:03 is neither view nor edit', () => {
+    const half = holding('SdDocTypeConfig:06')
+    expect([canViewDocTypeConfig(half), canEditDocTypeConfig(half)]).toEqual([false, false])
+  })
+
+  it('🚩 no answer, or a neighbouring key, grants nothing', () => {
+    for (const p of [permissionsOf(null), holding('DocumentList:02', 'SdDocTypeConfig:03')]) {
+      expect([canViewDocTypeConfig(p), canEditDocTypeConfig(p)]).toEqual([false, false])
+    }
   })
 })

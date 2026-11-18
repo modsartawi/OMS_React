@@ -11,7 +11,6 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { canManageHybrisStock, canViewHybrisStock } from '@/core/hybris-stock/access'
-import { hybrisStockAccessQuery } from '@/core/hybris-stock/api'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
 import { HISTORY_PARAM } from '@/core/hybris-stock/params'
 import type { HybrisStockFlagFilter, HybrisStockHealthFilter, HybrisStockPushNowResult, HybrisStockStoreRow, HybrisStockStoresQuery } from '@/core/models/hybris-stock'
@@ -20,6 +19,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import { usePermissions } from '@/core/permissions'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { listText } from '@/core/util/list-format'
@@ -46,7 +46,7 @@ import { FLAG_FILTERS, HEALTH_FILTERS, historyFromParams, storesFromParams, stor
 export default function StoresPage() {
   const { t } = useTranslation('hybris-stock-stores')
   return (
-    <ScreenGate query={hybrisStockAccessQuery()} can={canViewHybrisStock} ns="hybris-stock-stores" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewHybrisStock} ns="hybris-stock-stores" title={t('title')} subtitle={t('subtitle')}>
       <Stores />
     </ScreenGate>
   )
@@ -81,8 +81,8 @@ function Stores() {
     setParams(withHistory(storesToParams({ ...query, q: draft.trim() || null, ...change }), historyFromParams(params)), { replace: true })
   }
 
-  const access = useQuery(hybrisStockAccessQuery())
-  const canManage = canManageHybrisStock(access.data)
+  const permissions = usePermissions()
+  const canManage = canManageHybrisStock(permissions)
 
   const stores = useQuery({
     queryKey: [...STORES_KEY, storesToParams(query).toString()],
@@ -231,7 +231,7 @@ function Stores() {
                     <Trans t={t} i18nKey="results.unhealthy" count={unhealthyCount} values={{ n: figure(unhealthyCount) }} components={{ n: <Ltr /> }} />
                   </span>
                 )}
-                {!canManage && access.isSuccess && (
+                {!canManage && permissions.settled && !permissions.failed && (
                   <span className="ms-auto" data-view-only="">
                     {t('results.viewOnly')}
                   </span>

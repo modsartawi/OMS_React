@@ -4,9 +4,9 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Search, ShieldAlert } from 'lucide-react'
 
-import { ApiError, apiErrorMessage } from '@/core/api'
+import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { canOpenLoyMember, loyAccessQuery, loyApi, memberAuthority, memberKey } from './api'
+import { canOpenLoyMember, loyApi, memberAuthority, memberKey } from './api'
 import { memberLookupOf, withoutMemberLookup } from './lookup-intent'
 import MemberHeader from './MemberHeader'
 import MemberTabs from './MemberTabs'
@@ -15,6 +15,7 @@ import { pushRecent, readRecents, saveRecents, subscribeRecents } from './recent
 import { resolveMember } from './resolve-member'
 import Button from '@/core/ui/Button'
 import Input from '@/core/ui/Input'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The Loy member lookup (ticket 233, spec 231) — slice 0 of the Loyalty area and
@@ -55,21 +56,16 @@ export default function MemberLookupPage() {
   const location = useLocation()
   const queryClient = useQueryClient()
 
-  // The area's ONE probe, on the key the nav leaf shares → one network call for
-  // the whole area. Fails closed: pending, denied and errored all draw something
-  // other than the lookup field.
-  // `loyAccessQuery` carries the same two options the shell gives every nav probe,
-  // so the leaf and this guard are ONE call and not two: without `staleTime` the
-  // screen's mount would refetch the key the menu had just filled, and without
-  // `retry: false` a denial-by-outage would take three round trips to say so.
-  const access = useQuery(loyAccessQuery())
-  const allowed = access.isSuccess && canOpenLoyMember(access.data)
+  // The one permissions answer the nav leaf reads too (oms 909). Fails closed:
+  // pending, denied and errored all draw something other than the lookup field.
+  const permissions = usePermissions()
+  const allowed = canOpenLoyMember(permissions)
   // The other two tiers off the SAME answer (ticket 302, ADR 0001). Derived here
   // and handed down rather than read again inside the tab: a second reader would
   // be a second place for the shared-key options to drift, and the Profile tab
   // must never be the reason the area costs two calls. A pending or errored probe
   // resolves to no authority at all — the fail-closed rule, unchanged.
-  const authority = memberAuthority(access.data)
+  const authority = memberAuthority(permissions)
 
   // What the bar says it searched: the typed key from navigation state, falling
   // back to the LoyId on a cold load of the URL (227 decision 3).
@@ -160,7 +156,7 @@ export default function MemberLookupPage() {
   }
   useEffect(() => {
     const key = memberLookupOf(location.state)
-    if (key === null || access.isPending || handledLookup.current === location.key) return
+    if (key === null || !permissions.settled || handledLookup.current === location.key) return
     handledLookup.current = location.key
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
@@ -176,7 +172,7 @@ export default function MemberLookupPage() {
     // Keyed on the entry and the probe's answer only: `lookup` is a fresh object every
     // render, and re-running on it would be exactly the double search the ref prevents.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key, access.isPending, allowed])
+  }, [location.key, !permissions.settled, allowed])
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -292,7 +288,7 @@ export default function MemberLookupPage() {
     </>
   )
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -306,16 +302,9 @@ export default function MemberLookupPage() {
   if (!allowed) {
     // The in-page backstop behind the hidden nav leaf — where a typed deep link
     // lands. It distinguishes the two reasons an agent can be here: an
-    // unreachable probe is a retry, a refused one is an administrator. Both
-    // deny, which is the fail-closed rule; only the sentence differs.
-    //
-    // 🚩 A **403 is a refusal, not an outage** — it is exactly what a portal call
-    // to a route without `.AllowCookieSession()`, or behind a grant filter that
-    // said no, comes back as (224), and it is the likeliest real failure here
-    // while the door is young. "Try again in a moment" against a permanently shut
-    // door invites a retry loop; the administrator sentence is the true one.
-    const refused = access.error instanceof ApiError && access.error.statusCode === 403
-    const unreachable = access.isError && !refused
+    // unreadable permissions answer is a retry, a refused grant is an administrator.
+    // Both deny, which is the fail-closed rule; only the sentence differs.
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -326,9 +315,7 @@ export default function MemberLookupPage() {
           {unreachable ? t('access.unreachableTitle') : t('access.deniedTitle')}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
-            : t('access.deniedHint')}
+          {unreachable ? t('access.unreachableHint') : t('access.deniedHint')}
         </p>
       </div>
     )

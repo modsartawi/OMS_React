@@ -6,7 +6,6 @@ import { ArrowLeft, FilePlus2, Loader2, ShieldAlert, TriangleAlert } from 'lucid
 
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 import { eligibilityApi } from './api'
 import CheckResult from './CheckResult'
 import CoverageList from './CoverageList'
@@ -17,6 +16,8 @@ import {
   raiseBlockers,
   resolveCoveragePick,
 } from './coverage-choice'
+import { canOpenNphies } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * One eligibility response, as its own page (ticket 213, spec 209 stories 9 and
@@ -44,11 +45,8 @@ export default function EligibilityDetailPage() {
   // The area's ONE probe, on the key the nav leaf and both other screens share →
   // one network call for the whole area. Fails closed: pending and errored both
   // draw something other than the response.
-  const access = useQuery({
-    queryKey: NPHIES_ACCESS_KEY,
-    queryFn: () => nphiesAccessApi.access(),
-  })
-  const allowed = access.data?.canOpenNphies === true
+  const permissions = usePermissions()
+  const allowed = canOpenNphies(permissions)
 
   const detail = useQuery({
     queryKey: ['nphies', 'eligibility', 'response', id],
@@ -83,7 +81,7 @@ export default function EligibilityDetailPage() {
   // own reason on hover/focus, so the two can never drift apart.
   const blockerSentence = blockers.map((b) => t(`raise.blockers.${b}`)).join(t('blockers.separator'))
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -98,7 +96,7 @@ export default function EligibilityDetailPage() {
     // The in-page backstop behind the hidden nav leaf, distinguishing the two
     // reasons: an unreachable probe is a retry, a refused one is an
     // administrator. Same rule as the list and the check form.
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -110,7 +108,7 @@ export default function EligibilityDetailPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            ? t('access.unreachableHint')
             : t('access.deniedHint')}
         </p>
       </div>

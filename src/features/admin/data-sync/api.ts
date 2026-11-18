@@ -13,13 +13,13 @@ import type {
   ControlRequest,
   ChangeManifestRow,
   CreateCampaignRequest,
-  DataSyncAccess,
   DataSyncHealth,
   Job,
   RerunOffer,
   SyncProfile,
 } from '@/core/models/data-sync'
-import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncConsoleAccess } from '@/core/models/sync-console'
+import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow } from '@/core/models/sync-console'
+import type { Permissions } from '@/core/permissions'
 import { readReadinessFleet, type FleetPageQuery, type ReadinessRow } from './apply-helpers'
 import type { ControlAction } from './control-helpers'
 import { changesQuery, isManifestPruned, type ChangesView } from './changes-helpers'
@@ -27,43 +27,19 @@ import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './he
 import { isDataSyncNotFound, jobsQuery, type JobsFilter } from './job-helpers'
 
 /**
- * The ONE cache key the Admin menu leaf and the page's own gate share, so the probe costs one
- * call. Exported rather than re-spelled: a typo would split the entry and let the nav and the
- * screen disagree.
+ * `DataSync.View` (`DataSyncConsole:03`, oms 909 / BackOffice spec 4002 row 46): the nav leaf and every gate. Read off
+ * the one permissions answer: the DataSync service's own `GET /Access` is no longer called, so a granted user sees the
+ * leaf even where the service is not deployed, and the page's `DataSync/Health` banner says it is unreachable.
  */
-export const DATA_SYNC_ACCESS_KEY = ['data-sync', 'access'] as const
+export const canOpenDataSync = (p: Permissions): boolean => p.has('DataSyncConsole:03')
 
-/**
- * …and the one set of options every reader passes. `retry: false` because a refusal is an answer,
- * not an outage; `staleTime: Infinity` because a grant does not change inside a page life.
- */
-export function dataSyncAccessQuery() {
-  return {
-    queryKey: DATA_SYNC_ACCESS_KEY,
-    queryFn: () => dataSyncApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/** The probe's one predicate (`DataSync.View`), read by BOTH the nav leaf and the gate. `=== true`, so a malformed answer is a denial. */
-export const canOpenDataSync = (r: DataSyncAccess | null | undefined): boolean => r?.screenAllowed === true
-
-/** `DataSync.Operate`: every action and the Changes view. Absent, not disabled, without it. */
-export const canOperateDataSync = (r: DataSyncAccess | null | undefined): boolean => r?.canOperate === true
+/** `DataSync.Operate` (`DataSyncConsole:06`): every action and the Changes view. Absent, not disabled, without it. */
+export const canOperateDataSync = (p: Permissions): boolean => p.has('DataSyncConsole:06')
 
 /** Every campaigns-list read shares this prefix, so one invalidation refreshes them. */
 export const CAMPAIGNS_KEY = ['data-sync', 'campaigns'] as const
 
 export const dataSyncApi = {
-  /**
-   * `GET DataSync/Access` → `{ screenAllowed, canOperate }`. Session only (no grant): a bare 401 is
-   * `core/api`'s. 🚩 Fails closed — no catch; the shell hides a leaf whose probe is pending or errored.
-   */
-  access(): Promise<DataSyncAccess> {
-    return api.get<DataSyncAccess>('DataSync/Access')
-  },
-
   /**
    * `GET DataSync/Health` (anonymous). ⚠ A 503 (state DB unreachable) is an enveloped
    * `success:false` with no error code, so `core/api` throws a `server` ApiError with status 503
@@ -243,19 +219,7 @@ export function jobQuery(campaignId: string, jobId: string, refetchInterval: num
 // SIS.Api doors the sync console also calls. Features never import features, so the three calls
 // are written again here (spec 558) with the sync console's types from `@/core/models/sync-console`.
 
-/**
- * The sync console's own probe key, RE-SPELT (it cannot be imported): the same key and options mean
- * the menu's sync-console probe and this read share one cache entry and one call. Keep it in step
- * with `SYNC_CONSOLE_ACCESS_KEY`.
- */
-export const ACTION_SYNC_ACCESS_KEY = ['sync-console', 'access'] as const
-
 export const actionSyncApi = {
-  /** `GET ActionSync/Access` → `{ screenAllowed, canOperate, … }`; `canOperate` is `ActionSync.Operate`. */
-  access(): Promise<SyncConsoleAccess> {
-    return api.get<SyncConsoleAccess>('ActionSync/Access')
-  },
-
   /**
    * Every store ActionSync lists, all pages (`GET ActionSync/Fleet?page=&pageSize=200`), then the
    * disabled view (`disabled=only`, BackOffice 3914) so a disabled store reads as disabled rather
@@ -277,18 +241,8 @@ export const actionSyncApi = {
   },
 }
 
-/** Same options as the sync console's probe (`staleTime: Infinity`, `retry: false`) — see the key. */
-export function actionSyncAccessQuery() {
-  return {
-    queryKey: ACTION_SYNC_ACCESS_KEY,
-    queryFn: () => actionSyncApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/** `ActionSync.Operate` — the pause (564) and the hand-back (565). `=== true`, so a malformed answer is a denial. */
-export const canOperateActionSync = (r: SyncConsoleAccess | null | undefined): boolean => r?.canOperate === true
+/** `ActionSync.Operate` (`ActionSyncConsole:06`) — the pause (564) and the hand-back (565), off the one permissions answer. */
+export const canOperateActionSync = (p: Permissions): boolean => p.has('ActionSyncConsole:06')
 
 /** The fleet's apply readiness, read fresh each time the dialog asks (it changes as people pause stores). */
 export function actionSyncFleetQuery() {

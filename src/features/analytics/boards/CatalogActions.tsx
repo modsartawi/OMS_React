@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Plus, Sparkles, Table2 } from 'lucide-react'
@@ -8,7 +7,7 @@ import type { AnalyticsCatalogArea } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import { buttonClass } from '@/core/ui/control-classes'
-import { analyticsAccessQuery } from './access'
+import { useAnalyticsPermissions } from './access'
 import { catalogAuthorActions, newViewFrom } from './catalog-actions'
 
 // The grid (AG Grid) loads only when a preview opens.
@@ -24,7 +23,7 @@ const CatalogPreview = lazy(() => import('./CatalogPreview'))
  */
 export function useCatalogActions(area: AnalyticsCatalogArea, measure?: string): { actions: ReactNode; below: ReactNode } {
   const { t, i18n } = useTranslation('boards')
-  const probe = useQuery(analyticsAccessQuery()).data
+  const probe = useAnalyticsPermissions()
   const available = useCopilotPanel((s) => s.available)
   const prefill = useCopilotPanel((s) => s.prefill)
   const node = `${area.key}/${measure ?? ''}`

@@ -4,7 +4,6 @@ import { ArrowLeft } from 'lucide-react'
 import type { SettlementScope } from '@/core/models/settlement'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Chip from '@/core/ui/Chip'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenSettlement } from './api'
 import {
   doorSearch,
@@ -28,13 +27,8 @@ import { SCOPE_PARAM, readScope } from './scope'
  *
  * 🚩 **The grant is the only off-switch** (D1). There is no feature flag here and
  * there must not be one — the menu leaf and this gate read the same
- * `canOpenSettlement` off the same one `CollectionWeb/Access` call, and both fail
- * closed. ⚠️ Which means that **today the screen is shut for everyone**: the fifth
- * flag is BackOffice spec 1173's and has not shipped, so a live probe answers four
- * booleans and the fifth reads as a denial. That is the designed posture for an
- * unbuilt grant, not a defect — 274 is the joining event, and until then the two
- * gates are proven by driving the app against a stubbed envelope
- * (`tools/settlement-drive.mjs`), exactly as 253 proved the other four.
+ * `canOpenSettlement` (`SettlementAccount:03`) off the one permissions answer, and
+ * both fail closed: a session without the seeded grant is refused.
  */
 export default function SettlementPage() {
   const { t } = useTranslation('settlement')
@@ -53,7 +47,6 @@ export default function SettlementPage() {
 
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenSettlement}
       ns="settlement"
       title={t('title')}

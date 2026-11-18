@@ -154,7 +154,7 @@ export function sqlSaveBody(sql: AnswerSql, question: string, form: SqlSaveForm)
 /**
  * 890 (spec 3632 Q45): the SQL answer's Edit — the SQL editor on the answer's statement, by route string (the copilot
  * may not import the analytics feature), the statement and question in route state. Offered only to a reader holding
- * the SQL grant (`canUseSqlMode`), and only when there is a statement; a statement that did not run can still be edited.
+ * the SQL grant (`canSqlAnalytics`), and only when there is a statement; a statement that did not run can still be edited.
  * Q46: in a conversation opened on a SQL item (`item`), the item's own editor, at the revision it was opened at, so the
  * reader's Save there is the item's `PUT` (a new revision), never a new item.
  */

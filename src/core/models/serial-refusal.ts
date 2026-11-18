@@ -42,10 +42,6 @@ export interface SerialRefusalRowsQuery extends SerialRefusalQuery {
   heldStore?: string
 }
 
-export interface SerialRefusalAccess {
-  screenAllowed: boolean
-}
-
 export interface SerialRefusalTotals {
   refusals: number
   sold: number

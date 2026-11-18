@@ -10,7 +10,7 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { canOpenSapExport, sapExportAccessQuery } from './access'
+import { canOpenSapExport } from './access'
 import { storeDaysQuery, storeQuery } from './api'
 import { LABEL_TOKEN_CLASS, WORST_FIRST, labelToken, unknownLabelCounts } from './label-helpers'
 import IdentityBreaks from './IdentityBreaks'
@@ -33,7 +33,7 @@ export default function StorePage() {
   const { t } = useTranslation('sap-export-console')
   const { code = '' } = useParams()
   return (
-    <ScreenGate query={sapExportAccessQuery()} can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
       <StoreView key={code} code={code} />
     </ScreenGate>
   )

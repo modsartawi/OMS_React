@@ -16,7 +16,6 @@ import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { buttonClass } from '@/core/ui/control-classes'
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 import { formatAmount, formatStamp } from '@/core/nphies/format'
 import { authVerdictSeverity, deriveAuthAxes, requestSeverity } from '@/core/nphies/status'
 import { authorizationsApi } from './api'
@@ -28,6 +27,8 @@ import {
   type AuthAttachmentView,
   type AuthLineView,
 } from './detail-view'
+import { canOpenNphies } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * One authorization, whole (ticket 216, spec 209 stories 77–79) — **and the
@@ -61,11 +62,8 @@ export default function AuthorizationDetailPage() {
   // The area's ONE probe, on the key the nav leaves and every Nphies screen share
   // → one network call for the whole area. Fails closed: pending and errored both
   // draw something other than the detail.
-  const access = useQuery({
-    queryKey: NPHIES_ACCESS_KEY,
-    queryFn: () => nphiesAccessApi.access(),
-  })
-  const allowed = access.data?.canOpenNphies === true
+  const permissions = usePermissions()
+  const allowed = canOpenNphies(permissions)
 
   const detail = useQuery({
     queryKey: ['nphies', 'authorizations', 'response', id],
@@ -76,7 +74,7 @@ export default function AuthorizationDetailPage() {
     // the response carries every attached megabyte.
   })
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -91,7 +89,7 @@ export default function AuthorizationDetailPage() {
     // The in-page backstop behind the hidden nav leaf, distinguishing the two
     // reasons: an unreachable probe is a retry, a refused one is an
     // administrator. Same rule as every other screen in the area.
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -103,7 +101,7 @@ export default function AuthorizationDetailPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            ? t('access.unreachableHint')
             : t('access.deniedHint')}
         </p>
       </div>

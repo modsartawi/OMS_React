@@ -12,8 +12,8 @@
  * (`@/core/services/lookups`) is a different, ungated door and stays as it is.
  */
 import { api } from '@/core/api'
+import type { Permissions } from '@/core/permissions'
 import type {
-  DocTypeConfigAccess,
   DocumentTypeFieldMeta,
   DocumentTypeListRow,
   DocumentTypeSettings,
@@ -38,14 +38,6 @@ export const DOC_TYPE_CONFIG_ERRORS = {
 } as const
 
 export const docTypeConfigApi = {
-  /**
-   * `GET SdDocTypeConfigWeb/Access` → `{ canViewDocTypeConfig, canEditDocTypeConfig }`, cookie only, no grant.
-   * 🚩 Fails closed: no 404-tolerant catch — a pending, errored, 403 or malformed probe hides the leaf.
-   */
-  access(): Promise<DocTypeConfigAccess> {
-    return api.get<DocTypeConfigAccess>(`${BASE}/Access`)
-  },
-
   /** `GET SdDocTypeConfigWeb/DocumentTypes` — every type: code, description, category, engine. */
   documentTypes(): Promise<DocumentTypeListRow[]> {
     return api.get<DocumentTypeListRow[]>(`${BASE}/DocumentTypes`)
@@ -67,28 +59,13 @@ export const docTypeConfigApi = {
   },
 }
 
-// ── The probe ───────────────────────────────────────────────────────────────────────────────────
+// ── The grants (oms 909, BackOffice spec 4002 row 42: off the one permissions answer) ──────────────────────
 
-/** The ONE cache key the menu leaf, the screens' gate and their edit controls share. */
-export const DOC_TYPE_CONFIG_ACCESS_KEY = ['admin', 'doc-type-config', 'access'] as const
+/** The menu leaf and the `ScreenGate` read THIS predicate: the existing OMS access, `DocumentList:03`. */
+export const canViewDocTypeConfig = (p: Permissions): boolean => p.has('DocumentList:03')
 
-/** …and the one set of options every reader passes: a refusal is an answer, a grant does not change in a page life. */
-export function docTypeConfigAccessQuery() {
-  return {
-    queryKey: DOC_TYPE_CONFIG_ACCESS_KEY,
-    queryFn: () => docTypeConfigApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/** The menu leaf and the `ScreenGate` read THIS predicate. Only an explicit `true` grants. */
-export const canViewDocTypeConfig = (r: DocTypeConfigAccess | null | undefined): boolean =>
-  typeof r === 'object' && r !== null && r.canViewDocTypeConfig === true
-
-/** Every write affordance. Only an explicit `true` grants. */
-export const canEditDocTypeConfig = (r: DocTypeConfigAccess | null | undefined): boolean =>
-  typeof r === 'object' && r !== null && r.canEditDocTypeConfig === true
+/** Every write affordance: the configuration grant `SdDocTypeConfig:06`, and only beside the View grant. */
+export const canEditDocTypeConfig = (p: Permissions): boolean => p.has('DocumentList:03') && p.has('SdDocTypeConfig:06')
 
 // ── Reads ───────────────────────────────────────────────────────────────────────────────────────
 

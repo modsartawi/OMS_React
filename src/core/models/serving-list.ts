@@ -13,14 +13,6 @@
 /** A local wall-clock time, `yyyy-MM-ddTHH:mm:ss`, no offset. Never append a `Z`. */
 export type LocalDateTime = string
 
-/** `GET ServingListWeb/Access` — cookie-only, not grant-gated; a check that throws reads false. */
-export interface ServingListAccess {
-  /** `BackOfficeScreen[ServingList]` Display 03: the menu leaf and the `ScreenGate`. */
-  canViewServingLists: boolean
-  /** Execute 06: every edit control. */
-  canEditServingLists: boolean
-}
-
 /** A delivery type whose `ServingListId` names the list (set by HQ script, never by a door). */
 export interface ServingListPointingType {
   documentType: string

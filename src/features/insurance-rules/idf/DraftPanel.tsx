@@ -40,7 +40,7 @@ import { useDraft } from './useDraft'
  * 3185 review: a refused Start re-reads the draft, so the open one (and its Discard) shows at once beside the refusal;
  * a base version that cannot be read says so with a retry instead of "comparing…" forever.
  * 654: every draft action (start, add, re-rank, remove, add a group, rebase, publish, discard) shows only with
- * `canEditIdf` (`GET IdfPriority/Access`, `draftActions`); without it the draft is read-only (its header and rows still
+ * `canEditIdf` (`IdfPriority:06`, `draftActions`); without it the draft is read-only (its header and rows still
  * show). A rebase answers `{ draft, reapplied, rows }`: the panel says how many edits re-applied and lists the ones that
  * could not be (dropped from the draft), with their edit, rule and message.
  */

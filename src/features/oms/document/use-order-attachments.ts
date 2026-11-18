@@ -1,13 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { usePermissions } from '@/core/permissions'
 
-import {
-  READ_ONCE_PER_VISIT,
-  attachmentAccessQuery,
-  attachmentsByOwnerQuery,
-  forgetAttachments,
-  rereadAttachments,
-} from '@/core/attachments/api'
+import { READ_ONCE_PER_VISIT, attachmentsByOwnerQuery, forgetAttachments, rereadAttachments } from '@/core/attachments/api'
 import type { AttachmentTarget } from '@/core/attachments/upload'
 import type { WithdrawReason } from '@/core/attachments/withdraw'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
@@ -48,18 +43,17 @@ export interface OrderAttachments {
 
 /**
  * **The order page's Attachments state** (spec 324, ticket 327; a tab until ticket 404
- * made it a disclosure of the facts column) — the probe, the
+ * made it a disclosure of the facts column) — the grant, the
  * gate, the first-opening latch, the audited list read and the badge, in one place so
  * the page stays about the document.
  *
- * - The probe is the ONE shared `AttachmentWeb/Access` entry the slip grids read too,
- *   asked only once the document names both an owner and a category.
+ * - The grant is read off the one permissions answer (oms 909): `Attachments:03:<category>`
+ *   for the category the document names.
  * - 🔑 The list is an AUDITED read. It waits on the latch, never on the page load or the
  *   panel's mount (the panel stays mounted while the disclosure is folded). The page observes it
  *   here for the badge with exactly the panel's options — `READ_ONCE_PER_VISIT`, the one
  *   constant `AttachmentsTab` passes — so the two observers share one request.
- * - Withdraw… (331) is offered by `canWithdrawOn`: the gate, the probe's
- *   `withdrawCategories` holding the category, and the reasons ByOwner sent beside the
+ * - Withdraw… (331) is offered by `canWithdrawOn`: the gate, `Attachments:04:<category>`, and the reasons ByOwner sent beside the
  *   list (no client list). Nothing is read for it: the reasons ride on the one read.
  * - The latch is by owner and resets on a new route number: the router may keep this
  *   page mounted from one document to another (or Back to one already opened), and
@@ -80,8 +74,8 @@ export function useOrderAttachments(document: SdDocumentHeaderModel | null, rout
   }
 
   const named = useMemo(() => orderAttachmentTarget(document), [document])
-  const access = useQuery({ ...attachmentAccessQuery(), enabled: named !== null })
-  const target = attachmentsTabGate(document, access.data) ? named : null
+  const permissions = usePermissions()
+  const target = named !== null && attachmentsTabGate(document, permissions) ? named : null
   const opened = target !== null && openedOwner === target.ownerKey
   const list = useQuery({ ...attachmentsByOwnerQuery(target ?? NO_OWNER, READ_ONCE_PER_VISIT), enabled: opened })
   const withdrawReasons = (opened ? list.data?.withdrawReasons : undefined) ?? NO_REASONS
@@ -91,7 +85,7 @@ export function useOrderAttachments(document: SdDocumentHeaderModel | null, rout
     opened,
     badge: attachmentsBadgeCount(document?.attachmentCount, opened ? list.data?.stored : undefined),
     withdrawReasons,
-    withdrawOffered: canWithdrawOn(document, access.data, withdrawReasons),
+    withdrawOffered: canWithdrawOn(document, permissions, withdrawReasons),
     filedOnOrderNo: target ? filedOnOrder(target.ownerKey, routeId) : null,
     open: () => {
       if (!target || opened) return

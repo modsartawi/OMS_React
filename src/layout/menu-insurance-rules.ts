@@ -28,32 +28,21 @@ import { Replace } from 'lucide-react' // 704
 import { Languages } from 'lucide-react' // 706
 // 896 · icons
 import { CalendarCheck } from 'lucide-react' // 896
-// 896 · the payer-month screen's OWN probe (BackOffice 1628 D36: one grant for the screen, not the area's)
-import { PAYER_MONTH_ACCESS_KEY, canManagePayerMonths, payerMonthAccessApi } from '@/features/insurance-rules/payer-month/access'
+// 896 · the payer-month screen's OWN grant (BackOffice 1628 D36: one grant for the screen, not the area's)
+import { canManagePayerMonths } from '@/features/insurance-rules/payer-month/access'
 // Type-only: `menu-model` imports this module, so a value import would be a cycle.
-import type { AccessProbe, ShellMenuItem } from './menu-model'
-import {
-  INSURANCE_RULES_ACCESS_KEY,
-  canOpenInsuranceRules,
-  insuranceRulesAccessApi,
-  type InsuranceRulesFlag,
-} from '@/core/insurance-rules/access'
-
-/** Every leaf rides the area's ONE probe on ONE key and reads its own flag (oms 852, BackOffice 3459). */
-const insuranceRulesProbe = (flag: InsuranceRulesFlag): AccessProbe => ({
-  key: INSURANCE_RULES_ACCESS_KEY,
-  run: () => insuranceRulesAccessApi.access(),
-  visible: canOpenInsuranceRules(flag) as (data: unknown) => boolean,
-})
+import type { ShellMenuItem } from './menu-model'
+// oms 909: every leaf reads its own key off the ONE permissions answer through the area's named predicate.
+import { canOpenInsuranceRules } from '@/core/insurance-rules/access'
 
 /**
  * The Insurance rules nav group (BackOffice spec 3126, oms 607): `/insurance-rules/*` is a new URL prefix and a
  * new nav group, LAST after HungerStation. `menu-model.ts` places it once; a later slice adds its leaf HERE.
  * Every leaf label lives in `insurance-rules` (the area's namespace, `menu.*`).
  *
- * Each leaf is gated on its own flag of `GET InsuranceRules/Access` (oms 852, BackOffice 3459) — 🚩 FAILS CLOSED,
+ * Each leaf is gated on its own key of the one permissions answer (oms 852; oms 909) — 🚩 FAILS CLOSED,
  * and the group drops when no leaf is visible. Each page still names its doors' bare 403 itself for a deep link.
- * A new leaf takes a new flag in `INSURANCE_RULES_FLAGS` (`can` + its `menu.*` key) and an `insuranceRulesProbe`.
+ * A new leaf takes a new flag in `INSURANCE_RULES_FLAGS` (`can` + its `menu.*` key) and a `requires: canOpenInsuranceRules(flag)`.
  *
  * ⚠️ To keep parallel slices merge-clean: add your leaf under YOUR ticket's slot comment only.
  */
@@ -66,7 +55,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.guards',
       icon: ShieldAlert,
       routerLink: '/insurance-rules/guards',
-      access: insuranceRulesProbe('canGuards'),
+      requires: canOpenInsuranceRules('canGuards'),
     },
 
     // 609 · Templates
@@ -75,7 +64,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.templates',
       icon: LayoutTemplate,
       routerLink: '/insurance-rules/templates',
-      access: insuranceRulesProbe('canTemplates'),
+      requires: canOpenInsuranceRules('canTemplates'),
     },
 
     // 610 · Lists, Fields
@@ -84,7 +73,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.lists',
       icon: ListChecks,
       routerLink: '/insurance-rules/lists',
-      access: insuranceRulesProbe('canLists'),
+      requires: canOpenInsuranceRules('canLists'),
     },
     {
       // BackOffice 3982 — the patient lists (BR-7's blocked patients, BR-4's patient) under the insurance managers'
@@ -92,14 +81,14 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.patientLists',
       icon: UserX,
       routerLink: '/insurance-rules/patient-lists',
-      access: insuranceRulesProbe('canPatientLists'),
+      requires: canOpenInsuranceRules('canPatientLists'),
     },
     {
       // 610 — the Fields registry: add a field from a source, retire one (never delete).
       labelKey: 'insurance-rules:menu.fields',
       icon: ListTree,
       routerLink: '/insurance-rules/fields',
-      access: insuranceRulesProbe('canFields'),
+      requires: canOpenInsuranceRules('canFields'),
     },
 
     // 611 · Approvals
@@ -108,7 +97,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.approvals',
       icon: BadgeCheck,
       routerLink: '/insurance-rules/approvals',
-      access: insuranceRulesProbe('canApprovals'),
+      requires: canOpenInsuranceRules('canApprovals'),
     },
 
     // 612 · Simulator
@@ -117,7 +106,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.simulator',
       icon: FlaskConical,
       routerLink: '/insurance-rules/simulator',
-      access: insuranceRulesProbe('canSimulator'),
+      requires: canOpenInsuranceRules('canSimulator'),
     },
 
     // 613 · Editions
@@ -126,7 +115,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.editions',
       icon: FileSpreadsheet,
       routerLink: '/insurance-rules/editions',
-      access: insuranceRulesProbe('canEditions'),
+      requires: canOpenInsuranceRules('canEditions'),
     },
 
     // 614 · Review, Exceptions
@@ -134,13 +123,13 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.review',
       icon: ClipboardCheck,
       routerLink: '/insurance-rules/review',
-      access: insuranceRulesProbe('canReview'),
+      requires: canOpenInsuranceRules('canReview'),
     },
     {
       labelKey: 'insurance-rules:menu.exceptions',
       icon: ShieldCheck,
       routerLink: '/insurance-rules/exceptions',
-      access: insuranceRulesProbe('canExceptions'),
+      requires: canOpenInsuranceRules('canExceptions'),
     },
 
     // 615 · Metrics
@@ -149,7 +138,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.metrics',
       icon: ChartColumn,
       routerLink: '/insurance-rules/metrics',
-      access: insuranceRulesProbe('canMetrics'),
+      requires: canOpenInsuranceRules('canMetrics'),
     },
 
     // BackOffice 3981 · Rule hits (`menu.ruleHits`, `/insurance-rules/rule-hits`)
@@ -159,7 +148,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.ruleHits',
       icon: FileClock,
       routerLink: '/insurance-rules/rule-hits',
-      access: insuranceRulesProbe('canRuleHits'),
+      requires: canOpenInsuranceRules('canRuleHits'),
     },
 
     // 617 · Insurers, Categories, Coverage
@@ -168,21 +157,21 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.insurers',
       icon: Building2,
       routerLink: '/insurance-rules/insurers',
-      access: insuranceRulesProbe('canInsurers'),
+      requires: canOpenInsuranceRules('canInsurers'),
     },
     {
       // 617 — the insurance category rules, first match sets Generic / Brand / NonMed (`?rule=`).
       labelKey: 'insurance-rules:menu.categories',
       icon: Tags,
       routerLink: '/insurance-rules/categories',
-      access: insuranceRulesProbe('canCategories'),
+      requires: canOpenInsuranceRules('canCategories'),
     },
     {
       // 617 — the coverage rules, each value marked filled or overriding the payer (`?rule=`).
       labelKey: 'insurance-rules:menu.coverage',
       icon: Umbrella,
       routerLink: '/insurance-rules/coverage',
-      access: insuranceRulesProbe('canCoverage'),
+      requires: canOpenInsuranceRules('canCoverage'),
     },
 
     // 677 · Playground (`menu.playground`, `/insurance-rules/playground`)
@@ -191,7 +180,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.playground',
       icon: TestTubeDiagonal,
       routerLink: '/insurance-rules/playground',
-      access: insuranceRulesProbe('canPlayground'),
+      requires: canOpenInsuranceRules('canPlayground'),
     },
 
     // 710 · Decision inspector (`menu.inspector`, `/insurance-rules/decisions`)
@@ -200,7 +189,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.inspector',
       icon: FileSearch,
       routerLink: '/insurance-rules/decisions',
-      access: insuranceRulesProbe('canInspector'),
+      requires: canOpenInsuranceRules('canInspector'),
     },
 
     // 696 · Field proposals (`menu.fieldProposals`, `/insurance-rules/field-proposals`)
@@ -209,7 +198,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.fieldProposals',
       icon: Inbox,
       routerLink: '/insurance-rules/field-proposals',
-      access: insuranceRulesProbe('canFieldProposals'),
+      requires: canOpenInsuranceRules('canFieldProposals'),
     },
 
     // 704 · Aliases (`menu.aliases`, `/insurance-rules/aliases`)
@@ -218,7 +207,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.aliases',
       icon: Replace,
       routerLink: '/insurance-rules/aliases',
-      access: insuranceRulesProbe('canAliases'),
+      requires: canOpenInsuranceRules('canAliases'),
     },
 
     // 706 · Code labels (`menu.codeLabels`, `/insurance-rules/code-labels`)
@@ -227,7 +216,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.codeLabels',
       icon: Languages,
       routerLink: '/insurance-rules/code-labels',
-      access: insuranceRulesProbe('canCodeLabels'),
+      requires: canOpenInsuranceRules('canCodeLabels'),
     },
 
     // ── IDF priority (BackOffice spec 3157; oms 619–627). Labels are pre-laid in `insurance-rules` (`menu.idf*`).
@@ -240,7 +229,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       icon: ListOrdered,
       routerLink: '/insurance-rules/idf/masters',
       activePrefix: ['/insurance-rules/idf/masters', '/insurance-rules/idf/general'],
-      access: insuranceRulesProbe('canIdfMasters'),
+      requires: canOpenInsuranceRules('canIdfMasters'),
     },
 
     // 620 · IDF store lists (`menu.idfStoreLists`, `/insurance-rules/idf/store-lists`)
@@ -249,7 +238,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.idfStoreLists',
       icon: Store,
       routerLink: '/insurance-rules/idf/store-lists',
-      access: insuranceRulesProbe('canIdfStoreLists'),
+      requires: canOpenInsuranceRules('canIdfStoreLists'),
     },
 
     // 624 · IDF exceptions (`menu.idfExceptions`, `/insurance-rules/idf/exceptions`)
@@ -258,7 +247,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.idfExceptions',
       icon: ListX,
       routerLink: '/insurance-rules/idf/exceptions',
-      access: insuranceRulesProbe('canIdfExceptions'),
+      requires: canOpenInsuranceRules('canIdfExceptions'),
     },
 
     // 625 · IDF lookup (`menu.idfLookup`, `/insurance-rules/idf/lookup`)
@@ -267,7 +256,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.idfLookup',
       icon: SearchCheck,
       routerLink: '/insurance-rules/idf/lookup',
-      access: insuranceRulesProbe('canIdfLookup'),
+      requires: canOpenInsuranceRules('canIdfLookup'),
     },
 
     // 626 · IDF events (`menu.idfEvents`, `/insurance-rules/idf/events`; 627's swap report is its tab)
@@ -276,7 +265,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.idfEvents',
       icon: History,
       routerLink: '/insurance-rules/idf/events',
-      access: insuranceRulesProbe('canIdfEvents'),
+      requires: canOpenInsuranceRules('canIdfEvents'),
     },
 
     // 652 · IDF groups (`menu.idfGroups`, `/insurance-rules/idf/groups`)
@@ -285,7 +274,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.idfGroups',
       icon: Layers,
       routerLink: '/insurance-rules/idf/groups',
-      access: insuranceRulesProbe('canIdfGroups'),
+      requires: canOpenInsuranceRules('canIdfGroups'),
     },
 
     // 896 · Payer months (`menu.payerMonths`, `/insurance-rules/payer-months`; BackOffice spec 1623)
@@ -295,11 +284,7 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
       labelKey: 'insurance-rules:menu.payerMonths',
       icon: CalendarCheck,
       routerLink: '/insurance-rules/payer-months',
-      access: {
-        key: PAYER_MONTH_ACCESS_KEY,
-        run: () => payerMonthAccessApi.access(),
-        visible: (data) => canManagePayerMonths(data as Parameters<typeof canManagePayerMonths>[0]),
-      },
+      requires: canManagePayerMonths,
     },
   ],
 }

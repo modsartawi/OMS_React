@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import LoyGroupPicker from '@/core/loy-groups/LoyGroupPicker'
-import { canViewLoyGroups, loyGroupsAccessQuery } from '@/core/loy-groups/api'
+import { canViewLoyGroups } from '@/core/loy-groups/api'
 import { normaliseLoyGroupValue } from '@/core/loy-groups/selection'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
+import { usePermissions } from '@/core/permissions'
 
 // The header inputs feeding SimulateRequest.header. Owner layout (488): a dense
 // 4-column grid (NOT the WPF's 2-column) — determination fields on row 1, procedure
@@ -85,8 +85,8 @@ export default function SimHeaderForm({
   // Ticket 637: the basket's loyalty groups are picked from the defined groups — but only under the
   // view grant. Without it, and while the probe is out or has failed, the field stays today's free
   // text (D3: a simulation is a test, not a write), never the picker's read-only fallback.
-  const loyAccess = useQuery(loyGroupsAccessQuery())
-  const pickLoyGroups = canViewLoyGroups(loyAccess.data)
+  const permissions = usePermissions()
+  const pickLoyGroups = canViewLoyGroups(permissions)
   // When the field turns into the picker (the probe answered after the user typed free text), the
   // picker shows the normalised codes: write them back, so the request carries what is shown.
   useEffect(() => {

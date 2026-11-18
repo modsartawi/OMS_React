@@ -8,12 +8,13 @@ import Modal from '@/core/ui/Modal'
 import type { ScriptDetail, ScriptStoreRow, SentScript } from '@/core/models/sync-console'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { scriptDetailQuery, syncConsoleAccessQuery } from './api'
+import { scriptDetailQuery } from './api'
 import { figure } from './helpers'
 import { orderScriptStores, scriptControls, scriptIsLegacy, scriptStateCounts, scriptTargetKey, storeRetryOffered } from './scripts-helpers'
 import { buildScriptStoreColumns } from './scripts-columns'
 import ScriptActionDialog, { type ScriptAction } from './ScriptActionDialog'
 import TabGrid from './TabGrid'
+import { usePermissions } from '@/core/permissions'
 
 const storeCode = (r: { code: string }) => r.code
 
@@ -35,20 +36,20 @@ const SCRIPT_STORE_ROWS = 12
  */
 export default function ScriptDetailModal({ script, onClose }: { script: SentScript | null; onClose: () => void }) {
   const { t } = useTranslation('sync-console')
-  const access = useQuery(syncConsoleAccessQuery())
+  const permissions = usePermissions()
   const detail = useQuery({ ...scriptDetailQuery(script?.scriptId ?? ''), enabled: script !== null })
   const [action, setAction] = useState<ScriptAction | null>(null)
   // The detail, once it has answered for this script; the controls read only this.
   const answered = script && detail.data?.scriptId === script.scriptId ? detail.data : null
   // The title may fall back to the list row while the detail reads: it names, it does not act.
   const named = answered ?? script
-  const controls = answered ? scriptControls({ ...answered, ...scriptStateCounts(answered.stores) }, access.data) : { withdraw: false, retryAll: false }
+  const controls = answered ? scriptControls({ ...answered, ...scriptStateCounts(answered.stores) }, permissions) : { withdraw: false, retryAll: false }
   const shownTitle = named ? (scriptIsLegacy(named) ? t('scriptsPage.legacyTitle') : (named.title ?? '')) : ''
-  const rowsRetry = answered ? storeRetryOffered({ state: 'exhausted' }, answered, access.data) : false
+  const rowsRetry = answered ? storeRetryOffered({ state: 'exhausted' }, answered, permissions) : false
   const onRetry = useCallback((code: string) => setAction({ kind: 'retry', code }), [])
   const retryOffered = useCallback(
-    (row: ScriptStoreRow) => (answered ? storeRetryOffered(row, answered, access.data) : false),
-    [answered, access.data],
+    (row: ScriptStoreRow) => (answered ? storeRetryOffered(row, answered, permissions) : false),
+    [answered, permissions],
   )
   return (
     <Modal

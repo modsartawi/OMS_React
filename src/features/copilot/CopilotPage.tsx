@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { canAskCopilot, copilotAccessQuery } from './access'
+import { canAskCopilot } from './access'
 import CopilotPanel from './CopilotPanel'
 
 /**
@@ -13,7 +13,7 @@ import CopilotPanel from './CopilotPanel'
 export default function CopilotPage() {
   const { t } = useTranslation('copilot')
   return (
-    <ScreenGate query={copilotAccessQuery()} can={canAskCopilot} ns="copilot" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canAskCopilot} ns="copilot" title={t('title')} subtitle={t('subtitle')}>
       <div className="flex min-h-0 w-full max-w-6xl flex-1 flex-col">
         <CopilotPanel wide />
       </div>

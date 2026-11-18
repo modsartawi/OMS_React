@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronLeft, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { canViewSourcingAdvisor, sourcingAdvisorAccessQuery } from '@/core/sourcing-advisor/access'
+import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { iconButtonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -32,7 +32,7 @@ import { refusalKey } from './refusal'
 export default function SourcingExplainPage() {
   const { t } = useTranslation('sourcing-advisor')
   return (
-    <ScreenGate query={sourcingAdvisorAccessQuery()} can={canViewSourcingAdvisor} ns="sourcing-advisor" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewSourcingAdvisor} ns="sourcing-advisor" title={t('title')} subtitle={t('subtitle')}>
       <Explain />
     </ScreenGate>
   )

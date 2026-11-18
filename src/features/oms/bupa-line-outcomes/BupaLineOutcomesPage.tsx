@@ -24,7 +24,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { saveBlob } from '@/core/util/download-file'
-import { bupaOutcomeAccessQuery, canViewBupaOutcomes } from './access'
+import { canViewBupaOutcomes } from './access'
 import { bupaOutcomeApi, exportFileName } from './api'
 import { summaryColumns, type SummaryGridRow } from './columns'
 import { DEFAULT_FILTERS, MAX_MONTHS, filtersFromParams, filtersToParams, normalizeStore, outcomeQuery, resolveRange, type OutcomeFilters } from './filters'
@@ -36,13 +36,13 @@ import { actKey, kindKey, linesOf, summaryKey } from './outcomes'
  * orders one by one. A summary per kind × sent × dispensed, its totals, the lines behind a row with each line's act
  * history, and the server's `.xlsx` for the same query.
  *
- * Behind `canViewBupaOutcomes` on its own probe (`BupaLineOutcomes/Access`), the predicate the menu leaf reads,
+ * Behind `canViewBupaOutcomes` on its own key of the one permissions answer (oms 909), the predicate the menu leaf reads,
  * failing closed. No patient identity is shown: the doors carry none.
  */
 export default function BupaLineOutcomesPage() {
   const { t } = useTranslation('bupa-line-outcomes')
   return (
-    <ScreenGate query={bupaOutcomeAccessQuery()} can={canViewBupaOutcomes} ns="bupa-line-outcomes" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewBupaOutcomes} ns="bupa-line-outcomes" title={t('title')} subtitle={t('subtitle')}>
       <Report />
     </ScreenGate>
   )

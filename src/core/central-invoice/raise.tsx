@@ -1,12 +1,12 @@
 import { useRef } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, ReceiptText } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import Textarea from '@/core/ui/Textarea'
 import type { CentralInvoiceRaiseRequest } from '@/core/models/central-invoice'
-import { centralInvoiceApi, isGrantRefused, revokeCentralInvoiceAccess } from './api'
+import { centralInvoiceApi, isGrantRefused } from './api'
 
 /**
  * The one way to raise central invoices (ticket 332), shared by the delivery page's dialog
@@ -16,12 +16,12 @@ import { centralInvoiceApi, isGrantRefused, revokeCentralInvoiceAccess } from '.
  *   reaches the render a tick after `mutate` (react-query notifies on a scheduled flush),
  *   so the second click of a double click still finds the button enabled. The drive
  *   caught two POSTs without it. The server still dedupes against a queued request.
- * - **A 403 revokes the grant for the page life.** The shared probe entry is overwritten,
- *   so the menu leaf, the bulk screen's gate and the delivery page's action all drop;
- *   `onGrantRefused` is the caller's own reaction on top (the dialog closes and says so).
+ * - **A 403 re-reads the grant.** `@/core/api` invalidates the one permissions answer on
+ *   every 403 (oms 909), so the menu leaf, the bulk screen's gate and the delivery page's
+ *   action drop together once the refetch lands; `onGrantRefused` is the caller's own
+ *   reaction on top (the dialog closes and says so).
  */
 export function useRaiseCentralInvoice(onGrantRefused?: () => void) {
-  const queryClient = useQueryClient()
   const inFlight = useRef(false)
   const mutation = useMutation({
     mutationFn: (request: CentralInvoiceRaiseRequest) => centralInvoiceApi.raise(request),
@@ -29,9 +29,7 @@ export function useRaiseCentralInvoice(onGrantRefused?: () => void) {
       inFlight.current = false
     },
     onError: (err) => {
-      if (!isGrantRefused(err)) return
-      revokeCentralInvoiceAccess(queryClient)
-      onGrantRefused?.()
+      if (isGrantRefused(err)) onGrantRefused?.()
     },
   })
   const send = (request: CentralInvoiceRaiseRequest) => {

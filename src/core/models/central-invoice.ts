@@ -1,12 +1,6 @@
 // Wire shapes for `Sd/CentralInvoice` (BackOffice spec 2094, ADR 0048, ticket 2099 —
 // `CentralInvoiceWebEndpoints.cs`). Field casing is the camelCase ASP.NET Core emits.
 
-/** `GET Sd/CentralInvoice/Access` → `{ canOpen }`. Cookie-only and NOT grant-gated: a
- *  session that holds nothing is answered `false` with a 200, never refused. */
-export interface CentralInvoiceAccessResult {
-  canOpen: boolean
-}
-
 /** The body of `POST Sd/CentralInvoice`. There is no actor field: the server reads the
  *  actor off the session, and a body field would be a way to name someone else. */
 export interface CentralInvoiceRaiseRequest {

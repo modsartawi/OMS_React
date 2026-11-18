@@ -3,8 +3,8 @@
  * §1.1 rows 6, 17 and 18). Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`);
  * 401 is that module's, and nothing here catches it.
  *
- * The probe (`Nphies/Access`, which carries `canReleaseApprovalNumber` since 1.1) is the area's
- * and lives in `@/core/nphies/api`.
+ * The area's grants (`canReleaseApprovalNumber` among them) are read off the one permissions answer, in
+ * `@/core/nphies/access`.
  */
 import { api } from '@/core/api'
 import type {

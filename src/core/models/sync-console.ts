@@ -215,30 +215,6 @@ export interface MirrorLane {
   openDeadLetters: number
 }
 
-// ── Access probe — `GET ActionSync/Access` ───────────────────────────────────────
-
-export interface SyncConsoleAccess {
-  /** `ActionSync.Health.View` — the menu leaf and every read. */
-  screenAllowed: boolean
-  /** `ActionSync.Operate` — every control. */
-  canOperate: boolean
-  /** `Store.Onboard` — the store-master step and Edit store. */
-  canOnboard: boolean
-  /** `ActionSync.Replay` (spec 470) — the Replay page. Independent of `canOperate`. */
-  canReplay: boolean
-  /**
-   * `ActionSync.EnrollObject` (BackOffice 2558, ticket 662) — Enrol on the Objects page.
-   * Independent of `canOperate`. Optional: a door older than 2558 leaves it out, which reads as no.
-   */
-  canEnrol?: boolean
-  /**
-   * `ActionSync.RunStoreScript` (BackOffice spec 3202 D3, ticket 664) — Send, Withdraw and Retry on
-   * the Scripts page. Independent of `canOperate`. Optional: a door older than 3205 leaves it out,
-   * which reads as no.
-   */
-  canRunScripts?: boolean
-}
-
 // ── Read doors (`ActionSync.Health.View`) ──────────────────────────────────────
 
 /** `GET ActionSync/Workers` → `{ items }`, not paged. The store sync worker's item (`rail: 'store'`). */

@@ -9,7 +9,7 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import type { SentScript } from '@/core/models/sync-console'
-import { canOpenSyncConsole, canRunStoreScripts, scriptsQuery, syncConsoleAccessQuery } from './api'
+import { canOpenSyncConsole, canRunStoreScripts, scriptsQuery } from './api'
 import { figure } from './helpers'
 import { SCRIPTS_PAGE_SIZE } from './scripts-helpers'
 import { buildSentScriptColumns } from './scripts-columns'
@@ -17,6 +17,7 @@ import ConsoleNav from './ConsoleNav'
 import ScriptDetailModal from './ScriptDetailModal'
 import SendScriptDialog from './SendScriptDialog'
 import TabGrid from './TabGrid'
+import { usePermissions } from '@/core/permissions'
 
 const scriptId = (s: SentScript) => s.scriptId
 
@@ -34,7 +35,6 @@ export default function ScriptsPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('scriptsPage.title')}
@@ -50,8 +50,8 @@ function Scripts() {
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState<SentScript | null>(null)
   const [sending, setSending] = useState(false)
-  const access = useQuery(syncConsoleAccessQuery())
-  const canSend = canRunStoreScripts(access.data)
+  const permissions = usePermissions()
+  const canSend = canRunStoreScripts(permissions)
   const scripts = useQuery({ ...scriptsQuery(page), placeholderData: keepPreviousData })
   const columns = useMemo(() => buildSentScriptColumns(t, setOpened), [t])
   const shown = scripts.isError ? undefined : scripts.data

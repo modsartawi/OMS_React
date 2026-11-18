@@ -10,7 +10,6 @@ import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
 import { apiErrorCode, apiErrorKind, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
-import { revokeOnForbidden } from '@/core/oms/api'
 import { mintRequestId } from '@/core/util/request-id'
 import { fsi } from '@/core/util/bidi'
 import type { LfReturnDetailModel } from '@/core/models/lf-return'
@@ -124,7 +123,6 @@ function ForceRefundDialog({
       onClose()
     },
     onError: (err: unknown) => {
-      revokeOnForbidden(queryClient, err, 'canForceLocalFulfillmentReturnRefund')
       // A guardrail refusal is an ANSWER: the next press is a new request. Anything else (network,
       // 5xx) is "I do not know" — the held id stays, so pressing again replays rather than re-forces.
       const refused = apiErrorKind(err) === 'business'

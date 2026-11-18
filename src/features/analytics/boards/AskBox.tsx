@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Input from '@/core/ui/Input'
 import { useCopilotPanel } from '@/core/copilot-panel'
-import { analyticsAccessQuery, canAuthorAnalytics } from './access'
+import { canAuthorAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 
 /**
  * The ask box on `/analytics` (ticket 782, spec 766 §F) — hands the question to the app shell's ONE
@@ -24,7 +24,7 @@ export default function AskBox() {
   const { t } = useTranslation('boards')
   const available = useCopilotPanel((s) => s.available)
   const openPanel = useCopilotPanel((s) => s.openPanel)
-  const author = canAuthorAnalytics(useQuery(analyticsAccessQuery()).data)
+  const author = canAuthorAnalytics(useAnalyticsPermissions())
   const [question, setQuestion] = useState('')
   if (!available || !author) return null
 

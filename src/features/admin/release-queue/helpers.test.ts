@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SlotAuditRow, SlotQueueEntry } from '@/core/models/release-queue'
+import { permissionsOf } from '@/core/permissions'
 import {
   convergenceShares,
   formatSeconds,
@@ -186,15 +187,13 @@ describe('storesInGrantOrder', () => {
 })
 
 describe('controlsHiddenWithoutManage (ticket 792)', () => {
-  it('shows the controls only to a PosRelease.Queue.Manage holder', () => {
-    expect(showsControls({ canView: true, canManage: true })).toBe(true)
+  it('shows the controls only to a PosRelease.Queue.Manage holder (PosReleaseQueue:06)', () => {
+    expect(showsControls(permissionsOf({ screens: ['PosReleaseQueue:03', 'PosReleaseQueue:06'] }))).toBe(true)
   })
 
-  it('hides them from a View-only holder, and on a missing or malformed probe answer', () => {
-    expect(showsControls({ canView: true, canManage: false })).toBe(false)
-    expect(showsControls(undefined)).toBe(false)
-    expect(showsControls(null)).toBe(false)
-    expect(showsControls({ canView: true, canManage: 'true' } as never)).toBe(false)
+  it('hides them from a View-only holder, and before the answer is in', () => {
+    expect(showsControls(permissionsOf({ screens: ['PosReleaseQueue:03'] }))).toBe(false)
+    expect(showsControls(permissionsOf(null))).toBe(false)
   })
 })
 

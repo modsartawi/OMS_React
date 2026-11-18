@@ -17,9 +17,10 @@ import type {
   StoreRow,
   SyncAudit,
   StoreControlRequest,
-  SyncConsoleAccess,
 } from '@/core/models/sync-console'
 import type { FleetView } from './helpers'
+import { canOperateSyncConsole } from './access'
+import type { Permissions } from '@/core/permissions'
 
 // ── The controls a store offers ─────────────────────────────────────────────────
 
@@ -37,9 +38,9 @@ import type { FleetView } from './helpers'
  */
 export function allowedControls(
   row: Pick<StoreRow, 'host' | 'isPaused' | 'isDisabled'>,
-  access: Pick<SyncConsoleAccess, 'canOperate'> | null | undefined,
+  permissions: Permissions,
 ): ControlAction[] {
-  if (access?.canOperate !== true) return []
+  if (!canOperateSyncConsole(permissions)) return []
   if (row.isDisabled === true) return ['Enable']
   if (row.host === 'Wpf') return ['Move']
   if (row.host === 'Worker') return [row.isPaused ? 'Resume' : 'Pause', 'Disable', 'HandBack']

@@ -117,8 +117,3 @@ export interface UaEmployeeInput {
   deliveryChannel?: string
   isActive: boolean
 }
-
-/** GET UaAdminWeb/Access — the screen-open grant probe (show/hide only). */
-export interface UaAccessResult {
-  canOpen: boolean
-}

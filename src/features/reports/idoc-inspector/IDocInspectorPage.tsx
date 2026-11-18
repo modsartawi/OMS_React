@@ -7,7 +7,8 @@ import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
-import { canOpenIDocInspector, idocInspectorAccessQuery, idocInspectorApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { canOpenIDocInspector, idocInspectorApi } from './api'
 import AttentionBanner from './AttentionBanner'
 import DocumentPane from './DocumentPane'
 import DocumentRail from './DocumentRail'
@@ -120,11 +121,10 @@ export default function IDocInspectorPage() {
     }
   }
 
-  // The same probe — same key, same options — the gate below stands on, so this
-  // is one call, not two. 🚩 A link fires its lookup on mount, which is before the
-  // gate has its answer: without this a refused user opening a link would still
-  // ask the server for the transaction.
-  const access = useQuery(idocInspectorAccessQuery())
+  // The same grant the gate below stands on. 🚩 A link fires its lookup on mount,
+  // which is before the gate has its answer: without this a refused user opening a
+  // link would still ask the server for the transaction.
+  const permissions = usePermissions()
 
   const lookup = useQuery({
     queryKey: ['reports', 'idoc-inspector', 'transaction', appliedKey],
@@ -135,7 +135,7 @@ export default function IDocInspectorPage() {
     // carries both halves: a transaction is not a question this screen can answer
     // unasked, and an auto-fired lookup would be a guaranteed empty result
     // pretending to be a verdict. And never before the grant is confirmed.
-    enabled: appliedKey !== null && canOpenIDocInspector(access.data),
+    enabled: appliedKey !== null && canOpenIDocInspector(permissions),
     // A refusal is an answer and an exact keyed lookup is a user action they can
     // repeat, so no automatic second attempt.
     retry: false,
@@ -228,7 +228,6 @@ export default function IDocInspectorPage() {
 
   return (
     <ScreenGate
-      query={idocInspectorAccessQuery()}
       can={canOpenIDocInspector}
       ns="reports"
       // 🚩 Its own block of the five `access.*` sentences, not the invoices one.

@@ -142,7 +142,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
       // The copilot as a full page (ticket 735, spec 734 D11) — the same panel the top bar's "Ask the OMS"
-      // opens, behind `canAskCopilot` on `GET Copilot/Access`, failing closed. Not a nav item.
+      // opens, behind `canAskCopilot` on the one permissions answer, failing closed. Not a nav item.
       {
         path: 'copilot',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotPage')).default }),
@@ -159,7 +159,7 @@ export const router = createBrowserRouter([
         path: 'copilot/me',
         lazy: async () => ({ Component: (await import('@/features/copilot/CopilotMePage')).default }),
       },
-      // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics/Access` (`canView`), failing
+      // Analytics (spec 766 §F, ticket 767) — the `analytics` area, behind `Analytics:03` (`canViewAnalytics`), failing
       // closed. The home lists the items (770); `board/:id` is 770's not-found placeholder until 771 draws boards;
       // `board/:id/edit` (777) and `new` (775) join this block. The copilot links to `/analytics/view/:id` by route
       // string only.
@@ -295,7 +295,7 @@ export const router = createBrowserRouter([
         }),
       },
       // Dispatch scorecard (ticket 543, BackOffice spec 2952) — HQ ranks stores and staff on competed
-      // deliveries and drills to the bids, behind its own `DispatchScorecard/Access` probe. Filters in the URL.
+      // deliveries and drills to the bids, behind its own grant on the one permissions answer. Filters in the URL.
       {
         path: 'oms/dispatch-scorecard',
         lazy: async () => ({
@@ -310,7 +310,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/ClosesPage')).default,
         }),
       },
-      // Sourcing advisor (ticket 738, spec 734 D21) — read-only, behind its own `SourcingAdvisor/Access` probe.
+      // Sourcing advisor (ticket 738, spec 734 D21) — read-only, behind its own grant on the one permissions answer.
       // The entry (739 puts the 30-day simulation there) and one order's explanation, which Delivery details links to.
       {
         path: 'oms/sourcing-advisor',
@@ -325,7 +325,7 @@ export const router = createBrowserRouter([
         }),
       },
       // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
-      // serial check, by staff, serial, store and article, behind its own `SerialRefusal/Access` probe. Filters in the URL.
+      // serial check, by staff, serial, store and article, behind its own grant on the one permissions answer. Filters in the URL.
       {
         path: 'oms/serial-refusals',
         lazy: async () => ({
@@ -333,7 +333,7 @@ export const router = createBrowserRouter([
         }),
       },
       // Bupa line outcomes (oms 899, BackOffice spec 3888 / doors 3889–3891) — every Bupa Care Connect line whose
-      // dispensed item or quantity differs from what Bupa sent, behind its own `BupaLineOutcomes/Access` probe.
+      // dispensed item or quantity differs from what Bupa sent, behind its own grant on the one permissions answer.
       // `?from=&to=&store=&kind=` live in the URL.
       {
         path: 'oms/bupa-line-outcomes',
@@ -342,7 +342,7 @@ export const router = createBrowserRouter([
         }),
       },
       // Expired approval picks (BackOffice spec 3849 / ticket 3874) — the insurance team's weekly report of approval picks
-      // that expired with no sale, per store and pharmacist, behind its own `ExpiredApprovalPick/Access` probe. Filters in the URL.
+      // that expired with no sale, per store and pharmacist, behind its own grant on the one permissions answer. Filters in the URL.
       {
         path: 'oms/expired-approval-picks',
         lazy: async () => ({
@@ -350,7 +350,7 @@ export const router = createBrowserRouter([
         }),
       },
       // HQ's two held-stock reports (BackOffice spec 3849 / ticket 3873), read before a switch is moved — the take refusals
-      // and what held would take off the channels' figure — behind the one `HeldStockReport/Access` probe. Filters in the URL.
+      // and what held would take off the channels' figure — behind its grant on the one permissions answer. Filters in the URL.
       {
         path: 'oms/held-stock-report/refusals',
         lazy: async () => ({
@@ -371,7 +371,7 @@ export const router = createBrowserRouter([
         }),
       },
       // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872), behind its own
-      // `HoldDailyList/Access` probe. Kind, cause, stores, tab and the drilled store live in the URL.
+      // grant on the one permissions answer. Kind, cause, stores, tab and the drilled store live in the URL.
       {
         path: 'oms/hold-daily-list',
         lazy: async () => ({
@@ -379,7 +379,7 @@ export const router = createBrowserRouter([
         }),
       },
       // Store stages (BackOffice spec 3849 / ticket 3899) — each store's stage at Stock Visibility and its log; a named
-      // permission moves it. Behind its own `StoreStage/Access` probe. Store, stage and the open store live in the URL.
+      // permission moves it. Behind its own grant on the one permissions answer. Store, stage and the open store live in the URL.
       {
         path: 'oms/store-stages',
         lazy: async () => ({
@@ -387,7 +387,7 @@ export const router = createBrowserRouter([
         }),
       },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
-      // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
+      // and releases a locked one, behind `canOpenDispatchBoard` on the one permissions answer. Filters
       // `?channel=&city=&store=` live in the URL.
       {
         path: 'oms/dispatch-board',
@@ -404,7 +404,7 @@ export const router = createBrowserRouter([
         }),
       },
       // Serving lists (ticket 567, BackOffice spec 3042) — every list and the delivery types pointing at it,
-      // behind `canViewServingLists` on `GET ServingListWeb/Access`. A row opens `/oms/serving-lists/:id` (568).
+      // behind `canViewServingLists` on the one permissions answer. A row opens `/oms/serving-lists/:id` (568).
       {
         path: 'oms/serving-lists',
         lazy: async () => ({
@@ -751,7 +751,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/loy/member/MemberLookupPage')).default,
         }),
       },
-      // Loyalty groups (BackOffice spec 3173, oms ticket 629) — HQ-only, behind `LoyGroupWeb/Access`.
+      // Loyalty groups (BackOffice spec 3173, oms ticket 629) — HQ-only, behind `LoyaltyGroup:03`.
       {
         path: 'loy/groups',
         lazy: async () => ({
@@ -766,7 +766,7 @@ export const router = createBrowserRouter([
         }),
       },
       // The Collections area (spec 249, ticket 253) — a new top-level area at
-      // `/collection/*`, one feature behind ONE `CollectionWeb/Access` probe.
+      // `/collection/*`, one feature behind the Collections grants of the one permissions answer.
       // Four routes now; the two document routes
       // (`/collection/receipt/:collectionReceiptId`, `/collection/acr/:acrId`)
       // join under this same prefix with 251 and 252 — but OUTSIDE this
@@ -821,7 +821,7 @@ export const router = createBrowserRouter([
       },
       // The accountant's settlement account (spec 267, ticket 268) — the area's
       // SIXTH route and its SECOND feature. Not a new area: same nav group, same
-      // `/collection/*` prefix, same one `CollectionWeb/Access` probe, a further
+      // `/collection/*` prefix, same Collections grants, a further
       // grant on it (D1). Its own feature folder because it is its own screen with
       // its own doors — which is what pushed the shared probe up into
       // `@/core/collection/api`, a feature being unable to import a feature.
@@ -879,7 +879,7 @@ export const router = createBrowserRouter([
         ],
       },
       // The Reports area (spec 261, ticket 263) — a new top-level area at
-      // `/reports/*`, one feature behind ONE `RetailInvoice/Access` probe. The
+      // `/reports/*`, one feature behind its grant on the one permissions answer. The
       // area is the point as much as the screen is: the render rail was designed
       // reusable (1042 D1), so the folder that will hold the second report screen
       // is worth creating with the first.

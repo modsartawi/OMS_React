@@ -21,7 +21,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import ActDialog from './ActDialog'
-import { canManagePayerMonths, payerMonthAccessQuery } from './access'
+import { canManagePayerMonths } from './access'
 import { auditKey, correctionsKey, monthKey, payerMonthApi } from './api'
 import PayerSheet from './PayerSheet'
 import {
@@ -48,7 +48,7 @@ import {
  * so it runs only when pressed, never on open, on a period change or on a timer (`staleTime: Infinity`). Close all
  * is offered only once that list is read, and states its count from it.
  *
- * One grant for the whole screen (`InsurancePayerMonthWeb/Access`, D36). The gate below hides; the server's grant
+ * One grant for the whole screen (`InsurancePayerMonth:03`, D36). The gate below hides; the server's grant
  * filter on every door refuses.
  */
 const STATE_SEV: Record<ReturnType<typeof rowState>, Severity> = { closed: 'ok', reopened: 'warn', open: 'mute' }
@@ -57,7 +57,6 @@ export default function PayerMonthPage() {
   const { t } = useTranslation('insurance-payer-month')
   return (
     <ScreenGate
-      query={payerMonthAccessQuery()}
       can={canManagePayerMonths}
       ns="insurance-payer-month"
       title={t('title')}

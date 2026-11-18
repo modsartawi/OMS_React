@@ -1,6 +1,7 @@
 import { canSeeMaterialStock } from '@/core/materials/access'
 import { stockRequest } from '@/core/materials/stock'
-import type { MaterialAccessResult, MaterialStockCell, MaterialStockRequest } from '@/core/models/materials'
+import type { MaterialStockCell, MaterialStockRequest } from '@/core/models/materials'
+import type { Permissions } from '@/core/permissions'
 
 // The material detail's tabs, its Stock tab's one question, and its simulator link (ticket 452,
 // spec 2544 stories 18–22). Pure: no React, no `t`.
@@ -21,7 +22,7 @@ export function resolveDetailTab(param: string | null, serialised: boolean): Det
  * Whether the Stock tab may ask for stock: it needs BOTH the search grant (the page's own) and the
  * stock grant (spec 2544, Grants). Without them the tab shows "not permitted" and asks nothing.
  */
-export const stockTabVisible = (access: MaterialAccessResult | null | undefined): boolean => canSeeMaterialStock(access)
+export const stockTabVisible = (permissions: Permissions): boolean => canSeeMaterialStock(permissions)
 
 /**
  * The Stock tab's ONE question: this material at every store (`stores: null`), closed stores left
@@ -30,10 +31,10 @@ export const stockTabVisible = (access: MaterialAccessResult | null | undefined)
  */
 export function detailStockRequest(
   materialNumber: string,
-  access: MaterialAccessResult | null | undefined,
+  permissions: Permissions,
   includeZero: boolean,
 ): MaterialStockRequest | null {
-  if (!stockTabVisible(access)) return null
+  if (!stockTabVisible(permissions)) return null
   return stockRequest({ materials: [materialNumber], stores: null, includeZero, includeClosed: false })
 }
 

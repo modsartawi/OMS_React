@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
-import type { Campaign, DataSyncAccess, Job } from '@/core/models/data-sync'
-import { DATA_SYNC_ACCESS_KEY, campaignKey, campaignSummaryKey, canOperateDataSync, dataSyncAccessQuery, dataSyncApi } from './api'
+import type { Campaign, Job } from '@/core/models/data-sync'
+import { usePermissions } from '@/core/permissions'
+import { campaignKey, campaignSummaryKey, canOperateDataSync, dataSyncApi } from './api'
 import {
   campaignControls,
   controlBody,
@@ -30,20 +31,22 @@ import { codeValue } from './code-words'
  * After a control the door's answer is written straight into the page's cache (the new state shows
  * at once), and the campaign's reads are invalidated so the rollup follows; the page's poll (560)
  * then carries on. A refusal stays in the dialog. A bare 403 means the grant is gone: the cached
- * access answer loses `canOperate`, so every Operate control on the page hides.
+ * permissions answer is invalidated by `@/core/api` (oms 909), so every Operate control hides once it reads again.
  */
 
-/** `DataSync.Operate`, from the one access answer the page and the nav share (no extra call). */
+/** `DataSync.Operate`, from the one permissions answer the page and the nav share (no extra call). */
 export function useCanOperateDataSync(): boolean {
-  return canOperateDataSync(useQuery(dataSyncAccessQuery()).data)
+  return canOperateDataSync(usePermissions())
 }
 
 const VARIANT = { Pause: 'secondary', Resume: 'secondary', Cancel: 'danger-outlined', Retry: 'secondary' } as const
 const CONFIRM_VARIANT = { Pause: 'primary', Resume: 'primary', Cancel: 'danger', Retry: 'primary' } as const
 
-/** A bare 403: hide every Operate control on the page, and say why once. */
-function dropOperate(qc: QueryClient, words: string) {
-  qc.setQueryData<DataSyncAccess>(DATA_SYNC_ACCESS_KEY, (a) => (a ? { ...a, canOperate: false } : a))
+/**
+ * A bare 403: say why once. The 403 itself invalidated the permissions answer (`@/core/api`), so every Operate control
+ * hides when it reads again.
+ */
+function dropOperate(words: string) {
   notify.warn(words)
 }
 
@@ -67,7 +70,7 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
     onError: (err) => {
       if (isOperateDenied(err)) {
         close()
-        dropOperate(qc, t('controls.denied'))
+        dropOperate(t('controls.denied'))
         return
       }
       void qc.invalidateQueries({ queryKey: campaignKey(id) })
@@ -151,7 +154,7 @@ export function JobControls({ job, compact = false, retry = false }: { job: Job;
     onError: (err) => {
       if (isOperateDenied(err)) {
         close()
-        dropOperate(qc, t('controls.denied'))
+        dropOperate(t('controls.denied'))
         return
       }
       void qc.invalidateQueries({ queryKey: campaignKey(cid) })

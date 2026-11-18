@@ -322,13 +322,6 @@ export interface DataSyncHealth {
   lastWorkerTick: string | null
 }
 
-export interface DataSyncAccess {
-  /** `DataSync.View`. */
-  screenAllowed: boolean
-  /** `DataSync.Operate` — every action and the Changes view. */
-  canOperate: boolean
-}
-
 // ── Requests ────────────────────────────────────────────────────────────────────
 
 /**

@@ -21,11 +21,11 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { materialAccessQuery } from '@/core/materials/api'
 import { canSearchMaterials } from '@/core/materials/access'
+import { usePermissions, type Permissions } from '@/core/permissions'
 import { isStockUnavailable, materialStockQuery } from '@/core/materials/stock'
 import StockUnavailable from '@/core/materials/StockUnavailable'
-import { MATERIAL_ERRORS, type MaterialAccessResult, type MaterialDetail as Detail, type MaterialMaster } from '@/core/models/materials'
+import { MATERIAL_ERRORS, type MaterialDetail as Detail, type MaterialMaster } from '@/core/models/materials'
 import { materialDetailQuery } from './api'
 import { EXPORT_AS_TEXT, barcodeColumns, batchColumns, detailStockColumns } from './columns'
 import {
@@ -44,14 +44,14 @@ import { masterSections, type MasterRow } from './master-groups'
  * Item and ItemInfo read together — its barcodes, its batches (serialised materials only) and its
  * live stock at every store, each on a tab, with a link to the pricing simulator prefilled with it.
  *
- * Behind `canSearchMaterials` on the ONE Materials probe, the same predicate the search reads. The
+ * Behind `canSearchMaterials` on the one permissions answer, the same predicate the search reads. The
  * Stock tab needs `canCheckStock` too, and without it asks nothing. Its doors
  * (`MaterialWeb/Material/{no}`, `MaterialWeb/Stock`) are BackOffice 2547/2548.
  */
 export default function MaterialDetailPage() {
   const { t } = useTranslation('materials-detail')
   return (
-    <ScreenGate query={materialAccessQuery()} can={canSearchMaterials} ns="materials-detail" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canSearchMaterials} ns="materials-detail" title={t('title')} subtitle={t('subtitle')}>
       <MaterialDetail />
     </ScreenGate>
   )
@@ -67,8 +67,8 @@ function MaterialDetail() {
   const { t } = useTranslation('materials-detail')
   const { no = '' } = useParams()
   const detail = useQuery(materialDetailQuery(no))
-  // The probe the gate already read — cached, so this is no second call. The Stock tab reads it.
-  const access = useQuery(materialAccessQuery())
+  // The permissions answer the gate already read — cached, so this is no second call. The Stock tab reads it.
+  const permissions = usePermissions()
   const notFound = detail.isError && apiErrorCode(detail.error) === MATERIAL_ERRORS.notFound
 
   return (
@@ -89,7 +89,7 @@ function MaterialDetail() {
       ) : (
         <>
           <Header master={detail.data.master} />
-          <Tabs detail={detail.data} access={access.data} />
+          <Tabs detail={detail.data} permissions={permissions} />
         </>
       )}
     </div>
@@ -176,7 +176,7 @@ const TAB_PANEL_ID = 'material-detail-panel'
  * history entry (the loyalty member's tabs precedent). Only the open tab's panel is mounted, so a
  * tab asks the server only once it is opened.
  */
-function Tabs({ detail, access }: { detail: Detail; access: MaterialAccessResult | undefined }) {
+function Tabs({ detail, permissions }: { detail: Detail; permissions: Permissions }) {
   const { t } = useTranslation('materials-detail')
   const [params, setParams] = useSearchParams()
   const { master } = detail
@@ -231,7 +231,7 @@ function Tabs({ detail, access }: { detail: Detail; access: MaterialAccessResult
             dataKey="batches"
           />
         ) : (
-          <StockTab materialNumber={master.materialNumber} access={access} />
+          <StockTab materialNumber={master.materialNumber} permissions={permissions} />
         )}
       </div>
     </div>
@@ -374,17 +374,17 @@ function DetailGrid<T>({
  * (the request is `null`, so the query is disabled). 🚩 `MAT-00004` is the unavailable panel the
  * stock check shows, NEVER an empty grid.
  */
-function StockTab({ materialNumber, access }: { materialNumber: string; access: MaterialAccessResult | undefined }) {
+function StockTab({ materialNumber, permissions }: { materialNumber: string; permissions: Permissions }) {
   const { t } = useTranslation('materials-detail')
   const [includeZero, setIncludeZero] = useState(false)
-  const request = detailStockRequest(materialNumber, access, includeZero)
+  const request = detailStockRequest(materialNumber, permissions, includeZero)
   const stock = useQuery(materialStockQuery(request))
   const rows = useMemo(
     () => (stock.isError ? [] : detailStockRows(stock.data?.cells ?? [], includeZero)),
     [stock.isError, stock.data, includeZero],
   )
 
-  if (!stockTabVisible(access)) {
+  if (!stockTabVisible(permissions)) {
     return (
       <div className="mx-auto my-8 max-w-md text-center" role="note" data-material-stock-denied="">
         <ShieldOff className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />

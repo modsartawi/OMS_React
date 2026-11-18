@@ -1,57 +1,42 @@
 /**
- * Ticket 451 — the Materials probe's three flags (contract § `GET MaterialWeb/Access`). Each leaf
- * and each page reads its flag through one predicate; only an explicit `true` grants, so a missing,
- * errored or malformed answer keeps every Materials screen hidden (fail closed).
+ * Ticket 451 — the Materials grants, over the one permissions answer since oms 909 (BackOffice spec 4002). Keys from
+ * the brief's mapping table (row 24); `ItemInquiryCustome` is the seed's spelling, no final r. Each leaf and each page
+ * reads its grant through one predicate; a missing key or a failed answer keeps the screen hidden.
  */
 import { describe, expect, it } from 'vitest'
-import type { MaterialAccessResult } from '@/core/models/materials'
-import {
-  MATERIAL_FLAGS,
-  canCheckGs1,
-  canCheckStock,
-  canSearchMaterials,
-  canSeeMaterialStock,
-  materialGrants,
-} from './access'
+import { permissionsOf, type ScreenKey } from '@/core/permissions'
+import { canCheckGs1, canCheckStock, canSearchMaterials, canSeeMaterialStock } from './access'
 
-const all = (value: boolean): MaterialAccessResult => ({ canSearchMaterials: value, canCheckStock: value, canCheckGs1: value })
+const holding = (...screens: ScreenKey[]) => permissionsOf({ screens })
 
-describe('materialGrants', () => {
-  it('names exactly the three contract flags', () => {
-    expect([...MATERIAL_FLAGS].sort()).toEqual(['canCheckGs1', 'canCheckStock', 'canSearchMaterials'])
-  })
+const PREDICATES = [
+  ['ItemInquiryCustome:03', canSearchMaterials],
+  ['MaterialStockInquiry:03', canCheckStock],
+  ['Gs1SerialInquiry:03', canCheckGs1],
+] as const
 
-  it.each([null, undefined])('a %s answer grants nothing', (r) => {
-    expect(materialGrants(r)).toEqual(all(false))
-  })
-
-  it('🚩 a malformed answer grants nothing — an array (an unstubbed drive), a string "true", a 1', () => {
-    expect(materialGrants([] as unknown as MaterialAccessResult)).toEqual(all(false))
-    expect(materialGrants({ canSearchMaterials: 'true', canCheckStock: 1 } as unknown as MaterialAccessResult)).toEqual(all(false))
-  })
-
-  it('each flag reads only its own field, proven true and false', () => {
-    for (const flag of MATERIAL_FLAGS) {
-      const grants = materialGrants({ ...all(false), [flag]: true })
-      for (const other of MATERIAL_FLAGS) expect([other, grants[other]]).toEqual([other, other === flag])
+describe('the per-leaf predicates', () => {
+  it('each follows its own key and no neighbour', () => {
+    for (const [key] of PREDICATES) {
+      for (const [otherKey, other] of PREDICATES) expect(other(holding(key))).toBe(otherKey === key)
     }
+  })
+
+  it('🚩 the "Customer" spelling is not the seed key', () => {
+    expect(canSearchMaterials(permissionsOf({ screens: ['ItemInquiryCustomer:03'] }))).toBe(false)
+  })
+
+  it('🚩 a failed answer grants nothing', () => {
+    for (const [, can] of PREDICATES) expect(can(permissionsOf(null))).toBe(false)
   })
 })
 
-describe('the per-leaf predicates', () => {
-  it('each follows its own flag', () => {
-    expect(canSearchMaterials({ ...all(false), canSearchMaterials: true })).toBe(true)
-    expect(canSearchMaterials({ ...all(true), canSearchMaterials: false })).toBe(false)
-    expect(canCheckStock({ ...all(false), canCheckStock: true })).toBe(true)
-    expect(canCheckStock({ ...all(true), canCheckStock: false })).toBe(false)
-    expect(canCheckGs1({ ...all(false), canCheckGs1: true })).toBe(true)
-    expect(canCheckGs1({ ...all(true), canCheckGs1: false })).toBe(false)
-  })
-
-  it("the detail's Stock tab needs BOTH the search and the stock grant", () => {
-    expect(canSeeMaterialStock(all(true))).toBe(true)
-    expect(canSeeMaterialStock({ ...all(true), canCheckStock: false })).toBe(false)
-    expect(canSeeMaterialStock({ ...all(true), canSearchMaterials: false })).toBe(false)
-    expect(canSeeMaterialStock(undefined)).toBe(false)
+describe('canSeeMaterialStock — the client-side combination', () => {
+  it('needs BOTH the search and the stock grant', () => {
+    expect(canSeeMaterialStock(holding('ItemInquiryCustome:03', 'MaterialStockInquiry:03'))).toBe(true)
+    // Half grants: either one alone is not the Stock tab.
+    expect(canSeeMaterialStock(holding('ItemInquiryCustome:03'))).toBe(false)
+    expect(canSeeMaterialStock(holding('MaterialStockInquiry:03'))).toBe(false)
+    expect(canSeeMaterialStock(holding())).toBe(false)
   })
 })

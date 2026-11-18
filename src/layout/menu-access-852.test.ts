@@ -1,132 +1,129 @@
 /**
  * Oms 852 (BackOffice 3459): every leaf of the five once-ungated areas — Campaigns, the store engine switch, Insurance
- * rules, HQ prescription sessions and Send Broadcast — is hidden until its Access probe says yes.
+ * rules, HQ prescription sessions and Send Broadcast — is hidden until its grant is held. Since oms 909 every grant is
+ * a key of the ONE permissions answer (brief 3995 rows 14, 25, 32, 34), not a probe per area.
  *
- * Read out of the REAL `MENU` through the real `resolveMenu`, answering each gated item by its probe KEY, as the
- * shared react-query cache does at runtime. The network is stubbed at the `@/core/api` boundary for the Broadcast
- * probe's 404.
+ * Read out of the REAL `MENU` through the real `resolveMenu`. The flag → key table below is the brief's, written out
+ * literally, so a leaf that drifts onto another key fails here.
  */
-import { describe, expect, it, vi } from 'vitest'
-import { ApiError } from '@/core/api'
-
-const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn(), postJsonBlob: vi.fn() }))
-vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/core/api')>()), api }))
-
-const { MENU } = await import('./menu-model')
-const { resolveMenu } = await import('./useVisibleMenu')
-const { RULES_ACCESS_KEY } = await import('@/core/rules/access')
-const { INSURANCE_RULES_ACCESS_KEY, INSURANCE_RULES_FLAGS } = await import('@/core/insurance-rules/access')
-const { PRESCRIPTION_SESSION_ACCESS_KEY } = await import('@/features/oms/prescription-sessions/access')
-const { broadcastApi } = await import('@/features/admin/broadcast/api')
-// 896: the Insurance rules group's payer-month leaf rides its OWN probe (BackOffice 1628 D36).
-const { PAYER_MONTH_ACCESS_KEY } = await import('@/features/insurance-rules/payer-month/access')
+import { describe, expect, it } from 'vitest'
+import { permissionsFromQuery, permissionsOf, type Permissions, type PermissionsExtras } from '@/core/permissions'
+import { MENU } from './menu-model'
+import { isGated, resolveMenu } from './useVisibleMenu'
 
 type Item = (typeof MENU)[number]
-type State = { isPending: boolean; isSuccess: boolean; data: unknown }
 
-const BROADCAST_KEY = ['broadcast', 'access'] as const
-const keyOf = (k: readonly unknown[]) => JSON.stringify(k)
-const PROBE_KEYS = [RULES_ACCESS_KEY, INSURANCE_RULES_ACCESS_KEY, PRESCRIPTION_SESSION_ACCESS_KEY, BROADCAST_KEY, PAYER_MONTH_ACCESS_KEY].map(keyOf)
-
-const gated = (items: Item[]): Item[] => items.flatMap((i) => [...(i.access ? [i] : []), ...gated(i.items ?? [])])
 const leaves = (items: Item[]): Item[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
+const visibleLeaves = (p: Permissions): string[] => leaves(resolveMenu(MENU, p).items).map((l) => l.labelKey)
 
-const answered = (data: unknown): State => ({ isPending: false, isSuccess: true, data })
-const errored: State = { isPending: false, isSuccess: false, data: undefined }
-const pending: State = { isPending: true, isSuccess: false, data: undefined }
-
-/** Every gated item answered by its key; every probe outside the five areas errors, so only the five can show. */
-function visibleLeaves(byKey: Record<string, State>): string[] {
-  const states = gated(MENU).map((i) => byKey[keyOf(i.access!.key)] ?? errored)
-  return leaves(resolveMenu(MENU, states).items).map((l) => l.labelKey)
+const NO_EXTRAS: PermissionsExtras = {
+  fileServerReady: false,
+  notificationCenterOn: false,
+  nphiesContractVersion: '',
+  canManageRoles: false,
+  canManageUsers: false,
 }
+const holding = (...screens: string[]) => permissionsOf({ screens })
+const withExtras = (extras: Partial<PermissionsExtras>, ...screens: string[]) =>
+  permissionsOf({ screens, extras: { ...NO_EXTRAS, ...extras } })
+const pending = permissionsFromQuery({ isPending: true, isError: false, data: undefined })
+const errored = permissionsFromQuery({ isPending: false, isError: true, data: undefined })
 
-const RULES_NONE = { canAuthor: false, canApprove: false, canSupport: false, canSwitchEngine: false }
-const INS_NONE = Object.fromEntries(INSURANCE_RULES_FLAGS.map((f) => [f, false]))
-const ALL_FALSE: Record<string, State> = {
-  [keyOf(RULES_ACCESS_KEY)]: answered(RULES_NONE),
-  [keyOf(INSURANCE_RULES_ACCESS_KEY)]: answered(INS_NONE),
-  [keyOf(PRESCRIPTION_SESSION_ACCESS_KEY)]: answered({ canView: false, canWriteOff: false }),
-  [keyOf(BROADCAST_KEY)]: answered({ allowed: false }),
-  [keyOf(PAYER_MONTH_ACCESS_KEY)]: answered({ canManage: false }),
+/** Brief 3995 row 14: each Insurance rules flag (`can` + the leaf's `menu.*` key) and the key it reads. */
+const INSURANCE_KEY_OF: Record<string, string> = {
+  canPatientLists: 'InsurancePatientBlock:03',
+  canEditions: 'InsuranceReferenceEdition:03',
+  canExceptions: 'InsuranceGuardException:03',
+  canInsurers: 'InsurerSettings:03',
+  canPlayground: 'InsuranceRulePlayground:01',
+  canInspector: 'InsuranceRuleInspection:03',
+  canRuleHits: 'InsuranceRuleHits:03',
+  canIdfMasters: 'IdfPriority:03',
+  canIdfStoreLists: 'IdfPriority:03',
+  canIdfExceptions: 'IdfPriority:03',
+  canIdfLookup: 'IdfPriority:03',
+  canIdfEvents: 'IdfPriority:03',
+  canIdfGroups: 'IdfPriority:03',
+  canGuards: 'InsuranceRuleAuthoring:03',
+  canTemplates: 'InsuranceRuleAuthoring:03',
+  canLists: 'InsuranceRuleAuthoring:03',
+  canFields: 'InsuranceRuleAuthoring:03',
+  canApprovals: 'InsuranceRuleAuthoring:03',
+  canSimulator: 'InsuranceRuleAuthoring:03',
+  canReview: 'InsuranceRuleAuthoring:03',
+  canMetrics: 'InsuranceRuleAuthoring:03',
+  canCategories: 'InsuranceRuleAuthoring:03',
+  canCoverage: 'InsuranceRuleAuthoring:03',
+  canFieldProposals: 'InsuranceRuleAuthoring:03',
+  canAliases: 'InsuranceRuleAuthoring:03',
+  canCodeLabels: 'InsuranceRuleAuthoring:03',
 }
+/** The leaf a flag names: `canFieldProposals` → `insurance-rules:menu.fieldProposals` (the naming rule 3459 follows). */
+const leafOf = (flag: string) => `insurance-rules:menu.${flag.slice(3, 4).toLowerCase()}${flag.slice(4)}`
+const INSURANCE_KEYS = [...new Set(Object.values(INSURANCE_KEY_OF))]
 
 const AUTHORING = ['campaigns:menu.promotions', 'campaigns:menu.priority', 'campaigns:menu.simulator', 'campaigns:menu.uploads']
 const SUPPORT = ['campaigns:menu.sessions', 'campaigns:menu.couponFinder', 'campaigns:menu.customers']
 
-describe('852 — the five areas hide until their probe says yes', () => {
-  it('every leaf of the five areas carries a probe on one of their four keys', () => {
+describe('852 — the five areas hide until their grant is held', () => {
+  it('every leaf of the five areas is gated', () => {
     const groups = MENU.filter((g) => g.labelKey === 'campaigns:menu.group' || g.labelKey === 'insurance-rules:menu.group')
     expect(groups).toHaveLength(2)
-    for (const leaf of leaves(groups)) expect(PROBE_KEYS).toContain(keyOf(leaf.access!.key))
+    for (const leaf of leaves(groups)) expect(isGated(leaf)).toBe(true)
     const named = ['engine-switch:menu.engineSwitch', 'prescription-sessions:menu.prescriptionSessions', 'broadcast:menu.sendBroadcast']
-    for (const label of named) expect(PROBE_KEYS).toContain(keyOf(leaves(MENU).find((l) => l.labelKey === label)!.access!.key))
+    for (const label of named) expect(isGated(leaves(MENU).find((l) => l.labelKey === label)!)).toBe(true)
   })
 
-  it('one call per area: the nine rule-engine leaves share ONE key, the insurance leaves another', () => {
-    const onKey = (k: readonly unknown[]) => gated(MENU).filter((i) => keyOf(i.access!.key) === keyOf(k))
-    expect(onKey(RULES_ACCESS_KEY)).toHaveLength(9)
-    expect(onKey(INSURANCE_RULES_ACCESS_KEY)).toHaveLength(INSURANCE_RULES_FLAGS.length)
+  it('the Insurance rules group holds exactly the 26 area leaves of row 14 plus Payer months', () => {
+    const group = MENU.find((g) => g.labelKey === 'insurance-rules:menu.group')!
+    expect(
+      leaves([group])
+        .map((l) => l.labelKey)
+        .sort(),
+    ).toEqual([...Object.keys(INSURANCE_KEY_OF).map(leafOf), 'insurance-rules:menu.payerMonths'].sort())
   })
 
-  it('a probe set of all-false shows none of the five areas — both groups drop', () => {
-    expect(visibleLeaves(ALL_FALSE)).toEqual([])
-    const groups = resolveMenu(MENU, gated(MENU).map((i) => ALL_FALSE[keyOf(i.access!.key)] ?? errored)).items.map((g) => g.labelKey)
+  it('no grant shows none of the five areas — both groups drop', () => {
+    expect(visibleLeaves(holding())).toEqual([])
+    const groups = resolveMenu(MENU, holding()).items.map((g) => g.labelKey)
     expect(groups).not.toContain('campaigns:menu.group')
     expect(groups).not.toContain('insurance-rules:menu.group')
   })
 
   it.each([
-    ['canAuthor', [...AUTHORING, 'campaigns:menu.upload']],
-    ['canApprove', AUTHORING],
-    ['canSupport', SUPPORT],
-    ['canSwitchEngine', ['engine-switch:menu.engineSwitch']],
-  ])('Rules/Access %s alone shows only its leaves', (flag, expected) => {
-    const shown = visibleLeaves({ ...ALL_FALSE, [keyOf(RULES_ACCESS_KEY)]: answered({ ...RULES_NONE, [flag]: true }) })
-    expect([...shown].sort()).toEqual([...expected].sort())
+    ['RuleAuthoring:02', [...AUTHORING, 'campaigns:menu.upload']],
+    ['RuleAuthoring:06', AUTHORING],
+    ['RuleSupport:03', SUPPORT],
+    ['RuleEngineSwitch:02', ['engine-switch:menu.engineSwitch']],
+  ])('%s alone shows only its leaves', (key, expected) => {
+    expect([...visibleLeaves(holding(key))].sort()).toEqual([...expected].sort())
   })
 
-  it.each(INSURANCE_RULES_FLAGS.map((f) => [f]))('InsuranceRules/Access %s alone shows only its leaf', (flag) => {
-    const shown = visibleLeaves({ ...ALL_FALSE, [keyOf(INSURANCE_RULES_ACCESS_KEY)]: answered({ ...INS_NONE, [flag]: true }) })
-    expect(shown).toHaveLength(1)
-    // The flag is `can` + the leaf's `menu.*` key — the naming rule 3459's door follows.
-    expect(`can${shown[0].replace('insurance-rules:menu.', '').replace(/^./, (c) => c.toUpperCase())}`).toBe(flag)
+  it.each(INSURANCE_KEYS.map((k) => [k]))('%s alone shows exactly the Insurance rules leaves row 14 maps to it', (key) => {
+    const expected = Object.entries(INSURANCE_KEY_OF)
+      .filter(([, k]) => k === key)
+      .map(([flag]) => leafOf(flag))
+    expect([...visibleLeaves(holding(key))].sort()).toEqual(expected.sort())
   })
 
-  it('PrescriptionSessionWeb/Access canView alone shows only its leaf; canWriteOff alone shows nothing', () => {
-    const key = keyOf(PRESCRIPTION_SESSION_ACCESS_KEY)
-    expect(visibleLeaves({ ...ALL_FALSE, [key]: answered({ canView: true, canWriteOff: false }) })).toEqual([
-      'prescription-sessions:menu.prescriptionSessions',
+  it('a near-miss insurance key (other command) shows nothing', () => {
+    expect(visibleLeaves(holding('InsuranceRuleAuthoring:02', 'InsuranceRulePlayground:03', 'IdfPriority:06'))).toEqual([])
+  })
+
+  it('PrescriptionSessionHq:03 alone shows only its leaf; the write-off key alone shows nothing', () => {
+    expect(visibleLeaves(holding('PrescriptionSessionHq:03'))).toEqual(['prescription-sessions:menu.prescriptionSessions'])
+    expect(visibleLeaves(holding('PrescriptionSessionWriteOff:06'))).toEqual([])
+  })
+
+  it('Send Broadcast needs the key AND the notification center on (half-grant either way hides it)', () => {
+    expect(visibleLeaves(withExtras({ notificationCenterOn: true }, 'NotificationBroadcast:01'))).toEqual([
+      'broadcast:menu.sendBroadcast',
     ])
-    expect(visibleLeaves({ ...ALL_FALSE, [key]: answered({ canView: false, canWriteOff: true }) })).toEqual([])
+    expect(visibleLeaves(withExtras({ notificationCenterOn: false }, 'NotificationBroadcast:01'))).toEqual([])
+    expect(visibleLeaves(withExtras({ notificationCenterOn: true }))).toEqual([])
   })
 
-  it('Send Broadcast shows only on an explicit allowed', () => {
-    expect(visibleLeaves({ ...ALL_FALSE, [keyOf(BROADCAST_KEY)]: answered({ allowed: true }) })).toEqual(['broadcast:menu.sendBroadcast'])
-  })
-
-  it('a pending, errored or malformed probe hides every leaf of the five (no flash-then-hide)', () => {
-    const malformed = answered({ canAuthor: 'true', canSupport: 1, canView: 'yes', allowed: 'true', canGuards: 1, canManage: 'true' })
-    for (const state of [pending, errored, answered({}), answered(null), malformed])
-      expect(visibleLeaves(Object.fromEntries(PROBE_KEYS.map((k) => [k, state])))).toEqual([])
-  })
-})
-
-describe('852 — the Broadcast probe fails closed', () => {
-  it('a 404 from Notifications/Access rejects — no longer "unknown → allowed" — so the leaf hides', async () => {
-    api.get.mockImplementationOnce(() => Promise.reject(new ApiError('unknown', 'Not Found', 404)))
-    const failure = await broadcastApi.access().then(() => null, (e: unknown) => e)
-    expect(failure instanceof ApiError && failure.statusCode).toBe(404)
-    expect(api.get).toHaveBeenLastCalledWith('Notifications/Access')
-    expect(visibleLeaves({ ...ALL_FALSE, [keyOf(BROADCAST_KEY)]: errored })).toEqual([])
-  })
-
-  it('an answer maps canBroadcast to allowed, and only an explicit true allows', async () => {
-    api.get.mockResolvedValueOnce({ canBroadcast: true })
-    await expect(broadcastApi.access()).resolves.toEqual({ allowed: true })
-    api.get.mockResolvedValueOnce({ canBroadcast: false })
-    await expect(broadcastApi.access()).resolves.toEqual({ allowed: false })
-    api.get.mockResolvedValueOnce({ canBroadcast: 'true' })
-    await expect(broadcastApi.access()).resolves.toEqual({ allowed: false })
+  it('a pending or errored answer hides every leaf of the five (no flash-then-hide)', () => {
+    for (const p of [pending, errored]) expect(visibleLeaves(p)).toEqual([])
   })
 })

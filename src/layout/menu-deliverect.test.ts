@@ -1,29 +1,26 @@
 /**
  * The Deliverect nav group, gated (ticket 477, BackOffice spec 2615).
  *
- * Read out of the **real** `MENU`, never re-declared, so a leaf that lost its probe or drifted off
- * the ONE shared key fails here — 478, 479 and 482 each append a leaf to this group, and each must
- * ride `DELIVERECT_ACCESS_KEY` with its own flag's predicate.
+ * Read out of the **real** `MENU`, never re-declared, so a leaf that lost its gate or drifted onto another key fails
+ * here. Each leaf reads its own key off the ONE permissions answer (oms 909, brief 3995 row 39): Stores =
+ * `DeliverectStores:03`, Orders = `DeliverectOrders:03`, Catalog = `DeliverectCatalog:03`, Terms = `DeliverectTerms:03`.
  */
 import { describe, expect, it } from 'vitest'
-import { DELIVERECT_ACCESS_KEY } from '@/core/deliverect/api'
+import { permissionsFromQuery, permissionsOf, type Permissions } from '@/core/permissions'
 import { MENU, type ShellMenuItem } from './menu-model'
-import { resolveMenu, type ProbeState } from './useVisibleMenu'
+import { isGated, resolveMenu } from './useVisibleMenu'
 
 const deliverect = MENU.find((g) => g.labelKey === 'deliverect-stores:menu.deliverect')
 
-const gatedLeaves = (items: ShellMenuItem[]): ShellMenuItem[] =>
-  items.flatMap((i) => [...(i.access ? [i] : []), ...gatedLeaves(i.items ?? [])])
+const leavesOf = (items: ShellMenuItem[]): ShellMenuItem[] => items.flatMap((i) => (i.items ? leavesOf(i.items) : [i]))
 const labels = (items: ShellMenuItem[]): string[] => items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
+const holding = (...screens: string[]) => permissionsOf({ screens })
+const visible = (p: Permissions) => labels(resolveMenu([deliverect!], p).items)
 
-const probed = (data: unknown): ProbeState => ({ isPending: false, isSuccess: true, data })
-const errored: ProbeState = { isPending: false, isSuccess: false, data: undefined }
-const pending: ProbeState = { isPending: true, isSuccess: false, data: undefined }
-
-const ALL = { canManageStores: true, canManageCatalog: true, canViewOrders: true, canManageTerms: true }
-
-/** One state per gated leaf — at runtime they share the ONE key, so every leaf reads the same answer. */
-const each = (state: ProbeState): ProbeState[] => gatedLeaves([deliverect!]).map(() => state)
+const STORES = 'DeliverectStores:03'
+const ORDERS = 'DeliverectOrders:03'
+const CATALOG = 'DeliverectCatalog:03'
+const TERMS = 'DeliverectTerms:03'
 
 describe('the Deliverect nav group', () => {
   it('comes right after Materials (551 put the HungerStation group after it, 847 Hybris stock after that; 607 Insurance rules last)', () => {
@@ -31,61 +28,53 @@ describe('the Deliverect nav group', () => {
     expect(MENU.at(-5)?.labelKey).toBe('materials-search:menu.materials')
   })
 
-  it('every leaf rides the ONE shared key; 477 shipped Stores, 478 appends Orders, 479 Catalog, 482 Terms', () => {
-    const leaves = gatedLeaves([deliverect!])
+  it('every leaf is gated; 477 shipped Stores, 478 appends Orders, 479 Catalog, 482 Terms', () => {
+    const leaves = leavesOf([deliverect!])
     expect(leaves.map((l) => l.routerLink)).toEqual(['/deliverect/stores', '/deliverect/orders', '/deliverect/catalog', '/deliverect/terms'])
-    for (const leaf of leaves) expect(leaf.access!.key).toBe(DELIVERECT_ACCESS_KEY)
+    for (const leaf of leaves) expect(isGated(leaf)).toBe(true)
   })
 
-  it('appears for a session holding canManageStores', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canViewOrders: false, canManageCatalog: false, canManageTerms: false }))).items)).toEqual([
-      'deliverect-stores:menu.deliverect',
-      'deliverect-stores:menu.stores',
-    ])
+  it('appears for a session holding the stores key', () => {
+    expect(visible(holding(STORES))).toEqual(['deliverect-stores:menu.deliverect', 'deliverect-stores:menu.stores'])
   })
 
-  it('478: the Orders leaf follows canViewOrders alone — a session granted only the monitor gets a one-leaf group', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageCatalog: false, canManageTerms: false }))).items)).toEqual([
+  it('478: the Orders leaf follows its own key alone — a session granted only the monitor gets a one-leaf group', () => {
+    expect(visible(holding(STORES, ORDERS))).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.stores',
       'deliverect-stores:menu.orders',
     ])
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageStores: false, canManageCatalog: false, canManageTerms: false }))).items)).toEqual([
-      'deliverect-stores:menu.deliverect',
-      'deliverect-stores:menu.orders',
-    ])
+    expect(visible(holding(ORDERS))).toEqual(['deliverect-stores:menu.deliverect', 'deliverect-stores:menu.orders'])
   })
 
-  it('479: the Catalog leaf follows canManageCatalog alone, after Orders', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageTerms: false }))).items)).toEqual([
+  it('479: the Catalog leaf follows its own key alone, after Orders', () => {
+    expect(visible(holding(STORES, ORDERS, CATALOG))).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.stores',
       'deliverect-stores:menu.orders',
       'deliverect-stores:menu.catalog',
     ])
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageStores: false, canViewOrders: false, canManageTerms: false }))).items)).toEqual([
-      'deliverect-stores:menu.deliverect',
-      'deliverect-stores:menu.catalog',
-    ])
+    expect(visible(holding(CATALOG))).toEqual(['deliverect-stores:menu.deliverect', 'deliverect-stores:menu.catalog'])
   })
 
-  it('482: the Terms leaf follows canManageTerms alone, LAST', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed(ALL))).items)).toEqual([
+  it('482: the Terms leaf follows its own key alone, LAST', () => {
+    expect(visible(holding(STORES, ORDERS, CATALOG, TERMS))).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.stores',
       'deliverect-stores:menu.orders',
       'deliverect-stores:menu.catalog',
       'deliverect-stores:menu.terms',
     ])
-    expect(labels(resolveMenu([deliverect!], each(probed({ canManageStores: false, canViewOrders: false, canManageCatalog: false, canManageTerms: true }))).items)).toEqual([
-      'deliverect-stores:menu.deliverect',
-      'deliverect-stores:menu.terms',
-    ])
+    expect(visible(holding(TERMS))).toEqual(['deliverect-stores:menu.deliverect', 'deliverect-stores:menu.terms'])
   })
 
-  it('🚩 disappears — group and all — without its leaves’ flags, on an error, a malformed answer or while pending', () => {
-    const none = { canManageStores: false, canViewOrders: false, canManageCatalog: false, canManageTerms: false }
-    for (const state of [probed(none), errored, probed({}), probed({ ...none, canManageStores: 'true', canViewOrders: 'true', canManageCatalog: 'true', canManageTerms: 'true' }), pending])
-      expect(resolveMenu([deliverect!], each(state)).items).toEqual([])
+  it('🚩 disappears — group and all — without its keys, on near-miss keys, an error or while pending', () => {
+    for (const p of [
+      holding(),
+      holding('DeliverectStores:02', 'DeliverectOrders:06', 'DeliverectPlatformAdd:03', 'HungerStationStores:03'),
+      permissionsFromQuery({ isPending: false, isError: true, data: undefined }),
+      permissionsFromQuery({ isPending: true, isError: false, data: undefined }),
+    ])
+      expect(resolveMenu([deliverect!], p).items).toEqual([])
   })
 })

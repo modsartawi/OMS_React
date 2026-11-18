@@ -4,7 +4,7 @@ import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { canOpenSyncConsole, syncConsoleAccessQuery } from './api'
+import { canOpenSyncConsole } from './api'
 import { EMPTY_AUDIT_FILTER, auditQuery, auditRangeValid, type AuditFilter } from './control-helpers'
 import AuditFeed from './AuditFeed'
 import ConsoleNav from './ConsoleNav'
@@ -19,7 +19,6 @@ export default function AuditPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('audit.title')}

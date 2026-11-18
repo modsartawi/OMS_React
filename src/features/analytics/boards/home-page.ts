@@ -6,8 +6,9 @@
  * refusal (story 16); the web only caps the lists in case a server sends more. The New buttons are an author's.
  */
 import { NEW_BOARD_PATH, NEW_REPORT_PATH, NEW_VIEW_PATH } from '@/core/analytics-routes'
-import type { AnalyticsAccess, AnalyticsHome, AnalyticsItem, AnalyticsPinState } from '@/core/models/analytics'
-import { canAuthorAnalytics } from './access'
+import type { AnalyticsHome, AnalyticsItem, AnalyticsPinState } from '@/core/models/analytics'
+import { canAuthorAnalytics } from '@/core/analytics-access'
+import type { Permissions } from '@/core/permissions'
 import { readItems } from './wire'
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {})
@@ -50,7 +51,7 @@ export interface HomeNewLink {
 }
 
 /** Home's New buttons: an author's three; a runner (or a probe not yet answered) builds nothing (822). */
-export function homeNewLinks(access: AnalyticsAccess | null | undefined): HomeNewLink[] {
+export function homeNewLinks(access: Permissions): HomeNewLink[] {
   if (!canAuthorAnalytics(access)) return []
   return [
     { key: 'view', to: NEW_VIEW_PATH },

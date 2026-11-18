@@ -9,7 +9,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import type { Campaign } from '@/core/models/data-sync'
-import { actionSyncAccessQuery, actionSyncApi, campaignKey, canOperateActionSync, dataSyncApi } from './api'
+import { actionSyncApi, campaignKey, canOperateActionSync, dataSyncApi } from './api'
+import { usePermissions } from '@/core/permissions'
 import { campaignControlReason, runStoreControl, type StoreControlRun } from './apply-helpers'
 import { RefusalList, StoreList } from './ApplyPanel'
 import { useCanOperateDataSync } from './Controls'
@@ -29,10 +30,10 @@ import { groupDigits } from './helpers'
 export default function HandBackButton({ campaign }: { campaign: Campaign }) {
   const { t } = useTranslation('data-sync')
   const applying = campaign.mode === 'Apply'
-  const access = useQuery({ ...actionSyncAccessQuery(), enabled: applying })
+  const permissions = usePermissions()
   const canOperate = useCanOperateDataSync()
   const [open, setOpen] = useState(false)
-  if (!applying || campaign.status === 'Ready' || !canOperate || !canOperateActionSync(access.data)) return null
+  if (!applying || campaign.status === 'Ready' || !canOperate || !canOperateActionSync(permissions)) return null
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)} data-hand-back="">

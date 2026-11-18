@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { COMMAND_KINDS, COMMAND_STATUSES } from '@/core/models/sync-console'
+import { permissionsOf } from '@/core/permissions'
 import {
   COMMANDS_PAGE_SIZE,
   EMPTY_COMMANDS_FILTER,
@@ -26,8 +27,8 @@ import en from '@/locales/en/sync-console.json'
 const lookup = (key: string): unknown =>
   key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], en)
 
-const operate = { canOperate: true }
-const viewOnly = { canOperate: false }
+const operate = permissionsOf({ screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06'] })
+const viewOnly = permissionsOf({ screens: ['ActionSyncConsole:03'] })
 
 describe('allowedCommands / storeActions', () => {
   it('offers a worker store every command, in the prototype order around its controls', () => {
@@ -60,10 +61,10 @@ describe('allowedCommands / storeActions', () => {
     expect(storeActions({ host: 'Wpf', isPaused: false }, operate)).toEqual(['Move', 'ConnectionTest'])
   })
 
-  it('offers nothing without canOperate, or before the probe has answered', () => {
+  it('offers nothing without ActionSyncConsole:06, or before the answer is in', () => {
     expect(storeActions({ host: 'Worker', isPaused: false }, viewOnly)).toEqual([])
-    expect(storeActions({ host: 'Wpf', isPaused: false }, undefined)).toEqual([])
-    expect(allowedCommands({ host: 'Worker' }, null)).toEqual([])
+    expect(storeActions({ host: 'Wpf', isPaused: false }, permissionsOf(null))).toEqual([])
+    expect(allowedCommands({ host: 'Worker' }, permissionsOf(null))).toEqual([])
   })
 })
 

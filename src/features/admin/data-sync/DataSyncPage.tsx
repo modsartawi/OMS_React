@@ -13,7 +13,7 @@ import Select from '@/core/ui/Select'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { CAMPAIGN_STATUSES, DATA_SYNC_PAGE_SIZE, type Campaign, type CampaignStatus } from '@/core/models/data-sync'
-import { campaignsListQuery, canOpenDataSync, dataSyncAccessQuery, profilesQuery } from './api'
+import { campaignsListQuery, canOpenDataSync, profilesQuery } from './api'
 import { campaignsFilterFromParams, campaignsFilterToParams } from './helpers'
 import { DATA_SYNC_DEFAULT_COL_DEF, buildCampaignColumns } from './campaign-columns'
 import { NewCampaignButton } from './NewCampaignDialog'
@@ -31,7 +31,7 @@ import ServiceBannerView from './ServiceBannerView'
 export default function DataSyncPage() {
   const { t } = useTranslation('data-sync')
   return (
-    <ScreenGate query={dataSyncAccessQuery()} can={canOpenDataSync} ns="data-sync" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenDataSync} ns="data-sync" title={t('title')} subtitle={t('subtitle')}>
       <Campaigns />
     </ScreenGate>
   )

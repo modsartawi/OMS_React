@@ -20,7 +20,8 @@ import {
   needsConfirm,
 } from './export'
 import { downloadCsv } from '@/core/util/download-file'
-import { uaAdminApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { canOpenUaAdmin, uaAdminApi } from './api'
 import GridPager from '@/core/ui/GridPager'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 
@@ -56,11 +57,12 @@ export default function UaAdminUsersPage() {
   // the click immediately rather than on the next render.
   const cancelExport = useRef(false)
 
-  const access = useQuery({ queryKey: ['ua-admin', 'access'], queryFn: () => uaAdminApi.access() })
+  const permissions = usePermissions()
+  const canOpen = canOpenUaAdmin(permissions)
   const counts = useQuery({
     queryKey: ['ua-admin', 'counts'],
     queryFn: () => uaAdminApi.reportCounts(),
-    enabled: access.data?.canOpen === true,
+    enabled: canOpen,
   })
 
   const list = useQuery({
@@ -69,7 +71,7 @@ export default function UaAdminUsersPage() {
       query!.kind === 'search'
         ? uaAdminApi.search(query!.term, query!.page)
         : uaAdminApi.worklist(query!.card, query!.page),
-    enabled: query !== null && access.data?.canOpen === true,
+    enabled: query !== null && canOpen,
     // Keep the previous page's rows on screen while the next loads, so the
     // spinner means FIRST load again and a walk isn't a stutter of blanks.
     placeholderData: keepPreviousData,
@@ -223,7 +225,7 @@ export default function UaAdminUsersPage() {
   }
 
   // ----- access states ------------------------------------------------------
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -231,7 +233,7 @@ export default function UaAdminUsersPage() {
       </div>
     )
   }
-  if (access.data?.canOpen !== true) {
+  if (!canOpen) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
         <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
@@ -19,7 +19,6 @@ import {
   FLEET_KEY,
   PENDING_KEY,
   canOpenSyncConsole,
-  syncConsoleAccessQuery,
   syncConsoleApi,
 } from './api'
 import { pollUntilTerminal } from './command-helpers'
@@ -48,6 +47,8 @@ import { buildPasteColumns, buildResultColumns, type FollowedTests } from './onb
 import ConsoleNav from './ConsoleNav'
 import TabGrid from './TabGrid'
 import { TextField } from './TextField'
+import { usePermissions } from '@/core/permissions'
+import { canOnboardStores } from './access'
 
 /**
  * The New store wizard (spec 444, ticket 449) — `/admin/sync/new-store`. Onboarding
@@ -72,7 +73,6 @@ export default function NewStorePage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('onboard.title')}
@@ -85,11 +85,11 @@ export default function NewStorePage() {
 
 function NewStore() {
   const { t } = useTranslation('sync-console')
-  const access = useQuery(syncConsoleAccessQuery())
+  const permissions = usePermissions()
   const [params] = useSearchParams()
   const routerState = useLocation().state as { description?: unknown } | null
   const finishCode = params.get('code')
-  const start = wizardStart(access.data, finishCode)
+  const start = wizardStart(permissions, finishCode)
   const finishDescription = typeof routerState?.description === 'string' ? routerState.description : ''
 
   return (
@@ -100,7 +100,7 @@ function NewStore() {
         <Wizard
           key={finishCode ?? ''}
           start={start}
-          canOnboard={access.data?.canOnboard === true}
+          canOnboard={canOnboardStores(permissions)}
           finish={start === 'location' && finishCode ? { code: finishCode, description: finishDescription } : null}
         />
       ) : (

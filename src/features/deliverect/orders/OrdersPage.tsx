@@ -10,7 +10,7 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
-import { deliverectAccessQuery, deliverectPlatformsQuery } from '@/core/deliverect/api'
+import { deliverectPlatformsQuery } from '@/core/deliverect/api'
 import { canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectOrderOutcome, DeliverectOrderRow, DeliverectOrdersQuery } from '@/core/models/deliverect'
 import { notify } from '@/core/services/notify'
@@ -55,7 +55,7 @@ import Chip from '@/core/ui/Chip'
 export default function OrdersPage() {
   const { t } = useTranslation('deliverect-orders')
   return (
-    <ScreenGate query={deliverectAccessQuery()} can={canViewOrders} ns="deliverect-orders" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewOrders} ns="deliverect-orders" title={t('title')} subtitle={t('subtitle')}>
       <Orders />
     </ScreenGate>
   )

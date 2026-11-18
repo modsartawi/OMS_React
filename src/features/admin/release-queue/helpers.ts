@@ -1,4 +1,5 @@
-import type { ReleaseQueueAccess, SlotAuditRow, SlotConvergence, SlotOutcomeFilter, SlotQueueEntry } from '@/core/models/release-queue'
+import type { Permissions } from '@/core/permissions'
+import type { SlotAuditRow, SlotConvergence, SlotOutcomeFilter, SlotQueueEntry } from '@/core/models/release-queue'
 import { skipForPage } from '@/core/ui/pager'
 import { formatCount } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
@@ -167,11 +168,11 @@ export function storesInGrantOrder(entries: readonly SlotQueueEntry[]): QueuedSt
 }
 
 /**
- * Whether the page draws its Manage controls (ticket 792): only for `PosRelease.Queue.Manage`, read off the same
- * `Access` probe the gate reads. `=== true`: a missing or malformed answer hides them (each door re-checks anyway).
+ * Whether the page draws its Manage controls (ticket 792): only for `PosRelease.Queue.Manage` (`PosReleaseQueue:06`),
+ * read off the one permissions answer the gate reads (oms 909). No answer hides them (each door re-checks anyway).
  */
-export function showsControls(access: ReleaseQueueAccess | null | undefined): boolean {
-  return access?.canManage === true
+export function showsControls(p: Permissions): boolean {
+  return p.has('PosReleaseQueue:06')
 }
 
 /** How a pool size reads on the page: 0 is **Paused** (no till may start a download), never "0 slots". */

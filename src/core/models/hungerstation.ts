@@ -68,24 +68,6 @@ export const HUNGERSTATION_ERRORS = {
 
 export type HungerStationErrorCode = (typeof HUNGERSTATION_ERRORS)[keyof typeof HUNGERSTATION_ERRORS]
 
-// ── GET HungerStationWeb/Access ──────────────────────────────────────────────────────────────────
-
-/**
- * Exactly the four keys the probe returns. Cookie-gated, not grant-gated. Each flag is one
- * `BackOfficeScreen[…,03]` grant:
- *
- * - `canManageStores` ← `HungerStationStores`: Chains, Stores/*, Sync/*.
- * - `canManageCatalog` ← `HungerStationCatalog`: Materials/*.
- * - `canViewOrders` ← `HungerStationOrders`: Orders/* (Retry included).
- * - `canManagePromotions` ← `HungerStationPromotions` (spec 3201, BackOffice 3211): Promotions/*.
- */
-export interface HungerStationAccessResult {
-  canManageStores: boolean
-  canManageCatalog: boolean
-  canViewOrders: boolean
-  canManagePromotions: boolean
-}
-
 // ── Stores ───────────────────────────────────────────────────────────────────────────────────────
 
 /** `GET HungerStationWeb/Chains` — the configured chain keys, e.g. `["OlaCare", "AlDawaa"]`. */

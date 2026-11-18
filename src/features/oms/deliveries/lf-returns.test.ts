@@ -3,6 +3,7 @@
  * days from `bookedAt` against local wall-clock, the reason each outcome reads as, and the 03 gate.
  */
 import { describe, expect, it } from 'vitest'
+import { permissionsOf } from '@/core/permissions'
 import type { LfReturnNeedingActionRow } from '@/core/models/lf-returns-needing-action'
 import ar from '@/locales/ar/deliveries.json'
 import en from '@/locales/en/deliveries.json'
@@ -94,22 +95,21 @@ describe('each outcome maps to its reason key', () => {
 })
 
 describe('the preset is absent without 03', () => {
-  const list = { canOpenList: true, canOpenDetail: true }
+  const list = ['DocumentList:03', 'DocumentDetails:03']
+  const holding = (...more: string[]) => permissionsOf({ screens: [...list, ...more] })
 
   it('is offered with LocalFulfillmentReturn 03', () => {
-    expect(offersLfReturnsQueue({ ...list, canCreateLocalFulfillmentReturn: true })).toBe(true)
+    expect(offersLfReturnsQueue(holding('LocalFulfillmentReturn:03'))).toBe(true)
   })
 
   it('is absent without 03, whatever else the session holds', () => {
-    expect(offersLfReturnsQueue(list)).toBe(false)
-    expect(offersLfReturnsQueue({ ...list, canCreateLocalFulfillmentReturn: false })).toBe(false)
+    expect(offersLfReturnsQueue(holding())).toBe(false)
     // The bonded return grant is another grant, and 04 counts only beside 03.
-    expect(offersLfReturnsQueue({ ...list, canCreateReturn: true, canForceLocalFulfillmentReturnRefund: true })).toBe(false)
+    expect(offersLfReturnsQueue(holding('OmsCreateReturn:01', 'LocalFulfillmentReturn:04'))).toBe(false)
   })
 
-  it('is absent while the probe is pending or failed', () => {
-    expect(offersLfReturnsQueue(undefined)).toBe(false)
-    expect(offersLfReturnsQueue(null)).toBe(false)
+  it('is absent while the answer is pending or failed', () => {
+    expect(offersLfReturnsQueue(permissionsOf(null))).toBe(false)
   })
 })
 

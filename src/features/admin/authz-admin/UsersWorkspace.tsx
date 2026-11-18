@@ -7,7 +7,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Button from '@/core/ui/Button'
 import Input from '@/core/ui/Input'
 import type { UaEmployeeGridRow } from '@/core/models/ua-user'
-import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
+import type { AuthzRoleLists, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
 import { indexRoles } from './helpers'
 import UserDetailPane from './UserDetailPane'
@@ -20,14 +20,14 @@ type CardKey = 'all' | 'admins' | 'noroles' | 'composite'
 const CARD_KEYS: CardKey[] = ['all', 'admins', 'noroles', 'composite']
 
 interface Props {
-  access: AuthzAccessResult
+  roleLists: AuthzRoleLists
   catalog: RoleCatalogEntry[]
   /** Seed term when arriving via a "jump to person" from the Roles workspace's
    *  Held-by tab — runs the search immediately so the person is already loaded. */
   initialTerm?: string | null
 }
 
-export default function UsersWorkspace({ access, catalog, initialTerm }: Props) {
+export default function UsersWorkspace({ roleLists, catalog, initialTerm }: Props) {
   const { t } = useTranslation('authz-admin')
 
   const seed = initialTerm?.trim() || ''
@@ -260,7 +260,7 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
               key={selected.employeeId}
               employeeId={selected.employeeId}
               displayName={selected.displayName}
-              access={access}
+              roleLists={roleLists}
               catalog={catalog}
               onChanged={() => {
                 /* role reads share the grid's cache keys; invalidation in the pane refreshes them */

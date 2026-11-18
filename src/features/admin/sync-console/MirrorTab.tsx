@@ -19,7 +19,7 @@ import {
   type StoreDetail,
 } from '@/core/models/sync-console'
 import { formatPair, fsi } from '@/core/util/bidi'
-import { AUDIT_KEY, FLEET_KEY, storeKey, storeMirrorQuery, syncConsoleAccessQuery, syncConsoleApi } from './api'
+import { AUDIT_KEY, FLEET_KEY, storeKey, storeMirrorQuery, syncConsoleApi } from './api'
 import {
   SELECTION_CAP,
   controlResultSummary,
@@ -42,6 +42,8 @@ import {
 } from './store-helpers'
 import { buildDeadLetterColumns, buildEntityCountColumns } from './mirror-columns'
 import TabGrid from './TabGrid'
+import { usePermissions } from '@/core/permissions'
+import { canOperateSyncConsole } from './access'
 
 /** A dead letter's row id: the stage and the id together — an inbox id and an outbox id may collide. */
 const deadLetterId = (d: DeadLetter) => `${d.stage}-${d.id}`
@@ -100,8 +102,8 @@ export default function MirrorTab({ row }: { row: StoreDetail }) {
 function MirrorLists({ code }: { code: string }) {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOperate = access.data?.canOperate === true
+  const permissions = usePermissions()
+  const canOperate = canOperateSyncConsole(permissions)
   const [filter, setFilter] = useState<MirrorFilter>(DEFAULT_MIRROR_FILTER)
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState<DeadLetter | null>(null)

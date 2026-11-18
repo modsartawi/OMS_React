@@ -12,9 +12,10 @@ import type {
   OnboardResult,
   StoreLocation,
   SyncCommand,
-  SyncConsoleAccess,
 } from '@/core/models/sync-console'
 import { runVerdict } from './command-helpers'
+import { canOnboardStores, canOperateSyncConsole } from './access'
+import type { Permissions } from '@/core/permissions'
 import { SELECTION_CAP, controlResultSummary, type ResultSummary } from './control-helpers'
 
 // ── The store code ──────────────────────────────────────────────────────────────
@@ -72,11 +73,11 @@ export type WizardMode = 'master' | 'location'
  * without `ActionSync.Operate` (contract, 2542).
  */
 export function wizardStart(
-  access: Pick<SyncConsoleAccess, 'canOperate' | 'canOnboard'> | null | undefined,
+  permissions: Permissions,
   finishCode: string | null,
 ): WizardMode | null {
-  const canOperate = access?.canOperate === true
-  const canOnboard = access?.canOnboard === true
+  const canOperate = canOperateSyncConsole(permissions)
+  const canOnboard = canOnboardStores(permissions)
   if (!canOperate) return null
   if (finishCode) return 'location'
   return canOnboard ? 'master' : 'location'

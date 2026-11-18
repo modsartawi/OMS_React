@@ -9,9 +9,9 @@ import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
 import common from '@/locales/en/common.json'
 import commonAr from '@/locales/ar/common.json'
-import type { AnalyticsAccess, AnalyticsModel } from '@/core/models/analytics'
+import type { AnalyticsModel } from '@/core/models/analytics'
+import { PERMISSIONS_KEY, type PermissionsAnswer } from '@/core/permissions'
 import type { CopilotAnswerTable, CopilotTableColumn } from '@/core/models/copilot'
-import { ANALYTICS_ACCESS_KEY } from './access'
 import { ANALYTICS_MODEL_KEY } from './api'
 import { readFileSync } from 'node:fs'
 import CopilotTableEmbed from './CopilotTableEmbed'
@@ -90,7 +90,13 @@ const unmapped: CopilotAnswerTable = (() => {
   return { ...rest, columns: mapped.columns.slice(0, 3), rows: mapped.rows.map((r) => ({ ...r, values: r.values.slice(0, 3) })) }
 })()
 
-const AUTHOR: AnalyticsAccess = { canView: true, canAuthor: true, canCurate: false }
+/** The one permissions answer (oms 909), seeded under its key as the gate's cached read would be. */
+const answerOf = (...screens: string[]): PermissionsAnswer => ({
+  screens,
+  extras: { fileServerReady: false, notificationCenterOn: false, nphiesContractVersion: '', canManageRoles: false, canManageUsers: false },
+  version: 'test',
+})
+const AUTHOR = answerOf('Analytics:03', 'Analytics:02')
 const EMPTY_MODEL: AnalyticsModel = { areas: [], measures: [], dimensions: [] }
 
 const instance = i18next.createInstance()
@@ -114,7 +120,7 @@ const FELL_BACK = {
 
 function draw(table: CopilotAnswerTable, { lang = 'en', fellBack = false }: { lang?: string; fellBack?: boolean } = {}): string {
   const client = new QueryClient()
-  client.setQueryData(ANALYTICS_ACCESS_KEY, AUTHOR)
+  client.setQueryData(PERMISSIONS_KEY, AUTHOR)
   client.setQueryData(ANALYTICS_MODEL_KEY, EMPTY_MODEL)
   const embed = createElement(MemoryRouter, null, createElement(CopilotTableEmbed, { table, index: 0 }))
   return renderToStaticMarkup(

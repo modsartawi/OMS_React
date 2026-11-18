@@ -1,10 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { AnalyticsBoard, AnalyticsItem, AnalyticsItemDefinition, AnalyticsLabel, AnalyticsReport } from '@/core/models/analytics'
 import { useSession } from '@/core/session'
-import type { AnalyticsAccess } from '@/core/models/analytics'
-import { ANALYTICS_ACCESS_KEY, analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics, needsAuthor, withoutAuthor } from './access'
+import { canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from '@/core/analytics-access'
+import { needsAuthor, useAnalyticsPermissions, refreshAfterLostGrant } from './access'
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsBoardKey, analyticsItemKey, analyticsReportKey } from './api'
 import { itemActions, type ItemActions, type ItemActor } from './item-actions'
 import { saveRefusal, type EditingItem, type SaveRefusal } from './item-save'
@@ -13,8 +13,8 @@ import { analyticsErrorWords } from './wire'
 /** Who is acting, for `itemActions`: the session's user and the probe's grants (the gate's cached answer). */
 export function useItemActor(): ItemActor {
   const userId = useSession((s) => s.userId)
-  const access = useQuery(analyticsAccessQuery())
-  return { userId, canView: canViewAnalytics(access.data), canAuthor: canAuthorAnalytics(access.data), canCurate: canCurateAnalytics(access.data) }
+  const access = useAnalyticsPermissions()
+  return { userId, canView: canViewAnalytics(access), canAuthor: canAuthorAnalytics(access), canCurate: canCurateAnalytics(access) }
 }
 
 /** How a save goes: a new Personal item (775), in place with `baseRevision`, or as my copy (776). */
@@ -84,10 +84,10 @@ export function useItemSave({
       }
       onSaved(item, how)
     },
-    // 822: `ANALYTICS-415` from a stale probe drops the author grant from the cached probe, so the builder's actions
+    // 822: `ANALYTICS-415` from a stale answer asks the one permissions answer again, so the builder's actions
     // hide from then on; the refusal's words are the caller's (`./wire`).
     onError: (err) => {
-      if (needsAuthor(err)) queryClient.setQueryData<AnalyticsAccess>(ANALYTICS_ACCESS_KEY, withoutAuthor)
+      if (needsAuthor(err)) refreshAfterLostGrant(queryClient)
     },
   })
 

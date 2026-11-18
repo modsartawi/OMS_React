@@ -18,7 +18,6 @@ import { notify } from '@/core/services/notify'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { joinDayAndTime } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { materialAccessQuery } from '@/core/materials/api'
 import { canCheckGs1 } from '@/core/materials/access'
 import type { Gs1CheckAnswer } from '@/core/models/materials'
 import { gs1CheckApi } from './api'
@@ -44,14 +43,14 @@ import Input from '@/core/ui/Input'
  * the vendor batch, and whether the unit is sellable, sold or held; keep scanning to build a list
  * of up to 500, open a unit's sale/return history on demand, and export the list.
  *
- * Behind `canCheckGs1` on the ONE Materials probe, the same predicate the menu leaf reads.
+ * Behind `canCheckGs1` on the one permissions answer, the same predicate the menu leaf reads.
  * 🚩 The page never judges a code itself — every verdict is the server's, shown as given. Its
  * doors (`MaterialWeb/Gs1/Check`, `Gs1/History`) are BackOffice 2549.
  */
 export default function Gs1CheckPage() {
   const { t } = useTranslation('materials-gs1-check')
   return (
-    <ScreenGate query={materialAccessQuery()} can={canCheckGs1} ns="materials-gs1-check" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canCheckGs1} ns="materials-gs1-check" title={t('title')} subtitle={t('subtitle')}>
       <Gs1Check />
     </ScreenGate>
   )

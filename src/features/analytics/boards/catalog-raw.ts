@@ -1,6 +1,7 @@
 import { apiErrorCode } from '@/core/api'
-import type { AnalyticsAccess, AnalyticsCatalogMart, AnalyticsRawPreview, AnalyticsRawPreviewRequest, AnalyticsRawValue } from '@/core/models/analytics'
-import { canCurateAnalytics } from './access'
+import type { AnalyticsCatalogMart, AnalyticsRawPreview, AnalyticsRawPreviewRequest, AnalyticsRawValue } from '@/core/models/analytics'
+import { canCurateAnalytics } from '@/core/analytics-access'
+import type { Permissions } from '@/core/permissions'
 import { analyticsRefusal, type AnalyticsRefusal } from './wire'
 
 /**
@@ -22,7 +23,7 @@ export interface RawOffer {
 }
 
 /** What a curator gets on this mart node; `null` = nothing (not a curator, no mart, or its columns unread). */
-export function rawOffer(mart: AnalyticsCatalogMart | null, probe: AnalyticsAccess | null | undefined): RawOffer | null {
+export function rawOffer(mart: AnalyticsCatalogMart | null, probe: Permissions): RawOffer | null {
   if (!mart || !mart.columns || !canCurateAnalytics(probe)) return null
   return {
     rows: mart.rows,

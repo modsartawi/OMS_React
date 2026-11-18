@@ -1,13 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
-
-import { NO_IDF_GRANTS, type IdfGrants } from './access'
-import { idfAccessQuery } from './api'
+import { usePermissions } from '@/core/permissions'
+import { idfGrants, type IdfGrants } from './access'
 
 /**
- * The session's IDF grants (oms ticket 654, `GET IdfPriority/Access`). While the probe is reading, and when it fails,
- * nothing is granted: the write controls stay hidden (fail closed). The doors re-check their grants regardless.
+ * The session's IDF grants (oms ticket 654; oms 909: off the one permissions answer). While it is reading, and when it
+ * fails, nothing is granted: the write controls stay hidden (fail closed). The doors re-check their grants regardless.
  */
 export function useIdfAccess(): IdfGrants {
-  const access = useQuery(idfAccessQuery())
-  return access.data ?? NO_IDF_GRANTS
+  return idfGrants(usePermissions())
 }

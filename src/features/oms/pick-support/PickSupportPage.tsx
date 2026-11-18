@@ -9,8 +9,8 @@ import {
   type PickSupportSerialHold,
 } from '@/core/models/pick-support'
 import { donorHost, hostLabelIn } from '@/core/oms/donor-host'
-import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenPickSupport, canSeePickSupportSerial } from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import { pickSupportApi, pickSupportKeys } from '@/core/pick-support/api'
 import { Code, EnAr, PickSupportFailureBanner, Section, Serial, SerialsRestrictedNote, TD, TH, Val } from '@/core/pick-support/bits'
 import DeliveryDiagnosis from '@/core/pick-support/DeliveryDiagnosis'
@@ -41,7 +41,7 @@ import Field from '@/core/ui/Field'
 export default function PickSupportPage() {
   const { t } = useTranslation('pick-support')
   return (
-    <ScreenGate query={omsAccessQuery()} can={canOpenPickSupport} ns="pick-support" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenPickSupport} ns="pick-support" title={t('title')} subtitle={t('subtitle')}>
       <PickSupportTabs />
     </ScreenGate>
   )
@@ -160,7 +160,7 @@ function SearchTab({ url }: { url: UrlState }) {
   const [draft, setDraft] = useState(query.key)
   const queryClient = useQueryClient()
   // Advisory (ticket 540): words the hint and the holds note only. False while pending or failed.
-  const seesSerials = canSeePickSupportSerial(useQuery(omsAccessQuery()).data)
+  const seesSerials = canSeePickSupportSerial(usePermissions())
 
   // A key arriving from outside (a pasted link, Back) replaces what is typed; an echo of our own
   // write keeps it.

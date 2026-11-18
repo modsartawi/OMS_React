@@ -48,6 +48,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
+import { usePermissions } from '@/core/permissions'
 import type {
   ApplyLocationRequest,
   CustomerAddressBookEntry,
@@ -58,8 +59,8 @@ import type {
 } from '@/core/models/callcenter'
 import {
   addressBookKey,
-  CALLCENTER_ACCESS_KEY,
   callCenterApi,
+  canOpenCallCenter,
   customerRequestsKey,
   newRequestId,
   openKey,
@@ -163,36 +164,21 @@ const ANSWERED_BY_THE_PAGE = ['CONFIRM_TOKEN_STALE', 'CONFIRM_TOKEN_INVALID', 'R
 export default function CallCenterConsolePage() {
   const { t } = useTranslation('callcenter')
 
-  // Both options MATCH the menu probe's on this shared key, and matching is the
-  // point: a mismatched `staleTime` is the real bug ticket 125 hit — the
-  // page-side observer refetched on mount and emptied the nav group under a
-  // working screen. `retry: false` lands a fail-closed grant on the refusal at
-  // once instead of holding "Checking access…" through a retry backoff.
-  const access = useQuery({
-    queryKey: CALLCENTER_ACCESS_KEY,
-    queryFn: () => callCenterApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  })
+  // The grant is read off the one permissions answer the nav leaf reads (oms 909).
+  const permissions = usePermissions()
 
-  if (access.isPending) return <ConsoleStatus message={t('access.checking')} spinner />
+  if (!permissions.settled) return <ConsoleStatus message={t('access.checking')} spinner />
 
-  if (access.data?.canOpenConsole !== true) {
-    // The console is closed either way — the probe fails closed. But WHICH copy
-    // shows matters: an unreachable probe is a server fault, and telling a fully
-    // entitled agent to ask for a grant they already hold sends support chasing
-    // the wrong thing (125's late fix).
-    //
-    // A thrown `CONSOLE_NOT_GRANTED` (§7 — 403 carrying the envelope, so
-    // `kind:'business'`) is a REFUSAL, not a fault: branching on the machine
-    // code rather than on `isError` is what keeps a real denial from reading as
-    // "try again shortly".
-    const unreachable = access.isError && apiErrorCode(access.error) !== 'CONSOLE_NOT_GRANTED'
+  if (!canOpenCallCenter(permissions)) {
+    // The console is closed either way. But WHICH copy shows matters: an unreadable permissions answer is a fault,
+    // and telling a fully entitled agent to ask for a grant they already hold sends support chasing the wrong thing
+    // (125's late fix). An answer without `CallCenter:03` is a refusal.
+    const unreachable = permissions.failed
     return (
       <ConsoleNotice
         marker={unreachable ? 'unavailable' : 'denied'}
         title={t(unreachable ? 'access.unavailableTitle' : 'access.deniedTitle')}
-        body={unreachable ? apiErrorMessage(access.error, t('access.unavailableHint')) : t('access.deniedHint')}
+        body={unreachable ? t('access.unavailableHint') : t('access.deniedHint')}
       />
     )
   }

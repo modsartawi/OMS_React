@@ -1,181 +1,98 @@
 /**
- * The OMS probe's screen flags (spec 430 D2, ticket 431): nine optional flags on the one
- * `SdDocumentWeb/Access` answer, read through one pure reader. An older SIS.Api sends none of
- * them, so an absent flag must read as denied — the leaves stay hidden until the server learns
- * the grant.
+ * The OMS area's grants off the one permissions answer (oms 909, BackOffice spec 4002 row 43): each predicate reads its
+ * own seed key, and the two combinations hold their half-grant cases.
  */
 import { describe, expect, it } from 'vitest'
-import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canChangeDetail, canCreateLocalFulfillmentReturn, canCreateReturn, canForceLocalFulfillmentReturnRefund, canFixPickSupport, canSeePickSupportSerial, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+import { permissionsOf, type Permissions } from '@/core/permissions'
+import {
+  canChangeDetail,
+  canCreateLocalFulfillmentReturn,
+  canCreateReturn,
+  canFixPickSupport,
+  canForceLocalFulfillmentReturnRefund,
+  canImportCities,
+  canImportDistricts,
+  canImportDocumentSourceUsers,
+  canMarkDelivered,
+  canMarkReturnedBack,
+  canOpenDeliveryStatistics,
+  canOpenDetail,
+  canOpenDocumentPayments,
+  canOpenDocumentSourceUsers,
+  canOpenDonorRequests,
+  canOpenFailedTransfers,
+  canOpenGeography,
+  canOpenList,
+  canOpenPickSupport,
+  canReRunFailedTransfer,
+  canSeePickSupportSerial,
+} from './access'
 
-const NINE = [
-  'canOpenDonorRequests',
-  'canOpenDocumentPayments',
-  'canOpenFailedTransfers',
-  'canReRunFailedTransfer',
-  'canOpenGeography',
-  'canImportCities',
-  'canImportDistricts',
-  'canOpenDocumentSourceUsers',
-  'canImportDocumentSourceUsers',
-] as const
-/** The two Pick support flags (ticket 496, brief 2691; BackOffice 2731). */
-const PICK = ['canOpenPickSupport', 'canFixPickSupport'] as const
-/** Pick support's serial grant (ticket 540, BackOffice 2874). */
-const SERIAL = ['canSeePickSupportSerial'] as const
-/** Document Details' two write grants (ticket 521, BackOffice 2763). */
-const DETAIL_WRITES = ['canChangeDetail', 'canCreateReturn'] as const
-const ALL = [...NINE, ...PICK, ...DETAIL_WRITES, ...SERIAL] as const
+const holding = (...screens: string[]) => permissionsOf({ screens })
 
-describe('omsGrants', () => {
-  it('names exactly the nine D2 flags, the two Pick support flags, the two Details write grants and the serial grant', () => {
-    expect([...OMS_SCREEN_FLAGS].sort()).toEqual([...ALL].sort())
+/** Brief row 43: each single-key flag and the key it reads, transcribed from the brief, not the code. */
+const SINGLE: [string, (p: Permissions) => boolean, string][] = [
+  ['canOpenList', canOpenList, 'DocumentList:03'],
+  ['canOpenDetail', canOpenDetail, 'DocumentDetails:03'],
+  ['canChangeDetail', canChangeDetail, 'DocumentDetails:02'],
+  ['canMarkDelivered', canMarkDelivered, 'OmsMarkDelivered:06'],
+  ['canMarkReturnedBack', canMarkReturnedBack, 'OmsReturnBack:06'],
+  ['canOpenFailedTransfers', canOpenFailedTransfers, 'FailedDonorTransfers:03'],
+  ['canReRunFailedTransfer', canReRunFailedTransfer, 'FailedDonorTransfers:06'],
+  ['canOpenDonorRequests', canOpenDonorRequests, 'DonorRequestInquiry:03'],
+  ['canOpenDocumentPayments', canOpenDocumentPayments, 'DocumentPaymentInquiry:03'],
+  ['canImportCities', canImportCities, 'SdCityImport:03'],
+  ['canImportDistricts', canImportDistricts, 'SdDistrictImport:03'],
+  ['canOpenDocumentSourceUsers', canOpenDocumentSourceUsers, 'DocumentSourceUsersInquiry:03'],
+  ['canImportDocumentSourceUsers', canImportDocumentSourceUsers, 'DocumentSourceUsersImport:03'],
+  ['canOpenPickSupport', canOpenPickSupport, 'PickSupport:03'],
+  ['canFixPickSupport', canFixPickSupport, 'PickSupport:06'],
+  ['canSeePickSupportSerial', canSeePickSupportSerial, 'PickSupportSerial:03'],
+  ['canCreateReturn', canCreateReturn, 'OmsCreateReturn:01'],
+  ['canCreateLocalFulfillmentReturn', canCreateLocalFulfillmentReturn, 'LocalFulfillmentReturn:03'],
+  ['canOpenDeliveryStatistics', canOpenDeliveryStatistics, 'DocumentList:03'],
+]
+
+describe('single-key OMS grants', () => {
+  it.each(SINGLE)('%s reads exactly its own key', (_, can, key) => {
+    expect(can(holding(key))).toBe(true)
+    expect(can(holding())).toBe(false)
+    // Every OTHER key of the area does not grant it (same-key aliases aside).
+    const others = SINGLE.map(([, , k]) => k).filter((k) => k !== key)
+    expect(can(holding(...others))).toBe(false)
   })
 
-  it('🚩 an absent flag is false for every D2 flag (an older server)', () => {
-    const grants = omsGrants({ canOpenList: true, canOpenDetail: true })
-    for (const flag of ALL) expect([flag, grants[flag]]).toEqual([flag, false])
-  })
-
-  it.each([null, undefined])('a %s answer grants nothing', (r) => {
-    const grants = omsGrants(r)
-    for (const flag of ALL) expect(grants[flag]).toBe(false)
-  })
-
-  it('each flag reads only its own field, and only an explicit true grants', () => {
-    for (const flag of ALL) {
-      const grants = omsGrants({ canOpenList: false, canOpenDetail: false, [flag]: true })
-      for (const other of ALL) expect([other, grants[other]]).toEqual([other, other === flag])
-    }
-  })
-
-  it('a malformed value is a denial, not a grant', () => {
-    const malformed = { canOpenList: true, canOpenDetail: true, canOpenDonorRequests: 'yes' } as unknown as OmsAccessResult
-    expect(omsGrants(malformed).canOpenDonorRequests).toBe(false)
-  })
-
-  it('canOpenDonorRequests is the reader, for the leaf and the page gate alike', () => {
-    expect(canOpenDonorRequests({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
-    expect(canOpenDonorRequests({ canOpenList: true, canOpenDetail: true })).toBe(false)
-    expect(canOpenDonorRequests(undefined)).toBe(false)
-  })
-
-  it('canOpenDocumentPayments reads only its own flag (ticket 433)', () => {
-    expect(canOpenDocumentPayments({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
-    expect(canOpenDocumentPayments({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
-    expect(canOpenDocumentPayments(null)).toBe(false)
-  })
-
-  it('canOpenFailedTransfers reads only its own flag, not the re-run one (ticket 434)', () => {
-    expect(canOpenFailedTransfers({ canOpenList: false, canOpenDetail: false, canOpenFailedTransfers: true })).toBe(true)
-    expect(canOpenFailedTransfers({ canOpenList: true, canOpenDetail: true, canReRunFailedTransfer: true })).toBe(false)
-    expect(canOpenFailedTransfers(undefined)).toBe(false)
-  })
-
-  it('canOpenGeography reads only its own flag, not the import ones (ticket 436)', () => {
-    expect(canOpenGeography({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
-    expect(canOpenGeography({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
-    expect(canOpenGeography(undefined)).toBe(false)
+  it('an unanswered or failed answer grants nothing', () => {
+    for (const [, can] of SINGLE) expect(can(permissionsOf(null))).toBe(false)
   })
 })
 
-describe('canOpenDeliveryStatistics', () => {
-  it('reads the OMS list grant the door checks, and fails closed on anything else', () => {
-    expect(canOpenDeliveryStatistics({ canOpenList: true, canOpenDetail: false })).toBe(true)
-    expect(canOpenDeliveryStatistics({ canOpenList: false, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
-    expect(canOpenDeliveryStatistics(null)).toBe(false)
-    expect(canOpenDeliveryStatistics(undefined)).toBe(false)
+describe('Cities & districts: either inquiry opens it', () => {
+  it('city alone, district alone, or both', () => {
+    expect(canOpenGeography(holding('SdCityInquiry:03'))).toBe(true)
+    expect(canOpenGeography(holding('SdDistrictInquiry:03'))).toBe(true)
+    expect(canOpenGeography(holding('SdCityInquiry:03', 'SdDistrictInquiry:03'))).toBe(true)
+  })
+
+  it('the import grants alone do not open it', () => {
+    expect(canOpenGeography(holding('SdCityImport:03', 'SdDistrictImport:03'))).toBe(false)
   })
 })
 
-describe('Pick support (ticket 496)', () => {
-  it('canOpenPickSupport grants only on an explicit true', () => {
-    expect(canOpenPickSupport({ canOpenList: false, canOpenDetail: false, canOpenPickSupport: true })).toBe(true)
-    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true })).toBe(false)
-    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: false })).toBe(false)
-    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true, canFixPickSupport: true })).toBe(false)
-    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: 'true' } as unknown as OmsAccessResult)).toBe(false)
-    expect(canOpenPickSupport(null)).toBe(false)
-    expect(canOpenPickSupport(undefined)).toBe(false)
+describe('LF force refund: 04 only beside 03', () => {
+  it('half grant: 04 without 03 grants neither', () => {
+    const only04 = holding('LocalFulfillmentReturn:04')
+    expect(canForceLocalFulfillmentReturnRefund(only04)).toBe(false)
+    expect(canCreateLocalFulfillmentReturn(only04)).toBe(false)
   })
 
-  it('canFixPickSupport grants only on an explicit true, and reads only its own flag', () => {
-    expect(canFixPickSupport({ canOpenList: false, canOpenDetail: false, canFixPickSupport: true })).toBe(true)
-    expect(canFixPickSupport({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true })).toBe(false)
-    expect(canFixPickSupport({ canOpenList: true, canOpenDetail: true, canFixPickSupport: 1 } as unknown as OmsAccessResult)).toBe(false)
-    expect(canFixPickSupport(null)).toBe(false)
-    expect(canFixPickSupport(undefined)).toBe(false)
-  })
-})
-
-describe('Document Details write grants (ticket 521, BackOffice 2763)', () => {
-  it('an older SIS.Api (both fields absent) reads as denied, even with canOpenDetail', () => {
-    const older = { canOpenList: true, canOpenDetail: true }
-    expect(canChangeDetail(older)).toBe(false)
-    expect(canCreateReturn(older)).toBe(false)
+  it('03 alone creates but never forces; both force', () => {
+    expect(canForceLocalFulfillmentReturnRefund(holding('LocalFulfillmentReturn:03'))).toBe(false)
+    expect(canForceLocalFulfillmentReturnRefund(holding('LocalFulfillmentReturn:03', 'LocalFulfillmentReturn:04'))).toBe(true)
   })
 
-  it('change does not imply return, and return does not imply change', () => {
-    expect(canCreateReturn({ canOpenList: true, canOpenDetail: true, canChangeDetail: true })).toBe(false)
-    expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canCreateReturn: true })).toBe(false)
-  })
-
-  it('only an explicit true grants', () => {
-    expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canChangeDetail: true })).toBe(true)
-    expect(canCreateReturn({ canOpenList: true, canOpenDetail: true, canCreateReturn: true })).toBe(true)
-    expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canChangeDetail: 1 } as unknown as OmsAccessResult)).toBe(false)
-  })
-})
-
-describe('Pick support serial grant (ticket 540, BackOffice 2874)', () => {
-  it('omsGrants reads canSeePickSupportSerial false when absent, false, or the probe is pending/failed', () => {
-    // An older SIS.Api leaves it out.
-    expect(omsGrants({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true }).canSeePickSupportSerial).toBe(false)
-    expect(omsGrants({ canOpenList: true, canOpenDetail: true, canSeePickSupportSerial: false }).canSeePickSupportSerial).toBe(false)
-    // Pending or failed: the query has no data.
-    expect(omsGrants(undefined).canSeePickSupportSerial).toBe(false)
-    expect(omsGrants(null).canSeePickSupportSerial).toBe(false)
-    expect(canSeePickSupportSerial(undefined)).toBe(false)
-    expect(canSeePickSupportSerial({ canOpenList: true, canOpenDetail: true, canSeePickSupportSerial: 'true' } as unknown as OmsAccessResult)).toBe(false)
-    expect(canSeePickSupportSerial({ canOpenList: false, canOpenDetail: false, canSeePickSupportSerial: true })).toBe(true)
-  })
-
-  it('neither Pick support grant implies the serial one', () => {
-    expect(canSeePickSupportSerial({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, canFixPickSupport: true })).toBe(false)
-  })
-})
-
-describe('Local fulfillment return grants (ticket 760, BackOffice 3369 D14 / 3376)', () => {
-  const BASE = { canOpenList: true, canOpenDetail: true }
-
-  it('omsGrants reads both LF flags strictly — absent, null, "true" all deny', () => {
-    for (const value of [undefined, null, 'true', 1, false]) {
-      const r = { ...BASE, canCreateLocalFulfillmentReturn: value, canForceLocalFulfillmentReturnRefund: value } as unknown as OmsAccessResult
-      const grants = omsGrants(r)
-      expect([value, grants.canCreateLocalFulfillmentReturn]).toEqual([value, false])
-      expect([value, grants.canForceLocalFulfillmentReturnRefund]).toEqual([value, false])
-    }
-    expect(omsGrants(null).canCreateLocalFulfillmentReturn).toBe(false)
-    expect(omsGrants(undefined).canForceLocalFulfillmentReturnRefund).toBe(false)
-    expect(omsGrants({ ...BASE, canCreateLocalFulfillmentReturn: true }).canCreateLocalFulfillmentReturn).toBe(true)
-  })
-
-  it('04 without 03 grants nothing', () => {
-    const only04 = omsGrants({ ...BASE, canForceLocalFulfillmentReturnRefund: true })
-    expect(only04.canForceLocalFulfillmentReturnRefund).toBe(false)
-    expect(only04.canCreateLocalFulfillmentReturn).toBe(false)
-    const both = omsGrants({ ...BASE, canCreateLocalFulfillmentReturn: true, canForceLocalFulfillmentReturnRefund: true })
-    expect(both.canForceLocalFulfillmentReturnRefund).toBe(true)
-    expect(both.canCreateLocalFulfillmentReturn).toBe(true)
-    // 03 alone never implies 04.
-    expect(omsGrants({ ...BASE, canCreateLocalFulfillmentReturn: true }).canForceLocalFulfillmentReturnRefund).toBe(false)
-  })
-
-  it('neither bonded grant implies an LF one, and an LF grant implies no bonded one', () => {
-    expect(omsGrants({ ...BASE, canCreateReturn: true, canChangeDetail: true }).canCreateLocalFulfillmentReturn).toBe(false)
-    expect(canCreateLocalFulfillmentReturn({ ...BASE, canCreateReturn: true })).toBe(false)
-    expect(canCreateReturn({ ...BASE, canCreateLocalFulfillmentReturn: true })).toBe(false)
-    expect(canCreateLocalFulfillmentReturn({ ...BASE, canCreateLocalFulfillmentReturn: true })).toBe(true)
-    expect(canForceLocalFulfillmentReturnRefund({ ...BASE, canForceLocalFulfillmentReturnRefund: true })).toBe(false)
+  it('neither bonded grant implies an LF one', () => {
+    expect(canCreateLocalFulfillmentReturn(holding('OmsCreateReturn:01', 'DocumentDetails:02'))).toBe(false)
+    expect(canCreateReturn(holding('LocalFulfillmentReturn:03'))).toBe(false)
   })
 })

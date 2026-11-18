@@ -18,7 +18,7 @@ import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pag
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { canOpenSapExport, sapExportAccessQuery } from './access'
+import { canOpenSapExport } from './access'
 import { fleetStoresQuery, fleetSummaryQuery } from './api'
 import { FLEET_DEFAULT_COL_DEF, buildFleetColumns } from './fleet-columns'
 import { STALE_AFTER_MINUTES, fleetErrorKey, fleetTiles, type FleetTile } from './fleet-helpers'
@@ -55,7 +55,7 @@ import Select from '@/core/ui/Select'
 export default function SapExportPage() {
   const { t } = useTranslation('sap-export-console')
   return (
-    <ScreenGate query={sapExportAccessQuery()} can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
       <Fleet />
     </ScreenGate>
   )

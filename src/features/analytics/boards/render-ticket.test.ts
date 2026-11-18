@@ -1,8 +1,8 @@
 /**
  * Ticket 835 (ADR 0125, amended): a scheduled report's PDF is headless Chromium printing the web's print route with a
  * render ticket in its URL — no session. Under a ticket the page reads the four ticket doors, the ticket in the
- * `X-Analytics-Render-Ticket` header and never in a door's query string, and asks no session door (the access probe
- * would answer 401 and send the renderer to the login page). The network is stubbed at the `@/core/api` boundary.
+ * `X-Analytics-Render-Ticket` header and never in a door's query string, and asks no session door (the permissions
+ * answer would answer 401 and send the renderer to the login page). The network is stubbed at the `@/core/api` boundary.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,7 +10,7 @@ const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: 
 vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/core/api')>()), api }))
 
 const { analyticsApi } = await import('./api')
-const { analyticsAccessQuery } = await import('./access')
+const { RENDER_TICKET_PERMISSIONS } = await import('./access')
 const { RENDER_TICKET_HEADER, renderTicket, setRenderTicket, ticketOf } = await import('./render-ticket')
 
 const REPORT = { id: 'r1', kind: 'report', revision: 3, title: { en: 'Daily', ar: 'يومي' }, definition: { params: [], bindings: {}, sections: [] } }
@@ -57,9 +57,9 @@ describe('under a render ticket, the print page reads the four ticket doors with
     expect(api.post).toHaveBeenCalledWith('Analytics/Render/Report/r1/Words', { lang: 'ar' }, undefined, headers)
   })
 
-  it('asks no session door: the access probe answers a runner without a call', async () => {
-    const access = await analyticsAccessQuery().queryFn()
-    expect(access).toMatchObject({ canView: true, canAuthor: false, canCurate: false })
+  it('asks no session door: the permissions read is a runner’s without a call', () => {
+    expect(RENDER_TICKET_PERMISSIONS.has('Analytics:03')).toBe(true)
+    expect(RENDER_TICKET_PERMISSIONS.has('Analytics:02')).toBe(false)
     expect(api.get).not.toHaveBeenCalled()
   })
 })

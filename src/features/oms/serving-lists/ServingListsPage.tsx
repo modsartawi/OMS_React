@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 import '@/core/ag-grid-setup'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { ServingListRow } from '@/core/models/serving-list'
-import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import { canViewServingLists } from '@/core/serving-list/access'
 import { servingListHref } from '@/core/serving-list/view'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -24,12 +24,12 @@ import { DeniedCard } from './StateCards'
  * members (enabled of all) and the delivery types pointing at it, read-only. A row opens the list's detail
  * (`/oms/serving-lists/:id`, ticket 568). Pointing a type at a list is an HQ script, and there is no delete.
  *
- * Behind `canViewServingLists` on `GET ServingListWeb/Access` — the menu leaf reads the same predicate.
+ * Behind `canViewServingLists` on the one permissions answer — the menu leaf reads the same predicate.
  */
 export default function ServingListsPage() {
   const { t } = useTranslation('serving-lists')
   return (
-    <ScreenGate query={servingListAccessQuery()} can={canViewServingLists} ns="serving-lists" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewServingLists} ns="serving-lists" title={t('title')} subtitle={t('subtitle')}>
       <div className="mb-2 flex justify-end" data-lists-toolbar="">
         <NewListButton />
       </div>

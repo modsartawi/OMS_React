@@ -19,7 +19,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { canOpenDispatchScorecard, dispatchScorecardAccessQuery } from './access'
+import { canOpenDispatchScorecard } from './access'
 import { dispatchScorecardApi } from './api'
 import { staffColumns, storeColumns, type OpenDrill } from './columns'
 import DrillDrawer, { type DrillTarget } from './DrillDrawer'
@@ -43,7 +43,7 @@ import Chip from '@/core/ui/Chip'
  * B as the drill target). HQ ranks stores, and staff on their own actions, over a range; drills any
  * ranked figure (and lost races) to the bids behind it; and opens a store's report card.
  *
- * Behind `canOpenDispatchScorecard` on its own probe (`DispatchScorecard/Access`), the same predicate the
+ * Behind `canOpenDispatchScorecard` on its own key of the one permissions answer (oms 909), the same predicate the
  * menu leaf reads, failing closed. The Staff tab sits behind the same grant (2950 point 6).
  *
  * 🚩 The figures, ranks and medians are the door's; the grid only sorts what it was sent. Best and worst
@@ -53,7 +53,6 @@ export default function DispatchScorecardPage() {
   const { t } = useTranslation('dispatch-scorecard')
   return (
     <ScreenGate
-      query={dispatchScorecardAccessQuery()}
       can={canOpenDispatchScorecard}
       ns="dispatch-scorecard"
       title={t('title')}

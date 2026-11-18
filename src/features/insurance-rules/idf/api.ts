@@ -7,7 +7,7 @@
  * 628 reconciled every door with the brief's `## Changes` (the doors as 3161–3169 built them; the payer key is the
  * insurer's customer id, `insurerCustomerId`). `tools/idf-stubs.mjs` mirrors those shapes for the drives. The reads are
  * UNGATED like the rest of the group: a session without the IDF view grant is answered a bare 403 and each page says
- * "no access". 654: the 3185 writes are gated on `GET IdfPriority/Access` (`idfAccessQuery`, fail closed).
+ * "no access". 654: the 3185 writes show on the IDF grants (`./access`, off the one permissions answer since oms 909).
  *
  * ⚠️ To keep parallel slices merge-clean: add your doors and query factories under YOUR ticket's slot comment only
  * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
@@ -35,7 +35,6 @@ import type { IdfChangesPage } from './changes' // 650
 import { changesDoorParams, changesExportParams, type IdfChangesQuery } from './changes-filter' // 650
 import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
 import type { IdfGeneralApplyResult, IdfGeneralUploadReport } from './general-upload' // 649
-import { idfGrants, type IdfGrants } from './access' // 654
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -54,17 +53,7 @@ export function mastersQuery() {
   return { queryKey: IDF_MASTERS_KEY, queryFn: () => idfApi.masters(), retry: false } as const
 }
 
-// 654 · the grant probe — `GET IdfPriority/Access` (3191): `{ canViewIdf, canEditIdf, canEditGeneral }`, cookie-only, never
-// grant-gated. Fails closed: an absent, malformed or failed answer is no grant (`useIdfAccess` reads a pending one so).
-export const IDF_ACCESS_KEY = [...IDF_KEY, 'access'] as const
-export const idfAccessApi = {
-  async access(): Promise<IdfGrants> {
-    return idfGrants(await api.get<Partial<IdfGrants> | null>(`${IDF_BASE}/Access`))
-  },
-}
-export function idfAccessQuery() {
-  return { queryKey: IDF_ACCESS_KEY, queryFn: () => idfAccessApi.access(), retry: false, staleTime: 5 * 60_000 } as const
-}
+// 654 · the grants moved to the one permissions answer (oms 909) — see `./access`.
 
 // 620 · store lists — `idfStoreListsApi` (3162)
 export const IDF_STORE_LISTS_KEY = [...IDF_KEY, 'store-lists'] as const

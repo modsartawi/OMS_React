@@ -13,7 +13,7 @@ import type { Severity } from '@/core/ui/severity'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { PASS_KINDS, type FleetPass, type PassKind, type RecentPassesSummary, type SyncLoop } from '@/core/models/sync-console'
 import { formatDateTime } from '@/core/util/date-format'
-import { canOpenSyncConsole, recentPassesQueryOptions, syncConsoleAccessQuery } from './api'
+import { canOpenSyncConsole, recentPassesQueryOptions } from './api'
 import { figure } from './helpers'
 import {
   DEFAULT_RECENT_PASSES_FILTER,
@@ -44,7 +44,6 @@ export default function RecentPassesPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('recentPasses.title')}

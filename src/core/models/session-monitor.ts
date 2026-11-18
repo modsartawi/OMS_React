@@ -6,11 +6,6 @@
 // search-first, 50-capped live-session list (ActiveSessionRow + its wrapper).
 // Ticket 009 adds the server-computed chip counts (SessionCountsResult).
 
-/** GET UaAdminWeb/Sessions/Access — the screen-open grant probe (show/hide only). */
-export interface SessionAccessResult {
-  canOpen: boolean
-}
-
 /**
  * One live-session grid row (ActiveSessionRow) = the existing `ActiveSessionModel`
  * fields PLUS `displayName` (joined from UaEmployee, as SearchEmployees does). A

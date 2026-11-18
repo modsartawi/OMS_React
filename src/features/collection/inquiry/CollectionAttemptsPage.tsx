@@ -14,7 +14,6 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenAttempts, collectionApi } from './api'
 import { buildAttemptsColumns, buildAttemptsDefaultColDef } from './attempts-columns'
 import {
@@ -52,7 +51,6 @@ export default function CollectionAttemptsPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenAttempts}
       ns="collection"
       title={t('attempts.title')}

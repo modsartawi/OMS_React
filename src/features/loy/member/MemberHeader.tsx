@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import type { LoyMember } from '@/core/models/loy'
-import { canViewLoyGroups, loyGroupsAccessQuery, loyGroupsQuery } from '@/core/loy-groups/api'
+import { canViewLoyGroups, loyGroupsQuery } from '@/core/loy-groups/api'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { formatShortDate } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
 import { memberBirthDate, memberChips, type MemberChip } from './member-header'
 import { memberGroups } from './member-groups'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The member header (ticket 235, drawn by [227's prototype], variant B).
@@ -45,8 +46,8 @@ export default function MemberHeader({ member }: { member: LoyMember }) {
   // Loyalty groups (ticket 635). The probe is the one shared cache entry the menu leaf reads, so this
   // costs no extra call once the shell has asked. The list is read only when there is something to
   // name, and with inactive groups too, so a code is named whenever the server knows it.
-  const groupsAccess = useQuery(loyGroupsAccessQuery())
-  const canViewGroups = canViewLoyGroups(groupsAccess.data)
+  const permissions = usePermissions()
+  const canViewGroups = canViewLoyGroups(permissions)
   const groupList = useQuery({
     ...loyGroupsQuery(true),
     enabled: canViewGroups && Array.isArray(member.groups) && member.groups.length > 0,

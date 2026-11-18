@@ -1,129 +1,52 @@
 /**
- * The settlement account's predicate — the fifth grant on the Collections probe
- * (spec 267 D1, ticket 268).
+ * The settlement account's predicates (spec 267 D1, tickets 268 and 309), over the one permissions answer since oms
+ * 909 (BackOffice spec 4002): `SettlementAccount:03` opens the screen, `SettlementSupervision:03` draws the
+ * supervisor's acts. Keys from the brief's mapping table (row 30).
  *
- * Two rules, and they are this slice's whole Proof rather than its plumbing:
- *
- * - **Only an explicit grant admits.** A refusal, a projection that dropped the
- *   flag, a door answering a shape nobody agreed to — all denials.
- * - 🚩 **A four-boolean answer is one of those shapes, and it is the one the LIVE
- *   door returns today.** `CollectionWeb/Access` does not carry
- *   `canOpenSettlement` yet (BackOffice spec 1173; ticket 274 joins the waves), so
- *   the case below where the field is simply absent is not a hypothetical — it is
- *   production, and it must read as a denial rather than as an oversight that
- *   someone later "fixes" with a `?? true`.
- *
- * What the nav does with each answer is pinned next door, in
- * `src/layout/menu-collection.test.ts`, where a feature's menu entry can be read
- * without a feature importing `layout`.
+ * What the nav does with each answer is pinned in `src/layout/menu-collection.test.ts`.
  */
 import { describe, expect, it } from 'vitest'
-import type { CollectionAccessResult } from '@/core/models/collection'
+import { permissionsOf, type ScreenKey } from '@/core/permissions'
 import { canOpenSettlement, canSuperviseSettlement } from './api'
 
-const NONE: CollectionAccessResult = {
-  canOpenCollections: false,
-  canOpenAcrs: false,
-  canOpenDeposits: false,
-  canOpenAttempts: false,
-  canOpenSettlement: false,
-  canSuperviseSettlement: false,
-  // Ready for collection (317) — a read grant of the OTHER feature, here only so the
-  // fixture is the whole shape the door returns.
-  canOpenReady: false,
-}
+const holding = (...screens: ScreenKey[]) => permissionsOf({ screens })
 
 describe('the settlement account predicate', () => {
-  it('admits its own granted flag and denies its own refusal', () => {
-    expect(canOpenSettlement({ ...NONE, canOpenSettlement: true })).toBe(true)
-    expect(canOpenSettlement(NONE)).toBe(false)
+  it('admits its own key and denies without it', () => {
+    expect(canOpenSettlement(holding('SettlementAccount:03'))).toBe(true)
+    expect(canOpenSettlement(holding())).toBe(false)
   })
 
-  it('🚩 reads ONLY its own flag — the four inquiry grants never admit it', () => {
-    for (const flag of [
-      'canOpenCollections',
-      'canOpenAcrs',
-      'canOpenDeposits',
-      'canOpenAttempts',
-    ] as const) {
-      expect(canOpenSettlement({ ...NONE, [flag]: true })).toBe(false)
-    }
-    // …nor all four together. An accountant holding every inquiry grant still
-    // needs the settlement grant to post money onto a branch.
-    expect(
-      canOpenSettlement({
-        canOpenCollections: true,
-        canOpenAcrs: true,
-        canOpenDeposits: true,
-        canOpenAttempts: true,
-        canOpenSettlement: false,
-        canSuperviseSettlement: false,
-        canOpenReady: true,
-      }),
-    ).toBe(false)
+  it('🚩 the four inquiry grants never admit it, alone or together', () => {
+    const inquiries = ['CollectionInquiry:03', 'AcrInquiry:03', 'DepositInquiry:03', 'CollectionAttempts:03'] as const
+    for (const key of inquiries) expect(canOpenSettlement(holding(key))).toBe(false)
+    expect(canOpenSettlement(holding(...inquiries, 'CollectionReady:03'))).toBe(false)
   })
 
-  it('🚩 denies the FOUR-boolean answer the live door returns today', () => {
-    // The fifth flag absent entirely — every real probe until BackOffice 1173
-    // ships it. `=== true` is what makes this a denial instead of `undefined`
-    // leaking through a looser check.
-    const fourFlags = {
-      canOpenCollections: true,
-      canOpenAcrs: true,
-      canOpenDeposits: true,
-      canOpenAttempts: true,
-    } as unknown as CollectionAccessResult
-    expect(canOpenSettlement(fourFlags)).toBe(false)
-  })
-
-  it('🚩 denies a MALFORMED answer rather than reading it loosely', () => {
-    const malformed = [
-      {},
-      { canOpenSettlement: 'true' },
-      { canOpenSettlement: 1 },
-      { canOpenSettlement: null },
-      // The shape a single-grant door would answer — not this contract.
-      { canOpen: true },
-    ] as unknown as CollectionAccessResult[]
-    for (const answer of malformed) expect(canOpenSettlement(answer)).toBe(false)
-    // An absent answer is the shape the signature admits, so it needs no cast: a
-    // probe can resolve to nothing at all and that is still a denial.
-    expect(canOpenSettlement(null)).toBe(false)
-    expect(canOpenSettlement(undefined)).toBe(false)
+  it('🚩 a failed answer grants nothing', () => {
+    expect(canOpenSettlement(permissionsOf(null))).toBe(false)
   })
 })
 
 /**
- * Ticket 309 — **settlement supervision**, a power on the screen rather than a screen
- * (BackOffice 1977). It decides whether Approve and Reject are drawn, and nothing
- * else: the doors answer a bare 403 without the grant whatever this says.
+ * Ticket 309 — **settlement supervision**, a power on the screen rather than a screen (BackOffice 1977). It decides
+ * whether Approve and Reject are drawn, and nothing else: the doors answer a bare 403 without the grant.
  */
 describe('the settlement supervision predicate', () => {
-  it('admits its own granted flag and denies its own refusal', () => {
-    expect(canSuperviseSettlement({ ...NONE, canSuperviseSettlement: true })).toBe(true)
-    expect(canSuperviseSettlement(NONE)).toBe(false)
+  it('admits its own key and denies without it', () => {
+    expect(canSuperviseSettlement(holding('SettlementSupervision:03'))).toBe(true)
+    expect(canSuperviseSettlement(holding())).toBe(false)
   })
 
   it('🚩 the SCREEN grant does not imply the power — an accountant is not a supervisor', () => {
-    expect(canSuperviseSettlement({ ...NONE, canOpenSettlement: true })).toBe(false)
+    expect(canSuperviseSettlement(holding('SettlementAccount:03'))).toBe(false)
   })
 
   it('…and the power does not open the screen — reaching it is still the screen grant', () => {
-    expect(canOpenSettlement({ ...NONE, canSuperviseSettlement: true })).toBe(false)
+    expect(canOpenSettlement(holding('SettlementSupervision:03'))).toBe(false)
   })
 
-  it('🚩 denies a door that does not send the flag yet, and any malformed answer', () => {
-    const withoutIt = { ...NONE, canOpenSettlement: true } as Partial<CollectionAccessResult>
-    delete withoutIt.canSuperviseSettlement
-    expect(canSuperviseSettlement(withoutIt as CollectionAccessResult)).toBe(false)
-    const malformed = [
-      { canSuperviseSettlement: 'true' },
-      { canSuperviseSettlement: 1 },
-      { canSuperviseSettlement: null },
-      {},
-    ] as unknown as CollectionAccessResult[]
-    for (const answer of malformed) expect(canSuperviseSettlement(answer)).toBe(false)
-    expect(canSuperviseSettlement(null)).toBe(false)
-    expect(canSuperviseSettlement(undefined)).toBe(false)
+  it('🚩 a failed answer grants nothing', () => {
+    expect(canSuperviseSettlement(permissionsOf(null))).toBe(false)
   })
 })

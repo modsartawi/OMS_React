@@ -12,7 +12,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair } from '@/core/util/bidi'
-import { analyticsAccessQuery, canCurateAnalytics, canViewAnalytics } from './access'
+import { canCurateAnalytics, canViewAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { homeNewLinks, homeSections, type HomeNewLink, type HomeSection } from './home-page'
@@ -34,7 +35,7 @@ import { analyticsRefusal, refusalWords } from './wire'
 export default function AnalyticsHomePage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('home.title')} subtitle={t('home.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('home.title')} subtitle={t('home.subtitle')}>
       <HomeBody />
     </ScreenGate>
   )
@@ -45,9 +46,9 @@ const NEW_LABEL: Record<HomeNewLink['key'], string> = { view: 'editor.newView', 
 
 function HomeBody() {
   const { t } = useTranslation('boards')
-  const access = useQuery(analyticsAccessQuery())
+  const access = useAnalyticsPermissions()
   const home = useQuery(analyticsHomeQuery())
-  const links = homeNewLinks(access.data)
+  const links = homeNewLinks(access)
 
   let body
   if (home.error) {
@@ -80,7 +81,7 @@ function HomeBody() {
           {t('home.sections.allItems')}
         </Link>
       </div>
-      {canCurateAnalytics(access.data) && <AnalyticsStatus />}
+      {canCurateAnalytics(access) && <AnalyticsStatus />}
       {body}
     </div>
   )

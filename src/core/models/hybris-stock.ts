@@ -56,13 +56,7 @@ export const MATERIAL_NUMBER = /^[A-Za-z0-9._-]{1,30}$/
 /** The materials push-now door's selection limits (HYS-00033). */
 export const PUSH_LIMITS = { stores: 200, materials: 1000 } as const
 
-// ── Access and status ────────────────────────────────────────────────────────────────────────────
-
-/** `GET HybrisStockWeb/Access` — exactly these two keys. Manage implies view (by role). */
-export interface HybrisStockAccessResult {
-  canView: boolean
-  canManage: boolean
-}
+// ── Status ────────────────────────────────────────────────────────────────────────────
 
 /** Off (the feature flag), shadow (a path Hybris does not import) or live. */
 export type HybrisStockMode = 'off' | 'shadow' | 'live'

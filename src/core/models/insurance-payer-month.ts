@@ -6,11 +6,6 @@
  * Every `DateTime` is the server's LOCAL wall clock, and an unset one is the .NET default `0001-01-01`.
  */
 
-/** `GET InsurancePayerMonthWeb/Access` — cookie only, never grant-gated: it reports the one grant. */
-export interface InsurancePayerMonthAccess {
-  canManage: boolean
-}
-
 /** One payer-month as the screen lists it (`PayerMonthRowResponse`). */
 export interface PayerMonthRow {
   customerId: string

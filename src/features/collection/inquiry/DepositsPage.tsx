@@ -20,7 +20,6 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { assignmentOptionsQuery, canOpenDeposits, collectionApi } from './api'
 import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
@@ -72,7 +71,6 @@ export default function DepositsPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenDeposits}
       ns="collection"
       title={t('deposits.title')}

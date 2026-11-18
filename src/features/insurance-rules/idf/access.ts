@@ -1,26 +1,26 @@
 /**
- * The IDF screens' grant probe, pure (BackOffice 3191; oms ticket 654). `GET IdfPriority/Access` — cookie-only and NOT
- * grant-gated — answers `{ canViewIdf, canEditIdf, canEditGeneral }`: the IDF view grant (Display), the master edit
- * grant (Execute: a master's draft) and the general edit grant (07: the general master and the IDF groups). The doors
- * re-check their grants regardless; the probe only decides which write controls show. Reads, exports and templates
- * stay on the view grant and are never hidden by it.
+ * The IDF screens' grants, pure (BackOffice 3191; oms ticket 654; oms 909: off the one permissions answer). The IDF
+ * view grant (`IdfPriority:03`, Display), the master edit grant (`IdfPriority:06`, Execute: a master's draft) and the
+ * general edit grant (`IdfPriority:07`: the general master and the IDF groups). The doors re-check their grants
+ * regardless; these only decide which write controls show. Reads, exports and templates stay on the view grant and
+ * are never hidden by it.
  */
+import type { Permissions } from '@/core/permissions'
 import type { IdfDraftPanelState } from './draft'
 
-export const IDF_ACCESS_FLAGS = ['canViewIdf', 'canEditIdf', 'canEditGeneral'] as const
-export type IdfAccessFlag = (typeof IDF_ACCESS_FLAGS)[number]
-export type IdfGrants = Record<IdfAccessFlag, boolean>
+export const canViewIdf = (p: Permissions): boolean => p.has('IdfPriority:03')
+export const canEditIdf = (p: Permissions): boolean => p.has('IdfPriority:06')
+export const canEditGeneral = (p: Permissions): boolean => p.has('IdfPriority:07')
 
-/** No grant at all: the probe still reading, failed, or answered nothing. */
-export const NO_IDF_GRANTS: IdfGrants = { canViewIdf: false, canEditIdf: false, canEditGeneral: false }
+export interface IdfGrants {
+  canViewIdf: boolean
+  canEditIdf: boolean
+  canEditGeneral: boolean
+}
 
-/**
- * Every flag as a plain boolean. Only an explicit `true` grants: an absent flag, a missing answer or a malformed value
- * (`"true"`, `1`, an array from a stub that never heard of the door) all read as `false` — the probe fails closed.
- */
-export function idfGrants(r: Partial<Record<IdfAccessFlag, unknown>> | null | undefined): IdfGrants {
-  const record = (typeof r === 'object' && r !== null && !Array.isArray(r) ? r : {}) as Partial<Record<IdfAccessFlag, unknown>>
-  return Object.fromEntries(IDF_ACCESS_FLAGS.map((flag) => [flag, record[flag] === true])) as IdfGrants
+/** Every grant as a plain boolean. Pending, failed or unanswered permissions grant nothing (fail closed). */
+export function idfGrants(p: Permissions): IdfGrants {
+  return { canViewIdf: canViewIdf(p), canEditIdf: canEditIdf(p), canEditGeneral: canEditGeneral(p) }
 }
 
 /** The draft panel's controls. `edit` = Add an item, Add a group, a row's Re-rank and Remove. */

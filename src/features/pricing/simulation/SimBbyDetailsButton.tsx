@@ -18,8 +18,8 @@ import { ChevronRight } from 'lucide-react'
  * control sits under the answer rather than competing with it.
  *
  * **It is rendered only where a caller passes `onOpen`.** The gate is the caller's
- * (`probed && screenAllowed` — see `SimulationPage`), not this component's: an unknown
- * grant must mean ABSENT here, and the cheapest way to guarantee that is for the
+ * (`canOpenBbyInquiry` — see `SimulationPage`), not this component's: a pending or
+ * refused grant must mean ABSENT here, and the cheapest way to guarantee that is for the
  * ungranted case to have no callback to render against.
  */
 export default function SimBbyDetailsButton({

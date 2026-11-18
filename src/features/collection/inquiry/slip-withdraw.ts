@@ -10,25 +10,22 @@
  * and nothing here can undo one. There is no collection cutoff either (C3): a
  * collected Collections row withdraws as readily as a Ready row.
  */
-import { holdsCategory } from '@/core/attachments/rules'
+import { canWithdrawAttachment } from '@/core/attachments/access'
 import type { WithdrawReason, WithdrawReasonRule } from '@/core/attachments/withdraw'
-import type { AttachmentAccess } from '@/core/models/collection'
+import type { Permissions } from '@/core/permissions'
 import { CASH_CLOSE, canSeeSlips } from './slips'
 
 /**
  * May this session withdraw a day-close slip? The withdraw grant
  * (`AttachmentsCashCloseWithdraw`, `COLLECTION_ACCOUNTANT` and
- * `ACCOUNTANT_SUPERVISOR` only) is what `withdrawCategories` reports.
+ * `ACCOUNTANT_SUPERVISOR` only) is `Attachments:04:CASH_CLOSE`.
  *
- * Fails closed like `canSeeSlips`, and through the same array membership: a pending
- * or refused probe, a missing field, an empty list and a bare string `"CASH_CLOSE"`
- * are all "no". It also needs the read grant (`categories`), since the drawer that
- * carries the action is only open to a reader; the server answers a withdraw
- * category only when read is held too, so the two agree. For drawing only: the
- * route checks the grant again, and a bare 403 from it takes the action away.
+ * Fails closed like `canSeeSlips`. It also needs the read grant, since the drawer that
+ * carries the action is only open to a reader. For drawing only: the route checks the
+ * grant again, and a 403 from it re-reads the permissions answer.
  */
-export function canWithdrawSlips(access: AttachmentAccess | null | undefined): boolean {
-  return canSeeSlips(access) && holdsCategory(access?.withdrawCategories, CASH_CLOSE)
+export function canWithdrawSlips(permissions: Permissions): boolean {
+  return canSeeSlips(permissions) && canWithdrawAttachment(permissions, CASH_CLOSE)
 }
 
 /** The reason codes, in the order the contract lists them (`AttachmentWithdrawReasons.All`). */

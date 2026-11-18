@@ -6,7 +6,7 @@ import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { COMMAND_KINDS, COMMAND_STATUSES } from '@/core/models/sync-console'
-import { canOpenSyncConsole, syncConsoleAccessQuery } from './api'
+import { canOpenSyncConsole } from './api'
 import { EMPTY_COMMANDS_FILTER, commandsQuery, type CommandsFilter } from './command-helpers'
 import CommandsFeed from './CommandsFeed'
 import ConsoleNav from './ConsoleNav'
@@ -21,7 +21,6 @@ export default function CommandsPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('commands.title')}

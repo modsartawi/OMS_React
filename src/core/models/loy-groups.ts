@@ -7,12 +7,6 @@
  * and the member screen (635) all read them, and a feature may never import another.
  */
 
-/** `GET LoyGroupWeb/Access`. Reads need `canView`; writes need `canMaintain` ON TOP of it. */
-export interface LoyGroupAccess {
-  canView: boolean
-  canMaintain: boolean
-}
-
 /** A live bonus-buy that names the group (BackOffice 3179; `[]` until it ships). */
 export interface LoyGroupBonusBuy {
   bbyNumber: string

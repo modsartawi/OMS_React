@@ -6,8 +6,9 @@ import { toast } from 'sonner'
 import { SearchX, Unlock } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import type { AuthDetail, NphiesAccessResult } from '@/core/models/nphies'
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
+import type { AuthDetail } from '@/core/models/nphies'
+import { canOpenNphies, canReleaseApprovalNumber } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 import { authVerdictSeverity, deriveAuthAxes, requestSeverity } from '@/core/nphies/status'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -30,26 +31,16 @@ import { isStaleRowRefusal, lookupState, releaseBody, releaseOffer } from './rel
  * The bundle Id lives in the URL (`?id=`), so a refresh re-reads the same authorization and a
  * support agent can paste the link into a ticket. The read runs on Search only; nothing here polls.
  *
- * 🚩 Two grants, one probe. The Nphies grant fences the page (the `ScreenGate`, on the area's ONE
- * key); `canReleaseApprovalNumber` on the same answer shows or hides the button. Neither is the
+ * 🚩 Two grants, one permissions answer. The Nphies grant fences the page (the `ScreenGate`);
+ * `canReleaseApprovalNumber` (Nphies AND the release grant) shows or hides the button. Neither is the
  * gate — the release POST's own filter is.
  */
-const nphiesAccessQuery = {
-  queryKey: NPHIES_ACCESS_KEY,
-  queryFn: () => nphiesAccessApi.access(),
-  staleTime: Infinity,
-  retry: false,
-} as const
-
-const canOpenNphies = (r: NphiesAccessResult | null | undefined) => r?.canOpenNphies === true
-
 const CLAIM_TYPES = new Set([0, 1, 2, 3, 4, 6])
 
 export default function ReleaseApprovalNumberPage() {
   const { t } = useTranslation('approval-release')
   return (
     <ScreenGate
-      query={nphiesAccessQuery}
       can={canOpenNphies}
       ns="approval-release"
       title={t('title')}
@@ -72,7 +63,7 @@ function ReleaseBody() {
    *  dialog (after a refusal) must not change what the agent is confirming. `null` = closed. */
   const [dialogValue, setDialogValue] = useState<string | null>(null)
 
-  const access = useQuery(nphiesAccessQuery)
+  const permissions = usePermissions()
 
   const auth = useQuery({
     queryKey: releaseAuthKey(id),
@@ -122,7 +113,7 @@ function ReleaseBody() {
   }
 
   const detail = auth.data
-  const offer = detail ? releaseOffer(access.data?.canReleaseApprovalNumber, detail) : null
+  const offer = detail ? releaseOffer(canReleaseApprovalNumber(permissions), detail) : null
 
   return (
     <div className="flex flex-col gap-4">

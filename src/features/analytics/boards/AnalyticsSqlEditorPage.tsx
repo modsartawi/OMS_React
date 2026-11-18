@@ -18,7 +18,8 @@ import Input from '@/core/ui/Input'
 import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
-import { analyticsAccessQuery, canCurateAnalytics, canEditSql, canViewAnalytics } from './access'
+import { canCurateAnalytics, canSqlAnalytics, canViewAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import { ANALYTICS_ITEMS_KEY, analyticsApi, analyticsItemKey, analyticsRevisionsKey, analyticsSqlItemKey } from './api'
 import ChangeByAsking from './ChangeByAsking'
 import ItemHistory from './ItemHistory'
@@ -44,7 +45,7 @@ import { analyticsErrorWords } from './wire'
 export default function AnalyticsSqlEditorPage({ isNew = false }: { isNew?: boolean }) {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('sqlEditor.title')} subtitle={t('sqlEditor.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('sqlEditor.title')} subtitle={t('sqlEditor.subtitle')}>
       {isNew ? <NewSqlBody /> : <ItemSqlBody />}
     </ScreenGate>
   )
@@ -89,11 +90,11 @@ function SqlEditor({ item, seed }: { item: AnalyticsSqlItem | null; seed: Analyt
   const lang = i18n.language
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const access = useQuery(analyticsAccessQuery()).data
+  const access = useAnalyticsPermissions()
   const userId = useSession((s) => s.userId)
   const acts = item
-    ? sqlItemActions(item, { userId, canView: canViewAnalytics(access), canSql: canEditSql(access), canCurate: canCurateAnalytics(access) })
-    : { edit: canEditSql(access), revisions: false, verify: null }
+    ? sqlItemActions(item, { userId, canView: canViewAnalytics(access), canSql: canSqlAnalytics(access), canCurate: canCurateAnalytics(access) })
+    : { edit: canSqlAnalytics(access), revisions: false, verify: null }
 
   const [statement, setStatement] = useState(seed?.statement ?? item?.definition.statement ?? '')
   const [title, setTitle] = useState<AnalyticsLabel>({ en: '', ar: '' })

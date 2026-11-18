@@ -7,7 +7,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
-import { actionSyncAccessQuery, actionSyncFleetQuery, canOperateActionSync } from './api'
+import { actionSyncFleetQuery, canOperateActionSync } from './api'
+import { usePermissions } from '@/core/permissions'
 import {
   MIN_APPLY_REASON,
   reasonProblem,
@@ -26,12 +27,12 @@ import { groupDigits } from './helpers'
  * only while Apply is chosen.
  */
 export function useApplyReadiness(applying: boolean, targets: CreateTargets) {
-  const access = useQuery({ ...actionSyncAccessQuery(), enabled: applying })
+  const permissions = usePermissions()
   const fleet = useQuery({ ...actionSyncFleetQuery(), enabled: applying })
   const readiness: StoresReadiness | null = fleet.data ? storesReadiness(targets, fleet.data) : null
   return {
-    accessPending: access.isPending,
-    canPause: canOperateActionSync(access.data),
+    accessPending: !permissions.settled,
+    canPause: canOperateActionSync(permissions),
     fleetPending: fleet.isPending,
     fleetError: fleet.isError ? fleet.error : null,
     readiness,

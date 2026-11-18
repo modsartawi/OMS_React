@@ -12,7 +12,7 @@ import Button from '@/core/ui/Button'
 import { buttonClass } from '@/core/ui/control-classes'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { copyText } from '@/core/util/copy-text'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { canViewAnalytics } from '@/core/analytics-access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsReportKey } from './api'
 import AudienceChip from './AudienceChip'
 import FilterStrip from './FilterStrip'
@@ -44,7 +44,7 @@ import { useItemActor } from './use-item-save'
 export default function AnalyticsReportPage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('report.title')} subtitle={t('report.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('report.title')} subtitle={t('report.subtitle')}>
       <ReportBody />
     </ScreenGate>
   )

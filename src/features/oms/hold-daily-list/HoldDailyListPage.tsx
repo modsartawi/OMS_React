@@ -24,7 +24,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { formatFigure } from '@/core/util/number-format'
-import { canOpenHoldDailyList, holdDailyListAccessQuery } from './access'
+import { canOpenHoldDailyList } from './access'
 import { holdDailyListApi } from './api'
 import { TEXT_COLUMNS, rowColumns, storeColumns } from './columns'
 import {
@@ -52,7 +52,7 @@ import {
  * POs over 30 days, deliveries out over 3 days and delivered with no sale. Each held unit is traced to its document, unit
  * and take, so a support agent can explain why a pack is held.
  *
- * Behind `canOpenHoldDailyList` on its own probe (`HoldDailyList/Access`, `BackOfficeScreen[HoldDailyList, 03]`), the same
+ * Behind `canOpenHoldDailyList` on its own key of the one permissions answer (oms 909), the same
  * predicate the menu leaf reads, failing closed.
  *
  * 🚩 The list is the daily fill's (`PickHoldDailyList`), never computed on the request. A failed fill leaves yesterday's list
@@ -62,7 +62,6 @@ export default function HoldDailyListPage() {
   const { t } = useTranslation('hold-daily-list')
   return (
     <ScreenGate
-      query={holdDailyListAccessQuery()}
       can={canOpenHoldDailyList}
       ns="hold-daily-list"
       title={t('title')}

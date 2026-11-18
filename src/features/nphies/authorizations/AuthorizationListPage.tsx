@@ -16,9 +16,7 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import {
-  NPHIES_ACCESS_KEY,
   PROVIDERS_KEY,
-  nphiesAccessApi,
   nphiesLookupApi,
 } from '@/core/nphies/api'
 import { formatClock } from '@/core/nphies/format'
@@ -32,6 +30,8 @@ import ListFilters from './ListFilters'
 import CancelDialog from './CancelDialog'
 import type { AuthAct } from './row-acts'
 import Button from '@/core/ui/Button'
+import { canOpenNphies } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The authorizations list (ticket 214, spec 209 §6 stories 66–70 and 76) — the
@@ -62,11 +62,8 @@ export default function AuthorizationListPage() {
   // The area's ONE probe, on the key the nav leaves and every Nphies screen share
   // → one network call for the whole area. Fails closed: pending and errored both
   // draw something other than the list.
-  const access = useQuery({
-    queryKey: NPHIES_ACCESS_KEY,
-    queryFn: () => nphiesAccessApi.access(),
-  })
-  const allowed = access.data?.canOpenNphies === true
+  const permissions = usePermissions()
+  const allowed = canOpenNphies(permissions)
 
   const providers = useQuery({
     queryKey: PROVIDERS_KEY,
@@ -256,7 +253,7 @@ export default function AuthorizationListPage() {
 
   const columns = useMemo(() => buildAuthListColumns(t, onAct), [t, onAct])
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -271,7 +268,7 @@ export default function AuthorizationListPage() {
     // The in-page backstop behind the hidden nav leaf, and it distinguishes the
     // two reasons: an unreachable probe is a retry, a refused one is an
     // administrator. Same rule as every other screen in the area.
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -283,7 +280,7 @@ export default function AuthorizationListPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            ? t('access.unreachableHint')
             : t('access.deniedHint')}
         </p>
       </div>

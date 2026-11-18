@@ -1,6 +1,5 @@
 import { api } from '@/core/api'
 import type {
-  UaAccessResult,
   UaAuditHistoryResult,
   UaEmployeeInput,
   UaEmployeeSearchResult,
@@ -11,6 +10,7 @@ import type {
 import type { RoleCatalogEntry } from '@/core/models/authz-admin'
 
 import { skipForPage } from '@/core/ui/pager'
+import type { Permissions } from '@/core/permissions'
 
 import { PAGE_SIZE } from './page-size'
 
@@ -30,15 +30,13 @@ const pageArgs = (page: number) => ({ skip: skipForPage(page, PAGE_SIZE), take: 
 // ruled out of scope (spec 147).
 const FIRST_PAGE = pageArgs(1)
 
+/**
+ * May open the Ua users screen (`UaUsers:03`): the in-page guard and the shell's nav leaf read this one predicate off
+ * the one permissions answer (oms 909). The server enforces the grant on every UaAdminWeb/* call regardless.
+ */
+export const canOpenUaAdmin = (p: Permissions): boolean => p.has('UaUsers:03')
+
 export const uaAdminApi = {
-  // Screen-open grant probe. Drives BOTH the in-page route-guard (the "no
-  // access" card) AND the shell's permission-aware nav hiding (issue 429) —
-  // the shell's probe shares this exact ['ua-admin','access'] cache entry, so
-  // it's one call, not two. The server enforces the grant on every UaAdminWeb/*
-  // call regardless; the menu hide is show/hide hygiene only.
-  access(): Promise<UaAccessResult> {
-    return api.get<UaAccessResult>(`${BASE}/Access`)
-  },
   reportCounts(): Promise<UaReportCountsResult> {
     return api.get<UaReportCountsResult>(`${BASE}/ReportCounts`)
   },

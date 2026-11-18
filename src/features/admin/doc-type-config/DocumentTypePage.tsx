@@ -14,7 +14,6 @@ import {
   DOC_TYPE_CONFIG_ERRORS,
   canEditDocTypeConfig,
   canViewDocTypeConfig,
-  docTypeConfigAccessQuery,
   documentTypeQuery,
 } from './api'
 import ChildRowTables from './ChildRowTables'
@@ -24,6 +23,7 @@ import EditDocumentTypeDialog from './EditDocumentTypeDialog'
 import FieldValueText from './FieldValueText'
 import { FIELD_GROUPS, isLocked } from './fields'
 import type { DocumentTypeSettings } from './types'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * One document type — `/admin/doc-types/:documentType` (BackOffice spec 3148 stories 7, 9-10, ticket 3149): every
@@ -35,7 +35,7 @@ export default function DocumentTypePage() {
   const { t } = useTranslation('doc-type-config')
   const { documentType = '' } = useParams()
   return (
-    <ScreenGate query={docTypeConfigAccessQuery()} can={canViewDocTypeConfig} ns="doc-type-config" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewDocTypeConfig} ns="doc-type-config" title={t('title')} subtitle={t('subtitle')}>
       <Link to="/admin/doc-types" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-doc-type-back="">
         <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
         {t('detail.back')}
@@ -48,8 +48,8 @@ export default function DocumentTypePage() {
 function DocumentType({ code }: { code: string }) {
   const { t } = useTranslation('doc-type-config')
   const detail = useQuery(documentTypeQuery(code))
-  const access = useQuery(docTypeConfigAccessQuery())
-  const canEdit = canEditDocTypeConfig(access.data)
+  const permissions = usePermissions()
+  const canEdit = canEditDocTypeConfig(permissions)
   const [editing, setEditing] = useState(false)
   const [copying, setCopying] = useState(false)
 

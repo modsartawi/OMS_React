@@ -8,7 +8,6 @@ import { Filter } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -33,6 +32,7 @@ import EntryChangeRequest from './EntryChangeRequest'
 import EntryCorrection from './EntryCorrection'
 import EntryJournal from './EntryJournal'
 import PostEntryDialog from './PostEntryDialog'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * **The destination** — one branch's whole position, and the history behind every
@@ -67,10 +67,10 @@ export default function BranchAccount({
   // it with the same key and options, so this costs no second request. It decides
   // whether Approve and Reject (309) and Cancel / Close-out (310) are drawn; the doors'
   // 403 is the actual guard.
-  const access = useQuery(collectionAccessQuery())
-  const canSupervise = canSuperviseSettlement(access.data)
+  const permissions = usePermissions()
+  const canSupervise = canSuperviseSettlement(permissions)
   // 343: Raise sits behind the settlement grant — the one this screen's gate already read.
-  const canOpen = canOpenSettlement(access.data)
+  const canOpen = canOpenSettlement(permissions)
 
   // 🚩 The selection is an entry ID, not a row object. A refetch hands back new
   // objects, and a selection held by reference would silently drop the journal the

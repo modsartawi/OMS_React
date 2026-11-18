@@ -10,7 +10,7 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { hungerStationAccessQuery, hungerStationChainsQuery } from '@/core/hungerstation/api'
+import { hungerStationChainsQuery } from '@/core/hungerstation/api'
 import { canManageStores, canViewOrders } from '@/core/hungerstation/access'
 import { useSeenChains } from '@/core/hungerstation/seen-chains'
 import { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
@@ -24,6 +24,7 @@ import {
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import { usePermissions } from '@/core/permissions'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { addDays, localToday } from '@/core/util/date-window'
@@ -59,7 +60,7 @@ import Select from '@/core/ui/Select'
 export default function OrdersPage() {
   const { t } = useTranslation('hungerstation-orders')
   return (
-    <ScreenGate query={hungerStationAccessQuery()} can={canViewOrders} ns="hungerstation-orders" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewOrders} ns="hungerstation-orders" title={t('title')} subtitle={t('subtitle')}>
       <Orders />
     </ScreenGate>
   )
@@ -120,8 +121,7 @@ function Orders() {
   // 🚩 The `Chains` read rides `canManageStores` (contract § Access), which an orders user may lack —
   // then it is never sent (it could only be a bare 403), and the filter offers the chains seen on the
   // rows. The same grant links a store code to its logs on the Stores page.
-  const access = useQuery(hungerStationAccessQuery())
-  const manageStores = canManageStores(access.data)
+  const manageStores = canManageStores(usePermissions())
   const chains = useQuery({ ...hungerStationChainsQuery(), enabled: manageStores })
   const seen = useSeenChains(rows)
   const chainKeys = keyChoices(manageStores && chains.isSuccess ? chains.data : undefined, seen, [query.chain])

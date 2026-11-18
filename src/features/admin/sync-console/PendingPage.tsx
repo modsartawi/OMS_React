@@ -23,7 +23,6 @@ import {
   PENDING_PAGE_SIZE,
   canOpenSyncConsole,
   pendingStoresQuery,
-  syncConsoleAccessQuery,
   syncConsoleApi,
 } from './api'
 import { SELECTION_CAP } from './control-helpers'
@@ -34,6 +33,8 @@ import ConsoleNav from './ConsoleNav'
 import Loading from './Loading'
 import ReasonDialog from './ReasonDialog'
 import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
+import { usePermissions } from '@/core/permissions'
+import { canOperateSyncConsole } from './access'
 
 /**
  * Sync pending (spec 444, ticket 449) — `/admin/sync/pending`: the store masters with
@@ -49,7 +50,6 @@ export default function PendingPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('pending.title')}
@@ -66,8 +66,8 @@ const pendingCode = (row: PendingStore) => row.code
 function Pending() {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOperate = access.data?.canOperate === true
+  const permissions = usePermissions()
+  const canOperate = canOperateSyncConsole(permissions)
   const [page, setPage] = useState(1)
   const pending = useQuery({ ...pendingStoresQuery(page), placeholderData: keepPreviousData })
   const columns = useMemo(() => buildPendingColumns(t, canOperate), [t, canOperate])

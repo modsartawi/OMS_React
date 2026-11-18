@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 
-import { canEditServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import { canEditServingLists } from '@/core/serving-list/access'
+import { usePermissions } from '@/core/permissions'
 import Button from '@/core/ui/Button'
 import NameDialog from './NameDialog'
 
@@ -13,9 +13,9 @@ import NameDialog from './NameDialog'
  */
 export default function NewListButton() {
   const { t } = useTranslation('serving-lists')
-  const access = useQuery(servingListAccessQuery())
+  const permissions = usePermissions()
   const [open, setOpen] = useState(false)
-  if (!canEditServingLists(access.data)) return null
+  if (!canEditServingLists(permissions)) return null
   return (
     <>
       <Button variant="primary" onClick={() => setOpen(true)} data-action="create">

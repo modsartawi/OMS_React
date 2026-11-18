@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Flag } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
@@ -8,7 +8,6 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
 import { ApiError, apiErrorMessage } from '@/core/api'
-import { revokeOnForbidden } from '@/core/oms/api'
 import { notify } from '@/core/services/notify'
 import type { CancellationReasonModel } from '@/core/models/sd-document'
 import { fsi } from '@/core/util/bidi'
@@ -25,7 +24,7 @@ const isGrantRefused = (err: unknown): boolean => err instanceof ApiError && err
  * language. The pick posts its code as `reasonCode` and its English name as the note (`request-close.ts`).
  * Until THIS open's read has finished the dialog says it is loading — the last open's list (or failure) is
  * never shown or committable meanwhile. A list that fails to load, or loads empty, says so inline and commit
- * stays disabled. A 403 on the read is the Change grant refusing: toast, revoke and close, as Mark
+ * stays disabled. A 403 on the read is the Change grant refusing: toast and close, as Mark
  * delivered does. A reason retired while the dialog was open is refused by the server; the page's toast
  * words that refusal by its code and invalidates the cached list.
  *
@@ -42,7 +41,6 @@ export default function RequestCloseDialog({
   onConfirmed: (reason: CancellationReasonModel) => void
 }) {
   const { t, i18n } = useTranslation('document')
-  const queryClient = useQueryClient()
   const [pickedCode, setPickedCode] = useState('')
 
   const reasons = useQuery({
@@ -60,11 +58,10 @@ export default function RequestCloseDialog({
     pickedCode,
   })
 
-  // A 403 on the reasons read is the grant refusing: toast, revoke `canChangeDetail` and close.
+  // A 403 on the reasons read is the grant refusing: toast and close (the 403 re-reads the one permissions answer).
   const reasonsRefused = commit.view === 'failed' && isGrantRefused(reasons.error)
   useEffect(() => {
     if (!open || !reasonsRefused) return
-    revokeOnForbidden(queryClient, reasons.error, 'canChangeDetail')
     notify.error(t('requestClose.grantRefused.title'), t('requestClose.grantRefused.detail'))
     onClose()
     // The refusal itself is the event; `onClose` and `t` are rebuilt by the parent.

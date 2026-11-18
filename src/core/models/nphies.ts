@@ -13,25 +13,6 @@
  * lookups pass through"), so the DTO the browser sees is the service's own.
  */
 
-/** `GET Nphies/Access` (contract §1.1 #16) — SIS.Api's own probe, no upstream. */
-export interface NphiesAccessResult {
-  canOpenNphies: boolean
-  /**
-   * Contract 1.1 (BackOffice 3342/3343): true only when the session holds BOTH the
-   * Nphies grant and the release grant (`BackOfficeScreen[NphiesReleaseApproval,03]`).
-   * It hides or shows the Release button, and that is all: the release POST's own
-   * filter is the gate. Optional because a 1.0 door does not send it, and absent
-   * reads as "no".
-   */
-  canReleaseApprovalNumber?: boolean
-  /**
-   * Contract 1.2 (BackOffice 3208/3725): true only with BOTH the Nphies grant and the undispense
-   * grant (`BackOfficeScreen[NphiesUndispense,03]`). It shows or hides Retry and the manual
-   * Undispense, nothing more: the two POSTs' own filter is the gate. Absent (a 1.0/1.1 door) is "no".
-   */
-  canUndispense?: boolean
-}
-
 /**
  * One row of an authorization's release log (contract 1.1, §1.1 rows 17–18) —
  * SIS.Api's `NphiesApprovalReleaseEntry`, read field by field 2026-11-04 from

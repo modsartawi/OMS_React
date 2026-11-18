@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { canOpenDispatchBoard, dispatchAccessQuery } from '@/core/dispatch/access'
+import { canOpenDispatchBoard } from '@/core/dispatch/access'
 import type { RoadShadowReport } from '@/core/models/dispatch-board'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
@@ -48,7 +48,6 @@ export default function RoadShadowPage() {
   const { t } = useTranslation('dispatch-board')
   return (
     <ScreenGate
-      query={dispatchAccessQuery()}
       can={canOpenDispatchBoard}
       ns="dispatch-board"
       title={t('roadShadow.title')}

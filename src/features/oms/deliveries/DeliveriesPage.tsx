@@ -27,7 +27,8 @@ import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { apiErrorMessage } from '@/core/api'
 import { useCommands } from '@/core/commands/registry'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
-import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+import { canOpenList as canOpenListGrant } from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import { fromListState, openIntentState, type OpenIntent } from '@/core/oms/open-intent'
 import { useSession } from '@/core/session'
 import { fsi } from '@/core/util/bidi'
@@ -91,9 +92,8 @@ import ViewsRail, { LENS_ICON, LF_RETURNS_ICON } from './ViewsRail'
  * a drill-down into Screen 2 and back restores everything instead of re-creating
  * the screen empty (R-8).
  *
- * Self-guards on `canOpenList` (ticket 125): spinner → denied card → content, sharing
- * the ONE `OMS_ACCESS_KEY` cache entry with the menu probe and the Document Details
- * guard. The server's `SdDocumentWeb/*` grant filter stays authoritative; this only
+ * Self-guards on `canOpenList` (ticket 125): spinner → denied card → content, reading
+ * the one permissions answer (oms 909) the menu and the Document Details guard read. The server's `SdDocumentWeb/*` grant filter stays authoritative; this only
  * spares a denied deep-link a request it cannot make.
  *
  * The Delivery inspector (ticket 397) sits at the inline-end edge and shows the current row
@@ -181,25 +181,15 @@ export default function DeliveriesPage() {
 
   const columns = useMemo(() => buildDeliveryColumns(t), [t])
 
-  // Both options MATCH the menu probe's own on this shared key (see useVisibleMenu), and
-  // matching is the point: `staleTime: Infinity` keeps this observer from marking the
-  // shared entry stale and refetching on mount — a second answer that failed would empty
-  // the OMS group from the nav while this screen is happily open. `retry: false` lands a
-  // fail-closed grant on the card at once instead of holding "Checking access…" through a
-  // retry backoff.
-  const access = useQuery({
-    queryKey: OMS_ACCESS_KEY,
-    queryFn: () => omsAccessApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  })
-  const canOpenList = access.data?.canOpenList === true
+  // The one permissions answer (oms 909): read once per page life, shared with the menu.
+  const permissions = usePermissions()
+  const canOpenList = canOpenListGrant(permissions)
   // The acts deep-link to Delivery details and write there, so the list offers them only to a
   // session that may open it and change it (ticket 521; 365 §5: a letter is bound only if the
   // list offers that act).
-  const offersActs = actsOffered(access.data)
+  const offersActs = actsOffered(permissions)
   // The queue needs 03 (spec 759 F1): without it there is no rail row, no palette row, no read.
-  const offersQueue = offersLfReturnsQueue(access.data)
+  const offersQueue = offersLfReturnsQueue(permissions)
   const queueOn = offersQueue && lfReturnsOn
   // Read while the queue is on, and again each time it is opened: a queue is worked fresh.
   const queue = useQuery({
@@ -607,7 +597,7 @@ export default function DeliveriesPage() {
   // ----- access states ------------------------------------------------------
   // After every hook, before any render: a denied session never reaches the filter
   // panel, so no DeliveryDocumentList request can be fired from here.
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -616,11 +606,11 @@ export default function DeliveriesPage() {
     )
   }
   if (!canOpenList) {
-    // The screen is hidden either way — the probe fails closed. But WHICH copy shows
-    // matters to whoever reads it: an unreachable probe is a server fault, and telling a
+    // The screen is hidden either way — the answer fails closed. But WHICH copy shows
+    // matters to whoever reads it: an unreadable answer is a server fault, and telling a
     // fully entitled operator to ask for a grant they already hold sends support chasing
     // the wrong thing.
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -631,7 +621,7 @@ export default function DeliveriesPage() {
           {t(unreachable ? 'access.unavailableTitle' : 'access.deniedTitle')}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          {unreachable ? apiErrorMessage(access.error, t('access.unavailableHint')) : t('access.deniedHint')}
+          {unreachable ? t('access.unavailableHint') : t('access.deniedHint')}
         </p>
       </div>
     )

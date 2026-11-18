@@ -11,14 +11,6 @@
  * ⚠️ Timestamps are the estate's local wall-clock, `"yyyy-MM-ddTHH:mm:ss"` with no offset; they stay strings.
  */
 
-/** `GET StoreStage/Access`: the two grants of the screen. */
-export interface StoreStageAccess {
-  screenAllowed: boolean
-  canMove: boolean
-  /** Ticket 3898: `BackOfficeScreen[StoreCountClose, 02]`, "count closed". */
-  canCloseCount?: boolean
-}
-
 /** One row of a store's stage log. `mover` is `Person`, `CountClosing` or `Seed`. */
 export interface StoreStageMove {
   store: string

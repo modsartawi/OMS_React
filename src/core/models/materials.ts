@@ -28,22 +28,6 @@ export const MATERIAL_ERRORS = {
   searchTooShort: 'MAT-00006',
 } as const
 
-// ── GET MaterialWeb/Access ───────────────────────────────────────────────────────────────────────
-
-/**
- * Exactly the three keys the probe returns. Cookie-gated, not grant-gated.
- *
- * - `canSearchMaterials` ← `BackOfficeScreen[ItemInquiryCustome,03]` (sic — the WPF ControllerID):
- *   Search, Levels, Facets, Material.
- * - `canCheckStock` ← `MaterialStockInquiry,03`: Stock, StoreSets.
- * - `canCheckGs1` ← `Gs1SerialInquiry,03` (new): Gs1/Check, Gs1/History.
- */
-export interface MaterialAccessResult {
-  canSearchMaterials: boolean
-  canCheckStock: boolean
-  canCheckGs1: boolean
-}
-
 // ── GET MaterialWeb/Search ───────────────────────────────────────────────────────────────────────
 
 /** How the server read `q`. `null` when `q` was absent and only filters were sent. */

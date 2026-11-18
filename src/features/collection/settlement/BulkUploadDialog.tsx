@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Download, FileSpreadsheet, TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { downloadCsv } from '@/core/util/download-file'
 import type {
   SettlementBulkCommitResult,
@@ -31,6 +30,7 @@ import {
   bulkTemplateCsv,
 } from './bulk-template'
 import { inWordsSentence } from './in-words'
+import { usePermissions } from '@/core/permissions'
 
 
 /** What the file picker offers. The server parses; this only stops an accountant
@@ -719,8 +719,8 @@ function CommittedPanel({
   const numbers = result?.entryNumbers ?? []
   // 310 (BackOffice 1979): withdrawing a batch is the accountant supervisor's act. The
   // probe is already in the cache (the gate read it with the same options).
-  const access = useQuery(collectionAccessQuery())
-  const canSupervise = canSuperviseSettlement(access.data)
+  const permissions = usePermissions()
+  const canSupervise = canSuperviseSettlement(permissions)
 
   return (
     <section className="flex flex-col gap-2" data-region="bulk-done" data-batch={batchId}>

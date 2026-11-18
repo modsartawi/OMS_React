@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation, useMatches } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/core/session'
 import { paletteOptedOut } from '@/core/commands/palette-model'
+import { permissionsQuery } from '@/core/permissions'
 import Button from '@/core/ui/Button'
 import { authApi } from './api'
 import AppShell from '@/layout/AppShell'
@@ -32,6 +33,12 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
     staleTime: Infinity, // cached success for the page lifetime
     retry: false, // failure surfaces immediately with a Retry button
   })
+
+  // oms 909 (BackOffice spec 4002): the ONE permissions answer starts here, IN PARALLEL with Auth/Me — not after it —
+  // so the menu settles one round trip after the code. Same options as every reader (`staleTime: Infinity`,
+  // `retry: false`); the menu, the page gates and the buttons all read this cache entry. An anonymous visit's 401 is
+  // quiet (`@/core/api` skips the expired-session redirect for this path) and the user change resets it after login.
+  useQuery(permissionsQuery())
 
   const authenticated = me.data?.authenticated === true
   useEffect(() => {

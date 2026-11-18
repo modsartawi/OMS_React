@@ -4,8 +4,7 @@
  * In `@/core/` rather than in a feature because it has two feature consumers — the
  * delivery page's *Central invoice…* action (`features/oms/document`) and the bulk screen
  * (`features/oms/central-invoice`) — plus the menu leaf, and a feature may never import
- * another feature ([feature-structure](../../../.claude/rules/feature-structure.md)). The
- * OMS and Nphies probes moved here for the same reason.
+ * another feature ([feature-structure](../../../.claude/rules/feature-structure.md)). 
  *
  * Every call goes through `@/core/api` (`api-envelope`): the envelope, the error taxonomy
  * and 401 are that module's.
@@ -13,10 +12,9 @@
  * What a central invoice contains, and every eligibility rule, lives on the server. This
  * client asks and shows the answer.
  */
-import type { QueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/core/api'
+import type { Permissions } from '@/core/permissions'
 import type {
-  CentralInvoiceAccessResult,
   CentralInvoiceRaiseRequest,
   CentralInvoiceRaiseResponse,
   CentralInvoiceRaiseResult,
@@ -30,33 +28,10 @@ import type {
 export const CENTRAL_INVOICE_MAX_DELIVERIES = 200
 
 /**
- * The ONE cache key the menu leaf, the bulk screen's gate and the delivery page's action
- * share, so the grant costs one network call and not three. Exported rather than
- * re-spelled: a typo would silently split the cache entry, and a door shut by a 403 on
- * one consumer would stay open on another.
+ * The grant's one predicate, `CentralInvoice:03` off the one permissions answer (oms 909), read by the menu leaf, the
+ * screen's gate and the delivery page's action.
  */
-export const CENTRAL_INVOICE_ACCESS_KEY = ['central-invoice', 'access'] as const
-
-/**
- * …and the ONE set of options every reader of that key passes (the `ScreenGate` contract).
- * `staleTime: Infinity` because a grant does not change inside a page life; `retry: false`
- * because a refusal is an answer, not an outage.
- */
-export function centralInvoiceAccessQuery() {
-  return {
-    queryKey: CENTRAL_INVOICE_ACCESS_KEY,
-    queryFn: () => centralInvoiceApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/**
- * The grant's one predicate, read by the menu leaf, the screen's gate and the delivery
- * page. `=== true` and nothing looser, so a malformed answer is a denial.
- */
-export const canOpenCentralInvoice = (r: CentralInvoiceAccessResult | null | undefined): boolean =>
-  r?.canOpen === true
+export const canOpenCentralInvoice = (p: Permissions): boolean => p.has('CentralInvoice:03')
 
 /**
  * Whether a failure is the grant refusing this session: a **403**, bare (the grant filter refuses
@@ -70,27 +45,7 @@ export function isGrantRefused(err: unknown): boolean {
   return err instanceof ApiError && err.statusCode === 403
 }
 
-/**
- * Revoke the grant for the rest of the page life, after a 403 from either call: the shared
- * probe entry is overwritten with a denial, so the menu leaf, the bulk screen's gate and
- * the delivery page's action all drop together — the answer the server just gave
- * outranks the probe's earlier one.
- */
-export function revokeCentralInvoiceAccess(queryClient: QueryClient): void {
-  queryClient.setQueryData<CentralInvoiceAccessResult>(CENTRAL_INVOICE_ACCESS_KEY, { canOpen: false })
-}
-
 export const centralInvoiceApi = {
-  /**
-   * `GET Sd/CentralInvoice/Access` → `{ canOpen }`.
-   *
-   * ⚠️ **Fails closed** — no 404-tolerant catch. What is behind it bypasses the pick
-   * gate and mints invoices, so an unreachable probe hides the action and the screen.
-   */
-  access(): Promise<CentralInvoiceAccessResult> {
-    return api.get<CentralInvoiceAccessResult>('Sd/CentralInvoice/Access')
-  },
-
   /**
    * `POST Sd/CentralInvoice` with `{ deliveryNos, reason }` → one result per distinct
    * delivery, in the order sent.

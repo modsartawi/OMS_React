@@ -1,119 +1,48 @@
 /**
- * The Reports nav group, gated (ticket 263, spec 261 §"Getting in"; a SECOND
- * gated leaf at ticket 296, spec 1386).
+ * The Reports nav group, gated (ticket 263, spec 261 §"Getting in"; a SECOND gated leaf at ticket 296, spec 1386; a
+ * THIRD at ticket 461, BackOffice spec 2579).
  *
- * `resolveMenu` is the pure half of `useVisibleMenu` (ticket 124), so what the
- * shell does with each answer the `RetailInvoice/Access` probe can produce is
- * provable with no renderer. The group is read out of the **real** `MENU`, never
- * re-declared, so a leaf that lost its probe, drifted off the shared key or picked
- * up the wrong flag fails here.
+ * `resolveMenu` is the pure half of `useVisibleMenu` (ticket 124), so what the shell does with each answer is provable
+ * with no renderer. Since oms 909 each leaf reads its own key off the ONE permissions answer (brief 3995 rows 33, 35,
+ * 36): Invoices = `RetailInvoice:03`, IDoc inspector = `IDocInspector:03`, SAP export console = `SapExportConsole:03`.
+ * The group is read out of the **real** `MENU`, never re-declared.
  *
- * 🚩 The failure being designed against: a **Reports** heading left standing in
- * the nav for a session that holds nothing — because the probe errored, because
- * the answer was a shape nobody agreed to, or because a truthy-but-not-`true`
- * value slipped past the predicate. Until 296 the group had one leaf, so hiding
- * the leaf and hiding the group were the same event; now they are not, and that
- * difference is the point of half the cases below.
+ * 🚩 The failure being designed against: a **Reports** heading left standing in the nav for a session that holds
+ * nothing — because the answer errored or is still pending.
  *
- * 🔑 **Two leaves, two grants, and the probe answers are NOT shared.** The IDoc
- * inspector's grant is its own — a consultant who may print a receipt has no
- * claim on every IDoc the SAP rail ever generated. So the cases below answer the
- * two probes SEPARATELY, and the ones that matter most are the mixed ones: one
- * grant held, the other not. A helper that fed one answer to both leaves (the
- * shape this file had while the group held one leaf) would pass on a menu that
- * gated them together.
- *
- * Ticket 461 (BackOffice spec 2579) adds a THIRD leaf, the SAP export console, after the
- * inspector and on a third grant (`SapExport/Access`). The mixed cases below still answer
- * only the first two probes; an unanswered third probe is a denial, so it stays hidden.
+ * 🔑 **Three leaves, three grants.** A consultant who may print a receipt has no claim on every IDoc the SAP rail ever
+ * generated, so the cases that matter most are the mixed ones: one grant held, the others not.
  */
 import { describe, expect, it } from 'vitest'
-import {
-  canOpenRetailInvoice,
-  RETAIL_INVOICE_ACCESS_KEY,
-  retailInvoiceAccessQuery,
-} from '@/features/reports/retail-invoice/api'
-import {
-  canOpenIDocInspector,
-  IDOC_INSPECTOR_ACCESS_KEY,
-  idocInspectorAccessQuery,
-} from '@/features/reports/idoc-inspector/api'
-import {
-  canOpenSapExport,
-  SAP_EXPORT_ACCESS_KEY,
-  sapExportAccessQuery,
-} from '@/features/reports/sap-export-console/access'
+import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
+import { canOpenRetailInvoice } from '@/features/reports/retail-invoice/api'
+import { canOpenIDocInspector } from '@/features/reports/idoc-inspector/api'
+import { canOpenSapExport } from '@/features/reports/sap-export-console/access'
 import { MENU, type ShellMenuItem } from './menu-model'
-import { resolveMenu, type ProbeState } from './useVisibleMenu'
+import { isGated, resolveMenu } from './useVisibleMenu'
 
 const reports = MENU.find((g) => g.labelKey === 'reports:menu.reports')
 
-const gatedLeaves = (items: ShellMenuItem[]): ShellMenuItem[] =>
-  items.flatMap((i) => [...(i.access ? [i] : []), ...gatedLeaves(i.items ?? [])])
-const labels = (items: ShellMenuItem[]): string[] =>
-  items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
+const labels = (items: ShellMenuItem[]): string[] => items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
+const holding = (...screens: string[]) => permissionsOf({ screens })
+const visible = (...screens: string[]) => labels(resolveMenu([reports!], holding(...screens)).items)
+const errored = permissionsFromQuery({ isPending: false, isError: true, data: undefined })
+const pending = permissionsFromQuery({ isPending: true, isError: false, data: undefined })
 
-const leaves = gatedLeaves([reports!])
-/**
- * Probe answers in the order `resolveMenu` reads them — one per gated leaf, and
- * ⚠️ **positional**: `useVisibleMenu` zips `useQueries`' results against
- * `collectGated(MENU)`, so index 0 is the Invoices leaf, index 1 the IDoc
- * inspector's and index 2 the SAP export console's (461). Answered separately on purpose; see the file remark.
- */
-const answered = (...data: unknown[]): ProbeState[] =>
-  leaves.map((_, i) => ({ isPending: false, isSuccess: true, data: data[i] }))
-/** Both leaves, one answer — for the cases where the answer is about the SHAPE
- *  (malformed, truthy-not-true) rather than about one grant or the other. */
-const probed = (data: unknown): ProbeState[] => answered(...leaves.map(() => data))
-/** An errored probe: settled, unsuccessful, no data — the thrown-probe case. */
-const errored: ProbeState[] = leaves.map(() => ({
-  isPending: false,
-  isSuccess: false,
-  data: undefined,
-}))
-const pending: ProbeState[] = leaves.map(() => ({
-  isPending: true,
-  isSuccess: false,
-  data: undefined,
-}))
+const INVOICE = 'RetailInvoice:03'
+const IDOC = 'IDocInspector:03'
+const SAP = 'SapExportConsole:03'
 
 describe('the Reports nav group', () => {
-  it('exists, with EVERY leaf gated behind its own screen access key', () => {
+  it('exists, with EVERY leaf gated', () => {
     expect(reports).toBeDefined()
+    const leaves = reports!.items!
     expect(leaves.map((l) => l.routerLink)).toEqual(['/reports/invoice', '/reports/idoc-inspector', '/reports/sap-export'])
-    // ONE call per screen: each leaf's probe key is the SAME exported constant
-    // that screen's own gate reads. That identity is what makes a gated screen
-    // cost one round trip, and what stops the nav and the screen disagreeing
-    // about whether the session is allowed in.
-    expect(leaves[0].access!.key).toBe(RETAIL_INVOICE_ACCESS_KEY)
-    expect(retailInvoiceAccessQuery().queryKey).toBe(RETAIL_INVOICE_ACCESS_KEY)
-    expect(leaves[1].access!.key).toBe(IDOC_INSPECTOR_ACCESS_KEY)
-    expect(idocInspectorAccessQuery().queryKey).toBe(IDOC_INSPECTOR_ACCESS_KEY)
-    expect(leaves[2].access!.key).toBe(SAP_EXPORT_ACCESS_KEY)
-    expect(sapExportAccessQuery().queryKey).toBe(SAP_EXPORT_ACCESS_KEY)
-  })
-
-  it('🔑 every leaf is gated SEPARATELY — one area is not one grant', () => {
-    // Sharing an area, a URL prefix and an i18n namespace is not sharing a
-    // permission. A single key here would hand a consultant the IDoc inspector
-    // because they can print receipts.
-    expect(IDOC_INSPECTOR_ACCESS_KEY).not.toEqual(RETAIL_INVOICE_ACCESS_KEY)
-    expect(SAP_EXPORT_ACCESS_KEY).not.toEqual(IDOC_INSPECTOR_ACCESS_KEY)
-    expect(new Set(leaves.map((l) => l.access!.key)).size).toBe(leaves.length)
-  })
-
-  it('every screen query option fails closed — no retry on a refusal, one probe per page life', () => {
-    // 🚩 react-query merges the options of concurrent observers, so a reader that
-    // dropped `retry: false` would make a REFUSED probe retry under a gate whose
-    // whole ruling is to fail closed on the first no.
-    for (const q of [retailInvoiceAccessQuery(), idocInspectorAccessQuery(), sapExportAccessQuery()]) {
-      expect(q.retry).toBe(false)
-      expect(q.staleTime).toBe(Infinity)
-    }
+    for (const leaf of leaves) expect(isGated(leaf)).toBe(true)
   })
 
   it('all granted → the Reports group with every leaf, SAP export after the inspector', () => {
-    expect(labels(resolveMenu([reports!], probed({ screenAllowed: true })).items)).toEqual([
+    expect(visible(INVOICE, IDOC, SAP)).toEqual([
       'reports:menu.reports',
       'reports:menu.invoices',
       'reports:menu.idocInspector',
@@ -122,80 +51,44 @@ describe('the Reports nav group', () => {
   })
 
   it('🔑 only the SAP export console granted → the group keeps that leaf alone (461)', () => {
-    expect(
-      labels(
-        resolveMenu([reports!], answered({ screenAllowed: false }, { screenAllowed: false }, { screenAllowed: true })).items,
-      ),
-    ).toEqual(['reports:menu.reports', 'sap-export-console:menu.sapExport'])
+    expect(visible(SAP)).toEqual(['reports:menu.reports', 'sap-export-console:menu.sapExport'])
   })
 
-  it('🚩 the SAP export probe errored while the others grant → its leaf alone is hidden (fails closed)', () => {
-    const states: ProbeState[] = [
-      { isPending: false, isSuccess: true, data: { screenAllowed: true } },
-      { isPending: false, isSuccess: true, data: { screenAllowed: true } },
-      { isPending: false, isSuccess: false, data: undefined },
-    ]
-    expect(labels(resolveMenu([reports!], states).items)).toEqual([
-      'reports:menu.reports',
-      'reports:menu.invoices',
-      'reports:menu.idocInspector',
-    ])
+  it('🚩 the SAP export key missing while the others grant → its leaf alone is hidden', () => {
+    expect(visible(INVOICE, IDOC)).toEqual(['reports:menu.reports', 'reports:menu.invoices', 'reports:menu.idocInspector'])
   })
 
   it('🔑 invoices granted, the inspector NOT → the group keeps exactly one leaf', () => {
-    // The mixed case, and the one a shared probe would get wrong: the group
-    // survives, and the leaf whose grant is not held is the only thing missing.
-    expect(
-      labels(
-        resolveMenu([reports!], answered({ screenAllowed: true }, { screenAllowed: false })).items,
-      ),
-    ).toEqual(['reports:menu.reports', 'reports:menu.invoices'])
+    expect(visible(INVOICE)).toEqual(['reports:menu.reports', 'reports:menu.invoices'])
   })
 
   it('🔑 the inspector granted, invoices NOT → the group keeps the OTHER leaf', () => {
-    expect(
-      labels(
-        resolveMenu([reports!], answered({ screenAllowed: false }, { screenAllowed: true })).items,
-      ),
-    ).toEqual(['reports:menu.reports', 'reports:menu.idocInspector'])
+    expect(visible(IDOC)).toEqual(['reports:menu.reports', 'reports:menu.idocInspector'])
   })
 
   it('🚩 denied everywhere → NO group at all, not an empty one', () => {
-    // The probe answers a denial with 200 `{ screenAllowed: false }` — a boolean
-    // to read, not an error to catch — and the heading vanishes with its children
-    // so a "Reports" group is never left standing over nothing.
-    expect(resolveMenu([reports!], probed({ screenAllowed: false })).items).toEqual([])
+    expect(resolveMenu([reports!], holding()).items).toEqual([])
   })
 
-  it('🚩 an unknown, failed or malformed probe hides the group too', () => {
-    for (const states of [
-      errored,
-      pending,
-      probed({}),
-      probed(null),
-      // Truthy, but not `true` — the predicate is `=== true` and nothing looser,
-      // so a malformed answer is a denial and not an accident of truthiness.
-      probed({ screenAllowed: 'true' }),
-      probed({ screenAllowed: 1 }),
-      // The shape a different door might answer.
-      probed({ canOpen: true }),
-    ]) {
-      expect(resolveMenu([reports!], states).items).toEqual([])
+  it('🚩 near-miss keys, a failed or a pending answer hide the group too', () => {
+    for (const p of [holding('RetailInvoice:02', 'IDocInspector:06', 'SapExportConsole:02'), errored, pending]) {
+      expect(resolveMenu([reports!], p).items).toEqual([])
     }
   })
 
-  it('reports an errored probe as SETTLED — failing closed must not hang the menu', () => {
+  it('reports an errored answer as SETTLED — failing closed must not hang the menu', () => {
     expect(resolveMenu([reports!], errored).settled).toBe(true)
   })
 
-  it('the predicate the nav reads IS the predicate each screen gate reads', () => {
-    // Both sites import the same function; asserting it here pins the behaviour
-    // they share rather than two spellings of it.
-    for (const can of [canOpenRetailInvoice, canOpenIDocInspector, canOpenSapExport]) {
-      expect(can({ screenAllowed: true })).toBe(true)
-      expect(can({ screenAllowed: false })).toBe(false)
-      expect(can(null)).toBe(false)
-      expect(can(undefined)).toBe(false)
+  it('the predicate each screen gate reads says yes on exactly its own key', () => {
+    for (const [can, key] of [
+      [canOpenRetailInvoice, INVOICE],
+      [canOpenIDocInspector, IDOC],
+      [canOpenSapExport, SAP],
+    ] as const) {
+      expect(can(holding(key))).toBe(true)
+      expect(can(holding(...[INVOICE, IDOC, SAP].filter((k) => k !== key)))).toBe(false)
+      expect(can(errored)).toBe(false)
     }
   })
 })

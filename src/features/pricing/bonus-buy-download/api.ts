@@ -1,10 +1,10 @@
 import { api } from '@/core/api'
 import type {
   BbyDeleteResult,
-  BbyDownloadAccessResult,
   BbyDownloadResult,
   BbyOverrides,
 } from '@/core/models/bonus-buy-download'
+import type { Permissions } from '@/core/permissions'
 
 // Every server call goes through @/core/api (see .claude/rules/api-envelope.md):
 // it unwraps the SIS.Api envelope, returns `.data`, and maps failures to ApiError.
@@ -14,15 +14,14 @@ import type {
 // surfaces as an ApiError with statusCode 502 that the Page uses to halt the loop.
 const BASE = 'BonusBuyDownloadWeb'
 
+/**
+ * The screen grant (`BbyDownload:03`), off the one permissions answer (oms 909): the in-page
+ * guard and the nav leaf read it. The server enforces the grant on every Download/Delete
+ * regardless; this is show/hide hygiene only.
+ */
+export const canOpenBbyDownload = (p: Permissions): boolean => p.has('BbyDownload:03')
+
 export const bonusBuyDownloadApi = {
-  // Screen-open grant probe. Drives BOTH the in-page route-guard (the "denied" card)
-  // AND the shell's permission-aware nav hiding (issue 429) — the shell's probe shares
-  // this exact ['bonus-buy-download','access'] cache entry, so it's one call, not two.
-  // The server enforces the grant on every Download/Delete regardless; the menu hide
-  // is show/hide hygiene only.
-  access(): Promise<BbyDownloadAccessResult> {
-    return api.get<BbyDownloadAccessResult>(`${BASE}/Access`)
-  },
 
   download(bbyNumber: string, attributes: BbyOverrides): Promise<BbyDownloadResult> {
     return api.post<BbyDownloadResult>(`${BASE}/Download`, { bbyNumber, attributes })

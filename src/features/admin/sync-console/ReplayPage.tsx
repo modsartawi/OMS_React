@@ -24,7 +24,6 @@ import {
   canReplayReceipts,
   replayRegistersQuery,
   replaysQueryOptions,
-  syncConsoleAccessQuery,
   syncConsoleApi,
 } from './api'
 import { figure } from './helpers'
@@ -74,7 +73,6 @@ export default function ReplayPage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canReplayReceipts}
       ns="sync-console"
       keyPrefix="replay.access"

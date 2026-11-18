@@ -23,7 +23,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay, toIsoDate } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { formatFigure } from '@/core/util/number-format'
-import { canOpenHeldStockReport, heldStockReportAccessQuery } from './access'
+import { canOpenHeldStockReport } from './access'
 import { heldStockReportApi } from './api'
 import { GATE_TEXT_COLUMNS, gateColumns } from './gate-columns'
 import {
@@ -45,13 +45,12 @@ import { normalizeStores } from './shared'
  * without its picking document (per day), and every till of the store heard on the hold seam. What a person confirms
  * before a store moves to Blocking (SIS.Stock 071).
  *
- * Behind `canOpenHeldStockReport` on `HeldStockReport/Access` (`BackOfficeScreen[HeldStockReport, 03]`), failing closed.
+ * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 909), failing closed.
  */
 export default function GatesPage() {
   const { t } = useTranslation('held-stock-report')
   return (
     <ScreenGate
-      query={heldStockReportAccessQuery()}
       can={canOpenHeldStockReport}
       ns="held-stock-report"
       title={t('gates.title')}

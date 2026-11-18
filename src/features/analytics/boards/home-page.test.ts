@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { permissionsOf } from '@/core/permissions'
 import { homeNewLinks, homeSections, readHome } from './home-page'
 
 const row = (id: string, kind = 'board', tier = 'personal') => ({
@@ -56,16 +57,19 @@ describe('Home renders recent, pinned and certified from the Home door', () => {
 
 describe('runner Home has no New buttons', () => {
   it('an author gets New view, New board and New report', () => {
-    expect(homeNewLinks({ canView: true, canAuthor: true, canCurate: false }).map((l) => l.key)).toEqual(['view', 'board', 'report'])
-    expect(homeNewLinks({ canView: true, canAuthor: false, canCurate: true }).map((l) => l.to)).toEqual([
+    const author = permissionsOf({ screens: ['Analytics:03', 'Analytics:02'] })
+    expect(homeNewLinks(author).map((l) => l.key)).toEqual(['view', 'board', 'report'])
+    expect(homeNewLinks(author).map((l) => l.to)).toEqual([
       '/analytics/new?kind=view',
       '/analytics/new?kind=board',
       '/analytics/new?kind=report',
     ])
   })
 
-  it('a runner, or an unknown probe, gets none', () => {
-    expect(homeNewLinks({ canView: true, canAuthor: false, canCurate: false })).toEqual([])
-    expect(homeNewLinks(undefined)).toEqual([])
+  it('a runner, half an author, or no answer, gets none', () => {
+    expect(homeNewLinks(permissionsOf({ screens: ['Analytics:03'] }))).toEqual([])
+    expect(homeNewLinks(permissionsOf({ screens: ['Analytics:02'] }))).toEqual([])
+    expect(homeNewLinks(permissionsOf({ screens: ['Analytics:03', 'Analytics:06'] }))).toEqual([])
+    expect(homeNewLinks(permissionsOf(null))).toEqual([])
   })
 })

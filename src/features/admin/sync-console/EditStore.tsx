@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import type { StoreDetail } from '@/core/models/sync-console'
-import { AUDIT_KEY, FLEET_KEY, PENDING_KEY, storeKey, syncConsoleAccessQuery, syncConsoleApi } from './api'
+import { AUDIT_KEY, FLEET_KEY, PENDING_KEY, storeKey, syncConsoleApi } from './api'
 import { STORE_EDIT_FIELDS, cleanStoreEdit, storeEditReady, type StoreEdit } from './onboard-helpers'
 import { isWpfStore } from './store-helpers'
 import { TextField } from './TextField'
 import ReasonDialog from './ReasonDialog'
+import { usePermissions } from '@/core/permissions'
+import { canOnboardStores } from './access'
 
 const LTR_FIELDS: ReadonlySet<keyof StoreEdit> = new Set(['phone', 'cr'])
 
@@ -24,9 +26,9 @@ const LTR_FIELDS: ReadonlySet<keyof StoreEdit> = new Set(['phone', 'cr'])
  */
 export default function EditStore({ row }: { row: StoreDetail }) {
   const { t } = useTranslation('sync-console')
-  const access = useQuery(syncConsoleAccessQuery())
+  const permissions = usePermissions()
   const [open, setOpen] = useState(false)
-  if (access.data?.canOnboard !== true || isWpfStore(row)) return null
+  if (!canOnboardStores(permissions) || isWpfStore(row)) return null
   return (
     <>
       <div>

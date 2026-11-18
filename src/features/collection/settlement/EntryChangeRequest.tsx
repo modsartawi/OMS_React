@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ArrowDownToLine, Check, FilePenLine, FileX2, Hourglass, Trash2, TriangleAlert, Undo2, X, Zap } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import type {
   SettlementChangeRequest,
   SettlementChangeRequestActResult,
@@ -181,13 +180,10 @@ export default function EntryChangeRequest({
   /** 346: the Reject box, for the request it was opened on — and a 400 that belongs on it. */
   const [rejectDraft, setRejectDraft] = useState<RejectDraft | null>(null)
 
-  // 🚩 A bare 403 on the read: the probe said this session holds the settlement grant,
-  // and the door says it no longer does. Re-reading the probe takes the screen's buttons
-  // with it.
+  // 🚩 A bare 403 on the read: the permissions answer said this session holds the settlement
+  // grant, and the door says it no longer does. `@/core/api` invalidates the answer on that
+  // 403, which takes the screen's buttons with it.
   const readFailure = history.isError ? changeRequestFailure(history.error) : null
-  useEffect(() => {
-    if (readFailure === 'forbidden') void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
-  }, [readFailure, queryClient])
 
   // ⚠️ The entry travels WITH the request (EntryCorrection's `stillOn`): the selection
   // can change inside one request's latency, and an answer about 143 must never be drawn
@@ -274,7 +270,6 @@ export default function EntryChangeRequest({
       const failure = changeRequestFailure(error)
       if (failure === 'forbidden') {
         toast.error(t('changeRequest.errors.forbidden'))
-        void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
         if (stillOn(v.entry)) setForm(null)
         return
       }
@@ -326,7 +321,6 @@ export default function EntryChangeRequest({
       const failure = changeRequestFailure(error)
       if (failure === 'forbidden') {
         toast.error(t('changeRequest.errors.withdrawForbidden'))
-        void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
         return
       }
       if (!stillOn(v.entry)) return
@@ -389,10 +383,9 @@ export default function EntryChangeRequest({
   const onDecideError = (door: DecideDoor, error: unknown, v: DecideVars) => {
     const failure = changeRequestFailure(error)
     if (failure === 'forbidden') {
-      // 🚩 W1: named, and the probe re-read — which takes Approve / Reject with it. The
-      // outcome is never decided from the probe; this only says the door refused.
+      // 🚩 W1: named; the 403 re-reads the permissions answer — which takes Approve / Reject
+      // with it. The outcome is never decided from that answer; this only says the door refused.
       toast.error(t('changeRequest.errors.decideForbidden'))
-      void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
       if (stillOn(v.entry)) setRejectDraft(null)
       return
     }

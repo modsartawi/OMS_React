@@ -14,7 +14,7 @@ import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
-import { analyticsAccessQuery, canAuthorAnalytics } from './access'
+import { canAuthorAnalytics } from '@/core/analytics-access'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsMembersKey, analyticsQueryKey } from './api'
 import { BoardEditorBody, type BuildView } from './BoardEditor'
 import CalculationFields from './CalculationFields'
@@ -87,7 +87,6 @@ export default function AnalyticsEditorPage() {
   const editing = board ? !!boardId : !!readEditorSeed(location.state)?.item
   return (
     <ScreenGate
-      query={analyticsAccessQuery()}
       // 822 (spec 819 §E): the builder and editor routes are the author grant's; a runner's direct URL shows the
       // no-access state in the builder's own words.
       can={canAuthorAnalytics}

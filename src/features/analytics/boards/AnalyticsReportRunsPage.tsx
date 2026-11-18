@@ -16,7 +16,7 @@ import type { Severity } from '@/core/ui/severity'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { canViewAnalytics } from '@/core/analytics-access'
 import { analyticsApi, analyticsRunsKey } from './api'
 import { useReportAndModel } from './AnalyticsReportPage'
 import Refused from './Refused'
@@ -35,7 +35,7 @@ const OUTCOME_SEV: Record<AnalyticsRunOutcome, Severity> = { sent: 'ok', chartsU
 export default function AnalyticsReportRunsPage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('runs.title')} subtitle={t('runs.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('runs.title')} subtitle={t('runs.subtitle')}>
       <RunsBody />
     </ScreenGate>
   )

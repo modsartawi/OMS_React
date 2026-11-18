@@ -13,7 +13,19 @@
 import { describe, expect, it } from 'vitest'
 import settlementLocale from '@/locales/en/settlement.json'
 import { deriveCrumb } from './crumb'
+import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
 import { isActive, markedLeaf, MENU, type ShellMenuItem } from './menu-model'
+import { isGated, resolveMenu } from './useVisibleMenu'
+
+/** oms 909: whether a leaf shows for a session holding exactly these keys of the one permissions answer. */
+const shows = (item: ShellMenuItem, ...screens: string[]): boolean =>
+  resolveMenu([{ ...item, items: undefined }], permissionsOf({ screens })).items.length > 0
+/** A pending and an errored answer both hide a gated leaf. */
+const hiddenWhileUnsettled = (item: ShellMenuItem): boolean =>
+  [
+    permissionsFromQuery({ isPending: true, isError: false, data: undefined }),
+    permissionsFromQuery({ isPending: false, isError: true, data: undefined }),
+  ].every((p) => resolveMenu([{ ...item, items: undefined }], p).items.length === 0)
 
 const OVERVIEW = '/collection/settlement'
 const OPEN = `${OVERVIEW}/open`
@@ -50,11 +62,12 @@ describe('the Settlement Account node', () => {
   })
 
   it('🚩 keeps the ONE grant on the node — no child mints a second gate', () => {
-    // One grant opens all four views; `filterMenu` drops the node and everything
-    // under it when the session does not hold it. A probe copied onto each child
-    // would be four chances to key one of them wrong.
-    expect(settlement.access).toBeDefined()
-    for (const child of settlement.items ?? []) expect(child.access).toBeUndefined()
+    // One grant opens all four views; `filterMenu` drops the node and everything under it when the session does not
+    // hold it. A gate copied onto each child would be four chances to key one of them wrong.
+    expect(isGated(settlement)).toBe(true)
+    for (const child of settlement.items ?? []) expect(isGated(child)).toBe(false)
+    expect(resolveMenu([settlement], permissionsOf({ screens: ['SettlementAccount:03'] })).items).toHaveLength(1)
+    expect(resolveMenu([settlement], permissionsOf({ screens: [] })).items).toHaveLength(0)
   })
 })
 
@@ -176,9 +189,10 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(lit('/oms/central-invoice')).toEqual(['central-invoice:menu.raise'])
   })
 
-  it('the central-invoice leaf carries its OWN probe, not the OMS one', () => {
+  it('the central-invoice leaf reads its OWN key (CentralInvoice:03), not the OMS one', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.raise')!
-    expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
+    expect(shows(leaf, 'CentralInvoice:03')).toBe(true)
+    expect(shows(leaf, 'DocumentList:03', 'DocumentDetails:03')).toBe(false)
   })
 
   it('the list (ticket 333) lights its own leaf alone, and the raise screen does not light it', () => {
@@ -186,9 +200,10 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(lit('/oms/central-invoice')).toEqual(['central-invoice:menu.raise'])
   })
 
-  it('the list leaf reads the SAME probe entry as the raise leaf, so one 403 drops both', () => {
+  it('the list leaf reads the SAME key as the raise leaf', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.list')!
-    expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
+    expect(shows(leaf, 'CentralInvoice:03')).toBe(true)
+    expect(shows(leaf, 'DocumentList:03')).toBe(false)
   })
 
   // Spec 430 D18 / ticket 431: the wave's leaves follow the two central-invoicing ones.
@@ -198,11 +213,11 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(lit('/oms/donor-requests')).toEqual(['donor-requests:menu.donorRequests'])
   })
 
-  it('🚩 Donor requests reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {
+  it('🚩 Donor requests reads its OWN key (DonorRequestInquiry:03), and the list keys alone hide it', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'donor-requests:menu.donorRequests')!
-    expect(leaf.access?.key).toEqual(['oms', 'access'])
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true })).toBe(false)
-    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
+    expect(shows(leaf, 'DocumentList:03', 'DocumentDetails:03')).toBe(false)
+    expect(shows(leaf, 'DonorRequestInquiry:03')).toBe(true)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 
   // D18: Donor requests, Failed donor transfers (434), Document payments (433).
@@ -221,18 +236,16 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(lit('/oms/failed-donor-transfers')).toEqual(['failed-donor-transfers:menu.failedDonorTransfers'])
   })
 
-  it('🚩 Failed donor transfers reads its OWN flag off the ONE OMS probe entry; the re-run flag alone does not show it', () => {
+  it('🚩 Failed donor transfers reads its OWN key (FailedDonorTransfers:03); the re-run key alone does not show it', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'failed-donor-transfers:menu.failedDonorTransfers')!
-    expect(leaf.access?.key).toEqual(['oms', 'access'])
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canReRunFailedTransfer: true })).toBe(false)
-    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenFailedTransfers: true })).toBe(true)
+    expect(shows(leaf, 'DocumentList:03', 'FailedDonorTransfers:06')).toBe(false)
+    expect(shows(leaf, 'FailedDonorTransfers:03')).toBe(true)
   })
 
-  it('🚩 Document payments reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {
+  it('🚩 Document payments reads its OWN key (DocumentPaymentInquiry:03), and a neighbour’s key hides it', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'document-payments:menu.documentPayments')!
-    expect(leaf.access?.key).toEqual(['oms', 'access'])
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
-    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
+    expect(shows(leaf, 'DocumentList:03', 'DonorRequestInquiry:03')).toBe(false)
+    expect(shows(leaf, 'DocumentPaymentInquiry:03')).toBe(true)
   })
 
   it('Cities & districts follows Document payments (D18), lit alone on its own screen', () => {
@@ -241,11 +254,11 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(lit('/oms/geography')).toEqual(['geography:menu.geography'])
   })
 
-  it('🚩 Cities & districts reads its OWN flag off the ONE OMS probe entry; an import flag alone does not show it', () => {
+  it('🚩 Cities & districts reads SdCityInquiry:03 OR SdDistrictInquiry:03; an import key alone does not show it', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'geography:menu.geography')!
-    expect(leaf.access?.key).toEqual(['oms', 'access'])
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
-    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
+    expect(shows(leaf, 'DocumentList:03', 'SdCityImport:03', 'SdDistrictImport:03')).toBe(false)
+    expect(shows(leaf, 'SdCityInquiry:03')).toBe(true)
+    expect(shows(leaf, 'SdDistrictInquiry:03')).toBe(true)
   })
 })
 
@@ -305,10 +318,10 @@ describe('the Delivery statistics leaf (ticket 484)', () => {
     ])
   })
 
-  it('🚩 reads the OMS LIST grant off the ONE OMS probe entry, and fails closed without it', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'access'])
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: false })).toBe(true)
-    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+  it('🚩 reads the OMS LIST key (DocumentList:03), and fails closed without it', () => {
+    expect(shows(leaf, 'DocumentList:03')).toBe(true)
+    expect(shows(leaf, 'DocumentDetails:03', 'DonorRequestInquiry:03')).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -325,11 +338,11 @@ describe('the Pick support leaf (ticket 496)', () => {
     ])
   })
 
-  it('🚩 reads canOpenPickSupport off the ONE OMS probe entry, and fails closed without it', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'access'])
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true })).toBe(true)
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true })).toBe(false)
-    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canFixPickSupport: true })).toBe(false)
+  it('🚩 reads PickSupport:03, and fails closed without it (the fix or serial key alone does not show it)', () => {
+    expect(shows(leaf, 'PickSupport:03')).toBe(true)
+    for (const miss of ['PickSupport:06', 'PickSupportSerial:03', 'DocumentList:03']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -344,12 +357,11 @@ describe('the Dispatch scorecard leaf (ticket 543)', () => {
     ])
   })
 
-  it('🚩 reads its OWN probe (DispatchScorecard/Access), and fails closed on anything but screenAllowed true', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'dispatch-scorecard', 'access'])
-    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
-    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
-    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads its OWN key (DispatchScorecard:03), and fails closed without it', () => {
+    expect(shows(leaf, 'DispatchScorecard:03')).toBe(true)
+    for (const miss of ['DispatchScorecard:06', 'DispatchBoard:03']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -365,11 +377,11 @@ describe('the Closes after a take leaf (ticket 758)', () => {
     expect(markedLeaf(MENU, '/oms/dispatch-scorecard')?.labelKey).toBe('dispatch-scorecard:menu.dispatchScorecard')
   })
 
-  it('🚩 reads the scorecard’s OWN probe and predicate (no new grant), failing closed', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'dispatch-scorecard', 'access'])
-    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
-    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads the scorecard’s OWN key (no new grant), failing closed', () => {
+    expect(shows(leaf, 'DispatchScorecard:03')).toBe(true)
+    for (const miss of ['DispatchBoard:03']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -386,12 +398,11 @@ describe('the Serial refusals leaf (ticket 573)', () => {
     ])
   })
 
-  it('🚩 reads its OWN probe (SerialRefusal/Access), and fails closed on anything but screenAllowed true', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'serial-refusals', 'access'])
-    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
-    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
-    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads its OWN key (SerialRefusal:03), and fails closed without it', () => {
+    expect(shows(leaf, 'SerialRefusal:03')).toBe(true)
+    for (const miss of ['SerialRefusal:06']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -408,12 +419,11 @@ describe('the Expired approval picks leaf (BackOffice ticket 3874)', () => {
     ])
   })
 
-  it('🚩 reads its OWN probe (ExpiredApprovalPick/Access), and fails closed on anything but screenAllowed true', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'expired-approval-picks', 'access'])
-    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
-    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
-    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads its OWN key (ExpiredApprovalPick:03), and fails closed without it', () => {
+    expect(shows(leaf, 'ExpiredApprovalPick:03')).toBe(true)
+    for (const miss of ['ExpiredApprovalPick:06']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -437,14 +447,11 @@ describe('the held-stock report leaves (BackOffice tickets 3873, 3900)', () => {
     }
   })
 
-  it('🚩 all read the ONE probe (HeldStockReport/Access), and fail closed on anything but screenAllowed true', () => {
+  it('🚩 all read the ONE key (HeldStockReport:03), and fail closed without it', () => {
     for (const key of LEAVES) {
-      const access = leaf(key).access
-      expect(access?.key).toEqual(['oms', 'held-stock-report', 'access'])
-      expect(access?.visible({ screenAllowed: true })).toBe(true)
-      expect(access?.visible({ screenAllowed: false })).toBe(false)
-      expect(access?.visible({ screenAllowed: 'true' })).toBe(false)
-      expect(access?.visible(null)).toBe(false)
+      expect(shows(leaf(key), 'HeldStockReport:03')).toBe(true)
+      expect(shows(leaf(key), 'HeldStockReport:06', 'HoldDailyList:03')).toBe(false)
+      expect(hiddenWhileUnsettled(leaf(key))).toBe(true)
     }
   })
 })
@@ -462,12 +469,11 @@ describe('the Holds that should have ended leaf (BackOffice ticket 3872)', () =>
     ])
   })
 
-  it('🚩 reads its OWN probe (HoldDailyList/Access), and fails closed on anything but screenAllowed true', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'hold-daily-list', 'access'])
-    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
-    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
-    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads its OWN key (HoldDailyList:03), and fails closed without it', () => {
+    expect(shows(leaf, 'HoldDailyList:03')).toBe(true)
+    for (const miss of ['HoldDailyList:06', 'HeldStockReport:03']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -484,12 +490,11 @@ describe('the Store stages leaf (BackOffice ticket 3899)', () => {
     ])
   })
 
-  it('🚩 reads its OWN probe (StoreStage/Access), and fails closed on anything but screenAllowed true', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'store-stages', 'access'])
-    expect(leaf.access?.visible({ screenAllowed: true, canMove: false })).toBe(true)
-    expect(leaf.access?.visible({ screenAllowed: false, canMove: true })).toBe(false)
-    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads its OWN key (StoreStage:03), and fails closed without it (the move key alone does not show it)', () => {
+    expect(shows(leaf, 'StoreStage:03')).toBe(true)
+    for (const miss of ['StoreStage:02', 'StoreCountClose:02']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -506,12 +511,11 @@ describe('the Serving lists leaf (ticket 567)', () => {
     }
   })
 
-  it('🚩 reads canViewServingLists off ServingListWeb/Access, and fails closed on anything else', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'serving-lists', 'access'])
-    expect(leaf.access?.visible({ canViewServingLists: true, canEditServingLists: false })).toBe(true)
-    expect(leaf.access?.visible({ canViewServingLists: false, canEditServingLists: true })).toBe(false)
-    expect(leaf.access?.visible({ canViewServingLists: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads ServingList:03, and fails closed without it (the edit key alone does not show it)', () => {
+    expect(shows(leaf, 'ServingList:03')).toBe(true)
+    for (const miss of ['ServingList:06']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -526,12 +530,11 @@ describe('the Sourcing advisor leaf (ticket 738)', () => {
     ])
   })
 
-  it('🚩 reads its OWN probe (SourcingAdvisor/Access), and fails closed on anything but canView true', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'sourcing-advisor', 'access'])
-    expect(leaf.access?.visible({ canView: true })).toBe(true)
-    expect(leaf.access?.visible({ canView: false })).toBe(false)
-    expect(leaf.access?.visible({ canView: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads its OWN key (SourcingAdvisor:01 — deliberately Create), and fails closed without it', () => {
+    expect(shows(leaf, 'SourcingAdvisor:01')).toBe(true)
+    for (const miss of ['SourcingAdvisor:03']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })
 
@@ -547,11 +550,10 @@ describe('the Road distance (Shadow) leaf (ticket 859)', () => {
     expect(markedLeaf(MENU, '/oms/dispatch-board')?.labelKey).toBe('dispatch-board:menu.dispatchBoard')
   })
 
-  it('🚩 reads the board’s OWN probe and predicate (no new grant), failing closed', () => {
-    expect(leaf.access?.key).toEqual(['oms', 'dispatch-board', 'access'])
-    expect(leaf.access?.visible({ canOpenDispatchBoard: true, canReleaseLock: false })).toBe(true)
-    expect(leaf.access?.visible({ canOpenDispatchBoard: false, canReleaseLock: true })).toBe(false)
-    expect(leaf.access?.visible({ canOpenDispatchBoard: 'true' })).toBe(false)
-    expect(leaf.access?.visible(null)).toBe(false)
+  it('🚩 reads the board’s OWN key (DispatchBoard:03, no new grant), failing closed', () => {
+    expect(shows(leaf, 'DispatchBoard:03')).toBe(true)
+    for (const miss of ['DispatchBoard:06']) expect(shows(leaf, miss)).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
 })

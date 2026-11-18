@@ -9,10 +9,11 @@ import { toast } from 'sonner'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { ApiError, apiErrorMessage } from '@/core/api'
-import { canOpenDispatchBoard, canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
+import { canOpenDispatchBoard, canReleaseLock } from '@/core/dispatch/access'
+import { usePermissions } from '@/core/permissions'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
 import type { DispatchBoardFilter } from '@/core/models/dispatch-board'
-import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import { canViewServingLists } from '@/core/serving-list/access'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -41,7 +42,7 @@ import Input from '@/core/ui/Input'
 export default function DispatchBoardPage() {
   const { t } = useTranslation('dispatch-board')
   return (
-    <ScreenGate query={dispatchAccessQuery()} can={canOpenDispatchBoard} ns="dispatch-board" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenDispatchBoard} ns="dispatch-board" title={t('title')} subtitle={t('subtitle')}>
       <Board />
     </ScreenGate>
   )
@@ -50,11 +51,10 @@ export default function DispatchBoardPage() {
 function Board() {
   const { t } = useTranslation('dispatch-board')
   const { query: filter, update, changedFromOutside } = useUrlQuery(boardFilterFromParams, boardFilterToParams)
-  const access = useQuery(dispatchAccessQuery())
-  const canRelease = canReleaseLock(access.data)
-  // A callout's serving list links to its screen only for a View holder (572; 567's probe, the menu leaf's key).
-  const servingListAccess = useQuery(servingListAccessQuery())
-  const canLinkServingList = canViewServingLists(servingListAccess.data)
+  const permissions = usePermissions()
+  const canRelease = canReleaseLock(permissions)
+  // A callout's serving list links to its screen only for a View holder (572, `ServingList:03`).
+  const canLinkServingList = canViewServingLists(permissions)
   const board = useQuery(boardQuery(filter))
   const queryClient = useQueryClient()
 

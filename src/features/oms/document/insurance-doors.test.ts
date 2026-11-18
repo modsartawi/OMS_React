@@ -8,6 +8,7 @@
  * The network is stubbed at the `@/core/api` boundary with payloads in the real shapes (`./__fixtures__`).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { permissionsOf } from '@/core/permissions'
 import insuranceWire from './__fixtures__/insurance-1006358459.json'
 import changedWire from './__fixtures__/insurance-1006358461-changed.json'
 import orderSearch from './__fixtures__/order-search-1006358459.json'
@@ -133,7 +134,7 @@ describe("the delivery money strip's door: { rows, limited }", () => {
     api.get.mockResolvedValue(orderSearch)
     const rows = await documentApi.getOrderRows(' 1006358459 ')
     expect(api.get).toHaveBeenCalledWith('SdDocumentWeb/OrderDocumentList', { DocumentNo: '1006358459' })
-    const strip = deliveryMoneyStrip(orderRowOf(rows, '1006358459'), { refDocumentNo: '1006358459', amountDue: 40.5 }, { canOpenList: true })
+    const strip = deliveryMoneyStrip(orderRowOf(rows, '1006358459'), { refDocumentNo: '1006358459', amountDue: 40.5 }, permissionsOf({ screens: ['DocumentList:03'] }))
     expect(strip).not.toBeNull()
     expect([strip!.source.code, strip!.patient, strip!.insurer, strip!.amountDue]).toEqual([
       'CHANNEL',

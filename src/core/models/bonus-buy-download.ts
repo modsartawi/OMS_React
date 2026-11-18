@@ -47,8 +47,3 @@ export interface BbyDeleteResult {
   /** Populated on `failed`; null/absent otherwise. */
   message?: string | null
 }
-
-/** GET BonusBuyDownloadWeb/Access — the screen-open grant probe (nav show/hide only). */
-export interface BbyDownloadAccessResult {
-  screenAllowed: boolean
-}

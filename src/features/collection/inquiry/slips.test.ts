@@ -11,7 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ApiEnvelope } from '@/core/api'
 import { holdsCategory } from '@/core/attachments/rules'
 import { attachmentUploadForm } from '@/core/attachments/upload'
-import type { AttachmentAccess, CollectionReadyRow, SlipCountedSiblings } from '@/core/models/collection'
+import type { CollectionReadyRow, SlipCountedSiblings } from '@/core/models/collection'
+import { permissionsOf } from '@/core/permissions'
 import {
   CASH_CLOSE,
   ECR_SLIP,
@@ -89,40 +90,27 @@ describe('the "No slip" filter', () => {
   })
 })
 
-describe('the slip probe (AttachmentWeb/Access)', () => {
-  const access = (over: Partial<AttachmentAccess>): AttachmentAccess => ({ categories: [], ...over })
+describe('the slip grant (Attachments:03:CASH_CLOSE)', () => {
+  const ready = (...screens: string[]) => permissionsOf({ screens, extras: { fileServerReady: true } as never })
 
-  it('admits a categories ARRAY that holds CASH_CLOSE', () => {
-    expect(canSeeSlips(access({ categories: [CASH_CLOSE] }))).toBe(true)
-    expect(canSeeSlips(access({ categories: ['OTHER', CASH_CLOSE] }))).toBe(true)
-    // withdrawCategories is 323's to read; it neither admits nor denies the column.
-    expect(canSeeSlips(access({ categories: [CASH_CLOSE], withdrawCategories: [] }))).toBe(true)
+  it('admits the CASH_CLOSE read key on a ready File Server', () => {
+    expect(canSeeSlips(ready('Attachments:03:CASH_CLOSE'))).toBe(true)
+    expect(canSeeSlips(ready('Attachments:03:NPHIES', 'Attachments:03:CASH_CLOSE'))).toBe(true)
   })
 
-  it('🔑 refuses CASH_CLOSE as a bare string — the String.includes trap', () => {
-    expect(canSeeSlips({ categories: CASH_CLOSE } as never)).toBe(false)
-    expect(canSeeSlips({ categories: 'CASH_CLOSE,OTHER' } as never)).toBe(false)
-    expect(holdsCategory(CASH_CLOSE, CASH_CLOSE)).toBe(false)
-  })
-
-  it('refuses an empty array, and a list without CASH_CLOSE', () => {
-    expect(canSeeSlips(access({ categories: [] }))).toBe(false)
-    expect(canSeeSlips(access({ categories: ['OTHER'] }))).toBe(false)
-    // …and a near-miss spelling: membership is exact.
-    expect(canSeeSlips(access({ categories: ['cash_close', 'CASH_CLOSE '] }))).toBe(false)
+  it('refuses another category, a near-miss spelling and the withdraw key alone', () => {
+    expect(canSeeSlips(ready())).toBe(false)
+    expect(canSeeSlips(ready('Attachments:03:NPHIES'))).toBe(false)
+    expect(canSeeSlips(ready('Attachments:03:cash_close', 'Attachments:03:CASH_CLOSE '))).toBe(false)
     // Holding only the WITHDRAW grant does not draw the column.
-    expect(canSeeSlips(access({ categories: [], withdrawCategories: [CASH_CLOSE] }))).toBe(false)
+    expect(canSeeSlips(ready('Attachments:04:CASH_CLOSE'))).toBe(false)
   })
 
-  it('refuses a refusal, a pending probe and a malformed answer — it fails closed', () => {
-    // A refused (503 NOT_SET_UP, 403, network) or pending query has no data.
-    expect(canSeeSlips(undefined)).toBe(false)
-    expect(canSeeSlips(null)).toBe(false)
-    // A missing field, `{}`, a null list.
-    expect(canSeeSlips({} as never)).toBe(false)
-    expect(canSeeSlips({ categories: null } as never)).toBe(false)
-    expect(canSeeSlips({ withdrawCategories: [CASH_CLOSE] } as never)).toBe(false)
-    expect(canSeeSlips('CASH_CLOSE' as never)).toBe(false)
+  it('🔑 refuses an unready File Server (the old 503 NOT_SET_UP) and a failed answer — it fails closed', () => {
+    expect(canSeeSlips(permissionsOf({ screens: ['Attachments:03:CASH_CLOSE'] }))).toBe(false)
+    expect(canSeeSlips(permissionsOf(null))).toBe(false)
+    // `holdsCategory` still refuses a bare string for the lists that carry one.
+    expect(holdsCategory(CASH_CLOSE, CASH_CLOSE)).toBe(false)
   })
 })
 

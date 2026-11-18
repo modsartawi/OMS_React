@@ -1,18 +1,16 @@
 /**
- * The attachment register's reads (ticket 325): ONE probe entry, the keys under one
- * `attachments` head, and ByOwner's freshness as the caller's parameter.
+ * The attachment register's reads (ticket 325): the keys under one `attachments` head,
+ * and ByOwner's freshness as the caller's parameter. (The grants are `./access`, off the
+ * one permissions answer since oms 909.)
  *
  * 🔑 Every ByOwner and `/Content` fetch writes an audit row on the server, so a key
- * that splits (two probe entries) or an option the caller did not ask for (a
+ * that splits or an option the caller did not ask for (a
  * freshness that quietly refetches) is a correctness bug, not a performance nit.
  */
-import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/core/api'
 import {
-  ATTACHMENT_ACCESS_KEY,
   READ_ON_EVERY_OPENING,
-  attachmentAccessQuery,
   attachmentContentKey,
   attachmentContentQuery,
   attachmentsApi,
@@ -23,39 +21,6 @@ import {
 const STORE_DAY_OWNER = { ownerKind: 'STORE_DAY', ownerKey: 'P019/2026-09-20' }
 
 afterEach(() => vi.restoreAllMocks())
-
-describe('the probe — GET AttachmentWeb/Access, ONE shared entry', () => {
-  it('lives under the attachments head, and every reader gets the same key and options', () => {
-    expect(ATTACHMENT_ACCESS_KEY).toEqual(['attachments', 'access'])
-    // The slip grids (`useSlipView`), the drawer, its Add, and the order page (327)
-    // each call this; there is no second spelling of the key anywhere.
-    const grid = attachmentAccessQuery()
-    const drawer = attachmentAccessQuery()
-    expect(grid.queryKey).toBe(ATTACHMENT_ACCESS_KEY)
-    expect(drawer.queryKey).toEqual(grid.queryKey)
-    expect({ staleTime: drawer.staleTime, retry: drawer.retry }).toEqual({ staleTime: Infinity, retry: false })
-  })
-
-  it('two readers share one cache entry and one request', async () => {
-    const access = vi.spyOn(attachmentsApi, 'access').mockResolvedValue({ categories: ['CASH_CLOSE'] })
-    const client = new QueryClient()
-    const grid = new QueryObserver(client, attachmentAccessQuery())
-    const drawer = new QueryObserver(client, attachmentAccessQuery())
-    const off = [grid.subscribe(() => {}), drawer.subscribe(() => {})]
-    await vi.waitFor(() => expect(drawer.getCurrentResult().data).toEqual({ categories: ['CASH_CLOSE'] }))
-    expect(client.getQueryCache().findAll({ queryKey: ['attachments', 'access'] })).toHaveLength(1)
-    expect(access).toHaveBeenCalledTimes(1)
-    off.forEach((unsubscribe) => unsubscribe())
-  })
-
-  it('re-reading an owner never re-asks the probe — ByOwner is invalidated by its exact key', async () => {
-    const client = new QueryClient()
-    client.setQueryData(ATTACHMENT_ACCESS_KEY, { categories: ['CASH_CLOSE'] })
-    client.setQueryData(attachmentsByOwnerKey(STORE_DAY_OWNER), { stored: [], withdrawn: [] })
-    await client.invalidateQueries({ queryKey: attachmentsByOwnerKey(STORE_DAY_OWNER) })
-    expect(client.getQueryState(ATTACHMENT_ACCESS_KEY)?.isInvalidated).toBe(false)
-  })
-})
 
 describe('the keys — one attachments head, owners kept apart', () => {
   it('ByOwner is keyed by owner kind AND key; /Content by the attachment', () => {

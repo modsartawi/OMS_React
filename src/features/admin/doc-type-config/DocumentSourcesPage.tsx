@@ -9,7 +9,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { canEditDocTypeConfig, canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
+import { canEditDocTypeConfig, canViewDocTypeConfig } from './api'
 import CopyDocumentSourceDialog from './CopyDocumentSourceDialog'
 import {
   DOCUMENT_SOURCES_TABS,
@@ -23,6 +23,7 @@ import { documentSourceHistoryQuery, documentSourcesQuery } from './document-sou
 import EditDocumentSourceDialog from './EditDocumentSourceDialog'
 import HistoryTab from './HistoryTab'
 import TabStrip from './TabStrip'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * Document sources — `/admin/document-sources[?source=CINB&tab=history]` (BackOffice spec 3148; ticket 3156). Every
@@ -36,7 +37,6 @@ export default function DocumentSourcesPage() {
   const { t } = useTranslation('doc-type-config')
   return (
     <ScreenGate
-      query={docTypeConfigAccessQuery()}
       can={canViewDocTypeConfig}
       ns="doc-type-config"
       title={t('documentSources.title')}
@@ -52,8 +52,8 @@ function DocumentSources() {
   const [params, setParams] = useSearchParams()
   const view = documentSourcesViewFromParams(params)
   const sources = useQuery(documentSourcesQuery())
-  const access = useQuery(docTypeConfigAccessQuery())
-  const canEdit = canEditDocTypeConfig(access.data)
+  const permissions = usePermissions()
+  const canEdit = canEditDocTypeConfig(permissions)
   // The dialogs hold the source's CODE; the row they get is the live one from the list, so a re-read reaches them.
   const [editing, setEditing] = useState<DocumentSourceSettings | null>(null)
   const [copying, setCopying] = useState<DocumentSourceSettings | null>(null)

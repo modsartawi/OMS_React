@@ -26,7 +26,8 @@ import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
-import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages, storeStageAccessQuery } from './access'
+import { usePermissions } from '@/core/permissions'
+import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages } from './access'
 import { storeStageApi } from './api'
 import { STAGE_SEVERITY, moverLabel, stageColumns, stageLabel } from './columns'
 import {
@@ -57,14 +58,13 @@ const releasesKey = (store: string) => ['oms', 'store-stages', 'releases', store
  * last move; a store opens its log (who moved it, why, when) and, for a holder of the move grant, the move form. SIS.Stock
  * 064 decides which moves are allowed and logs each one; the person is the signed-in user.
  *
- * Behind `canOpenStoreStages` on `StoreStage/Access` (`BackOfficeScreen[StoreStage, 03]`), failing closed; the move form on
+ * Behind `canOpenStoreStages` on `BackOfficeScreen[StoreStage, 03]` off the one permissions answer (oms 909), failing closed; the move form on
  * `canMove` (`BackOfficeScreen[StoreStage, 02]`), which the server checks again.
  */
 export default function StoreStagesPage() {
   const { t } = useTranslation('store-stages')
   return (
     <ScreenGate
-      query={storeStageAccessQuery()}
       can={canOpenStoreStages}
       ns="store-stages"
       title={t('title')}
@@ -91,7 +91,7 @@ function Stages() {
   }, [filters, changedFromOutside])
   const patch = (p: Partial<StagesFilters>) => update((prev) => ({ ...prev, ...p }))
 
-  const access = useQuery(storeStageAccessQuery())
+  const permissions = usePermissions()
   const read = useQuery({ queryKey: LIST_KEY, queryFn: () => storeStageApi.list(), retry: false })
   const rows = useMemo(() => stagesShown(read.data ?? [], filters).map(stageRow), [read.data, filters])
   const columns = useMemo(() => stageColumns(t) as ColDef[], [t])
@@ -179,8 +179,8 @@ function Stages() {
       {open && (
         <StoreSheet
           stage={open}
-          canMove={canMoveStoreStage(access.data)}
-          canCloseCount={canCloseStoreCount(access.data)}
+          canMove={canMoveStoreStage(permissions)}
+          canCloseCount={canCloseStoreCount(permissions)}
           count={countOf(counts.data ?? [], open.store)}
           countFailed={counts.isError}
           onClose={() => patch({ open: '' })}

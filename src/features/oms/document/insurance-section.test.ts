@@ -7,7 +7,7 @@ import type { OrderInsuranceRead } from '@/core/models/order-insurance'
 import type { OrderInsuranceReadWire } from '@/core/models/order-insurance'
 import { insuranceReadOf } from './insurance-wire'
 import fixture from './__fixtures__/insurance-1006358459.json'
-import type { OmsAccessResult } from '@/core/models/oms-access'
+import { permissionsOf } from '@/core/permissions'
 import { asksInsurance, insuranceSectionGate, lineView, moneyTable, pricingSteps, RECEIVED_LINE_FIGURES } from './insurance-section'
 
 const READ = insuranceReadOf(fixture as unknown as OrderInsuranceReadWire)
@@ -160,18 +160,17 @@ describe("insurance-section model: an item-0 condition's money is its rate", () 
 })
 
 describe('insurance-section is absent without the grant or on a non-insurance order', () => {
-  const GRANTED = { canOpenList: true, canOpenDetail: true, canViewInsurance: true } as OmsAccessResult
-  const ORDER = { openedAs: 'document', documentCategory: 'O', access: GRANTED } as const
+  const GRANTED = permissionsOf({ screens: ['DocumentList:03', 'DocumentDetails:03', 'OmsInsuranceView:03'] })
+  const ORDER = { openedAs: 'document', documentCategory: 'O', permissions: GRANTED } as const
 
   it('an insurance order on Document Details, with the grant, asks the read and draws the section', () => {
     expect(asksInsurance(ORDER)).toBe(true)
     expect(insuranceSectionGate(ORDER, READ)).toBe(true)
   })
 
-  it('without the grant: no read asked, no section — absent, false, not a strict true, probe pending', () => {
-    const { canViewInsurance: _, ...without } = GRANTED
-    for (const access of [without, { ...GRANTED, canViewInsurance: false }, { ...GRANTED, canViewInsurance: 'true' }, undefined, null]) {
-      const ctx = { ...ORDER, access: access as OmsAccessResult | undefined }
+  it('without the grant: no read asked, no section — the other OMS keys, or no answer', () => {
+    for (const permissions of [permissionsOf({ screens: ['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02'] }), permissionsOf(null)]) {
+      const ctx = { ...ORDER, permissions }
       expect(asksInsurance(ctx)).toBe(false)
       expect(insuranceSectionGate(ctx, READ)).toBe(false)
     }

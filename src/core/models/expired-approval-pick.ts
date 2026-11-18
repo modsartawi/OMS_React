@@ -30,10 +30,6 @@ export interface ExpiredApprovalPickQuery {
   stores?: string
 }
 
-export interface ExpiredApprovalPickAccess {
-  screenAllowed: boolean
-}
-
 /** One expired approval pick of the week. */
 export interface ExpiredApprovalPickRow {
   documentNo: string

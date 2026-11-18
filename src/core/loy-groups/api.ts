@@ -1,7 +1,8 @@
 /**
  * The loyalty-groups doors (BackOffice spec 3173; doors 3174 list, 3179 `liveBonusBuys`). In `@/core/`
  * from the start: the Loyalty groups screen, bonus-buy maintenance (636), simulation (637) and the member
- * screen (635) all read the probe and the list, and a feature may never import another.
+ * screen (635) all read the list, and a feature may never import another. The grants come off the one
+ * permissions answer (`@/core/permissions`, oms 909).
  *
  * Through `@/core/api` like every call (`.claude/rules/api-envelope.md`).
  *
@@ -9,45 +10,23 @@
  */
 import { api } from '@/core/api'
 import { localizedName } from '@/core/util/localized-name'
-import type { LoyGroup, LoyGroupAccess, LoyGroupBonusBuy } from '@/core/models/loy-groups'
-
-/** The ONE cache key the menu leaf, the screen's gate and every later consumer share. */
-export const LOY_GROUPS_ACCESS_KEY = ['loy', 'groups', 'access'] as const
+import type { LoyGroup, LoyGroupBonusBuy } from '@/core/models/loy-groups'
+import type { Permissions } from '@/core/permissions'
 
 /** The groups list, keyed by its one parameter so Active and All are two cache entries. */
 export const loyGroupsKey = (includeInactive: boolean) => ['loy', 'groups', 'list', { includeInactive }] as const
 
-const isObject = (r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null && !Array.isArray(r)
+/** View (`LoyaltyGroup:03`) — the menu leaf and the screen's `ScreenGate`. */
+export const canViewLoyGroups = (p: Permissions): boolean => p.has('LoyaltyGroup:03')
 
-/** View — the menu leaf and the screen's `ScreenGate`. Only an explicit `true` grants. */
-export const canViewLoyGroups = (r: LoyGroupAccess | null | undefined): boolean => isObject(r) && r.canView === true
-
-/** Maintain — every write control. 🚩 Anchored on view: maintain without view is nothing. */
-export const canMaintainLoyGroups = (r: LoyGroupAccess | null | undefined): boolean =>
-  canViewLoyGroups(r) && (r as LoyGroupAccess).canMaintain === true
+/** Maintain (`LoyaltyGroup:02`) — every write control. 🚩 Anchored on view: maintain without view is nothing. */
+export const canMaintainLoyGroups = (p: Permissions): boolean => canViewLoyGroups(p) && p.has('LoyaltyGroup:02')
 
 export const loyGroupsApi = {
-  /**
-   * `GET LoyGroupWeb/Access` → `{ canView, canMaintain }`.
-   * 🚩 Fails closed: no 404-tolerant catch — a pending, errored, 403 or malformed probe hides the leaf.
-   */
-  access(): Promise<LoyGroupAccess> {
-    return api.get<LoyGroupAccess>('LoyGroupWeb/Access')
-  },
   /** `GET LoyGroupWeb/Groups?includeInactive=bool` → every group (active only unless asked). */
   groups(includeInactive: boolean): Promise<LoyGroup[]> {
     return api.get<LoyGroup[]>('LoyGroupWeb/Groups', { includeInactive })
   },
-}
-
-/** The one set of options every reader of the probe passes: a refusal is an answer, not an outage. */
-export function loyGroupsAccessQuery() {
-  return {
-    queryKey: LOY_GROUPS_ACCESS_KEY,
-    queryFn: () => loyGroupsApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
 }
 
 export function loyGroupsQuery(includeInactive: boolean) {

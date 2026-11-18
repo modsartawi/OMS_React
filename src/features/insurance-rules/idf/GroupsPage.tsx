@@ -32,7 +32,7 @@ import { useIdfAccess } from './useIdfAccess' // 654
  * server's `.xlsx`. The help text says the WPF IDF Import still writes groups, unchecked.
  *
  * The read is ungated (a bare 403 on it is "You do not have access"); 654: every write — Add, Edit, Remove, Import —
- * shows only with `canEditGeneral` (`GET IdfPriority/Access`). Export and Template stay on the view grant.
+ * shows only with `canEditGeneral` (`IdfPriority:07`). Export and Template stay on the view grant.
  */
 export default function GroupsPage() {
   const { t } = useTranslation('insurance-idf')

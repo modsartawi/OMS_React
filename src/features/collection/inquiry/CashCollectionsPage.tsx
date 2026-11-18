@@ -22,7 +22,6 @@ import {
   withoutAcrScope,
 } from './acr-scope'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { collectionAccessQuery } from '@/core/collection/api'
 import { COLLECTIONS_GRID_KEY, assignmentOptionsQuery, canOpenCollections, collectionApi } from './api'
 import { GRID_PAGE_SIZE, isCapReached } from './cap'
 import { buildCollectionsColumns, buildCollectionsDefaultColDef } from './collections-columns'
@@ -72,7 +71,6 @@ export default function CashCollectionsPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
-      query={collectionAccessQuery()}
       can={canOpenCollections}
       ns="collection"
       title={t('collections.title')}

@@ -9,58 +9,56 @@
 import { describe, expect, it } from 'vitest'
 import { commandRow, type PaletteRow } from '@/core/commands/palette-model'
 import type { RecentRecord } from '@/core/commands/recent'
-import { accessProbe, type ShellMenuItem } from './menu-model'
-import { resolveMenu, type ProbeState } from './useVisibleMenu'
+import { permissionsFromQuery, permissionsOf, type Permissions } from '@/core/permissions'
+import type { ShellMenuItem } from './menu-model'
+import { resolveMenu } from './useVisibleMenu'
 import { gotoRows, paletteGroups } from './palette-groups'
 
-const granted = (data: unknown): ProbeState => ({ isPending: false, isSuccess: true, data })
-const pending: ProbeState = { isPending: true, isSuccess: false, data: undefined }
-const errored: ProbeState = { isPending: false, isSuccess: false, data: undefined }
-
-const probe = accessProbe<{ ok: boolean }>({ key: ['t'], run: async () => ({ ok: true }), visible: (r) => r.ok })
+const holding = (...screens: string[]): Permissions => permissionsOf({ screens })
+const pending: Permissions = permissionsFromQuery({ isPending: true, isError: false, data: undefined })
+const errored: Permissions = permissionsFromQuery({ isPending: false, isError: true, data: undefined })
 
 const MENU: ShellMenuItem[] = [
   {
     labelKey: 'g:oms',
     items: [
-      { labelKey: 'g:deliveries', routerLink: '/oms/deliveries', access: probe },
-      { labelKey: 'g:invoices', routerLink: '/oms/central-invoices', access: probe },
+      { labelKey: 'g:deliveries', routerLink: '/oms/deliveries', key: 'DocumentList:03' },
+      { labelKey: 'g:invoices', routerLink: '/oms/central-invoices', key: 'CentralInvoice:03' },
     ],
   },
   {
     labelKey: 'g:collections',
     items: [
-      { labelKey: 'g:collections.cash', routerLink: '/collection/collections', access: probe },
+      { labelKey: 'g:collections.cash', routerLink: '/collection/collections', key: 'CollectionInquiry:03' },
       {
         labelKey: 'g:settlement',
-        items: [{ labelKey: 'g:settlement.ledger', routerLink: '/collection/settlement/ledger', access: probe }],
+        items: [{ labelKey: 'g:settlement.ledger', routerLink: '/collection/settlement/ledger', key: 'SettlementAccount:03' }],
       },
     ],
   },
 ]
-const ALL = [true, true, true, true].map((ok) => granted({ ok }))
+const MENU_KEYS = ['DocumentList:03', 'CentralInvoice:03', 'CollectionInquiry:03', 'SettlementAccount:03']
+const DETAIL = 'DocumentDetails:03'
+const ALL = holding(...MENU_KEYS, DETAIL)
 
 const textOf = (row: PaletteRow) => `${row.label} ${row.value ?? ''}`
 const navigate = () => {}
 const openShortcuts = () => {}
 
 const compose = (o: {
-  probes?: ProbeState[]
-  detail?: ProbeState
+  permissions?: Permissions
   query?: string
   commands?: Parameters<typeof commandRow>[0][]
   singleKeyScreen?: boolean
   recent?: RecentRecord[]
-  member?: ProbeState
 }) =>
   paletteGroups({
     commands: o.commands ?? [],
     singleKeyScreen: o.singleKeyScreen ?? false,
     openShortcuts,
     recent: o.recent ?? [],
-    menu: resolveMenu(MENU, o.probes ?? ALL).items,
-    detail: o.detail ?? granted({ canOpenList: true, canOpenDetail: true }),
-    member: o.member ?? errored,
+    menu: resolveMenu(MENU, o.permissions ?? ALL).items,
+    permissions: o.permissions ?? ALL,
     query: o.query ?? '',
     textOf,
     navigate,
@@ -81,8 +79,7 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
       singleKeyScreen: false,
       openShortcuts,
       recent: [],
-      detail: granted({ canOpenDetail: true }),
-      member: errored,
+      permissions: holding(DETAIL),
       query: '8000000174',
       textOf,
       navigate,
@@ -103,8 +100,7 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
       singleKeyScreen: false,
       openShortcuts,
       recent: [],
-      detail: granted({ canOpenDetail: true }),
-      member: errored,
+      permissions: holding(DETAIL),
       query: '8000000174',
       textOf,
       navigate: (to) => went.push(to),
@@ -120,12 +116,12 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
 
   // K11 + K12: Jump lands on Delivery details, so it follows `canOpenDetail`.
   it.each([
-    ['denied', granted({ canOpenList: true, canOpenDetail: false })],
+    ['denied', holding(...MENU_KEYS)],
     ['pending', pending],
     ['errored', errored],
-    ['malformed', granted({ canOpenDetail: 'yes' })],
-  ])('🚩 a %s detail grant hides Jump', (_, detail) => {
-    expect(ids(compose({ query: '8000000174', detail }))).not.toContain('jump')
+    ['near-miss (DocumentDetails:02)', holding(...MENU_KEYS, 'DocumentDetails:02')],
+  ])('🚩 a %s detail grant hides Jump', (_, permissions) => {
+    expect(ids(compose({ query: '8000000174', permissions }))).not.toContain('jump')
   })
 
   // K10: Go to reads the very menu the rail draws — `resolveMenu`, the probes it fails closed on.
@@ -139,18 +135,17 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
     ])
   })
 
-  it.each([
-    ['denied', granted({ ok: false })],
-    ['pending', pending],
-    ['errored', errored],
-  ])('🚩 a %s menu probe hides its Go to row', (_, state) => {
-    const goto = compose({ probes: [state, ...ALL.slice(1)] }).find((g) => g.id === 'goto')!.rows
+  it('🚩 a denied leaf grant hides its Go to row', () => {
+    const goto = compose({ permissions: holding(...MENU_KEYS.slice(1), DETAIL) }).find((g) => g.id === 'goto')!.rows
     expect(goto.map((r) => r.id)).not.toContain('goto:/oms/deliveries')
     expect(goto).toHaveLength(3)
   })
 
-  it('🚩 with every probe pending, the Go to group is hidden whole', () => {
-    expect(ids(compose({ probes: [pending, pending, pending, pending] }))).toEqual(['screen'])
+  it.each([
+    ['pending', pending],
+    ['errored', errored],
+  ])('🚩 with the answer %s, the Go to group is hidden whole', (_, permissions) => {
+    expect(ids(compose({ permissions }))).toEqual(['screen'])
   })
 
   it('when no page registered anything, This screen holds only the shortcuts row', () => {
@@ -171,8 +166,7 @@ describe('This screen and its keys (ticket 393)', () => {
       openShortcuts: () => opened++,
       recent: [],
       menu: [],
-      detail: errored,
-      member: errored,
+      permissions: errored,
       query: '',
       textOf,
       navigate,
@@ -259,8 +253,7 @@ describe('recentRefiltersByCurrentGrants', () => {
       openShortcuts,
       recent: RECENT,
       menu: [],
-      detail: granted({ canOpenDetail: true }),
-      member: errored,
+      permissions: holding(DETAIL),
       query: '',
       textOf,
       navigate: (to) => went.push(to),
@@ -293,8 +286,7 @@ describe('recentRefiltersByCurrentGrants', () => {
       openShortcuts,
       recent: RECENT,
       menu: [],
-      detail: granted({ canOpenDetail: true }),
-      member: errored,
+      permissions: holding(DETAIL),
       query: 'jump.document',
       textOf: textOfLabel,
       navigate,
@@ -304,12 +296,12 @@ describe('recentRefiltersByCurrentGrants', () => {
 
   // K12: re-filtered by the CURRENT grants — a revoked, pending or errored one hides the history.
   it.each([
-    ['denied', granted({ canOpenList: true, canOpenDetail: false })],
+    ['denied', holding(...MENU_KEYS)],
     ['pending', pending],
     ['errored', errored],
-    ['malformed', granted({ canOpenDetail: 'yes' })],
-  ])('🚩 a %s detail grant hides Recent whole', (_, detail) => {
-    expect(ids(compose({ recent: RECENT, detail }))).not.toContain('recent')
+    ['near-miss (DocumentDetails:02)', holding(...MENU_KEYS, 'DocumentDetails:02')],
+  ])('🚩 a %s detail grant hides Recent whole', (_, permissions) => {
+    expect(ids(compose({ recent: RECENT, permissions }))).not.toContain('recent')
   })
 
   it('an empty store shows no Recent group', () => {
@@ -318,12 +310,11 @@ describe('recentRefiltersByCurrentGrants', () => {
 })
 
 describe('memberJumpFollowsTheLoyProbe (ticket 427)', () => {
-  const loyGranted = granted({ canOpenLoyMember: true })
-  const noDetail = granted({ canOpenDetail: false })
+  const LOY = 'LoyMember:03'
+  const noDetail = holding(LOY)
   const groupsOf = (o: {
     query: string
-    detail?: ProbeState
-    member?: ProbeState
+    permissions?: Permissions
     navigate?: (to: string, state?: unknown) => void
   }) =>
     paletteGroups({
@@ -332,8 +323,7 @@ describe('memberJumpFollowsTheLoyProbe (ticket 427)', () => {
       singleKeyScreen: false,
       openShortcuts,
       recent: [],
-      detail: o.detail ?? granted({ canOpenDetail: true }),
-      member: o.member ?? loyGranted,
+      permissions: o.permissions ?? holding(DETAIL, LOY),
       query: o.query,
       textOf,
       navigate: o.navigate ?? navigate,
@@ -355,11 +345,11 @@ describe('memberJumpFollowsTheLoyProbe (ticket 427)', () => {
   })
 
   it('a Loy-only session sees the member row alone', () => {
-    expect(jumpRowsOf({ query: '80001237', detail: noDetail }).map((r) => r.id)).toEqual(['jump:member'])
+    expect(jumpRowsOf({ query: '80001237', permissions: noDetail }).map((r) => r.id)).toEqual(['jump:member'])
   })
 
   it('an Arabic layout’s number shows the member row with ASCII digits', () => {
-    expect(jumpRowsOf({ query: '٠٥٥٥٠٠٠١١١', detail: noDetail }).map((r) => r.value)).toEqual(['0555000111'])
+    expect(jumpRowsOf({ query: '٠٥٥٥٠٠٠١١١', permissions: noDetail }).map((r) => r.value)).toEqual(['0555000111'])
   })
 
   it('words never become a member row', () => {
@@ -367,19 +357,24 @@ describe('memberJumpFollowsTheLoyProbe (ticket 427)', () => {
   })
 
   it.each([
-    ['denied', granted({ canOpenLoyMember: false })],
+    ['denied', holding(DETAIL)],
+    ['near-miss (LoyMember:02)', holding(DETAIL, 'LoyMember:02')],
+  ])('🚩 a %s Loy grant hides the member row and leaves delivery/document alone', (_, permissions) => {
+    expect(jumpRowsOf({ query: '80001237', permissions }).map((r) => r.id)).toEqual(['jump:delivery', 'jump:document'])
+  })
+
+  it.each([
     ['pending', pending],
     ['errored', errored],
-    ['malformed', granted({ canOpenLoyMember: 'true' })],
-  ])('🚩 a %s Loy probe hides the member row and leaves delivery/document alone', (_, member) => {
-    expect(jumpRowsOf({ query: '80001237', member }).map((r) => r.id)).toEqual(['jump:delivery', 'jump:document'])
+  ])('🚩 a %s answer hides every Jump row', (_, permissions) => {
+    expect(jumpRowsOf({ query: '80001237', permissions })).toEqual([])
   })
 
   it('🚩 the member row navigates to the lookup with the key in router STATE, never the URL', () => {
     const went: [string, unknown][] = []
     const row = jumpRowsOf({
       query: ' +966 55 500 0111 ',
-      detail: noDetail,
+      permissions: noDetail,
       navigate: (to, state) => went.push([to, state]),
     })[0]
     row.run?.()

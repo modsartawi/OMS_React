@@ -5,7 +5,7 @@ import { Info } from 'lucide-react'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { analyticsAccessQuery, canViewAnalytics } from './access'
+import { canViewAnalytics } from '@/core/analytics-access'
 import { analyticsCatalogQuery } from './api'
 import { searchCatalog } from './catalog-search'
 import { buildCatalogTree, type CatalogNode } from './catalog-tree'
@@ -23,7 +23,7 @@ import Refused from './Refused'
 export default function AnalyticsCatalogPage() {
   const { t } = useTranslation('boards')
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={t('pages.catalog.title')} subtitle={t('pages.catalog.subtitle')}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={t('pages.catalog.title')} subtitle={t('pages.catalog.subtitle')}>
       <CatalogBody />
     </ScreenGate>
   )

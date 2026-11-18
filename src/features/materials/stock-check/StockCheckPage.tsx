@@ -19,7 +19,6 @@ import { notify } from '@/core/services/notify'
 import { lookupQueries } from '@/core/services/lookups'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { materialAccessQuery } from '@/core/materials/api'
 import { canCheckStock } from '@/core/materials/access'
 import { STOCK_CAP_REFUSAL_KEY, STOCK_MATERIAL_CAP, STOCK_MATERIAL_PARAM } from '@/core/materials/stock-cap'
 import { isStockUnavailable, materialStockQuery, stockRequest } from '@/core/materials/stock'
@@ -56,13 +55,13 @@ import Textarea from '@/core/ui/Textarea'
  * — stores picked by code or name, whole sets added at once, or "All stores" — answered with live
  * ATP from Stock Visibility, broken down into SAP unrestricted, POS and OMS.
  *
- * Behind `canCheckStock` on the ONE Materials probe, the same predicate the menu leaf reads.
+ * Behind `canCheckStock` on the one permissions answer, the same predicate the menu leaf reads.
  * Its doors (`MaterialWeb/Stock`, `StoreSets`) are BackOffice 2548.
  */
 export default function StockCheckPage() {
   const { t } = useTranslation('materials-stock-check')
   return (
-    <ScreenGate query={materialAccessQuery()} can={canCheckStock} ns="materials-stock-check" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canCheckStock} ns="materials-stock-check" title={t('title')} subtitle={t('subtitle')}>
       <StockCheck />
     </ScreenGate>
   )

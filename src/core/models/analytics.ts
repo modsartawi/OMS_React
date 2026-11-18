@@ -25,21 +25,6 @@ export interface AnalyticsLabel {
   ar: string
 }
 
-/**
- * `GET Analytics/Access`. Absent or unreachable means denied (the OMS probe pattern). 822 (spec 819 §C, PROPOSED):
- * `canAuthor` is the builder's grant — a **runner** is `canView` without it; curate implies author.
- */
-export interface AnalyticsAccess {
-  canView: boolean
-  canAuthor: boolean
-  canCurate: boolean
-  /**
-   * BackOffice 3672 (spec 3632 Q5, Q27): the SQL grant, held only beside the author grant. Shows the copilot's SQL mode
-   * toggle (oms-react 888) and the SQL editor (890). Absent (a pre-3672 server) reads as denied.
-   */
-  canSql?: boolean
-}
-
 export type MeasureShape = 'additive' | 'rate' | 'percentile'
 /** `share` is a fraction (0.42); `percent` is percent points (42), the unit of a calculated column (spec 3519 D2). */
 export type MeasureUnit = 'count' | 'SAR' | 'minutes' | 'seconds' | 'km' | 'share' | 'percent'

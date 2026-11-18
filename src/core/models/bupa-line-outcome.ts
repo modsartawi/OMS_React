@@ -30,11 +30,6 @@ export interface BupaOutcomeQuery {
   kind?: BupaOutcomeKind | ''
 }
 
-/** `GET BupaLineOutcomes/Access` (3889's Changes line) — cookie only, not grant-gated. */
-export interface BupaOutcomeAccess {
-  canView: boolean
-}
-
 /** What Bupa sent on a summary row: our material, else an SFDA code, else free text (trimmed; the first line's). */
 export interface BupaOutcomeSent {
   materialNumber: string | null

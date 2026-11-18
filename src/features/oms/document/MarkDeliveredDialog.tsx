@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Truck } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
@@ -10,7 +10,6 @@ import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
 import Textarea from '@/core/ui/Textarea'
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
-import { revokeMarkDelivered } from '@/core/oms/api'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
@@ -34,8 +33,8 @@ const isGrantRefused = (err: unknown): boolean => err instanceof ApiError && err
  * - **Nothing dismisses it mid-flight**, so an answer is never dropped.
  * - **A refusal stays inline**, worded from its machine code (2420); a code this client does not
  *   know shows the server's own sentence.
- * - **A 403 — from the reasons read or the POST — closes it with a toast** and revokes the
- *   command for the page life: the server's answer outranks the probe's.
+ * - **A 403 — from the reasons read or the POST — closes it with a toast**; the 403 also
+ *   re-reads the one permissions answer (oms 909), so the command drops once it lands.
  * - **Success toasts and hands back to the page**, which reloads the delivery so the new status
  *   and the `DDLR` log row are what the operator sees.
  */
@@ -53,13 +52,11 @@ export default function MarkDeliveredDialog({
   amountDue: number | null | undefined
 }) {
   const { t } = useTranslation('document')
-  const queryClient = useQueryClient()
   const [reasonCode, setReasonCode] = useState('')
   const [note, setNote] = useState('')
   const inFlight = useRef(false)
 
   const grantRefused = () => {
-    revokeMarkDelivered(queryClient)
     notify.error(t('markDelivered.grantRefused.title'), t('markDelivered.grantRefused.detail'))
     onClose()
   }
@@ -100,7 +97,7 @@ export default function MarkDeliveredDialog({
     onClose()
   }
 
-  // A 403 on the reasons read is the grant refusing too: the same toast, revoke and close.
+  // A 403 on the reasons read is the grant refusing too: the same toast and close.
   const reasonsRefused = reasons.isError && isGrantRefused(reasons.error)
   useEffect(() => {
     if (open && reasonsRefused) grantRefused()

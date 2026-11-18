@@ -5,7 +5,7 @@ import GridPager from '@/core/ui/GridPager'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { fsi } from '@/core/util/bidi'
 import type { SyncCommand } from '@/core/models/sync-console'
-import { AUDIT_KEY, COMMANDS_KEY, commandsQueryOptions, syncConsoleAccessQuery, syncConsoleApi } from './api'
+import { AUDIT_KEY, COMMANDS_KEY, commandsQueryOptions, syncConsoleApi } from './api'
 import { buildCommandColumns } from './command-columns'
 import { COMMANDS_PAGE_SIZE, commandKindKey, type CommandsFilter } from './command-helpers'
 import { controlResultSummary } from './control-helpers'
@@ -13,6 +13,8 @@ import { notifyOutcome, resultSentence, type ControlOutcome } from './ControlDia
 import ControlResults from './ControlResults'
 import ReasonDialog from './ReasonDialog'
 import TabGrid from './TabGrid'
+import { usePermissions } from '@/core/permissions'
+import { canOperateSyncConsole } from './access'
 
 const commandId = (c: SyncCommand) => c.id
 
@@ -28,8 +30,8 @@ const commandId = (c: SyncCommand) => c.id
 export default function CommandsFeed({ filter, empty }: { filter: CommandsFilter; empty: string }) {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOperate = access.data?.canOperate === true
+  const permissions = usePermissions()
+  const canOperate = canOperateSyncConsole(permissions)
   const [page, setPage] = useState(1)
   const commands = useQuery({ ...commandsQueryOptions(filter, page), placeholderData: keepPreviousData })
   const [target, setTarget] = useState<SyncCommand | null>(null)

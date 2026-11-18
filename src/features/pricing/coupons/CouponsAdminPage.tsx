@@ -1,19 +1,18 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import Chip from '@/core/ui/Chip'
-import { couponsApi } from './api'
+import { usePermissions } from '@/core/permissions'
+import { canAdminCoupons } from './api'
 import TemplatesWorkspace from './TemplatesWorkspace'
 import InquiryWorkspace from './InquiryWorkspace'
 import ImportWorkspace from './ImportWorkspace'
 
 // The web Coupons-Admin screen (map 497 / spec 505; server 517+519). Mirrors
-// AuthzAdminPage: an Access-probe gate (spinner → denied card → content), an eyebrow +
+// AuthzAdminPage: a permissions gate (spinner → denied card → content), an eyebrow +
 // title, and a Templates | Inquiry | Import tablist. Gated by the CouponsAdmin grant —
 // Templates + Import are admin-only; Inquiry (support-or-admin) lands with ticket 521,
-// so its tab shows a placeholder here. Shares the ['coupons','access'] key with the nav
-// probe (issue 429) so it's one call, not two.
+// so its tab shows a placeholder here. Reads the one permissions answer the nav leaf reads (oms 909).
 type Tab = 'templates' | 'inquiry' | 'import'
 
 const TABS: Tab[] = ['templates', 'inquiry', 'import']
@@ -22,9 +21,9 @@ export default function CouponsAdminPage() {
   const { t } = useTranslation('coupons')
   const [tab, setTab] = useState<Tab>('templates')
 
-  const access = useQuery({ queryKey: ['coupons', 'access'], queryFn: () => couponsApi.access() })
+  const permissions = usePermissions()
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -34,7 +33,7 @@ export default function CouponsAdminPage() {
   }
   // Templates + Import are admin-only; the whole screen opens on CanAdmin (ticket 521
   // widens this to CanAdmin || CanSupport once the support-reachable Inquiry lands).
-  if (access.data?.canAdmin !== true) {
+  if (!canAdminCoupons(permissions)) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
         <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>

@@ -3,7 +3,8 @@ import { ApiError } from '@/core/api'
 import { useSession } from '@/core/session'
 import type { CopilotAnswer, CopilotAskRequest, CopilotSqlPart } from '@/core/models/copilot'
 import { answerLayout, copilotAnswerModel } from './answer'
-import { canUseSqlMode } from './access'
+import { canSqlAnalytics } from '@/core/analytics-access'
+import { permissionsOf } from '@/core/permissions'
 import { askBody, EMPTY_CONVERSATION } from './conversation'
 import { createCopilotConversation } from './conversation-store'
 import { copilotRefusal } from './refusal'
@@ -11,7 +12,7 @@ import { toolLabelKey } from './trace'
 
 /**
  * BackOffice spec 3632 Q27, Q28, Q33 (ticket 888): the panel's SQL mode. The wire is BackOffice 3673's (`sqlMode` on the
- * ask, `sql` on the answer) and 3674's (`sqlOffer` on a can't-answer); the grant is 3672's `canSql` on `Analytics/Access`.
+ * ask, `sql` on the answer) and 3674's (`sqlOffer` on a can't-answer); the grant is the Analytics SQL grant on the one permissions answer (oms 909).
  */
 
 const reply = (over: Partial<CopilotAnswer> = {}): CopilotAnswer => ({
@@ -40,14 +41,12 @@ function door() {
 afterEach(() => useSession.getState().clear())
 
 describe('the SQL mode toggle shows for a grant holder only and sends the mode (Q27)', () => {
-  it('is held only on canSql === true; absent, old or malformed is a denial', () => {
-    expect(canUseSqlMode({ canView: true, canAuthor: true, canCurate: false, canSql: true })).toBe(true)
-    expect(canUseSqlMode({ canView: true, canAuthor: true, canCurate: true, canSql: false })).toBe(false)
-    // A pre-3672 server sends no canSql: no toggle.
-    expect(canUseSqlMode({ canView: true, canAuthor: true, canCurate: true })).toBe(false)
-    expect(canUseSqlMode({ canView: true, canAuthor: true, canCurate: false, canSql: 'true' } as never)).toBe(false)
-    expect(canUseSqlMode(undefined)).toBe(false)
-    expect(canUseSqlMode(null)).toBe(false)
+  it('is held only on the SQL grant beside the author grant; half of it, or no answer, is a denial', () => {
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:03', 'Analytics:02', 'Analytics:07'] }))).toBe(true)
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:03', 'Analytics:02', 'Analytics:06'] }))).toBe(false)
+    // Analytics:07 without the author grant: no toggle.
+    expect(canSqlAnalytics(permissionsOf({ screens: ['Analytics:03', 'Analytics:07'] }))).toBe(false)
+    expect(canSqlAnalytics(permissionsOf(null))).toBe(false)
   })
 
   it('the ask body says sqlMode: true only when the mode is on', () => {

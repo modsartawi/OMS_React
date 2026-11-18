@@ -1,48 +1,31 @@
 /**
- * The loyalty-groups probe's predicates (oms ticket 629, BackOffice spec 3173).
+ * The loyalty-groups predicates (oms ticket 629, BackOffice spec 3173), over the one permissions answer since oms 909
+ * (BackOffice spec 4002): `LoyaltyGroup:03` view, `LoyaltyGroup:02` maintain (brief row 22).
  *
- * 🚩 Only an explicit `true` admits, and `canMaintain` sits BESIDE `canView`, never instead of it: a
- * session that may maintain but not view gets nothing. The shapes below are the ones the type forbids
- * and a real projection can still emit, hence the cast.
+ * 🚩 Maintain sits BESIDE view, never instead of it: a session that may maintain but not view gets nothing.
  */
 import { describe, expect, it } from 'vitest'
-import type { LoyGroupAccess } from '@/core/models/loy-groups'
+import { permissionsOf, type ScreenKey } from '@/core/permissions'
 import { canMaintainLoyGroups, canViewLoyGroups } from './api'
 
-const answer = (flags: unknown) => flags as LoyGroupAccess
+const holding = (...screens: ScreenKey[]) => permissionsOf({ screens })
 
-describe('loy-groups access predicates fail closed', () => {
-  it('admits an explicit view grant, and a maintain grant only on top of it', () => {
-    expect(canViewLoyGroups(answer({ canView: true, canMaintain: false }))).toBe(true)
-    expect(canMaintainLoyGroups(answer({ canView: true, canMaintain: false }))).toBe(false)
-    expect(canMaintainLoyGroups(answer({ canView: true, canMaintain: true }))).toBe(true)
+describe('loy-groups predicates', () => {
+  it('admits the view key, and maintain only on top of it', () => {
+    expect(canViewLoyGroups(holding('LoyaltyGroup:03'))).toBe(true)
+    expect(canMaintainLoyGroups(holding('LoyaltyGroup:03'))).toBe(false)
+    expect(canMaintainLoyGroups(holding('LoyaltyGroup:03', 'LoyaltyGroup:02'))).toBe(true)
   })
 
-  it('🚩 hides on an absent, malformed or false answer', () => {
-    const denials = [
-      { canView: false, canMaintain: false },
-      {},
-      { canView: 'true' },
-      { canView: 1 },
-      { canView: null },
-      { canOpen: true },
-      'true',
-      [],
-    ]
-    for (const d of denials) {
-      expect(canViewLoyGroups(answer(d))).toBe(false)
-      expect(canMaintainLoyGroups(answer(d))).toBe(false)
-    }
-    for (const nothing of [null, undefined]) {
-      expect(canViewLoyGroups(nothing)).toBe(false)
-      expect(canMaintainLoyGroups(nothing)).toBe(false)
-    }
+  it('🚩 maintain without view still hides', () => {
+    expect(canViewLoyGroups(holding('LoyaltyGroup:02'))).toBe(false)
+    expect(canMaintainLoyGroups(holding('LoyaltyGroup:02'))).toBe(false)
   })
 
-  it('🚩 canMaintain without canView still hides', () => {
-    for (const d of [{ canMaintain: true }, { canView: false, canMaintain: true }, { canView: 'true', canMaintain: true }]) {
-      expect(canViewLoyGroups(answer(d))).toBe(false)
-      expect(canMaintainLoyGroups(answer(d))).toBe(false)
+  it('🚩 hides on no key, a neighbour key or a failed answer', () => {
+    for (const p of [holding(), holding('LoyMember:03'), permissionsOf(null)]) {
+      expect(canViewLoyGroups(p)).toBe(false)
+      expect(canMaintainLoyGroups(p)).toBe(false)
     }
   })
 })

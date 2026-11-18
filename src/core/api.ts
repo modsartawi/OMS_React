@@ -145,6 +145,22 @@ const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.PROD ? '/' : '/ap
 // Coalesce concurrent 401s into one toast + one redirect (Angular parity §1.4).
 let redirectInFlight = false
 
+/**
+ * Who hears a 403 (oms 909, BackOffice spec 4002). The one permissions answer is read once per page life, so a grant
+ * revoked mid-session shows first as a door saying no: every 403 — a bare grant-filter refusal or a coded one — tells
+ * the listeners, and `@/core/permissions` invalidates its answer so the menu and the buttons catch up. A listener set
+ * rather than an import, because `core/api` must not know the query client.
+ */
+const forbiddenListeners = new Set<() => void>()
+
+/** Hear every 403 from this module. Returns the unsubscribe. */
+export function onForbidden(listener: () => void): () => void {
+  forbiddenListeners.add(listener)
+  return () => {
+    forbiddenListeners.delete(listener)
+  }
+}
+
 function handle401(requestPath: string): ApiError {
   const message = i18n.t('common:errors.sessionEnded')
   // The anonymous auth endpoints must never trigger the expired-session redirect:
@@ -154,6 +170,9 @@ function handle401(requestPath: string): ApiError {
   const skip =
     requestPath.endsWith('Auth/Login') ||
     requestPath.includes('Auth/Ua') ||
+    // The permissions answer starts beside `Auth/Me` (oms 909), so an anonymous visit asks it too: its 401 is the
+    // same "not signed in" Me already reports as a 200, not an ended session to toast about.
+    requestPath.endsWith('Auth/Permissions') ||
     window.location.pathname === '/login'
   if (!skip && !redirectInFlight) {
     redirectInFlight = true
@@ -208,6 +227,7 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   }
 
   if (res.status === 401) throw handle401(cleanPath)
+  if (res.status === 403) forbiddenListeners.forEach((listener) => listener())
   return res
 }
 

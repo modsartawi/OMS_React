@@ -7,7 +7,6 @@ import { AgGridReact } from 'ag-grid-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import type {
   SettlementChangeQueueRow,
   SettlementChangeRequestActResult,
@@ -109,9 +108,8 @@ export default function ChangeQueue({
   const onDecideError = (door: DecideDoor, error: unknown, row: ChangeQueueRow) => {
     const failure = changeRequestFailure(error)
     if (failure === 'forbidden') {
-      // 🚩 W1: named, and the probe re-read — which takes the tab and its buttons with it.
+      // 🚩 W1: named; the 403 re-reads the permissions answer — which takes the tab and its buttons with it.
       toast.error(t('changeRequest.errors.decideForbidden'))
-      void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
       setRejecting(null)
       return
     }

@@ -1,29 +1,19 @@
 /**
- * Ticket 567 — the serving-list probe: the menu leaf and the ScreenGate share one View predicate that
- * fails closed; every edit control (570) reads its own Edit flag.
+ * Ticket 567, on the one permissions answer (oms 909): View (`ServingList:03`) and Edit (`ServingList:06`) are two keys.
  */
 import { describe, expect, it } from 'vitest'
-import type { ServingListAccess } from '@/core/models/serving-list'
-import { SERVING_LIST_ACCESS_KEY, canEditServingLists, canViewServingLists, servingListAccessQuery } from './access'
+import { permissionsOf } from '@/core/permissions'
+import { canEditServingLists, canViewServingLists } from './access'
 
-describe('the serving-list probe', () => {
-  it('each flag reads only its own field', () => {
-    const view: ServingListAccess = { canViewServingLists: true, canEditServingLists: false }
-    expect([canViewServingLists(view), canEditServingLists(view)]).toEqual([true, false])
-    const edit: ServingListAccess = { canViewServingLists: false, canEditServingLists: true }
-    expect([canViewServingLists(edit), canEditServingLists(edit)]).toEqual([false, true])
+const holding = (...screens: string[]) => permissionsOf({ screens })
+
+describe('the serving-list grants', () => {
+  it('each predicate reads only its own key', () => {
+    expect([canViewServingLists(holding('ServingList:03')), canEditServingLists(holding('ServingList:03'))]).toEqual([true, false])
+    expect([canViewServingLists(holding('ServingList:06')), canEditServingLists(holding('ServingList:06'))]).toEqual([false, true])
   })
 
-  it.each([null, undefined, [], {}, { canViewServingLists: 'true', canEditServingLists: 1 }])('🚩 %j grants nothing', (r) => {
-    expect(canViewServingLists(r as unknown as ServingListAccess)).toBe(false)
-    expect(canEditServingLists(r as unknown as ServingListAccess)).toBe(false)
-  })
-
-  it('one key, no retry, never stale in a page life', () => {
-    const q = servingListAccessQuery()
-    expect(q.queryKey).toEqual(['oms', 'serving-lists', 'access'])
-    expect(SERVING_LIST_ACCESS_KEY).toEqual(['oms', 'serving-lists', 'access'])
-    expect(q.retry).toBe(false)
-    expect(q.staleTime).toBe(Infinity)
+  it('🚩 no answer grants nothing', () => {
+    expect([canViewServingLists(permissionsOf(null)), canEditServingLists(permissionsOf(null))]).toEqual([false, false])
   })
 })

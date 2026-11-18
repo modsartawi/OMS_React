@@ -10,7 +10,7 @@ import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
-import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
+import type { AuthzRoleLists, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
 import { formatStamp, grantText, inScope, indexRoles, provenance, roleKind } from './helpers'
 import AssignRoleModal from './AssignRoleModal'
@@ -20,13 +20,13 @@ type Tab = 'roles' | 'effective' | 'audit'
 interface Props {
   employeeId: string
   displayName: string
-  access: AuthzAccessResult
+  roleLists: AuthzRoleLists
   catalog: RoleCatalogEntry[]
   /** Refresh the counts + the current grid list after a role-visible change. */
   onChanged: () => void
 }
 
-export default function UserDetailPane({ employeeId, displayName, access, catalog, onChanged }: Props) {
+export default function UserDetailPane({ employeeId, displayName, roleLists, catalog, onChanged }: Props) {
   const { t } = useTranslation('authz-admin')
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('roles')
@@ -116,7 +116,7 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
                 ) : (
                   roles.map((rn) => {
                     const kind = roleKind(byName.get(rn))
-                    const removable = inScope(rn, access.revocableRoles)
+                    const removable = inScope(rn, roleLists.revocableRoles)
                     return (
                       <span
                         key={rn}
@@ -162,7 +162,7 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
 
               {/* Assign is entitled by S_USER_AGR, surfaced as assignableRoles — so the
                   button keys on that, not the S_USER_MAINT tier flag. */}
-              {access.assignableRoles.length > 0 ? (
+              {roleLists.assignableRoles.length > 0 ? (
                 <div>
                   <Button variant="primary" onClick={() => setAssignOpen(true)} disabled={acting}>
                     {t('roles.assign')}
@@ -250,7 +250,7 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
         onClose={() => setAssignOpen(false)}
         employeeId={employeeId}
         assigned={roles}
-        access={access}
+        roleLists={roleLists}
         catalog={catalog}
         onAssigned={refresh}
       />

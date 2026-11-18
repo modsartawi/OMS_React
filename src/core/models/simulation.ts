@@ -2,23 +2,10 @@
 // slice BackOffice 509, contract 486). Field casing is the camelCase ASP.NET Core
 // emits. The POS Simulation screen is gated by its OWN grant (POS_SIMULATION_ADMIN).
 //
-// Ticket 013 (the tracer) uses: the access probe, the request shape, and the
+// Ticket 013 (the tracer) uses: the request shape, and the
 // header totals + per-item result fields the results grid renders. The raw
 // `conditions` rows (aggregated client-side, ticket 014), bonus buys (015) and
 // pricing elements (015) are additive extensions of these types their tickets add.
-
-/** GET Pricing/Access — the screen-open grant probe (show/hide only; server enforces per call). */
-export interface SimulationAccessResult {
-  canOpen: boolean
-}
-
-/** GET Pricing/CacheAccess — the pricing-cache-admin grant probe (spec 022). A DISTINCT
- *  privilege from opening the screen: clearing the shared cache evicts every user's warm
- *  pricing, so it rides its own grant. Cookie-only, not grant-gated — show/hide the
- *  Clear-cache button only; the server enforces the grant on the clear call itself. */
-export interface SimulationCacheAccessResult {
-  canClear: boolean
-}
 
 /** POST Pricing/ClearCache — the whole-pricing-cache clear (spec 022, ticket 052). Evicts
  *  the entire server-side "Pricing" FusionCache on the serving instance. The server's

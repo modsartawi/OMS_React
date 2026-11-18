@@ -10,11 +10,6 @@
  *   optional: without it the code stands alone.
  */
 
-/** `GET SourcingAdvisor/Access` → `{ canView }`, grant `BackOfficeScreen[SourcingAdvisor, 01]`. */
-export interface SourcingAdvisorAccess {
-  canView: boolean
-}
-
 /** D18: on time, late, or unknown (`null`, no history for the store). */
 export type SourcingOnTimeWire = boolean | null
 

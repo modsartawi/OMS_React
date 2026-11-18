@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
-import { attachmentAccessQuery } from '@/core/attachments/api'
+import { usePermissions } from '@/core/permissions'
 import { canSeeSlips, isNoSlipRow, type NoSlipToggle, type SlipDay } from './slips'
 
 /** What a slip-counted grid draws from its rows and the probe (ticket 320). */
@@ -30,9 +29,8 @@ export interface SlipView<Row> {
  * different ways. Each Page still composes its own screen (244 §1); this is one
  * control's plumbing, as `useXlsxExport` is.
  *
- * 🔑 The probe is the ONE shared entry (`attachmentAccessQuery`), read through
- * `canSeeSlips`: pending, refused (503 NOT_SET_UP, 403, network) or malformed all
- * hide the column, the filter and the banner. Called inside the screen gate, so a
+ * 🔑 The grant is the one permissions answer, read through `canSeeSlips`: pending,
+ * failed, an unready File Server or no key all hide the column, the filter and the banner. Called inside the screen gate, so a
  * refused session never asks.
  *
  * "No slip" is client-side over the rows already here — never a server parameter
@@ -43,8 +41,7 @@ export function useSlipView<Row extends { slipCount: number | null }>(
   rows: Row[],
   slipCountsUnavailable: boolean | undefined,
 ): SlipView<Row> {
-  const access = useQuery(attachmentAccessQuery())
-  const showSlips = canSeeSlips(access.data)
+  const showSlips = canSeeSlips(usePermissions())
   const [pressed, setPressed] = useState(false)
 
   const noSlipOn = showSlips && pressed

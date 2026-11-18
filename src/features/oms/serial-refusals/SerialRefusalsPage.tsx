@@ -28,7 +28,7 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { canOpenSerialRefusals, serialRefusalAccessQuery } from './access'
+import { canOpenSerialRefusals } from './access'
 import { serialRefusalApi } from './api'
 import {
   TEXT_COLUMNS,
@@ -72,7 +72,7 @@ import Chip from '@/core/ui/Chip'
  * per section of the saved analysis (staff, repeat offenders, serials, stores, articles, held by, per day) and the
  * refusals themselves. A row of any section opens the refusals behind it on the Refusals tab.
  *
- * Behind `canOpenSerialRefusals` on its own probe (`SerialRefusal/Access`), the same predicate the menu leaf reads,
+ * Behind `canOpenSerialRefusals` on its own key of the one permissions answer (oms 909), the same predicate the menu leaf reads,
  * failing closed. The report ranks staff by id, so its grant is its own.
  *
  * 🚩 Every count is the door's; the grid only sorts what it was sent. A blank staff id is "unknown staff": a till that
@@ -82,7 +82,6 @@ export default function SerialRefusalsPage() {
   const { t } = useTranslation('serial-refusals')
   return (
     <ScreenGate
-      query={serialRefusalAccessQuery()}
       can={canOpenSerialRefusals}
       ns="serial-refusals"
       title={t('title')}

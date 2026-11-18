@@ -25,14 +25,14 @@ import Textarea from '@/core/ui/Textarea'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import {
-  bbyMaintainAccessQuery,
   bbyMaintainApi,
   bonusBuyKey,
-  canMarkTested,
+  canTestBbyMaintain,
   canOpenBbyMaintain,
   promotionKey,
   promotionListKey,
 } from './api'
+import { usePermissions } from '@/core/permissions'
 import ActReport, { type Report } from './ActReport'
 import { BuyPanel, type CouponMaterialAction, GetPanel } from './BuyGetPanels'
 import EngineRulesTab from './EngineRulesTab'
@@ -85,7 +85,6 @@ export default function BonusBuyEditorPage() {
 
   return (
     <ScreenGate
-      query={bbyMaintainAccessQuery()}
       can={canOpenBbyMaintain}
       ns="bonus-buy-maintenance"
       title={t(`editor.${mode}Title`)}
@@ -217,9 +216,8 @@ function EditorBody({
   if (loyFindings !== loyChecked.findings) setLoyChecked({ findings: loyFindings, value: state.engine.loyGroups })
   // The Buy line New coupon material was pressed on, while its prompt is open.
   const [couponLineKey, setCouponLineKey] = useState<string | null>(null)
-  // The ONE access answer the screen gate already read (same key): the tester grant rides on it.
-  const accessAnswer = useQuery(bbyMaintainAccessQuery())
-  const access: EditorAccess = editorAccess(mode, doc, canMarkTested(accessAnswer.data))
+  // The one permissions answer the screen gate already read: the tester grant rides on it.
+  const access: EditorAccess = editorAccess(mode, doc, canTestBbyMaintain(usePermissions()))
   const currency = orgCurrency(BBY_ORG.salesOrg)
 
   const update = (patch: Partial<EditorState>) => setState((s) => ({ ...s, ...patch }))

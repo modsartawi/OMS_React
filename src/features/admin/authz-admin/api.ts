@@ -1,13 +1,14 @@
 import { api } from '@/core/api'
 import type { UaEmployeeSearchResult } from '@/core/models/ua-user'
+import type { Permissions } from '@/core/permissions'
 import type {
-  AuthzAccessResult,
   AuthzAuditRow,
   EffectiveAuthorization,
   GrantCatalogEntry,
   RoleCatalogEntry,
   RoleDetail,
   RoleHolder,
+  AuthzRoleLists,
 } from '@/core/models/authz-admin'
 
 const BASE = 'AuthzAdminWeb'
@@ -17,14 +18,22 @@ const encode = (segment: string) => encodeURIComponent(segment)
 // first page and the "refine to narrow" cap note rather than offset-paging.
 const PAGE = { skip: 0, take: 50 }
 
+/** May open the AuthzAdmin screen (`AuthzAdmin:03`): the nav leaf and the page's guard, off the one permissions answer. */
+export const canOpenAuthzAdmin = (p: Permissions): boolean => p.has('AuthzAdmin:03')
+
+/** The role lists' own cache key (never the old probe's `['authz-admin','access']`). */
+export const AUTHZ_ROLE_LISTS_KEY = ['authz-admin', 'role-lists'] as const
+
 export const authzAdminApi = {
-  // The rich screen-open + tiering probe. Drives BOTH the in-page route-guard (the
-  // "no access" card + pane tiering) AND the shell's permission-aware nav hiding
-  // (429) — the shell's probe shares this exact ['authz-admin','access'] cache
-  // entry, so it's one call, not two. The server re-checks the grant on every
-  // AuthzAdminWeb/* call regardless; the menu hide is show/hide hygiene only.
-  access(): Promise<AuthzAccessResult> {
-    return api.get<AuthzAccessResult>(`${BASE}/Access`)
+  /**
+   * The assignable / revocable role lists. ⚠ THE ONE KEPT `/Access` READ (oms 909, BackOffice brief
+   * `3995-oms-react-permissions-brief.md`, "Not covered by the answer"): the lists are data (`IAdminService`), not a
+   * menu fact, so the permissions answer does not carry them; this page reads them here until BackOffice gives it its
+   * own call. Only the two lists are read — every boolean comes from `@/core/permissions`. The source-contract test
+   * allow-lists exactly this file and this literal.
+   */
+  roleLists(): Promise<AuthzRoleLists> {
+    return api.get<AuthzRoleLists>('AuthzAdminWeb/Access')
   },
 
   // Person search — the SAME spine search the Ua Admin screen uses, capped at 50,

@@ -1,9 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import { canReplayReceipts, syncConsoleAccessQuery } from './api'
+import { canReplayReceipts } from './api'
 import { wizardStart } from './onboard-helpers'
 import { REPLAY_PATH } from './replay-draft'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The console's own page links (ticket 447), the prototype's top bar: the Fleet, the
@@ -37,9 +37,9 @@ const PAGES = [
 
 export default function ConsoleNav() {
   const { t } = useTranslation('sync-console')
-  const access = useQuery(syncConsoleAccessQuery())
-  const canOnboardAny = wizardStart(access.data, null) !== null
-  const canReplay = canReplayReceipts(access.data)
+  const permissions = usePermissions()
+  const canOnboardAny = wizardStart(permissions, null) !== null
+  const canReplay = canReplayReceipts(permissions)
   const pages = PAGES.filter((p) => (p.key !== 'newStore' || canOnboardAny) && (p.key !== 'replay' || canReplay))
   return (
     <nav aria-label={t('nav.label')} className="flex gap-1 border-b border-border/60" data-console-nav="">

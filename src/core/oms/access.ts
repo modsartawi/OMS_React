@@ -1,122 +1,82 @@
-import type { OmsAccessResult } from '@/core/models/oms-access'
+import type { Permissions, ScreenKey } from '@/core/permissions'
 
-// The OMS probe's screen flags (spec 430 D2, ticket 431). Pure: no React, no `t`.
+// The OMS area's grants, read off the one permissions answer (oms 909, BackOffice spec 4002; brief row 43). Pure: no
+// React, no `t`. The menu leaf, the page gate and the buttons take the same predicate, so they cannot disagree.
 //
-// The five OMS screens of spec 430 each read their own flag off the ONE `OMS_ACCESS_KEY` entry
-// (`@/core/oms/api`), so the OMS group still costs one call. This module is the one reading of
-// those flags: the menu leaf and the page gate take the same predicate, so they cannot disagree.
+// Each predicate is one seed-spelled `BackOfficeScreen` key, except the two combinations the server's old probe
+// computed: Cities & districts (either inquiry) and the LF force refund (04 only beside 03).
+
+const key = (k: ScreenKey) => (p: Permissions): boolean => p.has(k)
+
+/** Delivery Documents list — `DocumentList:03`. */
+export const canOpenList = key('DocumentList:03')
+
+/** Document Details, the deep-linkable screen — `DocumentDetails:03`. */
+export const canOpenDetail = key('DocumentDetails:03')
 
 /**
- * The nine flags of D2, in the order the spec lists them, then the two Pick support flags
- * (BackOffice brief 2691, shipped in BackOffice 2731), then Document Details' two write grants
- * (BackOffice 2763, ticket 521), then Pick support's serial grant (BackOffice 2874, ticket 540) — all
- * read the same way, absent = denied.
+ * Document Details' change doors (ticket 521) — `DocumentDetails:02`. On top of `canOpenDetail`, never instead of it:
+ * the screen still opens on `canOpenDetail` alone.
  */
-export const OMS_SCREEN_FLAGS = [
-  'canOpenDonorRequests',
-  'canOpenDocumentPayments',
-  'canOpenFailedTransfers',
-  'canReRunFailedTransfer',
-  'canOpenGeography',
-  'canImportCities',
-  'canImportDistricts',
-  'canOpenDocumentSourceUsers',
-  'canImportDocumentSourceUsers',
-  'canOpenPickSupport',
-  'canFixPickSupport',
-  'canChangeDetail',
-  'canCreateReturn',
-  'canSeePickSupportSerial',
-] as const
+export const canChangeDetail = key('DocumentDetails:02')
 
-export type OmsScreenFlag = (typeof OMS_SCREEN_FLAGS)[number]
-/**
- * The local fulfillment return pair (BackOffice 3369 D14, ticket 760). Kept OUT of
- * `OMS_SCREEN_FLAGS` because they are not independent: 04 counts only beside 03.
- */
-export interface LfReturnGrants {
-  /** `LocalFulfillmentReturn,03`. */
-  canCreateLocalFulfillmentReturn: boolean
-  /** `LocalFulfillmentReturn,04` — and only when 03 is held too. */
-  canForceLocalFulfillmentReturnRefund: boolean
-}
+/** Mark delivered (BackOffice 2417) — `OmsMarkDelivered:06`. */
+export const canMarkDelivered = key('OmsMarkDelivered:06')
 
-export type OmsGrants = Record<OmsScreenFlag, boolean> & LfReturnGrants
+/** Mark returned back (oms 838) — `OmsReturnBack:06`. Independent of Mark delivered both ways. */
+export const canMarkReturnedBack = key('OmsReturnBack:06')
 
-/**
- * Every D2 flag as a plain boolean. 🚩 Only an explicit `true` grants: an absent flag (a server
- * that has not learned it yet), a missing answer or a malformed value all read as `false`, so the
- * probe keeps failing closed. The LF pair reads the same way, and a probe answering 04 without
- * 03 grants neither (the Attachments 03/04 precedent 3369 D14 names).
- */
-export function omsGrants(r: Partial<OmsAccessResult> | null | undefined): OmsGrants {
-  const screens = Object.fromEntries(OMS_SCREEN_FLAGS.map((flag) => [flag, r?.[flag] === true])) as Record<OmsScreenFlag, boolean>
-  const create = r?.canCreateLocalFulfillmentReturn === true
-  return {
-    ...screens,
-    canCreateLocalFulfillmentReturn: create,
-    canForceLocalFulfillmentReturnRefund: create && r?.canForceLocalFulfillmentReturnRefund === true,
-  }
-}
+/** Create return (ticket 521) — `OmsCreateReturn:01`. Change does not imply it. */
+export const canCreateReturn = key('OmsCreateReturn:01')
 
-/** Donor requests (ticket 431): the leaf's and the page gate's one predicate. */
-export const canOpenDonorRequests = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canOpenDonorRequests
+/** Donor requests (ticket 431) — `DonorRequestInquiry:03`. */
+export const canOpenDonorRequests = key('DonorRequestInquiry:03')
 
-/** Document payments (ticket 433): the leaf's and the page gate's one predicate. */
-export const canOpenDocumentPayments = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canOpenDocumentPayments
+/** Document payments (ticket 433) — `DocumentPaymentInquiry:03`. */
+export const canOpenDocumentPayments = key('DocumentPaymentInquiry:03')
 
-/** Failed donor transfers (ticket 434): the leaf's and the page gate's one predicate. */
-export const canOpenFailedTransfers = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canOpenFailedTransfers
+/** Failed donor transfers (ticket 434) — `FailedDonorTransfers:03`. */
+export const canOpenFailedTransfers = key('FailedDonorTransfers:03')
 
-/** Cities & districts (ticket 436): the leaf's and the page gate's one predicate. */
-export const canOpenGeography = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canOpenGeography
+/** The failed transfer's re-run — `FailedDonorTransfers:06`. */
+export const canReRunFailedTransfer = key('FailedDonorTransfers:06')
 
-/** Document source users (ticket 438): the leaf's and the page gate's one predicate. */
-export const canOpenDocumentSourceUsers = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canOpenDocumentSourceUsers
+/** Cities & districts (ticket 436): either inquiry opens the screen — `SdCityInquiry:03 || SdDistrictInquiry:03`. */
+export const canOpenGeography = (p: Permissions): boolean => p.has('SdCityInquiry:03') || p.has('SdDistrictInquiry:03')
+
+/** City import — `SdCityImport:03`. */
+export const canImportCities = key('SdCityImport:03')
+
+/** District import — `SdDistrictImport:03`. */
+export const canImportDistricts = key('SdDistrictImport:03')
+
+/** Document source users (ticket 438) — `DocumentSourceUsersInquiry:03`. */
+export const canOpenDocumentSourceUsers = key('DocumentSourceUsersInquiry:03')
+
+/** Document source users import — `DocumentSourceUsersImport:03`. */
+export const canImportDocumentSourceUsers = key('DocumentSourceUsersImport:03')
 
 /**
- * Delivery statistics (ticket 484, BackOffice 2641): the leaf's and the page gate's one predicate.
- * Not a spec 430 flag — the door checks the OMS LIST grant (`BackOfficeScreen[DocumentList,03]`),
- * so this reads `canOpenList`. If the owner swaps in a dedicated statistics grant, only this changes.
+ * Delivery statistics (ticket 484): not a screen of its own — the door checks the OMS LIST grant, so this reads
+ * `DocumentList:03`. If the owner swaps in a dedicated statistics grant, only this changes.
  */
-export const canOpenDeliveryStatistics = (r: OmsAccessResult | null | undefined): boolean => r?.canOpenList === true
+export const canOpenDeliveryStatistics = key('DocumentList:03')
 
-/** Pick support (ticket 496, brief 2691) — `PickSupport,03`: the leaf's and the page gate's one predicate. */
-export const canOpenPickSupport = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canOpenPickSupport
+/** Pick support (ticket 496) — `PickSupport:03`. */
+export const canOpenPickSupport = key('PickSupport:03')
 
-/** Pick support's fix (ticket 497 draws the button) — `PickSupport,06`. Hide the button without it. */
-export const canFixPickSupport = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canFixPickSupport
+/** Pick support's fix (ticket 497) — `PickSupport:06`. Hide the button without it. */
+export const canFixPickSupport = key('PickSupport:06')
 
 /**
- * Document Details' change doors (ticket 521, BackOffice 2763) — `DocumentDetails,02`. On top of
- * `canOpenDetail`, never instead of it: the screen still opens on `canOpenDetail` alone.
+ * Pick support's serial grant (ticket 540) — `PickSupportSerial:03`. ADVISORY: it words the search hint and the
+ * "restricted" note. Whether a serial is drawn is the server's per-unit `serialWithheld`, never this.
  */
-export const canChangeDetail = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canChangeDetail
+export const canSeePickSupportSerial = key('PickSupportSerial:03')
 
-/** Create return (ticket 521, BackOffice 2763) — `OmsCreateReturn,01`. Change does not imply it. */
-export const canCreateReturn = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canCreateReturn
+/** Create a local fulfillment return (ticket 760) — `LocalFulfillmentReturn:03`. The bonded return does not imply it. */
+export const canCreateLocalFulfillmentReturn = key('LocalFulfillmentReturn:03')
 
-/**
- * Create a local fulfillment return (ticket 760, BackOffice 3369 D14) — `LocalFulfillmentReturn,03`.
- * Draws Return Document on an `LF` delivery. The bonded `canCreateReturn` does not imply it.
- */
-export const canCreateLocalFulfillmentReturn = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canCreateLocalFulfillmentReturn
-
-/** Force-refund an LF return (spec 759 F5) — `LocalFulfillmentReturn,04`, only beside 03. */
-export const canForceLocalFulfillmentReturnRefund = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canForceLocalFulfillmentReturnRefund
-
-/**
- * Pick support's serial grant (ticket 540, BackOffice 2874) — `PickSupportSerial,03`. ADVISORY: it
- * words the search hint and the "restricted" note. It never decides whether a serial is drawn — the
- * server's per-unit `serialWithheld` does (`serialCell`, `@/core/pick-support/serial`), and when the
- * two disagree the data wins. False while the probe is pending or failed, and from an older SIS.Api.
- */
-export const canSeePickSupportSerial = (r: OmsAccessResult | null | undefined): boolean =>
-  omsGrants(r).canSeePickSupportSerial
+/** Force-refund an LF return (spec 759 F5) — `LocalFulfillmentReturn:04`, and only beside 03. */
+export const canForceLocalFulfillmentReturnRefund = (p: Permissions): boolean =>
+  p.has('LocalFulfillmentReturn:03') && p.has('LocalFulfillmentReturn:04')

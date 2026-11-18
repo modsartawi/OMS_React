@@ -7,9 +7,9 @@
  * its button carries on Delivery details.
  */
 import { CalendarClock, Flag, Plus, type LucideIcon } from 'lucide-react'
-import type { OmsAccessResult } from '@/core/models/oms-access'
-import { canChangeDetail } from '@/core/oms/access'
+import { canChangeDetail, canOpenDetail } from '@/core/oms/access'
 import type { OpenIntent } from '@/core/oms/open-intent'
+import type { Permissions } from '@/core/permissions'
 
 export interface DeliveryAct {
   intent: OpenIntent
@@ -31,6 +31,6 @@ export const DELIVERY_ACTS: readonly DeliveryAct[] = [
  * needs `canChangeDetail` too. A view-only session gets neither the inspector rows, the keys nor
  * the status bar's hint — Details would draw no command to open.
  */
-export function actsOffered(access: OmsAccessResult | null | undefined): boolean {
-  return access?.canOpenDetail === true && canChangeDetail(access)
+export function actsOffered(permissions: Permissions): boolean {
+  return canOpenDetail(permissions) && canChangeDetail(permissions)
 }

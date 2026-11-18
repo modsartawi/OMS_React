@@ -11,7 +11,7 @@ import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
-import { canEditDocTypeConfig, canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
+import { canEditDocTypeConfig, canViewDocTypeConfig } from './api'
 import { affectedTypesView } from './action-type-edit'
 import { ACTION_TYPE_OPTIONS, type ActionTypeCategory, type ActionTypeSettings } from './action-type-types'
 import { actionTypeCategoriesQuery, actionTypeCategoryHistoryQuery, actionTypeCategoryQuery } from './action-types-api'
@@ -20,6 +20,7 @@ import AffectedTypesList from './AffectedTypesList'
 import EditActionTypeDialog from './EditActionTypeDialog'
 import HistoryTab from './HistoryTab'
 import TabStrip from './TabStrip'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * Action types — `/admin/action-types?category=O` (BackOffice spec 3148 stories 38-40, 43; ticket 3155). One document
@@ -32,7 +33,6 @@ export default function ActionTypesPage() {
   const { t } = useTranslation('doc-type-config')
   return (
     <ScreenGate
-      query={docTypeConfigAccessQuery()}
       can={canViewDocTypeConfig}
       ns="doc-type-config"
       title={t('actionTypes.title')}
@@ -105,8 +105,8 @@ function Category({ code }: { code: string }) {
 
 function CategoryBody({ data }: { data: ActionTypeCategory }) {
   const { t } = useTranslation('doc-type-config')
-  const access = useQuery(docTypeConfigAccessQuery())
-  const canEdit = canEditDocTypeConfig(access.data)
+  const permissions = usePermissions()
+  const canEdit = canEditDocTypeConfig(permissions)
   // The dialog holds the CODE; it gets the live row from the re-read category, so a stale refusal's re-read reaches it.
   const [editing, setEditing] = useState<ActionTypeSettings | null>(null)
   const editingRow = editing && (data.actionTypes.find((a) => a.actionType === editing.actionType) ?? editing)

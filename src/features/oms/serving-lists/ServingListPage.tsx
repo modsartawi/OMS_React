@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
-import { canEditServingLists, canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import { useQuery } from '@tanstack/react-query'
+import { canEditServingLists, canViewServingLists } from '@/core/serving-list/access'
+import { usePermissions } from '@/core/permissions'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { listsQuery } from './api'
@@ -25,7 +26,7 @@ import ListTabs from './ListTabs'
 export default function ServingListPage() {
   const { t } = useTranslation('serving-lists')
   return (
-    <ScreenGate query={servingListAccessQuery()} can={canViewServingLists} ns="serving-lists" title={t('detail.title')} subtitle={t('detail.subtitle')}>
+    <ScreenGate can={canViewServingLists} ns="serving-lists" title={t('detail.title')} subtitle={t('detail.subtitle')}>
       <Detail />
     </ScreenGate>
   )
@@ -34,8 +35,7 @@ export default function ServingListPage() {
 function Detail() {
   const { t } = useTranslation('serving-lists')
   const { servingListId = '' } = useParams()
-  const access = useQuery(servingListAccessQuery())
-  const canEdit = canEditServingLists(access.data)
+  const canEdit = canEditServingLists(usePermissions())
   // No single-list door: the header's facts come from the (cached) Lists read.
   const lists = useQuery(listsQuery())
   const list = lists.data?.find((r) => r.servingListId === servingListId)

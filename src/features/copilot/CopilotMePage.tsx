@@ -19,7 +19,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
-import { canAskCopilot, copilotAccessQuery } from './access'
+import { canAskCopilot } from './access'
 import { addMember, lookupFits, LOOKUP_MAX, removeMember, type MePage, type SetEdit } from './me'
 import { COPILOT_ME_KEY, ME_FEATURE_OFF, copilotMeApi, meActions, meQuery, meRefusal } from './me-api'
 
@@ -38,7 +38,7 @@ import { COPILOT_ME_KEY, ME_FEATURE_OFF, copilotMeApi, meActions, meQuery, meRef
 export default function CopilotMePage() {
   const { t } = useTranslation('copilot')
   return (
-    <ScreenGate query={copilotAccessQuery()} can={canAskCopilot} ns="copilot" title={t('me.title')} subtitle={t('me.subtitle')}>
+    <ScreenGate can={canAskCopilot} ns="copilot" title={t('me.title')} subtitle={t('me.subtitle')}>
       <MeScreen />
     </ScreenGate>
   )

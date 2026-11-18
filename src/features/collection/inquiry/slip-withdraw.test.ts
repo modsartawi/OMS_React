@@ -2,19 +2,17 @@
  * Withdraw a wrong slip (ticket 323, BackOffice 2035's `## Web contract`): who may,
  * the reasons, and the confirm rule over them.
  *
- * 🔑 A bare string `"CASH_CLOSE"` in `withdrawCategories` must NOT admit (a
- * `String.includes` would). The shared rules — the body and each answer, by code —
+ * 🔑 The withdraw key is `Attachments:04:CASH_CLOSE`, and only beside the read key. The shared rules — the body and each answer, by code —
  * moved to `@/core/attachments/withdraw.test.ts` with ticket 325; the confirm rule
  * is shared too, and is pinned here through the slip's own five reasons.
  */
 import { describe, expect, it } from 'vitest'
 import { canConfirmWithdraw, needsWithdrawNote } from '@/core/attachments/withdraw'
-import type { AttachmentAccess } from '@/core/models/collection'
+import { permissionsOf } from '@/core/permissions'
 import en from '@/locales/en/collection.json'
 import { WITHDRAW_REASONS, WITHDRAW_REASON_CODES, canWithdrawSlips, slipWithdrawReasons } from './slip-withdraw'
-import { CASH_CLOSE } from './slips'
 
-const access = (a: Partial<AttachmentAccess>): AttachmentAccess => ({ categories: [CASH_CLOSE], ...a })
+const ready = (...screens: string[]) => permissionsOf({ screens, extras: { fileServerReady: true } as never })
 
 /** Ticket 323's table, copied byte for byte (UTF-8). The bundle must say exactly this. */
 const TABLE: [string, string, string][] = [
@@ -29,36 +27,22 @@ const TABLE: [string, string, string][] = [
 const bundle = (key: string): unknown =>
   key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], en)
 
-describe('canWithdrawSlips — the withdraw grant, from the one shared probe', () => {
-  it('admits only a withdrawCategories array holding CASH_CLOSE', () => {
-    expect(canWithdrawSlips(access({ withdrawCategories: [CASH_CLOSE] }))).toBe(true)
-    expect(canWithdrawSlips(access({ withdrawCategories: ['OTHER', CASH_CLOSE] }))).toBe(true)
+describe('canWithdrawSlips — the withdraw grant, off the one permissions answer', () => {
+  it('admits the CASH_CLOSE withdraw key beside the read key', () => {
+    expect(canWithdrawSlips(ready('Attachments:03:CASH_CLOSE', 'Attachments:04:CASH_CLOSE'))).toBe(true)
   })
 
-  it('refuses a missing field — a collector, or an older SIS.Api', () => {
-    expect(canWithdrawSlips(access({}))).toBe(false)
-    expect(canWithdrawSlips(access({ withdrawCategories: undefined }))).toBe(false)
+  it('refuses the read key alone — a collector', () => {
+    expect(canWithdrawSlips(ready('Attachments:03:CASH_CLOSE'))).toBe(false)
   })
 
-  it('refuses an empty array, and a list without CASH_CLOSE', () => {
-    expect(canWithdrawSlips(access({ withdrawCategories: [] }))).toBe(false)
-    expect(canWithdrawSlips(access({ withdrawCategories: ['OTHER'] }))).toBe(false)
-    expect(canWithdrawSlips(access({ withdrawCategories: ['cash_close'] }))).toBe(false)
+  it('🔑 half grant: the withdraw key without the read key — the drawer is only open to a reader', () => {
+    expect(canWithdrawSlips(ready('Attachments:04:CASH_CLOSE'))).toBe(false)
   })
 
-  it('🔑 refuses CASH_CLOSE as a bare string — the String.includes trap', () => {
-    expect(canWithdrawSlips({ categories: [CASH_CLOSE], withdrawCategories: CASH_CLOSE } as never)).toBe(false)
-    expect(canWithdrawSlips({ categories: [CASH_CLOSE], withdrawCategories: 'CASH_CLOSE,OTHER' } as never)).toBe(false)
-  })
-
-  it('refuses a pending or refused probe (no data at all)', () => {
-    expect(canWithdrawSlips(undefined)).toBe(false)
-    expect(canWithdrawSlips(null)).toBe(false)
-    expect(canWithdrawSlips({} as never)).toBe(false)
-  })
-
-  it('refuses a withdraw grant without the read grant — the drawer is only open to a reader', () => {
-    expect(canWithdrawSlips({ categories: [], withdrawCategories: [CASH_CLOSE] })).toBe(false)
+  it('refuses another category, and a failed answer', () => {
+    expect(canWithdrawSlips(ready('Attachments:03:CASH_CLOSE', 'Attachments:04:NPHIES'))).toBe(false)
+    expect(canWithdrawSlips(permissionsOf(null))).toBe(false)
   })
 })
 

@@ -3,8 +3,8 @@
  * rows 19–21). Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`); 401 is that
  * module's, and nothing here catches it.
  *
- * The probe (`Nphies/Access`, which carries `canUndispense` since 1.2) is the area's and lives in
- * `@/core/nphies/api`.
+ * The area's grants (`canUndispense` among them) are read off the one permissions answer, in
+ * `@/core/nphies/access`.
  */
 import { api } from '@/core/api'
 import type { NphiesUndispenseList, NphiesUndispenseQueued } from '@/core/models/nphies'

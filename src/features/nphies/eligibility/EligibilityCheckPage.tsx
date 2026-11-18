@@ -7,12 +7,10 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   MARITAL_STATUS_VALUE_SET,
-  NPHIES_ACCESS_KEY,
   OCCUPATION_VALUE_SET,
   PAYERS_KEY,
   PROVIDERS_KEY,
   codeSystemKey,
-  nphiesAccessApi,
   nphiesLookupApi,
 } from '@/core/nphies/api'
 import { eligibilityApi } from './api'
@@ -28,6 +26,8 @@ import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
+import { canOpenNphies } from '@/core/nphies/access'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The eligibility check form (ticket 211, spec 209) — slice 0 of the Nphies area
@@ -55,11 +55,8 @@ export default function EligibilityCheckPage() {
 
   // The area's ONE probe, on the same key the nav leaf uses → one network call.
   // Fails closed: pending and errored both draw something other than the form.
-  const access = useQuery({
-    queryKey: NPHIES_ACCESS_KEY,
-    queryFn: () => nphiesAccessApi.access(),
-  })
-  const allowed = access.data?.canOpenNphies === true
+  const permissions = usePermissions()
+  const allowed = canOpenNphies(permissions)
 
   const providers = useQuery({
     queryKey: PROVIDERS_KEY,
@@ -129,7 +126,7 @@ export default function EligibilityCheckPage() {
     setDraft((d) => ({ ...d, ...next }))
   }
 
-  if (access.isPending) {
+  if (!permissions.settled) {
     return (
       <div
         className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -148,7 +145,7 @@ export default function EligibilityCheckPage() {
     // says something different. Both hide the screen; only one of them is the
     // agent's grant. Telling someone whose probe 500'd that they lack a
     // permission sends them to an administrator for a problem a retry fixes.
-    const unreachable = access.isError
+    const unreachable = permissions.failed
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
@@ -160,7 +157,7 @@ export default function EligibilityCheckPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            ? t('access.unreachableHint')
             : t('access.deniedHint')}
         </p>
       </div>

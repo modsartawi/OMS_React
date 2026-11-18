@@ -2,9 +2,8 @@
  * ECR slips at the day close (spec 319, BackOffice spec 2030) — the pure rules the
  * Ready and Cash Collections grids read, and that 321–323 build on.
  *
- * Pure: no React, no network, no i18n. The probe's query options live in
- * `@/core/attachments/api` beside the call, on `assignmentOptionsQuery`'s pattern;
- * what is here is what the answers MEAN for a slip. The rules every owner shares
+ * Pure: no React, no network, no i18n. The grants come off the one permissions
+ * answer (`@/core/attachments/access`, oms 909); what is here is what they MEAN for a slip. The rules every owner shares
  * (the preview, the stamps, the Withdrawn order, `holdsCategory`) moved to
  * `@/core/attachments/rules` with ticket 325.
  *
@@ -15,9 +14,10 @@
  * and both let an unknown day read as a day with no slip.
  */
 import type { ApiEnvelope } from '@/core/api'
-import { holdsCategory } from '@/core/attachments/rules'
+import { canReadAttachmentCategory } from '@/core/attachments/access'
 import type { AttachmentTarget } from '@/core/attachments/upload'
-import type { AttachmentAccess, SlipCountedSiblings } from '@/core/models/collection'
+import type { SlipCountedSiblings } from '@/core/models/collection'
+import type { Permissions } from '@/core/permissions'
 
 /** The attachment category of a day close's slips — the one this wave draws. */
 export const CASH_CLOSE = 'CASH_CLOSE'
@@ -28,14 +28,13 @@ export const SLIP_ABSENT = '—'
 /**
  * May this session see slips at all — the column, the filter, the drawer and Add?
  *
- * Fails closed: a pending probe (`undefined`), a refused one (503 `NOT_SET_UP`,
- * 403, a network failure — `data` is then `undefined` too), a malformed answer
- * and a list without `CASH_CLOSE` are all "no". The probe only decides what is
- * drawn; the server checks the grant again on every call. Array membership only
- * (`holdsCategory`): a bare string `"CASH_CLOSE"` is a no.
+ * `Attachments:03:CASH_CLOSE` on a host whose File Server is set up. Fails closed:
+ * a pending or failed answer, an unready File Server (`extras.fileServerReady`, the
+ * old probe's 503 `NOT_SET_UP`) and a session without the key are all "no". It only
+ * decides what is drawn; the server checks the grant again on every call.
  */
-export function canSeeSlips(access: AttachmentAccess | null | undefined): boolean {
-  return holdsCategory(access?.categories, CASH_CLOSE)
+export function canSeeSlips(permissions: Permissions): boolean {
+  return canReadAttachmentCategory(permissions, CASH_CLOSE)
 }
 
 /** Is a count known — a real, non-negative whole number, `0` included? */

@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import i18n from '@/core/i18n'
 import documentEn from '@/locales/en/document.json'
+import { permissionsOf } from '@/core/permissions'
 import {
   PRESCRIPTION,
   SD_DOCUMENT,
@@ -18,12 +19,19 @@ import {
 } from './attachments-tab'
 
 const ORDER = { attachmentOwnerNo: '2000000551', attachmentCategory: 'P2E' }
-const HOLDER = { categories: ['P2E'], withdrawCategories: [] }
+const EXTRAS = { fileServerReady: true, notificationCenterOn: false, nphiesContractVersion: '1.3', canManageRoles: false, canManageUsers: false }
+/** The one permissions answer (oms 909): read and withdraw categories become `Attachments:03:*` / `:04:*` keys. */
+const grants = (read: string[], withdraw: string[] = [], fileServerReady = true) =>
+  permissionsOf({
+    screens: [...read.map((c) => `Attachments:03:${c}`), ...withdraw.map((c) => `Attachments:04:${c}`)],
+    extras: { ...EXTRAS, fileServerReady },
+  })
+const HOLDER = grants(['P2E'])
 
 describe('attachmentsTabGate — admits only with an owner, a category and the category held', () => {
-  it('admits an order whose category the probe holds', () => {
+  it('admits an order whose category the session reads', () => {
     expect(attachmentsTabGate(ORDER, HOLDER)).toBe(true)
-    expect(attachmentsTabGate({ ...ORDER, attachmentCategory: 'ALTIBBI' }, { categories: ['P2E', 'ALTIBBI'] })).toBe(true)
+    expect(attachmentsTabGate({ ...ORDER, attachmentCategory: 'ALTIBBI' }, grants(['P2E', 'ALTIBBI']))).toBe(true)
   })
 
   it('refuses with no owner — absent, empty or blank', () => {
@@ -43,32 +51,22 @@ describe('attachmentsTabGate — admits only with an owner, a category and the c
     expect(attachmentsTabGate(undefined, HOLDER)).toBe(false)
   })
 
-  it('refuses a pending or refused probe — its data is undefined', () => {
-    expect(attachmentsTabGate(ORDER, undefined)).toBe(false)
-    expect(attachmentsTabGate(ORDER, null)).toBe(false)
+  it('refuses an unanswered or failed permissions answer', () => {
+    expect(attachmentsTabGate(ORDER, permissionsOf(null))).toBe(false)
   })
 
-  it('refuses a malformed probe', () => {
-    expect(attachmentsTabGate(ORDER, {})).toBe(false)
-    expect(attachmentsTabGate(ORDER, { categories: null })).toBe(false)
-    expect(attachmentsTabGate(ORDER, { categories: { P2E: true } })).toBe(false)
-    expect(attachmentsTabGate(ORDER, 'P2E')).toBe(false)
-    expect(attachmentsTabGate(ORDER, ['P2E'])).toBe(false)
+  it('refuses when the File Server is not set up, even with the category held', () => {
+    expect(attachmentsTabGate(ORDER, grants(['P2E'], [], false))).toBe(false)
   })
 
-  it('🔑 refuses a bare-string categories — "P2E" must not admit P2E', () => {
-    expect(attachmentsTabGate(ORDER, { categories: 'P2E' })).toBe(false)
-    expect(attachmentsTabGate(ORDER, { categories: 'P2E,ERX' })).toBe(false)
-  })
-
-  it('refuses a category the probe does not hold, and matches it exactly', () => {
+  it('refuses a category the session does not read, and matches it exactly', () => {
     expect(attachmentsTabGate({ ...ORDER, attachmentCategory: 'ERX' }, HOLDER)).toBe(false)
     expect(attachmentsTabGate({ ...ORDER, attachmentCategory: 'p2e' }, HOLDER)).toBe(false)
-    expect(attachmentsTabGate(ORDER, { categories: ['CASH_CLOSE'] })).toBe(false)
+    expect(attachmentsTabGate(ORDER, grants(['CASH_CLOSE']))).toBe(false)
   })
 
-  it('reads the READ categories, never the withdraw ones', () => {
-    expect(attachmentsTabGate(ORDER, { categories: [], withdrawCategories: ['P2E'] })).toBe(false)
+  it('reads the READ key, never the withdraw one', () => {
+    expect(attachmentsTabGate(ORDER, grants([], ['P2E']))).toBe(false)
   })
 })
 
@@ -107,7 +105,7 @@ describe('attachmentsBadgeCount — one number for the badge and the Files row',
 })
 
 describe('canWithdrawOn — the tab’s gate, the withdraw grant for the category, and the server’s reasons (331)', () => {
-  const WITHDRAWER = { categories: ['P2E', 'ALTIBBI'], withdrawCategories: ['P2E', 'ALTIBBI'] }
+  const WITHDRAWER = grants(['P2E', 'ALTIBBI'], ['P2E', 'ALTIBBI'])
   const REASONS = [
     { code: 'WRONG_ORDER', label: 'Wrong order or customer', labelArabic: 'طلب أو عميل غير صحيح', noteRequired: false },
     { code: 'OTHER', label: 'Other', labelArabic: 'سبب آخر', noteRequired: true },
@@ -118,34 +116,29 @@ describe('canWithdrawOn — the tab’s gate, the withdraw grant for the categor
     expect(canWithdrawOn({ ...ORDER, attachmentCategory: 'ALTIBBI' }, WITHDRAWER, REASONS)).toBe(true)
   })
 
-  it('needs withdrawCategories to hold the category — read alone is not enough', () => {
+  it('needs the withdraw key for the category — read alone is not enough', () => {
     expect(canWithdrawOn(ORDER, HOLDER, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, { categories: ['P2E'] }, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: ['ALTIBBI'] }, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: ['p2e'] }, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, grants(['P2E'], ['ALTIBBI']), REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, grants(['P2E'], ['p2e']), REASONS)).toBe(false)
   })
 
-  it('🔑 refuses a bare-string withdrawCategories — "P2E" must not admit P2E', () => {
-    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: 'P2E' }, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: null }, REASONS)).toBe(false)
+  it('half grant: the withdraw key without the read key offers nothing', () => {
+    expect(canWithdrawOn(ORDER, grants([], ['P2E']), REASONS)).toBe(false)
   })
 
   it('an ERX order never offers Withdraw — 2062 seeds withdraw grants for P2E and ALTIBBI only', () => {
     const erx = { ...ORDER, attachmentCategory: 'ERX' }
-    expect(canWithdrawOn(erx, { categories: ['ERX'], withdrawCategories: ['P2E', 'ALTIBBI'] }, REASONS)).toBe(false)
+    expect(canWithdrawOn(erx, grants(['ERX'], ['P2E', 'ALTIBBI']), REASONS)).toBe(false)
   })
 
-  it('needs the tab’s gate: an owner, a category, and the READ grant too', () => {
+  it('needs the tab gate: an owner, a category, and the READ grant too', () => {
     expect(canWithdrawOn({ attachmentCategory: 'P2E' }, WITHDRAWER, REASONS)).toBe(false)
     expect(canWithdrawOn({ attachmentOwnerNo: '2000000551' }, WITHDRAWER, REASONS)).toBe(false)
     expect(canWithdrawOn(null, WITHDRAWER, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, { categories: [], withdrawCategories: ['P2E'] }, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, { categories: 'P2E', withdrawCategories: ['P2E'] }, REASONS)).toBe(false)
   })
 
-  it('a pending or refused probe offers nothing', () => {
-    expect(canWithdrawOn(ORDER, undefined, REASONS)).toBe(false)
-    expect(canWithdrawOn(ORDER, null, REASONS)).toBe(false)
+  it('an unanswered or failed permissions answer offers nothing', () => {
+    expect(canWithdrawOn(ORDER, permissionsOf(null), REASONS)).toBe(false)
   })
 
   it('needs a non-empty reason list — absent (an older SIS.Api, or not read yet) or empty hides it', () => {

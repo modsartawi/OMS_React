@@ -22,7 +22,6 @@ import {
   actionSyncFleetQuery,
   campaignKey,
   canOperateDataSync,
-  dataSyncAccessQuery,
   dataSyncApi,
   profilesQuery,
 } from './api'
@@ -42,6 +41,7 @@ import { buildCreateRequest, createRefusalWords, parseStoreCodes, type CreateDra
 import RefusalBanner from './RefusalBanner'
 import { groupDigits } from './helpers'
 import { rerunCodesForMode, rerunCount, rerunDraft, type RerunPrefill } from './rerun-helpers'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * The Campaigns page's **New campaign** button and dialog (spec 558, ticket 561).
@@ -51,10 +51,10 @@ import { rerunCodesForMode, rerunCount, rerunDraft, type RerunPrefill } from './
  */
 export function NewCampaignButton() {
   const { t } = useTranslation('data-sync')
-  const access = useQuery(dataSyncAccessQuery())
+  const permissions = usePermissions()
   const [open, setOpen] = useState(false)
   const [denied, setDenied] = useState(false)
-  if (!canOperateDataSync(access.data) || denied) return null
+  if (!canOperateDataSync(permissions) || denied) return null
   return (
     <>
       <Button variant="primary" onClick={() => setOpen(true)} data-create-open="">
@@ -87,8 +87,8 @@ export function NewCampaignButton() {
  */
 export function RerunCampaignButton({ campaign }: { campaign: Campaign }) {
   const { t } = useTranslation('data-sync')
-  const access = useQuery(dataSyncAccessQuery())
-  const canOperate = canOperateDataSync(access.data)
+  const permissions = usePermissions()
+  const canOperate = canOperateDataSync(permissions)
   const profiles = useQuery(profilesQuery())
   const [prefill, setPrefill] = useState<RerunPrefill | null>(null)
   const [denied, setDenied] = useState(false)

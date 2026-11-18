@@ -9,10 +9,10 @@ import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
 import common from '@/locales/en/common.json'
 import commonAr from '@/locales/ar/common.json'
-import type { AnalyticsAccess, AnalyticsModel } from '@/core/models/analytics'
+import type { AnalyticsModel } from '@/core/models/analytics'
+import { PERMISSIONS_KEY, type PermissionsAnswer } from '@/core/permissions'
 import type { CopilotAnswerTable, CopilotTableColumn } from '@/core/models/copilot'
 import { FSI, PDI } from '@/core/util/bidi'
-import { ANALYTICS_ACCESS_KEY } from './access'
 import { ANALYTICS_MODEL_KEY } from './api'
 import CopilotTableEmbed from './CopilotTableEmbed'
 
@@ -66,8 +66,14 @@ const byCity: CopilotAnswerTable = {
   query: { measures: ['net_till_value_sar'], dimensions: ['city'], filters: [], period: 'last-7-days', compareToPrevious: true },
 }
 
-const AUTHOR: AnalyticsAccess = { canView: true, canAuthor: true, canCurate: false }
-const RUNNER: AnalyticsAccess = { canView: true, canAuthor: false, canCurate: false }
+/** The one permissions answer (oms 909), seeded under its key as the gate's cached read would be. */
+const answerOf = (...screens: string[]): PermissionsAnswer => ({
+  screens,
+  extras: { fileServerReady: false, notificationCenterOn: false, nphiesContractVersion: '', canManageRoles: false, canManageUsers: false },
+  version: 'test',
+})
+const AUTHOR = answerOf('Analytics:03', 'Analytics:02')
+const RUNNER = answerOf('Analytics:03')
 const EMPTY_MODEL: AnalyticsModel = { areas: [], measures: [], dimensions: [] }
 
 const instance = i18next.createInstance()
@@ -79,9 +85,9 @@ instance.init({
   initAsync: false,
 })
 
-function draw(table: CopilotAnswerTable, { access = AUTHOR, lang = 'en', index = 0 }: { access?: AnalyticsAccess; lang?: string; index?: number } = {}): string {
+function draw(table: CopilotAnswerTable, { access = AUTHOR, lang = 'en', index = 0 }: { access?: PermissionsAnswer; lang?: string; index?: number } = {}): string {
   const client = new QueryClient()
-  client.setQueryData(ANALYTICS_ACCESS_KEY, access)
+  client.setQueryData(PERMISSIONS_KEY, access)
   client.setQueryData(ANALYTICS_MODEL_KEY, EMPTY_MODEL)
   return renderToStaticMarkup(
     createElement(

@@ -16,8 +16,8 @@ import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
-import { omsAccessQuery } from '@/core/oms/api'
-import { canOpenGeography, omsGrants } from '@/core/oms/access'
+import { canImportCities, canImportDistricts, canOpenGeography } from '@/core/oms/access'
+import { usePermissions } from '@/core/permissions'
 import type { SdCityModel, SdDistrictModel } from '@/core/models/lookups'
 import ImportDialog from '@/core/import/ImportDialog'
 import type { ImportOkLine } from '@/core/import/parse-import'
@@ -47,7 +47,7 @@ import Input from '@/core/ui/Input'
 export default function GeographyPage() {
   const { t } = useTranslation('geography')
   return (
-    <ScreenGate query={omsAccessQuery()} can={canOpenGeography} ns="geography" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canOpenGeography} ns="geography" title={t('title')} subtitle={t('subtitle')}>
       <Geography />
     </ScreenGate>
   )
@@ -72,7 +72,7 @@ function Geography() {
   const [selected, setSelected] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
-  const grants = omsGrants(useQuery(omsAccessQuery()).data)
+  const permissions = usePermissions()
   const [importing, setImporting] = useState<ImportKind | null>(null)
 
   const cities = useQuery(citiesQuery())
@@ -104,7 +104,7 @@ function Geography() {
         getRowId={cityRowId}
         rowSelection={ROW_SELECTION}
         onSelect={(row) => setSelected(selectedCityCode(row))}
-        onImport={grants.canImportCities ? () => setImporting('cities') : undefined}
+        onImport={canImportCities(permissions) ? () => setImporting('cities') : undefined}
       />
       <GridPane<SdDistrictModel>
         kind="districts"
@@ -125,7 +125,7 @@ function Geography() {
         // Another city is another list: its text filter starts empty.
         resetKey={cityCode}
         // The district file names each line's city, so the import does not wait on a selection.
-        onImport={grants.canImportDistricts ? () => setImporting('districts') : undefined}
+        onImport={canImportDistricts(permissions) ? () => setImporting('districts') : undefined}
       />
       {/* Mounted per import, so nothing of one list's import is drawn in the other's. */}
       {importing && (

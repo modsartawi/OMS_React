@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { canMaintainLoyGroups, canViewLoyGroups, loyGroupName, loyGroupsAccessQuery } from '@/core/loy-groups/api'
+import { canMaintainLoyGroups, canViewLoyGroups, loyGroupName } from '@/core/loy-groups/api'
 import { loyGroupRefusal } from '@/core/loy-groups/refusal'
 import type { LoyGroupDetail } from '@/core/models/loy-groups'
 import { notify } from '@/core/services/notify'
@@ -22,6 +22,7 @@ import { renameRequest, reseedGroupNames, type GroupNamesForm } from './group-fo
 import MembersTab from './MembersTab'
 import RefusalLine from './RefusalLine'
 import ActiveToggle from './ActiveToggle'
+import { usePermissions } from '@/core/permissions'
 
 /**
  * One loyalty group — `/loy/groups/:groupId` (oms ticket 630; door `GET LoyGroupWeb/Groups/{groupId}`).
@@ -34,7 +35,7 @@ import ActiveToggle from './ActiveToggle'
 export default function LoyGroupPage() {
   const { t } = useTranslation('loy-groups')
   return (
-    <ScreenGate query={loyGroupsAccessQuery()} can={canViewLoyGroups} ns="loy-groups" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canViewLoyGroups} ns="loy-groups" title={t('title')} subtitle={t('subtitle')}>
       <Group />
     </ScreenGate>
   )
@@ -44,8 +45,8 @@ function Group() {
   const { t } = useTranslation('loy-groups')
   const { groupId = '' } = useParams()
   const group = useQuery({ queryKey: loyGroupKey(groupId), queryFn: () => groupsApi.group(groupId) })
-  const access = useQuery(loyGroupsAccessQuery())
-  const canMaintain = canMaintainLoyGroups(access.data)
+  const permissions = usePermissions()
+  const canMaintain = canMaintainLoyGroups(permissions)
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-loy-group={groupId}>

@@ -10,7 +10,7 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
-import { hungerStationAccessQuery, hungerStationChainsQuery } from '@/core/hungerstation/api'
+import { hungerStationChainsQuery } from '@/core/hungerstation/api'
 import { canManageStores } from '@/core/hungerstation/access'
 import { useSeenChains } from '@/core/hungerstation/seen-chains'
 import type {
@@ -54,7 +54,7 @@ import Select from '@/core/ui/Select'
 export default function StoresPage() {
   const { t } = useTranslation('hungerstation-stores')
   return (
-    <ScreenGate query={hungerStationAccessQuery()} can={canManageStores} ns="hungerstation-stores" title={t('title')} subtitle={t('subtitle')}>
+    <ScreenGate can={canManageStores} ns="hungerstation-stores" title={t('title')} subtitle={t('subtitle')}>
       <Stores />
     </ScreenGate>
   )

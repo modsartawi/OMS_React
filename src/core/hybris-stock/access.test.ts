@@ -1,22 +1,19 @@
+/** Ticket 847 — the Hybris stock grants, off the one permissions answer since oms 909 (brief 3995 row 41). */
 import { describe, expect, it } from 'vitest'
-import { canManageHybrisStock, canViewHybrisStock, hybrisStockGrants } from './access'
+import { permissionsOf } from '@/core/permissions'
+import { canManageHybrisStock, canViewHybrisStock } from './access'
 
-describe('hybrisStockGrants', () => {
-  it('reads each flag', () => {
-    expect(hybrisStockGrants({ canView: true, canManage: false })).toEqual({ canView: true, canManage: false })
+const p = (...screens: string[]) => permissionsOf({ screens })
+
+describe('Hybris stock predicates', () => {
+  it('view reads HybrisStock:03, manage reads HybrisStock:06', () => {
+    expect(canViewHybrisStock(p('HybrisStock:03'))).toBe(true)
+    expect(canManageHybrisStock(p('HybrisStock:03'))).toBe(false)
+    expect(canManageHybrisStock(p('HybrisStock:06'))).toBe(true)
   })
 
-  it('manage implies view', () => {
-    expect(hybrisStockGrants({ canView: false, canManage: true })).toEqual({ canView: true, canManage: true })
-  })
-
-  it.each([null, undefined, {}, { canView: 'true', canManage: 1 }, []])('fails closed on %j', (r) => {
-    expect(hybrisStockGrants(r as never)).toEqual({ canView: false, canManage: false })
-  })
-
-  it('the predicates read the same answer', () => {
-    expect(canViewHybrisStock({ canView: true, canManage: false })).toBe(true)
-    expect(canManageHybrisStock({ canView: true, canManage: false })).toBe(false)
-    expect(canManageHybrisStock(undefined)).toBe(false)
+  it('fails closed with no answer', () => {
+    expect(canViewHybrisStock(permissionsOf(null))).toBe(false)
+    expect(canManageHybrisStock(permissionsOf(null))).toBe(false)
   })
 })

@@ -20,7 +20,8 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { saysIn } from '@/core/rules/sentence'
-import { analyticsAccessQuery, canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from './access'
+import { canAuthorAnalytics, canCurateAnalytics, canViewAnalytics } from '@/core/analytics-access'
+import { useAnalyticsPermissions } from './access'
 import AnalyticsStatus from './AnalyticsStatus'
 import AskBox from './AskBox'
 import { ANALYTICS_MODEL_KEY, analyticsApi, analyticsCatalogQuery, analyticsItemsKey } from './api'
@@ -67,7 +68,7 @@ export default function AnalyticsLibraryPage({ page = 'library' }: { page?: Excl
   const title = t(`pages.${page}.title`)
   const subtitle = t(`pages.${page}.subtitle`)
   return (
-    <ScreenGate query={analyticsAccessQuery()} can={canViewAnalytics} ns="boards" title={title} subtitle={subtitle}>
+    <ScreenGate can={canViewAnalytics} ns="boards" title={title} subtitle={subtitle}>
       <LibraryBody page={page} />
     </ScreenGate>
   )
@@ -115,10 +116,10 @@ function LibraryBody({ page }: { page: LibraryPage }) {
   // Only to name untitled views; the list never waits on it.
   const model = useQuery({ queryKey: ANALYTICS_MODEL_KEY, queryFn: () => analyticsApi.model(), staleTime: 5 * 60_000, retry: false })
   // 785: curators see how Cube and the dbt runs are going (the probe is the gate's own cached entry).
-  const access = useQuery(analyticsAccessQuery())
-  const curator = canCurateAnalytics(access.data)
+  const access = useAnalyticsPermissions()
+  const curator = canCurateAnalytics(access)
   // 822: a runner builds nothing — no "New view", "New board" or (828) "New report".
-  const author = canAuthorAnalytics(access.data)
+  const author = canAuthorAnalytics(access)
 
   const fallback = useMemo(() => {
     const m = model.data

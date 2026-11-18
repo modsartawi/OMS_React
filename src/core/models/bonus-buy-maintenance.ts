@@ -7,17 +7,6 @@
  * gone. SIS.Api serialises camelCase; dates arrive as `yyyy-MM-ddTHH:mm:ss` local.
  */
 
-/** GET BbyMaintainWeb/Access — the screen grant `BackOfficeScreen[BbyMaintain,03]`. */
-export interface BbyMaintainAccessResult {
-  screenAllowed: boolean
-  /**
-   * The tester grant `BackOfficeScreen[BbyMaintain,04]` (spec 2396): Mark Tested is offered only
-   * when this is `true`. Spec 2396 reading, reconcile when BackOffice 2397 ships — optional because
-   * a server without it must read as "no grant" (fail closed).
-   */
-  canTest?: boolean
-}
-
 /**
  * SAP's `KONBBYH.STATUS` as `BbyHeader.BbyStatus`: blank = Activated, `1` = Planned,
  * `2` = Deactivated, `3` = Tested (spec 2396, ADR 0063 — OMS only). Typed `string` because it is

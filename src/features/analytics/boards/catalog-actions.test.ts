@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readCatalogArea } from './catalog-wire'
 import { NEW_VIEW_PATH } from './editor'
+import { permissionsOf } from '@/core/permissions'
 import { catalogAuthorActions, newViewFrom } from './catalog-actions'
 
 const AREA = readCatalogArea({
@@ -41,16 +42,16 @@ describe('New view from this (843, spec 3437 story 49)', () => {
 
 describe('who is offered the author actions (843, story 51)', () => {
   it('runner sees no author actions', () => {
-    const runner = { canView: true, canAuthor: false, canCurate: false }
+    const runner = permissionsOf({ screens: ['Analytics:03'] })
     expect(catalogAuthorActions(runner, true)).toEqual({ newView: false, ask: false })
-    // Still asking the probe, or no probe: nothing (fails closed).
-    expect(catalogAuthorActions(undefined, true)).toEqual({ newView: false, ask: false })
+    // No permissions answer: nothing (fails closed).
+    expect(catalogAuthorActions(permissionsOf(null), true)).toEqual({ newView: false, ask: false })
 
-    // An author gets both; the ask also needs the copilot probe, like the ask box.
-    const author = { canView: true, canAuthor: true, canCurate: false }
+    // An author gets both; the ask also needs the copilot to be available, like the ask box.
+    const author = permissionsOf({ screens: ['Analytics:03', 'Analytics:02'] })
     expect(catalogAuthorActions(author, true)).toEqual({ newView: true, ask: true })
     expect(catalogAuthorActions(author, false)).toEqual({ newView: true, ask: false })
-    // A curator authors too.
-    expect(catalogAuthorActions({ canView: true, canAuthor: false, canCurate: true }, true)).toEqual({ newView: true, ask: true })
+    // The curate key without the author grant is no author (the server's combination, oms 909).
+    expect(catalogAuthorActions(permissionsOf({ screens: ['Analytics:03', 'Analytics:06'] }), true)).toEqual({ newView: false, ask: false })
   })
 })

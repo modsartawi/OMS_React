@@ -5,7 +5,7 @@ import { ArrowLeft, SearchX } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { canOpenSyncConsole, storeQuery, syncConsoleAccessQuery } from './api'
+import { canOpenSyncConsole, storeQuery } from './api'
 import { isOnMirror, isWpfStore } from './store-helpers'
 import HourStrip from './HourStrip'
 import EditStore from './EditStore'
@@ -35,7 +35,6 @@ export default function StorePage() {
   const { t } = useTranslation('sync-console')
   return (
     <ScreenGate
-      query={syncConsoleAccessQuery()}
       can={canOpenSyncConsole}
       ns="sync-console"
       title={t('title')}

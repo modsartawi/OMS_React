@@ -206,14 +206,6 @@ export interface DispatchBoardFilter {
   store: string
 }
 
-/** `GET DispatchBoard/Access` — cookie-only, never grant-gated. */
-export interface DispatchBoardAccess {
-  /** `BackOfficeScreen[DispatchBoard, Display]`. */
-  canOpenDispatchBoard: boolean
-  /** `BackOfficeScreen[DispatchBoard, Execute]`. */
-  canReleaseLock: boolean
-}
-
 /** The release reasons the door knows (`CalloutReleaseReasons.All`). */
 export const RELEASE_REASONS = ['NoStock', 'CustomerChange', 'StoreCannotFulfil', 'Other'] as const
 export type ReleaseReason = (typeof RELEASE_REASONS)[number]

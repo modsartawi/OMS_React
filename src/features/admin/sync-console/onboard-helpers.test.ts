@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OnboardResult } from '@/core/models/sync-console'
+import { permissionsOf } from '@/core/permissions'
 import {
   LOCATION_COLUMNS,
   MASTER_COLUMNS,
@@ -50,23 +51,23 @@ describe('codeProblem', () => {
 })
 
 describe('wizardStart', () => {
-  const both = { canOperate: true, canOnboard: true }
+  const both = permissionsOf({ screens: ['ActionSyncConsole:06', 'StoreOnboard:06'] })
   it('starts at step 1 with canOnboard and canOperate', () => {
     expect(wizardStart(both, null)).toBe('master')
   })
   it('offers no wizard to a canOnboard-only holder: step 1 always sends alsoCreateLocation, a bare 403 without Operate (450)', () => {
-    expect(wizardStart({ canOperate: false, canOnboard: true }, null)).toBeNull()
-    expect(wizardStart({ canOperate: false, canOnboard: true }, 'P990')).toBeNull()
+    expect(wizardStart(permissionsOf({ screens: ['StoreOnboard:06'] }), null)).toBeNull()
+    expect(wizardStart(permissionsOf({ screens: ['StoreOnboard:06'] }), 'P990')).toBeNull()
   })
   it('starts at step 2 without canOnboard', () => {
-    expect(wizardStart({ canOperate: true, canOnboard: false }, null)).toBe('location')
+    expect(wizardStart(permissionsOf({ screens: ['ActionSyncConsole:06'] }), null)).toBe('location')
   })
   it('starts at step 2 for a Finish, which names an existing store', () => {
     expect(wizardStart(both, 'P990')).toBe('location')
   })
   it('offers nothing to a view-only holder or before the probe answers', () => {
-    expect(wizardStart({ canOperate: false, canOnboard: false }, null)).toBeNull()
-    expect(wizardStart(undefined, 'P990')).toBeNull()
+    expect(wizardStart(permissionsOf({ screens: ['ActionSyncConsole:03'] }), null)).toBeNull()
+    expect(wizardStart(permissionsOf(null), 'P990')).toBeNull()
   })
 })
 

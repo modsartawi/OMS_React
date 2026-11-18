@@ -6,14 +6,6 @@
  * whole seconds off HQ's clock, so the page never subtracts times itself.
  */
 
-/** `GET PosReleaseQueue/Access` — cookie only, not grant-gated. */
-export interface ReleaseQueueAccess {
-  /** `PosRelease.Queue.View` — the page. */
-  canView: boolean
-  /** `PosRelease.Queue.Manage` — the controls (ticket 792). */
-  canManage: boolean
-}
-
 /** What a till may fetch under a slot. */
 export type SlotPackage = 'pos' | 'dashboard'
 

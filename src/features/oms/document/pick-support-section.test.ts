@@ -3,13 +3,13 @@
  * at all, and whether its heading carries the stuck marker.
  */
 import { describe, expect, it } from 'vitest'
-import type { OmsAccessResult } from '@/core/models/oms-access'
+import { permissionsOf } from '@/core/permissions'
 import { headingShowsStuck, pickSupportSectionGate } from './pick-support-section'
 
-const OPEN = { canOpenList: true, canOpenDetail: true, canOpenPickSupport: true } as OmsAccessResult
+const OPEN = permissionsOf({ screens: ['DocumentList:03', 'DocumentDetails:03', 'PickSupport:03'] })
 
 describe('pickSupportSectionGate', () => {
-  it('draws the section for a page opened as a delivery with canOpenPickSupport', () => {
+  it('draws the section for a page opened as a delivery with PickSupport:03', () => {
     expect(pickSupportSectionGate('delivery', OPEN)).toBe(true)
   })
 
@@ -17,20 +17,17 @@ describe('pickSupportSectionGate', () => {
     expect(pickSupportSectionGate('document', OPEN)).toBe(false)
   })
 
-  it('fails closed without the flag: absent, false, or not a strict true', () => {
-    const { canOpenPickSupport: _, ...without } = OPEN
-    expect(pickSupportSectionGate('delivery', without as OmsAccessResult)).toBe(false)
-    expect(pickSupportSectionGate('delivery', { ...OPEN, canOpenPickSupport: false })).toBe(false)
-    expect(pickSupportSectionGate('delivery', { ...OPEN, canOpenPickSupport: 'true' } as unknown as OmsAccessResult)).toBe(false)
+  it('fails closed without the key — the fix grant alone does not open it', () => {
+    expect(pickSupportSectionGate('delivery', permissionsOf({ screens: ['DocumentList:03', 'DocumentDetails:03', 'PickSupport:06'] }))).toBe(false)
   })
 
-  it('fails closed while the probe is pending or after it failed', () => {
-    expect(pickSupportSectionGate('delivery', undefined)).toBe(false)
-    expect(pickSupportSectionGate('delivery', null)).toBe(false)
+  it('fails closed while the answer is pending or after it failed', () => {
+    expect(pickSupportSectionGate('delivery', permissionsOf(null))).toBe(false)
   })
 
   it('does not need the fix grant to draw the section', () => {
-    expect(pickSupportSectionGate('delivery', { ...OPEN, canFixPickSupport: false })).toBe(true)
+    expect(pickSupportSectionGate('delivery', OPEN)).toBe(true)
+    expect(OPEN.has('PickSupport:06')).toBe(false)
   })
 })
 

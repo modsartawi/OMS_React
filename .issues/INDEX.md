@@ -1507,3 +1507,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## Stock health (BackOffice spec 3991, brief C:\Work\DMSCO\BackOffice\.issues\assets\3991-oms-react-stock-health-brief.md, filed 2026-11-17)
 
 - [908](908-stock-health-page.md) — Stock health page · *(ticket · BackOffice spec 3991; door 3992, grant 3994)* · **open** · blocked by: BO 3992 (done), BO 3994 (seed on the target DB before the walk)
+
+## One permissions answer (BackOffice spec 4002, brief C:\Work\DMSCO\BackOffice\.issuesssets995-oms-react-permissions-brief.md, filed 2026-11-18)
+
+- [909](909-one-permissions-answer-replaces-every-access-probe.md) — One permissions answer replaces every Access probe · *(ticket · BackOffice spec 4002; endpoint 4007)* · **open** · blocked by: BO 4007 (done; deploy before the walk)

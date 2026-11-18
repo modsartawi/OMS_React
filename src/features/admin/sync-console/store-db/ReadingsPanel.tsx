@@ -12,12 +12,11 @@ import HistoryChart from './HistoryChart'
 import LargestTables from './LargestTables'
 import type { StoreDbPanelProps } from './panel-views'
 import { growth, readingLines, type ReadingLine } from './reading-helpers'
-import SideCopies from './SideCopies'
 import type { Size } from './size'
 
 /**
  * The Readings panel (oms 916, BO 4031): the latest reading in plain words, days to cap with the growth behind it,
- * the daily history, the largest tables, and the side copies when BO 4038 sends them. Everything comes from the
+ * the daily history and the largest tables (the side copies are on the Space panel, 918). Everything comes from the
  * page's one `GET StoreDatabase/Store` answer — this panel reads no door of its own.
  */
 export default function ReadingsPanel({ store }: StoreDbPanelProps) {
@@ -50,15 +49,14 @@ export default function ReadingsPanel({ store }: StoreDbPanelProps) {
       </div>
       <HistoryChart history={store.history} capKb={store.reading?.capKb ?? 0} busy={busy} />
       <LargestTables tables={store.largestTables} />
-      <SideCopies copies={store.sideCopies} />
     </div>
   )
 }
 
 const sizeText = (t: TFunction, size: Size | null): string => (size ? t(`storeDb.units.${size.unit}`, { n: size.n }) : '')
 
-/** One reading line's value; every machine value isolated whole (bidi rule). */
-function LineValue({ line }: { line: ReadingLine }) {
+/** One reading line's value; every machine value isolated whole (bidi rule). The Space and Backup panels (918) reuse it. */
+export function LineValue({ line }: { line: ReadingLine }) {
   const { t } = useTranslation('sync-console')
   const missing = <span className="text-muted-foreground">{t('storeDb.readings.values.missing')}</span>
   const slotted = (i18nKey: string, values: Record<string, string>, slots: Record<string, ReactElement>) => (

@@ -140,4 +140,76 @@ export interface StoreDbStore {
 
 // ── 918 Jobs + Space + Backup ───────────────────────────────────────────────────
 
+/** A job's state as the door derives it from `IsProcessed` / `HasError` (BO 4034). GUESSED words. */
+export type StoreDbJobState = 'Queued' | 'Running' | 'Done' | 'Failed' | 'Deferred'
+
+/** One row of `GET StoreDatabase/Jobs?code=` (BO 4034), newest first. GUESSED names. */
+export interface StoreDbJob {
+  /** A ULID. */
+  jobId: string
+  code: string
+  /** A string: a door newer than this bundle may send a kind it does not know. */
+  kind: string
+  reason: string
+  requestedBy: string
+  requestedAt: string
+  /** The night window's start, or the request time on Run now. */
+  notBefore: string
+  state: string
+  /** `AttemptsCount` — at most 3. */
+  attempts: number
+  /** ⚠ BO 4034 has no start column: likely `LastAttemptTime`. */
+  startedAt: string | null
+  /** `ProcessedTime`. */
+  finishedAt: string | null
+  /** The result text (before/after sizes, the file, the counts). */
+  result: string | null
+  /** `ErrorMessage`: why the runner refused or failed it. */
+  error: string | null
+}
+
+/** `POST StoreDatabase/Jobs` (BO 4034): `{ code, kind, reason, runNow }`, plus the field a kind needs (GUESSED). */
+export interface StoreDbJobRequest {
+  code: string
+  kind: StoreDbJobKind
+  reason: string
+  runNow: boolean
+  /** `RestoreSideCopy`: the `.bak` to restore (full path, from Browse). GUESSED. */
+  file?: string
+  /** `DropSideCopy`: the side copy's name. GUESSED. */
+  database?: string
+}
+
+/** The Jobs door's answer to a request. GUESSED — `warning` is 4036's "a data shrink blocks the till". */
+export interface StoreDbJobAccepted {
+  jobId: string
+  notBefore: string
+  warning: string | null
+}
+
+/** A backup schedule's frequency (spec D15: off / daily / weekly with a weekday). */
+export type StoreDbBackupFrequency = 'Off' | 'Daily' | 'Weekly'
+
+export interface StoreDbScheduleSetting {
+  frequency: string
+  /** `0` = Sunday … `6` = Saturday (.NET `DayOfWeek`, GUESSED); `null` unless weekly. */
+  weekday: number | null
+}
+
+/** `GET StoreDatabase/BackupSchedule?code=` (BO 4035): the store's EFFECTIVE schedule. GUESSED shape. */
+export interface StoreDbBackupSchedule extends StoreDbScheduleSetting {
+  code: string | null
+  /** Where the effective schedule comes from: the store's own row (`Store`), or the fleet default (`Fleet`). */
+  source: string
+  fleetDefault: StoreDbScheduleSetting
+}
+
+/** `PUT StoreDatabase/BackupSchedule` (BO 4035): `code: null` sets the fleet default. GUESSED body. */
+export interface StoreDbScheduleRequest {
+  code: string | null
+  frequency: StoreDbBackupFrequency
+  weekday: number | null
+  reason: string
+}
+
 // ── 919 Restore + Blitz ─────────────────────────────────────────────────────────

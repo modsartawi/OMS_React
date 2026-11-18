@@ -1541,10 +1541,21 @@
           "data": "Data",
           "index": "Index"
         }
-      },
+      }
+    },
+
+    "live": {},
+
+    "health": {},
+
+    "space": {
+      "title": "Space",
+      "hint": "Each action asks for a reason and is queued as a job; follow it on the Jobs panel.",
       "sideCopies": {
         "title": "Side copies",
         "note": "Restored copies kept beside the live database. They count against the drive, not the cap.",
+        "failed": "The side copies could not be read.",
+        "loading": "Reading the side copies…",
         "columns": {
           "name": "Database",
           "size": "Size",
@@ -1553,15 +1564,145 @@
       }
     },
 
-    "live": {},
+    "backup": {
+      "lastTitle": "Last full backup",
+      "hint": "Writes one rolling copy-only file on the store's own machine.",
+      "scheduleTitle": "Backup schedule",
+      "loading": "Reading the backup schedule…",
+      "failed": "The backup schedule could not be read.",
+      "fromStore": "(this store's own schedule)",
+      "fromFleet": "(the fleet default)",
+      "fleetTitle": "Fleet default",
+      "fleetNote": "Every store without its own schedule follows this. Off unless you turn it on.",
+      "frequency": "Frequency",
+      "weekday": "Weekday",
+      "frequencies": {
+        "Off": "Off",
+        "Daily": "Daily",
+        "Weekly": "Weekly"
+      },
+      "weeklyOn": "Weekly on {{weekday}}",
+      "weekdays": {
+        "0": "Sunday",
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday"
+      },
+      "save": "Save schedule",
+      "saveTitle": "Change this store's backup schedule",
+      "saveNote": "Scheduled backups run inside the night window and keep one rolling file.",
+      "saveFleetTitle": "Change the fleet default backup schedule",
+      "saveFleetNote": "Every store without its own schedule follows the fleet default.",
+      "saved": "The backup schedule of {{code}} is saved.",
+      "savedFleet": "The fleet default backup schedule is saved."
+    },
 
-    "health": {},
-
-    "space": {},
-
-    "backup": {},
-
-    "jobs": {},
+    "jobs": {
+      "note": "A job is tried up to 3 times, then marked failed with its error. A night-window job waits for its Not before time.",
+      "failed": "The jobs could not be read.",
+      "empty": "No jobs were asked for this store.",
+      "loading": "Reading the jobs…",
+      "columns": {
+        "kind": "Job",
+        "state": "State",
+        "attempts": "Attempts",
+        "notBefore": "Not before",
+        "startedAt": "Started",
+        "finishedAt": "Finished",
+        "result": "Result",
+        "error": "Error",
+        "requestedBy": "Asked by",
+        "requestedAt": "Asked at",
+        "reason": "Reason",
+        "jobId": "Job id"
+      },
+      "states": {
+        "Queued": "Queued",
+        "Running": "Running",
+        "Done": "Done",
+        "Failed": "Failed",
+        "Deferred": "Deferred"
+      },
+      "refusals": {
+        "REASON_REQUIRED": "A reason is required.",
+        "UNKNOWN_KIND": "The server does not know this job.",
+        "NOT_WORKER_STORE": "The sync worker does not visit this store.",
+        "JOB_OPEN": "A job of this kind is already open for this store.",
+        "TOO_LITTLE_FREE": "Too little space is free inside the data file.",
+        "DISK_TOO_LOW": "Too little space is free on the drive.",
+        "CLEANUP_OFF": "The store has turned its cleanup off.",
+        "NEWER_ENGINE": "The backup was taken on a newer engine than the store's.",
+        "NOT_A_SIDE_COPY": "Only a side copy can be dropped.",
+        "BLITZ_NOT_INSTALLED": "sp_Blitz is not installed on this store."
+      },
+      "dialog": {
+        "runNow": "Run now",
+        "runsTonight": "Waits for tonight's window.",
+        "runsNow": "Runs as soon as the runner picks it up — only on a closed store.",
+        "queued": "{{kind}} on {{code}} is queued; it starts from {{at}}."
+      },
+      "kinds": {
+        "ShrinkLog": {
+          "label": "Shrink log",
+          "button": "Shrink log",
+          "title": "Shrink the log",
+          "note": "A checkpoint, then the log file is shrunk to its target size. Runs now; it does not block the till and never changes the recovery model.",
+          "confirm": "Shrink log"
+        },
+        "ShrinkData": {
+          "label": "Shrink data",
+          "button": "Shrink data",
+          "title": "Shrink the data file",
+          "note": "A data shrink blocks the till while it runs. A safety backup is taken first, and the server refuses when too little space is free inside the file. It waits for tonight's window unless you choose Run now.",
+          "confirm": "Shrink data"
+        },
+        "Backup": {
+          "label": "Backup",
+          "button": "Back up now",
+          "title": "Back up now",
+          "note": "A copy-only, checksummed backup into the store's backup folder, replacing its rolling file. Refused when the drive's free space is below 1.5 × the data used.",
+          "confirm": "Back up now"
+        },
+        "RestoreSideCopy": {
+          "label": "Restore to a side copy",
+          "button": "Restore",
+          "title": "Restore to a side copy",
+          "note": "The backup is restored into a new side copy beside the live database. The live database is never replaced. It waits for tonight's window unless you choose Run now.",
+          "confirm": "Restore"
+        },
+        "DropSideCopy": {
+          "label": "Drop side copy",
+          "button": "Drop",
+          "title": "Drop the side copy",
+          "note": "The side copy is dropped and its files deleted. The live database is not touched. It waits for tonight's window unless you choose Run now.",
+          "confirm": "Drop"
+        },
+        "Cleanup": {
+          "label": "Synced-row cleanup",
+          "button": "Run cleanup now",
+          "title": "Run the cleanup now",
+          "note": "Runs the store's synced-row cleanup (3985) from HQ. Refused when the store has turned its cleanup off.",
+          "confirm": "Run cleanup now"
+        },
+        "InstallBlitz": {
+          "label": "Install sp_Blitz",
+          "button": "Install sp_Blitz",
+          "title": "Install sp_Blitz",
+          "note": "Installs sp_Blitz on this store so it can be run from the Health check.",
+          "confirm": "Install"
+        },
+        "RemoveBlitz": {
+          "label": "Remove sp_Blitz",
+          "button": "Remove sp_Blitz",
+          "title": "Remove sp_Blitz",
+          "note": "Removes sp_Blitz from this store.",
+          "confirm": "Remove"
+        }
+      }
+    },
 
     "restore": {},
 

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 4016
 blocked-by: BO 4034, BO 4035, BO 4036, BO 4037, 916
 ---
@@ -22,8 +22,8 @@ UI
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a refused job shows the server's refusal text
-- [ ] buttons hidden without Act
+- [x] a refused job shows the server's refusal text (`store-db/job-helpers.test.ts` refusal words + run-time `jobFailure`; drive checks 6 and 11)
+- [x] buttons hidden without Act (`job-helpers.test.ts` `jobActionsVisible`, `schedule-helpers.test.ts` `fleetDefaultVisible`; drive checks 10 and 12)
 
 ## Boundaries
 
@@ -36,3 +36,53 @@ A log shrink and a backup requested from the page show up in Jobs and finish aga
 ## Blocked by
 
 BackOffice 4034, 4035, 4036, 4037; 916
+
+## Comments
+
+**2026-11-18 — built, STUBBED (BO 4034–4037 unbuilt).** Branch `t918-store-db-space` off `spec/4016-store-database`.
+
+What was built:
+- **`store-db/JobDialog.tsx`** — the one write path of the tab, kind-generic: `<JobDialog code kind extra? note? onClose
+  onDone?>{children}</JobDialog>` (`kind: null` = closed; `extra: { file?, database? }` for 919's restore/drop;
+  `children` above the reason, e.g. the side-copy name). On the console's `ReasonDialog`: reason required and trimmed;
+  ShrinkData / RestoreSideCopy / DropSideCopy default to tonight with a **Run now** chip (`runsTonightByDefault`), every
+  other kind is sent `runNow: true`; a refusal shows the server's text through `apiErrorMessage` with its code and words
+  (`storeDb.jobs.refusals.<CODE>`) and the dialog stays open. Success toasts when it starts (`notBefore`), toasts the
+  door's `warning` if any, and re-reads `storeDbJobsKey(code)` + `AUDIT_KEY`. Words for all eight kinds are in
+  `storeDb.jobs.kinds.<Kind>.{label,button,title,note,confirm}` already (919 needs none for the dialog).
+- **Space** (`SpacePanel.tsx`): cap, used, file size, free inside the file, log, drive free from the page's reading
+  (reuses 916's `readingLines` + now-exported `LineValue`); Shrink log, Shrink data, Run cleanup now (`JobButtons`, Act
+  only); the side copies, MOVED here from Readings (`SideCopies.tsx`, keys moved to `storeDb.space.sideCopies`).
+  **919's Drop spot:** a column/action inside `SideCopies.tsx` (mounted once, in `SpacePanel.tsx`), opening
+  `JobDialog kind="DropSideCopy" extra={{ database: copy.name }}`.
+- **Backup** (`BackupPanel.tsx`, `ScheduleEditor.tsx`): last full backup, Back up now (Act), the effective schedule in
+  words with its source, editable with Act (off / daily / weekly + weekday → reason → `PUT StoreDatabase/BackupSchedule`),
+  and the fleet default (`code: null`) for the owner.
+- **Jobs** (`JobsPanel.tsx`, `jobs-columns.tsx`): `GET StoreDatabase/Jobs?code=` every 15 s while open — kind, state chip,
+  attempts, not before, started, finished, result, error (`<bdi>`), asked by/at, reason, job id.
+- api §918 (`jobs`, `requestJob`, `backupSchedule`, `setBackupSchedule`; keys nest under `storeDbStoreKey(code)`),
+  models §918, locale `space` / `backup` / `jobs` in en + ar.
+
+Proof: `store-db/job-helpers.test.ts` 11/11, `store-db/schedule-helpers.test.ts` 6/6, `locales.test.ts` green over the
+new keys. Full suite 825 files / 11,209 tests green (before the final drive edits; sync-console 472/472 after);
+typecheck green; lint: grid-base, contrast, palette, controls (no new raw control), map-build green; `check-boundaries`
+only the 4 PRE-EXISTING insurance-rules violations. Drive `tools/store-db-space-drive.mjs` 47/47 (port 5218). 916's
+`tools/store-db-store-drive.mjs` re-run 37/37 after two edits it needed: its "unknown panel" case used `?panel=jobs`
+(now real → `?panel=nope`), and check 7 now asserts the side copies are NOT on Readings.
+
+🚩 GUESSES (reconcile with BO's brief):
+- Jobs door shapes: list = bare array of `{ jobId, code, kind, reason, requestedBy, requestedAt, notBefore, state,
+  attempts, startedAt, finishedAt, result, error }`; states `Queued | Running | Done | Failed | Deferred`; POST answer
+  `{ jobId, notBefore, warning }`; extra body fields `file` / `database` for 919's kinds.
+- Night-window kinds = the sync-lock kinds (ShrinkData, RestoreSideCopy, DropSideCopy); every other kind is sent
+  `runNow: true` with no choice offered.
+- Refusal codes `REASON_REQUIRED, UNKNOWN_KIND, NOT_WORKER_STORE, JOB_OPEN, TOO_LITTLE_FREE, DISK_TOO_LOW, CLEANUP_OFF,
+  NEWER_ENGINE, NOT_A_SIDE_COPY, BLITZ_NOT_INSTALLED` (an unknown code still shows the server's text).
+- Schedule: `GET …/BackupSchedule?code=` → `{ code, frequency, weekday, source: 'Store'|'Fleet', fleetDefault }`;
+  `PUT` body `{ code | null, frequency: 'Off'|'Daily'|'Weekly', weekday (0 = Sunday, .NET DayOfWeek) | null, reason }`.
+- **Fleet default shown only to Act + Restore** (`fleetDefaultVisible`): BO names no owner grant; the Restore holder is
+  "me or a DBA" (spec D9). The door itself checks Act (BO 4035). Owner ruling owed.
+- The 916 reading's `lastFullBackupAt/SizeKb` is "last backup" (the Backup panel reads no door of its own for it).
+
+**Owed:** "Done when" — a log shrink and a backup requested from the page show up in Jobs and finish against the dev
+store — waits on BO 4034–4037 on a local SIS.Api.

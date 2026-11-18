@@ -10,7 +10,15 @@
  * store at once.
  */
 import { api } from '@/core/api'
-import type { StoreDbFleetRow, StoreDbStore } from '@/core/models/store-database'
+import type {
+  StoreDbBackupSchedule,
+  StoreDbFleetRow,
+  StoreDbJob,
+  StoreDbJobAccepted,
+  StoreDbJobRequest,
+  StoreDbScheduleRequest,
+  StoreDbStore,
+} from '@/core/models/store-database'
 
 /** The root of every Store database read. */
 export const STORE_DB_KEY = ['sync-console', 'store-db'] as const
@@ -56,6 +64,21 @@ export const storeDbApi = {
 
   // ── 918 Jobs + Space + Backup ─────────────────────────────────────────────────
 
+  /** `GET StoreDatabase/Jobs?code=` (BO 4034) — View. The store's jobs, newest first (GUESSED: unpaged). */
+  jobs: async (code: string): Promise<StoreDbJob[]> => (await api.get<StoreDbJob[] | null>('StoreDatabase/Jobs', { code })) ?? [],
+
+  /**
+   * `POST StoreDatabase/Jobs` (BO 4034) — Act (Restore for the side-copy kinds, BO 4038). Every write rides this one
+   * door: shrink log/data, back up, cleanup (918), restore, drop, sp_Blitz (919).
+   */
+  requestJob: (body: StoreDbJobRequest): Promise<StoreDbJobAccepted> => api.post<StoreDbJobAccepted>('StoreDatabase/Jobs', body),
+
+  /** `GET StoreDatabase/BackupSchedule?code=` (BO 4035) — View. The store's EFFECTIVE schedule, with the fleet default. */
+  backupSchedule: (code: string): Promise<StoreDbBackupSchedule> => api.get<StoreDbBackupSchedule>('StoreDatabase/BackupSchedule', { code }),
+
+  /** `PUT StoreDatabase/BackupSchedule` (BO 4035) — Act, reason, audited. `code: null` sets the fleet default. */
+  setBackupSchedule: (body: StoreDbScheduleRequest): Promise<unknown> => api.put<unknown>('StoreDatabase/BackupSchedule', body),
+
   // ── 919 Restore + Blitz ───────────────────────────────────────────────────────
 }
 
@@ -85,5 +108,27 @@ export const storeDbStoreQuery = (code: string) => ({
 // ── 917 Live + Health ───────────────────────────────────────────────────────────
 
 // ── 918 Jobs + Space + Backup ───────────────────────────────────────────────────
+
+/** The store's jobs. Nested under the store, so a Refresh or Check now re-reads them too. */
+export const storeDbJobsKey = (code: string) => [...storeDbStoreKey(code), 'jobs'] as const
+
+/** A queued job moves on the runner's tick: re-read the list while the panel is open. */
+export const STORE_DB_JOBS_REFRESH_MS = 15_000
+
+export const storeDbJobsQuery = (code: string) => ({
+  queryKey: storeDbJobsKey(code),
+  queryFn: () => storeDbApi.jobs(code),
+  refetchInterval: STORE_DB_JOBS_REFRESH_MS,
+  enabled: code !== '',
+})
+
+export const storeDbScheduleKey = (code: string) => [...storeDbStoreKey(code), 'backup-schedule'] as const
+
+export const storeDbScheduleQuery = (code: string) => ({
+  queryKey: storeDbScheduleKey(code),
+  queryFn: () => storeDbApi.backupSchedule(code),
+  staleTime: STORE_DB_STALE_MS,
+  enabled: code !== '',
+})
 
 // ── 919 Restore + Blitz ─────────────────────────────────────────────────────────

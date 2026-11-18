@@ -11,7 +11,7 @@
 //   4. days to cap reads with the growth rate and window behind it;
 //   5. the daily history draws two charts: files (used, allocated, log + the cap) and drive free;
 //   6. the 10 largest tables are listed in the server's order, sizes in their unit;
-//   7. the side copies are listed when the door sends them;
+//   7. the side copies are not on Readings (918 moved them to Space);
 //   8. a store read on its last attempt shows no Not checked banner;
 //   9. a Not checked store shows the banner with the last error, and its chip says so;
 //  10. an unknown store (NO_STORE) shows the not-found card; another failure shows its error;
@@ -63,14 +63,14 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
 
 // ── 1–8, 12: a read store ────────────────────────────────────────────────────────
 {
-  const { context, page, errors, calls } = await open('/admin/sync/database/P104?panel=jobs')
+  const { context, page, errors, calls } = await open('/admin/sync/database/P104?panel=nope')
   await page.locator('[data-readings-panel]').waitFor({ timeout: 15000 })
   check('1. the page asks the Store door for its store', storeCalls(calls)[0] === 'StoreDatabase/Store?code=P104', storeCalls(calls).join(','))
   const header = await text(page.locator('[data-store-db-header]'))
   check('1. …the header names code, name, state and read time', /P104/.test(header) && /Riyadh Olaya 3/.test(header) && /Watch/.test(header) &&
     /Read at 2026-11-18 04:10/.test(header), header)
 
-  check('2. the strip shows the mounted panels', (await page.locator('[data-store-db-panels]').getAttribute('data-store-db-panels')) === 'readings')
+  check('2. the strip shows the mounted panels, Readings first', (await page.locator('[data-store-db-panels]').getAttribute('data-store-db-panels')).split(' ')[0] === 'readings')
   check('2. …an unknown ?panel= opens the first', (await page.locator('[data-panel-open]').getAttribute('data-panel-open')) === 'readings')
 
   check('3. the reading has its 11 lines', (await page.locator('[data-reading-line]').count()) === 11)
@@ -115,8 +115,8 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
   check('6. the 10 largest tables, largest first', (await page.locator('[data-store-db-tables]').getAttribute('data-store-db-tables')) === '10' &&
     tableName === 'dbo.SalesLine' && reserved === '1.1 GB' && rows === '8,412,093', `${tableName} ${reserved} ${rows}`)
 
-  const copy = await text(page.locator('[data-tab-grid="store-db-side-copies"] .ag-row').first())
-  check('7. the side copies are listed', /POS_Restore_20261110/.test(copy) && /2.8 GB/.test(copy), copy)
+  // The side copies moved to the Space panel (oms 918; `tools/store-db-space-drive.mjs` check 4).
+  check('7. the side copies are not on Readings (they are on Space)', (await page.locator('[data-store-db-side-copies]').count()) === 0)
   check('8. a store read on its last attempt shows no Not checked banner', (await page.locator('[data-not-checked]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/store.png`, fullPage: true })
 

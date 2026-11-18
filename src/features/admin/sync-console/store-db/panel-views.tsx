@@ -8,11 +8,11 @@ import ReadingsPanel from './ReadingsPanel'
 
 // 917: import HealthPanel from './HealthPanel'
 
-// 918: import SpacePanel from './SpacePanel'
+import SpacePanel from './SpacePanel'
 
-// 918: import BackupPanel from './BackupPanel'
+import BackupPanel from './BackupPanel'
 
-// 918: import JobsPanel from './JobsPanel'
+import JobsPanel from './JobsPanel'
 
 // 919: import RestorePanel from './RestorePanel'
 
@@ -33,11 +33,11 @@ export const PANEL_VIEWS: Partial<Record<StoreDbPanel, ComponentType<StoreDbPane
 
   // health: HealthPanel,
 
-  // space: SpacePanel,
+  space: SpacePanel,
 
-  // backup: BackupPanel,
+  backup: BackupPanel,
 
-  // jobs: JobsPanel,
+  jobs: JobsPanel,
 
   // restore: RestorePanel,
 }

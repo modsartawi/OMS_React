@@ -1,0 +1,7 @@
+{
+  "code": "P104",
+  "frequency": "Weekly",
+  "weekday": 5,
+  "source": "Store",
+  "fleetDefault": { "frequency": "Off", "weekday": null }
+}

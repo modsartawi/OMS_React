@@ -1,0 +1,47 @@
+[
+  {
+    "jobId": "01JCZ8Q2W0M4V9K3T7R5N1B6D8",
+    "code": "P104",
+    "kind": "ShrinkData",
+    "reason": "Data file has 900 MB free after the 3985 cleanup",
+    "requestedBy": "msartawi",
+    "requestedAt": "2026-11-18T10:05:00",
+    "notBefore": "2026-11-19T02:00:00",
+    "state": "Queued",
+    "attempts": 0,
+    "startedAt": null,
+    "finishedAt": null,
+    "result": null,
+    "error": null
+  },
+  {
+    "jobId": "01JCZ7K1A2B3C4D5E6F7G8H9J0",
+    "code": "P104",
+    "kind": "Backup",
+    "reason": "Before the engine move",
+    "requestedBy": "msartawi",
+    "requestedAt": "2026-11-18T09:40:00",
+    "notBefore": "2026-11-18T09:40:00",
+    "state": "Failed",
+    "attempts": 3,
+    "startedAt": "2026-11-18T09:52:00",
+    "finishedAt": "2026-11-18T09:52:04",
+    "result": null,
+    "error": "Free space on D: is 3.1 GB, below 1.5 × the data used (4.5 GB). The backup was not started."
+  },
+  {
+    "jobId": "01JCZ6P0X9Y8Z7W6V5U4T3S2R1",
+    "code": "P104",
+    "kind": "ShrinkLog",
+    "reason": "Log grew to 4 GB during the cleanup",
+    "requestedBy": "aalharbi",
+    "requestedAt": "2026-11-18T08:12:00",
+    "notBefore": "2026-11-18T08:12:00",
+    "state": "Done",
+    "attempts": 1,
+    "startedAt": "2026-11-18T08:12:30",
+    "finishedAt": "2026-11-18T08:12:41",
+    "result": "Log 4,096 MB → 512 MB",
+    "error": null
+  }
+]

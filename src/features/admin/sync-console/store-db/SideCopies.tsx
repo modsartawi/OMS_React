@@ -9,7 +9,7 @@ import { kbSize } from './size'
 
 /**
  * The side copies restored beside the live database (BO 4038), read-only. Drawn only when the door sends some: an
- * older door (before 4038) sends none. 918/919 may move this into the Space panel and add Drop.
+ * older door (before 4038) sends none. Drawn on the Space panel (918); 919 adds Drop beside each copy.
  */
 export default function SideCopies({ copies }: { copies: StoreDbSideCopy[] }) {
   const { t } = useTranslation('sync-console')
@@ -17,17 +17,17 @@ export default function SideCopies({ copies }: { copies: StoreDbSideCopy[] }) {
   if (copies.length === 0) return null
   return (
     <section className="flex flex-col gap-2" data-store-db-side-copies={copies.length}>
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('storeDb.readings.sideCopies.title')}</h3>
-      <p className="text-xs text-muted-foreground">{t('storeDb.readings.sideCopies.note')}</p>
+      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('storeDb.space.sideCopies.title')}</h3>
+      <p className="text-xs text-muted-foreground">{t('storeDb.space.sideCopies.note')}</p>
       <TabGrid
         rows={copies}
         columns={columns}
         rowId={copyId}
         pending={false}
         error={null}
-        failed={t('storeDb.readings.failed')}
+        failed={t('storeDb.space.sideCopies.failed')}
         empty=""
-        loading={t('storeDb.readings.loading')}
+        loading={t('storeDb.space.sideCopies.loading')}
         data="store-db-side-copies"
       />
     </section>
@@ -38,9 +38,9 @@ const copyId = (row: StoreDbSideCopy) => row.name
 
 function buildSideCopyColumns(t: TFunction): ColDef<StoreDbSideCopy>[] {
   return [
-    { headerName: t('storeDb.readings.sideCopies.columns.name'), field: 'name', flex: 1, minWidth: 200, cellClass: MONO },
+    { headerName: t('storeDb.space.sideCopies.columns.name'), field: 'name', flex: 1, minWidth: 200, cellClass: MONO },
     {
-      headerName: t('storeDb.readings.sideCopies.columns.size'),
+      headerName: t('storeDb.space.sideCopies.columns.size'),
       field: 'sizeKb',
       width: 110,
       type: 'rightAligned',
@@ -49,6 +49,6 @@ function buildSideCopyColumns(t: TFunction): ColDef<StoreDbSideCopy>[] {
         return s ? t(`storeDb.units.${s.unit}`, { n: s.n }) : ''
       },
     },
-    { headerName: t('storeDb.readings.sideCopies.columns.createdAt'), field: 'createdAt', width: 150, valueFormatter: formatTime },
+    { headerName: t('storeDb.space.sideCopies.columns.createdAt'), field: 'createdAt', width: 150, valueFormatter: formatTime },
   ]
 }

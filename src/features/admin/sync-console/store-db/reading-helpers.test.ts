@@ -86,7 +86,11 @@ describe('readingLines', () => {
       'recoveryModel',
       'driveFree',
       'machine',
+      'cpus',
+      'memory',
       'uptime',
+      'longestTransaction',
+      'blockedSessions',
       'lastBackup',
     ])
   })
@@ -119,6 +123,31 @@ describe('readingLines', () => {
   it('reads the last backup as its time and size, and the drive with its letter', () => {
     expect(line('lastBackup')).toEqual({ key: 'lastBackup', kind: 'backup', at: '2026-11-17T02:15:00', size: { unit: 'gb', n: '2.8' } })
     expect(line('driveFree')).toEqual({ key: 'driveFree', kind: 'drive', drive: 'D:', size: { unit: 'gb', n: '18.0' } })
+  })
+
+  it('reads the machine’s CPU count and physical memory beside its name (story 15)', () => {
+    expect(line('cpus')).toEqual({ key: 'cpus', kind: 'count', n: 4 })
+    expect(line('memory')).toEqual({ key: 'memory', kind: 'size', size: { unit: 'gb', n: '8.0' } })
+  })
+
+  it('reads the longest open transaction’s age and the sessions blocked at reading time (story 16)', () => {
+    expect(line('longestTransaction')).toEqual({ key: 'longestTransaction', kind: 'age', hours: 0, minutes: 12, seconds: 34 })
+    expect(line('blockedSessions')).toEqual({ key: 'blockedSessions', kind: 'count', n: 2 })
+    const long = readingLines({ ...read.reading!, longestOpenTransactionSeconds: 3 * 3600 + 5 * 60 + 9 })
+    expect(long.find((x) => x.key === 'longestTransaction')).toEqual({ key: 'longestTransaction', kind: 'age', hours: 3, minutes: 5, seconds: 9 })
+  })
+
+  it('no open transaction reads as none, and no blocked session as 0', () => {
+    const l = readingLines({ ...read.reading!, longestOpenTransactionSeconds: 0, blockedSessions: 0 })
+    expect(l.find((x) => x.key === 'longestTransaction')).toEqual({ key: 'longestTransaction', kind: 'noTransaction' })
+    expect(l.find((x) => x.key === 'blockedSessions')).toEqual({ key: 'blockedSessions', kind: 'count', n: 0 })
+  })
+
+  it('a door that does not send the machine or session figures reads them as missing', () => {
+    const { cpuCount: _c, physicalMemoryKb: _m, longestOpenTransactionSeconds: _l, blockedSessions: _b, ...older } = read.reading!
+    const l = readingLines(older as typeof read.reading)
+    for (const key of ['cpus', 'longestTransaction', 'blockedSessions']) expect(l.find((x) => x.key === key)).toEqual({ key, kind: 'missing' })
+    expect(l.find((x) => x.key === 'memory')).toEqual({ key: 'memory', kind: 'size', size: null })
   })
 
   it('a store with no cap reads "no cap", and no share of it', () => {

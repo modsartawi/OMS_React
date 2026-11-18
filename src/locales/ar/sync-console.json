@@ -223,7 +223,11 @@
         "recoveryModel": "نموذج الاسترداد",
         "driveFree": "المساحة الحرة على القرص",
         "machine": "الجهاز",
+        "cpus": "المعالجات",
+        "memory": "الذاكرة",
         "uptime": "مدة تشغيل SQL Server",
+        "longestTransaction": "أطول معاملة مفتوحة",
+        "blockedSessions": "الجلسات المحجوبة",
         "lastBackup": "آخر نسخة احتياطية كاملة"
       },
       "values": {
@@ -233,7 +237,11 @@
         "logUsed": "<used>{{used}}</used> مستخدمة من <size>{{size}}</size>",
         "driveOn": "<size>{{size}}</size> على <drive>{{drive}}</drive>",
         "uptime": "<days>{{days}}</days> يوم، <hours>{{hours}}</hours> ساعة",
-        "backup": "<at>{{at}}</at>، <size>{{size}}</size>"
+        "backup": "<at>{{at}}</at>، <size>{{size}}</size>",
+        "noTransaction": "لا توجد معاملة مفتوحة",
+        "ageHours": "<h>{{h}}</h> ساعة <m>{{m}}</m> دقيقة",
+        "ageMinutes": "<m>{{m}}</m> دقيقة <s>{{s}}</s> ثانية",
+        "ageSeconds": "<s>{{s}}</s> ثانية"
       },
       "growth": {
         "title": "الأيام حتى بلوغ الحد",
@@ -380,8 +388,10 @@
       "scheduleTitle": "جدول النسخ الاحتياطي",
       "loading": "جارٍ قراءة جدول النسخ الاحتياطي…",
       "failed": "تعذّرت قراءة جدول النسخ الاحتياطي.",
-      "fromStore": "(جدول هذا الفرع)",
-      "fromFleet": "(الإعداد الافتراضي لجميع الفروع)",
+      "effective": {
+        "Store": "<schedule>{{schedule}}</schedule> <source>(جدول هذا الفرع)</source>",
+        "Fleet": "<schedule>{{schedule}}</schedule> <source>(الإعداد الافتراضي لجميع الفروع)</source>"
+      },
       "fleetTitle": "الإعداد الافتراضي لجميع الفروع",
       "fleetNote": "كل فرع ليس له جدول خاص يتبع هذا الإعداد. متوقف ما لم تشغّله.",
       "frequency": "التكرار",
@@ -540,6 +550,11 @@
         "unreadable": "لا — تعذّر على المحرك قراءة هذا الملف.",
         "unknownEngine": "لا — إصدار محركها غير معروف."
       },
+      "whyError": {
+        "newerEngine": "لا — أُخذت على محرك أحدث من محرك الفرع. <error>{{error}}</error>",
+        "unreadable": "لا — تعذّر على المحرك قراءة هذا الملف. <error>{{error}}</error>",
+        "unknownEngine": "لا — إصدار محركها غير معروف. <error>{{error}}</error>"
+      },
       "dialog": {
         "file": "النسخة الاحتياطية <file>{{file}}</file>، المأخوذة في <at>{{at}}</at>.",
         "creates": "ستُستعاد كقاعدة بيانات جديدة، <name>{{name}}</name> (مع لاحقة إن كان الاسم مأخوذاً عند التشغيل)."
@@ -561,6 +576,7 @@
       "running": "جارٍ تشغيل sp_Blitz…",
       "failed": "تعذّر تشغيل sp_Blitz.",
       "notInstalledRefusal": "sp_Blitz غير مثبّت على هذا الفرع، لذا لا يمكن تشغيله.",
+      "notInstalledRefusalSaid": "sp_Blitz غير مثبّت على هذا الفرع، لذا لا يمكن تشغيله. <message>{{message}}</message>",
       "empty": "لم يجد sp_Blitz شيئاً.",
       "hint": "التثبيت والإزالة يطلبان سبباً ويُضافان كمهام؛ تابعها في لوحة المهام.",
       "more": "اقرأ المزيد",

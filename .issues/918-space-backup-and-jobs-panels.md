@@ -86,3 +86,8 @@ only the 4 PRE-EXISTING insurance-rules violations. Drive `tools/store-db-space-
 
 **Owed:** "Done when" — a log shrink and a backup requested from the page show up in Jobs and finish against the dev
 store — waits on BO 4034–4037 on a local SIS.Api.
+
+**2026-11-19 — 4016 review: the fleet default is now Act's.** Spec D9 lists "the backup schedule" under
+`StoreDatabase.Act`, matching the door (BO 4035), so the fleet default shows and saves with Act alone — the
+Act + Restore guess above is withdrawn and `fleetDefaultVisible` is gone (the panel reads `canActStoreDb`). The space
+drive's check 10 now proves an Act-only holder sees and edits it.

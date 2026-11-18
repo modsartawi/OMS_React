@@ -6,11 +6,12 @@ import type { StoreDbSideCopy } from '@/core/models/store-database'
 import { usePermissions } from '@/core/permissions'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
+import { canRestoreStoreDb } from '../access'
 import { MONO, formatTime } from '../console-columns'
 import TabGrid from '../TabGrid'
 import JobDialog from './JobDialog'
-import { canDropCopy, restoreVisible } from './restore-helpers'
-import { kbSize } from './size'
+import { canDropCopy } from './restore-helpers'
+import { kbText } from './size'
 
 /**
  * The side copies restored beside the live database (BO 4038). Drawn only when the door sends some: an older door
@@ -19,7 +20,7 @@ import { kbSize } from './size'
  */
 export default function SideCopies({ code, copies }: { code: string; copies: StoreDbSideCopy[] }) {
   const { t } = useTranslation('sync-console')
-  const canDrop = restoreVisible(usePermissions())
+  const canDrop = canRestoreStoreDb(usePermissions())
   const [dropping, setDropping] = useState<StoreDbSideCopy | null>(null)
   const columns = useMemo(() => buildSideCopyColumns(t, canDrop ? setDropping : null), [t, canDrop])
   if (copies.length === 0) return null
@@ -64,10 +65,7 @@ function buildSideCopyColumns(t: TFunction, onDrop: ((copy: StoreDbSideCopy) => 
       field: 'sizeKb',
       width: 110,
       type: 'rightAligned',
-      valueFormatter: (p: ValueFormatterParams<StoreDbSideCopy, number | null>) => {
-        const s = kbSize(p.value)
-        return s ? t(`storeDb.units.${s.unit}`, { n: s.n }) : ''
-      },
+      valueFormatter: (p: ValueFormatterParams<StoreDbSideCopy, number | null>) => kbText(t, p.value),
     },
     { headerName: t('storeDb.space.sideCopies.columns.createdAt'), field: 'createdAt', width: 150, valueFormatter: formatTime },
   ]

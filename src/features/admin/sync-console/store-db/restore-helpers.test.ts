@@ -1,25 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { StoreDbBackups } from '@/core/models/store-database'
 import backups from './__fixtures__/backups.json'
-import { permissionsOf } from '@/core/permissions'
-import { canDropCopy, restoreChoice, restoreVisible, sideCopyName } from './restore-helpers'
+import { canDropCopy, restoreChoice, sideCopyName } from './restore-helpers'
 
 /** Oms 919 (BackOffice 4038, spec 4016 D16): Browse, restore into a side copy, drop a side copy. */
-describe('the restore controls', () => {
-  it('are hidden without the Restore key, even to an Act holder', () => {
-    expect(restoreVisible(permissionsOf({ screens: ['StoreDatabase:03'] }))).toBe(false)
-    expect(restoreVisible(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06', 'ActionSyncConsole:06'] }))).toBe(false)
-  })
-
-  it('stay hidden with the Restore key alone (the page needs View)', () => {
-    expect(restoreVisible(permissionsOf({ screens: ['StoreDatabaseRestore:06'] }))).toBe(false)
-  })
-
-  it('show with the Restore key beside View', () => {
-    expect(restoreVisible(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabaseRestore:06'] }))).toBe(true)
-  })
-})
-
 describe('choosing a backup to restore', () => {
   const files = (backups as StoreDbBackups).files
   const byName = (n: string) => files.find((f) => f.fileName === n)!

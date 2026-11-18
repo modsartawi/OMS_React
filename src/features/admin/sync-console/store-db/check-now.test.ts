@@ -1,23 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { permissionsOf } from '@/core/permissions'
-import { checkNowBody, checkNowVisible } from './check-now'
-
-const VIEW = 'StoreDatabase:03'
-const ACT = 'StoreDatabase:06'
-
-describe('checkNowVisible', () => {
-  it('shows Check now to a user holding View and Act', () => {
-    expect(checkNowVisible(permissionsOf({ screens: [VIEW, ACT] }))).toBe(true)
-  })
-
-  it('hides Check now without Act, even to a console operator', () => {
-    expect(checkNowVisible(permissionsOf({ screens: [VIEW, 'ActionSyncConsole:03', 'ActionSyncConsole:06'] }))).toBe(false)
-  })
-
-  it('hides Check now when Act is held without View', () => {
-    expect(checkNowVisible(permissionsOf({ screens: [ACT] }))).toBe(false)
-  })
-})
+import { checkNowBody } from './check-now'
 
 describe('checkNowBody', () => {
   it('sends nothing without a reason', () => {

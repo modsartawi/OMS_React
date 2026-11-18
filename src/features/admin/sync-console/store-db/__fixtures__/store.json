@@ -21,7 +21,11 @@
     "driveFreeKb": 18874368,
     "dataDrive": "D:",
     "machineName": "P104-POS01",
+    "cpuCount": 4,
+    "physicalMemoryKb": 8388608,
     "sqlStartedAt": "2026-11-02T06:40:00",
+    "longestOpenTransactionSeconds": 754,
+    "blockedSessions": 2,
     "lastFullBackupAt": "2026-11-17T02:15:00",
     "lastFullBackupSizeKb": 2936012
   },

@@ -33,3 +33,12 @@ export function blitzFindings(data: Partial<StoreDbBlitz> | null | undefined): S
 
 /** The door refused because sp_Blitz is not on the store — shown plainly, with Install beside it for Act. */
 export const blitzNotInstalled = (err: unknown): boolean => err != null && apiErrorCode(err) === BLITZ_NOT_INSTALLED
+
+/**
+ * A finding's "read more" address as a link target: only an absolute `http:` / `https:` address. Anything else the
+ * server sends (`javascript:`, `data:`, a relative path) is no link at all — a server value never runs as script.
+ */
+export function blitzLink(url: string | null | undefined): string | null {
+  const u = String(url ?? '').trim()
+  return /^https?:\/\/[^/\s]/i.test(u) ? u : null
+}

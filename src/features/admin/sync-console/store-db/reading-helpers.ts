@@ -7,7 +7,7 @@
  */
 import type { ChartSeriesRow } from '@/core/charts/SeriesChart'
 import type { StoreDbHistoryDay, StoreDbReading, StoreDbStore } from '@/core/models/store-database'
-import { kbSize, sharePercent, type Size } from './size'
+import { KB_PER_GB, KB_PER_MB, kbSize, sharePercent, type Size } from './size'
 
 // ── The Not checked banner ──────────────────────────────────────────────────────
 
@@ -35,9 +35,6 @@ export function notCheckedBanner(store: Pick<StoreDbStore, 'state' | 'lastAttemp
  * GB beside a 4 GB cap), so it draws on its own chart — never a second axis (dataviz rule).
  */
 export const FILE_SERIES = ['used', 'allocated', 'log'] as const
-
-const KB_PER_MB = 1024
-const KB_PER_GB = 1024 * 1024
 
 const toMb = (kb: number | null | undefined): number | null => (kb == null || !Number.isFinite(kb) ? null : Math.round(kb / KB_PER_MB))
 const toGb = (kb: number | null | undefined): number | null =>
@@ -78,6 +75,9 @@ export type ReadingLine =
   | { key: ReadingLineKey; kind: 'text'; text: string | null }
   | { key: 'driveFree'; kind: 'drive'; drive: string | null; size: Size | null }
   | { key: 'uptime'; kind: 'uptime'; days: number; hours: number }
+  | { key: ReadingLineKey; kind: 'count'; n: number }
+  | { key: 'longestTransaction'; kind: 'age'; hours: number; minutes: number; seconds: number }
+  | { key: 'longestTransaction'; kind: 'noTransaction' }
   | { key: 'lastBackup'; kind: 'backup'; at: string; size: Size | null }
   | { key: ReadingLineKey; kind: 'missing' }
 
@@ -91,7 +91,11 @@ export type ReadingLineKey =
   | 'recoveryModel'
   | 'driveFree'
   | 'machine'
+  | 'cpus'
+  | 'memory'
   | 'uptime'
+  | 'longestTransaction'
+  | 'blockedSessions'
   | 'lastBackup'
 
 const LOCAL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/
@@ -111,6 +115,19 @@ export function uptime(startedAt: string | null | undefined, takenAt: string | n
   if (from === null || to === null || to < from) return null
   const hours = Math.floor((to - from) / 60)
   return { days: Math.floor(hours / 24), hours: hours % 24 }
+}
+
+const known = (n: number | null | undefined): n is number => n != null && Number.isFinite(n)
+
+/** A count line; missing when the door did not send it (an older door, before story 15/16). */
+const countLine = (key: ReadingLineKey, n: number | null | undefined): ReadingLine => (known(n) ? { key, kind: 'count', n } : { key, kind: 'missing' })
+
+/** The longest open transaction's age (story 16) in whole hours, minutes and seconds; `0` = none open. */
+function transactionLine(seconds: number | null | undefined): ReadingLine {
+  if (!known(seconds)) return { key: 'longestTransaction', kind: 'missing' }
+  const s = Math.max(0, Math.floor(seconds))
+  if (s === 0) return { key: 'longestTransaction', kind: 'noTransaction' }
+  return { key: 'longestTransaction', kind: 'age', hours: Math.floor(s / 3600), minutes: Math.floor((s % 3600) / 60), seconds: s % 60 }
 }
 
 const less = (a: number | null, b: number | null): number | null => (a == null || b == null ? null : Math.max(0, a - b))
@@ -136,7 +153,11 @@ export function readingLines(reading: StoreDbReading | null | undefined): Readin
     { key: 'recoveryModel', kind: 'text', text: r.recoveryModel },
     { key: 'driveFree', kind: 'drive', drive: r.dataDrive, size: kbSize(r.driveFreeKb) },
     { key: 'machine', kind: 'text', text: r.machineName },
+    countLine('cpus', r.cpuCount),
+    { key: 'memory', kind: 'size', size: kbSize(r.physicalMemoryKb) },
     up ? { key: 'uptime', kind: 'uptime', ...up } : { key: 'uptime', kind: 'missing' },
+    transactionLine(r.longestOpenTransactionSeconds),
+    countLine('blockedSessions', r.blockedSessions),
     r.lastFullBackupAt
       ? { key: 'lastBackup', kind: 'backup', at: r.lastFullBackupAt, size: kbSize(r.lastFullBackupSizeKb) }
       : { key: 'lastBackup', kind: 'missing' },

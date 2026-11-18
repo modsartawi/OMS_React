@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { permissionsOf } from '@/core/permissions'
 import type { StoreDbBackupSchedule } from '@/core/models/store-database'
 import scheduleFixture from './__fixtures__/backup-schedule.json'
-import { fleetDefaultVisible, scheduleChanged, scheduleDraft, scheduleReady, scheduleRequest } from './schedule-helpers'
+import { scheduleChanged, scheduleDraft, scheduleReady, scheduleRequest } from './schedule-helpers'
 
 /** Oms 918 (BackOffice 4035): a backup schedule is off, daily, or weekly on a weekday — for a store or the fleet. */
 describe('a backup schedule', () => {
@@ -34,13 +33,5 @@ describe('a backup schedule', () => {
     expect(scheduleChanged({ frequency: 'Weekly', weekday: 5 }, schedule)).toBe(false)
     expect(scheduleChanged({ frequency: 'Weekly', weekday: 1 }, schedule)).toBe(true)
     expect(scheduleChanged({ frequency: 'Off', weekday: null }, schedule)).toBe(true)
-  })
-})
-
-describe('the fleet default', () => {
-  it('is shown to the owner only — Act AND Restore (GUESSED: BO names no owner grant)', () => {
-    expect(fleetDefaultVisible(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06'] }))).toBe(false)
-    expect(fleetDefaultVisible(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabaseRestore:06'] }))).toBe(false)
-    expect(fleetDefaultVisible(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06', 'StoreDatabaseRestore:06'] }))).toBe(true)
   })
 })

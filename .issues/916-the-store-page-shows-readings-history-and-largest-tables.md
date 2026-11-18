@@ -69,3 +69,10 @@ history as `{ day, usedKb, allocatedKb, logKb, driveFreeKb }[]`; `growthKbPerDay
 `NO_STORE` for an unknown store; `sideCopies` absent before 4038 reads as `[]`.
 
 **Owed:** "Done when" — the dev store's page against a local SIS.Api — waits on BO 4031.
+
+**2026-11-19 — 4016 review: stories 15 and 16 added.** The Readings lines now carry, beside machine and uptime,
+the CPU count and physical memory (story 15) and the longest open transaction's age and the blocked-session count
+(story 16), all from the one Store door's reading (spec D5). 🚩 GUESSED field names on `StoreDbReading`:
+`cpuCount`, `physicalMemoryKb` (KB like every size), `longestOpenTransactionSeconds` (`0` = none open → "None open"),
+`blockedSessions`. A door that omits them reads "Not read". Lines are now 15 (drive updated); the line list is shared
+with the Space panel (`LineValue.tsx`).

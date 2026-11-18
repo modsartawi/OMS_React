@@ -75,6 +75,10 @@ export interface FleetFilter {
 
 export const ALL_FLEET: FleetFilter = { state: null, engine: null, edition: null, needs2019: false }
 
+/** Whether any filter is set (the tab then says how many of the fleet it shows), field by field. */
+export const fleetFiltered = (f: FleetFilter): boolean =>
+  f.state !== ALL_FLEET.state || f.engine !== ALL_FLEET.engine || f.edition !== ALL_FLEET.edition || f.needs2019 !== ALL_FLEET.needs2019
+
 /** The rows the tab shows for a filter, in the order it shows them. Filtering is client-side: the door is unpaged. */
 export function shownFleet(rows: readonly StoreDbFleetRow[], filter: FleetFilter): StoreDbFleetRow[] {
   const kept = rows.filter(

@@ -1,5 +1,6 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import Ltr from '@/core/ui/Ltr'
@@ -10,7 +11,7 @@ import CodeBadgeView from '../CodeBadgeView'
 import { MONO, formatTime } from '../console-columns'
 import { figure } from '../helpers'
 import { fleetRowView } from './fleet-helpers'
-import { kbSize, sharePercent } from './size'
+import { kbText, sharePercent } from './size'
 
 /**
  * The Store database tab's columns (oms 915). The order is the tab's (worst first, `shownFleet`), so no column is
@@ -18,15 +19,10 @@ import { kbSize, sharePercent } from './size'
  * `fsi` (a grid value reaches Ctrl+C).
  */
 export function buildStoreDbFleetColumns(t: TFunction): ColDef<StoreDbFleetRow>[] {
-  /** A KB figure in its unit, blank for no reading. */
-  const size = (kb: number | null | undefined): string => {
-    const s = kbSize(kb)
-    return s ? t(`storeDb.units.${s.unit}`, { n: s.n }) : ''
-  }
-  /** "used / cap" as ONE value (bidi rule); a store with no cap reads its used size beside "No cap". */
+  /** "used / cap" as ONE value (bidi rule); a store with no cap reads its used size beside "No cap". The cell's copy text. */
   const usedOfCap = (row: StoreDbFleetRow): string => {
     if (row.usedKb == null) return ''
-    return row.capKb > 0 ? formatCount(size(row.usedKb), size(row.capKb)) : formatPair(size(row.usedKb), t('storeDb.fleet.noCap'))
+    return row.capKb > 0 ? formatCount(kbText(t, row.usedKb), kbText(t, row.capKb)) : formatPair(kbText(t, row.usedKb), t('storeDb.fleet.noCap'))
   }
   return [
     {
@@ -63,8 +59,7 @@ export function buildStoreDbFleetColumns(t: TFunction): ColDef<StoreDbFleetRow>[
       colId: 'used',
       width: 200,
       valueGetter: (p) => (p.data ? usedOfCap(p.data) : ''),
-      cellRenderer: (p: ICellRendererParams<StoreDbFleetRow, string>) =>
-        p.data ? <UsedCapBar row={p.data} text={p.value ?? ''} /> : null,
+      cellRenderer: (p: ICellRendererParams<StoreDbFleetRow, string>) => (p.data ? <UsedCapBar row={p.data} /> : null),
     },
     {
       headerName: t('storeDb.fleet.columns.share'),
@@ -88,7 +83,7 @@ export function buildStoreDbFleetColumns(t: TFunction): ColDef<StoreDbFleetRow>[
       field: 'driveFreeKb',
       width: 110,
       type: 'rightAligned',
-      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, number | null>) => size(p.value),
+      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, number | null>) => kbText(t, p.value),
     },
     {
       headerName: t('storeDb.fleet.columns.engine'),
@@ -123,8 +118,10 @@ const BAR_TONE: Record<Severity, string> = {
  * Used of cap, as a bar behind the figure: the share of THIS store's cap (not the column's largest, as `CellBar`
  * draws), in the state's colour. Grows from the inline start, so it mirrors under Arabic.
  */
-function UsedCapBar({ row, text }: { row: StoreDbFleetRow; text: string }) {
+function UsedCapBar({ row }: { row: StoreDbFleetRow }) {
+  const { t } = useTranslation('sync-console')
   const { bar } = fleetRowView(row)
+  const used = kbText(t, row.usedKb)
   return (
     <span className="relative flex h-full items-center" data-used-bar={bar ? bar.percent : ''}>
       {bar && (
@@ -135,7 +132,16 @@ function UsedCapBar({ row, text }: { row: StoreDbFleetRow; text: string }) {
         />
       )}
       <span className="relative ms-1 tabular-nums">
-        <Ltr>{text}</Ltr>
+        {/* "used / cap" is one machine value, isolated once; with no cap only the size is — "No cap" is a word. */}
+        {row.usedKb == null ? null : row.capKb > 0 ? (
+          <Ltr>{formatCount(used, kbText(t, row.capKb))}</Ltr>
+        ) : (
+          <>
+            <Ltr>{used}</Ltr>
+            {' · '}
+            {t('storeDb.fleet.noCap')}
+          </>
+        )}
       </span>
     </span>
   )

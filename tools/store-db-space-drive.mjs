@@ -15,7 +15,7 @@
 //   8. Backup shows the last full backup and Back up now posts kind Backup;
 //   9. the store's schedule reads "Weekly on Friday (this store's own schedule)"; changing it to Daily asks for a reason
 //      and PUTs `{ code, frequency: 'Daily', weekday: null, reason }`;
-//  10. the fleet default is hidden without Restore, and with it the owner PUTs `{ code: null, … }`;
+//  10. the fleet default shows with Act alone (spec D9) and PUTs `{ code: null, … }`;
 //  11. Jobs lists the store's jobs with state, attempts, not before, start, finish, and a failed job's error;
 //  12. without Act no job button, schedule editor or fleet default shows; Jobs still lists;
 //  13. under Arabic (RTL) the Space panel lays out right to left.
@@ -40,7 +40,6 @@ const check = (name, pass, detail = '') => {
 
 const VIEW = ['ActionSyncConsole:03', 'StoreDatabase:03']
 const ACT = [...VIEW, 'StoreDatabase:06']
-const OWNER = [...ACT, 'StoreDatabaseRestore:06']
 const ACCEPTED = { jobId: '01JD0000000000000000000000', notBefore: '2026-11-18T23:05:00', warning: null }
 const TONIGHT = { jobId: '01JD0000000000000000000001', notBefore: '2026-11-19T02:00:00', warning: 'A data shrink blocks the till while it runs.' }
 
@@ -184,16 +183,16 @@ const toast = (page, re) => page.locator('[data-sonner-toast]').filter({ hasText
   await toast(page, /backup schedule of P104 is saved/).waitFor({ timeout: 10000 })
   const put = posts.BackupSchedule?.[0]
   check('9. …and PUTs the store’s schedule with the reason', JSON.stringify(put) === JSON.stringify({ code: 'P104', frequency: 'Daily', weekday: null, reason: 'Busy store, daily from now' }), JSON.stringify(put))
-  check('10. the fleet default is hidden without Restore', (await page.locator('[data-fleet-default]').count()) === 0)
+  check('10. the fleet default shows with Act alone (D9)', (await page.locator('[data-fleet-default]').count()) === 1)
   check('no page errors (backup)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
-// ── 10: the owner's fleet default ────────────────────────────────────────────────
+// ── 10: the fleet default, edited ────────────────────────────────────────────────
 {
-  const { context, page, errors, posts } = await open('/admin/sync/database/P104?panel=backup', { screens: OWNER })
+  const { context, page, errors, posts } = await open('/admin/sync/database/P104?panel=backup', { screens: ACT })
   await page.locator('[data-fleet-default]').waitFor({ timeout: 60000 })
-  check('10. the owner sees the fleet default, Off', /Off/.test(await text(page.locator('[data-fleet-default]'))))
+  check('10. the fleet default reads Off', /Off/.test(await text(page.locator('[data-fleet-default]'))))
   await page.locator('[data-schedule-editor="fleet"] [data-schedule-frequency]').selectOption('Weekly')
   await page.locator('[data-schedule-editor="fleet"] [data-schedule-weekday]').selectOption('4')
   await page.locator('[data-schedule-editor="fleet"] [data-schedule-save]').click()

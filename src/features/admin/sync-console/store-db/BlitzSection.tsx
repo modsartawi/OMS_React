@@ -13,7 +13,7 @@ import { MONO } from '../console-columns'
 import { figure } from '../helpers'
 import TabGrid from '../TabGrid'
 import { storeDbBlitzQuery } from './api'
-import { blitzControls, blitzFindings, blitzNotInstalled } from './blitz-helpers'
+import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled } from './blitz-helpers'
 import JobButtons from './JobButtons'
 import JobDialog from './JobDialog'
 import type { StoreDbPanelProps } from './panel-views'
@@ -69,7 +69,7 @@ export default function BlitzSection({ store }: StoreDbPanelProps) {
       {asked &&
         (notInstalled ? (
           <p className="rounded-md border border-border/60 p-3 text-sm" data-blitz-not-installed="">
-            {t('storeDb.blitz.notInstalledRefusal')} <bdi className="text-muted-foreground">{apiErrorMessage(blitz.error, '')}</bdi>
+            <NotInstalledRefusal message={apiErrorMessage(blitz.error, '')} />
           </p>
         ) : blitz.isError ? (
           <ErrorBanner className="p-3" message={apiErrorMessage(blitz.error, t('storeDb.blitz.failed'))} />
@@ -92,6 +92,20 @@ export default function BlitzSection({ store }: StoreDbPanelProps) {
   )
 }
 
+/** The door's refusal for a store without sp_Blitz: our sentence, then the server's own words isolated in their slot. */
+function NotInstalledRefusal({ message }: { message: string }) {
+  const { t } = useTranslation('sync-console')
+  if (!message) return <>{t('storeDb.blitz.notInstalledRefusal')}</>
+  return (
+    <Trans
+      t={t}
+      i18nKey="storeDb.blitz.notInstalledRefusalSaid"
+      values={{ message }}
+      components={{ message: <bdi className="text-muted-foreground" /> }}
+    />
+  )
+}
+
 /** sp_Blitz's own columns: priority, group, finding, database, details, and its "read more" link. */
 function buildBlitzColumns(t: TFunction): ColDef<StoreDbBlitzFinding>[] {
   return [
@@ -110,12 +124,15 @@ function buildBlitzColumns(t: TFunction): ColDef<StoreDbBlitzFinding>[] {
       headerName: '',
       colId: 'url',
       width: 110,
-      cellRenderer: (p: ICellRendererParams<StoreDbBlitzFinding>) =>
-        p.data?.url ? (
-          <a href={p.data.url} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline" data-blitz-url="">
+      // Only an http(s) address becomes a link: the server's value is never trusted as an href (`blitzLink`).
+      cellRenderer: (p: ICellRendererParams<StoreDbBlitzFinding>) => {
+        const href = blitzLink(p.data?.url)
+        return href ? (
+          <a href={href} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline" data-blitz-url="">
             {t('storeDb.blitz.more')}
           </a>
-        ) : null,
+        ) : null
+      },
     },
   ]
 }

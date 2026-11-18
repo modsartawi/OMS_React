@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { StoreDbJobKind } from '@/core/models/store-database'
 import { usePermissions } from '@/core/permissions'
+import { canActStoreDb } from '../access'
 import JobButtons from './JobButtons'
 import JobDialog from './JobDialog'
-import { jobActionsVisible } from './job-helpers'
 import type { StoreDbPanelProps } from './panel-views'
-import { LineValue } from './ReadingsPanel'
+import { ReadingLineList } from './LineValue'
 import { readingLines, type ReadingLineKey } from './reading-helpers'
 import SideCopies from './SideCopies'
 
@@ -33,19 +33,10 @@ export default function SpacePanel({ store }: StoreDbPanelProps) {
         {lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('storeDb.readings.noReading')}</p>
         ) : (
-          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-            {lines.map((line) => (
-              <div key={line.key} className="contents" data-space-line={line.key}>
-                <dt className="text-muted-foreground">{t(`storeDb.readings.lines.${line.key}`)}</dt>
-                <dd className="min-w-0 tabular-nums">
-                  <LineValue line={line} />
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <ReadingLineList lines={lines} data="space" />
         )}
       </section>
-      {jobActionsVisible(permissions) && <JobButtons kinds={SPACE_JOBS} onPick={setKind} hint={t('storeDb.space.hint')} />}
+      {canActStoreDb(permissions) && <JobButtons kinds={SPACE_JOBS} onPick={setKind} hint={t('storeDb.space.hint')} />}
       <SideCopies code={store.code} copies={store.sideCopies} />
       <JobDialog code={store.code} kind={kind} onClose={() => setKind(null)} />
     </div>

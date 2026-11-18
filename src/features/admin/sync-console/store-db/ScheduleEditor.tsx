@@ -11,27 +11,14 @@ import { AUDIT_KEY } from '../api'
 import ReasonDialog from '../ReasonDialog'
 import { STORE_DB_KEY, storeDbApi } from './api'
 import { refusalKey } from './job-helpers'
-import { BACKUP_FREQUENCIES, WEEKDAYS, scheduleChanged, scheduleDraft, scheduleReady, scheduleRequest, type ScheduleDraft } from './schedule-helpers'
-
-/** A schedule in words: "Off", "Daily", "Weekly on Friday". */
-export function ScheduleWords({ setting }: { setting: StoreDbScheduleSetting }) {
-  const { t } = useTranslation('sync-console')
-  const d = scheduleDraft(setting)
-  return (
-    <>
-      {d.frequency === 'Weekly' && d.weekday != null
-        ? t('storeDb.backup.weeklyOn', { weekday: t(`storeDb.backup.weekdays.${d.weekday}`) })
-        : t(`storeDb.backup.frequencies.${d.frequency}`)}
-    </>
-  )
-}
+import { BACKUP_FREQUENCIES, DEFAULT_WEEKDAY, WEEKDAYS, scheduleChanged, scheduleDraft, scheduleReady, scheduleRequest, type ScheduleDraft } from './schedule-helpers'
 
 /**
  * Edits one backup schedule (oms 918, BO 4035): a store's (`code`) or the fleet default (`code: null`). Off / daily /
  * weekly + weekday; Save asks for a reason on the console's reason dialog and sends `PUT StoreDatabase/BackupSchedule`,
  * then re-reads every store's schedule (a fleet default changes the stores that follow it) and the audit.
  */
-export default function ScheduleEditor({ code, current, scope }: { code: string | null; current: StoreDbScheduleSetting; scope: 'store' | 'fleet' }) {
+export default function ScheduleEditor({ code, current }: { code: string | null; current: StoreDbScheduleSetting }) {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
   const [draft, setDraft] = useState<ScheduleDraft>(() => scheduleDraft(current))
@@ -49,11 +36,11 @@ export default function ScheduleEditor({ code, current, scope }: { code: string 
   })
 
   return (
-    <div className="flex flex-wrap items-end gap-3" data-schedule-editor={scope}>
+    <div className="flex flex-wrap items-end gap-3" data-schedule-editor={code === null ? 'fleet' : 'store'}>
       <Field label={t('storeDb.backup.frequency')} className="w-40">
         <Select
           value={draft.frequency}
-          onChange={(e) => setDraft(scheduleDraft({ frequency: e.target.value, weekday: draft.weekday ?? 5 }))}
+          onChange={(e) => setDraft(scheduleDraft({ frequency: e.target.value, weekday: draft.weekday ?? DEFAULT_WEEKDAY }))}
           data-schedule-frequency=""
         >
           {BACKUP_FREQUENCIES.map((f) => (

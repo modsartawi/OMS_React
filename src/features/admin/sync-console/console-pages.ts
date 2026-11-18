@@ -1,6 +1,6 @@
 /**
  * The console's own page links (ticket 447) and which of them a holder sees — pure, so the gating is pinned by a test
- * (`store-db/access.test.ts`) rather than only by a drive. `ConsoleNav` draws them.
+ * (`console-pages.test.ts`) rather than only by a drive. `ConsoleNav` draws them.
  *
  * New store is the wizard, which is nothing but controls: a holder who may onboard nothing (`wizardStart` is `null`)
  * is not shown the link. Replay (spec 470) is shown only with `canReplay`. Store database (oms 915, BackOffice spec

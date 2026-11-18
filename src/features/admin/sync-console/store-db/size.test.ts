@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { kbSize, sharePercent } from './size'
+import type { TFunction } from 'i18next'
+import { kbSize, kbText, sharePercent } from './size'
 
 /** One size spelling for every Store database panel (oms 915): the wire carries KB, the tab reads MB / GB. */
 describe('a size as the tab draws it', () => {
@@ -28,5 +29,21 @@ describe('a size as the tab draws it', () => {
     expect(sharePercent(0.95)).toBe('95')
     expect(sharePercent(0.725)).toBe('72.5')
     expect(sharePercent(null)).toBeNull()
+  })
+})
+
+describe('a size in words', () => {
+  // A stand-in for `t`: the key and the figure, so the test sees which unit word was asked for.
+  const t = ((key: string, o?: { n?: string }) => `${key}(${o?.n})`) as unknown as TFunction
+
+  it('asks for the unit’s words with the figure in its slot', () => {
+    expect(kbText(t, 4194304)).toBe('storeDb.units.gb(4.0)')
+    expect(kbText(t, 512000)).toBe('storeDb.units.mb(500)')
+    expect(kbText(t, 640)).toBe('storeDb.units.kb(640)')
+  })
+
+  it('is blank for no reading', () => {
+    expect(kbText(t, null)).toBe('')
+    expect(kbText(t, undefined)).toBe('')
   })
 })

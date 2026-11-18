@@ -9,12 +9,13 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
+import { canRestoreStoreDb } from '../access'
 import TabGrid from '../TabGrid'
 import { storeDbBackupsQuery } from './api'
 import { buildBackupColumns } from './backups-columns'
 import JobDialog from './JobDialog'
 import type { StoreDbPanelProps } from './panel-views'
-import { restoreVisible, sideCopyName } from './restore-helpers'
+import { sideCopyName } from './restore-helpers'
 import SideCopies from './SideCopies'
 
 const fileId = (f: StoreDbBackupFile) => f.file
@@ -29,7 +30,7 @@ const fileId = (f: StoreDbBackupFile) => f.file
 export default function RestorePanel({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
   const permissions = usePermissions()
-  const canRestore = restoreVisible(permissions)
+  const canRestore = canRestoreStoreDb(permissions)
   /** The folder field as typed; `null` = untouched (it then shows the folder Browse read). */
   const [typed, setTyped] = useState<string | null>(null)
   /** The folder Browse asked for; `null` = the backup folder, `undefined` = not browsed yet. */

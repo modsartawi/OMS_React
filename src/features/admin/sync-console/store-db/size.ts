@@ -4,6 +4,8 @@
  * (`storeDb.units.<unit>`, `{{n}}` slot) — so if BO sends MB instead, only this file changes.
  */
 
+import type { TFunction } from 'i18next'
+
 export type SizeUnit = 'gb' | 'mb' | 'kb'
 
 export interface Size {
@@ -12,8 +14,9 @@ export interface Size {
   n: string
 }
 
-const MB = 1024
-const GB = 1024 * 1024
+/** The wire's KB in a megabyte and a gigabyte — the one set every Store database module reads. */
+export const KB_PER_MB = 1024
+export const KB_PER_GB = 1024 * 1024
 
 const fixed = (n: number, digits: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
@@ -21,10 +24,16 @@ const fixed = (n: number, digits: number): string =>
 /** A KB figure as a size; `null` when there is no reading. */
 export function kbSize(kb: number | null | undefined): Size | null {
   if (kb == null || !Number.isFinite(kb)) return null
-  if (kb >= GB) return { unit: 'gb', n: fixed(kb / GB, 1) }
-  if (kb >= MB) return { unit: 'mb', n: fixed(Math.floor(kb / MB), 0) }
+  if (kb >= KB_PER_GB) return { unit: 'gb', n: fixed(kb / KB_PER_GB, 1) }
+  if (kb >= KB_PER_MB) return { unit: 'mb', n: fixed(Math.floor(kb / KB_PER_MB), 0) }
   return { unit: 'kb', n: fixed(kb, 0) }
 }
+
+/** A size in its unit's words (`storeDb.units.<unit>`); blank for none. The one spelling grids and lines share. */
+export const sizeText = (t: TFunction, size: Size | null): string => (size ? t(`storeDb.units.${size.unit}`, { n: size.n }) : '')
+
+/** A KB figure in its unit's words; blank for no reading. Fits a grid `valueFormatter` (no isolate: it reaches Ctrl+C). */
+export const kbText = (t: TFunction, kb: number | null | undefined): string => sizeText(t, kbSize(kb))
 
 /** A `0..1` share as a percent figure (no sign — the locale adds it); `null` when there is none. */
 export function sharePercent(share: number | null | undefined): string | null {

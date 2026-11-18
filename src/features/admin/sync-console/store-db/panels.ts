@@ -2,9 +2,8 @@
  * The store page's panels (BackOffice spec 4016; oms 916–919), in the page's fixed order. Pure — pinned by
  * `panels.test.ts`.
  *
- * A panel is SHOWN when it is mounted in `panel-views.tsx` (one line per panel there), so the tickets that build
- * panels side by side never touch this file: 916 Readings; 917 Live activity, Health check; 918 Space, Backup,
- * Jobs; 919 Restore. A panel whose door needs more than View gates its own controls inside itself.
+ * A panel is SHOWN when it is mounted in `panel-views.tsx`: 916 Readings; 917 Live activity, Health check; 918 Space,
+ * Backup, Jobs; 919 Restore. A panel whose door needs more than View gates its own controls inside itself.
  */
 
 export const STORE_DB_PANELS = ['readings', 'live', 'health', 'space', 'backup', 'jobs', 'restore'] as const

@@ -1,15 +1,17 @@
 /**
  * The backup schedule as the Backup panel edits it (oms 918; BackOffice 4035, spec D15): off, daily, or weekly on a
- * weekday — for one store, or (the owner) the fleet default. Pure — pinned by `schedule-helpers.test.ts`.
+ * weekday — for one store, or the fleet default (both with Act, spec D9). Pure — pinned by `schedule-helpers.test.ts`.
  */
+import type { TFunction } from 'i18next'
 import type { StoreDbBackupFrequency, StoreDbScheduleRequest, StoreDbScheduleSetting } from '@/core/models/store-database'
-import type { Permissions } from '@/core/permissions'
-import { canActStoreDb, canRestoreStoreDb } from '../access'
 
 export const BACKUP_FREQUENCIES: readonly StoreDbBackupFrequency[] = ['Off', 'Daily', 'Weekly']
 
 /** `0` = Sunday … `6` = Saturday (.NET `DayOfWeek`, GUESSED). */
 export const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
+
+/** The weekday the form offers when a schedule is turned Weekly without one: Friday (`5`). */
+export const DEFAULT_WEEKDAY = 5
 
 export interface ScheduleDraft {
   frequency: StoreDbBackupFrequency
@@ -39,9 +41,10 @@ export function scheduleChanged(d: ScheduleDraft, current: StoreDbScheduleSettin
   return d.frequency !== c.frequency || (d.frequency === 'Weekly' && d.weekday !== c.weekday)
 }
 
-/**
- * The fleet default is the owner's (oms 918 "for the owner, the fleet default"). 🚩 GUESSED: BO names no owner
- * grant — the owner is the holder of Restore (spec D9 "for me or a DBA"), so the fleet default is shown to Act AND
- * Restore. The door itself checks Act only (BO 4035); reconcile when BO rules.
- */
-export const fleetDefaultVisible = (p: Permissions): boolean => canActStoreDb(p) && canRestoreStoreDb(p)
+/** A schedule in words: "Off", "Daily", "Weekly on Friday". */
+export function scheduleWords(t: TFunction, setting: StoreDbScheduleSetting): string {
+  const d = scheduleDraft(setting)
+  return d.frequency === 'Weekly' && d.weekday != null
+    ? t('storeDb.backup.weeklyOn', { weekday: t(`storeDb.backup.weekdays.${d.weekday}`) })
+    : t(`storeDb.backup.frequencies.${d.frequency}`)
+}

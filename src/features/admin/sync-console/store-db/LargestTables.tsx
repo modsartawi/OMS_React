@@ -6,7 +6,7 @@ import type { StoreDbTable } from '@/core/models/store-database'
 import { MONO } from '../console-columns'
 import { figure } from '../helpers'
 import TabGrid from '../TabGrid'
-import { kbSize } from './size'
+import { kbText } from './size'
 
 /**
  * The reading's largest tables (BO 4031: the ten largest), in the server's order (largest reserved first). Not
@@ -36,10 +36,7 @@ export default function LargestTables({ tables }: { tables: StoreDbTable[] }) {
 const tableId = (row: StoreDbTable) => row.tableName
 
 function buildTableColumns(t: TFunction): ColDef<StoreDbTable>[] {
-  const size = (p: ValueFormatterParams<StoreDbTable, number | null>) => {
-    const s = kbSize(p.value)
-    return s ? t(`storeDb.units.${s.unit}`, { n: s.n }) : ''
-  }
+  const size = (p: ValueFormatterParams<StoreDbTable, number | null>) => kbText(t, p.value)
   return [
     { headerName: t('storeDb.readings.tables.columns.table'), field: 'tableName', flex: 1, minWidth: 180, cellClass: MONO },
     {

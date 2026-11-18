@@ -4,11 +4,6 @@
  * new `POS_Restore_yyyymmdd` side copy, and only such a copy may be dropped.
  */
 import type { StoreDbBackupFile } from '@/core/models/store-database'
-import type { Permissions } from '@/core/permissions'
-import { canRestoreStoreDb } from '../access'
-
-/** Restore to a side copy and Drop need the Restore key, beside View. Browse is a View read. */
-export const restoreVisible = (p: Permissions): boolean => canRestoreStoreDb(p)
 
 /** Why a backup cannot be restored here (`storeDb.restore.why.<why>`). */
 export type RestoreRefusal = 'newerEngine' | 'unreadable' | 'unknownEngine'

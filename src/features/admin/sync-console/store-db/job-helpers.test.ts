@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { permissionsOf } from '@/core/permissions'
 import type { StoreDbJob } from '@/core/models/store-database'
 import jobsFixture from './__fixtures__/jobs.json'
-import { jobActionsVisible, jobFailure, jobRequest, jobStateBadge, refusalKey, runsTonightByDefault } from './job-helpers'
+import { jobFailure, jobRequest, jobStateBadge, refusalKey, runsTonightByDefault } from './job-helpers'
 
 /** Oms 918 (BackOffice 4034–4037): the store database write rail, as the Space / Backup / Jobs panels read it. */
 describe('a refused job', () => {
@@ -23,21 +22,6 @@ describe('a refused job', () => {
     const failed = jobs.find((j) => j.state === 'Failed')!
     expect(jobFailure(failed)).toBe('Free space on D: is 3.1 GB, below 1.5 × the data used (4.5 GB). The backup was not started.')
     expect(jobFailure(jobs.find((j) => j.state === 'Done')!)).toBeNull()
-  })
-})
-
-describe('the job buttons', () => {
-  it('are hidden without the Act key', () => {
-    expect(jobActionsVisible(permissionsOf({ screens: ['ActionSyncConsole:03', 'StoreDatabase:03'] }))).toBe(false)
-    expect(jobActionsVisible(permissionsOf({ screens: ['ActionSyncConsole:06', 'StoreDatabaseRestore:06', 'StoreDatabase:03'] }))).toBe(false)
-  })
-
-  it('show with the Act key beside View', () => {
-    expect(jobActionsVisible(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06'] }))).toBe(true)
-  })
-
-  it('stay hidden with Act alone (the page needs View)', () => {
-    expect(jobActionsVisible(permissionsOf({ screens: ['StoreDatabase:06'] }))).toBe(false)
   })
 })
 

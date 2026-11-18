@@ -1,33 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'
 import { canActStoreDb, canRestoreStoreDb, canViewStoreDb } from '../access'
-import { consolePages } from '../console-pages'
 
-/** Oms 915 (BackOffice spec 4016 D9): the Store database tab is read off the one permissions answer. */
+/** Oms 915 (BackOffice spec 4016 D9): the Store database grants, read off the one permissions answer. The tab's link is `../console-pages.test.ts`. */
 describe('the Store database grants', () => {
-  const console03 = 'ActionSyncConsole:03' as const
-
-  it('shows the Store database tab to a holder of the View key', () => {
-    const pages = consolePages(permissionsOf({ screens: [console03, 'StoreDatabase:03'] })).map((p) => p.key)
-    expect(pages).toContain('database')
-  })
-
-  it('hides the tab without the View key, even to a console operator', () => {
-    const p = permissionsOf({ screens: [console03, 'ActionSyncConsole:06', 'StoreDatabase:06', 'StoreDatabaseRestore:06'] })
-    expect(consolePages(p).map((x) => x.key)).not.toContain('database')
-    expect(canViewStoreDb(p)).toBe(false)
-  })
-
-  it('keeps the console’s other pages as they were', () => {
-    expect(consolePages(permissionsOf({ screens: [console03] })).map((p) => p.key)).toEqual([
-      'fleet',
-      'passes',
-      'commands',
-      'audit',
-      'pending',
-      'objects',
-      'scripts',
-    ])
+  it('withholds View from a console operator who holds every other store database key', () => {
+    expect(canViewStoreDb(permissionsOf({ screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06', 'StoreDatabase:06', 'StoreDatabaseRestore:06'] }))).toBe(false)
   })
 
   it('lets Act and Restore count only beside View', () => {
@@ -38,6 +16,20 @@ describe('the Store database grants', () => {
     expect(canActStoreDb(all)).toBe(true)
     expect(canRestoreStoreDb(all)).toBe(true)
     expect(canRestoreStoreDb(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06'] }))).toBe(false)
+  })
+
+  // The store page calls these directly (oms 917–919): Check now, the jobs, Back up now, the backup schedule.
+  it('gives the store page’s Act controls — the jobs and the whole backup schedule, fleet default included (D9) — to Act beside View only', () => {
+    const viewAct = permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06'] })
+    expect(canActStoreDb(viewAct)).toBe(true)
+    expect(canActStoreDb(permissionsOf({ screens: ['StoreDatabase:03', 'ActionSyncConsole:03', 'ActionSyncConsole:06'] }))).toBe(false)
+    expect(canActStoreDb(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabaseRestore:06'] }))).toBe(false)
+  })
+
+  it('gives Restore and Drop to the Restore key beside View only, never to an Act holder or a console operator', () => {
+    expect(canRestoreStoreDb(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabaseRestore:06'] }))).toBe(true)
+    expect(canRestoreStoreDb(permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06', 'ActionSyncConsole:06'] }))).toBe(false)
+    expect(canRestoreStoreDb(permissionsOf({ screens: ['StoreDatabaseRestore:06'] }))).toBe(false)
   })
 
   it('grants nothing on a failed answer', () => {

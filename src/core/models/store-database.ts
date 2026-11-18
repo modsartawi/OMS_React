@@ -77,8 +77,16 @@ export interface StoreDbReading {
   /** The drive the data file sits on (`D:`), when sent. */
   dataDrive: string | null
   machineName: string | null
+  /** 🚩 GUESSED name (spec 4016 D5 / story 15): the machine's logical CPU count. Absent from a door that predates it. */
+  cpuCount?: number | null
+  /** 🚩 GUESSED name (D5 / story 15): the machine's physical memory, in KB as every size (D6). */
+  physicalMemoryKb?: number | null
   /** When SQL Server last started (uptime = the reading's time − this). */
   sqlStartedAt: string | null
+  /** 🚩 GUESSED name (D5 / story 16): the longest open transaction's age at reading time, in seconds; `0` = none open. */
+  longestOpenTransactionSeconds?: number | null
+  /** 🚩 GUESSED name (D5 / story 16): the sessions blocked at reading time. */
+  blockedSessions?: number | null
   lastFullBackupAt: string | null
   lastFullBackupSizeKb: number | null
 }

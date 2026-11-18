@@ -3,7 +3,7 @@ import { ApiError } from '@/core/api'
 import { permissionsOf } from '@/core/permissions'
 import type { StoreDbBlitz } from '@/core/models/store-database'
 import blitzFixture from './__fixtures__/blitz.json'
-import { blitzControls, blitzFindings, blitzNotInstalled } from './blitz-helpers'
+import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled } from './blitz-helpers'
 
 /** Oms 919 (BackOffice 4039, spec 4016 D18): sp_Blitz on the Health check panel. */
 const VIEW = permissionsOf({ screens: ['StoreDatabase:03'] })
@@ -44,5 +44,25 @@ describe('a store without sp_Blitz', () => {
     expect(blitzNotInstalled(refused)).toBe(true)
     expect(blitzNotInstalled(new ApiError('server', 'boom', 500))).toBe(false)
     expect(blitzNotInstalled(null)).toBe(false)
+  })
+})
+
+describe('a finding’s "read more" link', () => {
+  it('keeps a web address', () => {
+    expect(blitzLink('https://www.brentozar.com/go/backup')).toBe('https://www.brentozar.com/go/backup')
+    expect(blitzLink('http://BrentOzar.com/go/dbcc')).toBe('http://BrentOzar.com/go/dbcc')
+    expect(blitzLink('  HTTPS://example.com/x  ')).toBe('HTTPS://example.com/x')
+  })
+
+  it('drops anything that is not http or https — a server value never becomes a script link', () => {
+    expect(blitzLink('javascript:alert(1)')).toBeNull()
+    expect(blitzLink(' JavaScript:alert(1)')).toBeNull()
+    expect(blitzLink('data:text/html,<script>1</script>')).toBeNull()
+    expect(blitzLink('file:///C:/x')).toBeNull()
+    expect(blitzLink('//evil.example/x')).toBeNull()
+    expect(blitzLink('/relative/path')).toBeNull()
+    expect(blitzLink('not a url')).toBeNull()
+    expect(blitzLink('')).toBeNull()
+    expect(blitzLink(null)).toBeNull()
   })
 })

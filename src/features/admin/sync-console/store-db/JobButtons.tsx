@@ -3,7 +3,7 @@ import type { StoreDbJobKind } from '@/core/models/store-database'
 import Button from '@/core/ui/Button'
 
 /**
- * A panel's row of job buttons (oms 918). The caller mounts it only for the Act key (`jobActionsVisible`) and opens
+ * A panel's row of job buttons (oms 918). The caller mounts it only for the Act key (`canActStoreDb`) and opens
  * `JobDialog` with the kind picked. Each button reads `storeDb.jobs.kinds.<Kind>.button`.
  */
 export default function JobButtons({ kinds, onPick, hint }: { kinds: readonly StoreDbJobKind[]; onPick: (kind: StoreDbJobKind) => void; hint?: string }) {

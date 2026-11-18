@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StoreDbFleetRow } from '@/core/models/store-database'
 import fleet from './__fixtures__/fleet.json'
-import { ALL_FLEET, fleetEditions, fleetRowView, shownFleet } from './fleet-helpers'
+import { ALL_FLEET, fleetEditions, fleetFiltered, fleetRowView, shownFleet } from './fleet-helpers'
 
 const rows = fleet as StoreDbFleetRow[]
 const row = (code: string) => rows.find((r) => r.code === code)!
@@ -65,5 +65,19 @@ describe('the fleet as listed', () => {
 
   it('offers each edition the fleet holds once, sorted', () => {
     expect(fleetEditions(rows)).toEqual(['Developer Edition', 'Express Edition', 'Standard Edition'])
+  })
+})
+
+describe('whether the tab is filtered', () => {
+  it('is not, with every filter at All', () => {
+    expect(fleetFiltered(ALL_FLEET)).toBe(false)
+    expect(fleetFiltered({ state: null, engine: null, edition: null, needs2019: false })).toBe(false)
+  })
+
+  it('is, with any one filter set', () => {
+    expect(fleetFiltered({ ...ALL_FLEET, state: 'Critical' })).toBe(true)
+    expect(fleetFiltered({ ...ALL_FLEET, engine: '2008' })).toBe(true)
+    expect(fleetFiltered({ ...ALL_FLEET, edition: 'Express Edition' })).toBe(true)
+    expect(fleetFiltered({ ...ALL_FLEET, needs2019: true })).toBe(true)
   })
 })

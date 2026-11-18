@@ -3,13 +3,8 @@
  * pinned by `job-helpers.test.ts`. 919 rides the same rail for restore, drop and sp_Blitz.
  */
 import type { StoreDbJob, StoreDbJobKind, StoreDbJobRequest, StoreDbJobState } from '@/core/models/store-database'
-import type { Permissions } from '@/core/permissions'
 import type { Severity } from '@/core/ui/severity'
-import { canActStoreDb } from '../access'
 import { codeBadge, type CodeBadge } from '../helpers'
-
-/** Every job button (shrink, cleanup, back up, the schedule) needs the Act key, beside View. */
-export const jobActionsVisible = (p: Permissions): boolean => canActStoreDb(p)
 
 /**
  * The kinds that wait for the night window unless Run now is chosen (spec D13/story 26–27: the ones that take the

@@ -8,10 +8,11 @@ import { usePermissions } from '@/core/permissions'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
+import { canActStoreDb } from '../access'
 import { AUDIT_KEY } from '../api'
 import ReasonDialog from '../ReasonDialog'
 import { STORE_DB_FLEET_KEY, storeDbApi, storeDbHealthKey, storeDbStoreKey } from './api'
-import { checkNowBody, checkNowVisible } from './check-now'
+import { checkNowBody } from './check-now'
 
 /**
  * Check now (oms 917, BO 4032 door `POST StoreDatabase/CheckNow`): `StoreDatabase.Act`, a reason, audited. Hidden
@@ -23,7 +24,7 @@ export default function CheckNowButton({ store }: { store: StoreDbStore }) {
   const { t } = useTranslation('sync-console')
   const permissions = usePermissions()
   const [open, setOpen] = useState(false)
-  if (!checkNowVisible(permissions)) return null
+  if (!canActStoreDb(permissions)) return null
   return (
     <>
       <Button variant="outlined" onClick={() => setOpen(true)} data-check-now="">

@@ -15,7 +15,7 @@ import { figure } from '../helpers'
 import TabGrid from '../TabGrid'
 import { storeDbFleetQuery } from './api'
 import { buildStoreDbFleetColumns } from './fleet-columns'
-import { ALL_FLEET, fleetEditions, shownFleet, type FleetFilter } from './fleet-helpers'
+import { ALL_FLEET, fleetEditions, fleetFiltered, shownFleet, type FleetFilter } from './fleet-helpers'
 
 /**
  * The Store database tab (oms 915, BackOffice spec 4016 D10) — `/admin/sync/database`.
@@ -49,7 +49,7 @@ function Fleet() {
   const all = fleet.data
   const rows = useMemo(() => (all ? shownFleet(all, filter) : undefined), [all, filter])
   const editions = useMemo(() => (all ? fleetEditions(all) : []), [all])
-  const filtered = JSON.stringify(filter) !== JSON.stringify(ALL_FLEET)
+  const filtered = fleetFiltered(filter)
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-store-db-fleet="">

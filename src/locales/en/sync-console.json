@@ -1497,7 +1497,11 @@
         "recoveryModel": "Recovery model",
         "driveFree": "Drive free",
         "machine": "Machine",
+        "cpus": "CPUs",
+        "memory": "Memory",
         "uptime": "SQL Server up for",
+        "longestTransaction": "Longest open transaction",
+        "blockedSessions": "Blocked sessions",
         "lastBackup": "Last full backup"
       },
       "values": {
@@ -1507,7 +1511,11 @@
         "logUsed": "<used>{{used}}</used> used of <size>{{size}}</size>",
         "driveOn": "<size>{{size}}</size> on <drive>{{drive}}</drive>",
         "uptime": "<days>{{days}}</days> days, <hours>{{hours}}</hours> hours",
-        "backup": "<at>{{at}}</at>, <size>{{size}}</size>"
+        "backup": "<at>{{at}}</at>, <size>{{size}}</size>",
+        "noTransaction": "None open",
+        "ageHours": "<h>{{h}}</h> h <m>{{m}}</m> min",
+        "ageMinutes": "<m>{{m}}</m> min <s>{{s}}</s> s",
+        "ageSeconds": "<s>{{s}}</s> s"
       },
       "growth": {
         "title": "Days to cap",
@@ -1654,8 +1662,10 @@
       "scheduleTitle": "Backup schedule",
       "loading": "Reading the backup schedule…",
       "failed": "The backup schedule could not be read.",
-      "fromStore": "(this store's own schedule)",
-      "fromFleet": "(the fleet default)",
+      "effective": {
+        "Store": "<schedule>{{schedule}}</schedule> <source>(this store's own schedule)</source>",
+        "Fleet": "<schedule>{{schedule}}</schedule> <source>(the fleet default)</source>"
+      },
       "fleetTitle": "Fleet default",
       "fleetNote": "Every store without its own schedule follows this. Off unless you turn it on.",
       "frequency": "Frequency",
@@ -1814,6 +1824,11 @@
         "unreadable": "No — the engine could not read this file.",
         "unknownEngine": "No — its engine version is unknown."
       },
+      "whyError": {
+        "newerEngine": "No — taken on a newer engine than the store's. <error>{{error}}</error>",
+        "unreadable": "No — the engine could not read this file. <error>{{error}}</error>",
+        "unknownEngine": "No — its engine version is unknown. <error>{{error}}</error>"
+      },
       "dialog": {
         "file": "Backup <file>{{file}}</file>, taken <at>{{at}}</at>.",
         "creates": "It will be restored as a new database, <name>{{name}}</name> (with a suffix if that name is taken when it runs)."
@@ -1835,6 +1850,7 @@
       "running": "Running sp_Blitz…",
       "failed": "sp_Blitz could not be run.",
       "notInstalledRefusal": "sp_Blitz is not installed on this store, so it cannot be run.",
+      "notInstalledRefusalSaid": "sp_Blitz is not installed on this store, so it cannot be run. <message>{{message}}</message>",
       "empty": "sp_Blitz found nothing.",
       "hint": "Install and Remove ask for a reason and are queued as jobs; follow them on the Jobs panel.",
       "more": "Read more",

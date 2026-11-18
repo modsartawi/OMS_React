@@ -1460,13 +1460,111 @@
     "store": {
       "back": "All store databases"
     },
-    "readings": {},
+    "panels": {
+      "label": "Store database panels",
+      "refresh": "Refresh",
+      "readings": "Readings",
+      "live": "Live activity",
+      "health": "Health check",
+      "space": "Space",
+      "backup": "Backup",
+      "jobs": "Jobs",
+      "restore": "Restore"
+    },
+
+    "readings": {
+      "loading": "Reading the store database…",
+      "failed": "The store database could not be read.",
+      "noStoreTitle": "No database kept for this store",
+      "noStoreHint": "The worker keeps no database reading for this code. Check the code on the list of store databases.",
+      "takenAt": "Read at <at>{{at}}</at>",
+      "neverRead": "Never read",
+      "notChecked": {
+        "title": "Not checked",
+        "body": "The worker could not read this database on its last attempt, at <at>{{at}}</at>. What it shows is the last good reading.",
+        "neverTried": "The worker has not read this database yet.",
+        "error": "Last error"
+      },
+      "latest": "Latest reading",
+      "noReading": "There is no good reading of this database yet.",
+      "lines": {
+        "engine": "Engine",
+        "cap": "Size cap",
+        "used": "Data used",
+        "allocated": "Data file size",
+        "freeInFile": "Free inside the file",
+        "log": "Log",
+        "recoveryModel": "Recovery model",
+        "driveFree": "Drive free",
+        "machine": "Machine",
+        "uptime": "SQL Server up for",
+        "lastBackup": "Last full backup"
+      },
+      "values": {
+        "noCap": "No cap",
+        "missing": "Not read",
+        "usedOfCap": "<size>{{size}}</size>, <share>{{share}}%</share> of the cap",
+        "logUsed": "<used>{{used}}</used> used of <size>{{size}}</size>",
+        "driveOn": "<size>{{size}}</size> on <drive>{{drive}}</drive>",
+        "uptime": "<days>{{days}}</days> days, <hours>{{hours}}</hours> hours",
+        "backup": "<at>{{at}}</at>, <size>{{size}}</size>"
+      },
+      "growth": {
+        "title": "Days to cap",
+        "days": "<days>{{days}}</days> days to the cap",
+        "noForecast": "No forecast",
+        "rate": "Growing <rate>{{rate}}</rate> a day over the last <window>{{window}}</window> days",
+        "rateOnly": "Growing <rate>{{rate}}</rate> a day",
+        "shrinking": "Not growing: <rate>{{rate}}</rate> a day smaller over the last <window>{{window}}</window> days",
+        "shrinkingOnly": "Not growing: <rate>{{rate}}</rate> a day smaller"
+      },
+      "history": {
+        "title": "Daily history",
+        "files": "Database files (MB)",
+        "drive": "Drive free (GB)",
+        "used": "Used",
+        "allocated": "Allocated",
+        "log": "Log",
+        "cap": "Cap",
+        "driveFree": "Drive free",
+        "filesLabel": "The store database's used, allocated and log size by day, in MB, against its cap",
+        "driveLabel": "Free space on the store's data drive by day, in GB",
+        "empty": "No history is kept for this store yet."
+      },
+      "tables": {
+        "title": "Largest tables",
+        "empty": "The reading listed no tables.",
+        "columns": {
+          "table": "Table",
+          "rows": "Rows",
+          "reserved": "Reserved",
+          "data": "Data",
+          "index": "Index"
+        }
+      },
+      "sideCopies": {
+        "title": "Side copies",
+        "note": "Restored copies kept beside the live database. They count against the drive, not the cap.",
+        "columns": {
+          "name": "Database",
+          "size": "Size",
+          "createdAt": "Restored at"
+        }
+      }
+    },
+
     "live": {},
+
     "health": {},
+
     "space": {},
+
     "backup": {},
+
     "jobs": {},
+
     "restore": {},
+
     "blitz": {}
   }
 }

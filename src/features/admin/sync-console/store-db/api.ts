@@ -10,7 +10,7 @@
  * store at once.
  */
 import { api } from '@/core/api'
-import type { StoreDbFleetRow } from '@/core/models/store-database'
+import type { StoreDbFleetRow, StoreDbStore } from '@/core/models/store-database'
 
 /** The root of every Store database read. */
 export const STORE_DB_KEY = ['sync-console', 'store-db'] as const
@@ -28,6 +28,19 @@ export const STORE_DB_STALE_MS = 60_000
 type WireFleet = StoreDbFleetRow[] | { rows?: StoreDbFleetRow[] } | null
 const fleetRows = (data: WireFleet): StoreDbFleetRow[] => (Array.isArray(data) ? data : (data?.rows ?? []))
 
+/**
+ * Tolerant read of the Store door: a list the door leaves out (side copies before BO 4038) is an empty list. Fills a
+ * MISSING member only — nothing is derived.
+ */
+const storeOf = (data: StoreDbStore): StoreDbStore => ({
+  ...data,
+  reading: data.reading ?? null,
+  lastAttempt: data.lastAttempt ?? null,
+  largestTables: data.largestTables ?? [],
+  history: data.history ?? [],
+  sideCopies: data.sideCopies ?? [],
+})
+
 export const storeDbApi = {
   // ── 915 Fleet ─────────────────────────────────────────────────────────────────
 
@@ -35,6 +48,9 @@ export const storeDbApi = {
   fleet: async (): Promise<StoreDbFleetRow[]> => fleetRows(await api.get<WireFleet>('StoreDatabase/Fleet')),
 
   // ── 916 Store ─────────────────────────────────────────────────────────────────
+
+  /** `GET StoreDatabase/Store?code=` (BO 4031) — View. The latest reading, largest tables, history, side copies. */
+  store: async (code: string): Promise<StoreDbStore> => storeOf(await api.get<StoreDbStore>('StoreDatabase/Store', { code })),
 
   // ── 917 Live + Health ─────────────────────────────────────────────────────────
 
@@ -54,6 +70,17 @@ export const storeDbFleetQuery = () => ({
 })
 
 // ── 916 Store ───────────────────────────────────────────────────────────────────
+
+/**
+ * The store's page read. Its key IS `storeDbStoreKey(code)`: a Check now (917) may `setQueryData` the fresh answer
+ * there, and invalidating that key refreshes the page and every open panel nested under it.
+ */
+export const storeDbStoreQuery = (code: string) => ({
+  queryKey: storeDbStoreKey(code),
+  queryFn: () => storeDbApi.store(code),
+  staleTime: STORE_DB_STALE_MS,
+  enabled: code !== '',
+})
 
 // ── 917 Live + Health ───────────────────────────────────────────────────────────
 

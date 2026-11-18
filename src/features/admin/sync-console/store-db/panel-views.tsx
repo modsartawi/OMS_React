@@ -4,9 +4,9 @@ import type { StoreDbPanel } from './panels'
 
 import ReadingsPanel from './ReadingsPanel'
 
-// 917: import LivePanel from './LivePanel'
+import LivePanel from './LivePanel'
 
-// 917: import HealthPanel from './HealthPanel'
+import HealthPanel from './HealthPanel'
 
 // 918: import SpacePanel from './SpacePanel'
 
@@ -29,9 +29,9 @@ export interface StoreDbPanelProps {
 export const PANEL_VIEWS: Partial<Record<StoreDbPanel, ComponentType<StoreDbPanelProps>>> = {
   readings: ReadingsPanel,
 
-  // live: LivePanel,
+  live: LivePanel,
 
-  // health: HealthPanel,
+  health: HealthPanel,
 
   // space: SpacePanel,
 

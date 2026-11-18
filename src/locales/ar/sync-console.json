@@ -279,9 +279,93 @@
       }
     },
 
-    "live": {},
+    "live": {
+      "intro": "نظرة واحدة على ما تفعله قاعدة بيانات الفرع الآن. خذ نظرتين أو ثلاثاً بفارق ثوانٍ: الجلسة التي ما زالت تحجب غيرها في النظرة التالية هي التي تستحق المتابعة.",
+      "lookedAt": "نُظر في <at>{{at}}</at>",
+      "notLooked": "لم يُنظر بعد",
+      "refresh": "انظر مجدداً",
+      "looking": "جارٍ النظر في الفرع…",
+      "failed": "تعذّر النظر في قاعدة بيانات الفرع.",
+      "sections": {
+        "running": {
+          "title": "الطلبات الجارية",
+          "empty": "لا شيء قيد التشغيل."
+        },
+        "headBlockers": {
+          "title": "الجلسات الحاجبة",
+          "empty": "لا جلسة تحجب أخرى."
+        },
+        "workerSessions": {
+          "title": "جلسات عامل المزامنة",
+          "empty": "لا جلسة مفتوحة لعامل المزامنة على هذا الفرع."
+        },
+        "longTransactions": {
+          "title": "معاملات مفتوحة أكثر من 30 ثانية",
+          "empty": "لا معاملة مفتوحة أكثر من 30 ثانية."
+        }
+      },
+      "columns": {
+        "sessionId": "الجلسة",
+        "blockedBy": "محجوبة بواسطة",
+        "secs": "الثواني",
+        "status": "الحالة",
+        "command": "الأمر",
+        "waitType": "نوع الانتظار",
+        "waitSecs": "الانتظار (ث)",
+        "waitResource": "مورد الانتظار",
+        "hostName": "الجهاز",
+        "programName": "البرنامج",
+        "loginName": "المستخدم",
+        "openTran": "معاملات مفتوحة",
+        "cpuTime": "المعالج (مللي ث)",
+        "logicalReads": "القراءات المنطقية",
+        "statementText": "العبارة",
+        "batchText": "الدفعة",
+        "blocksCount": "تحجب",
+        "lastRequestStartTime": "بدء آخر طلب",
+        "lastRequestEndTime": "انتهاء آخر طلب",
+        "idleSecs": "خمول (ث)",
+        "lastSql": "آخر SQL",
+        "loginTime": "وقت الدخول",
+        "runningSecs": "قيد التشغيل (ث)",
+        "sqlText": "SQL",
+        "transactionBeginTime": "بدء المعاملة",
+        "tranSecs": "مفتوحة منذ (ث)"
+      },
+      "checkNow": {
+        "button": "افحص الآن",
+        "title": "افحص الآن",
+        "note": "يأخذ قراءة جديدة لقاعدة بيانات هذا الفرع الآن، بدلاً من انتظار جولة العامل التالية. قد يستغرق ذلك نصف دقيقة.",
+        "confirm": "خذ قراءة",
+        "done": "قُرئ الفرع {{code}} الآن.",
+        "failedRead": "تعذّرت قراءة الفرع {{code}}: الخطأ معروض في الصفحة."
+      }
+    },
 
-    "health": {},
+    "health": {
+      "intro": "ما وجده فحص السلامة في قاعدة بيانات الفرع، الأهم أولاً، ولكل منها طريقة الإصلاح بكلمات بسيطة.",
+      "takenAt": "فُحص في <at>{{at}}</at>",
+      "loading": "جارٍ فحص قاعدة بيانات الفرع…",
+      "failed": "تعذّر تشغيل فحص السلامة.",
+      "empty": "لا ملاحظات: نجحت كل الفحوص.",
+      "priority": "الأولوية <n>{{n}}</n>",
+      "faulted": "تعذّر تشغيل هذا الفحص",
+      "fix": "الإصلاح:",
+      "checks": {
+        "AutoShrinkOn": "التقليص التلقائي مفعّل",
+        "AutoCloseOn": "الإغلاق التلقائي مفعّل",
+        "FullRecoveryNoLogBackup": "استرداد كامل دون نسخ احتياطي للسجل",
+        "LogLargerThanData": "السجل أكبر من البيانات",
+        "PageVerifyNotChecksum": "التحقق من الصفحات ليس CHECKSUM",
+        "LastGoodCheckDb": "لا فحص DBCC CHECKDB سليم حديث",
+        "SuspectPages": "صفحات مشبوهة",
+        "HighVlfCount": "مقاطع سجل كثيرة جداً (VLF)",
+        "NearSizeCap": "قريب من حد الحجم",
+        "LargeTempdb": "tempdb كبيرة",
+        "ShortUptime": "أُعيد تشغيل SQL Server مؤخراً",
+        "NoRecentBackup": "لا نسخة احتياطية كاملة حديثة"
+      }
+    },
 
     "space": {},
 

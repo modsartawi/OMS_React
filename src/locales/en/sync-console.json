@@ -1553,9 +1553,93 @@
       }
     },
 
-    "live": {},
+    "live": {
+      "intro": "One look at what the store's database is doing right now. Take two or three looks a few seconds apart: a session still blocking on the next look is the one to chase.",
+      "lookedAt": "Looked at <at>{{at}}</at>",
+      "notLooked": "Not looked yet",
+      "refresh": "Look again",
+      "looking": "Looking at the store…",
+      "failed": "The store's database could not be looked at.",
+      "sections": {
+        "running": {
+          "title": "Running requests",
+          "empty": "Nothing is running."
+        },
+        "headBlockers": {
+          "title": "Head blockers",
+          "empty": "No session is blocking another."
+        },
+        "workerSessions": {
+          "title": "Sync worker sessions",
+          "empty": "The sync worker has no session open on this store."
+        },
+        "longTransactions": {
+          "title": "Transactions open over 30 seconds",
+          "empty": "No transaction has been open over 30 seconds."
+        }
+      },
+      "columns": {
+        "sessionId": "Session",
+        "blockedBy": "Blocked by",
+        "secs": "Seconds",
+        "status": "Status",
+        "command": "Command",
+        "waitType": "Wait type",
+        "waitSecs": "Wait (s)",
+        "waitResource": "Wait resource",
+        "hostName": "Host",
+        "programName": "Program",
+        "loginName": "Login",
+        "openTran": "Open trans",
+        "cpuTime": "CPU (ms)",
+        "logicalReads": "Logical reads",
+        "statementText": "Statement",
+        "batchText": "Batch",
+        "blocksCount": "Blocks",
+        "lastRequestStartTime": "Last request started",
+        "lastRequestEndTime": "Last request ended",
+        "idleSecs": "Idle (s)",
+        "lastSql": "Last SQL",
+        "loginTime": "Logged in",
+        "runningSecs": "Running (s)",
+        "sqlText": "SQL",
+        "transactionBeginTime": "Transaction began",
+        "tranSecs": "Open for (s)"
+      },
+      "checkNow": {
+        "button": "Check now",
+        "title": "Check now",
+        "note": "Takes a fresh reading of this store's database now, instead of waiting for the worker's next round. It can take up to half a minute.",
+        "confirm": "Take a reading",
+        "done": "Store {{code}} was read just now.",
+        "failedRead": "Store {{code}} could not be read: the error is on the page."
+      }
+    },
 
-    "health": {},
+    "health": {
+      "intro": "What the health check found on the store's database, most urgent first, each with its fix in plain words.",
+      "takenAt": "Checked at <at>{{at}}</at>",
+      "loading": "Checking the store's database…",
+      "failed": "The health check could not run.",
+      "empty": "No findings: every check passed.",
+      "priority": "Priority <n>{{n}}</n>",
+      "faulted": "This check could not run",
+      "fix": "Fix:",
+      "checks": {
+        "AutoShrinkOn": "Auto-shrink is on",
+        "AutoCloseOn": "Auto-close is on",
+        "FullRecoveryNoLogBackup": "Full recovery with no log backups",
+        "LogLargerThanData": "Log larger than the data",
+        "PageVerifyNotChecksum": "Page verify is not CHECKSUM",
+        "LastGoodCheckDb": "No recent good DBCC CHECKDB",
+        "SuspectPages": "Suspect pages",
+        "HighVlfCount": "Too many log segments (VLFs)",
+        "NearSizeCap": "Near the size cap",
+        "LargeTempdb": "Large tempdb",
+        "ShortUptime": "SQL Server restarted recently",
+        "NoRecentBackup": "No recent full backup"
+      }
+    },
 
     "space": {},
 

@@ -138,6 +138,103 @@ export interface StoreDbStore {
 
 // ── 917 Live + Health ───────────────────────────────────────────────────────────
 
+/** `POST StoreDatabase/CheckNow` (BO 4032) — Act, audited. GUESSED body; answered with the store's fresh `StoreDbStore`. */
+export interface StoreDbCheckNowBody {
+  code: string
+  reason: string
+}
+
+/** A request running on the store as the look found it (`sys.dm_exec_requests`, BO 4032 / spec D11). GUESSED names. */
+export interface StoreDbRunningRequest {
+  sessionId: number
+  /** The session blocking this one; `0` = none. */
+  blockedBy: number
+  secs: number
+  status: string
+  command: string
+  waitType: string | null
+  waitSecs: number | null
+  waitResource: string | null
+  hostName: string | null
+  programName: string | null
+  loginName: string | null
+  openTran: number
+  cpuTime: number | null
+  logicalReads: number | null
+  statementText: string | null
+  batchText: string | null
+}
+
+/** A session blocking others while not blocked itself. GUESSED names. */
+export interface StoreDbHeadBlocker {
+  sessionId: number
+  status: string
+  hostName: string | null
+  programName: string | null
+  loginName: string | null
+  lastRequestStartTime: string | null
+  lastRequestEndTime: string | null
+  idleSecs: number | null
+  blocksCount: number
+  openTran: number
+  lastSql: string | null
+}
+
+/** One of the sync worker's own sessions on the store. GUESSED names. */
+export interface StoreDbWorkerSession {
+  sessionId: number
+  status: string
+  loginTime: string | null
+  lastRequestStartTime: string | null
+  command: string | null
+  waitType: string | null
+  blockedBy: number | null
+  runningSecs: number | null
+  openTran: number
+  sqlText: string | null
+}
+
+/** A transaction open longer than 30 s. GUESSED names. */
+export interface StoreDbLongTransaction {
+  sessionId: number
+  hostName: string | null
+  programName: string | null
+  status: string
+  transactionBeginTime: string | null
+  tranSecs: number
+  lastSql: string | null
+}
+
+/** `GET StoreDatabase/LiveActivity?code=` (BO 4032): four result sets of one look at the store. GUESSED shape. */
+export interface StoreDbLiveActivity {
+  /** When the look was taken (server's local clock); `null` if the door leaves it out. */
+  takenAt: string | null
+  running: StoreDbRunningRequest[]
+  headBlockers: StoreDbHeadBlocker[]
+  workerSessions: StoreDbWorkerSession[]
+  longTransactions: StoreDbLongTransaction[]
+}
+
+/** One finding of the health check: a check that faults is reported as a finding too (BO 4032). GUESSED names. */
+export interface StoreDbHealthFinding {
+  /** `1` = most urgent. */
+  priority: number
+  /** The check's machine name (`AutoShrinkOn`, `NoRecentBackup`, …); the server's word when it has no label here. */
+  check: string
+  /** Server text: what was found. */
+  detail: string
+  /** Server text: the plain-language fix, when there is one. */
+  fix: string | null
+  /** The check itself failed to run; `detail` says why. */
+  faulted: boolean
+}
+
+/** `GET StoreDatabase/HealthCheck?code=` (BO 4032). GUESSED shape. */
+export interface StoreDbHealthCheck {
+  takenAt: string | null
+  findings: StoreDbHealthFinding[]
+}
+
 // ── 918 Jobs + Space + Backup ───────────────────────────────────────────────────
 
 // ── 919 Restore + Blitz ─────────────────────────────────────────────────────────

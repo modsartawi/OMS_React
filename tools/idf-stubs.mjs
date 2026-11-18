@@ -57,7 +57,7 @@ export function newIdfState() {
   return { masters: structuredClone(IDF_MASTERS) }
 }
 
-// --- 654 --- the grant (oms 909: the one `GET Auth/Permissions` answer, keys by BackOffice brief 3995 row 13):
+// --- 654 --- the grant (oms 914: the one `GET Auth/Permissions` answer, keys by BackOffice brief 3995 row 13):
 // IdfPriority:03/06/07 from `{ canViewIdf, canEditIdf, canEditGeneral }`, every flag true unless `opts.access` /
 // `state.access` overrides it (a drive sets `{ canEditIdf: false }` to see the draft read-only, `{ canEditGeneral: false }`
 // to see the general master and the groups without their writes). The Insurance rules group's keys ride along (852).

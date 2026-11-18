@@ -1,5 +1,5 @@
 /**
- * The store sync console's grants (oms 909, BackOffice spec 4002 brief row 1): read off the ONE permissions answer
+ * The store sync console's grants (oms 914, BackOffice spec 4002 brief row 1): read off the ONE permissions answer
  * (`@/core/permissions`), never `ActionSync/Access`. Apart from `./api` so the pure helpers can read them without a
  * cycle through the api module. The nav leaf and every page gate read `canOpenSyncConsole`.
  */

@@ -1,6 +1,6 @@
 // Withdraw drive (spec 319, ticket 323) — drives the REAL app in Chromium against STUBBED
 // envelopes shaped exactly as BackOffice 2035 records them under `## Web contract` (Access and
-// Withdraw; oms 909 reads the grant off `Auth/Permissions` now), cross-checked against AttachmentWebEndpoints.cs, AttachmentWithdrawResult.cs,
+// Withdraw; oms 914 reads the grant off `Auth/Permissions` now), cross-checked against AttachmentWebEndpoints.cs, AttachmentWithdrawResult.cs,
 // AttachmentWithdrawReasons.cs, AttachmentWithdrawGrantEndpointFilter.cs, WithdrawnAttachmentDto.cs
 // and AttachmentMessages.cs on pricing2:
 //   - `GET Auth/Permissions` carries `Attachments:03:CASH_CLOSE` (read) and `Attachments:04:CASH_CLOSE` (withdraw);
@@ -254,7 +254,7 @@ async function run() {
     const path = url.pathname.split('/api/')[1]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    // oms 909: the Collections keys plus the slip's Attachments keys (`slipGrants` keeps the old categories shape).
+    // oms 914: the Collections keys plus the slip's Attachments keys (`slipGrants` keeps the old categories shape).
     if (path === 'Auth/Permissions')
       return route.fulfill(
         permissions([...flagKeys('Collection', ACCESS), ...attachmentKeys(slipGrants.categories, slipGrants.withdrawCategories ?? [])], {

@@ -2,7 +2,7 @@ import { useQueries } from '@tanstack/react-query'
 import { usePermissions, type Permissions } from '@/core/permissions'
 import type { ShellMenuItem } from './menu-model'
 
-// Permission-aware nav hiding (issue 429; one answer since oms 909, BackOffice spec 4002). Every gated item reads the
+// Permission-aware nav hiding (issue 429; one answer since oms 914, BackOffice spec 4002). Every gated item reads the
 // ONE permissions answer (`@/core/permissions`), never a probe of its own. Rules:
 //   • ungated item (no `requires`, no `key`) → always visible;
 //   • gated item, answer in and it grants   → visible;

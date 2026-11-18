@@ -15,7 +15,7 @@
  * ⚠️ The settlement account is a **fifth grant of the Collections area** (spec 267
  * D1), not an area of its own — same nav group, same `/collection/*` prefix. Its
  * grants (`SettlementAccount:03`, `SettlementSupervision:03`) come off the one
- * permissions answer (oms 909), like every other screen's.
+ * permissions answer (oms 914), like every other screen's.
  */
 import { queryOptions } from '@tanstack/react-query'
 

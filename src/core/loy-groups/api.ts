@@ -2,7 +2,7 @@
  * The loyalty-groups doors (BackOffice spec 3173; doors 3174 list, 3179 `liveBonusBuys`). In `@/core/`
  * from the start: the Loyalty groups screen, bonus-buy maintenance (636), simulation (637) and the member
  * screen (635) all read the list, and a feature may never import another. The grants come off the one
- * permissions answer (`@/core/permissions`, oms 909).
+ * permissions answer (`@/core/permissions`, oms 914).
  *
  * Through `@/core/api` like every call (`.claude/rules/api-envelope.md`).
  *

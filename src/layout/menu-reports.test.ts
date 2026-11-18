@@ -3,7 +3,7 @@
  * THIRD at ticket 461, BackOffice spec 2579).
  *
  * `resolveMenu` is the pure half of `useVisibleMenu` (ticket 124), so what the shell does with each answer is provable
- * with no renderer. Since oms 909 each leaf reads its own key off the ONE permissions answer (brief 3995 rows 33, 35,
+ * with no renderer. Since oms 914 each leaf reads its own key off the ONE permissions answer (brief 3995 rows 33, 35,
  * 36): Invoices = `RetailInvoice:03`, IDoc inspector = `IDocInspector:03`, SAP export console = `SapExportConsole:03`.
  * The group is read out of the **real** `MENU`, never re-declared.
  *

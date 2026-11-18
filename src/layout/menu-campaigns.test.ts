@@ -2,7 +2,7 @@
  * The Campaigns nav group (ticket 501, BackOffice spec 2737).
  *
  * Read out of the **real** `MENU`, never re-declared. Since oms 852 every leaf is gated on the rule-engine keys, one
- * permissions answer since oms 909 (`menu-access-852.test.ts` proves the gating); a leaf that drifts out of the group's place after Pricing fails here.
+ * permissions answer since oms 914 (`menu-access-852.test.ts` proves the gating); a leaf that drifts out of the group's place after Pricing fails here.
  */
 import { describe, expect, it } from 'vitest'
 import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
@@ -42,7 +42,7 @@ describe('the Campaigns nav group', () => {
     expect(resolveMenu([campaigns!], permissionsFromQuery({ isPending: true, isError: false, data: undefined })).items).toHaveLength(0)
   })
 
-  it('909: canReadAuthoring is RuleAuthoring:02 OR :06; RuleSupport:03 alone shows only the support leaves', () => {
+  it('914: canReadAuthoring is RuleAuthoring:02 OR :06; RuleSupport:03 alone shows only the support leaves', () => {
     const shown = (...screens: string[]) =>
       leaves(resolveMenu([campaigns!], permissionsOf({ screens })).items).map((l) => l.labelKey)
     const authoring = ['campaigns:menu.promotions', 'campaigns:menu.priority', 'campaigns:menu.simulator', 'campaigns:menu.uploads']

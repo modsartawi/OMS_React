@@ -105,7 +105,7 @@ import {
 } from './wire'
 import { SCRIPTS_PAGE_SIZE } from './scripts-helpers'
 
-// The console's grants read the one permissions answer (oms 909); re-exported here, where the menu leaf imports them.
+// The console's grants read the one permissions answer (oms 914); re-exported here, where the menu leaf imports them.
 export {
   canEnrolObjects,
   canOnboardStores,

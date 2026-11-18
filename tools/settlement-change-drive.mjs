@@ -166,7 +166,7 @@ const REQUEST_ID = '01K6G8Z3N4QH5V2C7M9R1T0XYB'
 
 let scenario = {}
 let FX = null
-/** Every read of the `Auth/Permissions` answer — a bare 403 must re-read it (W1; oms 909 invalidates it). */
+/** Every read of the `Auth/Permissions` answer — a bare 403 must re-read it (W1; oms 914 invalidates it). */
 let permissionsCalls = 0
 
 /** 353's queue door: what `Settlement/ChangeRequest/Open` answers, and every `limit` asked. */

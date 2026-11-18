@@ -3,23 +3,28 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import MapPanel from './MapPanel'
 
-// Ticket 879 (BackOffice spec 3630 M34): "© OpenStreetMap" is on every map, on screen and when the page is printed.
-// The panel draws the credit itself, as an ordinary element beside the map, rather than through the engine's own
-// control (a collapsible button drawn by script) — so it is in the markup before the engine has started, and no print
-// rule can fold it away.
+// Ticket 908 (BackOffice spec 3630 M34 as amended 2026-11-17, ADR 0139): Google's own logo and terms are on the map, drawn
+// by Google; the panel adds no credit line of its own and hides none of Google's. (879's "© OpenStreetMap" line went
+// with our base map.)
 
-const markup = () => renderToStaticMarkup(createElement(MapPanel, { points: [{ id: 'R001', lon: 46.675, lat: 24.713 }], ariaLabel: 'Stores' }))
+const markup = () =>
+  renderToStaticMarkup(createElement(MapPanel, { points: [{ id: 'R001', lon: 46.675, lat: 24.713 }], maps: { key: 'planted-test-key' }, ariaLabel: 'Stores' }))
 
-describe('the credit line', () => {
-  it('is drawn with the panel, linked to the licence page', () => {
-    expect(markup()).toMatch(/<a [^>]*href="https:\/\/www\.openstreetmap\.org\/copyright"[^>]*>© OpenStreetMap<\/a>/)
+describe('the credit', () => {
+  it('is Google’s alone: the panel draws no credit line of its own', () => {
+    expect(markup()).not.toContain('©')
+    expect(markup()).not.toContain('openstreetmap')
   })
 
-  it('stays in the print layout: nothing on the panel is hidden from print', () => {
+  it('nothing on the panel is hidden from print, so Google’s logo and terms print', () => {
     expect(markup()).not.toMatch(/print:hidden|print:invisible|print:sr-only/)
   })
 
-  it('is the only credit: the base map needs no second one (BackOffice 3634)', () => {
-    expect(markup().match(/©/g)).toHaveLength(1)
+  it('the key is never written into the panel’s markup', () => {
+    expect(markup()).not.toContain('planted-test-key')
+  })
+
+  it('the frame starts as drawing', () => {
+    expect(markup()).toContain('data-map-state="drawing"')
   })
 })

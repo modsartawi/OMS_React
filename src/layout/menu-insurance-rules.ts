@@ -32,7 +32,7 @@ import { CalendarCheck } from 'lucide-react' // 896
 import { canManagePayerMonths } from '@/features/insurance-rules/payer-month/access'
 // Type-only: `menu-model` imports this module, so a value import would be a cycle.
 import type { ShellMenuItem } from './menu-model'
-// oms 909: every leaf reads its own key off the ONE permissions answer through the area's named predicate.
+// oms 914: every leaf reads its own key off the ONE permissions answer through the area's named predicate.
 import { canOpenInsuranceRules } from '@/core/insurance-rules/access'
 
 /**
@@ -40,7 +40,7 @@ import { canOpenInsuranceRules } from '@/core/insurance-rules/access'
  * new nav group, LAST after HungerStation. `menu-model.ts` places it once; a later slice adds its leaf HERE.
  * Every leaf label lives in `insurance-rules` (the area's namespace, `menu.*`).
  *
- * Each leaf is gated on its own key of the one permissions answer (oms 852; oms 909) — 🚩 FAILS CLOSED,
+ * Each leaf is gated on its own key of the one permissions answer (oms 852; oms 914) — 🚩 FAILS CLOSED,
  * and the group drops when no leaf is visible. Each page still names its doors' bare 403 itself for a deep link.
  * A new leaf takes a new flag in `INSURANCE_RULES_FLAGS` (`can` + its `menu.*` key) and a `requires: canOpenInsuranceRules(flag)`.
  *

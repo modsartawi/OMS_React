@@ -8,7 +8,7 @@ afterEach(() => useSession.getState().clear())
 
 const holding = (...screens: ScreenKey[]) => permissionsOf({ screens })
 
-// The Copilot row of the permissions brief (oms 909, BackOffice spec 4002).
+// The Copilot row of the permissions brief (oms 914, BackOffice spec 4002).
 describe('the copilot grants', () => {
   it('ask and MCP read Copilot:01; nothing else opens them', () => {
     expect(canAskCopilot(holding('Copilot:01'))).toBe(true)

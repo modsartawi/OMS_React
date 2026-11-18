@@ -1,6 +1,6 @@
 // Loyalty groups list drive (oms ticket 629; BackOffice spec 3173, brief 3173-oms-react-loyalty-groups-brief.md).
 //
-// Drives the REAL app in Chromium against a STUB of the brief's doors — the one `Auth/Permissions` answer (oms 909;
+// Drives the REAL app in Chromium against a STUB of the brief's doors — the one `Auth/Permissions` answer (oms 914;
 // `LoyaltyGroup:03` view, `LoyaltyGroup:02` maintain) and `LoyGroupWeb/Groups?includeInactive=bool` (BackOffice 3174; `liveBonusBuys` 3179) are deployed nowhere
 // yet, so every envelope here is stubbed. In LTR (en) and RTL (ar) it asserts:
 //   1. a view grant shows the "Loyalty groups" leaf; a denied, malformed or maintain-only answer hides it,

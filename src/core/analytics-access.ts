@@ -1,5 +1,5 @@
 /**
- * The Analytics grants, read off the one permissions answer (oms 909, BackOffice spec 4002). In `@/core/` because two
+ * The Analytics grants, read off the one permissions answer (oms 914, BackOffice spec 4002). In `@/core/` because two
  * features read them — the analytics boards and the copilot's SQL mode toggle — and a feature may not import another.
  *
  * The server's own combinations (brief 3995's predicate table): curate and SQL each sit on the author grant, which sits

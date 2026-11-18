@@ -1,5 +1,5 @@
 /**
- * The expired approval picks report's grant (BackOffice ticket 3874), read off the one permissions answer (oms 909).
+ * The expired approval picks report's grant (BackOffice ticket 3874), read off the one permissions answer (oms 914).
  */
 import type { Permissions } from '@/core/permissions'
 

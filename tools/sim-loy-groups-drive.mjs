@@ -1,7 +1,7 @@
 // Simulation loyalty-group picker drive (oms ticket 637; BackOffice spec 3173, door 3174).
 //
 // Drives the REAL app in Chromium against STUBBED envelopes: the one `Auth/Permissions` answer
-// (oms 909: LoyaltyGroup:03 is the view grant) and `LoyGroupWeb/Groups` (3174, deployed nowhere yet), and `Pricing/Simulate` serves a captured
+// (oms 914: LoyaltyGroup:03 is the view grant) and `LoyGroupWeb/Groups` (3174, deployed nowhere yet), and `Pricing/Simulate` serves a captured
 // payload. It asserts:
 //   1. with the view grant, the header's "Loyalty group" field is the core picker over
 //      `Groups?includeInactive=true`, not a text box;

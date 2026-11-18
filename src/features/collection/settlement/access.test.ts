@@ -1,6 +1,6 @@
 /**
  * The settlement account's predicates (spec 267 D1, tickets 268 and 309), over the one permissions answer since oms
- * 909 (BackOffice spec 4002): `SettlementAccount:03` opens the screen, `SettlementSupervision:03` draws the
+ * 914 (BackOffice spec 4002): `SettlementAccount:03` opens the screen, `SettlementSupervision:03` draws the
  * supervisor's acts. Keys from the brief's mapping table (row 30).
  *
  * What the nav does with each answer is pinned in `src/layout/menu-collection.test.ts`.

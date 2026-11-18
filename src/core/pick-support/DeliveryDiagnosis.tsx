@@ -17,7 +17,7 @@ import FixDialog from './FixDialog'
  * with its code; a bare 403 the UI's own sentence.
  *
  * Apply fix (ticket 497): the panel's buttons are drawn only with `canFixPickSupport`, read off the
- * one permissions answer (oms 909). The fix dialog is held here, not in the shape card, so it stays open over
+ * one permissions answer (oms 914). The fix dialog is held here, not in the shape card, so it stays open over
  * the panel the fix has just turned HEALTHY (no card left) to show the store's instructions.
  * `onFixed` tells a host whose own load the fix changed (Document Details' document, 499).
  */

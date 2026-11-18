@@ -1,5 +1,5 @@
 /**
- * Ticket 451 — the Materials grants, over the one permissions answer since oms 909 (BackOffice spec 4002). Keys from
+ * Ticket 451 — the Materials grants, over the one permissions answer since oms 914 (BackOffice spec 4002). Keys from
  * the brief's mapping table (row 24); `ItemInquiryCustome` is the seed's spelling, no final r. Each leaf and each page
  * reads its grant through one predicate; a missing key or a failed answer keeps the screen hidden.
  */

@@ -119,7 +119,7 @@ export default function OrdersPage() {
   const activeView = viewStore.views.find((v) => v.id === activeViewId) ?? null
   const [viewDialog, setViewDialog] = useState<ViewNameMode<SavedView> | null>(null)
   const defaultColumns = useRef<ColumnState[] | null>(null)
-  // The one permissions answer (oms 909), shared with the menu and both OMS pages.
+  // The one permissions answer (oms 914), shared with the menu and both OMS pages.
   const permissions = usePermissions()
   const canOpenList = canOpenListGrant(permissions)
   const insuranceGrant = canViewInsurance(permissions)

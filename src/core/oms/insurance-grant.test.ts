@@ -1,5 +1,5 @@
 /**
- * The insurance-view grant (spec 3389, client tickets 786–789) off the one permissions answer (oms 909):
+ * The insurance-view grant (spec 3389, client tickets 786–789) off the one permissions answer (oms 914):
  * `OmsInsuranceView:03`. It guards health data, so nothing else implies it.
  */
 import { describe, expect, it } from 'vitest'

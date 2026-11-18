@@ -1,5 +1,5 @@
 /**
- * The rule engine's grants (BackOffice 3459, oms 852; oms 909: off the one permissions answer). In `@/core/` because
+ * The rule engine's grants (BackOffice 3459, oms 852; oms 914: off the one permissions answer). In `@/core/` because
  * two areas read them: the Campaigns nav group (eight leaves across `features/campaigns/*`) and the store engine switch
  * (`features/admin/engine-switch`), and a feature may never import another (`.claude/rules/feature-structure.md`).
  *

@@ -1,6 +1,6 @@
 import type { Permissions, ScreenKey } from '@/core/permissions'
 
-// The OMS area's grants, read off the one permissions answer (oms 909, BackOffice spec 4002; brief row 43). Pure: no
+// The OMS area's grants, read off the one permissions answer (oms 914, BackOffice spec 4002; brief row 43). Pure: no
 // React, no `t`. The menu leaf, the page gate and the buttons take the same predicate, so they cannot disagree.
 //
 // Each predicate is one seed-spelled `BackOfficeScreen` key, except the two combinations the server's old probe

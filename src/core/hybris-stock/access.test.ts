@@ -1,4 +1,4 @@
-/** Ticket 847 — the Hybris stock grants, off the one permissions answer since oms 909 (brief 3995 row 41). */
+/** Ticket 847 — the Hybris stock grants, off the one permissions answer since oms 914 (brief 3995 row 41). */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'
 import { canManageHybrisStock, canViewHybrisStock } from './access'

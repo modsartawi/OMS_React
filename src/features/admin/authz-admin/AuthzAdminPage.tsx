@@ -32,7 +32,7 @@ export default function AuthzAdminPage() {
     setWs('users')
   }
 
-  // The screen grant comes from the one permissions answer the nav leaf reads (oms 909); the role lists are this
+  // The screen grant comes from the one permissions answer the nav leaf reads (oms 914); the role lists are this
   // page's own read, asked only once the grant is in.
   const permissions = usePermissions()
   const allowed = canOpenAuthzAdmin(permissions)

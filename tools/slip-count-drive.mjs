@@ -3,7 +3,7 @@
 // against CollectionReadyRowModel.cs, CollectionInquiryModel.cs, SlipCountedResponse.cs and
 // AttachmentWebEndpoints.cs on pricing2): `CollectionWeb/Ready` rows gain `cardTotal` + `slipCount`,
 // `CollectionWeb/Collections` rows gain `slipCount`, both answers carry `slipCountsUnavailable`
-// BESIDE `data`, and `GET Auth/Permissions` (oms 909) carries `Attachments:03:CASH_CLOSE` / `Attachments:04:CASH_CLOSE`
+// BESIDE `data`, and `GET Auth/Permissions` (oms 914) carries `Attachments:03:CASH_CLOSE` / `Attachments:04:CASH_CLOSE`
 // and `extras.fileServerReady` (false until the File Server key exists).
 //
 // ⚠️ Stubbed, never live: no SIS.Api with the File Server key set is up for this wave.

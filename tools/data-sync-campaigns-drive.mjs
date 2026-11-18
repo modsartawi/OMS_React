@@ -133,7 +133,7 @@ async function open({ access = { screenAllowed: true, canOperate: true }, health
     const url = new URL(route.request().url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    // The one permissions answer (oms 909): the DataSync keys per `access` (`DataSyncConsole:03/06`), every OTHER
+    // The one permissions answer (oms 914): the DataSync keys per `access` (`DataSyncConsole:03/06`), every OTHER
     // feature's keys shut, or open to see the leaf among its siblings.
     if (p === 'Auth/Permissions') {
       counts.access++

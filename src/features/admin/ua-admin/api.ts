@@ -32,7 +32,7 @@ const FIRST_PAGE = pageArgs(1)
 
 /**
  * May open the Ua users screen (`UaUsers:03`): the in-page guard and the shell's nav leaf read this one predicate off
- * the one permissions answer (oms 909). The server enforces the grant on every UaAdminWeb/* call regardless.
+ * the one permissions answer (oms 914). The server enforces the grant on every UaAdminWeb/* call regardless.
  */
 export const canOpenUaAdmin = (p: Permissions): boolean => p.has('UaUsers:03')
 

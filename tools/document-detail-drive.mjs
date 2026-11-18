@@ -111,7 +111,7 @@ async function run() {
       if (updateDelayMs) await new Promise((r) => setTimeout(r, updateDelayMs))
       return route.fulfill(envelope(true))
     }
-    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 909); the detail page
+    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 914); the detail page
     // guards on it, so this drive must answer Auth/Permissions or every
     // assertion below meets the denied card instead of the screen.
     if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01']))

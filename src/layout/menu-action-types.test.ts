@@ -1,7 +1,7 @@
 /**
  * The Action types leaf (BackOffice spec 3148, ticket 3155) — in the Admin group just before Config changes (whose place
  * before Document types 3152 pins). Gated on the View predicate of the document-type configuration
- * (`canViewDocTypeConfig` = `DocumentList:03`), read off the ONE permissions answer (oms 909).
+ * (`canViewDocTypeConfig` = `DocumentList:03`), read off the ONE permissions answer (oms 914).
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsFromQuery, permissionsOf } from '@/core/permissions'

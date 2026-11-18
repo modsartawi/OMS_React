@@ -17,7 +17,7 @@ import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
 import { isActive, markedLeaf, MENU, type ShellMenuItem } from './menu-model'
 import { isGated, resolveMenu } from './useVisibleMenu'
 
-/** oms 909: whether a leaf shows for a session holding exactly these keys of the one permissions answer. */
+/** oms 914: whether a leaf shows for a session holding exactly these keys of the one permissions answer. */
 const shows = (item: ShellMenuItem, ...screens: string[]): boolean =>
   resolveMenu([{ ...item, items: undefined }], permissionsOf({ screens })).items.length > 0
 /** A pending and an errored answer both hide a gated leaf. */

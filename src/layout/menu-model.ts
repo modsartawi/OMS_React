@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, Unlock, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import type { Permissions, ScreenKey } from '@/core/permissions'
-// oms 909 (BackOffice spec 4002): every leaf reads the ONE permissions answer. Each predicate below is named beside its
+// oms 914 (BackOffice spec 4002): every leaf reads the ONE permissions answer. Each predicate below is named beside its
 // area (its feature's or core's `access`/`api` module) so the leaf and that screen's `ScreenGate` read the same one;
 // a single-key leaf uses the `key:` shorthand instead. `layout` may import a feature.
 import { canBroadcast } from '@/features/admin/broadcast/api'
@@ -25,6 +25,7 @@ import { canOpenHeldStockReport } from '@/features/oms/held-stock-report/access'
 import { canOpenHoldDailyList } from '@/features/oms/hold-daily-list/access'
 import { canOpenStoreStages } from '@/features/oms/store-stages/access'
 import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { canOpenStockHealth } from '@/features/oms/stock-health/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 import { canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from '@/core/rules/access'
 import { canViewPrescriptionSessions } from '@/features/oms/prescription-sessions/access'
@@ -101,7 +102,7 @@ export interface ShellMenuItem {
   exact?: boolean
   items?: ShellMenuItem[]
   /**
-   * Optional permission-aware show/hide gate (issue 429; one answer since oms 909, BackOffice spec 4002).
+   * Optional permission-aware show/hide gate (issue 429; one answer since oms 914, BackOffice spec 4002).
    * ABSENT (and no `key`) = always visible; nearly every leaf is gated, and a new ungated one needs a reason.
    * Present = the shell hides this item until the ONE permissions answer (`@/core/permissions`) is in and this
    * predicate says yes; pending or failed hides it (fail-closed, no flash-then-hide). Show/hide only — the server
@@ -362,6 +363,16 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/oms/store-stages',
         activePrefix: '/oms/store-stages',
         requires: canOpenStoreStages,
+      },
+      {
+        // Stock health (oms 912, BackOffice spec 4011) - one page that says whether batch stock is in good shape, one tile
+        // per signal. Its own grant, `BackOfficeScreen[StockHealth, 03]` (role STOCK_HEALTH_VIEWER, seeded by BackOffice
+        // 3994), on its own key; the leaf and the page's gate share the one predicate and fail closed. Beside Store stages.
+        labelKey: 'stock-health:menu.stockHealth',
+        icon: HeartPulse,
+        routerLink: '/oms/stock-health',
+        activePrefix: '/oms/stock-health',
+        requires: canOpenStockHealth,
       },
       {
         // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,

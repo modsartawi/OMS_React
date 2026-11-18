@@ -82,7 +82,7 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
     },
     onError: (err) => {
       // 822: `ANALYTICS-415` (needs the author grant) or the curator's refusal hides the lost actions next time:
-      // the one permissions answer is asked again (oms 909).
+      // the one permissions answer is asked again (oms 914).
       if (needsAuthor(err) || needsCurator(err)) refreshAfterLostGrant(queryClient)
     },
   })

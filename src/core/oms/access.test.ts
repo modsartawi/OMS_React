@@ -1,5 +1,5 @@
 /**
- * The OMS area's grants off the one permissions answer (oms 909, BackOffice spec 4002 row 43): each predicate reads its
+ * The OMS area's grants off the one permissions answer (oms 914, BackOffice spec 4002 row 43): each predicate reads its
  * own seed key, and the two combinations hold their half-grant cases.
  */
 import { describe, expect, it } from 'vitest'

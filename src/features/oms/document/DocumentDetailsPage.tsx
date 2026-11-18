@@ -155,7 +155,7 @@ function updateFor(
  * Self-guards on `canOpenDetail` (ticket 125) — the grant that matters, since this is a
  * deep-linkable route carrying the update/reschedule write doors and `router.tsx` has no
  * per-route permission metadata. Spinner → denied card → content, reading the one
- * permissions answer (oms 909) the menu and the list guard read; the document load
+ * permissions answer (oms 914) the menu and the list guard read; the document load
  * itself waits on it, so a denied session fires no document request at all.
  */
 export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }) {
@@ -168,7 +168,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const singleKeyScreen = singleKeyScreenOf(useMatches().map((m) => m.handle))
   const hints = keyHints(singleKeyScreen)
 
-  // The one permissions answer (oms 909): read once per page life, shared with the menu.
+  // The one permissions answer (oms 914): read once per page life, shared with the menu.
   const permissions = usePermissions()
   const canOpenDetail = canOpenDetailGrant(permissions)
   // The write grants (BackOffice 2763, ticket 521): the screen opens on `canOpenDetail` alone,

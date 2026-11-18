@@ -199,7 +199,7 @@ async function drive(dir) {
   await page.locator('[data-rules-try-run]').click()
   await page.locator('[data-rules-try-answer]').waitFor({ timeout: 10000 })
   const head1 = (await page.locator('[data-rules-try-answer] th').allInnerTexts()).map(plain)
-  check(`${L}: Try sends the unsaved draft`, state.tries.length === 1 && JSON.stringify(state.tries[0]) === JSON.stringify({ houseRules: WITHOUT_12, question: COMPARE_Q }), JSON.stringify(state.tries))
+  check(`${L}: Try sends the unsaved draft`, state.tries.length === 1 && JSON.stringify(state.tries[0]) === JSON.stringify({ houseRules: WITHOUT_12, question: COMPARE_Q, defaultReadings: '' }), JSON.stringify(state.tries))
   check(`${L}: without rule 12 the answer is a "Metric | Value" list`, JSON.stringify(head1) === JSON.stringify(['Metric', 'Value']), head1.join('|'))
   check(`${L}: the try is labelled a draft`, plain(await page.locator('[data-rules-try-answer]').innerText()).includes('Draft. Not saved, not in your conversations'))
   check(`${L}: the try draws the answer's own provenance`, (await page.locator('[data-rules-try-answer] [data-copilot-served-by]').count()) === 1)
@@ -231,7 +231,7 @@ async function drive(dir) {
   { const nv = await page.locator('[data-rules-note]').evaluate((el) => el.tagName + ' ' + JSON.stringify(el.value) + ' ' + el.outerHTML.slice(0, 300)); check(`${L}: the note takes its text`, nv.includes('"Name the period"'), nv) }
   await save(page).click()
   await page.waitForFunction(() => document.querySelector('[data-rules-version]')?.getAttribute('data-rules-version') === '2', null, { timeout: 10000 })
-  check(`${L}: Save posts the text, the note and baseVersion 1`, JSON.stringify(state.saves[0]) === JSON.stringify({ houseRules: `${V1_TEXT}\n13. Name the period.`, note: 'Name the period', baseVersion: 1 }), JSON.stringify(state.saves))
+  check(`${L}: Save posts the text, the note and baseVersion 1`, JSON.stringify(state.saves[0]) === JSON.stringify({ houseRules: `${V1_TEXT}\n13. Name the period.`, note: 'Name the period', baseVersion: 1, defaultReadings: '' }), JSON.stringify(state.saves))
   check(`${L}: the toast says version 2`, (await toasts(page)).some((x) => x.includes('Saved as version 2. The next question uses it.')), (await toasts(page)).join(' | '))
   await page.locator('[data-rules-history-row="2"][data-active]').waitFor({ timeout: 10000 })
   check(`${L}: history marks v2 active, newest first`, (await page.locator('[data-rules-history-row]').first().getAttribute('data-rules-history-row')) === '2')
@@ -283,7 +283,7 @@ async function drive(dir) {
   )
   await page.locator('[data-rules-save-mine]').click()
   await page.waitForFunction(() => document.querySelector('[data-rules-version]')?.getAttribute('data-rules-version') === '5', null, { timeout: 10000 })
-  check(`${L}: Save mine on top re-posts on version 4`, JSON.stringify(state.saves.at(-1)) === JSON.stringify({ houseRules: 'My rules', note: null, baseVersion: 4 }), JSON.stringify(state.saves.at(-1)))
+  check(`${L}: Save mine on top re-posts on version 4`, JSON.stringify(state.saves.at(-1)) === JSON.stringify({ houseRules: 'My rules', note: null, baseVersion: 4, defaultReadings: '' }), JSON.stringify(state.saves.at(-1)))
 
   // …and Keep theirs reloads theirs.
   addVersion(state, 'Theirs again', null, 'b.curator')
@@ -297,8 +297,86 @@ async function drive(dir) {
   await context.close()
 }
 
+/**
+ * Ticket 790's Arabic box (owner walk 2026-11-17): under Arabic the version line, the count and "reverted from vN"
+ * read the right way round, and no word on the screen is left in English. The app's `lng` stays `en` (`core/i18n`),
+ * so the drive switches the SAME i18n instance the app holds to `ar` through the dev server's module URL.
+ * Saves `.issues/assets/790-rules-ar.png`.
+ */
+async function arabic() {
+  const st = stubState()
+  addVersion(st, V1_TEXT, '', 'a.curator', 1)
+  const { context, page, errors } = await open('rtl', { state: st })
+  await ready(page)
+  await page.evaluate(async () => {
+    const m = await import('/src/core/i18n.ts')
+    await m.default.changeLanguage('ar')
+  })
+  await page.locator('[data-rules-editor] h2', { hasText: 'قواعد الشركة' }).waitFor({ timeout: 10000 })
+
+  /** The isolates' texts in DOM order, and their centres left to right on screen. */
+  const isolates = (sel) =>
+    page.locator(sel).evaluate((el) =>
+      [...el.querySelectorAll('bdi[dir="ltr"]')].map((b) => ({ text: b.textContent, x: b.getBoundingClientRect().x })),
+    )
+  /** The x of the first word run (a text node that is not inside an isolate). */
+  const wordsX = (sel) =>
+    page.locator(sel).evaluate((el) => {
+      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        if (n.parentElement.closest('bdi') || n.textContent.trim() === '') continue
+        const r = document.createRange()
+        r.selectNodeContents(n)
+        return r.getBoundingClientRect().x
+      }
+      return null
+    })
+
+  const line = plain(await page.locator('[data-rules-version]').innerText())
+  const vIso = await isolates('[data-rules-version]')
+  check('ar: the version line is Arabic, in its order', line.startsWith('الإصدار 2، حفظه a.curator في '), line)
+  check(
+    'ar: …and reads right to left: the version, then the saver, then the time',
+    vIso.length === 3 && vIso[0].text === '2' && vIso[1].text === 'a.curator' && vIso[0].x > vIso[1].x && vIso[1].x > vIso[2].x,
+    JSON.stringify(vIso),
+  )
+
+  const count = plain(await page.locator('[data-rules-count]').innerText())
+  const cIso = await isolates('[data-rules-count]')
+  check('ar: the count reads "عدد الأحرف n / 4000"', count === `عدد الأحرف ${V1_TEXT.length} / 4000`, count)
+  check('ar: …the words at the right, the count one isolate after them', cIso.length === 1 && (await wordsX('[data-rules-count]')) > cIso[0].x, JSON.stringify(cIso))
+
+  const row = page.locator('[data-rules-reverted-from="1"]')
+  const rIso = await isolates('[data-rules-reverted-from="1"]')
+  check('ar: "مُستعاد من v1" — the words first, v1 after them', plain(await row.innerText()) === 'مُستعاد من v1' && rIso.length === 1 && (await wordsX('[data-rules-reverted-from="1"]')) > rIso[0].x, plain(await row.innerText()))
+
+  // Every word that is not data is Arabic: drop the isolates, the free-text fields and the collapsed core.
+  const english = await page.locator('[data-rules-screen]').evaluate((el) => {
+    const c = el.cloneNode(true)
+    c.querySelectorAll('bdi, textarea, input, [dir="auto"], details > :not(summary)').forEach((x) => x.remove())
+    return (c.textContent.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !['SAP', 'OMS', 'SQL'].includes(w))
+  })
+  check('ar: no English word left on the screen', english.length === 0, english.join(' '))
+  check('ar: the house-rules textarea keeps its own direction', (await text(page).getAttribute('dir')) === 'auto')
+  const noteDir = await page.locator('[data-rules-note]').evaluate((el) => getComputedStyle(el).direction)
+  check('ar: the empty note\'s placeholder reads right to left (its full stop at the end)', noteDir === 'rtl', noteDir)
+  await page.locator('[data-rules-note]').fill('Name the period')
+  check('ar: …and typed English keeps its own direction', (await page.locator('[data-rules-note]').getAttribute('dir')) === 'auto')
+  await page.locator('[data-rules-note]').fill('')
+  check('ar: the menu leaf is Arabic', (await leaf(page).allInnerTexts()).some((x) => plain(x) === 'قواعد المساعد'), (await leaf(page).allInnerTexts()).join(' | '))
+
+  await page.locator('[data-rules-try-question]').fill(COMPARE_Q)
+  await page.locator('[data-rules-try-run]').click()
+  await page.locator('[data-rules-try-answer]').waitFor({ timeout: 10000 })
+  check('ar: the try is labelled a draft in Arabic', plain(await page.locator('[data-rules-try-answer]').innerText()).includes('مسودة. غير محفوظة ولا تظهر في محادثاتك'))
+  await page.screenshot({ path: '.issues/assets/790-rules-ar.png', fullPage: true })
+  check('ar: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await drive('ltr')
 await drive('rtl')
+await arabic()
 await browser.close()
 const failed = results.filter((r) => !r.pass)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

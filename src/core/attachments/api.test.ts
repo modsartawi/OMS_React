@@ -1,7 +1,7 @@
 /**
  * The attachment register's reads (ticket 325): the keys under one `attachments` head,
  * and ByOwner's freshness as the caller's parameter. (The grants are `./access`, off the
- * one permissions answer since oms 909.)
+ * one permissions answer since oms 914.)
  *
  * 🔑 Every ByOwner and `/Content` fetch writes an audit row on the server, so a key
  * that splits or an option the caller did not ask for (a

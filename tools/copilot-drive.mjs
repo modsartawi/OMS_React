@@ -1,7 +1,7 @@
 // Copilot drive (ticket 735, spec 734 D7/D10/D11/D12) — "ask-and-answer".
 //
 // Drives the REAL app in Chromium against a STUB of the grant and the door — `Copilot:01` in the one
-// `Auth/Permissions` answer (oms 909) and `Copilot/Ask` (BackOffice BO-1). The stub answers EXACTLY the
+// `Auth/Permissions` answer (oms 914) and `Copilot/Ask` (BackOffice BO-1). The stub answers EXACTLY the
 // D10 wire, camelCase:
 //   GET  Auth/Permissions → `Copilot:01` held (granted), absent (refused), or the answer failing (a 500)
 //   POST Copilot/Ask    { question, conversationId? }

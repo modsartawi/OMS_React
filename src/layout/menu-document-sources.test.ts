@@ -1,7 +1,7 @@
 /**
  * The Document sources leaf (BackOffice spec 3148, ticket 3156) — in the Admin group just before Action types (whose
  * place before Config changes 3155 pins). Gated on the View predicate of the document-type configuration
- * (`canViewDocTypeConfig` = `DocumentList:03`), read off the ONE permissions answer (oms 909).
+ * (`canViewDocTypeConfig` = `DocumentList:03`), read off the ONE permissions answer (oms 914).
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsFromQuery, permissionsOf } from '@/core/permissions'

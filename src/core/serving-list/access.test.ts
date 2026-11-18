@@ -1,5 +1,5 @@
 /**
- * Ticket 567, on the one permissions answer (oms 909): View (`ServingList:03`) and Edit (`ServingList:06`) are two keys.
+ * Ticket 567, on the one permissions answer (oms 914): View (`ServingList:03`) and Edit (`ServingList:06`) are two keys.
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'

@@ -1,31 +1,37 @@
-// Copilot map drive (oms-react 884, BackOffice spec 3630 M42, ticket 3641): the screenshots for the proof box "A reader
-// with the view grant only sees the map on the local stack, in English and in Arabic".
+// Copilot map drive (oms-react 884, BackOffice spec 3630 M42, ticket 3641; ticket 910, ADR 0139: on Google): the
+// screenshots for the proof box "A reader with the view grant only sees the Google map above its table, in English and
+// in Arabic".
 //
 // The REAL app (dev server) with the doors stubbed: the reader holds the analytics VIEW grant only
 // (`Auth/Permissions` → `Analytics:03` and `Copilot:01` only: no author / curator / SQL, no curate). The panel asks
 // one question and `Copilot/Ask` answers with 3641's wire: one table carrying a map part — till sales by store (size)
-// with the change on the previous week (colour, kind `change`), 12 stores in the development base-map file's box
-// (central Riyadh, 46.60-46.80 E, 24.60-24.80 N; BackOffice 3634) plus one store with no coordinates, so the
-// "not on the map" line shows. The base map is the dev server's own `/basemap/ksa-bh.pmtiles` (206 ranges).
-// Network OFF: every request to a host other than the dev server is aborted and counted (must be 0).
+// with the change on the previous week (colour, kind `change`), 12 stores in central Riyadh plus one store with no
+// coordinates, so the "not on the map" line shows. The map is Google's: the stubbed model carries the `maps` part with
+// the key from the environment. Google's hosts (`tools/google-map-hosts.mjs`, the one named list) are let through;
+// every other outside request is aborted and counted (must be 0).
 //
-// Writes .issues/assets/884-copilot-map-{en,ar}.png (the panel), 884-copilot-map-card-en.png (a store's card open) and
-// 884-copilot-map-larger-en.png ("Larger map" open).
+// Writes .issues/assets/910-copilot-map-{en,ar}.png (the panel); on request 910-copilot-map-card-en.png (a store's card
+// pinned) and 910-copilot-map-larger-en.png ("Larger map" open). Each scenario makes a billed map load: keep runs few.
 // Manual-run, like every drive here; not a CI gate.
 //
-//   1. run the app:  npx vite --port 5208 --strictPort
-//   2. DRIVE_PORT=5208 node tools/copilot-map-drive.mjs        (DRIVE_ONLY=en,ar,card-en,larger-en to run some)
+//   1. run the app:  npx vite --port 5208 --strictPort        (the app only: no base-map file is needed any more)
+//   2. GOOGLE_MAPS_KEY=<a browser key whose referrers allow localhost> DRIVE_PORT=5208 node tools/copilot-map-drive.mjs
+//      (by default en,ar; DRIVE_ONLY=en,ar,card-en,larger-en to choose). The key is never printed. Never write it into
+//      a file in git.
 //
-// Headless Edge with software graphics, as the map drives before it (879, 883).
+// Headless Edge with software graphics, as the map drives before it (879, 883, 910).
 import { createRequire } from 'node:module'
-import { MODEL } from './analytics-stubs.mjs'
+import { MODEL as BASE_MODEL } from './analytics-stubs.mjs'
+import { GOOGLE_MAP_HOSTS, isGoogleMapHost, withoutKey } from './google-map-hosts.mjs'
 import { permissions } from './permissions-stub.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5208}`
 const OUT = '.issues/assets'
-const ONLY = (process.env.DRIVE_ONLY ?? '').split(',').filter(Boolean)
+const ONLY = (process.env.DRIVE_ONLY ?? 'en,ar').split(',').filter(Boolean)
+const KEY = (process.env.GOOGLE_MAPS_KEY ?? '').trim()
+const MODEL = { ...BASE_MODEL, maps: { key: KEY } }
 const label = (en, ar) => ({ en, ar })
 const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
@@ -34,7 +40,7 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
 })
 
 // The reader: the analytics view grant, nothing more.
-/** The reader's keys: the analytics view grant and the copilot ask, nothing else (oms 909). */
+/** The reader's keys: the analytics view grant and the copilot ask, nothing else (oms 914). */
 const READER_KEYS = ['Analytics:03', 'Copilot:01']
 
 // [store, name, latitude, longitude, till sales SAR, change %, step]
@@ -141,20 +147,19 @@ const ANSWER = {
 async function scenario(browser, name, { lang, card = false, larger = false }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1500 }, deviceScaleFactor: 1 })
   const outside = []
-  const basemap = []
+  const googleHosts = new Set()
   const asks = []
   const accessReads = []
   await context.route('**/*', async (route) => {
     const req = route.request()
     const url = new URL(req.url())
     if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-      outside.push(url.href)
+      if (isGoogleMapHost(url.hostname)) {
+        googleHosts.add(url.hostname)
+        return route.continue()
+      }
+      outside.push(withoutKey(url.href, KEY))
       return route.abort()
-    }
-    if (url.pathname === '/basemap/ksa-bh.pmtiles') {
-      const res = await route.fetch()
-      basemap.push(res.status())
-      return route.fulfill({ response: res })
     }
     const p = url.pathname.split('/api/')[1]
     if (p === undefined) return route.continue()
@@ -178,8 +183,8 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
     localStorage.setItem('oms.railExpanded', 'true')
   }, lang)
   const errors = []
-  page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
-  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(withoutKey(m.text(), KEY)))
+  page.on('pageerror', (e) => errors.push(withoutKey(String(e), KEY)))
 
   await page.goto(`${BASE}/`)
   const button = page.locator('#layout-topbar [data-copilot-button]')
@@ -202,22 +207,14 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
 
   let cardText = null
   if (card) {
-    // A store's card: move over the map until a card shows (the points are on a canvas, so search it).
-    const box = await mapFrame.boundingBox()
-    outer: for (let y = box.y + 8; y < box.y + box.height - 8; y += 6) {
-      for (let x = box.x + 8; x < box.x + box.width - 8; x += 6) {
-        await page.mouse.move(x, y)
-        const c = await sheet.locator('[data-map-card]').count()
-        if (c) {
-          await page.waitForTimeout(150)
-          cardText = (await sheet.locator('[data-map-card]').first().innerText()).replace(/\s+/g, ' ').trim()
-          if (/Riyadh/.test(cardText)) {
-            await page.mouse.click(x, y) // pin it, so it stays for the picture
-            await page.waitForTimeout(300)
-            break outer
-          }
-        }
-      }
+    // A store's card: point at a store (909: each is an HTML element on Google's overlay), then tap to pin it.
+    const point = mapFrame.locator('[data-feature="point"]').first()
+    if (await point.count()) {
+      await point.hover()
+      await sheet.locator('[data-map-card]').first().waitFor({ timeout: 5000 })
+      await point.click()
+      await page.waitForTimeout(300)
+      cardText = (await sheet.locator('[data-map-card]').first().innerText()).replace(/\s+/g, ' ').trim()
     }
   }
 
@@ -227,7 +224,11 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
       dir: document.documentElement.dir,
       legend: s.querySelector('[data-map-legend]')?.innerText.replace(/\s+/g, ' ').trim() ?? null,
       notOnMap: s.querySelector('[data-map-not-on-map]')?.innerText.replace(/\s+/g, ' ').trim() ?? null,
-      credit: s.querySelector('a[href="https://www.openstreetmap.org/copyright"]')?.textContent ?? null,
+      ourCredit: s.querySelector('a[href="https://www.openstreetmap.org/copyright"]')?.textContent ?? null,
+      googleVersion: window.google?.maps?.version ?? null,
+      // Google's own logo and terms, drawn by Google on the map (M34).
+      googleLogo: !!s.querySelector('[data-map-state] img[alt="Google"], [data-map-state] a[href*="maps.google.com/maps?"]'),
+      googleTerms: [...s.querySelectorAll('[data-map-state] .gm-style-cc')].map((e) => e.textContent.trim()).filter(Boolean).join(' | ') || null,
       larger: s.querySelector('[data-copilot-map-larger]') !== null,
       tableRows: new Set([...s.querySelectorAll('[data-copilot-table] .ag-row[row-index]')].map((r) => r.getAttribute('row-index'))).size,
       sendLabel: s.querySelector('[data-copilot-send]')?.innerText.trim() ?? null,
@@ -242,7 +243,7 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
     answer?.closest('[data-copilot-turn]')?.scrollIntoView({ block: 'start' })
   })
   await page.waitForTimeout(300)
-  const file = `${OUT}/884-copilot-map-${card ? 'card-' : ''}${lang}.png`
+  const file = `${OUT}/910-copilot-map-${card ? 'card-' : ''}${lang}.png`
   await sheet.screenshot({ path: file })
 
   // "Larger map": the same map in a wide dialog, where fewer stores are grouped.
@@ -255,13 +256,17 @@ async function scenario(browser, name, { lang, card = false, larger = false }) {
     await page.waitForTimeout(600)
     const frames = page.locator('[data-map-state]')
     largerState = await frames.nth((await frames.count()) - 1).getAttribute('data-map-state')
-    largerFile = `${OUT}/884-copilot-map-larger-${lang}.png`
+    largerFile = `${OUT}/910-copilot-map-larger-${lang}.png`
     await page.locator('dialog[open]').last().screenshot({ path: largerFile })
   }
   await context.close()
-  return { name, mapState, largerState, largerFile, ...state, cardText, basemapStatuses: [...new Set(basemap)], asks: asks.length, permissionsReads: accessReads.length, outsideRequests: outside.length, outside, consoleErrors: errors, file }
+  return { name, mapState, largerState, largerFile, ...state, cardText, googleHostsReached: [...googleHosts].sort(), asks: asks.length, permissionsReads: accessReads.length, outsideRequests: outside.length, outside, consoleErrors: errors, file }
 }
 
+if (!KEY) {
+  console.error('copilot-map-drive: set GOOGLE_MAPS_KEY to a browser key whose referrers allow localhost')
+  process.exit(2)
+}
 const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
 const results = []
 let failed = false
@@ -276,7 +281,8 @@ try {
     if (ONLY.length && !ONLY.includes(name)) continue
     const r = await scenario(browser, name, opts)
     results.push(r)
-    if (r.mapState !== 'drawn' || r.outsideRequests || !r.legend || !r.notOnMap || r.credit !== '© OpenStreetMap' || r.tableRows === 0) failed = true
+    if (r.mapState !== 'drawn' || r.outsideRequests || !r.legend || !r.notOnMap || !r.googleLogo || r.ourCredit !== null || r.tableRows === 0) failed = true
+    if (r.googleHostsReached.some((h) => !GOOGLE_MAP_HOSTS.includes(h))) failed = true
     if (opts.lang === 'ar' && r.dir !== 'rtl') failed = true
     if (opts.card && !r.cardText) failed = true
     if (opts.larger && r.largerState !== 'drawn') failed = true
@@ -284,6 +290,6 @@ try {
 } finally {
   await browser.close()
 }
-console.log(JSON.stringify(results, null, 1))
+console.log(withoutKey(JSON.stringify(results, null, 1), KEY))
 console.log(failed ? 'copilot-map-drive: FAILED' : 'copilot-map-drive: ok')
 process.exit(failed ? 1 : 0)

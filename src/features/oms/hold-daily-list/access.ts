@@ -1,6 +1,6 @@
 /**
  * HQ's daily list of holds that should have ended: its grant (BackOffice ticket 3872), read off the one permissions
- * answer (oms 909).
+ * answer (oms 914).
  */
 import type { Permissions } from '@/core/permissions'
 

@@ -16,7 +16,7 @@ import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
-import { formatCount, formatPair, fsi } from '@/core/util/bidi'
+import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { COPILOT_STARTERS_KEY, canCurateCopilot } from './access'
@@ -52,7 +52,7 @@ import {
   type RulesFrame,
   type StartersDraft,
 } from './rules'
-import StartersEditor, { StartersPane, useStarterIssueText, type StarterRefusal } from './StartersEditor'
+import StartersEditor, { CharCount, StartersPane, useStarterIssueText, type StarterRefusal } from './StartersEditor'
 
 /** A `COPILOT-412` the screen shows at its field: the house rules or the default readings. */
 interface FieldRefusal {
@@ -289,7 +289,7 @@ function RulesScreen() {
             }
             hint={
               <span data-rules-count>
-                {t('rules.editor.chars')} <Ltr>{formatCount(formatNumber(draft.text.length), formatNumber(RULES_MAX))}</Ltr>
+                <CharCount n={draft.text.length} max={RULES_MAX} />
               </span>
             }
           >
@@ -318,7 +318,7 @@ function RulesScreen() {
                 <span>{t('rules.readings.hint')}</span>
                 {readingsBuiltIn && <span data-rules-readings-builtin>{t('rules.readings.builtIn')}</span>}
                 <span data-rules-readings-count>
-                  {t('rules.editor.chars')} <Ltr>{formatCount(formatNumber(draft.readings.length), formatNumber(readingsMax))}</Ltr>
+                  <CharCount n={draft.readings.length} max={readingsMax} />
                 </span>
               </span>
             }
@@ -341,7 +341,9 @@ function RulesScreen() {
           )}
           <Field label={t('rules.editor.note')}>
             <Input
-              dir="auto"
+              // Empty, `auto` resolves LTR and the placeholder's full stop jumps to its start under Arabic: the
+              // placeholder takes the page's direction, typed text its own (ticket 790).
+              dir={draft.note ? 'auto' : undefined}
               value={draft.note}
               placeholder={t('rules.editor.notePlaceholder')}
               onChange={(e) => {
@@ -615,21 +617,17 @@ function ReaderCounts({ rows }: { rows: ReaderCountRow[] }) {
 function VersionMeta({ v }: { v: CopilotPromptVersion }) {
   const { t } = useTranslation('copilot')
   if (v.version === 0) return <span className="text-xs text-muted-foreground" data-rules-version={0}>{t('rules.editor.builtIn')}</span>
+  // One sentence in the locale's word order, each value isolated. Built from pieces in a flex row, the pieces were
+  // laid out right-to-left under RTL and read "… on 14419 saved by 7 Version" (owner walk, ticket 790).
+  const which = v.savedBy ? (v.savedAt ? 'full' : 'by') : v.savedAt ? 'at' : 'bare'
   return (
-    <span className="flex flex-wrap items-baseline gap-x-1 text-xs text-muted-foreground" data-rules-version={v.version}>
-      {t('rules.editor.version')} <Ltr>{formatNumber(v.version)}</Ltr>
-      {v.savedBy && (
-        <>
-          {' '}
-          {t('rules.editor.savedBy')} <Ltr>{v.savedBy}</Ltr>
-        </>
-      )}
-      {v.savedAt && (
-        <>
-          {' '}
-          {t('rules.editor.savedAt')} <Ltr>{formatDateTime(v.savedAt)}</Ltr>
-        </>
-      )}
+    <span className="text-xs text-muted-foreground" data-rules-version={v.version}>
+      <Trans
+        t={t}
+        i18nKey={`rules.editor.versionLine.${which}`}
+        values={{ n: formatNumber(v.version), by: v.savedBy ?? '', at: v.savedAt ? formatDateTime(v.savedAt) : '' }}
+        components={{ n: <Ltr />, by: <Ltr />, at: <Ltr /> }}
+      />
     </span>
   )
 }
@@ -693,7 +691,7 @@ function TryBox({ draft, frame, onRefused }: { draft: RulesDraft; frame: RulesFr
         >
           <Textarea
             rows={3}
-            dir="auto"
+            dir={question ? 'auto' : undefined}
             value={question}
             placeholder={t('rules.try.placeholder')}
             onChange={(e) => setQuestion(e.target.value)}

@@ -1,5 +1,5 @@
 /**
- * Ticket 477 — the Deliverect grants, off the one permissions answer since oms 909. Each leaf and each page reads its
+ * Ticket 477 — the Deliverect grants, off the one permissions answer since oms 914. Each leaf and each page reads its
  * grant through one predicate; a missing or errored answer keeps every Deliverect screen hidden (fail closed).
  */
 import { describe, expect, it } from 'vitest'

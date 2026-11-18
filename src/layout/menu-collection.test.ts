@@ -2,7 +2,7 @@
  * The Collections nav group, gated (ticket 253, spec 249 §"Getting in").
  *
  * `resolveMenu` is the pure half of `useVisibleMenu` (ticket 124), so what the shell does with each answer is provable
- * with no renderer. Since oms 909 each leaf reads its OWN key off the ONE permissions answer (brief 3995 row 30):
+ * with no renderer. Since oms 914 each leaf reads its OWN key off the ONE permissions answer (brief 3995 row 30):
  * Cash collections = `CollectionInquiry:03`, ACRs = `AcrInquiry:03`, Deposits = `DepositInquiry:03`, Attempts =
  * `CollectionAttempts:03`, Ready = `CollectionReady:03`, Assignment = `CollectionAssignment:03`, Settlement account =
  * `SettlementAccount:03`. The group is read out of the **real** `MENU`, never re-declared.

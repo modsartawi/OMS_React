@@ -1,0 +1,142 @@
+{
+  "menu": {
+    "stockHealth": "Stock health"
+  },
+  "title": "Stock health",
+  "subtitle": "Whether batch stock is in good shape: one tile per signal, judged by the server. Open a tile for the screen behind it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to stock health",
+    "deniedHint": "Your account does not hold the stock health grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "header": {
+    "allGood": "All good",
+    "attention": "{{n}} need attention",
+    "empty": "The server sent no signal.",
+    "asOf": "as of {{at}}",
+    "loading": "Reading stock health…"
+  },
+  "refresh": "Refresh",
+  "refreshing": "Refreshing…",
+  "failedTitle": "Stock health could not be read",
+  "failed": "SIS.Api did not answer. The page tries again every minute.",
+  "verdict": {
+    "good": "Good",
+    "watch": "Watch",
+    "bad": "Bad",
+    "noAnswer": "Did not answer",
+    "none": "For information"
+  },
+  "signal": {
+    "feeds": "Feeds",
+    "batchWorker": "Batch worker",
+    "hourlyCount": "Hourly count against SAP",
+    "salePush": "Sale push",
+    "takeDoor": "Take door",
+    "holdSeamTills": "Tills on the hold seam",
+    "storeStages": "Store stages",
+    "drsQueue": "DRS queue"
+  },
+  "tile": {
+    "opens": "Open the screen behind this signal"
+  },
+  "reason": {
+    "feeds": {
+      "good": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "batchWorker": {
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "hourlyCount": {
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "salePush": {
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "takeDoor": {
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "holdSeamTills": {
+      "none": "{{reason}}",
+      "bad": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "storeStages": {
+      "none": "{{reason}}",
+      "watch": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    },
+    "drsQueue": {
+      "good": "{{reason}}",
+      "watch": "{{reason}}",
+      "bad": "{{reason}}",
+      "none": "{{reason}}",
+      "noAnswer": "{{reason}}"
+    }
+  },
+  "figure": {
+    "feeds": {
+      "SAP feed age (minutes)": "SAP feed age (minutes)",
+      "POS feed age (minutes)": "POS feed age (minutes)",
+      "hold ledger reader age (minutes)": "hold ledger reader age (minutes)",
+      "hourly count against SAP age (minutes)": "hourly count against SAP age (minutes)"
+    },
+    "batchWorker": {
+      "Unapplied rows": "Unapplied rows",
+      "Errored documents": "Errored documents",
+      "Alerts": "Alerts",
+      "Lot copy lag (minutes)": "Lot copy lag (minutes)"
+    },
+    "hourlyCount": {
+      "Last run": "Last run",
+      "Last good run": "Last good run",
+      "Open differences": "Open differences"
+    },
+    "salePush": {
+      "Yesterday within 10 s": "Yesterday within 10 s",
+      "Today within 10 s": "Today within 10 s",
+      "Yesterday's disagreements": "Yesterday's disagreements",
+      "Last night's compare differences": "Last night's compare differences"
+    },
+    "takeDoor": {
+      "Takes": "Takes",
+      "Failed calls": "Failed calls",
+      "Failed calls per 100 takes": "Failed calls per 100 takes",
+      "Skipped at the time limit": "Skipped at the time limit"
+    },
+    "holdSeamTills": {
+      "Tills heard in the last hour": "Tills heard in the last hour",
+      "Stores heard in the last hour": "Stores heard in the last hour"
+    },
+    "drsQueue": {
+      "Unsent": "Unsent",
+      "Oldest unsent (minutes)": "Oldest unsent (minutes)",
+      "Failed, waiting to retry": "Failed, waiting to retry",
+      "Last sent": "Last sent",
+      "Last heartbeat": "Last heartbeat"
+    },
+    "storeStages": {
+      "Shadow": "Shadow",
+      "Seeding": "Seeding",
+      "Seeded": "Seeded",
+      "Blocking": "Blocking",
+      "Seeding over 24 hours": "Seeding over 24 hours"
+    }
+  }
+}

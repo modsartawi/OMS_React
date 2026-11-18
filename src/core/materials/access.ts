@@ -1,6 +1,6 @@
 import type { Permissions } from '@/core/permissions'
 
-// The Materials area's grants (spec 2544, ticket 451), read off the one permissions answer since oms 909 (BackOffice
+// The Materials area's grants (spec 2544, ticket 451), read off the one permissions answer since oms 914 (BackOffice
 // spec 4002). Pure: no React, no `t`.
 //
 // Each leaf of the Materials menu group and each page's in-page gate read their grant through the SAME predicate here,

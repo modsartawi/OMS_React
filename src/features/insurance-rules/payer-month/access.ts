@@ -1,5 +1,5 @@
 /**
- * The payer-month screen's grant (oms 896, BackOffice 1628; oms 909: off the one permissions answer). In the
+ * The payer-month screen's grant (oms 896, BackOffice 1628; oms 914: off the one permissions answer). In the
  * feature, not `@/core/`: its only readers are this page and the nav leaf, and `layout/` may reach into a feature.
  * It is NOT the Insurance rules area's grant — the screen has its own one grant (D36), `InsurancePayerMonth:03`.
  */

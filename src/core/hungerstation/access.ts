@@ -1,6 +1,6 @@
 import type { Permissions } from '@/core/permissions'
 
-// The HungerStation area's grants (spec 3028, ticket 551; promotions spec 3201, ticket 665; oms 909: off the one
+// The HungerStation area's grants (spec 3028, ticket 551; promotions spec 3201, ticket 665; oms 914: off the one
 // permissions answer). Pure: no React, no `t`. Each leaf of the HungerStation menu group and each page's in-page gate
 // read their grant through the SAME predicate here. The shape is Deliverect's (`@/core/deliverect/access`); the
 // grants are this rail's own, each one `BackOfficeScreen[…,03]`.

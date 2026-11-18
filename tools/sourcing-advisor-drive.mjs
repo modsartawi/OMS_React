@@ -2,7 +2,7 @@
 //
 // Drives the REAL app in Chromium against a STUB of the two doors BackOffice BO-2 has not built, answering
 // EXACTLY the D20 wire (camelCase):
-//   GET Auth/Permissions        → SourcingAdvisor:01 held or not, or a failed answer (oms 909; the probe is gone)
+//   GET Auth/Permissions        → SourcingAdvisor:01 held or not, or a failed answer (oms 914; the probe is gone)
 //   GET SourcingAdvisor/Explain → { orderNo, deliveryType, city, promisedBy, actual, best, candidates[],
 //                                   saving, reasons[], rateVersion, placeholderRates }
 //   and `SOURCING-403` (order not found or not scored yet) for order 8000000999.

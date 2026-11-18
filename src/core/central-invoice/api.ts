@@ -28,7 +28,7 @@ import type {
 export const CENTRAL_INVOICE_MAX_DELIVERIES = 200
 
 /**
- * The grant's one predicate, `CentralInvoice:03` off the one permissions answer (oms 909), read by the menu leaf, the
+ * The grant's one predicate, `CentralInvoice:03` off the one permissions answer (oms 914), read by the menu leaf, the
  * screen's gate and the delivery page's action.
  */
 export const canOpenCentralInvoice = (p: Permissions): boolean => p.has('CentralInvoice:03')

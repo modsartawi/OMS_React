@@ -56,7 +56,7 @@ export default function MemberLookupPage() {
   const location = useLocation()
   const queryClient = useQueryClient()
 
-  // The one permissions answer the nav leaf reads too (oms 909). Fails closed:
+  // The one permissions answer the nav leaf reads too (oms 914). Fails closed:
   // pending, denied and errored all draw something other than the lookup field.
   const permissions = usePermissions()
   const allowed = canOpenLoyMember(permissions)

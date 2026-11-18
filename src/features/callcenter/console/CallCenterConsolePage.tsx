@@ -164,7 +164,7 @@ const ANSWERED_BY_THE_PAGE = ['CONFIRM_TOKEN_STALE', 'CONFIRM_TOKEN_INVALID', 'R
 export default function CallCenterConsolePage() {
   const { t } = useTranslation('callcenter')
 
-  // The grant is read off the one permissions answer the nav leaf reads (oms 909).
+  // The grant is read off the one permissions answer the nav leaf reads (oms 914).
   const permissions = usePermissions()
 
   if (!permissions.settled) return <ConsoleStatus message={t('access.checking')} spinner />

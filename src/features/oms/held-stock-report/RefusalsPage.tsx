@@ -58,7 +58,7 @@ import { canStepForward, normalizeStores, stepDay } from './shared'
  * door's refusals and a shadow store's would-be refusals by store, material and batch, with the SAP and POS feed ages on
  * each; the lines of the day that span more than one batch; and each take of last-resort stock. A group opens its log rows.
  *
- * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 909), the predicate the
+ * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 914), the predicate the
  * menu leaves read, failing closed.
  *
  * 🚩 A store Stock Visibility did not answer is named above the grids: its refusals are missing, not zero.

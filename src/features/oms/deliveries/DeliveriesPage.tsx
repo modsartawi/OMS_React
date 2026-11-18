@@ -93,7 +93,7 @@ import ViewsRail, { LENS_ICON, LF_RETURNS_ICON } from './ViewsRail'
  * the screen empty (R-8).
  *
  * Self-guards on `canOpenList` (ticket 125): spinner → denied card → content, reading
- * the one permissions answer (oms 909) the menu and the Document Details guard read. The server's `SdDocumentWeb/*` grant filter stays authoritative; this only
+ * the one permissions answer (oms 914) the menu and the Document Details guard read. The server's `SdDocumentWeb/*` grant filter stays authoritative; this only
  * spares a denied deep-link a request it cannot make.
  *
  * The Delivery inspector (ticket 397) sits at the inline-end edge and shows the current row
@@ -181,7 +181,7 @@ export default function DeliveriesPage() {
 
   const columns = useMemo(() => buildDeliveryColumns(t), [t])
 
-  // The one permissions answer (oms 909): read once per page life, shared with the menu.
+  // The one permissions answer (oms 914): read once per page life, shared with the menu.
   const permissions = usePermissions()
   const canOpenList = canOpenListGrant(permissions)
   // The acts deep-link to Delivery details and write there, so the list offers them only to a

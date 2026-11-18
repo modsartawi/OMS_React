@@ -89,7 +89,7 @@ const DELIVERY = (i) => ({
 // `stubs` (same shape, checked first). `data` may be a function of the path (and the request).
 const COMMON_STUBS = [
   [/^Auth\/Me$/, { authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }],
-  // The one permissions answer (oms 909) grants every screen, so every menu entry and screen is reachable.
+  // The one permissions answer (oms 914) grants every screen, so every menu entry and screen is reachable.
   [/^Auth\/Permissions$/, permissionsBody(ALL_SCREENS, { canManageRoles: true, canManageUsers: true }).data],
   [/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/, []],
   [/^SdDocumentWeb\/DeliveryDocumentList$/, Array.from({ length: 60 }, (_, i) => DELIVERY(i))],

@@ -1,5 +1,5 @@
 /**
- * oms 909 (BackOffice spec 4002): the one `GET Auth/Permissions` answer replaced every per-area `*\/Access` probe. This
+ * oms 914 (BackOffice spec 4002): the one `GET Auth/Permissions` answer replaced every per-area `*\/Access` probe. This
  * source contract keeps them gone: it walks `src/**\/*.{ts,tsx}` with comments stripped and fails on any probe call,
  * probe key, probe builder or per-area access query.
  *
@@ -86,7 +86,7 @@ describe('no Access probe survives the one permissions answer', () => {
       violations(path.relative(SRC, file).split(path.sep).join('/'), readFileSync(file, 'utf8')),
     )
     expect(found).toEqual([])
-  })
+  }, 60_000) // reads every source file once: the default 5 s is short on a busy machine
 
   it('the AuthzAdmin role-list read is the one allowed /Access call, and it is still there', () => {
     const source = readFileSync(path.join(SRC, ALLOWED_ACCESS_READ.file), 'utf8')
@@ -108,7 +108,7 @@ describe('no Access probe survives the one permissions answer', () => {
   })
 
   it.each([
-    ['a comment naming a probe', "// the old GET Nphies/Access probe went in 909\nexport const x = 1"],
+    ['a comment naming a probe', "// the old GET Nphies/Access probe went in 914\nexport const x = 1"],
     ['a block comment naming a key', '/* OMS_ACCESS_KEY is gone */ export const x = 1'],
     ['the permissions call', "api.get<unknown>('Auth/Permissions')"],
     ['an Access-looking word that is not a probe', "const label = t('access.deniedTitle')"],

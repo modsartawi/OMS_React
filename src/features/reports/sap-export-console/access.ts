@@ -1,5 +1,5 @@
 /**
- * The SAP export console's grant (BackOffice spec 2579, ticket 461; oms 909: off the one permissions answer) — apart
+ * The SAP export console's grant (BackOffice spec 2579, ticket 461; oms 914: off the one permissions answer) — apart
  * from `./api` so the Reports menu leaf, which imports it eagerly, costs the main bundle only this.
  */
 import type { Permissions } from '@/core/permissions'

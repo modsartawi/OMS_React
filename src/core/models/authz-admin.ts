@@ -6,7 +6,7 @@
 // live in `ua-user.ts` and are imported where needed rather than re-declared here.
 
 /**
- * The role lists the AuthzAdmin page reads from `GET AuthzAdminWeb/Access` (oms 909, BackOffice spec 4002 brief, "Not
+ * The role lists the AuthzAdmin page reads from `GET AuthzAdminWeb/Access` (oms 914, BackOffice spec 4002 brief, "Not
  * covered by the answer"): data, not a menu fact, so the one permissions answer does not carry them. The door still
  * answers its booleans too; they are NOT read — screen access and the two maint tiers come from `@/core/permissions`
  * (`AuthzAdmin:03`, `extras.canManageRoles`, `extras.canManageUsers`).

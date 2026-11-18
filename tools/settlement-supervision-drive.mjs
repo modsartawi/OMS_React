@@ -122,7 +122,7 @@ async function run() {
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
     if (path === 'Auth/Permissions') {
       permissionsCalls++
-      // After a 403 the permissions answer is re-read (oms 909) and — as an administrator took the
+      // After a 403 the permissions answer is re-read (oms 914) and — as an administrator took the
       // grant — now answers without supervision. The scenario's flags are the Collections area's.
       return route.fulfill(permissions(flagKeys('Collection', scenario.revoked ? ACCOUNTANT : scenario.access)))
     }

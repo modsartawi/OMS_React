@@ -10,7 +10,7 @@ import type { MenuOffer, ShellMenuItem } from './menu-model'
  * so a new area folder (`features/analytics/`). `menu-model.ts` places it once; a later slice adds its leaf
  * HERE. Every label lives in `boards` (the area's first namespace, `menu.*`).
  *
- * 🚩 FAILS CLOSED: every leaf reads `canViewAnalytics` (`Analytics:03`) off the one permissions answer (oms 909) — the
+ * 🚩 FAILS CLOSED: every leaf reads `canViewAnalytics` (`Analytics:03`) off the one permissions answer (oms 914) — the
  * SAME predicate as the pages' own `ScreenGate` — so a pending, errored or malformed answer hides the group.
  */
 

@@ -2,7 +2,7 @@ import type { AnalyticsBoardDefinition, AnalyticsLabel, AnalyticsMapLegend, Anal
 
 /**
  * The copilot's wire shapes (spec 734 D10; door `Copilot/Ask`, BackOffice BO-1 — its grants are the one permissions
- * answer's since oms 909). camelCase, as ASP.NET Core emits. A shape change goes into the spec's D10 first, then here.
+ * answer's since oms 914). camelCase, as ASP.NET Core emits. A shape change goes into the spec's D10 first, then here.
  *
  * Refusals are not here: they are envelope business outcomes (`COPILOT-401` … `COPILOT-406`, D7)
  * read through `@/core/api`'s `apiErrorCode`. Only a refusal's `data` is (`CopilotPromptFieldRefusal`).

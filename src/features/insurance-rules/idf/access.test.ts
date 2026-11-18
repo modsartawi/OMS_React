@@ -1,5 +1,5 @@
 /**
- * Ticket 654 — the IDF grants (BackOffice 3191), read off the one permissions answer since oms 909: `IdfPriority:03`
+ * Ticket 654 — the IDF grants (BackOffice 3191), read off the one permissions answer since oms 914: `IdfPriority:03`
  * view, `:06` master edit, `:07` general edit. A missing or errored answer hides every write (fail closed).
  * The draft's actions follow `canEditIdf`; the general master's and the IDF groups' writes follow `canEditGeneral`.
  */

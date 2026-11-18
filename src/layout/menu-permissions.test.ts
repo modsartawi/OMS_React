@@ -1,5 +1,5 @@
 /**
- * oms 909 (BackOffice spec 4002): the REAL `MENU` through the real `resolveMenu`, answered by the one permissions
+ * oms 914 (BackOffice spec 4002): the REAL `MENU` through the real `resolveMenu`, answered by the one permissions
  * answer. Pending hides every gated leaf and is not settled; an error hides every gated leaf and is settled; an
  * ADMIN-shaped answer (every two-field key, no three-field Attachments key — the engine's rule, brief 3995) shows every
  * leaf, and every leaf is gated.

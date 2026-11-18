@@ -22,7 +22,7 @@ const encode = (segment: string) => encodeURIComponent(segment)
 
 /**
  * The Templates + Import workspaces (admin-only): `CouponsAdmin:03`, off the one permissions
- * answer (oms 909). Read by the nav leaf and the admin screen's guard. The server re-checks the
+ * answer (oms 914). Read by the nav leaf and the admin screen's guard. The server re-checks the
  * grant on every mutation; this is show/hide hygiene only.
  */
 export const canAdminCoupons = (p: Permissions): boolean => p.has('CouponsAdmin:03')

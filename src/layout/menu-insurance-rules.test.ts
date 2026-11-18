@@ -1,6 +1,6 @@
 /**
  * The Insurance rules nav group (oms 607, BackOffice spec 3126). Read out of the REAL `MENU`. Gated per leaf
- * since oms 852, on the one permissions answer since oms 909 (`menu-access-852.test.ts`).
+ * since oms 852, on the one permissions answer since oms 914 (`menu-access-852.test.ts`).
  */
 import { describe, expect, it } from 'vitest'
 import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'

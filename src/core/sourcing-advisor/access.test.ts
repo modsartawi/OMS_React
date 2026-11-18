@@ -1,5 +1,5 @@
 /**
- * Ticket 738, on the one permissions answer (oms 909): the advisor reads `SourcingAdvisor:01` — Create, deliberately
+ * Ticket 738, on the one permissions answer (oms 914): the advisor reads `SourcingAdvisor:01` — Create, deliberately
  * not Display.
  */
 import { describe, expect, it } from 'vitest'

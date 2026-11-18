@@ -13,7 +13,7 @@ describe('order guards', () => {
     ])
   })
 
-  it('the override and release grants are denied: the one permissions answer cannot carry INS_GUARD (909, brief row 43)', () => {
+  it('the override and release grants are denied: the one permissions answer cannot carry INS_GUARD (914, brief row 43)', () => {
     expect([canOverrideGuard(), canReleaseGuardHold()]).toEqual([false, false])
   })
 })

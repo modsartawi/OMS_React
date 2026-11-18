@@ -1,7 +1,7 @@
 // Bonus-buy maintenance loyalty-group picker drive (oms ticket 636; BackOffice spec 3173, doors 3174 + 3179).
 //
 // Drives the REAL app in Chromium against STUBBED envelopes: `Auth/Permissions` (`BbyMaintain:03/04`, and
-// `LoyaltyGroup:03` for the view grant; oms 909), `LoyGroupWeb/Groups`
+// `LoyaltyGroup:03` for the view grant; oms 914), `LoyGroupWeb/Groups`
 // (3174) and the bonus-buy save's new loyalty-group findings (3179) are deployed nowhere yet. It asserts:
 //   1. with the view grant, the Engine Rules "Loyalty groups" field is a picker over
 //      `Groups?includeInactive=true`: the inactive group greyed and marked, the bonus-buy's undefined code

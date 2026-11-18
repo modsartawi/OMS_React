@@ -3,7 +3,7 @@
 // Drives the REAL app in Chromium against a STUB of the grant and the three doors — 2965 is merged on pricing2 but
 // not deployed, so there is no live SIS.Api to point at. The stub answers EXACTLY the shapes of
 // `DispatchScorecardModels.cs`, camelCase:
-//   GET Auth/Permissions            → `DispatchScorecard:03` held or not (oms 909)
+//   GET Auth/Permissions            → `DispatchScorecard:03` held or not (oms 914)
 //   GET DispatchScorecard/Grid      → { asOf, from, to, minimumBids, minimumAnswers, stores[], staff[] }
 //   GET DispatchScorecard/Drill     → { asOf, from, to, figure, store, staff, rows[] }
 //   GET DispatchScorecard/StoreCard → { asOf, from, to, row, measures[], classes[], staff[] }

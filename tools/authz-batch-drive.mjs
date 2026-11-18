@@ -1,5 +1,5 @@
 // Authz batch pickers drive (spec 805). Mocked `AuthzAdminWeb/*` and `Auth/Permissions` (`AuthzAdmin:03` + the
-// maint extras; `AuthzAdminWeb/Access` answers only the role lists, oms 909), real app, real browser (the
+// maint extras; `AuthzAdminWeb/Access` answers only the role lists, oms 914), real app, real browser (the
 // tools/ua-bulk-create-drive.mjs idiom). Run in LTR and again with `dir="rtl"`.
 //
 // Ticket 806 — a composite's Add member dialog:

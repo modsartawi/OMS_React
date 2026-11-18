@@ -26,7 +26,7 @@ interface Props {
 export default function RolesWorkspace({ roleLists, catalog, onJumpToUser }: Props) {
   const { t } = useTranslation('authz-admin')
   const qc = useQueryClient()
-  // The maint tier comes from the one permissions answer (`extras.canManageRoles`, oms 909), not the role-lists read.
+  // The maint tier comes from the one permissions answer (`extras.canManageRoles`, oms 914), not the role-lists read.
   const { canManageRoles } = usePermissions().extras
 
   const [term, setTerm] = useState('')

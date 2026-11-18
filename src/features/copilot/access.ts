@@ -1,5 +1,5 @@
 /**
- * The copilot's grants, read off the one permissions answer (oms 909, BackOffice spec 4002) — apart from `./api` so the
+ * The copilot's grants, read off the one permissions answer (oms 914, BackOffice spec 4002) — apart from `./api` so the
  * top bar, which imports it eagerly, costs the main bundle only this. The SQL mode toggle reads the Analytics SQL grant,
  * `canSqlAnalytics` in `@/core/analytics-access` (a feature may not import another).
  */

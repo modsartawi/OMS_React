@@ -1,5 +1,5 @@
 /**
- * The Nphies area's predicates over the one permissions answer (oms 909, BackOffice spec 4002). The release and the
+ * The Nphies area's predicates over the one permissions answer (oms 914, BackOffice spec 4002). The release and the
  * undispense grants count only beside the area's own grant: the half-grant is no grant.
  */
 import { describe, expect, it } from 'vitest'

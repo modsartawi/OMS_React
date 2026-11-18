@@ -2,7 +2,7 @@
  * The release download queue's server calls (BackOffice spec 3396, ticket 3401; oms-react ticket 791).
  *
  * Doors under `PosReleaseQueue/` (`Services/SIS.Api/Endpoints/Pos/DownloadSlotAdminEndpoints.cs`): the grants are read off the one
- * permissions answer (oms 909: `PosReleaseQueue:03` / `:06`); every read door needs a cookie session plus `PosRelease.Queue.View`
+ * permissions answer (oms 914: `PosReleaseQueue:03` / `:06`); every read door needs a cookie session plus `PosRelease.Queue.View`
  * (`BackOfficeScreen[PosReleaseQueue, 03]`) and is a bare 403 without it. Ticket 792 adds `Audit`
  * (View) and the Manage doors (`PUT Pool`, `POST Slots/{leaseId}/Free`, `PosRelease.Queue.Manage`).
  */
@@ -24,7 +24,7 @@ import { HISTORY_PAGE_SIZE, historyParams, isManagedRead, type HistoryFilter } f
 
 const BASE = 'PosReleaseQueue'
 
-/** `PosRelease.Queue.View` (`PosReleaseQueue:03`, off the one permissions answer, oms 909) — the nav leaf and the gate. */
+/** `PosRelease.Queue.View` (`PosReleaseQueue:03`, off the one permissions answer, oms 914) — the nav leaf and the gate. */
 export const canViewReleaseQueue = (p: Permissions): boolean => p.has('PosReleaseQueue:03')
 
 /** How often the live panels re-read: a slot renews every 60 s, so 15 s keeps progress current without load. */

@@ -1,5 +1,5 @@
 /**
- * The held-stock reports' grant (BackOffice ticket 3873), read off the one permissions answer (oms 909). Both reports
+ * The held-stock reports' grant (BackOffice ticket 3873), read off the one permissions answer (oms 914). Both reports
  * share it, so both leaves and every page read this predicate.
  */
 import type { Permissions } from '@/core/permissions'

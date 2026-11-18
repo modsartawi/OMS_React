@@ -234,7 +234,7 @@ async function run() {
     }
     if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'SdDocument/Districts') return route.fulfill(envelope([]))
-    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 909); the detail page
+    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 914); the detail page
     // guards on it, so this drive must answer Auth/Permissions or every
     // assertion below meets the denied card instead of the screen.
     if (p === 'Auth/Permissions') return route.fulfill(permissions(flagKeys('Oms', access)))

@@ -1,6 +1,6 @@
 /**
  * Oms 896 — the Payer months leaf of the Insurance rules group shows only on its own grant, `InsurancePayerMonth:03`,
- * off the ONE permissions answer (oms 909) — the same predicate the page's gate reads. Read out of the REAL `MENU`
+ * off the ONE permissions answer (oms 914) — the same predicate the page's gate reads. Read out of the REAL `MENU`
  * through the real `resolveMenu`.
  */
 import { describe, expect, it } from 'vitest'

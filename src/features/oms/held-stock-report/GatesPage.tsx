@@ -45,7 +45,7 @@ import { normalizeStores } from './shared'
  * without its picking document (per day), and every till of the store heard on the hold seam. What a person confirms
  * before a store moves to Blocking (SIS.Stock 071).
  *
- * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 909), failing closed.
+ * Behind `canOpenHeldStockReport` on `BackOfficeScreen[HeldStockReport, 03]` off the one permissions answer (oms 914), failing closed.
  */
 export default function GatesPage() {
   const { t } = useTranslation('held-stock-report')

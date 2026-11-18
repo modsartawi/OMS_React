@@ -1,5 +1,5 @@
 /**
- * The one permissions answer (oms 909, BackOffice spec 4002, brief `3995-oms-react-permissions-brief.md`).
+ * The one permissions answer (oms 914, BackOffice spec 4002, brief `3995-oms-react-permissions-brief.md`).
  *
  * `GET Auth/Permissions` answers every `BackOfficeScreen` grant the signed-in user holds, as seed-spelled keys
  * (`DocumentList:03`, `Attachments:03:NPHIES`), plus five extras. It replaces the ~45 `*\/Access` probes the shell used
@@ -82,6 +82,7 @@ export const SCREEN_KEYS = [
   'StoreStage:02',
   'StoreStage:03',
   'StoreCountClose:02',
+  'StockHealth:03',
   'BupaLineOutcomes:03',
   'ExpiredApprovalPick:03',
   'HeldStockReport:03',

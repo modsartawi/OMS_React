@@ -34,7 +34,7 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
     retry: false, // failure surfaces immediately with a Retry button
   })
 
-  // oms 909 (BackOffice spec 4002): the ONE permissions answer starts here, IN PARALLEL with Auth/Me — not after it —
+  // oms 914 (BackOffice spec 4002): the ONE permissions answer starts here, IN PARALLEL with Auth/Me — not after it —
   // so the menu settles one round trip after the code. Same options as every reader (`staleTime: Infinity`,
   // `retry: false`); the menu, the page gates and the buttons all read this cache entry. An anonymous visit's 401 is
   // quiet (`@/core/api` skips the expired-session redirect for this path) and the user change resets it after login.

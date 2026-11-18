@@ -7,7 +7,7 @@
  * Attachments tab in `features/oms/document` — and a feature may not import another
  * feature (`.claude/rules/feature-structure.md`, BackOffice 2050 G3). So ByOwner,
  * `/Content`, Upload and Withdraw live here (the grants are `./access`, off the one
- * permissions answer since oms 909), parameterised by owner kind and
+ * permissions answer since oms 914), parameterised by owner kind and
  * key, and each caller passes its own constants.
  *
  * Every call goes through `@/core/api` (`.claude/rules/api-envelope.md`). Every

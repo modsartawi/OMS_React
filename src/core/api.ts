@@ -146,7 +146,7 @@ const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.PROD ? '/' : '/ap
 let redirectInFlight = false
 
 /**
- * Who hears a 403 (oms 909, BackOffice spec 4002). The one permissions answer is read once per page life, so a grant
+ * Who hears a 403 (oms 914, BackOffice spec 4002). The one permissions answer is read once per page life, so a grant
  * revoked mid-session shows first as a door saying no: every 403 — a bare grant-filter refusal or a coded one — tells
  * the listeners, and `@/core/permissions` invalidates its answer so the menu and the buttons catch up. A listener set
  * rather than an import, because `core/api` must not know the query client.
@@ -170,7 +170,7 @@ function handle401(requestPath: string): ApiError {
   const skip =
     requestPath.endsWith('Auth/Login') ||
     requestPath.includes('Auth/Ua') ||
-    // The permissions answer starts beside `Auth/Me` (oms 909), so an anonymous visit asks it too: its 401 is the
+    // The permissions answer starts beside `Auth/Me` (oms 914), so an anonymous visit asks it too: its 401 is the
     // same "not signed in" Me already reports as a 200, not an ended session to toast about.
     requestPath.endsWith('Auth/Permissions') ||
     window.location.pathname === '/login'

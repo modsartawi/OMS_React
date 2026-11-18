@@ -166,7 +166,7 @@ export function paletteGroups(input: {
   recent: readonly RecentRecord[]
   /** `useVisibleMenu(MENU).items` — what the rail draws. */
   menu: readonly ShellMenuItem[]
-  /** The one permissions answer (oms 909): Delivery details' grant gates Jump + Recent, Loy member's the member row. */
+  /** The one permissions answer (oms 914): Delivery details' grant gates Jump + Recent, Loy member's the member row. */
   permissions: Permissions
   query: string
   textOf: (row: PaletteRow) => string

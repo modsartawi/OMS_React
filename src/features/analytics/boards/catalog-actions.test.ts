@@ -51,7 +51,7 @@ describe('who is offered the author actions (843, story 51)', () => {
     const author = permissionsOf({ screens: ['Analytics:03', 'Analytics:02'] })
     expect(catalogAuthorActions(author, true)).toEqual({ newView: true, ask: true })
     expect(catalogAuthorActions(author, false)).toEqual({ newView: true, ask: false })
-    // The curate key without the author grant is no author (the server's combination, oms 909).
+    // The curate key without the author grant is no author (the server's combination, oms 914).
     expect(catalogAuthorActions(permissionsOf({ screens: ['Analytics:03', 'Analytics:06'] }), true)).toEqual({ newView: false, ask: false })
   })
 })

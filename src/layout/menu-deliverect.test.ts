@@ -2,7 +2,7 @@
  * The Deliverect nav group, gated (ticket 477, BackOffice spec 2615).
  *
  * Read out of the **real** `MENU`, never re-declared, so a leaf that lost its gate or drifted onto another key fails
- * here. Each leaf reads its own key off the ONE permissions answer (oms 909, brief 3995 row 39): Stores =
+ * here. Each leaf reads its own key off the ONE permissions answer (oms 914, brief 3995 row 39): Stores =
  * `DeliverectStores:03`, Orders = `DeliverectOrders:03`, Catalog = `DeliverectCatalog:03`, Terms = `DeliverectTerms:03`.
  */
 import { describe, expect, it } from 'vitest'

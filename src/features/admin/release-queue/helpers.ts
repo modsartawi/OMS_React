@@ -169,7 +169,7 @@ export function storesInGrantOrder(entries: readonly SlotQueueEntry[]): QueuedSt
 
 /**
  * Whether the page draws its Manage controls (ticket 792): only for `PosRelease.Queue.Manage` (`PosReleaseQueue:06`),
- * read off the one permissions answer the gate reads (oms 909). No answer hides them (each door re-checks anyway).
+ * read off the one permissions answer the gate reads (oms 914). No answer hides them (each door re-checks anyway).
  */
 export function showsControls(p: Permissions): boolean {
   return p.has('PosReleaseQueue:06')

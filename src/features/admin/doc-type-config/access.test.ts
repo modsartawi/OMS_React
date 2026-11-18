@@ -1,5 +1,5 @@
 /**
- * Ticket 3149, read off the one permissions answer since oms 909 (BackOffice spec 4002, the SdDocTypeConfig row): the
+ * Ticket 3149, read off the one permissions answer since oms 914 (BackOffice spec 4002, the SdDocTypeConfig row): the
  * menu leaf and the ScreenGate share one View predicate (the existing OMS access, `DocumentList:03`); every write
  * affordance reads Edit, `DocumentList:03 && SdDocTypeConfig:06`, so Edit is hidden without both.
  */

@@ -3,7 +3,7 @@ import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
 import { canOpenIDocInspector } from './api'
 
 /**
- * Ticket 296's proofs, on the seam that decides them — since oms 909 one predicate over the one permissions answer.
+ * Ticket 296's proofs, on the seam that decides them — since oms 914 one predicate over the one permissions answer.
  * The nav leaf and the screen's own `ScreenGate` both pass `canOpenIDocInspector`, so this IS the access spine.
  */
 const p = (...screens: string[]) => permissionsOf({ screens })

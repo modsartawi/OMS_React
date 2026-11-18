@@ -45,7 +45,7 @@ const ROW = (over: Partial<PayerMonthRow> = {}): PayerMonthRow => ({
 const coded = (code: string | null, status = 400) =>
   new ApiError('business', 'server sentence', status, code === null ? [] : [{ errorCode: code, errorMessage: '' } as never])
 
-describe('the grant (oms 909)', () => {
+describe('the grant (oms 914)', () => {
   it('only InsurancePayerMonth:03 opens the leaf and the page', () => {
     expect(canManagePayerMonths(permissionsOf({ screens: ['InsurancePayerMonth:03'] }))).toBe(true)
     for (const screens of [[], ['InsurancePayerMonth:02'], ['InsuranceRuleAuthoring:03']])

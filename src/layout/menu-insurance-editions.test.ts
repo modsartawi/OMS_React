@@ -6,7 +6,7 @@ import { deriveCrumb } from './crumb'
 import { resolveMenu } from './useVisibleMenu'
 
 describe('the Editions leaf', () => {
-  it('sits in the Insurance rules group at /insurance-rules/editions, on its own key (852; 909)', () => {
+  it('sits in the Insurance rules group at /insurance-rules/editions, on its own key (852; 914)', () => {
     const group = MENU.find((g) => g.labelKey === 'insurance-rules:menu.group')!
     const leaf = group.items!.find((i) => i.labelKey === 'insurance-rules:menu.editions')!
     expect(leaf).toMatchObject({ routerLink: '/insurance-rules/editions' })

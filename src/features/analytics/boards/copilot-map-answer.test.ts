@@ -90,7 +90,7 @@ const unmapped: CopilotAnswerTable = (() => {
   return { ...rest, columns: mapped.columns.slice(0, 3), rows: mapped.rows.map((r) => ({ ...r, values: r.values.slice(0, 3) })) }
 })()
 
-/** The one permissions answer (oms 909), seeded under its key as the gate's cached read would be. */
+/** The one permissions answer (oms 914), seeded under its key as the gate's cached read would be. */
 const answerOf = (...screens: string[]): PermissionsAnswer => ({
   screens,
   extras: { fileServerReady: false, notificationCenterOn: false, nphiesContractVersion: '', canManageRoles: false, canManageUsers: false },

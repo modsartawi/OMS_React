@@ -1,5 +1,5 @@
 // Collections drive (ticket 253) — drives the REAL app in Chromium against a MOCKED
-// `Auth/Permissions` answer (oms 909; the Collection keys — `CollectionInquiry:03`, `AcrInquiry:03`, …)
+// `Auth/Permissions` answer (oms 914; the Collection keys — `CollectionInquiry:03`, `AcrInquiry:03`, …)
 // and stubbed CollectionWeb doors (BackOffice 1090; ticket 259 is the wave-joining event). This is the wave's screens
 // drive — later slices (254–258) EXTEND this file rather than starting a third.
 //
@@ -409,7 +409,7 @@ async function run() {
       )
     if (path === 'Auth/Permissions') {
       accessCalls++
-      // The one permissions answer (oms 909); a 500 is the server's fail-closed answer.
+      // The one permissions answer (oms 914); a 500 is the server's fail-closed answer.
       if (scenario.access500) return route.fulfill(permissionsFailed(500))
       return route.fulfill(permissions(flagKeys('Collection', scenario.accessBody)))
     }

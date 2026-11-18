@@ -12,7 +12,7 @@ import ImportWorkspace from './ImportWorkspace'
 // AuthzAdminPage: a permissions gate (spinner → denied card → content), an eyebrow +
 // title, and a Templates | Inquiry | Import tablist. Gated by the CouponsAdmin grant —
 // Templates + Import are admin-only; Inquiry (support-or-admin) lands with ticket 521,
-// so its tab shows a placeholder here. Reads the one permissions answer the nav leaf reads (oms 909).
+// so its tab shows a placeholder here. Reads the one permissions answer the nav leaf reads (oms 914).
 type Tab = 'templates' | 'inquiry' | 'import'
 
 const TABS: Tab[] = ['templates', 'inquiry', 'import']

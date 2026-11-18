@@ -19,7 +19,7 @@ import { usePermissions, type Permissions } from '@/core/permissions'
  * broken screen when the nav never offered it. Both exist for different reasons and
  * neither substitutes for the other.
  *
- * Since oms 909 (BackOffice spec 4002) the grant is read off the ONE permissions answer
+ * Since oms 914 (BackOffice spec 4002) the grant is read off the ONE permissions answer
  * (`@/core/permissions`), not a per-area probe. Three things are **passed in**:
  *
  * - **`can`** — the very predicate the nav leaf declares (`requires`), so there is

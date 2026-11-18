@@ -12,7 +12,7 @@ import { toolLabelKey } from './trace'
 
 /**
  * BackOffice spec 3632 Q27, Q28, Q33 (ticket 888): the panel's SQL mode. The wire is BackOffice 3673's (`sqlMode` on the
- * ask, `sql` on the answer) and 3674's (`sqlOffer` on a can't-answer); the grant is the Analytics SQL grant on the one permissions answer (oms 909).
+ * ask, `sql` on the answer) and 3674's (`sqlOffer` on a can't-answer); the grant is the Analytics SQL grant on the one permissions answer (oms 914).
  */
 
 const reply = (over: Partial<CopilotAnswer> = {}): CopilotAnswer => ({

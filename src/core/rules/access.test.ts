@@ -1,4 +1,4 @@
-/** The rule engine's grants off the one permissions answer (oms 909, BackOffice brief 3995 row 34). */
+/** The rule engine's grants off the one permissions answer (oms 914, BackOffice brief 3995 row 34). */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'
 import { canApproveRules, canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from './access'

@@ -11,7 +11,7 @@ const BASE = 'UaAdminWeb'
 
 /**
  * May open the active-sessions screen (`UaSessions:03`): the in-page guard and the shell's nav leaf read this one
- * predicate off the one permissions answer (oms 909). The server enforces the grant on every UaAdminWeb/Sessions* route
+ * predicate off the one permissions answer (oms 914). The server enforces the grant on every UaAdminWeb/Sessions* route
  * via UaSessionsGrantEndpointFilter.
  */
 export const canOpenActiveSessions = (p: Permissions): boolean => p.has('UaSessions:03')

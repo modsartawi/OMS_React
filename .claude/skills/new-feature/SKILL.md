@@ -90,7 +90,7 @@ export const <camel>Api = {
 
 **If the screen is permission-gated**, model it on `features/admin/ua-admin` instead of writing the
 minimal stub blind: the grant is a `BackOfficeScreen` key on the ONE `Auth/Permissions` answer
-(`@/core/permissions`, oms 909) — never a per-screen `*/Access` call. Add the key to `SCREEN_KEYS` (seed
+(`@/core/permissions`, oms 914) — never a per-screen `*/Access` call. Add the key to `SCREEN_KEYS` (seed
 spelling, e.g. `'<Controller>:03'`), export a named predicate from `api.ts`
 (`export const canOpen<Camel> = (p: Permissions) => p.has('<Controller>:03')`), have the Page read it through
 `usePermissions()` (or stand behind `ScreenGate` with `can={canOpen<Camel>}`) and show the "no access" backstop when

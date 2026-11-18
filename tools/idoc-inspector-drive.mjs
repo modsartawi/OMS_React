@@ -18,7 +18,7 @@
 //   3. a hand-typed /reports/idoc-inspector on a denied session → the inspector's
 //      OWN no-access sentence, not an error, not a retry, and not the invoices
 //      screen's wording.
-//   4. the one permissions answer (`Auth/Permissions`, oms 909) is read ONCE per visit (nav leaf + screen gate
+//   4. the one permissions answer (`Auth/Permissions`, oms 914) is read ONCE per visit (nav leaf + screen gate
 //      share it), a denial included.
 //   5. a failed permissions answer (500) reads as unavailable — the other sentence.
 //   6. the local required-field refusal: Look up with a blank half issues nothing

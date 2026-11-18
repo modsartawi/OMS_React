@@ -1,7 +1,7 @@
 // Bonus-buy details affordance + its gate (ticket 118, spec 110) — drives the REAL app
 // in Chromium, serving the captured `Pricing/Simulate` response from
 // `.issues/assets/098-simulate-payloads/` as the wire and STUBBING the one `Auth/Permissions`
-// answer (oms 909) with and without `BbyInquiry:03`. The app is not stubbed, only the wire.
+// answer (oms 914) with and without `BbyInquiry:03`. The app is not stubbed, only the wire.
 //
 // Its own file and its own port (5202) rather than an extension of 117's, so this slice
 // and 119 run in the same wave without contending for either.
@@ -12,7 +12,7 @@
 //
 //   1. the control is ABSENT when the answer lacks BbyInquiry:03, PRESENT on both card kinds
 //      when it holds it (the old probe's 404 "unprobed" trap went with the probe);
-//   2. (gone with 909: the rail cannot render before the answer, since the screen's own
+//   2. (gone with 914: the rail cannot render before the answer, since the screen's own
 //      PosSimulation:03 gate reads the same answer);
 //   3. the control opens the bonus-buy modal in place, over the basket, and closing it
 //      returns to exactly that basket — on a fired card AND on a near-miss.

@@ -7,7 +7,7 @@ import { RENDER_TICKET_PERMISSIONS, needsAuthor, refreshAfterLostGrant } from '.
 
 const coded = (code: string) => new ApiError('business', `Server says ${code}.`, 403, [{ errorCode: code, internalErrorCode: '', errorMessage: '' }])
 
-// 822 (spec 819 §C) on the one permissions answer (oms 909): a lost-grant refusal asks the answer again, so the
+// 822 (spec 819 §C) on the one permissions answer (oms 914): a lost-grant refusal asks the answer again, so the
 // actions it no longer covers hide next time.
 describe('the lost author grant', () => {
   it('ANALYTICS-415 is "needs the author grant"', () => {

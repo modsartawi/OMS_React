@@ -386,6 +386,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/store-stages/StoreStagesPage')).default,
         }),
       },
+      // Stock health (oms 912, BackOffice spec 4011 / door 4012) - whether batch stock is in good shape, one tile per
+      // signal, re-read every minute. Behind its own key, `StockHealth:03`.
+      {
+        path: 'oms/stock-health',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/stock-health/StockHealthPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on the one permissions answer. Filters
       // `?channel=&city=&store=` live in the URL.

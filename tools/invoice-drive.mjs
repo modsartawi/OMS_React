@@ -16,7 +16,7 @@
 //   2. screenAllowed:false → NO Reports group at all in the menu.
 //   3. a hand-typed /reports/invoice on a denied session → the no-access SENTENCE,
 //      not an empty screen and not a generic "something went wrong".
-//   4. the one permissions answer (`Auth/Permissions`, oms 909) is read ONCE per visit (nav leaf + screen gate
+//   4. the one permissions answer (`Auth/Permissions`, oms 914) is read ONCE per visit (nav leaf + screen gate
 //      share it, so a gated area costs no round trip of its own).
 //   5. every string on the screen came out of the `reports` namespace — no raw
 //      `reports:` keys leaked to the page, which is what an unregistered namespace

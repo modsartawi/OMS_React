@@ -26,7 +26,7 @@ export const AUTHZ_ROLE_LISTS_KEY = ['authz-admin', 'role-lists'] as const
 
 export const authzAdminApi = {
   /**
-   * The assignable / revocable role lists. ⚠ THE ONE KEPT `/Access` READ (oms 909, BackOffice brief
+   * The assignable / revocable role lists. ⚠ THE ONE KEPT `/Access` READ (oms 914, BackOffice brief
    * `3995-oms-react-permissions-brief.md`, "Not covered by the answer"): the lists are data (`IAdminService`), not a
    * menu fact, so the permissions answer does not carry them; this page reads them here until BackOffice gives it its
    * own call. Only the two lists are read — every boolean comes from `@/core/permissions`. The source-contract test

@@ -176,7 +176,7 @@ async function run() {
     const path = url.pathname.split('/api/')[1]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    // oms 909: the Collections keys plus the slip's Attachments keys (`slipGrants` keeps the old categories shape).
+    // oms 914: the Collections keys plus the slip's Attachments keys (`slipGrants` keeps the old categories shape).
     if (path === 'Auth/Permissions')
       return route.fulfill(
         permissions([...flagKeys('Collection', ACCESS), ...attachmentKeys(slipGrants.categories, slipGrants.withdrawCategories ?? [])], {

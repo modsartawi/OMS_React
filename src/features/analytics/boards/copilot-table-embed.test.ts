@@ -66,7 +66,7 @@ const byCity: CopilotAnswerTable = {
   query: { measures: ['net_till_value_sar'], dimensions: ['city'], filters: [], period: 'last-7-days', compareToPrevious: true },
 }
 
-/** The one permissions answer (oms 909), seeded under its key as the gate's cached read would be. */
+/** The one permissions answer (oms 914), seeded under its key as the gate's cached read would be. */
 const answerOf = (...screens: string[]): PermissionsAnswer => ({
   screens,
   extras: { fileServerReady: false, notificationCenterOn: false, nphiesContractVersion: '', canManageRoles: false, canManageUsers: false },

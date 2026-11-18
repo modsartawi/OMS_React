@@ -1,5 +1,5 @@
 /**
- * Ticket 551 — the HungerStation grants, off the one permissions answer since oms 909. Each leaf and each page reads
+ * Ticket 551 — the HungerStation grants, off the one permissions answer since oms 914. Each leaf and each page reads
  * its grant through one predicate; a missing or errored answer keeps every HungerStation screen hidden (fail closed).
  */
 import { describe, expect, it } from 'vitest'

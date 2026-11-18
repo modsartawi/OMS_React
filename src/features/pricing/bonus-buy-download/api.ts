@@ -15,7 +15,7 @@ import type { Permissions } from '@/core/permissions'
 const BASE = 'BonusBuyDownloadWeb'
 
 /**
- * The screen grant (`BbyDownload:03`), off the one permissions answer (oms 909): the in-page
+ * The screen grant (`BbyDownload:03`), off the one permissions answer (oms 914): the in-page
  * guard and the nav leaf read it. The server enforces the grant on every Download/Delete
  * regardless; this is show/hide hygiene only.
  */

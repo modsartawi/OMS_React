@@ -3,7 +3,7 @@
  * Ready and Cash Collections grids read, and that 321–323 build on.
  *
  * Pure: no React, no network, no i18n. The grants come off the one permissions
- * answer (`@/core/attachments/access`, oms 909); what is here is what they MEAN for a slip. The rules every owner shares
+ * answer (`@/core/attachments/access`, oms 914); what is here is what they MEAN for a slip. The rules every owner shares
  * (the preview, the stamps, the Withdrawn order, `holdsCategory`) moved to
  * `@/core/attachments/rules` with ticket 325.
  *

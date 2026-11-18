@@ -1,5 +1,5 @@
 /**
- * Ticket 541, on the one permissions answer (oms 909): the board's Display and Execute grants are two independent keys.
+ * Ticket 541, on the one permissions answer (oms 914): the board's Display and Execute grants are two independent keys.
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'

@@ -17,7 +17,7 @@ const CopilotPanel = lazy(() => import('@/features/copilot/CopilotPanel'))
 /**
  * "Ask the OMS" in the top bar (ticket 735, spec 734 D11), opening the copilot panel in a side sheet.
  *
- * 🚩 Fails closed (D7): the button exists only once the one permissions answer (oms 909) holds `Copilot:01` —
+ * 🚩 Fails closed (D7): the button exists only once the one permissions answer (oms 914) holds `Copilot:01` —
  * pending, errored or malformed draws nothing, because the panel sends the
  * question to an external AI service. The door's grant filter is the real boundary.
  *

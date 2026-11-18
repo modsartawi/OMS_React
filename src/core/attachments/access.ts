@@ -1,5 +1,5 @@
 /**
- * The attachment register's grants, read off the one permissions answer (oms 909, BackOffice spec 4002 row 3). The
+ * The attachment register's grants, read off the one permissions answer (oms 914, BackOffice spec 4002 row 3). The
  * Attachments screen key carries a third field, the category: `Attachments:03:<category>` reads it,
  * `Attachments:04:<category>` withdraws from it. The categories are derived from the answer's `screens`, never
  * hard-coded, and the File Server's readiness is `extras.fileServerReady` (what the old probe's 503 `NOT_SET_UP` said).

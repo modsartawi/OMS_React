@@ -31,7 +31,7 @@ import { codeValue } from './code-words'
  * After a control the door's answer is written straight into the page's cache (the new state shows
  * at once), and the campaign's reads are invalidated so the rollup follows; the page's poll (560)
  * then carries on. A refusal stays in the dialog. A bare 403 means the grant is gone: the cached
- * permissions answer is invalidated by `@/core/api` (oms 909), so every Operate control hides once it reads again.
+ * permissions answer is invalidated by `@/core/api` (oms 914), so every Operate control hides once it reads again.
  */
 
 /** `DataSync.Operate`, from the one permissions answer the page and the nav share (no extra call). */

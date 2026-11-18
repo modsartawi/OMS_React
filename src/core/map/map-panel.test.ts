@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { isBasemapUnreadable, isPainted, openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapView } from './map-panel'
+import { openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapView } from './map-panel'
 
-// Ticket 879 (BackOffice spec 3630, seam 6): the map panel, with the map engine replaced by a stand-in. The tests read
-// what the panel hands the engine and what it signals; they never touch MapLibre or pixels.
+// Tickets 879 and 908 (BackOffice spec 3630, seam 6; ADR 0139): the map panel, with the map engine replaced by a
+// stand-in. The tests read what the panel hands the engine and what it signals; they never touch Google or pixels.
 
-const ORIGIN = 'https://oms.example.test'
+const MAPS = { key: 'planted-test-key' }
 
 /** The stand-in engine: records what it was started with and lets the test play the engine's events. */
 function standIn(opts: { throwOnStart?: Error } = {}) {
@@ -46,7 +46,7 @@ function open(engine: MapEngine, over: Partial<Parameters<typeof openMapPanel>[0
     points: [RIYADH, JEDDAH, DAMMAM],
     lang: 'en',
     dir: 'ltr',
-    origin: ORIGIN,
+    maps: MAPS,
     onDrawn: () => signals.push('drawn'),
     onCannotDraw: (reason) => signals.push(`cannot-draw:${reason}`),
     ...over,
@@ -55,11 +55,11 @@ function open(engine: MapEngine, over: Partial<Parameters<typeof openMapPanel>[0
 }
 
 describe('the map panel hands the engine the points and a view fitted to them', () => {
-  it('passes every given point, as given', () => {
+  it('hands every given point on, through the features it draws at a zoom where none joins', () => {
     const e = standIn()
     open(e.engine)
     expect(e.started).toHaveLength(1)
-    expect(e.started[0].points).toEqual([RIYADH, JEDDAH, DAMMAM])
+    expect(e.started[0].featuresAt(18).map((f) => f.id).sort()).toEqual([RIYADH, JEDDAH, DAMMAM].map((p) => p.id).sort())
   })
 
   it('opens on the box that holds every point: Jeddah is the west edge, Dammam the east and the north, Jeddah the south', () => {
@@ -68,71 +68,64 @@ describe('the map panel hands the engine the points and a view fitted to them', 
     expect(e.started[0].view).toEqual({ kind: 'bounds', west: 39.172, south: 21.543, east: 50.103, north: 26.434 })
   })
 
-  it('opens on one point at street-and-district zoom, not on a box of no size', () => {
+  it('opens on one point at street-and-district zoom, not on a box of no size (Google’s 256-pixel tiles: 14, review G8)', () => {
     const e = standIn()
     open(e.engine, { points: [RIYADH] })
-    expect(e.started[0].view).toEqual({ kind: 'centre', lon: 46.675, lat: 24.713, zoom: 13 })
+    expect(e.started[0].view).toEqual({ kind: 'centre', lon: 46.675, lat: 24.713, zoom: 14 })
   })
 
-  it('with no points, opens on the whole of KSA and Bahrain (the base map’s box, spec M8)', () => {
+  it('with no points, opens on the whole of KSA and Bahrain (spec M8)', () => {
     const e = standIn()
     open(e.engine, { points: [] })
     expect(e.started[0].view).toEqual({ kind: 'bounds', west: 34, south: 15, east: 56, north: 33 })
   })
 })
 
-/** Every `["get", "<field>"]` the style's labels read, as one string to search. */
-const labelFieldsOf = (start: MapEngineStart) =>
-  JSON.stringify(start.style.layers.filter((l) => l.type === 'symbol').map((l) => (l.layout as Record<string, unknown> | undefined)?.['text-field']))
-
-describe('place names follow the screen language', () => {
-  it('on an Arabic screen the style asks for Arabic names', () => {
+describe('the panel hands the engine what Google needs: the key from the model, region SA, the screen language (908)', () => {
+  it('the key and the map ID are the model’s `maps` part, as given', () => {
     const e = standIn()
-    open(e.engine, { lang: 'ar', dir: 'rtl' })
-    expect(labelFieldsOf(e.started[0])).toContain('["get","name:ar"]')
-    expect(labelFieldsOf(e.started[0])).not.toContain('["get","name:en"],["get","name:en"]')
+    open(e.engine, { maps: { key: 'planted-test-key', mapId: 'planted-map-id' } })
+    expect(e.started[0].key).toBe('planted-test-key')
+    expect(e.started[0].mapId).toBe('planted-map-id')
   })
 
-  it('on an English screen it asks for English names, and none in Arabic first', () => {
+  it('no map ID served: none handed on', () => {
     const e = standIn()
-    open(e.engine, { lang: 'en' })
-    expect(labelFieldsOf(e.started[0])).toContain('["get","name:en"]')
-    expect(labelFieldsOf(e.started[0])).not.toContain('name:ar')
+    open(e.engine, { maps: { key: 'planted-test-key' } })
+    expect(e.started[0].mapId).toBeUndefined()
   })
 
-  it('on an Arabic screen the text-shaping add-on is loaded from our own site, before the map draws', () => {
-    const e = standIn()
-    open(e.engine, { lang: 'ar', dir: 'rtl' })
-    expect(e.started[0].rtlTextPlugin).toEqual({ url: `${ORIGIN}/map/rtl-text/mapbox-gl-rtl-text-0.3.0.js`, deferred: false })
-    expect(e.started[0].lang).toBe('ar')
-  })
-
-  it('on an English screen the add-on still comes from our own site, deferred until a label needs it', () => {
-    const e = standIn()
-    open(e.engine, { lang: 'en' })
-    expect(e.started[0].rtlTextPlugin).toEqual({ url: `${ORIGIN}/map/rtl-text/mapbox-gl-rtl-text-0.3.0.js`, deferred: true })
-  })
-
-  it('on an Arabic screen no label asks for the italic font, which has no Arabic letters (BackOffice 3634)', () => {
-    const e = standIn()
-    open(e.engine, { lang: 'ar', dir: 'rtl' })
-    expect(JSON.stringify(e.started[0].style.layers)).not.toContain('Noto Sans Italic')
-    expect(JSON.stringify(e.started[0].style.layers)).toContain('Noto Sans Regular')
+  it('the language is the screen’s', () => {
+    const ar = standIn()
+    open(ar.engine, { lang: 'ar', dir: 'rtl' })
+    expect(ar.started[0].lang).toBe('ar')
+    const en = standIn()
+    open(en.engine, { lang: 'en' })
+    expect(en.started[0].lang).toBe('en')
   })
 })
 
-describe('the style reads every file from our own site', () => {
-  it('the base map is the one file at the fixed path, read by byte range', () => {
+describe('with no key the panel cannot draw, and Google is never asked (908)', () => {
+  it('no `maps` part: "cannot draw: no key", and the engine is not started', () => {
     const e = standIn()
-    open(e.engine)
-    expect(e.started[0].style.sources.protomaps).toEqual({ type: 'vector', url: `pmtiles://${ORIGIN}/basemap/ksa-bh.pmtiles` })
+    const { signals } = open(e.engine, { maps: undefined })
+    expect(signals).toEqual(['cannot-draw:no-key'])
+    expect(e.started).toHaveLength(0)
   })
 
-  it('the fonts and the icons are under our origin', () => {
+  it('an empty key, or one of spaces: the same', () => {
+    for (const key of ['', '   ']) {
+      const e = standIn()
+      const { signals } = open(e.engine, { maps: { key } })
+      expect(signals).toEqual(['cannot-draw:no-key'])
+      expect(e.started).toHaveLength(0)
+    }
+  })
+
+  it('closing a panel that had no key is harmless', () => {
     const e = standIn()
-    open(e.engine)
-    expect(e.started[0].style.glyphs).toBe(`${ORIGIN}/map/fonts/{fontstack}/{range}.pbf`)
-    expect(e.started[0].style.sprite).toBe(`${ORIGIN}/map/sprites/grayscale`)
+    const { panel } = open(e.engine, { maps: null })
+    expect(() => panel.close()).not.toThrow()
   })
 })
 
@@ -150,26 +143,45 @@ describe("the panel's own controls follow the screen's direction", () => {
   })
 })
 
-describe('the panel says when it is drawn', () => {
-  it('signals nothing until the engine reports its tiles and points painted', () => {
+describe('the panel says when it is drawn: Google reports its tiles loaded and the map idle, the points on it (908)', () => {
+  it('signals nothing until the engine reports anything', () => {
     const e = standIn()
     const { signals } = open(e.engine)
     expect(signals).toEqual([])
   })
 
-  it('signals "drawn" once the engine reports them painted', () => {
-    const e = standIn()
-    const { signals } = open(e.engine)
-    e.events.painted()
-    expect(signals).toEqual(['drawn'])
+  it('tiles loaded alone is not drawn; idle alone is not drawn', () => {
+    const tilesOnly = standIn()
+    const a = open(tilesOnly.engine)
+    tilesOnly.events.tilesLoaded()
+    expect(a.signals).toEqual([])
+    const idleOnly = standIn()
+    const b = open(idleOnly.engine)
+    idleOnly.events.idle()
+    idleOnly.events.idle()
+    expect(b.signals).toEqual([])
   })
 
-  it('signals "drawn" once only, however often the engine repaints (a pan, a zoom)', () => {
+  it('both: "drawn", in either order', () => {
+    const first = standIn()
+    const a = open(first.engine)
+    first.events.tilesLoaded()
+    first.events.idle()
+    expect(a.signals).toEqual(['drawn'])
+    const second = standIn()
+    const b = open(second.engine)
+    second.events.idle()
+    second.events.tilesLoaded()
+    expect(b.signals).toEqual(['drawn'])
+  })
+
+  it('signals "drawn" once only, however often Google reports them again (a pan, a zoom)', () => {
     const e = standIn()
     const { signals } = open(e.engine)
-    e.events.painted()
-    e.events.painted()
-    e.events.painted()
+    for (let i = 0; i < 3; i++) {
+      e.events.tilesLoaded()
+      e.events.idle()
+    }
     expect(signals).toEqual(['drawn'])
   })
 
@@ -177,47 +189,68 @@ describe('the panel says when it is drawn', () => {
     const e = standIn()
     const { panel, signals } = open(e.engine)
     panel.close()
-    e.events.painted()
+    e.events.tilesLoaded()
+    e.events.idle()
     expect(signals).toEqual([])
     expect(e.destroyed).toBe(1)
   })
 })
 
-describe('the panel says when it cannot draw, so the caller can show the table', () => {
-  it('signals "cannot draw: no graphics" when the engine fails to start', () => {
-    const e = standIn({ throwOnStart: new Error('Failed to initialize WebGL') })
+describe('the panel says when it cannot draw, with the reason, so the caller can show the table (908)', () => {
+  it('"no graphics" when the engine fails to start', () => {
+    const e = standIn({ throwOnStart: new Error('cannot start') })
     const { signals } = open(e.engine)
     expect(signals).toEqual(['cannot-draw:no-graphics'])
   })
 
   it('closing a panel that never started is harmless', () => {
-    const e = standIn({ throwOnStart: new Error('Failed to initialize WebGL') })
+    const e = standIn({ throwOnStart: new Error('cannot start') })
     const { panel } = open(e.engine)
     expect(() => panel.close()).not.toThrow()
   })
 
-  it('signals "cannot draw: base map unreadable" when the engine cannot read the base-map file', () => {
+  it('"refused" when Google refuses the key or the page (gm_authFailure)', () => {
     const e = standIn()
     const { signals } = open(e.engine)
-    e.events.basemapUnreadable()
-    expect(signals).toEqual(['cannot-draw:basemap-unreadable'])
+    e.events.failed('refused')
+    expect(signals).toEqual(['cannot-draw:refused'])
   })
 
-  it('signals one ending only: no "drawn" after "cannot draw", and no second "cannot draw"', () => {
+  it('"unreachable" when Google’s script failed or did not arrive in time', () => {
     const e = standIn()
     const { signals } = open(e.engine)
-    e.events.basemapUnreadable()
-    e.events.basemapUnreadable()
-    e.events.painted()
-    expect(signals).toEqual(['cannot-draw:basemap-unreadable'])
+    e.events.failed('unreachable')
+    expect(signals).toEqual(['cannot-draw:unreachable'])
   })
 
-  it('a file error after the map is drawn changes nothing already signalled', () => {
+  it('one ending only: no second "cannot draw", and no "drawn" after it', () => {
     const e = standIn()
     const { signals } = open(e.engine)
-    e.events.painted()
-    e.events.basemapUnreadable()
-    expect(signals).toEqual(['drawn'])
+    e.events.failed('refused')
+    e.events.failed('refused')
+    e.events.failed('unreachable')
+    e.events.tilesLoaded()
+    e.events.idle()
+    expect(signals).toEqual(['cannot-draw:refused'])
+  })
+
+  it('a refusal after the map is drawn ends it as "cannot draw": Google greys a refused map out', () => {
+    const e = standIn()
+    const { signals } = open(e.engine)
+    e.events.tilesLoaded()
+    e.events.idle()
+    e.events.failed('refused')
+    e.events.failed('refused')
+    expect(signals).toEqual(['drawn', 'cannot-draw:refused'])
+  })
+
+  it('nothing is signalled once the panel is closed', () => {
+    const e = standIn()
+    const { panel, signals } = open(e.engine)
+    panel.close()
+    e.events.failed('refused')
+    e.events.failed('unreachable')
+    expect(signals).toEqual([])
   })
 })
 
@@ -243,67 +276,3 @@ describe('a map opened in a box with no size yet is fitted once the box has one 
   })
 })
 
-describe('a map whose graphics are lost shows the table (review W9)', () => {
-  it('losing the graphics after the map is drawn signals "cannot draw": the blank canvas is not left as drawn', () => {
-    const e = standIn()
-    const { signals } = open(e.engine)
-    e.events.painted()
-    e.events.graphicsLost()
-    expect(signals).toEqual(['drawn', 'cannot-draw:no-graphics'])
-  })
-
-  it('losing them while drawing signals it once, and nothing after', () => {
-    const e = standIn()
-    const { signals } = open(e.engine)
-    e.events.graphicsLost()
-    e.events.graphicsLost()
-    e.events.painted()
-    expect(signals).toEqual(['cannot-draw:no-graphics'])
-  })
-
-  it('nothing is signalled once the panel is closed', () => {
-    const e = standIn()
-    const { panel, signals } = open(e.engine)
-    panel.close()
-    e.events.graphicsLost()
-    expect(signals).toEqual([])
-  })
-})
-
-describe('only the base-map file itself unread is "base map unreadable" (review W5)', () => {
-  it('the file or its header not read: unreadable', () => {
-    expect(isBasemapUnreadable({ sourceId: 'protomaps', error: new Error('404') })).toBe(true)
-  })
-
-  it('one tile failing is not: the rest of the map is drawn', () => {
-    expect(isBasemapUnreadable({ sourceId: 'protomaps', tile: {}, error: new Error('timeout') })).toBe(false)
-  })
-
-  it('an error on another source is not', () => {
-    expect(isBasemapUnreadable({ sourceId: 'points', error: new Error('x') })).toBe(false)
-    expect(isBasemapUnreadable({ error: new Error('x') })).toBe(false)
-  })
-})
-
-describe('an Arabic map is drawn only once its letters are shaped (review W6)', () => {
-  const loaded = { tilesLoaded: true, basemapLoaded: true, pointsLoaded: true }
-
-  it('on an Arabic screen, not before the text-shaping add-on has loaded', () => {
-    for (const rtl of ['unavailable', 'deferred', 'requested', 'loading'] as const) expect(isPainted({ ...loaded, lang: 'ar', rtl })).toBe(false)
-    expect(isPainted({ ...loaded, lang: 'ar', rtl: 'loaded' })).toBe(true)
-  })
-
-  it('an add-on that failed to load leaves the labels unshaped, not the map undrawn', () => {
-    expect(isPainted({ ...loaded, lang: 'ar', rtl: 'error' })).toBe(true)
-  })
-
-  it('on an English screen the add-on is not waited for', () => {
-    expect(isPainted({ ...loaded, lang: 'en', rtl: 'deferred' })).toBe(true)
-  })
-
-  it('never before the tiles and both sources are in', () => {
-    expect(isPainted({ ...loaded, tilesLoaded: false, lang: 'en', rtl: 'loaded' })).toBe(false)
-    expect(isPainted({ ...loaded, basemapLoaded: false, lang: 'en', rtl: 'loaded' })).toBe(false)
-    expect(isPainted({ ...loaded, pointsLoaded: false, lang: 'ar', rtl: 'loaded' })).toBe(false)
-  })
-})

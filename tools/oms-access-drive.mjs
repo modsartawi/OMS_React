@@ -6,7 +6,7 @@
 // Port 5206 (124's empty-menu drive owns 5207; the two run in the same wave).
 //
 // Nothing about the app is stubbed except the wire: `Auth/Me`, the one `Auth/Permissions` answer
-// (oms 909: DocumentList:03 / DocumentDetails:03 for OMS, every other area's keys granted) and the two
+// (oms 914: DocumentList:03 / DocumentDetails:03 for OMS, every other area's keys granted) and the two
 // OMS data calls are fulfilled from here, so a run needs no SIS.Api, no seeded user and no grant. Every
 // `/api/**` request is RECORDED, which is how the "fires no data request" and "exactly one permissions
 // call" boxes are proven rather than asserted.

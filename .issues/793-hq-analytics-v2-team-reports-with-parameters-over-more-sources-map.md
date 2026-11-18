@@ -1,6 +1,6 @@
 ---
 type: wayfinder-map
-status: open
+status: done
 ---
 
 # 793 — HQ analytics v2: team reports with parameters, over more sources
@@ -136,3 +136,9 @@ spec 766, spec 734). v2 does not reopen them:
 - **SAP / IDoc export health as an analytics area.** It is an operations concern that the SAP export and sync consoles already serve (owner, 796).
 - **Platform-side cancels** (`DhOrderHeader`, `DlvOrderHeader`, which are not on the replica). v2 counts cancellations inside OMS only, with a caveat, and no DBA task is filed (owner, 796).
 - **Building v2.** That is `/to-tickets`' job after the spec.
+
+## Comments
+
+**2026-11-17 — closed at the progress review** (owner-approved). The destination, a `ready` v2 spec, was reached
+([819](819-hq-analytics-v2-team-reports-with-parameters-spec.md), 2026-11-06), and 819 has been built (71c7cc53 and
+the tickets after it). The map is closed; 819 itself stays `ready` until its last ticket, 835, closes.

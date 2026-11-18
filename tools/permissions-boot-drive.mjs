@@ -1,4 +1,4 @@
-// oms 909 (BackOffice spec 4002): a cold load reads ONE `Auth/Permissions` and ZERO `*/Access` — drives the REAL app
+// oms 914 (BackOffice spec 4002): a cold load reads ONE `Auth/Permissions` and ZERO `*/Access` — drives the REAL app
 // against a REAL SIS.Api (nothing stubbed).
 //
 //   1. run the app:  SIS_API=http://<sis-api-host> npx vite --port 5199

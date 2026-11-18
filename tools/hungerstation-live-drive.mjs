@@ -60,7 +60,7 @@ const TODAY = daysFromToday(0)
 // ── The contract's keys, door by door ─────────────────────────────────────────────────────────────
 // Restated by hand from src/core/models/hungerstation.ts (a plain-node drive cannot import TypeScript):
 // a contract change edits both.
-// The keys each screen reads off the one permissions answer (oms 909).
+// The keys each screen reads off the one permissions answer (oms 914).
 const SCREEN_KEYS = { canManageStores: 'HungerStationStores:03', canManageCatalog: 'HungerStationCatalog:03', canViewOrders: 'HungerStationOrders:03' }
 const STORE = ['storeCode', 'storeName', 'chainKey', 'vendorId', 'onboardedAt', 'onboardedBy', 'updatedAt', 'updatedBy', 'sync']
 const SYNC = ['active', 'lastFullRun', 'lastDeltaRun', 'lastRun', 'lastStatus', 'lastError', 'health']

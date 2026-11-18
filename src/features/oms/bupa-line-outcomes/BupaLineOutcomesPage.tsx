@@ -36,7 +36,7 @@ import { actKey, kindKey, linesOf, summaryKey } from './outcomes'
  * orders one by one. A summary per kind × sent × dispensed, its totals, the lines behind a row with each line's act
  * history, and the server's `.xlsx` for the same query.
  *
- * Behind `canViewBupaOutcomes` on its own key of the one permissions answer (oms 909), the predicate the menu leaf reads,
+ * Behind `canViewBupaOutcomes` on its own key of the one permissions answer (oms 914), the predicate the menu leaf reads,
  * failing closed. No patient identity is shown: the doors carry none.
  */
 export default function BupaLineOutcomesPage() {

@@ -47,7 +47,7 @@ export interface OrderAttachments {
  * gate, the first-opening latch, the audited list read and the badge, in one place so
  * the page stays about the document.
  *
- * - The grant is read off the one permissions answer (oms 909): `Attachments:03:<category>`
+ * - The grant is read off the one permissions answer (oms 914): `Attachments:03:<category>`
  *   for the category the document names.
  * - 🔑 The list is an AUDITED read. It waits on the latch, never on the page load or the
  *   panel's mount (the panel stays mounted while the disclosure is folded). The page observes it

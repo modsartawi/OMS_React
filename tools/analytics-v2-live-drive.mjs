@@ -52,7 +52,7 @@ const RAW_TOKEN = /\{\{fig:[^}]*\}\}|\{p\d+:[a-z_]+\}/
 // ── Sign-in (kept in DRIVE_STATE while it still answers) ──────────────────────────────────────────
 const WINDOW = process.env.SIS_SIGN_IN === 'window'
 const browser = await chromium.launch({ headless: !WINDOW })
-/** The one permissions answer (oms 909), or null while the session is not signed in. */
+/** The one permissions answer (oms 914), or null while the session is not signed in. */
 const probe = async (ctx) => {
   const res = await ctx.request.get(`${BASE}/api/Auth/Permissions`, { headers: { 'X-Web-Client': '1' } }).catch(() => null)
   return res?.status() === 200 ? (await res.json()).data : null

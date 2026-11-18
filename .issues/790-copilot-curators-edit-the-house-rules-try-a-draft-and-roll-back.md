@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 734
 blocked-by: BackOffice 3395
 ---
@@ -70,15 +70,15 @@ of 0 (the fallback) reads *built-in rules*.
   - [x] history rows (*reverted from*, active mark).
 - [x] `answer.test.ts`: `promptVersion` is read: a number gives *rules vN*, 0 gives *built-in rules*, absent gives
   nothing.
-- [ ] Drive (`tools/copilot-rules-drive.mjs`, against BackOffice 3395 locally):
-  - [ ] a viewer without the grant gets no menu item and the no-access state at the URL;
-  - [ ] a curator sees the core and version 1;
-  - [ ] removing rule 12 and trying a comparison question shows a "Metric | Value" list;
-  - [ ] putting it back and trying again shows one column per compared thing;
-  - [ ] save makes version 2 and the copilot panel's next answer reads *rules v2*;
-  - [ ] restoring version 1 makes version 3, reverted from 1;
-  - [ ] two tabs: saving in the second after the first gives the 411 dialog.
-- [ ] Under Arabic, the version, times and count read the right way round, and the house-rules text keeps its own
+- [x] Drive (`tools/copilot-rules-drive.mjs`, against BackOffice 3395 locally):
+  - [x] a viewer without the grant gets no menu item and the no-access state at the URL;
+  - [x] a curator sees the core and version 1;
+  - [x] ~~removing rule 12 and trying a comparison question shows a "Metric | Value" list;~~ *overtaken: owner, 2026-11-18*
+  - [x] ~~putting it back and trying again shows one column per compared thing;~~ *overtaken: owner, 2026-11-18*
+  - [x] save makes version 2 and the copilot panel's next answer reads *rules v2*;
+  - [x] restoring version 1 makes version 3, reverted from 1;
+  - [x] two tabs: saving in the second after the first gives the 411 dialog.
+- [x] Under Arabic, the version, times and count read the right way round, and the house-rules text keeps its own
   direction (`<bdi>` / `dir="auto"` on the textarea).
 - [x] `npm run typecheck`, `npm test` and `npm run lint` are clean. Any new hand-written control goes in
   `tools/control-baseline.txt` with its reason, or uses `core/ui`. *(2026-11-06: typecheck, the 654 test files and four lint gates clean; the boundary gate's one failure is
@@ -180,3 +180,87 @@ contract did not match what the server built. The client now reads 3395's own wi
 
 Drive moved to the same wire: 88/88 (LTR + RTL). 667 test files and build green. Still owed: the walk on the deployed
 host (both `COPILOT_USER` and `COPILOT_CURATOR` are needed, and SQL `004_create_copilot_prompt.sql` before the build).
+
+**2026-11-17 - walked live with the owner watching** (local SIS.Api on pricing2 4bbb888a5 against the local dev HQ database, which held v1-v3 from the system seed). Seen: the core ("What the copilot always follows") and the active version; **save** (one line added) made v4 and the panel's next answer read *rules v4* (and named the store by code and name, the line added); **restore** of v3 made v5 *reverted from v3*; **two tabs**: a save posted from the page's own session as the other tab made v6, and saving the stale edit opened "Someone saved first - Version 6 was saved while you were editing" with Theirs / Yours, *Keep theirs* and *Save mine on top*; v3 restored again as v7, so the rules end as they began. The adapted boxes: the local history started at v3, so "version 1 / 2 / 3" read as v3 / v4 / v5.
+
+**Not ticked:** (a) no viewer without the grant was signed in; (b) the two rule-12 boxes - with the Tables rule removed from the draft, *Try* answered both a two-store and a two-period comparison with one column per compared thing, so today's fast model no longer shows the "Metric | Value" list the box expects; the Try draft itself works ("Draft. Not saved, not in your conversations"); (c) **Arabic fails**: under `oms.locale=ar` the page is laid out RTL but its strings stay English, so the version line reads "2026-11-17 20:44 on 14419 saved by 7 Version", "956 / 2000 Characters", "v3 reverted from", and full stops jump to the front. The house-rules textareas keep LTR correctly. Fix on branch `fix/790-rules-arabic`. Also seen: v2's seeded note reads "spec 3408 Â§I" - the `§` was stored double-encoded by its BackOffice seed script.
+
+### 2026-11-17 — the Arabic box: the screen had no Arabic (owner walk)
+
+**Seen:** with `oms.locale = 'ar'` the screen was RTL but English, so the mixed lines read backwards: "2026-11-17
+20:44 on 14419 saved by 7 Version", "956 / 2000 Characters", "v3 reverted from", and full stops at the start.
+
+**What was missing:**
+
+1. **The Arabic words.** `ar/copilot.json` had no `rules.*` at all, nor the Try answer's `answer.*`, `ask.*`, `box.*`,
+   most of `refusal.*` and `trace.*`, the `failed` fallback or the menu leaf. The namespace was loaded, but every
+   key fell back to English. `copilot` is a PARTIAL Arabic namespace, so it never had the en/ar mirror test that
+   the full namespaces have (`release-queue`, `doc-type-config`), and the copilot tests read only the English bundle.
+   Nothing failed.
+2. **The word order was made from pieces.** The version line was "Version", value, "saved by", value, "on", value as
+   separate items in a flex row, and the count was a word next to an isolate. Under RTL the flex row laid the pieces
+   out right to left. Each is now one `<Trans>` sentence with every value in its own `Ltr` slot:
+   `rules.editor.versionLine.{full,by,at,bare}` and `rules.editor.charCount` (shared by the starters, `CharCount`).
+   The old `rules.editor.version/savedBy/savedAt/chars` keys are gone.
+3. **The empty note and Try question.** Their `dir="auto"` resolved LTR while empty, so the Arabic placeholder's full
+   stop moved to its start. They now take the page's direction until something is typed, then `auto`.
+
+**Changed:** Arabic for every string on the screen: the gate, core, editor, default readings, starters, Try, the
+411 dialog, the history, the restore confirm, the toasts, the leave guard, the readers' counts (six plural forms)
+and the answer the Try panel draws. `src/features/copilot/rules-i18n.test.ts` fails when a key the screen's sources
+ask for (`t('…')`, `i18nKey`, the gate's `keyPrefix`) has no Arabic, or when those subtrees stop mirroring English.
+Its first run caught `ask.*` and `failed`.
+
+**Proof:** `tools/copilot-rules-drive.mjs` 100/100. It has a new Arabic pass that switches the app's i18n to `ar`,
+checks that the version, saver and time sit right to left, checks the count and *مُستعاد من v1*, checks that no
+English word is left outside data, and saves `.issues/assets/790-rules-ar.png`. The drive's three body checks were
+also updated for 874's `defaultReadings`; they failed before this change.
+
+🚩 **The box stays open for the owner's look, for one reason.** The app's `lng` is still hard-coded to `en`
+(`src/core/i18n.ts`). `oms.locale` sets only `dir`, as the other RTL drives note. So outside the drive, a real
+browser will still show this screen in English and mirrored until Arabic is switched on app-wide. That switch is not
+this ticket's. The screenshot shows the screen as it reads once the switch is made.
+
+### 2026-11-17 — the last two boxes walked live: no grant, and Arabic
+
+Walked on the local rig: SIS.Api on pricing2 against the local dev HQ database, and the app at `origin/main`
+`a86564a7`, which holds the Arabic fix. Two throwaway users were made for the walk and deleted after it:
+`T790VIEW` (`COPILOT_USER` + `ANALYTICS_VIEWER`, no curator grant) and `T790CUR` (the same plus `COPILOT_CURATOR`).
+Nothing was saved: the house rules stayed at v7.
+
+**A viewer without the grant (ticked).**
+
+- With the access checks settled, `T790VIEW`'s menu holds *BackOffice* and *Analytics* only: no *Administration*
+  group and no `/copilot/rules` leaf.
+- At the URL, the page shows *No access to the copilot rules*. `GET Copilot/Prompt` answers 403, and no editor is
+  drawn.
+- The control: `T790CUR` sees *Administration › Copilot rules*, and the editor opens.
+- Screenshots: `assets/790-live-viewer-menu.png` and `assets/790-live-viewer-no-access.png`.
+
+**Under Arabic (ticked).** As `T790CUR`, on live data (v7, saved by 14419, and v5/v7 restored from v3), the page was
+switched to `ar` and RTL in the running app, the way the drive does it.
+
+- The version line reads *الإصدار 7، حفظه 14419 في 2026-11-17 20:44*. Its three isolates sit right to left:
+  version, then saver, then time.
+- The count reads *عدد الأحرف 1954 / 4000*: the words on the right, the number after them.
+- The history row reads *مُستعاد من v3*: the words first, `v3` after them.
+- No English word is left outside data. The house-rules textarea is `dir="auto"` and keeps its English LTR. The
+  empty note is RTL. The menu leaf reads *قواعد المساعد*.
+- Screenshots: `assets/790-live-ar-top.png` and `assets/790-live-ar-history.png`.
+- ⚠ The caveat from the note above still holds. `lng` is hard-coded to `en` in `src/core/i18n.ts`, so a real
+  user sees this only once Arabic is switched on app-wide, which is a separate ticket.
+
+**Still open: the two rule-12 boxes, which today's model has overtaken.** With the Tables rule removed from the
+draft, the fast model already answers comparisons with one column per compared thing (see the walk note above).
+So the *Metric | Value* failure the first box expects cannot be shown, and the pair proves nothing. They need the
+owner's call: accept them as overtaken, or reword them against a failure the current model still shows.
+
+**Also seen, not this ticket's:** the history shows v2's seeded note as *spec 3408 Â§I*. That is the BackOffice
+seed script's double-encoded `§`, noted earlier.
+
+### 2026-11-18 — closed: the rule-12 pair accepted as overtaken (owner)
+
+The owner accepted the two rule-12 boxes as overtaken. Even with the Tables rule taken out of the draft, today's model
+answers comparisons with one column per compared thing, so the *Metric | Value* failure they were written against no
+longer appears. Rule 12 stays in the house rules. Every other proof holds, live or stubbed. *Done when* is met: on
+2026-11-17 the owner saved a change (v4) and the next answer followed it (*rules v4*). **Status: done.**

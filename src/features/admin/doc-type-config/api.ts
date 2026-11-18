@@ -59,7 +59,7 @@ export const docTypeConfigApi = {
   },
 }
 
-// ── The grants (oms 909, BackOffice spec 4002 row 42: off the one permissions answer) ──────────────────────
+// ── The grants (oms 914, BackOffice spec 4002 row 42: off the one permissions answer) ──────────────────────
 
 /** The menu leaf and the `ScreenGate` read THIS predicate: the existing OMS access, `DocumentList:03`. */
 export const canViewDocTypeConfig = (p: Permissions): boolean => p.has('DocumentList:03')

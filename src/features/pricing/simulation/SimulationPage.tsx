@@ -35,7 +35,7 @@ import { isStaleRun } from './staleness'
 import { simulationMaterialParam } from './material-param'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on `canOpenSimulation` (the one
-// permissions answer the menu leaf reads too, oms 909), then: a 4-column
+// permissions answer the menu leaf reads too, oms 914), then: a 4-column
 // header form + a basic items entry → Process (POST Pricing/Simulate) → Net Total +
 // per-line results grid with red/amber/green status dots + an error/warning banner.
 // The condition-card detail (014), bonus-buy tabs (015) and editable grids (016)
@@ -43,7 +43,7 @@ import { simulationMaterialParam } from './material-param'
 export default function SimulationPage() {
   const { t } = useTranslation('simulation')
 
-  // The one permissions answer (oms 909): the screen grant, the cache-admin grant and the
+  // The one permissions answer (oms 914): the screen grant, the cache-admin grant and the
   // bonus-buy grant all read off it.
   const permissions = usePermissions()
 

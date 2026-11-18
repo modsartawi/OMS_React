@@ -27,7 +27,7 @@ import {
 
 // Send Broadcast screen (spec 031, features/admin). Soft-gates on the
 // NotificationBroadcast grant (038): the page reads the same `canBroadcast` as the
-// shell's permission-aware nav, off the one permissions answer (oms 909). Denied ⇒ a soft gate naming
+// shell's permission-aware nav, off the one permissions answer (oms 914). Denied ⇒ a soft gate naming
 // the grant; granted (or an unreadable answer) ⇒ the compose card. The server
 // Create stays authoritative — a lost grant still refuses on send (NC_FORBIDDEN).
 export default function BroadcastComposePage() {

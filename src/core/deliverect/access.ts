@@ -1,6 +1,6 @@
 import type { Permissions } from '@/core/permissions'
 
-// The Deliverect area's grants (spec 2615, ticket 477; oms 909: off the one permissions answer). Pure: no React, no
+// The Deliverect area's grants (spec 2615, ticket 477; oms 914: off the one permissions answer). Pure: no React, no
 // `t`. Each leaf of the Deliverect menu group and each page's in-page gate read their grant through the SAME
 // predicate here, so a nav and a screen can never disagree. Each is one `BackOfficeScreen[…,03]` grant.
 

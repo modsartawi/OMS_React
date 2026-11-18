@@ -1,5 +1,5 @@
 /**
- * HQ prescription sessions' grants (BackOffice 3459, oms 852), read off the one permissions answer (oms 909).
+ * HQ prescription sessions' grants (BackOffice 3459, oms 852), read off the one permissions answer (oms 914).
  */
 import type { Permissions } from '@/core/permissions'
 

@@ -1,5 +1,5 @@
 /**
- * The coupons screens' grants (spec 505, ticket 521), over the one permissions answer since oms 909 (BackOffice spec
+ * The coupons screens' grants (spec 505, ticket 521), over the one permissions answer since oms 914 (BackOffice spec
  * 4002). The brief's CouponsAdmin combination: `canAdmin = has('CouponsAdmin:03')`,
  * `canSupport = has('CouponsSupport:03') || has('CouponsAdmin:03')`.
  */

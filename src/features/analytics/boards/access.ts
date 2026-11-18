@@ -1,5 +1,5 @@
 /**
- * The analytics boards' reading of the one permissions answer (oms 909, BackOffice spec 4002). The four grants are
+ * The analytics boards' reading of the one permissions answer (oms 914, BackOffice spec 4002). The four grants are
  * named in `@/core/analytics-access` (the copilot reads them too); this module adds what only the boards need — the
  * render-ticket reading and the lost-grant refusal — and stays apart from `./api` so the menu group, which imports it
  * eagerly, costs the main bundle only this.

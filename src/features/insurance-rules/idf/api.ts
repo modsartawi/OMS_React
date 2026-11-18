@@ -7,7 +7,7 @@
  * 628 reconciled every door with the brief's `## Changes` (the doors as 3161–3169 built them; the payer key is the
  * insurer's customer id, `insurerCustomerId`). `tools/idf-stubs.mjs` mirrors those shapes for the drives. The reads are
  * UNGATED like the rest of the group: a session without the IDF view grant is answered a bare 403 and each page says
- * "no access". 654: the 3185 writes show on the IDF grants (`./access`, off the one permissions answer since oms 909).
+ * "no access". 654: the 3185 writes show on the IDF grants (`./access`, off the one permissions answer since oms 914).
  *
  * ⚠️ To keep parallel slices merge-clean: add your doors and query factories under YOUR ticket's slot comment only
  * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
@@ -53,7 +53,7 @@ export function mastersQuery() {
   return { queryKey: IDF_MASTERS_KEY, queryFn: () => idfApi.masters(), retry: false } as const
 }
 
-// 654 · the grants moved to the one permissions answer (oms 909) — see `./access`.
+// 654 · the grants moved to the one permissions answer (oms 914) — see `./access`.
 
 // 620 · store lists — `idfStoreListsApi` (3162)
 export const IDF_STORE_LISTS_KEY = [...IDF_KEY, 'store-lists'] as const

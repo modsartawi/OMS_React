@@ -6,7 +6,7 @@
 // rule — inherited from decision 228 — says no ticket in this wave may be called
 // done on the strength of a live call, so the network is stubbed at Playwright
 // against the shapes the client designed. 🚩 NOTHING here is driven against a
-// live SIS.Api. Since oms 909 the grants are the one `Auth/Permissions` answer's keys (`LoyMember:03` open,
+// live SIS.Api. Since oms 914 the grants are the one `Auth/Permissions` answer's keys (`LoyMember:03` open,
 // `:02` edit, `:04` remove the mobile).
 //
 // Ticket 302's flow Proof bullet — `theTabDrawsControlsOnlyForTheAuthorityHeld`:
@@ -269,7 +269,7 @@ async function run() {
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
 
-    // The ONE permissions answer (oms 909). Counted so the "one answer, one call"
+    // The ONE permissions answer (oms 914). Counted so the "one answer, one call"
     // property is asserted rather than assumed.
     if (path === 'Auth/Permissions') {
       accessCalls += 1

@@ -1,5 +1,5 @@
 /**
- * The Collections area's inquiry predicates (ticket 253, 244 §10), over the one permissions answer since oms 909
+ * The Collections area's inquiry predicates (ticket 253, 244 §10), over the one permissions answer since oms 914
  * (BackOffice spec 4002): each reads its own `BackOfficeScreen` key.
  *
  * - **Only an explicit grant admits.** An absent key, a pending or failed answer — all denials.

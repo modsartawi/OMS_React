@@ -1,5 +1,5 @@
 /**
- * The Analytics combination row of the permissions brief (oms 909, BackOffice spec 4002): four named predicates over
+ * The Analytics combination row of the permissions brief (oms 914, BackOffice spec 4002): four named predicates over
  * the one answer, each with its half-grant case. Read by the analytics boards and the copilot's SQL mode toggle.
  */
 import { describe, expect, it } from 'vitest'

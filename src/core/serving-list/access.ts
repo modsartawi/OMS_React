@@ -1,5 +1,5 @@
 /**
- * The serving-list grants (BackOffice spec 3042; oms ticket 567), read off the one permissions answer (oms 909). In
+ * The serving-list grants (BackOffice spec 3042; oms ticket 567), read off the one permissions answer (oms 914). In
  * `@/core/` because two features read them: the Serving lists screen gates its screen and its edit controls on them,
  * and the Dispatch board links a callout's serving list to `/oms/serving-lists/:id` only for a View holder — and a
  * feature may never import another.

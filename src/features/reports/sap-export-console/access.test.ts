@@ -3,7 +3,7 @@ import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
 import { canOpenSapExport } from './access'
 
 /**
- * The console's access spine (ticket 461; oms 909): the nav leaf and the page's `ScreenGate` each read this ONE
+ * The console's access spine (ticket 461; oms 914): the nav leaf and the page's `ScreenGate` each read this ONE
  * predicate over the one permissions answer.
  */
 describe('canOpenSapExport', () => {

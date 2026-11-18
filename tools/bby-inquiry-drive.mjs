@@ -4,7 +4,7 @@
 // bullets:
 //   1. access allowed + rows → the four-column grid renders active rows.
 //   2. access allowed + empty rows → the no-results empty state (not a broken screen).
-//   3. no `BbyInquiry:03` in the `Auth/Permissions` answer (oms 909) → denied card AND the Pricing
+//   3. no `BbyInquiry:03` in the `Auth/Permissions` answer (oms 914) → denied card AND the Pricing
 //      menu leaf hidden. (The old probe's 404 fail-open is gone with the probe.)
 //
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs).

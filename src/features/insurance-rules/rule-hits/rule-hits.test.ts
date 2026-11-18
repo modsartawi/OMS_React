@@ -57,7 +57,7 @@ describe('3981 — the Rule hits page', () => {
   it('RuleHitsPage_HiddenWithoutGrant', () => {
     type Item = (typeof MENU)[number]
     const leaves = (items: Item[]): Item[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
-    // The one permissions answer (oms 909) holding exactly `screens`.
+    // The one permissions answer (oms 914) holding exactly `screens`.
     const shown = (...screens: string[]) =>
       leaves(resolveMenu(MENU, permissionsOf({ screens })).items).map((l) => [l.labelKey, l.routerLink])
     const leaf = ['insurance-rules:menu.ruleHits', '/insurance-rules/rule-hits']

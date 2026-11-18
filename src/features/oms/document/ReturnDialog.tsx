@@ -224,7 +224,7 @@ export default function ReturnDialog({
       // policy that moves. 401 is not ours either: `handle401` has already
       // cleared the session and redirected.
       // A 403 is the grant refusing (ticket 521): `@/core/api` re-reads the one permissions answer
-      // (oms 909), so the bar loses Return document behind this dialog once it lands. The LF named
+      // (oms 914), so the bar loses Return document behind this dialog once it lands. The LF named
       // refusals (outside window, Refund-Only, return open, grant missing) are business outcomes and
       // land in the banner like any other.
       const refused = apiErrorKind(err) === 'business'

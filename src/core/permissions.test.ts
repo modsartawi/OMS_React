@@ -1,5 +1,5 @@
 /**
- * The one permissions answer (oms 909, BackOffice spec 4002): `GET Auth/Permissions` read once, `has(key)` everywhere.
+ * The one permissions answer (oms 914, BackOffice spec 4002): `GET Auth/Permissions` read once, `has(key)` everywhere.
  * The pure halves of `usePermissions` and the 403 door in `@/core/api` that invalidates it.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'

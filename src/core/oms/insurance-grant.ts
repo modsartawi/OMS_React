@@ -1,7 +1,7 @@
 import { usePermissions, type Permissions } from '@/core/permissions'
 
 // The insurance-view grant (BackOffice spec 3389, door 3390; client tickets 786–789), read off the one permissions
-// answer (oms 909): `OmsInsuranceView:03`. In `core/` because three features read it — the Order / ERX list (patient /
+// answer (oms 914): `OmsInsuranceView:03`. In `core/` because three features read it — the Order / ERX list (patient /
 // member ID and their export), Document Details' Insurance section and the delivery money strip's link — and a feature
 // may never import another.
 //

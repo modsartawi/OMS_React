@@ -14,7 +14,7 @@ import type { Permissions } from '@/core/permissions'
 // SIS.Api envelope, returns `.data`, and maps failures to a typed ApiError.
 const BASE = 'Bby'
 
-/** The bonus-buy inquiry grant (`BbyInquiry:03`), off the one permissions answer (oms 909). Read by the
+/** The bonus-buy inquiry grant (`BbyInquiry:03`), off the one permissions answer (oms 914). Read by the
  *  menu's nav gate, the inquiry screen's guard and the Simulation rail's details control, so the three
  *  cannot disagree. The old `Bby/Access` probe's 404-tolerant "unknown ⇒ shown" fallback went with it: a
  *  grant answer is never unknown now, only pending (hidden) or in. */

@@ -29,7 +29,7 @@ import SearchToolbar from './SearchToolbar'
 import { exportBbyToCsv } from './export'
 
 // The BBY Inquiry screen (spec 061). Self-guards on `canOpenBbyInquiry` (the one
-// permissions answer the menu leaf reads too, oms 909), then opens on the currently-active BBYs.
+// permissions answer the menu leaf reads too, oms 914), then opens on the currently-active BBYs.
 //
 // Search (064; reshaped by 443) reaches beyond that default: the toolbar produces criteria
 // (number, status filter, valid today, validity dates), the pure `buildListParams` maps them

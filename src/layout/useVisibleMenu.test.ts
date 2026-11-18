@@ -3,7 +3,7 @@ import { permissionsFromQuery, permissionsOf, type Permissions } from '@/core/pe
 import type { ShellMenuItem } from './menu-model'
 import { offerAsked, resolveMenu } from './useVisibleMenu'
 
-// Ticket 124's settled flag, on the one permissions answer since oms 909. `resolveMenu` is the pure half of
+// Ticket 124's settled flag, on the one permissions answer since oms 914. `resolveMenu` is the pure half of
 // `useVisibleMenu` — the hook only feeds it `usePermissions()` — so every rule about WHAT is visible and WHEN the answer
 // is trustworthy is provable here, with no renderer.
 

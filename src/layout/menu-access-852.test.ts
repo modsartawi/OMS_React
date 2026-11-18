@@ -1,6 +1,6 @@
 /**
  * Oms 852 (BackOffice 3459): every leaf of the five once-ungated areas — Campaigns, the store engine switch, Insurance
- * rules, HQ prescription sessions and Send Broadcast — is hidden until its grant is held. Since oms 909 every grant is
+ * rules, HQ prescription sessions and Send Broadcast — is hidden until its grant is held. Since oms 914 every grant is
  * a key of the ONE permissions answer (brief 3995 rows 14, 25, 32, 34), not a probe per area.
  *
  * Read out of the REAL `MENU` through the real `resolveMenu`. The flag → key table below is the brief's, written out

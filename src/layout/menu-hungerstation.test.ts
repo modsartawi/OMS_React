@@ -2,7 +2,7 @@
  * The HungerStation nav group, gated (ticket 551, BackOffice spec 3028).
  *
  * Read out of the **real** `MENU`, never re-declared. 551 shipped three leaves — Stores, Materials (555) and Orders
- * (556) — each on its own grant; 665 added Promotions. Since oms 909 each reads its own key off the ONE permissions
+ * (556) — each on its own grant; 665 added Promotions. Since oms 914 each reads its own key off the ONE permissions
  * answer (brief 3995 row 40): `HungerStationStores:03`, `HungerStationCatalog:03`, `HungerStationOrders:03`,
  * `HungerStationPromotions:03`.
  */

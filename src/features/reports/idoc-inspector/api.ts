@@ -33,7 +33,7 @@ import type { Permissions } from '@/core/permissions'
 import type { LookupKey } from './lookup-key'
 
 /**
- * The screen's one grant (oms 909: off the one permissions answer), read by BOTH the nav leaf and the screen's guard.
+ * The screen's one grant (oms 914: off the one permissions answer), read by BOTH the nav leaf and the screen's guard.
  *
  * 🚩 Its OWN key, `IDocInspector:03`, not the invoices one: the two screens share an area, a namespace and a nav
  * group, and no permission — one grant answering for both would hand a consultant the inspector because they can

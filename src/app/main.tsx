@@ -16,7 +16,7 @@ const queryClient = new QueryClient({
   },
 })
 
-// The one permissions answer (oms 909): a 403 from any door refetches it, and it never outlives its user.
+// The one permissions answer (oms 914): a 403 from any door refetches it, and it never outlives its user.
 invalidatePermissionsOnForbidden(queryClient)
 dropPermissionsOnUserChange(queryClient)
 

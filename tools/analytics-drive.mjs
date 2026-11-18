@@ -2524,6 +2524,106 @@ async function buildsNewView() {
   await context.close()
 }
 
+// 837 items 3–4 — the library's folders and the safe delete (BackOffice 3432 §1–§2), en and ar, over the stub doors:
+//   1. a row dragged onto a rail folder is filed there (PUT Item/{id}/Folder), and the folder counts it;
+//   2. a row's "Move to folder" menu files it without a mouse;
+//   3. picking a folder in the rail lists only what is filed there, and the link keeps it;
+//   4. a view's delete asks UsedBy first: unused offers Delete; when the delete itself is refused with ANALYTICS-416
+//      the prompt lists the boards that block it (and the ones I cannot open) and Delete is gone; a view UsedBy
+//      already shows on a certified board offers no Delete at all, and no DELETE is sent.
+async function libraryAndSafeDelete837({ dir }) {
+  const tag = `837 ${dir}`
+  const FOLDERS = [
+    { id: 'f-ops', name: 'Ops', order: 1, itemCount: 0 },
+    { id: 'f-exec', name: 'Exec', order: 2, itemCount: 0 },
+  ]
+  const OPS_BOARD = { id: 'b-ops', title: { en: 'Operations week', ar: 'أسبوع العمليات' }, owner: 'curator1', tier: 'certified', mine: false }
+  const deletes = (page) => {
+    const sent = []
+    page.on('request', (r) => r.method() === 'DELETE' && sent.push(new URL(r.url()).pathname))
+    return sent
+  }
+  {
+    const { context, page, errors, bodies } = await open({ dir, folders: FOLDERS })
+    await page.goto(`${BASE}/analytics/views`)
+    await page.locator('[data-analytics-library-folder="f-ops"]').waitFor({ timeout: 15000 })
+    await page.locator('[data-analytics-item="v-bar"]').waitFor({ timeout: 15000 })
+    const folderOf = (id) => page.locator(`[data-analytics-item="${id}"]`).getAttribute('data-analytics-item-folder')
+    const countOf = (f) => page.locator(`[data-analytics-library-folder="${f}"] [data-analytics-library-folder-count]`).getAttribute('data-analytics-library-folder-count').catch(() => null)
+    const filed = (id) => (bodies[`PUT Analytics/Item/${id}/Folder`] ?? []).map((b) => b?.folderId ?? null)
+    const attrIs = (sel, attr, want) =>
+      page.waitForFunction(([sel, attr, want]) => document.querySelector(sel)?.getAttribute(attr) === want, [sel, attr, want], { timeout: 10000 }).catch(() => {})
+
+    // 1. Drag v-bar onto Ops.
+    const src = await page.locator('[data-analytics-item="v-bar"] [data-analytics-item-title]').boundingBox()
+    const dst = await page.locator('[data-analytics-library-folder="f-ops"]').boundingBox()
+    await page.mouse.move(src.x + 10, src.y + src.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(dst.x + dst.width / 2, dst.y + dst.height / 2, { steps: 12 })
+    await page.mouse.move(dst.x + dst.width / 2 + 1, dst.y + dst.height / 2)
+    const lit = await page.locator('[data-analytics-library-folder="f-ops"]').getAttribute('data-drop-over')
+    await page.mouse.up()
+    check(`${tag}: dragging a row over a folder lights it as the drop target`, lit === 'true', String(lit))
+    await attrIs('[data-analytics-item="v-bar"]', 'data-analytics-item-folder', 'f-ops')
+    check(`${tag}: dropping it files it there (PUT Item/v-bar/Folder f-ops)`, JSON.stringify(filed('v-bar')) === '["f-ops"]' && (await folderOf('v-bar')) === 'f-ops', `${JSON.stringify(filed('v-bar'))} ${await folderOf('v-bar')}`)
+    await attrIs('[data-analytics-library-folder="f-ops"] [data-analytics-library-folder-count]', 'data-analytics-library-folder-count', '1')
+    check(`${tag}: … and Ops counts it`, (await countOf('f-ops')) === '1', String(await countOf('f-ops')))
+
+    // 2. "Move to folder" on v-titled → Exec.
+    await page.locator('[data-analytics-library-menu="move:v-titled"]').click()
+    await page.locator('[data-analytics-library-menu-items="move:v-titled"] [data-analytics-library-menu-item="f-exec"]').click()
+    await attrIs('[data-analytics-item="v-titled"]', 'data-analytics-item-folder', 'f-exec')
+    check(`${tag}: "Move to folder" files a row without a mouse (PUT Item/v-titled/Folder f-exec)`, JSON.stringify(filed('v-titled')) === '["f-exec"]' && (await folderOf('v-titled')) === 'f-exec', `${JSON.stringify(filed('v-titled'))} ${await folderOf('v-titled')}`)
+
+    // 3. Pick Ops: only v-bar, and the link keeps the folder.
+    await page.locator('[data-analytics-library-folder="f-ops"] button').first().click()
+    await page
+      .waitForFunction(() => [...document.querySelectorAll('[data-analytics-item]')].map((e) => e.getAttribute('data-analytics-item')).join(',') === 'v-bar', null, { timeout: 10000 })
+      .catch(() => {})
+    const ids = await page.locator('[data-analytics-item]').evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-item')))
+    check(`${tag}: picking Ops lists only what is filed there`, JSON.stringify(ids) === '["v-bar"]', JSON.stringify(ids))
+    check(`${tag}: … and the link keeps the folder`, new URL(page.url()).searchParams.get('folder') === 'f-ops', page.url())
+    await page.screenshot({ path: `${SHOTS}/837-folders-${dir}.png`, fullPage: true })
+    check(`${tag}: folders: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 4a. UsedBy finds nothing, and the delete itself is refused with ANALYTICS-416.
+    const in416 = envelope({ boards: [OPS_BOARD], hidden: 2 }, { status: 400, success: false, message: 'The view is in use.', errors: [{ errorCode: 'ANALYTICS-416', internalErrorCode: '', errorMessage: 'The view is in use.' }] })
+    const { context, page, errors, calls } = await open({ dir, usedBy: { boards: [], hidden: 0 }, remove: in416 })
+    const sent = deletes(page)
+    await page.goto(`${BASE}/analytics/view/v-bar`)
+    await page.locator('[data-analytics-action="delete"]').click()
+    await page.locator('[data-analytics-view-delete="free"]').waitFor({ timeout: 10000 })
+    check(`${tag}: the delete prompt asks UsedBy first`, calls.includes('Analytics/Item/v-bar/UsedBy') && sent.length === 0)
+    check(`${tag}: … an unused view offers Delete`, (await page.locator('[data-analytics-confirm="delete"]').count()) === 1)
+    await page.locator('[data-analytics-confirm="delete"]').click()
+    await page.locator('[data-analytics-view-delete="blocked"]').waitFor({ timeout: 10000 }).catch(() => {})
+    const state = await page.locator('[data-analytics-view-delete]').getAttribute('data-analytics-view-delete')
+    const listed = await page.locator('[data-analytics-used-by-board]').evaluateAll((els) => els.map((e) => e.getAttribute('data-analytics-used-by-board')))
+    const hidden = await page.locator('[data-analytics-used-by-hidden]').getAttribute('data-analytics-used-by-hidden').catch(() => null)
+    check(`${tag}: a 416 delete lists the boards that block it`, sent.length === 1 && state === 'blocked' && JSON.stringify(listed) === '["b-ops"]', `${sent.length} ${state} ${JSON.stringify(listed)}`)
+    check(`${tag}: … and the ones I cannot open`, hidden === '2', String(hidden))
+    check(`${tag}: … Delete is gone and the view is still open`, (await page.locator('[data-analytics-confirm="delete"]').count()) === 0 && new URL(page.url()).pathname === '/analytics/view/v-bar', page.url())
+    await page.screenshot({ path: `${SHOTS}/837-delete-416-${dir}.png` })
+    check(`${tag}: 416: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 4b. UsedBy already shows a certified board: no Delete is offered and no DELETE is sent.
+    const { context, page, errors } = await open({ dir, usedBy: { boards: [OPS_BOARD], hidden: 0 } })
+    const sent = deletes(page)
+    await page.goto(`${BASE}/analytics/view/v-bar`)
+    await page.locator('[data-analytics-action="delete"]').click()
+    await page.locator('[data-analytics-view-delete="blocked"]').waitFor({ timeout: 10000 }).catch(() => {})
+    const state = await page.locator('[data-analytics-view-delete]').getAttribute('data-analytics-view-delete')
+    check(`${tag}: a view on a certified board offers no Delete up front`, state === 'blocked' && (await page.locator('[data-analytics-confirm="delete"]').count()) === 0, String(state))
+    check(`${tag}: … and sends no DELETE`, sent.length === 0, JSON.stringify(sent))
+    check(`${tag}: up front: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
 // ── 837 ──────────────────────────────────────────────────────────────────────────────────────────────
 // 837 items 1–2 — the views palette and Preview in the board editor (en and ar):
 //   1. the palette lists every view, its who-chips narrow it (Certified, Mine, Shared with me) and the search too;
@@ -5008,6 +5108,8 @@ const SCENARIOS = [
   ['845', () => print845({ dir: 'rtl' })],
   ['837', () => paletteAndPreview837({ dir: 'ltr' })],
   ['837', () => paletteAndPreview837({ dir: 'rtl' })],
+  ['837', () => libraryAndSafeDelete837({ dir: 'ltr' })],
+  ['837', () => libraryAndSafeDelete837({ dir: 'rtl' })],
   ['846', () => dragAndGaps846({ dir: 'ltr' })],
   ['846', () => dragAndGaps846({ dir: 'rtl' })],
   ['779', () => revertsAndUndoes({ dir: 'ltr' })],

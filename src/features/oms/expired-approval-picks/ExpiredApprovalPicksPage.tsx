@@ -56,7 +56,7 @@ import {
  * screen, delivery never billed" and "never sold". One week at a time (the newest filled by default); a pharmacist row
  * opens their picks.
  *
- * Behind `canOpenExpiredApprovalPicks` on its own key of the one permissions answer (oms 909), the same predicate the menu leaf
+ * Behind `canOpenExpiredApprovalPicks` on its own key of the one permissions answer (oms 914), the same predicate the menu leaf
  * reads, failing closed. The report names pharmacists, so its grant is its own (`BackOfficeScreen[ExpiredApprovalPick, 03]`).
  *
  * 🚩 The report is the weekly fill's (`PickExpiredApproval`), never computed on the request: a week nobody filled reads

@@ -37,7 +37,7 @@ import type { MemberReads } from './resolve-member'
 
 /**
  * Whether the session may open the member screen — `LoyMember:03` on the one
- * permissions answer (oms 909). The nav leaf, this screen's guard and the
+ * permissions answer (oms 914). The nav leaf, this screen's guard and the
  * palette's member row read this same predicate.
  */
 export const canOpenLoyMember = (p: Permissions): boolean => p.has('LoyMember:03')

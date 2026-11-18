@@ -14,7 +14,7 @@
  *
  * Both routes live here: `Search` (264) and `Download` (265) — the last through
  * 262's binary door, because the envelope client cannot fetch a non-JSON body.
- * The 263 `Access` probe gave way to the one permissions answer (oms 909).
+ * The 263 `Access` probe gave way to the one permissions answer (oms 914).
  */
 import { api, type FileResponse } from '@/core/api'
 import type {
@@ -25,7 +25,7 @@ import type { Permissions } from '@/core/permissions'
 import type { InvoiceSearchQuery } from './invoice-criteria'
 
 /**
- * The screen's one grant (oms 909: off the one permissions answer), read by BOTH the nav leaf and the screen's guard:
+ * The screen's one grant (oms 914: off the one permissions answer), read by BOTH the nav leaf and the screen's guard:
  * `RetailInvoice:03`. ⚠️ It only hides the menu: `Search` and `Download` re-check the grant server-side.
  */
 export const canOpenRetailInvoice = (p: Permissions): boolean => p.has('RetailInvoice:03')

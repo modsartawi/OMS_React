@@ -1,7 +1,7 @@
 /**
  * The Document types leaf (BackOffice spec 3148, ticket 3149) — in the Admin group, just before the engine switch
  * (which stays last), gated on the View predicate of the document-type configuration (`canViewDocTypeConfig` =
- * `DocumentList:03`) off the ONE permissions answer (oms 909).
+ * `DocumentList:03`) off the ONE permissions answer (oms 914).
  *
  * Read out of the **real** `MENU`, never re-declared, so a leaf that lost its gate or drifted off its key fails here.
  */

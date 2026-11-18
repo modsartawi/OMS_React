@@ -278,7 +278,7 @@ const openStore = async (code) => {
   await page.locator('[data-store-header], [data-store-page]').first().waitFor({ timeout: 20000 })
 }
 
-// ── The permissions answer (oms 909: one `Auth/Permissions`, no ActionSync/Access probe) ─────────────
+// ── The permissions answer (oms 914: one `Auth/Permissions`, no ActionSync/Access probe) ─────────────
 
 await page.goto(`${BASE}/admin/sync`)
 const perms = await waitAnswer('Auth/Permissions', 0)

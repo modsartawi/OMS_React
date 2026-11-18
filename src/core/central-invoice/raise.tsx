@@ -17,7 +17,7 @@ import { centralInvoiceApi, isGrantRefused } from './api'
  *   so the second click of a double click still finds the button enabled. The drive
  *   caught two POSTs without it. The server still dedupes against a queued request.
  * - **A 403 re-reads the grant.** `@/core/api` invalidates the one permissions answer on
- *   every 403 (oms 909), so the menu leaf, the bulk screen's gate and the delivery page's
+ *   every 403 (oms 914), so the menu leaf, the bulk screen's gate and the delivery page's
  *   action drop together once the refetch lands; `onGrantRefused` is the caller's own
  *   reaction on top (the dialog closes and says so).
  */

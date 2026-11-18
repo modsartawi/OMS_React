@@ -2,7 +2,7 @@
 // Chromium against STUBBED envelopes, with every `/api/**` request RECORDED.
 //
 // The wire, as BackOffice 2099 shipped it (`CentralInvoiceWebEndpoints.cs`, `CentralInvoiceGrantEndpointFilter.cs`):
-//   - the grant is `CentralInvoice:03` in the one `GET Auth/Permissions` answer (oms 909; was `Sd/CentralInvoice/Access`);
+//   - the grant is `CentralInvoice:03` in the one `GET Auth/Permissions` answer (oms 914; was `Sd/CentralInvoice/Access`);
 //   - `POST Sd/CentralInvoice` `{ deliveryNos, reason }` → `data.results[] = { deliveryNo, verdict, code, message }`,
 //     verdict `accepted` / `wait` / `refused`; a whole-request refusal (no reason, > 200) is the standard 400
 //     envelope; without the grant a BARE 403 with no body.

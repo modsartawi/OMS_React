@@ -56,7 +56,7 @@ import type {
 
 /**
  * May open the console (`CallCenter:03`): one boolean, open implies act (134 §1). The nav leaf and the route guard
- * read this one predicate off the one permissions answer (oms 909); every CallCenterWeb door re-checks the grant.
+ * read this one predicate off the one permissions answer (oms 914); every CallCenterWeb door re-checks the grant.
  */
 export const canOpenCallCenter = (p: Permissions): boolean => p.has('CallCenter:03')
 

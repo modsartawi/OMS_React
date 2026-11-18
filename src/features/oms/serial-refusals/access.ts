@@ -1,5 +1,5 @@
 /**
- * The serial refusal report's grant (ticket 573, BackOffice 3065), read off the one permissions answer (oms 909).
+ * The serial refusal report's grant (ticket 573, BackOffice 3065), read off the one permissions answer (oms 914).
  */
 import type { Permissions } from '@/core/permissions'
 

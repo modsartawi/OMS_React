@@ -1,6 +1,6 @@
 /**
  * The Loyalty member predicates (ticket 234, spec 231 §11, spec 301 tiers), over the one permissions answer since oms
- * 909 (BackOffice spec 4002). Keys from the brief's mapping table (row 23): `LoyMember:03` look, `:02` edit, `:04`
+ * 914 (BackOffice spec 4002). Keys from the brief's mapping table (row 23): `LoyMember:03` look, `:02` edit, `:04`
  * remove the mobile.
  *
  * 🚩 The failure being designed against is a customer-PII lookup left open: only the exact key admits, and a pending

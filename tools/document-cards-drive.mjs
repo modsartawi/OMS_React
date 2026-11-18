@@ -144,7 +144,7 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 909); the detail page
+    // Ticket 125 put the OMS screens behind a grant (`DocumentDetails:03` since 914); the detail page
     // guards on it, so this drive must answer Auth/Permissions or every
     // assertion below meets the denied card instead of the screen.
     if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'DocumentDetails:03', 'DocumentDetails:02', 'OmsCreateReturn:01']))

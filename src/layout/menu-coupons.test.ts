@@ -1,5 +1,5 @@
 /**
- * The two Coupons nav leaves (spec 505, tickets 521/523) through the menu, over the ONE permissions answer (oms 909,
+ * The two Coupons nav leaves (spec 505, tickets 521/523) through the menu, over the ONE permissions answer (oms 914,
  * BackOffice spec 4002): the admin leaf on `canAdminCoupons` (`CouponsAdmin:03`), the support leaf on
  * `canSupportCoupons` (`CouponsSupport:03` OR `CouponsAdmin:03`). The predicates' own cases are in
  * `features/pricing/coupons/access.test.ts`; here the leaves are read out of the **real** `MENU`, never re-declared.

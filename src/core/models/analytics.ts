@@ -88,6 +88,18 @@ export interface AnalyticsModel {
    * only while the server's `Analytics:MapChart` is on. Absent (a server before 3638) = no map.
    */
   chartTypes?: AnalyticsChartType[]
+  /**
+   * BackOffice 3986 (spec 3630 M29, ADR 0139; oms-react 908): Google's browser key for the map, and the map ID when one
+   * is served. Only while `Analytics:MapChart` is on and a key is set; absent, the map cannot draw (`no-key`) and its
+   * table shows. Configuration on the server, never in the web's code or build. Never logged.
+   */
+  maps?: AnalyticsMaps
+}
+
+/** The model's `maps` part (BackOffice 3986). */
+export interface AnalyticsMaps {
+  key: string
+  mapId?: string
 }
 
 /**

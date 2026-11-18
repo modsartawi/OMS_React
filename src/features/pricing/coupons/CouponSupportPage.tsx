@@ -16,7 +16,7 @@ import CouponDetailPane from './CouponDetailPane'
 // refund/reset/deactivate — just a code search → the shared CouponDetailPane in
 // `mode="support"` (instance + read-only template + the "where redeemed" ledger + a
 // Reactivate action). An admin (superset) also sees it. Reads the one permissions answer
-// the Admin screen and the nav read (oms 909).
+// the Admin screen and the nav read (oms 914).
 //
 // This is the Inquiry workspace's single-panel twin, but a standalone page with its own
 // access gate: the gate opens on `canSupportCoupons` (support OR admin),

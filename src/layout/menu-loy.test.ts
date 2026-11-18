@@ -2,7 +2,7 @@
  * The Loyalty nav group, gated (ticket 234, spec 231 §11).
  *
  * `resolveMenu` is the pure half of `useVisibleMenu` (ticket 124), so what the shell does with each answer is provable
- * with no renderer. Since oms 909 both leaves read the ONE permissions answer (brief 3995 rows 22–23): Members =
+ * with no renderer. Since oms 914 both leaves read the ONE permissions answer (brief 3995 rows 22–23): Members =
  * `LoyMember:03`, Groups = `LoyaltyGroup:03`. The group is read out of the **real** `MENU`, never re-declared.
  *
  * 🚩 A denial, an errored answer and a pending one must be indistinguishable: fail-closed is the whole ticket, and the

@@ -12,7 +12,7 @@ import type {
 // with code NC_FORBIDDEN, which the screen shows via apiErrorMessage.
 
 /**
- * May broadcast (oms 909, BackOffice spec 4002 Broadcast row): the `NotificationBroadcast:01` grant AND the
+ * May broadcast (oms 914, BackOffice spec 4002 Broadcast row): the `NotificationBroadcast:01` grant AND the
  * notification center switched on (`extras.notificationCenterOn` — the create route is mapped only then). Off the one
  * permissions answer; the menu leaf and the page read this one predicate. The old 404-tolerant probe is gone.
  */

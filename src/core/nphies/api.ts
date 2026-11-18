@@ -10,7 +10,7 @@ import type {
 
 /**
  * The Nphies area's shared lookups. They live in `@/core/` because several `features/nphies/*` screens read them, and a
- * feature may never import another feature. The area's grant is `./access` (oms 909: off the one permissions answer).
+ * feature may never import another feature. The area's grant is `./access` (oms 914: off the one permissions answer).
  *
  * Every call goes through `@/core/api` (`.claude/rules/api-envelope.md`).
  */

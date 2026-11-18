@@ -28,7 +28,7 @@ const BASE = 'BbyMaintainWeb'
 
 /**
  * The screen grant (`BbyMaintain:03`), for the nav leaf and the screen gate alike, off the one
- * permissions answer (oms 909). This screen WRITES to every till's offers: a pending or failed
+ * permissions answer (oms 914). This screen WRITES to every till's offers: a pending or failed
  * answer is a denial (fail closed).
  */
 export const canOpenBbyMaintain = (p: Permissions): boolean => p.has('BbyMaintain:03')

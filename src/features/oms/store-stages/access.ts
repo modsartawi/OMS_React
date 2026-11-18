@@ -1,5 +1,5 @@
 /**
- * The stage screen's grants (BackOffice tickets 3899, 3898), read off the one permissions answer (oms 909). The server
+ * The stage screen's grants (BackOffice tickets 3899, 3898), read off the one permissions answer (oms 914). The server
  * checks each grant again on its door.
  */
 import type { Permissions } from '@/core/permissions'

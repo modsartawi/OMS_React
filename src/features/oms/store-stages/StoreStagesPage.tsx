@@ -58,7 +58,7 @@ const releasesKey = (store: string) => ['oms', 'store-stages', 'releases', store
  * last move; a store opens its log (who moved it, why, when) and, for a holder of the move grant, the move form. SIS.Stock
  * 064 decides which moves are allowed and logs each one; the person is the signed-in user.
  *
- * Behind `canOpenStoreStages` on `BackOfficeScreen[StoreStage, 03]` off the one permissions answer (oms 909), failing closed; the move form on
+ * Behind `canOpenStoreStages` on `BackOfficeScreen[StoreStage, 03]` off the one permissions answer (oms 914), failing closed; the move form on
  * `canMove` (`BackOfficeScreen[StoreStage, 02]`), which the server checks again.
  */
 export default function StoreStagesPage() {

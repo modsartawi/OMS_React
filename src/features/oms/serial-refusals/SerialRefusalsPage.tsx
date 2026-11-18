@@ -72,7 +72,7 @@ import Chip from '@/core/ui/Chip'
  * per section of the saved analysis (staff, repeat offenders, serials, stores, articles, held by, per day) and the
  * refusals themselves. A row of any section opens the refusals behind it on the Refusals tab.
  *
- * Behind `canOpenSerialRefusals` on its own key of the one permissions answer (oms 909), the same predicate the menu leaf reads,
+ * Behind `canOpenSerialRefusals` on its own key of the one permissions answer (oms 914), the same predicate the menu leaf reads,
  * failing closed. The report ranks staff by id, so its grant is its own.
  *
  * 🚩 Every count is the door's; the grid only sorts what it was sent. A blank staff id is "unknown staff": a till that

@@ -3,7 +3,7 @@
 //   1. run the app:  npx vite --port 5210
 //   2. node tools/callcenter-drive.mjs
 //
-// Nothing about the app is stubbed except the wire. `Auth/Permissions` (`CallCenter:03`, oms 909)
+// Nothing about the app is stubbed except the wire. `Auth/Permissions` (`CallCenter:03`, oms 914)
 // is stubbed; `CallCenterWeb/Open` DID NOT EXIST server-side yet (BackOffice 800 carries the grant,
 // 801 the route table), so this run answers them from the contract's own committed
 // fixture — `.issues/assets/136-cc-contract/01-open-empty.json` — rather than from a

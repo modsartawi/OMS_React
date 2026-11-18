@@ -1,7 +1,7 @@
 import type { Permissions } from '@/core/permissions'
 
 /**
- * The Nphies area's grants (spec 209 §1; oms 909, BackOffice spec 4002), read off the one permissions answer.
+ * The Nphies area's grants (spec 209 §1; oms 914, BackOffice spec 4002), read off the one permissions answer.
  *
  * It lives in `@/core/` because the menu leaves and every screen in the `features/nphies/*` features read it, and a
  * feature may never import another. The whole area sits behind ONE grant, `Nphies:03`; the release and undispense

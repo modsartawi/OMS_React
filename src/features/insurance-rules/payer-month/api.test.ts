@@ -80,7 +80,7 @@ describe('the reads behind a row', () => {
   })
 })
 
-describe('the grant (oms 909)', () => {
+describe('the grant (oms 914)', () => {
   it('reads InsurancePayerMonth:03 off the one permissions answer, and nothing else', () => {
     expect(canManagePayerMonths(permissionsOf({ screens: ['InsurancePayerMonth:03'] }))).toBe(true)
     expect(canManagePayerMonths(permissionsOf({ screens: ['InsurancePayerMonth:02', 'InsuranceRuleAuthoring:03'] }))).toBe(false)

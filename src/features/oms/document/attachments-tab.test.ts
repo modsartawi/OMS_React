@@ -20,7 +20,7 @@ import {
 
 const ORDER = { attachmentOwnerNo: '2000000551', attachmentCategory: 'P2E' }
 const EXTRAS = { fileServerReady: true, notificationCenterOn: false, nphiesContractVersion: '1.3', canManageRoles: false, canManageUsers: false }
-/** The one permissions answer (oms 909): read and withdraw categories become `Attachments:03:*` / `:04:*` keys. */
+/** The one permissions answer (oms 914): read and withdraw categories become `Attachments:03:*` / `:04:*` keys. */
 const grants = (read: string[], withdraw: string[] = [], fileServerReady = true) =>
   permissionsOf({
     screens: [...read.map((c) => `Attachments:03:${c}`), ...withdraw.map((c) => `Attachments:04:${c}`)],

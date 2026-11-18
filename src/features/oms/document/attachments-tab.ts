@@ -6,7 +6,7 @@
  * shared ones in `@/core/attachments`; what is here is what they MEAN for an order.
  *
  * 🔑 **It fails closed.** Every input the page has — the document's two server-stamped
- * fields and the one permissions answer (oms 909) — must be present and agree,
+ * fields and the one permissions answer (oms 914) — must be present and agree,
  * or there is no tab. Nothing here guesses a category: not from the page's
  * `documentType`/`documentSource`, not from `attachmentOwnerDocument`, not from a copy
  * of the accept list (spec 324 ruled all three out).

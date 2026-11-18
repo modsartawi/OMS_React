@@ -27,7 +27,7 @@ import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './he
 import { isDataSyncNotFound, jobsQuery, type JobsFilter } from './job-helpers'
 
 /**
- * `DataSync.View` (`DataSyncConsole:03`, oms 909 / BackOffice spec 4002 row 46): the nav leaf and every gate. Read off
+ * `DataSync.View` (`DataSyncConsole:03`, oms 914 / BackOffice spec 4002 row 46): the nav leaf and every gate. Read off
  * the one permissions answer: the DataSync service's own `GET /Access` is no longer called, so a granted user sees the
  * leaf even where the service is not deployed, and the page's `DataSync/Health` banner says it is unreachable.
  */

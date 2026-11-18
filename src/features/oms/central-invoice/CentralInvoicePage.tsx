@@ -60,7 +60,7 @@ function BulkRaise() {
   const list = useMemo(() => parseDeliveryList(text, CENTRAL_INVOICE_MAX_DELIVERIES), [text])
   const trimmedReason = reason.trim()
 
-  // A 403 re-reads the one permissions answer (`@/core/api`, oms 909): the gate above
+  // A 403 re-reads the one permissions answer (`@/core/api`, oms 914): the gate above
   // re-renders as the denial, and the menu leaf and the delivery page's action go with it.
   const { mutation: raise, send } = useRaiseCentralInvoice()
 

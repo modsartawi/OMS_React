@@ -1,5 +1,5 @@
 // Settlement account drive (spec 267, ticket 268) — drives the REAL app in Chromium
-// against a MOCKED `Auth/Permissions` answer (oms 909; the CollectionWeb/Access probe is gone). This is the wave's screens drive;
+// against a MOCKED `Auth/Permissions` answer (oms 914; the CollectionWeb/Access probe is gone). This is the wave's screens drive;
 // 269–274 and spec 282's slices (283 onwards) EXTEND this file rather than starting a
 // second one — its last section is 283's: the four views as PATHS, and the
 // compatibility shim that keeps yesterday's `?view=` links landing.

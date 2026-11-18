@@ -1,6 +1,6 @@
 /**
  * The Analytics nav group (spec 766 §F, ticket 767), read out of the REAL `MENU`: every leaf behind `Analytics:03`
- * (`canViewAnalytics`) off the ONE permissions answer (oms 909) — the predicate the pages' gate reads — failing closed.
+ * (`canViewAnalytics`) off the ONE permissions answer (oms 914) — the predicate the pages' gate reads — failing closed.
  * My schedules (886) also waits for its door to offer it.
  */
 import { describe, expect, it } from 'vitest'

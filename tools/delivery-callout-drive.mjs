@@ -411,7 +411,7 @@ async function drive(dir) {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    // The one permissions answer (oms 909), read afresh on each page load: OMS, the dispatch board, serving lists.
+    // The one permissions answer (oms 914), read afresh on each page load: OMS, the dispatch board, serving lists.
     if (p === 'Auth/Permissions')
       return route.fulfill(
         permissions([

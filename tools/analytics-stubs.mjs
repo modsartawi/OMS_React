@@ -680,7 +680,7 @@ export function inlineAnswer(definition, model = MODEL, compareToPrevious = fals
 
 /**
  * Install the analytics doors on `page`. Every option overrides one door's answer:
- *   access:   the Analytics grants in `Auth/Permissions` (oms 909), as an `{ canView, canAuthor, canCurate, canSql }` object
+ *   access:   the Analytics grants in `Auth/Permissions` (oms 914), as an `{ canView, canAuthor, canCurate, canSql }` object
  *             (default an author, 822, mapped to `Analytics:03/02/06/07` by `flagKeys`), or `'failed'` (the answer 500s:
  *             every gated item hidden);
  *   items:    id → item, or id → a `refusal(...)` fulfil object;
@@ -1003,7 +1003,7 @@ const draftPeriod = (v) => {
 const isFulfilAt = (v) => v && typeof v === 'object' && 'contentType' in v && 'body' in v
 
 export async function installAnalyticsStubs(page, opts = {}) {
-  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact, home, pin, draftRefuse = () => null } = opts
+  const { access = { canView: true, canAuthor: true, canCurate: false }, items = ITEMS, list = LIST, query = QUERY, model = MODEL, queryDelayMs = 0, queryDelayFor = {}, querySequence = {}, members = MEMBERS, copilot = 'denied', copilotAnswer = COPILOT_ANSWER, deliveries, inlineQuery = (body) => inlineAnswer(body.definition, model, body.compareToPrevious === true), create, update, copy, revisions = REVISIONS_779, revert, share, unshare, certify, uncertify, remove, health = HEALTH_OK, audience, reassign, candidates, paramAnswer = (_body, answer) => answer, words = (body) => wordsAnswer827(body), schedules = SCHEDULES_833, scheduleSave, runs = RUNS_833, artefact, home, pin, draftRefuse = () => null, folders, usedBy } = opts
   const history = Object.fromEntries(Object.entries(revisions).map(([id, list]) => [id, isFulfilAt(list) ? list : list.map((r) => ({ ...r }))]))
   const made = {}
   // 833: each report's schedules and kept runs, written by the schedule doors and Send now.
@@ -1031,7 +1031,7 @@ export async function installAnalyticsStubs(page, opts = {}) {
     if (req.method() === 'PUT') (bodies[`PUT ${p}`] ??= []).push(req.postDataJSON())
 
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    // The one permissions answer (oms 909): the Analytics grants, Copilot's ask, and the Deliveries list (774) only
+    // The one permissions answer (oms 914): the Analytics grants, Copilot's ask, and the Deliveries list (774) only
     // when a scenario hands it rows. Every other screen is absent, so the nav holds only what a scenario grants.
     if (p === 'Auth/Permissions') {
       if (access === 'failed') return route.fulfill(permissionsFailed(500))
@@ -1128,6 +1128,27 @@ export async function installAnalyticsStubs(page, opts = {}) {
       // 833: asked for a report, each user carries an address, the run grant and whether they sit in its audience.
       if (url.searchParams.get('reportId')) return route.fulfill(envelope({ roles: [], users: USERS_833.filter((u) => hit(u.id, u.name, u.employeeId)) }))
       return route.fulfill(envelope({ roles: ROLES_826.filter((r) => hit(r.key, r.label.en, r.label.ar)), users: USERS_826.filter((u) => hit(u.id, u.name, u.employeeId)) }))
+    }
+    // 837 (BO 3432): my folders (`opts.folders`: the starting list; absent = the server before 3432, which answers no
+    // folder door) and the filing door, which the home's list follows; each folder's `itemCount` is live.
+    if (folders && p === 'Analytics/Folders' && req.method() === 'GET') {
+      const filed = (id) => [...listedNow.values()].concat(list.filter((it) => !listedNow.has(it.id))).filter((it) => !removed.has(it.id) && it.folderId === id).length
+      return route.fulfill(envelope(folders.map((f) => ({ ...f, itemCount: filed(f.id) }))))
+    }
+    const fileDoor = /^Analytics\/Item\/([^/]+)\/Folder$/.exec(p)
+    if (folders && fileDoor && req.method() === 'PUT') {
+      const id = decodeURIComponent(fileDoor[1])
+      const before = listedNow.get(id) ?? list.find((it) => it.id === id) ?? made[id] ?? items[id]
+      if (!before || removed.has(id)) return route.fulfill(refusal('ANALYTICS-404', 'The item is not found.', 404))
+      const folderId = req.postDataJSON()?.folderId ?? null
+      listedNow.set(id, { ...before, folderId })
+      return route.fulfill(envelope({ itemId: id, folderId }))
+    }
+    // 837 (BO 3432 §2): the boards that use a view (`opts.usedBy`: a function of the id, an answer or a fulfil object).
+    const usedByDoor = /^Analytics\/Item\/([^/]+)\/UsedBy$/.exec(p)
+    if (usedBy && usedByDoor && req.method() === 'GET') {
+      const answer = typeof usedBy === 'function' ? usedBy(decodeURIComponent(usedByDoor[1])) : usedBy
+      return route.fulfill(isFulfil(answer) ? answer : envelope(answer))
     }
     const audienceDoor = /^Analytics\/Item\/([^/]+)\/(Audience|Reassign)$/.exec(p)
     if (audienceDoor && (req.method() === 'PUT' || req.method() === 'POST')) {

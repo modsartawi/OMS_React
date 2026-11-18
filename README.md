@@ -21,6 +21,21 @@ Prerequisite: SIS.Api running on `localhost:5111` with `CookieAuth.Enabled = tru
 `npm run build` → typecheck + static `dist/` (carries `web.config` for the IIS
 same-origin deployment; SPA fallback excludes `/api`).
 
+### The map chart's Google key (BackOffice spec 3630, ADR 0139)
+
+The map chart draws with Google Maps. The browser key is **never in this repo or the build**
+(`npm run lint`'s `check-map-build` fails on any `AIza…`-shaped string): SIS.Api serves it in the
+analytics model's `maps` part, from `Analytics:GoogleMapsKey` (or the env var
+`Analytics__GoogleMapsKey`; optional `Analytics:GoogleMapsMapId`) with `Analytics:MapChart` on
+(BackOffice 3986). With no key the map shows its table instead.
+
+For development, set that on your local SIS.Api, with a key whose **HTTP referrers allow**
+`http://localhost:*` (the `vite` origin, any port: the map drives use 5207/5208) and whose project
+has the Maps JavaScript API enabled; each deployed environment's key allows its OMS web host and the
+report render host's origin. The map drives (`tools/report-map-print-drive.mjs`,
+`tools/copilot-map-drive.mjs`) take the key from `GOOGLE_MAPS_KEY` instead and never print it.
+The map reaches only Google's hosts (`tools/google-map-hosts.mjs`); there is no base-map file.
+
 ## Stack
 
 react 19 · vite 8 · react-router 8 (library/data mode) · tailwind 4 + shadcn tokens ·

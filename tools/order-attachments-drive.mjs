@@ -5,7 +5,7 @@
 //   - `GET SdDocumentWeb/Document/{no}` / `Delivery/{no}` — `attachmentOwnerNo` + `attachmentCount`
 //     (2063, SdDocumentHeaderModel.cs: both omitted when null) and `attachmentCategory` (2077's
 //     `## Web contract` STUB — not built yet; omitted when null);
-//   - `GET Auth/Permissions` (oms 909) — the OMS keys plus `Attachments:03:<c>` per category read and `Attachments:04:<c>`
+//   - `GET Auth/Permissions` (oms 914) — the OMS keys plus `Attachments:03:<c>` per category read and `Attachments:04:<c>`
 //     per category withdrawn, `extras.fileServerReady` (false = the old 503 `NOT_SET_UP`), or a failed / malformed answer;
 //   - `GET AttachmentWeb/ByOwner?ownerKind=SD_DOCUMENT&ownerKey=<attachmentOwnerNo>` — `data` = AttachmentDto[]
 //     (with 2056's `caption` and 2067's `storeCode`), `withdrawn` + `withdrawReasons` BESIDE `data`
@@ -1140,7 +1140,7 @@ async function run() {
   await refreshButton().click()
   await settle()
   await pick(PDF)
-  // The 403 invalidates the permissions answer (oms 909), so it is re-asked once — and still says yes.
+  // The 403 invalidates the permissions answer (oms 914), so it is re-asked once — and still says yes.
   check('bare 403 — …and after the page’s Refresh (the re-asked answer still says yes)', (await withdrawButton().count()) === 0 && permissionsCalls === 2, `${permissionsCalls}`)
   check('ATWD — the web sends nothing for the order’s history line: no other write at all', otherWrites.length === 0, otherWrites.join(', '))
   await noRawKeys('order — withdraw')

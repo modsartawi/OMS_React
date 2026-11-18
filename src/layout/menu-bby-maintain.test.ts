@@ -1,6 +1,6 @@
 /**
  * The Bonus Buy Maintenance nav leaf (ticket 416, BackOffice spec 2374 story 85): hidden from the navigation of a
- * session without the `BbyMaintain` grant — `BbyMaintain:03` off the ONE permissions answer (oms 909). The leaf is
+ * session without the `BbyMaintain` grant — `BbyMaintain:03` off the ONE permissions answer (oms 914). The leaf is
  * read out of the **real** `MENU`, never re-declared.
  */
 import { describe, expect, it } from 'vitest'

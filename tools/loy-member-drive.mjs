@@ -23,7 +23,7 @@
 //
 // And ticket 234's (scenarios 10–12 below):
 //  10. granted — the Loyalty group appears in the nav and its item routes to the
-//      screen, on ONE shared `Auth/Permissions` call (oms 909: `LoyMember:03`);
+//      screen, on ONE shared `Auth/Permissions` call (oms 914: `LoyMember:03`);
 //  11. 🚩 denied — the group is absent AND a typed deep link to `/loy/members`
 //      lands on the denied backstop, not on the lookup field;
 //  12. 🚩 a permissions answer that THROWS behaves exactly like a denial (fail-closed), and
@@ -408,7 +408,7 @@ async function run() {
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
 
-    // The ONE permissions answer (oms 909). Not grant-gated server-side — it answers a
+    // The ONE permissions answer (oms 914). Not grant-gated server-side — it answers a
     // session that holds nothing — so a denial is a key absent from a 200, while `throws`
     // is the answer failing on the way.
     if (path === 'Auth/Permissions') {
@@ -797,7 +797,7 @@ async function run() {
     calls.length === 0,
     calls.join(', '),
   )
-  // (Scenario 13, a bare 403 on the old probe, has no counterpart since oms 909: a 403 invalidates the one
+  // (Scenario 13, a bare 403 on the old probe, has no counterpart since oms 914: a 403 invalidates the one
   // answer rather than standing in for it.)
   scenario.access = 'granted'
 
@@ -990,7 +990,7 @@ async function run() {
     (await groupsRow.count()) === 0 && !/In no group/.test(ungrantedEmpty),
   )
 
-  // (A groups probe that threw while the member read held has no counterpart since oms 909: one answer carries
+  // (A groups probe that threw while the member read held has no counterpart since oms 914: one answer carries
   // both keys, and its failure is scenario 12.)
   scenario.memberOver = {}
 

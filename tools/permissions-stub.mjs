@@ -1,4 +1,4 @@
-// oms 909 (BackOffice spec 4002): the one `GET Auth/Permissions` answer a drive stubs, in place of the per-area
+// oms 914 (BackOffice spec 4002): the one `GET Auth/Permissions` answer a drive stubs, in place of the per-area
 // `*/Access` probes the app no longer calls. The app reads `screens` (the `BackOfficeScreen` keys the user holds, seed
 // spelling, `src/core/permissions.ts` `SCREEN_KEYS`) and `extras`; a key not in `screens` is denied.
 //
@@ -169,7 +169,7 @@ export const FLAG_KEYS = {
 
 /**
  * The keys an area's old flag object grants (`true` flags only). A flag the table does not know grants nothing, as
- * the app reads it today (e.g. Oms `canOverrideGuard`, constant false since 909).
+ * the app reads it today (e.g. Oms `canOverrideGuard`, constant false since 914).
  */
 export function flagKeys(area, flags) {
   const table = FLAG_KEYS[area]

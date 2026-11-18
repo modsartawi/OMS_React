@@ -1,5 +1,5 @@
 /**
- * Bupa line outcomes' grant (oms 899, BackOffice 3889), read off the one permissions answer (oms 909) — apart from
+ * Bupa line outcomes' grant (oms 899, BackOffice 3889), read off the one permissions answer (oms 914) — apart from
  * `./api` so the OMS menu leaf, which imports it eagerly, costs the main bundle only this.
  */
 import type { Permissions } from '@/core/permissions'

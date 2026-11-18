@@ -1,7 +1,7 @@
 /**
  * The dispatch board's grants and the lock's one write (BackOffice spec 2952; doors 2959 + 2964,
  * oms ticket 541). In `@/core/` because two features read them: the board (541) gates its screen and
- * its Release lock on the grants (read off the one permissions answer, oms 909), and Delivery details (542) offers the same Release lock on a locked
+ * its Release lock on the grants (read off the one permissions answer, oms 914), and Delivery details (542) offers the same Release lock on a locked
  * delivery behind the same Execute flag — and a feature may never import another.
  *
  * Through `@/core/api` like every call (`.claude/rules/api-envelope.md`).

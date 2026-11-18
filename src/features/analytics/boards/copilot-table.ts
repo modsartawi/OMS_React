@@ -261,6 +261,8 @@ export function copilotTableModel(table: CopilotAnswerTable, model: AnalyticsMod
     areas: model.areas,
     measures: [...measures, ...model.measures.filter((m) => !keys.has(m.key))],
     dimensions: [...dimensions, ...model.dimensions.filter((d) => !keys.has(d.key))],
+    // 908 (BackOffice 3986): the map above the answer draws with the reader's own key.
+    ...(model.maps ? { maps: model.maps } : {}),
   }
 }
 

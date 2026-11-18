@@ -1,5 +1,5 @@
 /**
- * The loyalty-groups predicates (oms ticket 629, BackOffice spec 3173), over the one permissions answer since oms 909
+ * The loyalty-groups predicates (oms ticket 629, BackOffice spec 3173), over the one permissions answer since oms 914
  * (BackOffice spec 4002): `LoyaltyGroup:03` view, `LoyaltyGroup:02` maintain (brief row 22).
  *
  * 🚩 Maintain sits BESIDE view, never instead of it: a session that may maintain but not view gets nothing.

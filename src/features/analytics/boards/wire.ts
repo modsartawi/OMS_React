@@ -11,6 +11,7 @@ import type {
   AnalyticsMapLegend,
   AnalyticsMeasure,
   AnalyticsMember,
+  AnalyticsMaps,
   AnalyticsModel,
   AnalyticsQueryResult,
   AnalyticsReport,
@@ -97,7 +98,16 @@ export function readModel(raw: Loose): AnalyticsModel {
     dimensions: arr<unknown>(m.dimensions).map(readDimension),
     // 880 (BackOffice 3638): the chart types the door accepts — the ones the web knows, in order; absent stays absent.
     ...(Array.isArray(m.chartTypes) ? { chartTypes: ANALYTICS_CHART_TYPES.filter((type) => (m.chartTypes as unknown[]).includes(type)) } : {}),
+    // 908 (BackOffice 3986): Google's key for the map; no key, no part.
+    ...readMaps(m.maps),
   }
+}
+
+/** The model's `maps` part, or nothing when it carries no key. */
+function readMaps(raw: unknown): { maps?: AnalyticsMaps } {
+  const m = obj(raw)
+  if (typeof m.key !== 'string' || m.key.trim() === '') return {}
+  return { maps: { key: m.key, ...(typeof m.mapId === 'string' && m.mapId !== '' ? { mapId: m.mapId } : {}) } }
 }
 
 /** The model's measure by key, or `undefined` when the model does not hold it (a retired or unknown member). */

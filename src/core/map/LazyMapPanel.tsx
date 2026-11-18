@@ -2,9 +2,10 @@ import { lazy, Suspense, useEffect, useRef, type ComponentType } from 'react'
 import type { MapPanelProps } from './MapPanel'
 
 /**
- * The door every caller uses to draw a map (ticket 879, spec 3630 M35): MapLibre, the style and the base map's code
- * are a chunk of their own, fetched the first time a map is on screen. A board, a report or a panel answer with no
- * map loads none of it — `tools/check-map-build.mjs` proves that on the built app.
+ * The door every caller uses to draw a map (ticket 879, spec 3630 M35; 908): the map's code is a chunk of its own,
+ * fetched the first time a map is on screen, and Google's script is fetched only when that map starts (and only with a
+ * key). A board, a report or a panel answer with no map loads none of it — `tools/check-map-build.mjs` proves that on
+ * the built app.
  *
  * Until the chunk arrives the panel's box is held at its size, empty, so the page does not jump.
  */

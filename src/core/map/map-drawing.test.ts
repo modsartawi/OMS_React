@@ -6,7 +6,7 @@ import { cardAfter, GROUP_INK, GROUP_LABEL_TEXT, GROUP_RADIUS, placeCard, pointR
 // nearby stores joined into one group, and the card a point shows. The engine is a stand-in: the tests read the
 // features the panel hands it at a zoom, and play the pointer and the tap as the engine would report them.
 
-const ORIGIN = 'https://oms.example.test'
+const MAPS = { key: 'planted-test-key' }
 
 function standIn() {
   const started: MapEngineStart[] = []
@@ -52,7 +52,7 @@ function open(points: readonly MapPoint[], over: Partial<Parameters<typeof openM
     points,
     lang: 'en',
     dir: 'ltr',
-    origin: ORIGIN,
+    maps: MAPS,
     inkOf,
     onDrawn: () => {},
     onCannotDraw: () => {},
@@ -327,5 +327,75 @@ describe('the card follows its store when the map moves, and stays inside the pa
     expect(placeCard({ x: 560, y: 380 }, { width: 600, height: 400 }, { width: 150, height: 80 })).toEqual({ left: 398, top: 288 })
     // A point dragged off the panel: the card is held at the panel's edge.
     expect(placeCard({ x: -50, y: 900 }, { width: 600, height: 400 }, { width: 150, height: 80 })).toEqual({ left: 0, top: 320 })
+  })
+})
+
+describe("on Google's map no group overlaps another group or a point, at any zoom where stores join (909)", () => {
+  // Google's web-mercator pixels: 256-pixel tiles (MapLibre's were 512). Written here, not taken from the panel, so the
+  // test measures what Google shows rather than what the panel believes it shows.
+  const googlePx = (lon: number, lat: number, zoom: number) => {
+    const world = 256 * 2 ** zoom
+    const phi = (lat * Math.PI) / 180
+    return { x: ((lon + 180) / 360) * world, y: ((1 - Math.log(Math.tan(Math.PI / 4 + phi / 2)) / Math.PI) / 2) * world }
+  }
+  // Sixty stores over central Riyadh on a deterministic scatter (a linear congruential walk), of every size and colour.
+  const riyadh: MapPoint[] = (() => {
+    let s = 3630
+    const next = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648
+    return Array.from({ length: 60 }, (_, i) => ({
+      id: `R${String(i).padStart(3, '0')}`,
+      lon: 46.6 + next() * 0.2,
+      lat: 24.6 + next() * 0.2,
+      size: next(),
+      hollow: i % 9 === 0,
+      weight: Math.round(next() * 200_000),
+      ink: ['--map-better', '--map-same', '--map-worse'][i % 3],
+    }))
+  })()
+  const overlaps = (start: MapEngineStart, zoom: number) => {
+    const fs = start.featuresAt(zoom)
+    const found: string[] = []
+    for (let i = 0; i < fs.length; i++)
+      for (let j = i + 1; j < fs.length; j++) {
+        const a = fs[i]
+        const b = fs[j]
+        if (a.kind !== 'group' && b.kind !== 'group') continue
+        const pa = googlePx(a.lon, a.lat, zoom)
+        const pb = googlePx(b.lon, b.lat, zoom)
+        // The ring is drawn outside the radius (881's look): the outer edges must not meet.
+        if (Math.hypot(pa.x - pb.x, pa.y - pb.y) < a.radius + a.strokeWidth + b.radius + b.strokeWidth) found.push(`${a.id}~${b.id}@${zoom}`)
+      }
+    return found
+  }
+
+  it('with a count only, every zoom from the country to the street is free of overlaps', () => {
+    const { e } = open(riyadh, { grouping: { sums: false, formatSum: String } })
+    const found = Array.from({ length: 13 }, (_, k) => overlaps(e.start, 5 + k)).flat()
+    expect(found).toEqual([])
+  })
+
+  it('with a sum on a second line (wider groups), every zoom is free of overlaps too', () => {
+    const { e } = open(riyadh, { grouping: { sums: true, formatSum: (n) => `${(n / 1000).toFixed(1)}K` } })
+    const found = Array.from({ length: 13 }, (_, k) => overlaps(e.start, 5 + k)).flat()
+    expect(found).toEqual([])
+  })
+
+  it('the stores still group at a city zoom and are all apart at the street zoom (17)', () => {
+    const { e } = open(riyadh)
+    expect(e.start.featuresAt(11).length).toBeLessThan(riyadh.length)
+    expect(groupsOf(e.start, 17)).toEqual([])
+  })
+
+  it('a click on any group opens it at the zoom the panel names, with the sums grouping too', () => {
+    const { e } = open(riyadh, { grouping: { sums: true, formatSum: (n) => `${(n / 1000).toFixed(1)}K` } })
+    for (const zoom of [9, 11, 13]) {
+      for (const g of groupsOf(e.start, zoom)) {
+        e.events.tap({ id: g.id, x: 0, y: 0, zoom }, zoom)
+        const to = e.zooms.at(-1)!.zoom
+        const ids = new Set(g.members)
+        const together = (z: number) => groupsOf(e.start, z).some((x) => x.members?.length === ids.size && x.members.every((m) => ids.has(m)))
+        expect(together(to), `${g.id} at ${zoom} still one group at ${to}`).toBe(false)
+      }
+    }
   })
 })

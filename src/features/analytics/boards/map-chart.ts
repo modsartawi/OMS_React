@@ -123,6 +123,15 @@ export interface MapDisplay {
 }
 
 /**
+ * Whether a map's "cannot draw" still holds (909): it belongs to the key the map was tried with. A copilot answer can be
+ * drawn before the analytics model, and its `maps` key, has loaded — the panel then says `no-key`; when the key arrives
+ * (or changes), the map is tried again rather than left on its table for good.
+ */
+export function mapCannotDrawHolds(failed: { triedWith: string } | null, key: string | undefined): boolean {
+  return failed !== null && failed.triedWith === (key ?? '')
+}
+
+/**
  * - the panel cannot draw (879): the table, with "The map could not be drawn" — nothing to switch to;
  * - no row has coordinates: the table in place of the map, with the not-on-map line;
  * - "Show as table" chosen: the table, and a switch back to the map;

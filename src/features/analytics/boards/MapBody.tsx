@@ -6,7 +6,7 @@ import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } fr
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
-import { mapDisplay, mapDrawing, mapLegendView } from './map-chart'
+import { mapCannotDrawHolds, mapDisplay, mapDrawing, mapLegendView } from './map-chart'
 import MapLegend from './MapLegend'
 import MapTable, { MapLine } from './MapTable'
 import { usePrintMap } from './PrintMapsContext'
@@ -14,7 +14,7 @@ import { usePrintMap } from './PrintMapsContext'
 /**
  * A map view's body (880): the result's points on the map panel. 882 (spec 3630 M21, M24): "Show as table" switches to
  * every row as a table and back; the stores not on the map are counted under it by the server's count and open as a
- * list; with no row placed, or when the screen cannot draw a map (879: no graphics, or the base map unreadable), the
+ * list; with no row placed, or when the screen cannot draw a map (879, 908: no key, Google refused or unreachable, no graphics), the
  * table is drawn in place of the map with its line (`./map-chart` `mapDisplay`).
  *
  * 883 (spec 3630 M37, M38): on the report print page the map joins the page's maps, which hold the ready marker until
@@ -48,7 +48,9 @@ export default function MapBody({
   const drawing = useMemo(() => mapDrawing(result, model, lang), [result, model, lang])
   const legend = useMemo(() => mapLegendView(result, model, lang), [result, model, lang])
   const points = drawing.points
-  const [cannotDraw, setCannotDraw] = useState(false)
+  // 909: a cannot-draw holds only for the key it was tried with (the model may load after the answer).
+  const [failed, setFailed] = useState<{ triedWith: string } | null>(null)
+  const cannotDraw = mapCannotDrawHolds(failed, model.maps?.key)
   const [asTable, setAsTable] = useState(false)
   const print = usePrintMap()
   const noneOnMap = points.length === 0
@@ -72,11 +74,12 @@ export default function MapBody({
         <LazyMapPanel
           points={points}
           grouping={drawing.grouping}
+          maps={model.maps}
           ariaLabel={t('view.mapLabel', { measure: fsi(measure) })}
           className={className}
           onDrawn={print.drawn}
           onCannotDraw={() => {
-            setCannotDraw(true)
+            setFailed({ triedWith: model.maps?.key ?? '' })
             print.cannotDraw()
           }}
         />

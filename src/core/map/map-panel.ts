@@ -1,14 +1,25 @@
-import type { StyleSpecification } from 'maplibre-gl'
-import { BASEMAP_SOURCE, mapStyle, RTL_TEXT_PLUGIN_PATH } from './map-style'
 import { cardAfter, featuresAt, GROUP_LABEL_INK, openingZoom, type MapCardState, type MapFeature, type MapGrouping, type MapPoint, type MapTarget } from './map-drawing'
 
 export type { MapCard, MapCardState, MapFeature, MapGrouping, MapPoint, MapTarget } from './map-drawing'
 
 /**
- * The map panel's own logic (ticket 879, BackOffice spec 3630 M28, M29, M33-M35; ADR 0135): what it hands the map
- * engine and what it signals back. Pure: no React, no DOM, no MapLibre. The engine is a port ({@link MapEngine}) so the
- * tests drive a stand-in and `./maplibre-engine` is the one place MapLibre is touched.
+ * The map panel's own logic (ticket 879, BackOffice spec 3630 M28, M29, M33-M35; ticket 908, ADR 0139): what it hands the
+ * map engine and what it signals back. Pure: no React, no DOM, no Google. The engine is a port ({@link MapEngine}) so the
+ * tests drive a stand-in and `./google-engine` is the one place Google Maps is touched.
  */
+
+/**
+ * The model's `maps` part (BackOffice 3986): Google's browser key, and the map ID made in the key's Google project when
+ * one is served. Configuration on the server, never in this code or the build. Absent or an empty key: the map cannot be
+ * drawn (`no-key`) and the caller shows the table.
+ */
+export interface MapsAccess {
+  key: string
+  mapId?: string
+}
+
+/** The region Google draws the map for: Saudi Arabia, so the borders are KSA's and the Gulf is the "Arabian Gulf" (M33). */
+export const MAP_REGION = 'SA'
 
 /** The view the map opens on. */
 export type MapView =
@@ -17,43 +28,53 @@ export type MapView =
   /** One place (every point on it): centred, at a fixed zoom, since a box of no size has no fit. */
   | { kind: 'centre'; lon: number; lat: number; zoom: number }
 
-/** The base map's box: KSA and Bahrain (spec 3630 M8; the release file of BackOffice 3634). */
-export const BASEMAP_BOX: MapView = { kind: 'bounds', west: 34, south: 15, east: 56, north: 33 }
+/** The box a map with no point opens on: KSA and Bahrain (spec 3630 M8). */
+export const KSA_BH_BOX: MapView = { kind: 'bounds', west: 34, south: 15, east: 56, north: 33 }
 
-/** The zoom one point opens at: streets and districts are named (BackOffice 3634: zoom 13 draws them). */
-export const SINGLE_POINT_ZOOM = 13
+/**
+ * The zoom one point opens at: streets and districts are named. BackOffice 3634 measured zoom 13 on MapLibre's 512-pixel
+ * tiles; Google's tiles are 256 pixels, so the same ground at the same size is one zoom further in (review G8).
+ */
+export const SINGLE_POINT_ZOOM = 14
 
 /** What the panel hands the engine. */
 export interface MapEngineStart {
   /** Where to draw. Opaque here (an `HTMLElement` in the browser). */
   container: unknown
-  points: readonly MapPoint[]
   view: MapView
-  style: StyleSpecification
-  /**
-   * MapLibre's Arabic text-shaping add-on, on our own site. Loaded before the map draws on an Arabic screen; on an
-   * English one deferred until a label in Arabic script needs it (a place with no English name).
-   */
-  rtlTextPlugin: { url: string; deferred: boolean }
-  /** Where the zoom buttons stand: the top corner at the reading end. MapLibre's corners are physical. */
+  /** Google's browser key, from the model's `maps` part. Never empty: with no key the engine is not started. */
+  key: string
+  /** The map ID from the model's `maps` part, when served. */
+  mapId?: string
+  /** Where the zoom buttons stand: the top corner at the reading end. Physical corners. */
   controlsCorner: 'top-left' | 'top-right'
   /**
-   * What to draw at a zoom (881): each point at its size and colour, nearby points joined into groups. The engine asks
-   * again whenever the whole-number zoom changes.
+   * What to draw at a zoom (881, 909): each point at its size and colour, nearby points joined into groups that never
+   * overlap on Google's map. The one source of the groups: the engine asks again whenever the whole-number zoom changes,
+   * and a tap, a group's opening zoom and the card's fold are all read against the same features.
    */
   featuresAt(zoom: number): MapFeature[]
   /** The resolved ink of a group's words. */
   labelInk: string
-  /** The screen's language: an Arabic map is painted only once its letters are shaped (review W6). */
+  /** The screen's language: Google's labels are in it. */
   lang: MapLang
 }
 
 /** What the engine reports back. */
 export interface MapEngineEvents {
-  /** The base map's tiles and the points are painted. */
-  painted(): void
-  /** The base-map file could not be read (missing, refused, or not answered by byte range). */
-  basemapUnreadable(): void
+  /**
+   * Google reports the map's tiles loaded (`tilesloaded`). The engine puts the points on the map before it can report
+   * anything, so with {@link idle} this is "drawn" (M37).
+   */
+  tilesLoaded(): void
+  /** Google reports the map idle (`idle`): nothing left to move or draw for now. */
+  idle(): void
+  /**
+   * The map cannot be drawn: Google refused the key or the page (`gm_authFailure`: the key or the referrer refused, the
+   * API not enabled, billing off), Google's script failed or did not arrive in time (`unreachable`), or the map could not
+   * start at all (`no-graphics`).
+   */
+  failed(reason: EngineFailure): void
   /** The pointer moved over a feature (its id from {@link MapEngineStart.featuresAt}), or off every feature (null). */
   pointer(target: MapTarget | null, zoom: number): void
   /** A click or a tap on a feature, or on the map beside every feature (null). */
@@ -65,8 +86,6 @@ export interface MapEngineEvents {
    * in a box with no size yet (a dialog still opening) is fitted to its points when the box gets one.
    */
   sized(width: number, height: number): void
-  /** The browser took the map's graphics away (WebGL context lost): the canvas is blank (review W9). */
-  graphicsLost(): void
 }
 
 /** The engine once started. */
@@ -80,34 +99,20 @@ export interface MapEngineRunning {
 }
 
 export interface MapEngine {
-  /** Starts drawing. Throws when the engine cannot start at all (no graphics support). */
+  /**
+   * Starts drawing: fetches Google's script on the first map of the page, then draws. Throws when the engine cannot start
+   * at all; what fails later (the script, the key) arrives as {@link MapEngineEvents.failed}.
+   */
   start(start: MapEngineStart, events: MapEngineEvents): MapEngineRunning
 }
 
 export type MapLang = 'en' | 'ar'
 
-export type CannotDrawReason = 'no-graphics' | 'basemap-unreadable'
+/** Why the engine could not draw. */
+export type EngineFailure = 'refused' | 'unreachable' | 'no-graphics'
 
-/**
- * Whether an engine error means the base-map file cannot be read (review W5): an error on the base map's own source that
- * is not about one tile — the file or its header not read. One tile failing leaves the rest of the map drawn.
- */
-export function isBasemapUnreadable(e: { sourceId?: string; tile?: unknown; error?: unknown }): boolean {
-  return e.sourceId === BASEMAP_SOURCE && e.tile == null
-}
-
-/** The text-shaping add-on's state, as MapLibre reports it (`unavailable`, `deferred`, `requested`, `loading`, `loaded`, `error`). */
-export type RtlTextStatus = string
-
-/**
- * Whether the map is painted (879; review W6): the base map's tiles and the points are in, and on an Arabic screen its
- * letters are shaped — the add-on has loaded (or failed to: unshaped labels are not an undrawn map). Until then the print
- * page would print Arabic labels unjoined. On an English screen the add-on is not waited for.
- */
-export function isPainted(p: { tilesLoaded: boolean; basemapLoaded: boolean; pointsLoaded: boolean; lang: MapLang; rtl: RtlTextStatus }): boolean {
-  if (!p.tilesLoaded || !p.basemapLoaded || !p.pointsLoaded) return false
-  return p.lang !== 'ar' || p.rtl === 'loaded' || p.rtl === 'error'
-}
+/** Why the panel cannot draw: the engine's reasons, and `no-key` (no `maps` part, or an empty key: Google never asked). */
+export type CannotDrawReason = 'no-key' | EngineFailure
 
 export interface OpenMapPanel {
   engine: MapEngine
@@ -115,11 +120,11 @@ export interface OpenMapPanel {
   points: readonly MapPoint[]
   lang: MapLang
   dir: 'ltr' | 'rtl'
-  /** The page's own origin: every file the map reads is under it. */
-  origin: string
+  /** The model's `maps` part (BackOffice 3986), as the caller holds it. Absent, null or an empty key: `no-key`. */
+  maps: MapsAccess | null | undefined
   onDrawn(): void
   onCannotDraw(reason: CannotDrawReason): void
-  /** A colour token's value on the page (MapLibre takes a colour, not a CSS variable). Absent: the token as written. */
+  /** A colour token's value on the page (the engine takes a colour, not a CSS variable). Absent: the token as written. */
   inkOf?: (token: string) => string
   /** How groups read (881). Absent: a group shows its count only. */
   grouping?: MapGrouping | null
@@ -129,7 +134,7 @@ export interface OpenMapPanel {
 
 /** The view that holds every point. */
 export function fittedView(points: readonly MapPoint[]): MapView {
-  if (points.length === 0) return BASEMAP_BOX
+  if (points.length === 0) return KSA_BH_BOX
   let west = Infinity
   let south = Infinity
   let east = -Infinity
@@ -148,10 +153,12 @@ export function fittedView(points: readonly MapPoint[]): MapView {
  * Opens the panel: starts the engine and turns what it reports into the signals a caller waits on. Exactly one ending
  * is signalled:
  *
- * - **drawn**, after the engine reports the base map's tiles and the points painted. The print page waits on it (883).
- *   A later repaint (a pan, a zoom) signals nothing more.
- * - **cannot draw**, when the engine fails to start (no graphics support) or cannot read the base-map file, so the
- *   caller can show the table instead (882, 883).
+ * - **drawn**, once Google has reported both its tiles loaded and the map idle, the points on it (908, M37). The print
+ *   page waits on it (883). A later repaint (a pan, a zoom) signals nothing more.
+ * - **cannot draw**, with its reason, so the caller can show the table instead (882, 883): no key (Google is then never
+ *   asked), the key or the page refused, Google's script unreachable, or the map unable to start. A refusal after "drawn"
+ *   still signals it: Google then greys the map out, which is not a drawn map (review W9). (Google's raster map draws
+ *   no WebGL canvas, so it has no lost-graphics ending: review G8 took MapLibre's out.)
  *
  * Nothing is signalled once the panel is closed.
  */
@@ -162,7 +169,26 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     state = to
     signal()
   }
+  const key = open.maps?.key?.trim() ?? ''
+  if (key === '') {
+    open.onCannotDraw('no-key')
+    return { close: () => {} }
+  }
   const view = fittedView(open.points)
+  let tilesLoaded = false
+  let idle = false
+  const drawnWhenBoth = () => {
+    if (tilesLoaded && idle) end(open.onDrawn, 'drawn')
+  }
+  // A drawn map that is refused is no longer drawn: it ends again, as cannot-draw (review W9).
+  const fail = (reason: EngineFailure) => {
+    if (state === 'drawn' && reason !== 'unreachable') {
+      state = 'ended'
+      open.onCannotDraw(reason)
+      return
+    }
+    end(() => open.onCannotDraw(reason))
+  }
   // Review W2: whether the box had no size when the map started, and whether it has been fitted since.
   let sawNoSize = false
   let sized = false
@@ -190,25 +216,31 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     running = open.engine.start(
       {
         container: open.container,
-        points: open.points,
         view,
-        style: mapStyle(open.lang, open.origin),
-        rtlTextPlugin: { url: open.origin + RTL_TEXT_PLUGIN_PATH, deferred: open.lang !== 'ar' },
+        key,
+        ...(open.maps?.mapId ? { mapId: open.maps.mapId } : {}),
         controlsCorner: open.dir === 'rtl' ? 'top-left' : 'top-right',
         featuresAt: featuresOf,
         labelInk: inkOf(GROUP_LABEL_INK),
         lang: open.lang,
       },
       {
-        painted: () => end(open.onDrawn, 'drawn'),
-        basemapUnreadable: () => end(() => open.onCannotDraw('basemap-unreadable')),
+        tilesLoaded: () => {
+          tilesLoaded = true
+          drawnWhenBoth()
+        },
+        idle: () => {
+          idle = true
+          drawnWhenBoth()
+        },
+        failed: fail,
         // A group has no card: pointing at one is pointing at no store.
         pointer: (target, zoom) => cardOn({ kind: 'point', target: featureOf(target, zoom)?.kind === 'point' ? target : null }),
         tap: (target, zoom) => {
           const f = featureOf(target, zoom)
           // A click on a group zooms in, centred on it, to where it opens (M19).
           if (f?.kind === 'group') {
-            running?.zoomTo(f.lon, f.lat, openingZoom(open.points, f.members ?? [], zoom))
+            running?.zoomTo(f.lon, f.lat, openingZoom(open.points, f.members ?? [], zoom, open.grouping ?? null))
             return
           }
           cardOn({ kind: 'tap', target: f ? target : null })
@@ -224,12 +256,6 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
           sized = true
           // The engine fitted the view to a box of no size, which fits nothing: fit it now the box has one.
           if (sawNoSize) running?.fit(view)
-        },
-        // Review W9: a drawn map whose graphics are lost is a blank canvas, so it too falls back to the table.
-        graphicsLost: () => {
-          if (state !== 'drawing' && state !== 'drawn') return
-          state = 'ended'
-          open.onCannotDraw('no-graphics')
         },
         moved: (zoom) => {
           if (state === 'closed' || !card || !running) return

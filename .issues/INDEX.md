@@ -1253,7 +1253,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [738](738-the-sourcing-advisor-explains-why-an-order-went-to-its-store.md) — The sourcing advisor explains why an order went to its store · *(spec 734)* · **done 2026-11-03** · blocked by: — · sourcing tracer: explain page, core probe, "Why this store?" on delivery details, new ns `sourcing-advisor`; stubbed BO-2; placeholder rates (S2)
 - [739](739-the-sourcing-advisor-shows-what-cheaper-sourcing-would-have-saved.md) — The sourcing advisor shows what cheaper sourcing would have saved · *(spec 734)* · **done 2026-11-03** · blocked by: 738 · 30-day simulation, breakdowns, top-50 savings, scored-through banner
 - [740](740-ask-the-oms-and-the-sourcing-advisor-work-live-on-staging.md) — Ask the OMS and the sourcing advisor work live on staging · *(spec 734)* · **open** · blocked by: 736, 737, 739 (+ BackOffice 3346–3353, IT approval) · live drives, both connectors' eval, MCP check, fallback recordings
-- [790](790-copilot-curators-edit-the-house-rules-try-a-draft-and-roll-back.md) — Copilot curators edit the house rules, try a draft and roll back · *(ticket · spec 734)* · **open** (client half built, stubbed, drive 84/84; live waits on BO 3395) · blocked by: BackOffice 3395 · /copilot/rules: read-only core, house-rules editor (4,000), Try with a draft, save with baseVersion (411 dialog), history + restore; canCurate probe; "rules vN" in the answer's provenance
+- [790](790-copilot-curators-edit-the-house-rules-try-a-draft-and-roll-back.md) — Copilot curators edit the house rules, try a draft and roll back · *(ticket · spec 734)* · **done 2026-11-18** (walked live; the rule-12 pair accepted as overtaken by today's model) · blocked by: BackOffice 3395 · /copilot/rules: read-only core, house-rules editor (4,000), Try with a draft, save with baseVersion (411 dialog), history + restore; canCurate probe; "rules vN" in the answer's provenance
 
 ## Self-service analytics with AI (wayfinder map 741, charted 2026-11-03)
 
@@ -1322,7 +1322,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## HQ analytics v2 (wayfinder map 793, charted 2026-11-06)
 
-- [793](793-hq-analytics-v2-team-reports-with-parameters-over-more-sources-map.md) — HQ analytics v2: team reports with parameters, over more sources · *(wayfinder map)* · **open** · blocked by: — · destination reached: spec [819](819-hq-analytics-v2-team-reports-with-parameters-spec.md) ready 2026-11-06; team sharing + author parameters + new areas + reports + AI-composed reports + scheduled email; RLS not chosen; no SQL editor
+- [793](793-hq-analytics-v2-team-reports-with-parameters-over-more-sources-map.md) — HQ analytics v2: team reports with parameters, over more sources · *(wayfinder map)* · **done 2026-11-17** · blocked by: — · destination reached: spec [819](819-hq-analytics-v2-team-reports-with-parameters-spec.md) ready 2026-11-06; team sharing + author parameters + new areas + reports + AI-composed reports + scheduled email; RLS not chosen; no SQL editor
 - [794](794-who-is-a-team-when-an-analytics-item-is-shared-and-what-may-the-team-do-with-it.md) — Who is a team when an analytics item is shared, and what may the team do with it? · *(wayfinder · grilling)* · **done** · blocked by: —
 - [795](795-how-do-cube-and-comparable-bi-tools-model-run-time-report-parameters.md) — How do Cube and comparable BI tools model run-time report parameters? · *(wayfinder · research)* · **done** · blocked by: — · AFK · SIS.Api resolves every parameter into plain `/load` JSON before Cube; filter vs template-parameter split; notes [793-run-time-parameters.md](../docs/research/793-run-time-parameters.md)
 - [796](796-which-new-subject-areas-does-v2-add-and-which-hq-questions-do-they-answer.md) — Which new subject areas does v2 add, and which HQ questions do they answer? · *(wayfinder · grilling)* · **done 2026-11-06** · blocked by: — · baseline = shipped 1.2.0 (items done); adds orders cancellation + delivery type (QC), coupons & promotions, loyalty aggregates, insurance claims (submitted only); margin + SAP/IDoc out; HS cancels inside OMS only, caveated; catalogue [793-v2-semantic-model.md](../docs/research/793-v2-semantic-model.md)
@@ -1399,11 +1399,11 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Menu Access probes (BackOffice 3459), filed 2026-11-07
 
-- [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **open** *(client half built 2026-11-07; BO 3459 done but not on staging — staging walk left; 🚩 do not deploy before 3459)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (24 per-leaf flags, names match 3459), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18
+- [852](852-every-menu-leaf-is-hidden-until-its-access-probe-says-yes.md) — Every menu leaf is hidden until its Access probe says yes · *(ticket · BackOffice 3459)* · **done 2026-11-17** *(client half built 2026-11-07; BO 3459 done but not on staging — staging walk left; 🚩 do not deploy before 3459)* · blocked by: BackOffice 3459 · `Rules/Access`, `InsuranceRules/Access` (24 per-leaf flags, names match 3459), `PrescriptionSessionWeb/Access`; Broadcast fails closed on 404 · drive 18/18
 
 ## Analytics drafts run with their parameters, filed 2026-11-07
 
-- [853](853-an-unsaved-report-or-board-runs-its-panels-with-their-bound-parameters.md) — An unsaved report or board runs its panels with their bound parameters · *(ticket)* · **open** · blocked by: —
+- [853](853-an-unsaved-report-or-board-runs-its-panels-with-their-bound-parameters.md) — An unsaved report or board runs its panels with their bound parameters · *(ticket)* · **done 2026-11-17** · blocked by: —
 
 ## Cancellation reasons + delivery cancel-by-request only (BackOffice spec 3461), filed 2026-11-08
 
@@ -1450,6 +1450,13 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [882](882-stores-not-on-the-map-are-counted-and-listed-and-every-map-shows-as-a-table.md) — Stores not on the map are counted and listed, and every map can be shown as a table · *(ticket · BackOffice spec 3630)* · **done** · blocked by: BackOffice 3639, 880
 - [883](883-the-print-page-waits-for-its-maps-and-falls-back-to-the-table.md) — The print page says it is ready only after its maps are drawn, and prints the table when a map is not ready in 20 seconds · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: 880
 - [884](884-the-copilot-panel-draws-a-map-above-its-table.md) — The copilot panel draws a map above its table · *(ticket · BackOffice spec 3630)* · **done 2026-11-17** · blocked by: BackOffice 3641, 880
+
+**2026-11-17 — the engine moves to Google Maps everywhere** (owner, BackOffice ADR 0139, superseding ADR 0135). 879 to 884 stand as built on MapLibre; 908 to 911 move them to Google and retire MapLibre.
+
+- [908](908-the-map-panel-draws-with-google-maps.md) — The map panel draws with Google Maps: the key from the server, region Saudi Arabia, the screen's language, loaded only when a map is shown · *(ticket · BackOffice spec 3630, ADR 0139)* · **done 2026-11-17** · blocked by: BackOffice 3986
+- [909](909-google-map-points-are-sized-and-coloured-and-nearby-stores-group-with-markerclusterer.md) — On Google's map, points are sized and coloured from the legend, nearby stores group with markerclusterer under our count, sum and neutral rules, and a point shows its card · *(ticket · BackOffice spec 3630, ADR 0139)* · **done 2026-11-17** · blocked by: 908
+- [910](910-the-print-page-waits-for-googles-map-and-the-map-drives-run-on-google.md) — The print page waits for Google's map and falls back to the table when Google cannot be reached; the report-print and copilot map drives run on Google · *(ticket · BackOffice spec 3630, ADR 0139)* · **done 2026-11-17** · blocked by: 908, 909
+- [911](911-maplibre-and-our-base-map-are-retired-and-the-map-build-gate-allows-only-googles-hosts.md) — MapLibre and our base map are retired from the web app, and the map build gate allows only Google's hosts · *(ticket · BackOffice spec 3630, ADR 0139)* · **done** · blocked by: 908, 909, 910
 
 ## The copilot's personal schedule (BackOffice spec 3631), filed 2026-11-11
 

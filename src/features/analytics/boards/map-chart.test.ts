@@ -5,7 +5,7 @@ import ar from '@/locales/ar/boards.json'
 import { chartOffers, choiceOf, designerChoice, type ChartOffer } from './shape-rules'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { mapPoints, mapRoles, swapMapMeasures } from './map-chart'
+import { mapCannotDrawHolds, mapPoints, mapRoles, swapMapMeasures } from './map-chart'
 import PanelBody from './PanelBody'
 import { PrintMapsContext } from './PrintMapsContext'
 import { createPrintMaps, type MapPrintState, type PrintMaps } from './print-maps'
@@ -113,6 +113,25 @@ describe('the model says which chart types the door accepts (3638 wire)', () => 
   it('reads chartTypes, keeping the types the web knows, in order; absent stays absent', () => {
     expect(readModel({ chartTypes: ['kpi', 'bar', 'map', 'sankey', 7] }).chartTypes).toEqual(['kpi', 'bar', 'map'])
     expect(readModel({}).chartTypes).toBeUndefined()
+  })
+})
+
+describe('the model carries Google’s browser key in its `maps` part (BackOffice 3986 wire, oms-react 908)', () => {
+  it('reads the key and the map ID as sent', () => {
+    expect(readModel({ maps: { key: 'planted-test-key', mapId: 'planted-map-id' } }).maps).toEqual({ key: 'planted-test-key', mapId: 'planted-map-id' })
+  })
+
+  it('no map ID, or an empty one: the part has the key only', () => {
+    expect(readModel({ maps: { key: 'planted-test-key' } }).maps).toEqual({ key: 'planted-test-key' })
+    expect(readModel({ maps: { key: 'planted-test-key', mapId: '' } }).maps).toEqual({ key: 'planted-test-key' })
+  })
+
+  it('no part, an empty key or a key that is not text: no part (the map cannot draw, the table shows)', () => {
+    expect(readModel({}).maps).toBeUndefined()
+    expect(readModel({ maps: null }).maps).toBeUndefined()
+    expect(readModel({ maps: { key: '' } }).maps).toBeUndefined()
+    expect(readModel({ maps: { key: 42 } }).maps).toBeUndefined()
+    expect('maps' in readModel({})).toBe(false)
   })
 })
 
@@ -298,5 +317,23 @@ describe('a view saved as a map opens in the designer as a map (M26)', () => {
 
   it('with the server not accepting map, the designer opens on the type it would pick instead (the server is the authority)', () => {
     expect(opened(MAP_OFF)).toBe('bar-horizontal')
+  })
+})
+
+describe("a map's \"cannot draw\" belongs to the key it was tried with (909)", () => {
+  // The copilot's answer can arrive before the analytics model (and its `maps` key) has loaded: the panel then says
+  // no-key. Once the key arrives the map is tried again, instead of staying on its table for good.
+  it('holds while the key is the one the map could not draw with', () => {
+    expect(mapCannotDrawHolds({ triedWith: '' }, undefined)).toBe(true)
+    expect(mapCannotDrawHolds({ triedWith: 'k1' }, 'k1')).toBe(true)
+  })
+
+  it('lifts when the key arrives or changes, so the map is drawn again', () => {
+    expect(mapCannotDrawHolds({ triedWith: '' }, 'k1')).toBe(false)
+    expect(mapCannotDrawHolds({ triedWith: 'k1' }, 'k2')).toBe(false)
+  })
+
+  it('nothing tried: nothing holds', () => {
+    expect(mapCannotDrawHolds(null, 'k1')).toBe(false)
   })
 })

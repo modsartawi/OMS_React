@@ -77,14 +77,19 @@ function PrintView({ report, model }: { report: AnalyticsReport; model: Analytic
   const [maps] = useState(createPrintMaps)
   useEffect(() => () => maps.close(), [maps])
   const mapsSettled = useSyncExternalStore(maps.subscribe, maps.settled, maps.settled)
+  // Review G2: the charts' moment is latched at the maps' revision. A drawn map that falls back to its table (Google
+  // refused the key after the tiles came) changes the revision, so the marker drops and the moment is waited again.
+  const mapsRevision = useSyncExternalStore(maps.subscribe, maps.revision, maps.revision)
+  // On screen (no ticket) the print dialog opens once: a map falling back later does not open it again.
+  const latchRevision = ticketed ? mapsRevision : 0
   const ready = fetching === 0 && mapsSettled
-  const [drawn, setDrawn] = useState(false)
+  const [drawnAt, setDrawnAt] = useState<number | null>(null)
   useEffect(() => {
     if (!ready) return
-    const timer = window.setTimeout(() => (ticketed ? setDrawn(true) : window.print()), 1200)
+    const timer = window.setTimeout(() => (ticketed ? setDrawnAt(latchRevision) : window.print()), 1200)
     return () => window.clearTimeout(timer)
-  }, [ready, ticketed])
-  const printReadyNow = printReady({ idle: ready, settled: drawn, maps })
+  }, [ready, ticketed, latchRevision])
+  const printReadyNow = printReady({ idle: ready, settledAt: drawnAt, maps })
 
   const title = saysIn(report.title, lang)
   return (

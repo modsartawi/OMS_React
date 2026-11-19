@@ -74,3 +74,61 @@ describe('promoView().missed', () => {
     expect(view.missed[0].definition).toBeNull()
   })
 })
+
+/**
+ * Spec 4040 / ticket 921: the missed card labels the bonus buy's HEADER minimum with its basis,
+ * read from the engine result's `minValueInclVat` (BackOffice 4041). A prerequisite's own
+ * minimum is always excl. VAT, so it carries no basis at all.
+ */
+describe('promoView().missed minimum', () => {
+  const potential = (over: Record<string, unknown>) =>
+    promoView({
+      items: [],
+      appliedBonusBuys: [],
+      potentialBonusBuys: [
+        {
+          bbyNumber: 'B1',
+          promoNumber: 'P1',
+          offerId: 'O1',
+          description: 'Spend 100 get 10% off',
+          minValue: 100,
+          maxValue: 0,
+          prerequisites: [
+            {
+              prereqNumber: '1',
+              materialNumber: null,
+              matGrouping: 'G1',
+              requiredQty: 0,
+              foundQty: 0,
+              minValue: 40,
+              foundValue: 12.5,
+              isMet: false,
+            },
+          ],
+          discount: { discountType: '%', value: 10, conditionType: 'ZB12' },
+          skipReason: null,
+          ...over,
+        },
+      ],
+    } as never).missed[0]
+
+  it('labels a marked header minimum incl. VAT', () => {
+    expect(potential({ minValueInclVat: true }).minimum).toEqual({ value: 100, inclVat: true })
+  })
+
+  it('leaves an unmarked or pre-4041 header minimum unlabelled', () => {
+    expect(potential({ minValueInclVat: false }).minimum).toEqual({ value: 100, inclVat: false })
+    expect(potential({}).minimum).toEqual({ value: 100, inclVat: false })
+  })
+
+  it('has no minimum line without a header minimum', () => {
+    expect(potential({ minValue: 0, minValueInclVat: true }).minimum).toBeNull()
+  })
+
+  it('never labels the prerequisite minimum, even on a marked bonus buy', () => {
+    const prereq = potential({ minValueInclVat: true }).prereq
+    expect(prereq?.minValue).toBe(40)
+    expect(prereq).not.toHaveProperty('inclVat')
+    expect(prereq).not.toHaveProperty('minValueInclVat')
+  })
+})

@@ -104,6 +104,15 @@
 //      Up To, uneven 133.33, "off" on an amount; nothing on %, a blank Per or under Total Discount;
 //      grouped money (25000 × 4 → 100,000.00); Per 2.5 → no hint and a plain Curr/Pe.
 //
+// Ticket 920 — a bonus buy's minimum marked incl. VAT (BackOffice spec 4040; 4043 NOT shipped: the
+// `minValueInclVat` boolean on the read and on Validate/Save, and the switch-off refusal, are stubbed
+// in the spec's reading — the refusal's code `BBY-MIN-INCL-VAT-OFF` is a guess, shown as any refusal).
+//  50. a new bonus buy: the mark off and disabled; the minimum ticked with no amount keeps it disabled;
+//      an amount enables it; unticking the minimum clears it, and re-ticking leaves it off.
+//      A marked read opens ticked; Check sends minValueInclVat:true and the switch-off refusal is
+//      listed (code, EN, AR); Save is refused the same way. An unmarked read sends false.
+//      A Tested marked bonus buy shows it ticked and disabled.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -179,6 +188,12 @@ let saveAnswer = 'stale'
 // Ticket 640: the bonus buy whose price line is read with Per 4.
 const PER_BBY = 'OMS000000126'
 let bonusBuyGets = 0
+// Ticket 920: a Planned and a Tested bonus buy whose minimum is marked incl. VAT (spec 4040).
+const INCL_BBY = 'OMS000000127'
+const INCL_TESTED = 'OMS000000128'
+const INCL_OFF = refusal('BBY-MIN-INCL-VAT-OFF',
+  'A minimum value including VAT is not yet available — the tills are being upgraded.',
+  'الحد الأدنى للقيمة شاملاً ضريبة القيمة المضافة غير متاح بعد — يجري تحديث نقاط البيع.')
 // Ticket 419: each OMS bonus buy's status as the stub's server holds it (default Planned), and the
 // test mark the read carries. MarkTested / BackToPlanned move it, so a re-read shows the move.
 const statusOf = { OMS000000002: '', OMS000000003: '2', OMS000000004: '3' }
@@ -223,6 +238,12 @@ async function run() {
           { ...BBY.get[0], quantity: 4, value: 100, pricingUnit: 4 },
           BBY.get[1],
         ] } }))
+      // Ticket 920: the minimum marked incl. VAT; the Tested one is locked like any Tested read.
+      if (n === INCL_BBY || n === INCL_TESTED)
+        return route.fulfill(envelope({
+          ...bbyDoc(n, n === INCL_TESTED ? { bbyStatus: '3', readOnly: true, ...MARK } : {}),
+          bonusBuy: { ...BBY, bbyNumber: n, minValueInclVat: true },
+        }))
       if (/^OMS0000001(24|25)$|^OMS00000000[1-49]$/.test(n))
         return route.fulfill(envelope(bbyDoc(n, {
           // As shipped (BackOffice 2398): readOnly also on an OMS bonus buy that is not Planned.
@@ -257,6 +278,9 @@ async function run() {
           envelope({ status: 'refused', number: PROMO.promoNumber, warnings: [], refusals: items.flatMap((i) => i.refusals), bonusBuys: items }),
         )
       }
+      // Ticket 920: HQ's switch is off (spec 4040 story 8), so any marked bonus buy is refused.
+      if ((op === 'BonusBuy/Validate' || op === 'BonusBuy/Save') && body.minValueInclVat === true)
+        return route.fulfill(envelope({ status: 'refused', number: body.bbyNumber ?? null, refusals: [INCL_OFF], warnings: [] }))
       if (op === 'BonusBuy/Validate' && body.bbyNumber === PER_BBY)
         return route.fulfill(
           envelope({
@@ -800,6 +824,71 @@ async function run() {
   await page.getByLabel('Total Discount').uncheck()
   const k641 = await rawKey()
   check('49. no raw i18n keys with the hint', k641 === null, (k641 || [''])[0])
+
+  // ════════ Ticket 920 — the minimum marked incl. VAT ════════
+  // ── 50. the mark's states, its request, and the switch-off refusal ──
+  {
+    const mark = () => page.getByLabel('incl. VAT', { exact: true })
+    const minBox = () => page.getByLabel('Total Minimum Value')
+    const amountBox = () => page.getByLabel('Minimum value amount')
+    const lastPost = (op) => posts.filter(([o]) => o === op).at(-1)?.[1]
+    const waitPost = async (op) => { for (let i = 0; i < 50 && !lastPost(op); i++) await page.waitForTimeout(100) }
+
+    await page.goto(`${EDIT}/new`)
+    await page.waitForSelector('h1:has-text("Create Bonus Buy")')
+    check('50. new: the mark is off and disabled', !(await mark().isChecked()) && (await mark().isDisabled()))
+    await minBox().check()
+    check('50. the minimum ticked with no amount: still disabled', await mark().isDisabled())
+    await amountBox().fill('100')
+    check('50. with an amount: the mark is enabled', await mark().isEnabled())
+    await mark().check()
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/editor-min-incl-vat.png', fullPage: false }).catch(() => {})
+    await minBox().uncheck()
+    check('50. unticking the minimum clears and disables the mark', !(await mark().isChecked()) && (await mark().isDisabled()))
+    await minBox().check()
+    check('50. re-ticking the minimum leaves the mark off (enabled)', !(await mark().isChecked()) && (await mark().isEnabled()))
+    await mark().check()
+    await amountBox().fill('')
+    check('50. blanking the amount unticks and disables the mark', !(await mark().isChecked()) && (await mark().isDisabled()))
+    await amountBox().fill('150')
+    check('50. retyping the amount does not resurrect the mark', !(await mark().isChecked()) && (await mark().isEnabled()))
+    const hint = await mark().evaluate((el) => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent ?? '')
+    check('50. the mark is described by its hint (aria-describedby)', /including each line's VAT/.test(hint), hint)
+
+    await page.goto(`${EDIT}/${INCL_BBY}`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('50. a marked read opens ticked and enabled', (await mark().isChecked()) && (await mark().isEnabled()))
+    posts.length = 0
+    await page.locator('button', { hasText: /^Check$/ }).click()
+    await waitPost('BonusBuy/Validate')
+    await page.waitForSelector('text=BBY-MIN-INCL-VAT-OFF', { timeout: 5000 }).catch(() => {})
+    const iv = lastPost('BonusBuy/Validate')
+    check('50. Check sends minValueInclVat:true with the minimum', iv?.minValueInclVat === true && iv?.minValue === 100, JSON.stringify({ m: iv?.minValue, v: iv?.minValueInclVat }))
+    const ir = await report417()
+    check('50. the switch-off refusal is listed with its code, English and Arabic',
+      ir.includes('BBY-MIN-INCL-VAT-OFF') && ir.includes('the tills are being upgraded') && ir.includes('يجري تحديث نقاط البيع'), JSON.stringify(ir))
+    await page.locator('button', { hasText: /^Save$/ }).click()
+    await waitPost('BonusBuy/Save')
+    await page.waitForTimeout(300)
+    const is = lastPost('BonusBuy/Save')
+    const sr = await report417()
+    check('50. Save is refused the same way, nothing saved', is?.minValueInclVat === true && sr.includes('BBY-MIN-INCL-VAT-OFF') && !sr.includes('Reload'), JSON.stringify(sr))
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/editor-min-incl-vat-refused.png', fullPage: true }).catch(() => {})
+
+    await page.goto(`${EDIT}/OMS000000124`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('50. an unmarked read opens with the mark off', !(await mark().isChecked()) && (await mark().isEnabled()))
+    posts.length = 0
+    await page.locator('button', { hasText: /^Check$/ }).click()
+    await waitPost('BonusBuy/Validate')
+    check('50. …and Check sends minValueInclVat:false', lastPost('BonusBuy/Validate')?.minValueInclVat === false)
+
+    await page.goto(`${EDIT}/${INCL_TESTED}`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('50. a Tested marked bonus buy shows it ticked and read-only', (await mark().isChecked()) && (await mark().isDisabled()))
+    const k920 = await rawKey()
+    check('50. no raw i18n keys', k920 === null, (k920 || [''])[0])
+  }
 
   // ── 22–26. the upload dialog ──
   // Its own block: 417's section above declares the same helper names.

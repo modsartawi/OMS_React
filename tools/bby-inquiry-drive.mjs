@@ -182,6 +182,11 @@ async function run() {
           }),
         )
       const detail = mode === 'document' ? DETAIL_DOC : DETAIL_ROWS
+      // ticket 921 — `detailHeaders` overrides the header per asked BBY number (the 4040 mark).
+      if (scenario.detailHeaders) {
+        const asked = new URLSearchParams(url.split('?')[1] || '').get('bbyNumber')
+        return route.fulfill(envelope({ ...detail, header: { ...detail.header, ...scenario.detailHeaders[asked] } }))
+      }
       // ticket 442 — `detailStatus` overrides the header status to badge each reading in the modal.
       if (scenario.detailStatus !== undefined)
         return route.fulfill(envelope({ ...detail, header: { ...detail.header, bbyStatus: scenario.detailStatus } }))
@@ -215,11 +220,11 @@ async function run() {
   check('code 2 renders as Deactivated', bodyText.includes('Deactivated'), '')
   check('valid-from formatted yyyy-MM-dd', bodyText.includes('2026-01-01'))
 
-  // ---- ticket 063: the full 28-field grouped grid ----
+  // ---- ticket 063: the full grouped grid (28 fields, 29 with 921's incl. VAT mark) ----
   // AG Grid horizontally virtualizes columns, so DOM-count won't see all 28. Read the
   // authoritative total off aria-colcount, and union header text across a scroll sweep.
   const colCount = await page.locator('[role="treegrid"], [role="grid"]').first().getAttribute('aria-colcount')
-  check('grid exposes all 28 columns (aria-colcount)', Number(colCount) === 28, `aria-colcount=${colCount}`)
+  check('grid exposes all 29 columns (aria-colcount)', Number(colCount) === 29, `aria-colcount=${colCount}`)
 
   // Sweep the horizontal scroll, unioning every header + cell label we pass.
   const seen = new Set()
@@ -410,7 +415,7 @@ async function run() {
   const csv = fs.readFileSync(csvPath, 'utf8')
   const headerLine = csv.split(/\r?\n/)[0].replace(/^﻿/, '')
   const headerCols = headerLine.split(',').length
-  check('CSV header carries all 28 columns', headerCols === 28, `${headerCols} cols`)
+  check('CSV header carries all 29 columns (921 adds the incl. VAT mark)', headerCols === 29, `${headerCols} cols`)
   check('CSV header includes BBY # + Valid from + Status', /BBY #/.test(headerLine) && /Valid from/.test(headerLine) && /Status/.test(headerLine), headerLine.slice(0, 80))
   // Raw values, not display chips: yyyyMMdd date + the status code as stored (SAP's blank for
   // Activated, `2` for Deactivated), NOT "2026-01-01"/"Activated".
@@ -418,6 +423,10 @@ async function run() {
   const statusAt = headerLine.split(',').findIndex((h) => /^"?Status"?$/.test(h))
   const csvStatuses = csvLines.slice(1).map((l) => (l.split(',')[statusAt] ?? '').replace(/"/g, ''))
   check('CSV cells are RAW (20260101 date; status blank + "2"), not formatted', /20260101/.test(csv) && csvStatuses.includes('') && csvStatuses.includes('2') && !/Activated/.test(csv) && !/2026-01-01/.test(csv), csvStatuses.join('|'))
+  // A row with no incl. VAT mark (a server before BackOffice 4044) exports `false`, as the grid reads it `–`.
+  const markAt = headerLine.split(',').findIndex((h) => /^"?Min incl\. VAT"?$/.test(h))
+  const csvMarks = csvLines.slice(1).map((l) => (l.split(',')[markAt] ?? '').replace(/"/g, ''))
+  check('CSV writes an absent incl. VAT mark as false', markAt >= 0 && csvMarks.length > 0 && csvMarks.every((m) => m === 'false'), `${markAt}: ${csvMarks.join('|')}`)
 
   // ---- ticket 066: the Details modal (rows branch, document branch, not-found) ----
   scenario = { accessBody: { screenAllowed: true }, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: '2' })], detailMode: 'rows' }
@@ -721,6 +730,68 @@ async function run() {
     await page.waitForTimeout(150)
   }
   delete scenario.detailStatus
+
+  // ---- ticket 921 (spec 4040): the minimum's basis — a marked and an unmarked bonus buy ----
+  // Stubbed against the spec's contract: BackOffice 4044 adds `minValueInclVat` to the inquiry
+  // row and the detail header; an older server sends no field, which reads as off.
+  scenario = {
+    accessBody: { screenAllowed: true },
+    rows: [
+      ROW({ bbyNumber: '300001', description: 'Spend 100 incl. VAT', minValue: 100, maxValue: 500, minValueInclVat: true }),
+      ROW({ bbyNumber: '300002', description: 'Spend 100 excl. VAT', minValue: 100, maxValue: 500, minValueInclVat: false }),
+      ROW({ bbyNumber: '300003', description: 'Pre-4044 row', minValue: 100, maxValue: 500 }),
+    ],
+    detailMode: 'rows',
+    detailHeaders: {
+      300001: { bbyNumber: '300001', minValue: 100, maxValue: 500, minValueInclVat: true },
+      300002: { bbyNumber: '300002', minValue: 100, maxValue: 500, minValueInclVat: false },
+      300003: { bbyNumber: '300003', minValue: 100, maxValue: 500 },
+    },
+  }
+  await page.goto(URL)
+  await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
+  // Columns are virtualized: sweep the horizontal scroll until the mark column is rendered.
+  for (let x = 0; x <= 6000; x += 300) {
+    if ((await page.locator('.ag-cell[col-id="minValueInclVat"]').count()) >= 3) break
+    await page.evaluate((sx) => {
+      const vp = document.querySelector('.ag-body-horizontal-scroll-viewport')
+      if (vp) vp.scrollLeft = sx
+    }, x)
+    await page.waitForTimeout(80)
+  }
+  await page.waitForTimeout(150)
+  const markHeader = await page.locator('.ag-header-cell[col-id="minValueInclVat"]').innerText().catch(() => '')
+  check('921: the grid carries a "Min incl. VAT" column', /Min incl\. VAT/.test(markHeader), markHeader)
+  const markCell = async (i) =>
+    (await page.locator(`.ag-row[row-index="${i}"] .ag-cell[col-id="minValueInclVat"]`).innerText().catch(() => '')).trim()
+  const marks = [await markCell(0), await markCell(1), await markCell(2)]
+  check('921: the marked row reads ✓, the unmarked and pre-4044 rows –', marks.join(' ') === '✓ – –', marks.join(' '))
+  await page.evaluate(() => {
+    const vp = document.querySelector('.ag-body-horizontal-scroll-viewport')
+    if (vp) vp.scrollLeft = 0
+  })
+  await page.waitForTimeout(120)
+  const minMaxOf = async (i) => {
+    await page.locator(`.ag-row[row-index="${i}"]`).getByRole('button', { name: /Details/i }).click()
+    const dialog = page.locator('dialog[open]')
+    await dialog.getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
+    // "Header & rules" opens collapsed; the Min / Max line lives inside it.
+    await dialog.locator('button[aria-expanded="false"]', { hasText: 'Header & rules' }).click({ timeout: 5000 }).catch(() => {})
+    const line = dialog.locator('[data-bby-min-max]')
+    const out = {
+      basis: await line.getAttribute('data-bby-min-max').catch(() => null),
+      text: strip((await line.innerText().catch(() => '')).replace(/\s+/g, ' ')),
+    }
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+    return out
+  }
+  const marked = await minMaxOf(0)
+  check('921: the marked detail reads "Min / Max … SAR (incl. VAT)"', marked.basis === 'incl-vat' && /100\.00 \/ 500\.00 SAR \(incl\. VAT\)$/.test(marked.text), marked.text)
+  const unmarked = await minMaxOf(1)
+  check('921: the unmarked detail carries no basis', unmarked.basis === 'plain' && !/VAT/.test(unmarked.text) && /100\.00 \/ 500\.00 SAR$/.test(unmarked.text), unmarked.text)
+  const older = await minMaxOf(2)
+  check('921: a pre-4044 detail (no field) reads as unmarked', older.basis === 'plain' && !/VAT/.test(older.text), older.text)
 
   // The not-found scenarios intentionally 404 a detail read, which the browser logs
   // as a resource-load 404 — expected, not an app fault. Filter it out.

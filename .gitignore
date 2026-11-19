@@ -175,3 +175,5 @@ tools/.document-family-shots/
 tools/.stock-health-shots/
 # Store database drive screenshots (tools/store-db-*-drive.mjs, tickets 915-919)
 tools/.store-db-*-shots/
+# Item lists drive screenshots (tools/item-lists-drive.mjs, ticket 925)
+tools/.item-lists-shots/

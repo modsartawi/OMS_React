@@ -1,0 +1,145 @@
+{
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to item lists",
+    "deniedHint": "Item lists are part of Analytics. Ask an administrator for the Analytics grant (uploading needs the author grant).",
+    "unreachableTitle": "Couldn't check your access",
+    "unreachableHint": "Your permissions could not be read. Reload the page to try again."
+  },
+  "upload": {
+    "title": "Upload an item list",
+    "subtitle": "Items or item groups, each with the periods your team states — shared with the people you choose, for Copilot to analyse on.",
+    "reuploadTitle": "Upload a new version",
+    "reuploadSubtitle": "The file replaces the list's contents as a new version, after the same preview. Its name and audience stay.",
+    "back": "Back to the list",
+    "notOwner": "Only the list's owner can upload a new version of it.",
+    "loadFailed": "The list could not be read."
+  },
+  "template": {
+    "title": "Start from the template",
+    "hint": "Columns Level, Key, From, To, Status and Note, with English and Arabic headers and the allowed statuses.",
+    "download": "Download the template",
+    "downloading": "Downloading…",
+    "failed": "The template could not be downloaded."
+  },
+  "drop": {
+    "title": "Choose the file",
+    "hint": "An .xlsx or a .csv of at most 2 MB. Nothing is kept until you save.",
+    "zone": "Drop the file here, or",
+    "pick": "choose a file",
+    "file": "Item list file",
+    "reading": "Reading and matching the file…",
+    "type": "Choose an .xlsx or a .csv file.",
+    "size": "The file is over 2 MB.",
+    "failed": "The file could not be read."
+  },
+  "preview": {
+    "title": "Preview",
+    "lede": "Checked against the item master. Only the matched rows are saved; the unknown values are listed on the list.",
+    "file": "File",
+    "rows": "Rows",
+    "matched": "Matched",
+    "problems": "Problems",
+    "keptUntil": "This preview is kept until <at>{{at}}</at>. Save before then.",
+    "matchedTitle": "Matched rows",
+    "noneMatched": "Nothing in the file matched an item or a group, so there is nothing to save. Fix the file and choose it again.",
+    "clean": "No problems: every row matched.",
+    "row": "Row",
+    "rowsOf": "Rows",
+    "change": "Choose another file",
+    "kinds": {
+      "unknown": "Unknown values",
+      "duplicate": "Duplicates",
+      "badDate": "Bad dates",
+      "overlap": "Overlapping periods",
+      "refused": "Refused rows"
+    },
+    "kindHints": {
+      "unknown": "Matched nothing in analytics. They are not members; the list keeps them for display.",
+      "duplicate": "The same row more than once.",
+      "badDate": "Not a date: use an Excel date cell or yyyy-mm-dd.",
+      "overlap": "Two periods of one member overlap. Fix the dates so they follow each other.",
+      "refused": "Refused by the server, for the reason given."
+    }
+  },
+  "expired": {
+    "title": "The preview expired",
+    "body": "A preview is kept for 30 minutes. Choose the file again to see it and save."
+  },
+  "save": {
+    "title": "Name and share",
+    "name": "Name",
+    "nameHint": "How your team and Copilot will call it, for example Shortage Q3.",
+    "who": "Who can read it",
+    "folder": "Folder",
+    "unfiled": "No folder",
+    "save": "Save the list",
+    "saveVersion": "Save the new version",
+    "saving": "Saving…",
+    "saved": "The list is saved and shared.",
+    "savedVersion": "The new version is saved.",
+    "failed": "The list could not be saved.",
+    "hold": {
+      "noFile": "Choose a file first.",
+      "expired": "The preview expired: choose the file again.",
+      "nothingMatched": "Nothing matched, so there is nothing to save.",
+      "noName": "Give the list a name.",
+      "noAudience": "Choose at least one role or person, or share with everyone.",
+      "saving": "Saving…"
+    }
+  },
+  "list": {
+    "title": "Item list",
+    "subtitle": "Items and groups with the availability periods the team states. Copilot reads them as the team's statement, not as stock data.",
+    "loading": "Loading the list…",
+    "failed": "The list could not be read.",
+    "owner": "Owner",
+    "version": "Version",
+    "lastUpload": "Last upload",
+    "uploadLine": "<file>{{fileName}}</file> — <matched>{{matched}}</matched> of <rows>{{rows}}</rows> rows matched",
+    "export": "Export",
+    "exporting": "Exporting…",
+    "exportFailed": "The list could not be exported.",
+    "reupload": "Upload a new version",
+    "members": "Members",
+    "noMembers": "The list has no members.",
+    "periods": "Periods",
+    "noPeriods": "No periods: the members are just members.",
+    "unknown": "Unknown values",
+    "noUnknown": "Every value in the last file matched.",
+    "versions": "Versions",
+    "noVersions": "No versions to show.",
+    "versionBy": "<rev>{{revision}}</rev> by <by>{{by}}</by> on <at>{{at}}</at>"
+  },
+  "columns": {
+    "row": "Row",
+    "level": "Level",
+    "key": "Key",
+    "label": "Name",
+    "member": "Member",
+    "from": "From",
+    "to": "To",
+    "status": "Status",
+    "note": "Note",
+    "value": "Value"
+  },
+  "open": "still",
+  "level": {
+    "item": "Item",
+    "category": "Category",
+    "class_b": "Class B",
+    "class_c": "Class C",
+    "therapeutic_class": "Therapeutic class",
+    "ingredient_class": "Ingredient class",
+    "brand": "Brand",
+    "vendor": "Vendor",
+    "manufacturer": "Manufacturer"
+  },
+  "status": {
+    "unavailable": "Unavailable in market",
+    "blocked": "Blocked",
+    "delisted": "Delisted",
+    "limited": "Limited supply",
+    "available": "Available"
+  }
+}

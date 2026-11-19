@@ -229,6 +229,20 @@ export const router = createBrowserRouter([
         path: 'analytics/sql/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsSqlEditorPage')).default }),
       },
+      // Item lists (oms 925, BackOffice spec 4057): the upload of a new list and a list's re-upload (author grant), and a
+      // list's own page (its audience). The library's kind and New entry are 926's.
+      {
+        path: 'analytics/itemlist/new',
+        lazy: async () => ({ Component: (await import('@/features/analytics/item-lists/ItemListUploadPage')).default }),
+      },
+      {
+        path: 'analytics/itemlist/:id/upload',
+        lazy: async () => ({ Component: (await import('@/features/analytics/item-lists/ItemListUploadPage')).default }),
+      },
+      {
+        path: 'analytics/itemlist/:id',
+        lazy: async () => ({ Component: (await import('@/features/analytics/item-lists/ItemListPage')).default }),
+      },
       {
         path: 'analytics/view/:id',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsViewPage')).default }),

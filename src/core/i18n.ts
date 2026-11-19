@@ -259,6 +259,9 @@ import copilotAr from '@/locales/ar/copilot.json'
 // English and Arabic together. Every later analytics screen (the home, boards, editors, TV mode) ADDS keys here.
 import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
+// Item lists (oms 925, BackOffice spec 4057): the `analytics` area's `item-lists` feature, English and Arabic together.
+import itemLists from '@/locales/en/item-lists.json'
+import itemListsAr from '@/locales/ar/item-lists.json'
 // The chart wrapper's words (`@/core/charts`) live in `common` (spec 766 §F); a PARTIAL Arabic `common`, those words only.
 import commonAr from '@/locales/ar/common.json'
 
@@ -268,7 +271,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'item-lists', 'release-queue', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -345,6 +348,7 @@ i18n.use(initReactI18next).init({
       'release-queue': releaseQueue,
       copilot,
       boards,
+      'item-lists': itemLists,
       'serial-refusals': serialRefusals,
       'bupa-line-outcomes': bupaLineOutcomes,
       'expired-approval-picks': expiredApprovalPicks,
@@ -404,6 +408,7 @@ i18n.use(initReactI18next).init({
       'stock-health': stockHealthAr,
       callcenter: callcenterAr,
       boards: boardsAr,
+      'item-lists': itemListsAr,
       copilot: copilotAr,
       common: commonAr,
       ...INSURANCE_RULES_AR,

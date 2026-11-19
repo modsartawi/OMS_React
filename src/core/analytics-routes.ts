@@ -60,3 +60,12 @@ export const MY_SCHEDULES_PATH = '/analytics/my-schedules'
  */
 export const sqlEditHref = (id: string): string => `/analytics/sql/${encodeURIComponent(id)}`
 export const NEW_SQL_PATH = '/analytics/sql/new'
+
+/**
+ * oms 925 (BackOffice spec 4057): an item list's page, its re-upload, and the upload of a new one. Here, beside the
+ * other items' routes, so the library (926) and the copilot's "Used" line link a list by route string only. The
+ * path's kind is the item's (`itemlist`), as `itemHref` builds a view's or a board's.
+ */
+export const NEW_ITEM_LIST_PATH = '/analytics/itemlist/new'
+export const itemListHref = (id: string): string => `/analytics/itemlist/${encodeURIComponent(id)}`
+export const itemListUploadHref = (id: string): string => `${itemListHref(id)}/upload`

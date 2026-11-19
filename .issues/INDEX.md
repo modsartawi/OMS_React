@@ -1532,3 +1532,9 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [920](920-an-author-marks-a-bonus-buys-minimum-as-incl-vat-in-the-editor.md) — An author marks a bonus buy's minimum as incl. VAT in the editor · *(ticket · BackOffice spec 4040)* · **done 2026-11-19** (stubbed, merged to main; live walk owed on BO 4043) · blocked by: BO 4043 · checkbox beside minimum, off by default, enabled only with a minimum, read-only Tested/Activated, request mapping
 - [921](921-every-read-surface-shows-the-minimums-basis.md) — Every read surface shows the minimum's basis · *(ticket · BackOffice spec 4040)* · **done 2026-11-19** (stubbed, merged to main; live walk owed on BO 4044/4041) · blocked by: BO 4044, 920 · detail modal (incl. VAT), inquiry column, simulator promo view label
+
+## Insurance multi-pharmacy patterns (BackOffice spec 4050, 2026-11-19)
+
+- [922](922-the-insurance-team-lists-pattern-cases-and-opens-one-with-its-route-on-a-map.md) — The insurance team lists pattern cases and opens one with its route on a map · *(ticket · BackOffice spec 4050)* · **open** · blocked by: BO 4053 · case list + case screen: route on Google map with km/time legs, signals, timeline, marks
+- [923](923-an-investigator-reveals-a-cases-patient-with-a-reason.md) — An investigator reveals a case's patient with a reason · *(ticket · BackOffice spec 4050)* · **open** · blocked by: BO 4053, 922 · reason dialog; identity in component state only, never cached or stored
+- [924](924-the-insurance-manager-edits-pattern-settings-reads-reveals-and-blocks-a-confirmed-patient.md) — The insurance manager edits pattern settings, reads reveals, and blocks a confirmed patient · *(ticket · BackOffice spec 4050)* · **open** · blocked by: BO 4055, BO 4056, 922 · settings page, reveal log, blocked-list action on a confirmed case

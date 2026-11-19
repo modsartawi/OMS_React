@@ -666,6 +666,77 @@ export interface CopilotAnswer {
    * server's own lines under the answer follow it.
    */
   language?: 'ar'
+  /**
+   * ⚠ GUESSED (oms-react 926; BackOffice 4061 not built): the item lists the answer used, each with the server's "Used"
+   * line. Absent with `Copilot:Answers:ItemLists` off or when no list was used. See {@link CopilotUsedList}.
+   */
+  usedLists?: CopilotUsedList[]
+  /** ⚠ GUESSED (oms-react 926; BackOffice 4060 not built): the `list_periods` analysis's result. See {@link CopilotListPeriods}. */
+  listPeriods?: CopilotListPeriods
+}
+
+// ── BackOffice spec 4057 (item lists), oms-react 926 ─────────────────────────────────────────────────────────────
+// ⚠ EVERY shape below is GUESSED: BackOffice 4059–4061 are not built. Reconcile them here (and in
+// `features/copilot/answer-item-lists.ts`, which reads them) once they ship.
+
+/**
+ * ⚠ GUESS (BO 4061): one list the answer used. `line` is the server's whole sentence, both languages ("Used: *Shortage
+ * Q3* (v4), 38 items, periods stated by the team"), written by the server and never number-checked; the panel shows it
+ * as sent. `listId` is what the link opens.
+ */
+export interface CopilotUsedList {
+  listId: string
+  name: string
+  version: number
+  members: number
+  line: AnalyticsLabel
+}
+
+/** The five statuses a list's period states (spec 4057 default 3). */
+export type CopilotListStatus = 'unavailable' | 'blocked' | 'delisted' | 'limited' | 'available'
+
+/** ⚠ GUESS (BO 4060): a member's (or the total's) sales over the days of one status. */
+export interface CopilotListPeriodSegment {
+  status: CopilotListStatus
+  days: number
+  /** The measure per day over those days. */
+  perDay: number
+}
+
+/** ⚠ GUESS (BO 4060): one member of the list. `noPeriods`: the list states none for it ("no periods"). */
+export interface CopilotListPeriodsMember {
+  level: string
+  key: string
+  label: string
+  noPeriods: boolean
+  segments: CopilotListPeriodSegment[]
+  /** available ÷ unavailable − 1, as a fraction; `null` when it cannot be computed. */
+  change: number | null
+}
+
+/** ⚠ GUESS (BO 4060): a period that overlaps a `calendar_events` event (Ramadan, the Eids, national days, salary week). */
+export interface CopilotListPeriodsOverlap {
+  /** The member's label, or `null` when the overlap is the total's. */
+  member: string | null
+  status: CopilotListStatus
+  /** `yyyy-MM-dd`; `to` is `null` for an open period (read as today). */
+  from: string
+  to: string | null
+  event: AnalyticsLabel
+  eventFrom: string
+  eventTo: string
+}
+
+/** ⚠ GUESS (BO 4060): the `list_periods` result. */
+export interface CopilotListPeriods {
+  /** 0-based index of its call in `trace`. */
+  step: number
+  listId: string
+  measure: 'units' | 'value'
+  members: CopilotListPeriodsMember[]
+  /** The per-status total. */
+  totals: CopilotListPeriodSegment[]
+  overlaps: CopilotListPeriodsOverlap[]
 }
 
 /** The kinds of proposal: `schedule` (3663); 3665 adds `pause` and `delete`. */

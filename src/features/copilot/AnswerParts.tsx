@@ -43,6 +43,7 @@ import { traceRows } from './trace'
 import { copilotApi } from './api'
 import { WALKED_STEP_TOOLS, pollSteps, walkedStepKey } from './steps'
 import SqlSaveDialog from './SqlSaveDialog'
+import { ListPeriodsPart, UsedLists } from './ItemListParts'
 import { sqlEditLink } from './sql-save'
 import { canSqlAnalytics } from '@/core/analytics-access'
 import { usePermissions } from '@/core/permissions'
@@ -788,10 +789,14 @@ export function Answer({
         return model.sql ? <SqlAnswer key={p} sql={model.sql} question={question} /> : null
       case 'tables':
         return <AnswerTables key={p} tables={model.tables} />
+      case 'listPeriods':
+        return model.listPeriods ? <ListPeriodsPart key={p} lp={model.listPeriods} lang={lang} /> : null
       case 'views':
         return <ViewLinks key={p} viewRefs={model.viewRefs} />
       case 'assumptions':
         return <Assumptions key={p} model={model} readings={readings} />
+      case 'usedLists':
+        return <UsedLists key={p} model={model} lang={lang} />
       case 'readingOffer':
         return model.readingOffer && readings ? <ReadingOfferLine key={p} offer={model.readingOffer} readings={readings} lang={lang} /> : null
       case 'namedSet':

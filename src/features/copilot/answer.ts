@@ -1,12 +1,14 @@
 import { itemHref } from '@/core/analytics-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
+import { listPeriodsOf, usedListsOf } from './answer-item-lists'
 import type {
   CopilotAnswer,
   CopilotAnswerTable,
   CopilotAsk,
   CopilotAssumptionChoice,
   CopilotBoardEdit,
+  CopilotListPeriods,
   CopilotNamedSetKind,
   CopilotNamedSetProposal,
   CopilotOwnReadingKind,
@@ -18,6 +20,7 @@ import type {
   CopilotSqlPart,
   CopilotSuggestion,
   CopilotTraceEntry,
+  CopilotUsedList,
   CopilotViewRef,
 } from '@/core/models/copilot'
 
@@ -105,6 +108,10 @@ export interface CopilotAnswerModel {
   sql: AnswerSql | null
   /** "Try in SQL mode" (888, BackOffice 3674, Q28) under a can't-answer; `null` when the server added none. */
   sqlOffer: CopilotSqlOffer | null
+  /** 926 (BO 4061, ⚠ guessed shape): the item lists the answer used, each with the server's "Used" line; none reads as `[]`. */
+  usedLists: CopilotUsedList[]
+  /** 926 (BO 4060, ⚠ guessed shape): the `list_periods` comparison, or `null`. */
+  listPeriods: CopilotListPeriods | null
 }
 
 /** The SQL part as the panel draws it: the wire's, less its fixed mark and its trace step. Each row has one cell per column. */
@@ -266,6 +273,8 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     figuresOnly: r.outcome === 'figures-only',
     sql: sqlOf(r.sql),
     sqlOffer: sqlOfferOf(r.sqlOffer),
+    usedLists: usedListsOf(r.usedLists),
+    listPeriods: listPeriodsOf(r.listPeriods),
     suggestions: Array.isArray(r.suggestions) ? r.suggestions.flatMap(suggestionOf).slice(0, COPILOT_MAX_SUGGESTIONS) : [],
     ask: r.outcome === 'asked' ? askOf(r.ask) : null,
   }
@@ -345,8 +354,10 @@ export type AnswerPart =
   | 'text'
   | 'sql'
   | 'tables'
+  | 'listPeriods'
   | 'views'
   | 'assumptions'
+  | 'usedLists'
   | 'readingOffer'
   | 'namedSet'
   | 'reportEdit'
@@ -370,8 +381,11 @@ export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
   // 888: the SQL part right under the words, which speak about its rows.
   if (model.sql) parts.push('sql')
   if (model.tables.length > 0) parts.push('tables')
+  // 926: the list_periods comparison beside the tables; the "Used" line right under the assumption lines (spec 4057).
+  if (model.listPeriods) parts.push('listPeriods')
   if (model.viewRefs.length > 0) parts.push('views')
   if (model.assumptions.length > 0) parts.push('assumptions')
+  if (model.usedLists.length > 0) parts.push('usedLists')
   if (model.readingOffer) parts.push('readingOffer')
   if (model.namedSet) parts.push('namedSet')
   if (model.reportEdit) parts.push('reportEdit')

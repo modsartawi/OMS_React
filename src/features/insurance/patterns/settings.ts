@@ -9,7 +9,7 @@
  * 🚩 GUESSED (reconcile with 4055): a save sends only the thresholds that changed (the server keeps the others and logs
  * each change), and the days and pharmacies are whole numbers.
  */
-import type { PatternSetting, PatternSettingsBody } from '@/core/models/insurance-pattern-manager'
+import type { PatternSetting, PatternSettings, PatternSettingsBody } from '@/core/models/insurance-pattern-manager'
 
 /** The seven thresholds the nightly job reads (BackOffice 4051's `InsurancePatternSetting` rows). */
 export type SettingName = 'WindowDays' | 'MinStores' | 'MaxKmPerHour' | 'MinTravelKm' | 'OverlapShare' | 'CaseQuietDays' | 'LookbackDays'
@@ -80,4 +80,29 @@ export function settingsBody(drafts: SettingDrafts, saved: readonly PatternSetti
   const changed = changedSettings(drafts, saved)
   if (changed.length === 0) return null
   return { settings: changed.map((name) => ({ name, value: Number(drafts[name].trim()) })) }
+}
+
+/** The answer names every threshold of the table with a number, as the GET answers. */
+const namesEveryThreshold = (answer: PatternSettings) =>
+  SETTING_NAMES.every((name) => typeof answer.settings.find((s) => s.name === name)?.value === 'number')
+
+/**
+ * What the page holds after a save (review 6). The PUT answers like the GET (guessed, 4055), and its answer stands when
+ * it names every threshold. A server that answers less never blanks a field: the thresholds held before, with the
+ * values just sent (the save held), and the change log as it was. Either way the page reads the settings again.
+ */
+export function settingsAfterSave(held: PatternSettings, sent: PatternSettingsBody, answer: PatternSettings): PatternSettings {
+  if (namesEveryThreshold(answer)) return answer
+  const sentValue = new Map(sent.settings.map((s) => [s.name, s.value]))
+  const settings = held.settings.map((s) => (sentValue.has(s.name) ? { ...s, value: sentValue.get(s.name)! } : s))
+  for (const s of sent.settings) if (!held.settings.some((h) => h.name === s.name)) settings.push({ name: s.name, value: s.value })
+  return { settings, changes: held.changes }
+}
+
+/**
+ * The fields the manager typed in, after a save (review 8): a field that still holds what was sent goes back to reading
+ * the saved value; a field typed while the save was in flight keeps what was typed.
+ */
+export function editsAfterSave(edits: Partial<SettingDrafts>, sent: SettingDrafts): Partial<SettingDrafts> {
+  return Object.fromEntries(Object.entries(edits).filter(([name, typed]) => typed !== sent[name as SettingName])) as Partial<SettingDrafts>
 }

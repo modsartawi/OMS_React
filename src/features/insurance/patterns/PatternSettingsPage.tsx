@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { CalendarClock, Loader2, RotateCcw, Save } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import type { PatternSetting, PatternSettingChange } from '@/core/models/insurance-pattern-manager'
+import type { PatternSetting, PatternSettingChange, PatternSettings } from '@/core/models/insurance-pattern-manager'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -21,9 +21,12 @@ import { managerApi, settingsKey } from './manager-api'
 import {
   changedSettings,
   draftsOf,
+  editsAfterSave,
   SETTING_NAMES,
   SETTING_RANGES,
   settingProblem,
+  settingsAfterSave,
+  settingsBody,
   type SettingDrafts,
   type SettingName,
   type SettingProblem,
@@ -66,10 +69,14 @@ function SettingsBody() {
 
   const save = useMutation({
     mutationFn: (sent: { drafts: SettingDrafts; saved: PatternSetting[] }) => managerApi.saveSettings(sent.drafts, sent.saved),
-    onSuccess: (answer) => {
-      // The PUT answers like the GET: the saved thresholds and the change log with this save in it.
-      queryClient.setQueryData(settingsKey, answer)
-      setEdits({})
+    onSuccess: (answer, sent) => {
+      // The PUT answers like the GET, but only an answer naming every threshold is written over what is held: a partial
+      // one would blank the fields it leaves out (review 6). The settings are read again either way.
+      const body = settingsBody(sent.drafts, sent.saved)
+      queryClient.setQueryData<PatternSettings>(settingsKey, (held) => (held && body ? settingsAfterSave(held, body, answer) : answer))
+      void queryClient.invalidateQueries({ queryKey: settingsKey })
+      // Only what was sent is cleared: a value typed while the save was in flight stays (review 8).
+      setEdits((current) => editsAfterSave(current, sent.drafts))
       setTried(false)
       toast.success(t('settings.saved'), { description: t('settings.savedDetail') })
     },

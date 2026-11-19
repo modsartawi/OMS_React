@@ -7,8 +7,8 @@
  *   CaseQuietDays 7–90, LookbackDays 30–365.
  */
 import { describe, expect, it } from 'vitest'
-import type { PatternSetting } from '@/core/models/insurance-pattern-manager'
-import { changedSettings, draftsOf, SETTING_NAMES, settingProblem, settingsBody } from './settings'
+import type { PatternSetting, PatternSettings } from '@/core/models/insurance-pattern-manager'
+import { changedSettings, draftsOf, editsAfterSave, SETTING_NAMES, settingProblem, settingsAfterSave, settingsBody } from './settings'
 
 /** [name, low bound, high bound, one step below the low, one step above the high] — as typed into the field. */
 const BO_4055 = [
@@ -118,5 +118,63 @@ describe('what a save sends', () => {
     expect(drafts.MinTravelKm).toBe('')
     expect(settingsBody(drafts, saved)).toBeNull()
     expect(settingsBody({ ...drafts, MinTravelKm: '60' }, saved)).toEqual({ settings: [{ name: 'MinTravelKm', value: 60 }] })
+  })
+})
+
+/** The page's settings before a save: the seven defaults and their change log. */
+const HELD: PatternSettings = {
+  settings: SAVED.slice(0, 7),
+  changes: [{ name: 'MinStores', oldValue: 4, newValue: 3, by: 'manager2', at: '2026-11-10T14:05:00' }],
+}
+const SENT = { settings: [{ name: 'WindowDays', value: 10 }] }
+
+describe('what the page holds after a save (review 6)', () => {
+  it('the PUT’s answer, when it names every threshold as the GET does', () => {
+    const answer: PatternSettings = {
+      settings: [{ name: 'WindowDays', value: 10 }, ...SAVED.slice(1, 7)],
+      changes: [...HELD.changes, { name: 'WindowDays', oldValue: 7, newValue: 10, by: 'msartawi', at: '2026-11-19T18:10:00' }],
+    }
+    expect(settingsAfterSave(HELD, SENT, answer)).toEqual(answer)
+  })
+
+  it('an answer with only the threshold it changed never blanks the others: what was held, with the values sent', () => {
+    const answer: PatternSettings = { settings: [{ name: 'WindowDays', value: 10 }], changes: [] }
+    expect(settingsAfterSave(HELD, SENT, answer)).toEqual({
+      settings: [
+        { name: 'WindowDays', value: 10 },
+        { name: 'MinStores', value: 3 },
+        { name: 'MaxKmPerHour', value: 120 },
+        { name: 'MinTravelKm', value: 50 },
+        { name: 'OverlapShare', value: 0.25 },
+        { name: 'CaseQuietDays', value: 30 },
+        { name: 'LookbackDays', value: 90 },
+      ],
+      changes: HELD.changes,
+    })
+  })
+
+  it('a threshold answered with no number counts as not answered; an empty answer too', () => {
+    const noNumber: PatternSettings = { settings: [{ name: 'WindowDays', value: 10 }, ...SAVED.slice(1, 6), { name: 'LookbackDays', value: null }], changes: [] }
+    expect(settingsAfterSave(HELD, SENT, noNumber).settings.find((s) => s.name === 'LookbackDays')).toEqual({ name: 'LookbackDays', value: 90 })
+    expect(settingsAfterSave(HELD, SENT, { settings: [], changes: [] }).settings).toHaveLength(7)
+  })
+
+  it('a value sent for a threshold the page held no row for is held from now on', () => {
+    const held: PatternSettings = { settings: SAVED.slice(0, 3), changes: [] }
+    const sent = { settings: [{ name: 'MinTravelKm', value: 60 }] }
+    expect(settingsAfterSave(held, sent, { settings: [], changes: [] }).settings).toEqual([...SAVED.slice(0, 3), { name: 'MinTravelKm', value: 60 }])
+  })
+})
+
+describe('the fields after a save (review 8)', () => {
+  const sentDrafts = { ...draftsOf(SAVED), WindowDays: '10' }
+
+  it('a field that still holds what was sent goes back to reading the saved value', () => {
+    expect(editsAfterSave({ WindowDays: '10' }, sentDrafts)).toEqual({})
+  })
+
+  it('a field typed while the save was in flight keeps what was typed', () => {
+    expect(editsAfterSave({ WindowDays: '10', LookbackDays: '120' }, sentDrafts)).toEqual({ LookbackDays: '120' })
+    expect(editsAfterSave({ WindowDays: '11' }, sentDrafts)).toEqual({ WindowDays: '11' })
   })
 })

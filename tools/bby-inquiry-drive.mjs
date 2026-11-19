@@ -423,6 +423,10 @@ async function run() {
   const statusAt = headerLine.split(',').findIndex((h) => /^"?Status"?$/.test(h))
   const csvStatuses = csvLines.slice(1).map((l) => (l.split(',')[statusAt] ?? '').replace(/"/g, ''))
   check('CSV cells are RAW (20260101 date; status blank + "2"), not formatted', /20260101/.test(csv) && csvStatuses.includes('') && csvStatuses.includes('2') && !/Activated/.test(csv) && !/2026-01-01/.test(csv), csvStatuses.join('|'))
+  // A row with no incl. VAT mark (a server before BackOffice 4044) exports `false`, as the grid reads it `–`.
+  const markAt = headerLine.split(',').findIndex((h) => /^"?Min incl\. VAT"?$/.test(h))
+  const csvMarks = csvLines.slice(1).map((l) => (l.split(',')[markAt] ?? '').replace(/"/g, ''))
+  check('CSV writes an absent incl. VAT mark as false', markAt >= 0 && csvMarks.length > 0 && csvMarks.every((m) => m === 'false'), `${markAt}: ${csvMarks.join('|')}`)
 
   // ---- ticket 066: the Details modal (rows branch, document branch, not-found) ----
   scenario = { accessBody: { screenAllowed: true }, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: '2' })], detailMode: 'rows' }

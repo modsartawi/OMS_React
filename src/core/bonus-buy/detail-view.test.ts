@@ -40,6 +40,10 @@ describe('minMaxView', () => {
     expect(v).toEqual({ amounts: '100.00 / 250.00 SAR', inclVat: true })
   })
 
+  it("draws the amounts at the currency's own decimals (3 for BHD)", () => {
+    expect(minMaxView({ minValue: 12.5, maxValue: 0 }, 'BHD', '—')?.amounts).toBe('12.500 / — BHD')
+  })
+
   it('carries no basis when the mark is off or absent', () => {
     expect(minMaxView({ minValue: 100, maxValue: 0, minValueInclVat: false }, 'SAR', '—')?.inclVat).toBe(false)
     expect(minMaxView({ minValue: 100, maxValue: 0 }, 'SAR', '—')?.inclVat).toBe(false)

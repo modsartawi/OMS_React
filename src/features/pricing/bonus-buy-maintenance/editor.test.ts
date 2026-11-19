@@ -15,6 +15,7 @@ import {
   ENGINE_LIST_MAX,
   ORIGIN_FILTER_MAX,
   buyPanelLayout,
+  setMinValue,
   setMinValueOn,
   couponMaterialDefault,
   couponMaterialLands,
@@ -221,6 +222,34 @@ describe('the minimum value can be marked incl. VAT (ticket 920, BackOffice spec
     // …while Planned, the same bonus buy may change it.
     const planned = doc({ bonusBuy: marked })
     expect(buyPanelLayout(fromDocument(planned), editorAccess('change', planned).readOnly).inclVatEnabled).toBe(true)
+  })
+
+  it('blanking the amount clears the mark, so retyping it does not resurrect a mark the box never showed', () => {
+    const marked = fromDocument(doc({ bonusBuy: { ...WIRE, minValueInclVat: true } }))
+    for (const gone of ['', '0', '-5', 'abc']) {
+      const blanked = setMinValue(marked, gone)
+      expect(blanked, gone).toMatchObject({ minValue: gone, minValueInclVat: false })
+      expect(setMinValue(blanked, '150'), gone).toMatchObject({ minValue: '150', minValueInclVat: false })
+    }
+    // A positive edit keeps the mark: the box stayed enabled and ticked throughout.
+    expect(setMinValue(marked, '150')).toMatchObject({ minValue: '150', minValueInclVat: true })
+  })
+
+  it('the box is ticked exactly when the request would carry the mark', () => {
+    const marked = fromDocument(doc({ bonusBuy: { ...WIRE, minValueInclVat: true } }))
+    expect(buyPanelLayout(marked, false).inclVatChecked).toBe(true)
+    // Read-only still shows a stored mark ticked (display, not editing).
+    expect(buyPanelLayout(marked, true).inclVatChecked).toBe(true)
+    // A state that slipped past the setters still never shows ticked while the request says false.
+    const diverged = { ...marked, minValue: '' }
+    expect(buyPanelLayout(diverged, false)).toMatchObject({ inclVatEnabled: false, inclVatChecked: false })
+    expect(toRequest(diverged).minValueInclVat).toBe(false)
+  })
+
+  it('a document marked incl. VAT with no minimum opens unmarked', () => {
+    expect(fromDocument(doc({ bonusBuy: { ...WIRE, minValue: 0, minValueInclVat: true } })).minValueInclVat).toBe(false)
+    const { minValue: _none, ...noMin } = WIRE
+    expect(fromDocument(doc({ bonusBuy: { ...noMin, minValueInclVat: true } as BbyBonusBuyWire })).minValueInclVat).toBe(false)
   })
 
   it('a mark whose box is disabled (the minimum blanked) is not sent', () => {

@@ -83,10 +83,7 @@ export interface BbyDetailDto {
     bbyStatus: string // blank/1/2/3, read through `readBbyStatus`
     condTargetType: string // R=Document -> total-discount layout
     minValue: number // doubles as the Document total-discount basket requirement
-    /**
-     * The minimum is measured including VAT (BackOffice spec 4040, read by BackOffice 4044). Spec 4040
-     * reading, reconcile when 4044 ships: a server before it sends no field, which reads as off.
-     */
+    /** As `BbyInquiryRow.minValueInclVat`. */
     minValueInclVat?: boolean
     maxValue: number
     limitNumber: number

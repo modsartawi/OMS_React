@@ -847,6 +847,13 @@ async function run() {
     check('50. unticking the minimum clears and disables the mark', !(await mark().isChecked()) && (await mark().isDisabled()))
     await minBox().check()
     check('50. re-ticking the minimum leaves the mark off (enabled)', !(await mark().isChecked()) && (await mark().isEnabled()))
+    await mark().check()
+    await amountBox().fill('')
+    check('50. blanking the amount unticks and disables the mark', !(await mark().isChecked()) && (await mark().isDisabled()))
+    await amountBox().fill('150')
+    check('50. retyping the amount does not resurrect the mark', !(await mark().isChecked()) && (await mark().isEnabled()))
+    const hint = await mark().evaluate((el) => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent ?? '')
+    check('50. the mark is described by its hint (aria-describedby)', /including each line's VAT/.test(hint), hint)
 
     await page.goto(`${EDIT}/${INCL_BBY}`)
     await page.waitForSelector('table[data-grid="get"]')

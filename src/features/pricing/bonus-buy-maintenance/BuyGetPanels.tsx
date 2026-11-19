@@ -1,4 +1,4 @@
-import { type Dispatch, Fragment, type ReactNode, type SetStateAction, useState } from 'react'
+import { type Dispatch, Fragment, type ReactNode, type SetStateAction, useId, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ClipboardPaste, Plus, TicketPlus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
@@ -31,6 +31,7 @@ import {
   pasteLines,
   SCALE_TYPES,
   type ScaleType,
+  setMinValue,
   setMinValueOn,
 } from './editor'
 
@@ -231,7 +232,8 @@ export function BuyPanel({
   couponMaterial: CouponMaterialAction
 }) {
   const { t } = useTranslation('bonus-buy-maintenance')
-  const { minAmountEnabled, inclVatEnabled } = buyPanelLayout(state, readOnly)
+  const { minAmountEnabled, inclVatEnabled, inclVatChecked } = buyPanelLayout(state, readOnly)
+  const inclVatHintId = useId()
   const setLine = (key: string, patch: Partial<BuyLine>) =>
     setState((s) => ({ ...s, buy: s.buy.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
 
@@ -264,7 +266,10 @@ export function BuyPanel({
             disabled={!minAmountEnabled}
             className="w-32 text-end"
             value={state.minValue}
-            onChange={(e) => setState((s) => ({ ...s, minValue: e.target.value }))}
+            onChange={(e) => {
+              const value = e.target.value
+              setState((s) => setMinValue(s, value))
+            }}
           />
           <span className="font-mono text-xs text-muted-foreground">
             <Ltr>{currency}</Ltr>
@@ -277,7 +282,8 @@ export function BuyPanel({
             <input
               type="checkbox"
               data-bby-min-incl-vat=""
-              checked={state.minValueInclVat}
+              aria-describedby={inclVatHintId}
+              checked={inclVatChecked}
               disabled={!inclVatEnabled}
               onChange={(e) => {
                 const on = e.target.checked
@@ -286,6 +292,10 @@ export function BuyPanel({
             />
             {t('editor.buy.minInclVat')}
           </label>
+          {/* Outside the label, so the hint describes the box without joining its name. */}
+          <span id={inclVatHintId} className="sr-only">
+            {t('editor.buy.minInclVatHint')}
+          </span>
         </div>
       </div>
 

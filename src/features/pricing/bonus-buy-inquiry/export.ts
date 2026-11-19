@@ -31,6 +31,9 @@ export function exportBbyToCsv(api: GridApi<BbyInquiryRow>, fileNameBase: string
     // Raw values only — bypass the display valueFormatters so codes/dates export verbatim.
     processCellCallback: (params: ProcessCellForExportParams<BbyInquiryRow>) => {
       const value = params.value
+      // An absent incl. VAT mark (a server before BackOffice 4044) is off: the grid shows it `–`
+      // like `false`, so the CSV says `false` rather than leaving the cell blank (spec 4040).
+      if (params.column.getColId() === 'minValueInclVat') return String(value === true)
       return value == null ? '' : String(value)
     },
   })

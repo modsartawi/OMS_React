@@ -5,6 +5,7 @@ import type {
   SimulationResult,
   SimulationResultItem,
 } from '@/core/models/simulation'
+import { minInclVat } from '@/core/bonus-buy/min-basis'
 import {
   discountDefinition,
   discountKindFromCode,
@@ -374,7 +375,7 @@ function buildMissed(p: PotentialBonusBuy): MissedPromo {
           foundValue: driving.foundValue,
         }
       : null,
-    minimum: p.minValue > 0 ? { value: p.minValue, inclVat: p.minValueInclVat === true } : null,
+    minimum: p.minValue > 0 ? { value: p.minValue, inclVat: minInclVat(p) } : null,
     // The definition, not a total. `Pricing/Simulate`'s `PotentialDiscount` carries
     // no piece count and no free-goods ordinal, so the phrase resolves to its
     // count-less spelling here; the console's own payload (171) may carry more.

@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
+import { formatMinAmount } from '@/core/bonus-buy/min-basis'
 import type { MissedPrereq, MissedPromo } from './promo-view'
 import { KIND_CHIP, MISS_GLYPH, PROMO_CARD_ROW } from './promo-kind'
 import SimBbyDetailsButton from './SimBbyDetailsButton'
@@ -50,8 +51,9 @@ import SimBbyDetailsButton from './SimBbyDetailsButton'
 // word, so the capture's `70% 2nd PCS` promotion read `35.00 SAR`: a number the
 // engine never computed and the customer would never see. A real savings total
 // requires firing the promotion (spec 574 US26), so the honest card states the
-// definition and no total at all. The card therefore takes no `currency` any more —
-// the only money on it was the invented figure.
+// definition and no total at all. The header still prints no saving; the `currency` it
+// takes since spec 4040 (ticket 921) only names the unit of the basket minimum a miss
+// requires, drawn at the currency's own decimals as the detail modal draws it.
 
 interface Props {
   missed: MissedPromo[]
@@ -61,9 +63,11 @@ interface Props {
    *  captures sent `prerequisites: []` on all four), so the modal is the only route to
    *  a miss's rules. If the affordance is ever cut back, it is kept HERE. */
   onOpenBbyDetails: ((bbyNumber: string) => void) | null
+  /** The run's currency: the unit of a miss's basket minimum. */
+  currency: string
 }
 
-export default function SimMissedPromotions({ missed, onOpenBbyDetails }: Props) {
+export default function SimMissedPromotions({ missed, onOpenBbyDetails, currency }: Props) {
   const { t } = useTranslation('simulation')
 
   // A fully-fired basket has no near-misses — the section is absent, not empty.
@@ -93,7 +97,7 @@ export default function SimMissedPromotions({ missed, onOpenBbyDetails }: Props)
           section boundary. */}
       <div className={PROMO_CARD_ROW + ' gap-2'}>
         {missed.map((m) => (
-          <MissedRow key={m.bbyNumber} missed={m} onOpenBbyDetails={onOpenBbyDetails} t={t} />
+          <MissedRow key={m.bbyNumber} missed={m} onOpenBbyDetails={onOpenBbyDetails} currency={currency} t={t} />
         ))}
       </div>
     </div>
@@ -103,10 +107,12 @@ export default function SimMissedPromotions({ missed, onOpenBbyDetails }: Props)
 function MissedRow({
   missed,
   onOpenBbyDetails,
+  currency,
   t,
 }: {
   missed: MissedPromo
   onOpenBbyDetails: ((bbyNumber: string) => void) | null
+  currency: string
   t: TFunction
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -179,8 +185,9 @@ function MissedRow({
       {/* Expanded — the found-vs-required meter + a plain-language reason. */}
       {expanded ? (
         <div className="border-t border-border/60 p-2.5">
-          {/* The header minimum with its basis (spec 4040, ticket 921): "incl. VAT" only when the
-              engine says the mark is on. The prerequisite meter below stays unlabelled — a
+          {/* The header minimum the promotion requires, with its basis (spec 4040, ticket 921):
+              "incl. VAT" only when the engine says the mark is on. Worded as a requirement, not
+              as the cause of the miss. The prerequisite meter below stays unlabelled — a
               prerequisite's minimum is always excl. VAT. */}
           {missed.minimum ? (
             <p
@@ -188,7 +195,7 @@ function MissedRow({
               className="mb-1.5 text-xs font-medium"
             >
               {t(missed.minimum.inclVat ? 'missed.minimumInclVat' : 'missed.minimum', {
-                value: fsi(formatMoney(missed.minimum.value)),
+                value: fsi(`${formatMinAmount(missed.minimum.value, currency)} ${currency}`.trim()),
               })}
             </p>
           ) : null}

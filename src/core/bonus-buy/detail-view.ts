@@ -17,8 +17,8 @@ import type {
   BbyGetRow,
   BbyTotalDiscount,
 } from '@/core/models/bonus-buy-inquiry'
-import { formatCount } from '../util/bidi'
-import { formatAmount } from './formatters'
+import { formatCount } from '@/core/util/bidi'
+import { formatMinAmount, minInclVat } from './min-basis'
 import { readBbyStatus } from './status'
 
 /** Which layout the Get side renders: the per-condition table, or the single
@@ -148,7 +148,8 @@ export function toDetailView(dto: BbyDetailDto, today: string): DetailView {
 /** The Min / Max line: both amounts and the org currency as ONE machine value (isolated once
  *  by the render tier), and whether the minimum is measured including VAT (spec 4040, ticket
  *  921). `inclVat` only rides a real minimum: the mark is the minimum's, the maximum keeps its
- *  meaning. An absent mark (a server before BackOffice 4044) reads as off. `null` = no line. */
+ *  meaning. An absent mark (a server before BackOffice 4044) reads as off. The amounts take the
+ *  currency's own decimals (3 for BHD). `null` = no line. */
 export interface MinMaxView {
   amounts: string
   inclVat: boolean
@@ -160,10 +161,10 @@ export function minMaxView(
   dash: string,
 ): MinMaxView | null {
   if (!header.minValue && !header.maxValue) return null
-  const min = header.minValue ? formatAmount(header.minValue) : dash
-  const max = header.maxValue ? formatAmount(header.maxValue) : dash
+  const min = header.minValue ? formatMinAmount(header.minValue, currency) : dash
+  const max = header.maxValue ? formatMinAmount(header.maxValue, currency) : dash
   return {
     amounts: `${formatCount(min, max)} ${currency}`.trim(),
-    inclVat: header.minValueInclVat === true && header.minValue > 0,
+    inclVat: minInclVat(header),
   }
 }

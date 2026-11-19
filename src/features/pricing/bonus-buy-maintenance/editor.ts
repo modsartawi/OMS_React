@@ -12,6 +12,7 @@
  */
 import { type CodeListMeter, codeListMeter, normaliseCodeList, pastedCodes } from '@/core/util/code-list'
 import { formatMoneyIn } from '@/core/money'
+import { minInclVat } from '@/core/bonus-buy/min-basis'
 import { formatRate } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
 import type {
@@ -242,7 +243,7 @@ export function fromDocument(doc: BbyBonusBuyDocument): EditorState {
     linkGet: link(b.linkCategoryGet),
     minValueOn: (b.minValue ?? 0) > 0,
     minValue: (b.minValue ?? 0) > 0 ? numStr(b.minValue) : '',
-    minValueInclVat: b.minValueInclVat === true,
+    minValueInclVat: minInclVat(b),
     totalDiscountOn: b.totalDiscount != null,
     total: b.totalDiscount
       ? {
@@ -423,17 +424,34 @@ export function getPanelLayout(totalDiscountOn: boolean): { columns: GetColumn[]
 const minValueApplies = (s: Pick<EditorState, 'minValueOn' | 'minValue'>): boolean =>
   s.minValueOn && (boxNumber(s.minValue) ?? 0) > 0
 
-/** Total Minimum Value enables its amount, and the amount enables its incl. VAT mark; display enables neither. */
+/**
+ * Total Minimum Value enables its amount, and the amount enables its incl. VAT mark; display enables
+ * neither. `inclVatChecked` is what the box shows: the same reading `toRequest` sends, so the box is
+ * never ticked while the request would say off (display still shows a stored mark ticked).
+ */
 export function buyPanelLayout(
-  s: Pick<EditorState, 'minValueOn' | 'minValue'>,
+  s: Pick<EditorState, 'minValueOn' | 'minValue' | 'minValueInclVat'>,
   readOnly: boolean,
-): { minAmountEnabled: boolean; inclVatEnabled: boolean } {
-  return { minAmountEnabled: !readOnly && s.minValueOn, inclVatEnabled: !readOnly && minValueApplies(s) }
+): { minAmountEnabled: boolean; inclVatEnabled: boolean; inclVatChecked: boolean } {
+  return {
+    minAmountEnabled: !readOnly && s.minValueOn,
+    inclVatEnabled: !readOnly && minValueApplies(s),
+    inclVatChecked: s.minValueInclVat && minValueApplies(s),
+  }
 }
 
 /** Ticking or unticking Total Minimum Value. Unticking clears the incl. VAT mark (ticket 920). */
 export function setMinValueOn(s: EditorState, on: boolean): EditorState {
   return on ? { ...s, minValueOn: true } : { ...s, minValueOn: false, minValueInclVat: false }
+}
+
+/**
+ * Typing the minimum amount. An amount that stops being above 0 clears the incl. VAT mark, so a
+ * mark the disabled box never showed cannot come back when the amount is retyped (ticket 920).
+ */
+export function setMinValue(s: EditorState, minValue: string): EditorState {
+  const next = { ...s, minValue }
+  return minValueApplies(next) ? next : { ...next, minValueInclVat: false }
 }
 
 /**

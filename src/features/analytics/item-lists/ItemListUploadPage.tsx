@@ -8,7 +8,7 @@ import { apiErrorMessage } from '@/core/api'
 import AudiencePicker from '@/core/analytics-audience/AudiencePicker'
 import { audienceWrite, type AudienceDraft } from '@/core/analytics-audience/audience'
 import { canAuthorAnalytics } from '@/core/analytics-access'
-import { itemListHref } from '@/core/analytics-routes'
+import { ITEM_LISTS_LIBRARY_PATH, itemListHref } from '@/core/analytics-routes'
 import type { ItemListPreview } from '@/core/models/item-list'
 import { usePermissions } from '@/core/permissions'
 import { saysIn } from '@/core/rules/sentence'
@@ -24,7 +24,7 @@ import { saveBlob } from '@/core/util/download-file'
 import { itemListActions } from './access'
 import { ITEM_LIST_FOLDERS_KEY, ITEM_LISTS_KEY, isExpiredTokenRefusal, itemListApi, itemListKey } from './api'
 import PreviewPanel from './PreviewPanel'
-import { fileProblem, saveState, tokenExpired, type SaveMode } from './preview'
+import { fileProblem, saveState, tokenDeadline, type SaveMode } from './preview'
 
 /** The library's item lists read again after a save (boards' `ANALYTICS_ITEMS_KEY`, named by value: a feature may not import another). */
 const ANALYTICS_ITEMS_KEY = ['analytics', 'items'] as const
@@ -96,13 +96,17 @@ function Uploader({ mode, listId }: { mode: SaveMode; listId?: string }) {
   const [audience, setAudience] = useState<AudienceDraft>({ everyone: true, roles: [], users: [] })
   const [folderId, setFolderId] = useState('')
   const [now, setNow] = useState(() => Date.now())
+  /** When the token lapses on this machine's clock, counted from the preview's receipt (`tokenDeadline`). */
+  const [deadline, setDeadline] = useState(Infinity)
 
   const template = useMutation({ mutationFn: itemListApi.template, onSuccess: ({ blob, fileName }) => saveBlob(fileName, blob) })
   const read = useMutation({
     mutationFn: itemListApi.preview,
     onSuccess: (p) => {
+      const received = Date.now()
       setPreview(p)
-      setNow(Date.now())
+      setDeadline(tokenDeadline(p, received))
+      setNow(received)
     },
   })
   const folders = useQuery({ queryKey: ITEM_LIST_FOLDERS_KEY, queryFn: itemListApi.folders, retry: false, enabled: mode === 'create' })
@@ -114,17 +118,17 @@ function Uploader({ mode, listId }: { mode: SaveMode; listId?: string }) {
     save.reset()
   }
 
-  // The preview's own clock: at its `expiresAt` the page asks for the file again, before Save is ever pressed.
+  // The preview's own clock: at its deadline (the server's window from receipt) the page asks for the file again,
+  // before Save is ever pressed. Save's `ANALYTICS-433` refusal is what decides; this only spares a doomed press.
   useEffect(() => {
-    if (!preview?.expiresAt) return
-    const left = Date.parse(preview.expiresAt) - Date.now()
-    if (!Number.isFinite(left)) return
+    if (!preview || !Number.isFinite(deadline)) return
+    const left = deadline - Date.now()
     const timer = setTimeout(() => setNow(Date.now()), Math.max(0, Math.min(left, 2_147_000_000)))
     return () => clearTimeout(timer)
-  }, [preview])
+  }, [preview, deadline])
   useEffect(() => {
-    if (preview && tokenExpired(preview, now)) lapse()
-  }, [preview, now])
+    if (preview && now >= deadline) lapse()
+  }, [preview, now, deadline])
 
   const save = useMutation({
     mutationFn: () => {
@@ -138,7 +142,9 @@ function Uploader({ mode, listId }: { mode: SaveMode; listId?: string }) {
       void queryClient.invalidateQueries({ queryKey: ITEM_LISTS_KEY })
       void queryClient.invalidateQueries({ queryKey: ANALYTICS_ITEMS_KEY })
       toast.success(t(mode === 'replace' ? 'save.savedVersion' : 'save.saved'))
-      navigate(itemListHref(list.id || listId || ''))
+      // A save answering no readable id lands on the library's item lists, never `/analytics/itemlist/`.
+      const saved = list.id || listId
+      navigate(saved ? itemListHref(saved) : ITEM_LISTS_LIBRARY_PATH)
     },
     onError: (err) => {
       if (isExpiredTokenRefusal(err)) lapse()
@@ -148,14 +154,16 @@ function Uploader({ mode, listId }: { mode: SaveMode; listId?: string }) {
   const choose = (file: File) => {
     const problem = fileProblem(file)
     setPicked(problem)
-    if (problem) return
-    setExpired(false)
+    // A refused file drops the last preview too: Save never spends a token for a file the page just refused.
     setPreview(null)
     save.reset()
+    read.reset()
+    if (problem) return
+    setExpired(false)
     read.mutate(file)
   }
 
-  const state = saveState({ preview, mode, name, audience, now, pending: save.isPending })
+  const state = saveState({ preview, mode, name, audience, deadline, now, pending: save.isPending })
 
   return (
     <div className="flex w-full max-w-6xl flex-col gap-4" data-item-list-upload={mode}>

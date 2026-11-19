@@ -70,3 +70,5 @@ export const NEW_SQL_PATH = '/analytics/sql/new'
 export const NEW_ITEM_LIST_PATH = '/analytics/itemlist/new'
 export const itemListHref = (id: string): string => `/analytics/itemlist/${encodeURIComponent(id)}`
 export const itemListUploadHref = (id: string): string => `${itemListHref(id)}/upload`
+/** The library's item lists (All my items, narrowed to the kind): where a save that names no list lands. */
+export const ITEM_LISTS_LIBRARY_PATH = '/analytics/library?kind=itemlist'

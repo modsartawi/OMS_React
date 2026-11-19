@@ -13,7 +13,9 @@
 //   6. the re-upload goes through the same preview and PUTs the new token;
 //   7. a preview where nothing matched holds Save; a preview whose clock runs out asks for the file again;
 //   8. without the author grant there is no upload or re-upload, but the list page and Export still work;
-//   9. the layout mirrors under Arabic (screenshots in tools/.item-lists-shots).
+//   9. the layout mirrors under Arabic (screenshots in tools/.item-lists-shots);
+//  10. (review) a refused file after a preview clears the preview and Save; a server clock hours away from this
+//      machine's keeps the 30-minute window; a save answering no list id lands on the library's item lists.
 //
 //   1. run the app:  npx vite --port 5231 --strictPort
 //   2. DRIVE_PORT=5231 node tools/item-lists-drive.mjs
@@ -41,6 +43,7 @@ const ARABIC_NOTE = 'سحب من المورد'
 const inMinutes = (m) => new Date(Date.now() + m * 60_000).toISOString()
 const PREVIEW = (over = {}) => ({
   token: 'tok-1',
+  issuedAt: inMinutes(0),
   expiresAt: inMinutes(30),
   fileName: 'shortage-q3.xlsx',
   rows: 9,
@@ -123,7 +126,7 @@ async function open(dir, grants, opts = {}) {
     if (p === 'Analytics/ItemLists/Preview') return route.fulfill(envelope(opts.preview ? opts.preview() : PREVIEW()))
     if (p === 'Analytics/ItemLists' && req.method() === 'POST') {
       if (saveRefusals-- > 0) return route.fulfill(refusal('ANALYTICS-433', 'The preview expired. Upload the file again.', 410))
-      return route.fulfill(envelope(LIST))
+      return route.fulfill(envelope(opts.created ?? LIST))
     }
     if (p === 'Analytics/ItemLists/il-1/Export') return route.fulfill(workbook('Shortage Q3.xlsx'))
     if (p === 'Analytics/ItemLists/il-1') return route.fulfill(envelope(req.method() === 'PUT' ? { ...LIST, revision: 3 } : LIST))
@@ -248,7 +251,7 @@ async function edgeWalk(dir) {
   }
   // 7b. the preview's own clock runs out
   {
-    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ expiresAt: new Date(Date.now() + 1500).toISOString() }) })
+    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ issuedAt: inMinutes(0), expiresAt: new Date(Date.now() + 1500).toISOString() }) })
     await page.goto(`${BASE}/analytics/itemlist/new`)
     await page.locator('[data-item-list-file]').setInputFiles(FILE)
     await page.locator('[data-item-list-preview]').waitFor()
@@ -256,6 +259,44 @@ async function edgeWalk(dir) {
     check(`${L}: a lapsed preview asks for the file again by itself`, (await page.locator('[data-item-list-preview]').count()) === 0)
     await page.screenshot({ path: `${SHOTS}/${dir}-expired.png`, fullPage: true })
     check(`${L}: (clock) no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 10a. a refused file after a preview drops the preview and Save
+  {
+    const { context, page, errors } = await open(dir, AUTHOR)
+    await page.goto(`${BASE}/analytics/itemlist/new`)
+    await page.locator('[data-item-list-file]').setInputFiles(FILE)
+    await page.locator('[data-item-list-preview]').waitFor()
+    await page.locator('[data-item-list-file]').setInputFiles({ name: 'big.xlsx', mimeType: XLSX, buffer: Buffer.alloc(2 * 1024 * 1024 + 1) })
+    await page.locator('[data-item-list-file-problem="size"]').waitFor()
+    check(`${L}: a refused file clears the last preview`, (await page.locator('[data-item-list-preview]').count()) === 0)
+    check(`${L}: …and its Save`, (await page.locator('[data-item-list-save]').count()) === 0)
+    check(`${L}: (refused file) no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 10b. the server's clock three hours behind this machine's: the window is its 30 minutes from receipt
+  {
+    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ issuedAt: inMinutes(-180), expiresAt: inMinutes(-150) }) })
+    await page.goto(`${BASE}/analytics/itemlist/new`)
+    await page.locator('[data-item-list-file]').setInputFiles(FILE)
+    await page.locator('[data-item-list-preview]').waitFor()
+    await page.locator('[data-item-list-name]').fill('Skewed')
+    await page.waitForTimeout(1000)
+    check(`${L}: a skewed server clock does not lapse the preview`, (await page.locator('[data-item-list-expired]').count()) === 0 && (await page.locator('[data-item-list-save]').isEnabled()))
+    check(`${L}: (skew) no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 10c. a save that answers no readable id lands on the library's item lists
+  {
+    const { context, page, errors } = await open(dir, AUTHOR, { created: { ...LIST, id: '' } })
+    await page.goto(`${BASE}/analytics/itemlist/new`)
+    await page.locator('[data-item-list-file]').setInputFiles(FILE)
+    await page.locator('[data-item-list-preview]').waitFor()
+    await page.locator('[data-item-list-name]').fill('No id')
+    await page.locator('[data-item-list-save]').click()
+    await page.waitForURL(/\/analytics\/library\?kind=itemlist$/, { timeout: 10000 }).catch(() => null)
+    check(`${L}: a save naming no list lands on the library's item lists`, /\/analytics\/library\?kind=itemlist$/.test(page.url()), page.url())
+    check(`${L}: (no id) no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

@@ -11,13 +11,15 @@
 //   3. the list_periods table: one column per status present, a "no periods" member, the per-status total row;
 //   4. the calendar overlap is a warning line naming the event;
 //   5. a saved view whose list is gone says "list not available" and draws no chart or table;
+//   5b. (review) a list that goes while its answer is held: no figures behind the export / table actions or the period
+//       line; the share dialog says what a list's audience can do (read, export), and Delete says "item list";
 //   6. screenshots in tools/.item-lists-copilot-shots.
 //
 //   1. run the app:  npx vite --port 5232 --strictPort
 //   2. DRIVE_PORT=5232 node tools/item-lists-copilot-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { COPILOT_ANSWER, ITEMS, LIST, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
+import { COPILOT_ANSWER, ITEMS, LIST, QUERY, installAnalyticsStubs, refusal } from './analytics-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -46,6 +48,10 @@ const LISTS = [list('il-1'), list('il-2', { title: label('Delisted brands', 'ا�
 
 // A saved view that reads an item list which is now gone (⚠ ANALYTICS-434 is the guessed code).
 const GONE_VIEW = { ...ITEMS['v-bar'], id: 'v-list-gone', title: label('Shortage Q3 by region', 'نقص الربع الثالث حسب المنطقة'), definition: { ...ITEMS['v-bar'].definition, query: { ...ITEMS['v-bar'].definition.query, itemList: 'il-9' } } }
+
+// The same, but its list goes while its first answer is on screen: the refresh answers ANALYTICS-434.
+const STALE_VIEW = { ...GONE_VIEW, id: 'v-list-stale' }
+const STALE_FIRST = { ...QUERY['v-bar'], period: { from: '2026-10-01', to: '2026-10-30' } }
 
 const USED = {
   en: 'Used: Shortage Q3 (v4), 38 items, periods stated by the team',
@@ -86,8 +92,9 @@ async function open(dir, opts = {}) {
   }, dir)
   const stub = await installAnalyticsStubs(page, {
     list: [...LIST, ...LISTS],
-    items: { ...ITEMS, 'v-list-gone': GONE_VIEW },
-    query: { 'v-list-gone': refusal('ANALYTICS-434', 'The item list is not available.', 404) },
+    items: { ...ITEMS, 'v-list-gone': GONE_VIEW, 'v-list-stale': STALE_VIEW },
+    query: { ...QUERY, 'v-list-gone': refusal('ANALYTICS-434', 'The item list is not available.', 404), 'v-list-stale': STALE_FIRST },
+    querySequence: { 'v-list-stale': [STALE_FIRST, refusal('ANALYTICS-434', 'The item list is not available.', 404)] },
     copilot: 'granted',
     copilotAnswer: answerIn(dir === 'rtl' ? 'ar' : 'en'),
     ...opts,
@@ -125,7 +132,17 @@ async function walk(dir) {
   await mine.locator('[data-analytics-action="share"]').click()
   await page.locator('[data-analytics-share-everyone]').waitFor({ timeout: 5000 })
   check(`${L}: Share opens the item's share dialog for a list`, true)
+  const shareWords = await page.locator('[data-analytics-share]').innerText()
+  check(`${L}: … saying a list's audience reads and exports it, never runs it`, shareWords.includes('open it and read its items and periods') && shareWords.includes('export it as a workbook') && !shareWords.includes('change every parameter') && !shareWords.includes('share.'), shareWords.replace(/\s+/g, ' ').slice(0, 300))
   await page.keyboard.press('Escape')
+  await page.locator('[data-analytics-share]').waitFor({ state: 'detached', timeout: 5000 })
+  await mine.locator('[data-analytics-action="delete"]').click()
+  const confirm = page.locator('dialog').filter({ has: page.locator('[data-analytics-confirm="delete"]') })
+  await confirm.waitFor({ timeout: 5000 })
+  const confirmWords = await confirm.innerText()
+  check(`${L}: Delete's confirm says "item list", never a raw key`, confirmWords.includes('This item list is deleted for everyone') && !confirmWords.includes('tierActions.'), confirmWords.replace(/\s+/g, ' ').slice(0, 300))
+  await page.keyboard.press('Escape')
+  await confirm.waitFor({ state: 'detached', timeout: 5000 })
 
   // 2–4. the Copilot answer
   await page.locator('[data-copilot-button]').click()
@@ -168,6 +185,17 @@ async function walk(dir) {
   const words = (await page.locator('[data-panel-list-gone]').innerText()).trim()
   check(`${L}: … it says the list is not available`, dir === 'rtl' ? words.includes('القائمة غير متاحة') || words.includes('List not available') : words.includes('List not available'), words)
   await page.screenshot({ path: `${SHOTS}/${dir}-list-gone.png`, fullPage: true })
+
+  // 5b. the list goes while its first answer is held: the refresh's refusal leaves no figures anywhere
+  await page.goto(`${BASE}/analytics/view/v-list-stale`, { timeout: 120000 })
+  await page.locator('[data-analytics-period]').waitFor({ timeout: 15000 })
+  const csv = page.locator('[data-panel-action="csv"]')
+  check(`${L}: (held answer) CSV and the period line are there first`, (await csv.isEnabled()) && (await page.locator('[data-analytics-period]').count()) === 1)
+  await page.locator('[data-panel-action="refresh"]').click()
+  await page.locator('[data-panel-list-gone]').waitFor({ timeout: 15000 })
+  const disabled = await page.locator('[data-panel-action]').evaluateAll((els) => els.filter((e) => ['table', 'csv', 'xlsx', 'png'].includes(e.getAttribute('data-panel-action'))).map((e) => e.disabled))
+  check(`${L}: (list gone) table, CSV, XLSX and PNG are all off`, disabled.length === 4 && disabled.every(Boolean), disabled.join())
+  check(`${L}: (list gone) no period line`, (await page.locator('[data-analytics-period]').count()) === 0)
 
   check(`${L}: no console or page errors`, errors.length === 0, errors.join(' | ').slice(0, 400))
   await context.close()

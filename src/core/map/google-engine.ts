@@ -1,6 +1,6 @@
 import { googleLoader, type GoogleLoader } from './google-loader'
 import { lineLabelLook, markerHits, markerLook } from './map-markers'
-import { LINE_WIDTH, type MapFeature } from './map-drawing'
+import { LINE_WIDTH, STRONG_LINE_WIDTH, type MapFeature } from './map-drawing'
 import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapView } from './map-panel'
 
 /**
@@ -163,7 +163,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         overlay = markersOverlay(g, m, start, hits, project)
         overlay.setMap(m)
         // 922: each line a polyline in its colour, in the order given. Google draws polylines beneath every overlay, so
-        // the points (and the lines' words) lie on top; a line takes no tap; the map's taps stay the panel's.
+        // the points (and the lines' words) lie on top; a strong line stacks above every plain one, so a later leg lying
+        // along it never hides it; a line takes no tap; the map's taps stay the panel's.
         for (const line of start.lines ?? []) {
           polylines.push(
             new Polyline({
@@ -174,7 +175,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
               ],
               strokeColor: line.stroke,
               strokeOpacity: 0.9,
-              strokeWeight: LINE_WIDTH,
+              strokeWeight: line.strong ? STRONG_LINE_WIDTH : LINE_WIDTH,
+              zIndex: line.strong ? 2 : 1,
               clickable: false,
             }),
           )

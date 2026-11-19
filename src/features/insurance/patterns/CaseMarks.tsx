@@ -52,8 +52,16 @@ export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
     save.mutate(draft)
   }
 
-  const noteError =
-    tried && problem === 'note' ? t('case.marks.problem.note') : tried && problem === 'tooLong' ? t('case.marks.problem.tooLong', { max: fsi(NOTE_MAX) }) : undefined
+  // The problem in words: the save button's reason while it is held (`title`), and the field's error once tried.
+  const problemText =
+    problem === 'status'
+      ? t('case.marks.problem.status')
+      : problem === 'note'
+        ? t('case.marks.problem.note')
+        : problem === 'tooLong'
+          ? t('case.marks.problem.tooLong', { max: fsi(NOTE_MAX) })
+          : undefined
+  const noteError = tried && (problem === 'note' || problem === 'tooLong') ? problemText : undefined
   const marks = [...detail.marks].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
 
   return (
@@ -63,7 +71,7 @@ export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
       </h3>
 
       <form className="flex flex-col gap-2" onSubmit={submit} noValidate data-testid="pattern-mark-form">
-        <Field label={t('case.marks.status')} error={tried && problem === 'status' ? t('case.marks.problem.status') : undefined}>
+        <Field label={t('case.marks.status')} error={tried && problem === 'status' ? problemText : undefined}>
           <Select
             value={draft.status}
             onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as MarkDraft['status'] }))}
@@ -92,7 +100,7 @@ export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
           <span className={`text-xs ${draft.note.trim().length > NOTE_MAX ? 'text-danger-800' : 'text-muted-foreground'}`} data-testid="pattern-mark-count">
             <Ltr>{formatCount(draft.note.trim().length, NOTE_MAX)}</Ltr>
           </span>
-          <Button type="submit" aria-disabled={problem !== null || save.isPending} data-testid="pattern-mark-save">
+          <Button type="submit" aria-disabled={problem !== null || save.isPending} title={problemText} data-testid="pattern-mark-save">
             {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Save className="h-3.5 w-3.5" aria-hidden />}
             {t(save.isPending ? 'case.marks.saving' : 'case.marks.save')}
           </Button>

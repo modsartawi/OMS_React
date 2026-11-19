@@ -58,7 +58,8 @@ export function markerLook(f: MapFeature, labelInk: string): MarkerLook {
 /**
  * A line's words (922: a leg's km and time), drawn at the line's middle: a small card in the page's card colours, edged
  * in the line's own colour so a warning leg's words read as its, set in the app's face like a group's. They lie beneath
- * every point (a point is never hidden by a label) and let the pointer through to the map. A newline breaks them.
+ * every point (a point is never hidden by a label), a strong line's above the others', and let the pointer through to
+ * the map. A newline breaks them.
  */
 export function lineLabelLook(line: MapLineFeature): MarkerLook {
   return {
@@ -77,7 +78,7 @@ export function lineLabelLook(line: MapLineFeature): MarkerLook {
       fontSize: `${GROUP_LABEL_TEXT.size}px`,
       lineHeight: '1.3',
       fontWeight: '500',
-      zIndex: '50',
+      zIndex: line.strong ? '51' : '50',
       userSelect: 'none',
     },
     label: line.label,

@@ -313,6 +313,11 @@ export interface MapLine {
   tone: string
   /** Its words, drawn at its middle; a newline breaks them. Absent: no words. */
   label?: string
+  /**
+   * A line that must read through the others (922: a leg that fired a warning): drawn above every line that is not
+   * strong, a little wider, its words above theirs. Absent: an ordinary line, stacked in the order given.
+   */
+  strong?: boolean
 }
 
 /** A line as the engine draws it: its colour resolved, its words given or empty. */
@@ -322,14 +327,18 @@ export interface MapLineFeature {
   to: { lon: number; lat: number }
   stroke: string
   label: string
+  strong: boolean
 }
 
 /** How wide a line is drawn, in pixels. */
 export const LINE_WIDTH = 3
 
+/** How wide a strong line is drawn, in pixels. */
+export const STRONG_LINE_WIDTH = 4
+
 /** The lines the engine draws, in the order given, each colour token resolved by `inkOf`. */
 export function lineFeatures(lines: readonly MapLine[], inkOf: (token: string) => string): MapLineFeature[] {
-  return lines.map((l) => ({ id: l.id, from: l.from, to: l.to, stroke: inkOf(l.tone), label: l.label ?? '' }))
+  return lines.map((l) => ({ id: l.id, from: l.from, to: l.to, stroke: inkOf(l.tone), label: l.label ?? '', strong: l.strong === true }))
 }
 
 /** Where the engine reports a pointer or a tap: the feature under it, and the place on the panel in pixels. */

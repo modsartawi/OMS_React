@@ -324,7 +324,7 @@ describe('a marker taken away under the pointer lets its card go (review G5)', (
 describe('lines (922): each a Google polyline in its colour, its words at its middle', () => {
   const FROM = { lon: 46.6, lat: 24.6 }
   const TO = { lon: 43.9, lat: 26.3 }
-  const LEG: MapLineFeature = { id: 'leg-1', from: FROM, to: TO, stroke: 'ink(--map-worse)', label: '312 km · 1 h 40 min' }
+  const LEG: MapLineFeature = { id: 'leg-1', from: FROM, to: TO, stroke: 'ink(--map-worse)', label: '312 km · 1 h 40 min', strong: false }
   const noop = { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap() {}, moved() {}, sized() {} }
 
   function withLines(google: ReturnType<typeof stageGoogle>, lines: MapLineFeature[] | undefined) {
@@ -385,6 +385,20 @@ describe('lines (922): each a Google polyline in its colour, its words at its mi
     running.destroy()
     expect(google.polylines[0].map).toBeNull()
     expect(wordsLayer(google)).toBeUndefined()
+  })
+
+  it('a strong line is drawn above every plain one, wider, and its words above theirs — whatever the order given', async () => {
+    const google = stageGoogle()
+    withLines(google, [
+      { ...LEG, id: 'strong', strong: true },
+      { ...LEG, id: 'plain', stroke: 'ink(--map-ring)', label: 'later, plain' },
+    ])
+    await google.answer()
+    const [strong, plain] = google.polylines
+    expect(Number(strong.options.zIndex)).toBeGreaterThan(Number(plain.options.zIndex))
+    expect(Number(strong.options.strokeWeight)).toBeGreaterThan(Number(plain.options.strokeWeight))
+    const [strongWords, plainWords] = wordsLayer(google)?.children ?? []
+    expect(Number(strongWords.style.zIndex)).toBeGreaterThan(Number(plainWords.style.zIndex))
   })
 
   it('a map with no lines (every map before 922) makes no polyline', async () => {

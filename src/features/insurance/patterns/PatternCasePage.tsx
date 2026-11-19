@@ -44,7 +44,7 @@ function CaseBody() {
   const read = useQuery({ queryKey: caseKey(caseId), queryFn: () => patternsApi.detail(caseId), retry: false })
 
   const back = (
-    <Link to={PATTERNS_PATH} className="inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline" data-testid="pattern-case-back">
+    <Link to={PATTERNS_PATH} className="inline-flex items-center gap-1 self-start text-sm text-primary underline-offset-2 hover:underline" data-testid="pattern-case-back">
       <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
       {t('case.back')}
     </Link>

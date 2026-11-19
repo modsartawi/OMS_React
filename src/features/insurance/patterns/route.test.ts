@@ -131,6 +131,8 @@ describe('the legs: drawn in time order, labelled with their number, km and time
 
   it('a leg that fired the travel signal is drawn in the warning colour; the others plain', () => {
     expect(caseRoute(detail(), WORDS).lines.map((l) => l.tone)).toEqual([LEG_TONE.travel, LEG_TONE.plain, LEG_TONE.plain])
+    // Drawn above the plain legs: Hail, Buraydah and Riyadh lie nearly on one line, and a later plain leg must not hide it.
+    expect(caseRoute(detail(), WORDS).lines.map((l) => !!l.strong)).toEqual([true, false, false])
     expect(LEG_TONE).toEqual({ travel: '--map-worse', plain: '--map-ring' })
   })
 

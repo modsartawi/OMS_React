@@ -6,8 +6,8 @@
  *   draw at full size), its card counting them. A delivery's store is a point like any other.
  * - **The legs are the server's** (4053: between consecutive counter dispenses); the client never invents one. Drawn in
  *   time order, each labelled with its number, its km (when known) and its time; a leg that fired the travel signal in
- *   the warning colour. The same two stores travelled more than once are ONE line (the legs would lie on each other),
- *   its words a line per leg in time order, warning-coloured when any of them fired.
+ *   the warning colour, drawn above the plain legs. The same two stores travelled more than once are ONE line (the
+ *   legs would lie on each other), its words a line per leg in time order, warning-coloured when any of them fired.
  * - **A delivery or online dispense is a point with no leg in or out** (spec 4050: it says where the medicine left from,
  *   not where the patient stood) — even if a server listed such a leg.
  * - **A store without coordinates is not drawn**, its legs are skipped, and it is listed as not on the map. The legs
@@ -142,6 +142,8 @@ export function caseRoute(detail: RouteSource, words: RouteWords): CaseRoute {
     from: l.from,
     to: l.to,
     tone: l.travel ? LEG_TONE.travel : LEG_TONE.plain,
+    // A travel leg reads through the others: Hail, Buraydah and Riyadh lie nearly on one line.
+    strong: l.travel,
     label: l.words.join('\n'),
   }))
 

@@ -53,7 +53,7 @@ describe('the panel hands the engine each line, its colour resolved and its word
       [point('R', RIYADH), point('Q', QASSIM)],
       [{ id: 'leg-1', from: RIYADH, to: QASSIM, tone: '--map-worse', label: '312 km · 1 h 40 min' }],
     )
-    expect(e.start.lines).toEqual([{ id: 'leg-1', from: RIYADH, to: QASSIM, stroke: 'ink(--map-worse)', label: '312 km · 1 h 40 min' }])
+    expect(e.start.lines).toEqual([{ id: 'leg-1', from: RIYADH, to: QASSIM, stroke: 'ink(--map-worse)', label: '312 km · 1 h 40 min', strong: false }])
   })
 
   it('in the order given — the caller orders a route by time', () => {
@@ -67,6 +67,20 @@ describe('the panel hands the engine each line, its colour resolved and its word
     expect(e.start.lines?.map((l) => [l.id, l.stroke])).toEqual([
       ['leg-1', 'ink(--map-ring)'],
       ['leg-2', 'ink(--map-worse)'],
+    ])
+  })
+
+  it('a strong line (one that must read through the others: a warning) is handed on as strong; any other is not', () => {
+    const e = open(
+      [point('R', RIYADH), point('Q', QASSIM), point('D', DAMMAM)],
+      [
+        { id: 'leg-1', from: RIYADH, to: QASSIM, tone: '--map-worse', strong: true },
+        { id: 'leg-2', from: QASSIM, to: DAMMAM, tone: '--map-ring' },
+      ],
+    )
+    expect(e.start.lines?.map((l) => [l.id, l.strong])).toEqual([
+      ['leg-1', true],
+      ['leg-2', false],
     ])
   })
 

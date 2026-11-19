@@ -206,7 +206,7 @@ function CaseRow({ row }: { row: PatternCaseRow }) {
   const { t } = useTranslation('insurance-patterns')
   const units = unitWords(t)
   return (
-    <tr className="border-t border-border/60" data-testid="patterns-row" data-case={row.caseId} data-status={row.status}>
+    <tr className="border-t border-border/60" data-testid="patterns-row" data-case={row.caseId} data-status={row.status} data-score={row.score}>
       <td className={TD}>
         <Link
           to={casePath(row.caseId)}

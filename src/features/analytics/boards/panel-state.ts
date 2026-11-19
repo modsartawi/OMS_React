@@ -104,14 +104,33 @@ export function fetchedAgo(fetchedAt: string | null | undefined, now: Date): Fet
  * are the panel's retry state, while its neighbours keep going; `-410` is the area's unavailable reason;
  * anything else is a refusal in its own words (`Refused`).
  */
-export type PanelFailure = 'retry' | 'unavailable' | 'retired' | 'refused'
+export type PanelFailure = 'retry' | 'unavailable' | 'retired' | 'refused' | 'listGone'
+
+/**
+ * 926 (BackOffice spec 4057, ticket 4061): the refusal of a saved query that reads an item list (`itemList`) when the
+ * list is deleted or the viewer is no longer in its audience — the panel says "list not available" and is never run
+ * without the list. ⚠ GUESSED code: BackOffice 4061 is not built and names none yet (925 guessed `-433` for its expired
+ * preview token; this takes the next).
+ */
+export const ITEM_LIST_GONE = 'ANALYTICS-434'
 
 /** `field`: the member a refusal names (`data.field`, ⚠ as `./editor-refusal` reads it); a 406 naming one is retired. */
 export function panelFailure(code: string | null | undefined, field?: string | null): PanelFailure {
+  if (code === ITEM_LIST_GONE) return 'listGone'
   if (code === 'ANALYTICS-408' || code === 'ANALYTICS-409') return 'retry'
   if (code === 'ANALYTICS-410') return 'unavailable'
   if (code === 'ANALYTICS-406' && field) return 'retired'
   return 'refused'
+}
+
+/**
+ * What a panel draws for its failure (or none) and its last answer: the failure's state when there is no answer to show,
+ * else the figures (a refresh that failed over an answer keeps it). 926: a list that is gone is never drawn over its old
+ * figures — they were read through a list the viewer can no longer use.
+ */
+export function panelShows(failure: PanelFailure | null, result: AnalyticsQueryResult | undefined): PanelFailure | 'figures' {
+  if (failure === 'listGone') return 'listGone'
+  return failure && !result ? failure : 'figures'
 }
 
 /**

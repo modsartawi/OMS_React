@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, CloudOff, RotateCcw, SearchX, TimerOff } from 'lucide-react'
+import { Archive, CloudOff, ListX, RotateCcw, SearchX, TimerOff } from 'lucide-react'
 import ChartFrame from '@/core/charts/ChartFrame'
 import TableChart from '@/core/charts/TableChart'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
@@ -8,7 +8,7 @@ import Button from '@/core/ui/Button'
 import { apiErrorCode, apiErrorData } from '@/core/api'
 import { fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
-import { panelFailure, refusalField, unavailableReason } from './panel-state'
+import { panelFailure, panelShows, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
 import AreaNotes, { useAreaNoteWords, useTableWords } from './AreaNotes'
@@ -28,17 +28,20 @@ import { analyticsRefusal, refusalWords } from './wire'
  *   Each panel owns its query, so the other panels keep going. A refresh that fails over an answer keeps
  *   the answer and says the refresh failed, with the same retry.
  * - **unavailable** — `ANALYTICS-410`: the area's reason (the model's, else the server's words).
+ * - **listGone** — 926: the item list the query reads is deleted or no longer shared with the viewer: "list not
+ *   available", and no figures, not even an earlier answer's (`panelShows`).
  * - **empty** — "No data for these filters."
  * - **table** — the table view: the panel's rows (`./panel-table`), in the chart's order.
  * - otherwise the chart (`ViewChart`); any other refusal is `Refused`.
  *
  * The state is published on the panel as `data-board-panel-state` by the caller ({@link bodyState}).
  */
-export type BodyState = 'loading' | 'busy' | 'idle' | 'empty' | 'failed' | 'unavailable' | 'retired' | 'refused'
+export type BodyState = 'loading' | 'busy' | 'idle' | 'empty' | 'failed' | 'unavailable' | 'retired' | 'refused' | 'listGone'
 
 /** `retired`: the members the definition names that the model no longer holds (`retiredMembers`). */
 export function bodyState(result: AnalyticsQueryResult | undefined, error: unknown, busy: boolean, retired: readonly string[] = []): BodyState {
   if (retired.length > 0) return 'retired'
+  if (error && panelShows(failureOf(error), result) === 'listGone') return 'listGone'
   if (busy) return 'busy'
   if (error && !result) {
     const f = failureOf(error)
@@ -88,6 +91,15 @@ export default function PanelBody({
     return (
       <State icon={<Archive className="size-5" aria-hidden />} title={t('panel.retiredTitle')} data-panel-retired={members}>
         <span>{t('panel.retiredBody')}</span>
+      </State>
+    )
+  }
+
+  // 926: a gone list shows no figures, over an earlier answer too.
+  if (failure && panelShows(failure, result) === 'listGone') {
+    return (
+      <State icon={<ListX className="size-5" aria-hidden />} title={t('panel.listGoneTitle')} data-panel-list-gone>
+        <span>{t('panel.listGoneBody')}</span>
       </State>
     )
   }

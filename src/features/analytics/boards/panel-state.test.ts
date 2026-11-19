@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fetchedAgo, isBehind, mayStillRise, panelFailure, panelMarks, panelPermalink, retiredMembers, unavailableReason } from './panel-state'
+import { fetchedAgo, isBehind, ITEM_LIST_GONE, mayStillRise, panelFailure, panelMarks, panelPermalink, panelShows, retiredMembers, unavailableReason } from './panel-state'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 
 const now = new Date('2026-11-05T10:00:00')
@@ -158,5 +158,25 @@ describe('panelMarks (827): the model caveats and the "may still rise" mark of a
     const rows = [{ day: '2026-11-05', orders: 4 }]
     expect(panelMarks(view(['orders'], ['day']), result(rows), model827).stillRising).toBeNull()
     expect(panelMarks(view(['cancellation_rate'], ['day']), undefined, model827).stillRising).toBeNull()
+  })
+})
+
+// 926 (BackOffice spec 4057, ticket 4061): a saved view or panel that reads an item list whose list is gone (deleted,
+// or the viewer is no longer in its audience) says "list not available" and never shows figures run without it.
+describe('panel failure: the item list is not available (926)', () => {
+  it('the list-gone refusal is its own state', () => {
+    expect(panelFailure(ITEM_LIST_GONE)).toBe('listGone')
+  })
+  it('it shows no figures, even over an answer fetched before the list went', () => {
+    const before = { rows: [{ till_sales: 1200 }] } as unknown as AnalyticsQueryResult
+    expect(panelShows('listGone', before)).toBe('listGone')
+    expect(panelShows('listGone', undefined)).toBe('listGone')
+  })
+  it('the other failures keep their states, and a refresh that only timed out keeps its answer', () => {
+    const before = { rows: [{ till_sales: 1200 }] } as unknown as AnalyticsQueryResult
+    expect(panelShows('retry', before)).toBe('figures')
+    expect(panelShows('retry', undefined)).toBe('retry')
+    expect(panelShows('refused', undefined)).toBe('refused')
+    expect(panelShows(null, before)).toBe('figures')
   })
 })

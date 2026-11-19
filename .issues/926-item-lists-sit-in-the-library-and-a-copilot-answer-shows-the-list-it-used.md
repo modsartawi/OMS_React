@@ -20,11 +20,11 @@ UI (library, Copilot answer rendering, panel state).
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] The library filters by the new kind
-- [ ] The answer's Used line links to the list
-- [ ] The calendar warning renders
-- [ ] The "list not available" panel state has no figures
-- [ ] Lint + build clean
+- [x] The library filters by the new kind
+- [x] The answer's Used line links to the list
+- [x] The calendar warning renders
+- [x] The "list not available" panel state has no figures
+- [x] Lint + build clean
 
 ## Done when
 
@@ -36,3 +36,22 @@ Proof is green, and there is a live walk on BO 4061.
 - 925
 
 ## Comments
+
+**2026-11-19: built against stubs (impl/926). Status stays open: the live walk on BO 4061 is owed.**
+
+- Proof, red-green in vitest: `boards/library.test.ts` (kind chip, filter, door param, URL), `boards/item-actions.test.ts`
+  (a list: share/unshare/narrow/reassign/delete, never certify or save), `copilot/answer-item-lists.test.ts` (Used line
+  and link, list_periods table and per-status total, change format, calendar warning), `boards/panel-state.test.ts`
+  (`listGone` shows no figures, even over an earlier answer). Drive `tools/item-lists-copilot-drive.mjs` 48/48, LTR and
+  RTL, stubbed. Lint: every gate clean except `check-boundaries`, which fails only on the pre-existing
+  `insurance-rules/aliases/door-shapes.test.ts`. typecheck, test and build clean.
+- **Guessed contract (BO 4059–4061 not built), each in one place:**
+  - `usedLists: [{ listId, name, version, members, line: {en, ar} }]` on the answer: `core/models/copilot.ts`, read in
+    `copilot/answer-item-lists.ts`. The panel shows `line` as sent and adds "Open the list".
+  - `listPeriods: { step, listId, measure, members: [{ level, key, label, noPeriods, segments: [{ status, days, perDay }],
+    change }], totals: [segments], overlaps: [{ member, status, from, to, event: {en, ar}, eventFrom, eventTo }] }`: same
+    files. Top and bottom recoveries are not drawn; the guess carries none (expected in the answer's text or tables).
+  - The list-gone refusal code `ANALYTICS-434`: `ITEM_LIST_GONE` in `boards/panel-state.ts`.
+  - The library asks `GET Analytics/Items?kind=itemlist`; a list row carries the item tier actions (share, unshare,
+    narrow, reassign, delete) through the existing Analytics/Item doors (925's list page cannot import them).
+- No "My item lists" menu leaf: lists sit on All items under the Item lists chip.

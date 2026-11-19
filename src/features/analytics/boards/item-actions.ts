@@ -1,3 +1,4 @@
+import type { AnalyticsItemKind } from '@/core/analytics-routes'
 import type { AnalyticsTier } from '@/core/models/analytics'
 
 /**
@@ -65,6 +66,8 @@ export interface ItemStanding {
    * Certify writes this revision into it as one new revision (`certifyRevision`) rather than freezing a new copy.
    */
   certifiedCopy?: boolean
+  /** 926: the item's kind, where it changes what is offered — an item list (`itemlist`) is never certified or saved. */
+  kind?: AnalyticsItemKind
 }
 
 const READ_ONLY: ItemActions = { save: 'read-only', actions: [] }
@@ -83,6 +86,7 @@ export function itemActions(item: ItemStanding | null, actor: ItemActor): ItemAc
   // Someone else's Personal item is not visible by the tier rule; if one is served anyway, nothing is offered.
   if (item.tier === 'personal' && !owns) return READ_ONLY
   if (!author) return RUN_ONLY
+  if (item.kind === 'itemlist') return itemListActions(item, actor, owns)
 
   const inPlace = item.tier === 'certified' ? actor.canCurate : owns
   const actions: ItemActionKey[] = ['run', 'export']
@@ -101,6 +105,18 @@ export function itemActions(item: ItemStanding | null, actor: ItemActor): ItemAc
   if (actor.canCurate && item.tier === 'certified') actions.push('uncertify')
   if (item.tier === 'certified' ? actor.canCurate : owns) actions.push('delete')
   return { save: inPlace ? 'in-place' : 'copy', actions }
+}
+
+/**
+ * 926 (BackOffice spec 4057): an item list's actions. Shared like any item — the owner's share, unshare and delete, a
+ * curator's narrow and reassign — but it has no Certified tier and is never opened in an editor (its contents change
+ * by re-upload on its own page), so nothing certifies or saves it.
+ */
+function itemListActions(item: ItemStanding, actor: ItemActor, owns: boolean): ItemActions {
+  const actions: ItemActionKey[] = ['run', 'export', ...shareActions(item, actor)]
+  if (owns && item.tier === 'shared') actions.push('unshare')
+  if (owns && item.tier !== 'certified') actions.push('delete')
+  return { save: 'read-only', actions }
 }
 
 /** 826: the audience's actions — the owner's share, a curator's narrow and reassign. */

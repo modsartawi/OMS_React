@@ -234,7 +234,8 @@
     "kind": {
       "board": "Board",
       "view": "Analytics view",
-      "report": "Report"
+      "report": "Report",
+      "itemlist": "Item list"
     },
     "owner": "Owner <owner>{{owner}}</owner>",
     "changed": "Changed <at>{{at}}</at>",
@@ -288,8 +289,10 @@
         "all": "All kinds",
         "view": "Views",
         "board": "Boards",
-        "report": "Reports"
+        "report": "Reports",
+        "itemlist": "Item lists"
       },
+      "newItemList": "New item list",
       "changed": {
         "label": "Changed",
         "any": "Any time",
@@ -531,6 +534,8 @@
     "unavailableTitle": "Not available yet",
     "retiredTitle": "This measure was retired",
     "retiredBody": "It is no longer in the analytics model. The rest of the board keeps working.",
+    "listGoneTitle": "List not available",
+    "listGoneBody": "The item list this panel reads was deleted or is no longer shared with you, so it is not run without it.",
     "refreshFailed": "The refresh failed. The figures shown are from the last answer.",
     "notFilteredBy": "Not filtered by",
     "listSeparator": ", ",

@@ -170,3 +170,21 @@ describe('833: who manages a report’s schedules — its owner (an author) and 
     expect(canManageSchedules(mine('shared'), { ...me, canView: false })).toBe(false)
   })
 })
+
+// 926 (BackOffice spec 4057): an item list follows the item's tier actions — share, reassign, delete — but has no
+// Certified tier and no editor (its contents change by re-upload, on 925's page), so never certify or save.
+describe('tier and actions: an item list (926)', () => {
+  const list = (tier: 'personal' | 'shared', owner = 'msartawi') => ({ owner, tier, kind: 'itemlist' as const })
+  it('its owner shares, unshares and deletes it; nothing saves it in the editor', () => {
+    expect(itemActions(list('personal'), me)).toEqual({ save: 'read-only', actions: ['run', 'export', 'share', 'delete'] })
+    expect(itemActions(list('shared'), me)).toEqual({ save: 'read-only', actions: ['run', 'export', 'share', 'unshare', 'delete'] })
+  })
+  it('a curator narrows and reassigns someone else’s Shared list, and is never offered Certify', () => {
+    expect(itemActions(list('shared', 'aalharbi'), curator)).toEqual({ save: 'read-only', actions: ['run', 'export', 'narrow', 'reassign'] })
+    expect(itemActions(list('personal'), curator).actions).not.toContain('certify')
+  })
+  it('a reader in its audience reads it only', () => {
+    expect(itemActions(list('shared', 'aalharbi'), me)).toEqual({ save: 'read-only', actions: ['run', 'export'] })
+    expect(itemActions(list('shared', 'aalharbi'), runner)).toEqual({ save: 'read-only', actions: ['run', 'export'] })
+  })
+})

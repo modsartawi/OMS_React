@@ -199,7 +199,8 @@ export function readEditorSeed(state: unknown): EditorSeed | null {
 export function editItemLink(item: AnalyticsItem): { to: string; state: { editorSeed: EditorSeed } } {
   return {
     to: NEW_VIEW_PATH,
-    state: { editorSeed: { definition: item.definition, title: item.title, subtitle: item.subtitle, item: editingItemOf(item) } },
+    // 926: the view editor edits a view; an item list never opens here (`AnalyticsItem.kind` now holds `itemlist`).
+    state: { editorSeed: { definition: item.definition, title: item.title, subtitle: item.subtitle, item: editingItemOf({ ...item, kind: 'view' }) } },
   }
 }
 

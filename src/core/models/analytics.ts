@@ -255,7 +255,7 @@ export interface AnalyticsNotShared {
  */
 export interface AnalyticsItem {
   id: string
-  kind: 'view' | 'board' | 'report'
+  kind: 'view' | 'board' | 'report' | 'itemlist'
   /** Empty by default for an AI view: the screen then generates one from the model labels. */
   title: AnalyticsLabel
   subtitle: AnalyticsLabel

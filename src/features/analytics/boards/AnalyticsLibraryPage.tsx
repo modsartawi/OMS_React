@@ -2,8 +2,8 @@ import { useMemo, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartColumn, FileText, Folder, FolderInput, Inbox, LayoutDashboard, Plus, RotateCcw, SearchX, X } from 'lucide-react'
-import { itemHref, NEW_BOARD_PATH, NEW_REPORT_PATH, NEW_VIEW_PATH } from '@/core/analytics-routes'
+import { FileText, Folder, FolderInput, Inbox, LayoutDashboard, ListChecks, Plus, RotateCcw, SearchX, X } from 'lucide-react'
+import { itemHref, NEW_BOARD_PATH, NEW_ITEM_LIST_PATH, NEW_REPORT_PATH, NEW_VIEW_PATH } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
 import type { AnalyticsFolder, AnalyticsItem, AnalyticsLabel, AnalyticsModel } from '@/core/models/analytics'
@@ -34,6 +34,8 @@ import LibraryRail from './LibraryRail'
 import PinToggle from './PinToggle'
 import { useFileItem, useLibraryFolders, useRestoreItem } from './use-library'
 import AudienceChip from './AudienceChip'
+import { kindIcon } from './item-kind-icon'
+import ItemTierActions from './ItemTierActions'
 import TierBadge from './TierBadge'
 import SqlMark from './SqlMark'
 import { sqlMark } from './sql-panel'
@@ -235,6 +237,11 @@ function LibraryBody({ page }: { page: LibraryPage }) {
                 <FileText className="size-4" aria-hidden />
                 {t('designer.newReport')}
               </Link>
+              {/* 926: upload a new item list (925's page). */}
+              <Link to={NEW_ITEM_LIST_PATH} className={buttonClass('secondary')} data-analytics-new-itemlist>
+                <ListChecks className="size-4" aria-hidden />
+                {t('home.library.newItemList')}
+              </Link>
             </>
           )}
         </div>
@@ -276,7 +283,6 @@ const NEW_LINK: Partial<Record<LibraryPage, { to: string; labelKey: string }>> =
   reports: { to: NEW_REPORT_PATH, labelKey: 'designer.newReport' },
 }
 
-const kindIcon = (kind: AnalyticsItem['kind']) => (kind === 'board' ? LayoutDashboard : kind === 'report' ? FileText : ChartColumn)
 
 /**
  * One library row. 837: with my folders (`folders`, null before 3432) it is draggable onto a rail folder, and its
@@ -337,6 +343,8 @@ function HomeRow({
       </Link>
       {/* 840: outside the link, so pinning does not open the item. */}
       <PinToggle item={item} title={title} />
+      {/* 926: an item list has no editor page of its own to carry them, so its share, reassign and delete sit on its row. */}
+      {item.kind === 'itemlist' && <ItemTierActions item={item} stayOnDelete />}
       {folders && (
         <LibraryMenu
           label={t('home.library.move.itemLabel', { title: fsi(title || t('home.untitled')) })}

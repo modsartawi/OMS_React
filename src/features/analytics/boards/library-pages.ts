@@ -102,7 +102,8 @@ function leafFor(page: LibraryPage, c: LibraryChoice): LibraryPage | null {
   if (isMyPage(page)) return null
   if (c.who === 'sharedWithMe') return 'shared'
   if (c.who === 'certified') return 'certified'
-  if (c.who === 'mine' && c.kind !== 'all') return MY_PAGE[c.kind]
+  // 926: item lists have no My page of their own; mine and lists stays on All items.
+  if (c.who === 'mine' && c.kind !== 'all' && c.kind !== 'itemlist') return MY_PAGE[c.kind]
   // 840: Home is no longer a list — an old Home link that still narrows lands on All my items with its choice.
   if (page === 'home' && (choiceNarrows(c) || c.folder !== 'all')) return 'library'
   return null

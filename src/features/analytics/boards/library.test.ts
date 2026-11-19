@@ -6,6 +6,7 @@ import {
   fileInList,
   folderName,
   folderNameTaken,
+  LIBRARY_KINDS,
   libraryFromParams,
   libraryItems,
   libraryItemsQuery,
@@ -206,5 +207,33 @@ describe('folders', () => {
     expect(moveCounts(folders, null, 'f1')[0].itemCount).toBe(3)
     expect(moveCounts(folders, 'f2', null)[1].itemCount).toBe(0)
     expect(moveCounts(folders, 'f1', 'f1')).toEqual(folders)
+  })
+})
+
+// 926 (BackOffice spec 4057): an item list sits in the library beside boards, reports and views.
+describe('library: the item list kind (926)', () => {
+  const LISTS: AnalyticsItem[] = [
+    item('a-view', { updatedAt: '2026-11-07T09:00:00' }),
+    item('shortage-q3', { kind: 'itemlist', tier: 'shared', owner: 'someone', updatedAt: '2026-11-06T09:00:00', folderId: 'f1' }),
+    item('my-list', { kind: 'itemlist', updatedAt: '2026-11-05T09:00:00' }),
+    item('a-board', { kind: 'board', updatedAt: '2026-11-04T09:00:00', folderId: 'f1' }),
+  ]
+  const listIds = (choice: Partial<LibraryChoice>) => libraryItems(LISTS, choice, ME, TODAY).map((i) => i.id)
+
+  it('the kind chip offers item lists after reports', () => {
+    expect(LIBRARY_KINDS).toEqual(['all', 'view', 'board', 'report', 'itemlist'])
+  })
+  it('kind narrows to item lists only, and all kinds keeps them beside the rest', () => {
+    expect(listIds({ kind: 'itemlist' })).toEqual(['shortage-q3', 'my-list'])
+    expect(listIds({})).toEqual(['a-view', 'shortage-q3', 'my-list', 'a-board'])
+  })
+  it('a list is filed in folders and narrowed by who like any item', () => {
+    expect(listIds({ kind: 'itemlist', folder: 'f1' })).toEqual(['shortage-q3'])
+    expect(listIds({ kind: 'itemlist', who: 'mine' })).toEqual(['my-list'])
+  })
+  it('the door is asked kind=itemlist, and the address keeps it', () => {
+    expect(libraryItemsQuery({ kind: 'itemlist' }, TODAY)).toEqual({ kind: 'itemlist' })
+    expect(libraryToParams({ ...DEFAULT_LIBRARY_CHOICE, kind: 'itemlist' }).toString()).toBe('kind=itemlist')
+    expect(libraryFromParams(new URLSearchParams('kind=itemlist')).kind).toBe('itemlist')
   })
 })

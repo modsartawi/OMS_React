@@ -42,9 +42,18 @@ const isDialog = (key: TierActionKey): key is DialogKey => key === 'share' || ke
  * author's action hides. `ANALYTICS-419` (BO 3666): a personal schedule sends this report — worded with a link to
  * My schedules, where that schedule (and the report made for it) is deleted.
  */
-export default function ItemTierActions({ item, startShare = false }: { item: AnalyticsItem | AnalyticsBoard | AnalyticsReport; startShare?: boolean }) {
+/** 926: `stayOnDelete` — on a library row (an item list's), a delete keeps the reader on the library. */
+export default function ItemTierActions({
+  item,
+  startShare = false,
+  stayOnDelete = false,
+}: {
+  item: AnalyticsItem | AnalyticsBoard | AnalyticsReport
+  startShare?: boolean
+  stayOnDelete?: boolean
+}) {
   const { t } = useTranslation('boards')
-  const tier = useItemTier(item)
+  const tier = useItemTier(item, { stayOnDelete })
   const [asking, setAsking] = useState<Exclude<TierActionKey, DialogKey> | null>(null)
   // `startShare` (the copilot's "Share…", story 108) opens the share dialog at once — only for someone who may share.
   const [dialog, setDialog] = useState<DialogKey | null>(() => (startShare && tier.actions.includes('share') ? 'share' : null))

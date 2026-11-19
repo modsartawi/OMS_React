@@ -9,7 +9,7 @@ import { isOwner } from './item-actions'
  *
  * The home and the board editor's views palette narrow one list of items at once, client-side, by:
  * - **who**: all; mine (`owner` is me); certified; shared with me (Shared and not mine);
- * - **kind**: view, board or report;
+ * - **kind**: view, board, report or (926) item list;
  * - **changed**: any time, today, the last 7 or 30 days (today included), or a from/to range of local dates
  *   (both ends included, either may be open), on `updatedAt`'s local day;
  * - **folder**: all items, unfiled (`none`), one of my folders (its id), or recently deleted (`deleted`);
@@ -21,7 +21,7 @@ import { isOwner } from './item-actions'
  */
 
 export type LibraryWho = 'all' | 'mine' | 'certified' | 'sharedWithMe'
-export type LibraryKind = 'all' | 'view' | 'board' | 'report'
+export type LibraryKind = 'all' | 'view' | 'board' | 'report' | 'itemlist'
 export type LibraryChanged = { kind: 'any' } | { kind: 'today' } | { kind: 'days'; days: 7 | 30 } | { kind: 'range'; from?: string; to?: string }
 /** `all`, `none` (unfiled), `deleted` (recently deleted), or a folder id. */
 export type LibraryFolder = 'all' | 'none' | 'deleted' | (string & {})
@@ -40,7 +40,7 @@ export interface LibraryChoice {
 }
 
 export const LIBRARY_WHO: readonly LibraryWho[] = ['all', 'mine', 'certified', 'sharedWithMe']
-export const LIBRARY_KINDS: readonly LibraryKind[] = ['all', 'view', 'board', 'report']
+export const LIBRARY_KINDS: readonly LibraryKind[] = ['all', 'view', 'board', 'report', 'itemlist']
 
 export const DEFAULT_LIBRARY_CHOICE: LibraryChoice = { who: 'all', kind: 'all', changed: { kind: 'any' }, folder: 'all', search: '', area: '' }
 

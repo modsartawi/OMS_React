@@ -29,7 +29,7 @@ const doneKey = (w: TierWrite, tier: AnalyticsItem['tier']): string =>
  * marks the cached probe as not curating, so the curator's actions hide from then on (§C), and the caller shows
  * the reason from `error`.
  */
-export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsReport) {
+export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsReport, { stayOnDelete = false }: { stayOnDelete?: boolean } = {}) {
   const { t } = useTranslation('boards')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -38,7 +38,7 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
   const certified = { kind: item.kind, tier: 'certified' } as const
   const list = useQuery({ queryKey: analyticsItemsKey(certified), queryFn: () => analyticsApi.items(certified), retry: false })
   const copy = certifiedCopyOf(list.data, item.id)
-  const actions = tierActionsOf(itemActions({ owner: item.owner, tier: item.tier, certifiedCopy: !!copy }, actor).actions)
+  const actions = tierActionsOf(itemActions({ owner: item.owner, tier: item.tier, certifiedCopy: !!copy, kind: item.kind }, actor).actions)
 
   const reread = (id: string) => {
     void queryClient.invalidateQueries({ queryKey: analyticsItemKey(id) })
@@ -71,7 +71,7 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
       if (key === 'delete') {
         // 837: a deleted item drops out of my folders' counts (3432 §1).
         void queryClient.invalidateQueries({ queryKey: ANALYTICS_FOLDERS_KEY })
-        navigate('/analytics')
+        if (!stayOnDelete) navigate('/analytics')
         queryClient.removeQueries({ queryKey: analyticsItemKey(item.id) })
         queryClient.removeQueries({ queryKey: analyticsBoardKey(item.id) })
         queryClient.removeQueries({ queryKey: analyticsReportKey(item.id) })

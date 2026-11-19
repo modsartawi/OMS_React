@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChartColumn, FileText, LayoutDashboard, Library, Plus } from 'lucide-react'
+import { FileText, LayoutDashboard, Library, Plus } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
 import i18n from '@/core/i18n'
@@ -20,6 +20,7 @@ import { homeNewLinks, homeSections, type HomeNewLink, type HomeSection } from '
 import { ALL_ITEMS_PATH } from './library-pages'
 import { analyticsHomeQuery } from './api'
 import PinToggle from './PinToggle'
+import { kindIcon } from './item-kind-icon'
 import TierBadge from './TierBadge'
 import { analyticsRefusal, refusalWords } from './wire'
 
@@ -107,7 +108,6 @@ function HomeSectionList({ section }: { section: HomeSection }) {
   )
 }
 
-const kindIcon = (kind: AnalyticsItem['kind']) => (kind === 'board' ? LayoutDashboard : kind === 'report' ? FileText : ChartColumn)
 
 function HomeItemRow({ item }: { item: AnalyticsItem }) {
   const { t } = useTranslation('boards')

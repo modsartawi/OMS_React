@@ -4,7 +4,8 @@
  * imports the analytics feature (`.claude/rules/feature-structure.md`).
  */
 
-export type AnalyticsItemKind = 'view' | 'board' | 'report'
+/** 926 (BackOffice spec 4057): an item list (`itemlist`) is an analytics item too; its page is 925's. */
+export type AnalyticsItemKind = 'view' | 'board' | 'report' | 'itemlist'
 
 /** An item's page: `/analytics/view/:id`, `/analytics/board/:id` or `/analytics/report/:id`, its id escaped. */
 export const itemHref = (kind: AnalyticsItemKind, id: string): string => `/analytics/${kind}/${encodeURIComponent(id)}`

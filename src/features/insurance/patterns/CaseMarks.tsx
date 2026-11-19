@@ -16,7 +16,7 @@ import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { CASE_READS_KEY, patternsApi, PATTERNS_KEY } from './api'
-import { MARK_STATUSES, markProblem, NOTE_MAX, type MarkDraft } from './mark'
+import { draftAfterSave, MARK_STATUSES, markProblem, NOTE_MAX, type MarkDraft } from './mark'
 import { statusSev, statusText } from './words'
 
 const EMPTY: MarkDraft = { status: '', note: '' }
@@ -36,8 +36,9 @@ export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
 
   const save = useMutation({
     mutationFn: (sent: MarkDraft) => patternsApi.mark(detail.caseId, sent),
-    onSuccess: () => {
-      setDraft(EMPTY)
+    onSuccess: (_mark, sent) => {
+      // Only what was sent is cleared: words typed while the mark was saving stay (review 8).
+      setDraft((current) => draftAfterSave(current, sent))
       setTried(false)
       toast.success(t('case.marks.saved'), { description: fsi(detail.caseNumber) })
       // The case reads by prefix: the screen's read is keyed by the id as the route spelled it (review 10).

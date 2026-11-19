@@ -35,3 +35,11 @@ export function markBody(draft: MarkDraft): PatternMarkBody | null {
   if (markProblem(draft)) return null
   return { status: draft.status as PatternMarkStatus, note: draft.note.trim() }
 }
+
+/**
+ * The form once a mark is saved (review 8): empty when it still holds what was sent; what the reviewer typed while the
+ * mark was saving otherwise — a save never wipes words it did not send.
+ */
+export function draftAfterSave(current: MarkDraft, sent: MarkDraft): MarkDraft {
+  return current.status === sent.status && current.note === sent.note ? { status: '', note: '' } : current
+}

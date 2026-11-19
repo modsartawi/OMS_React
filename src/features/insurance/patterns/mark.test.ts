@@ -3,7 +3,7 @@
  * says why. The form reads its problem from `markProblem`; only a body `markBody` made is sent (`./api.test.ts`).
  */
 import { describe, expect, it } from 'vitest'
-import { MARK_STATUSES, markBody, markProblem, NOTE_MAX } from './mark'
+import { draftAfterSave, MARK_STATUSES, markBody, markProblem, NOTE_MAX } from './mark'
 
 describe('the statuses a reviewer sets', () => {
   it('are watching, cleared, confirmed and closed — never open, which is the job’s', () => {
@@ -41,5 +41,18 @@ describe('the body sent', () => {
   it('none for a draft with a problem', () => {
     expect(markBody({ status: '', note: 'a note' })).toBeNull()
     expect(markBody({ status: 'closed', note: ' ' })).toBeNull()
+  })
+})
+
+describe('the form after a mark is saved (review 8)', () => {
+  const sent = { status: 'cleared', note: 'Known chronic traveller.' } as const
+
+  it('empties when it still holds what was sent', () => {
+    expect(draftAfterSave({ ...sent }, sent)).toEqual({ status: '', note: '' })
+  })
+
+  it('keeps what was typed while the mark was saving: a longer note, another status', () => {
+    expect(draftAfterSave({ status: 'cleared', note: 'Known chronic traveller. Payer agrees.' }, sent)).toEqual({ status: 'cleared', note: 'Known chronic traveller. Payer agrees.' })
+    expect(draftAfterSave({ status: 'watching', note: 'Known chronic traveller.' }, sent)).toEqual({ status: 'watching', note: 'Known chronic traveller.' })
   })
 })

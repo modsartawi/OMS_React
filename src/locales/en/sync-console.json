@@ -1714,23 +1714,34 @@
         "jobId": "Job id"
       },
       "states": {
-        "Queued": "Queued",
+        "Waiting": "Waiting",
         "Running": "Running",
+        "Retrying": "Retrying",
         "Done": "Done",
-        "Failed": "Failed",
-        "Deferred": "Deferred"
+        "Failed": "Failed"
       },
       "refusals": {
+        "BAD_REQUEST": "The request was incomplete.",
         "REASON_REQUIRED": "A reason is required.",
         "UNKNOWN_KIND": "The server does not know this job.",
-        "NOT_WORKER_STORE": "The sync worker does not visit this store.",
+        "NO_STORE": "The sync worker does not visit this store.",
+        "NO_READING": "That reading is not kept for this store.",
         "JOB_OPEN": "A job of this kind is already open for this store.",
-        "TOO_LITTLE_FREE": "Too little space is free inside the data file.",
-        "DISK_TOO_LOW": "Too little space is free on the drive.",
+        "STORE_UNREACHABLE": "The store's database could not be reached.",
+        "RESTORE_GRANT_REQUIRED": "Restoring and dropping a side copy need the Restore permission.",
+        "NOT_A_RESTORE_KIND": "This job is not a restore job.",
+        "SHRINK_FREE_LOW": "Too little space is free inside the data file.",
+        "DISK_LOW": "Too little space is free on the drive.",
         "CLEANUP_OFF": "The store has turned its cleanup off.",
         "NEWER_ENGINE": "The backup was taken on a newer engine than the store's.",
         "NOT_A_SIDE_COPY": "Only a side copy can be dropped.",
-        "BLITZ_NOT_INSTALLED": "sp_Blitz is not installed on this store."
+        "BACKUP_UNREADABLE": "The store's engine could not read this backup file.",
+        "NOT_A_FULL_BACKUP": "Only a full backup can be restored.",
+        "BACKUP_FOLDER": "That folder cannot be read on the store's machine.",
+        "BAD_SCHEDULE": "The schedule is not valid.",
+        "BLITZ_NOT_INSTALLED": "sp_Blitz is not installed on this store.",
+        "BLITZ_FAILED": "sp_Blitz failed on the store.",
+        "NO_BLITZ_BUILD": "HQ has no sp_Blitz build to install yet."
       },
       "dialog": {
         "runNow": "Run now",
@@ -1743,7 +1754,7 @@
           "label": "Shrink log",
           "button": "Shrink log",
           "title": "Shrink the log",
-          "note": "A checkpoint, then the log file is shrunk to its target size. Runs now; it does not block the till and never changes the recovery model.",
+          "note": "A checkpoint, then the log file is shrunk to its target size. It does not block the till and never changes the recovery model.",
           "confirm": "Shrink log"
         },
         "ShrinkData": {

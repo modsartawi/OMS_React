@@ -25,6 +25,7 @@ import type {
   StoreDbStore,
 } from '@/core/models/store-database'
 import { healthCheckOf } from './health-helpers'
+import { jobDoor } from './job-helpers'
 import { liveActivityOf } from './live-helpers'
 
 /** The root of every Store database read. */
@@ -91,10 +92,10 @@ export const storeDbApi = {
   jobs: async (code: string): Promise<StoreDbJob[]> => (await api.get<StoreDbJob[] | null>('StoreDatabase/Jobs', { code })) ?? [],
 
   /**
-   * `POST StoreDatabase/Jobs` (BO 4034) — Act (Restore for the side-copy kinds, BO 4038). Every write rides this one
-   * door: shrink log/data, back up, cleanup (918), restore, drop, sp_Blitz (919).
+   * `POST StoreDatabase/Jobs` (BO 4034, Act: shrink log/data, back up, cleanup, sp_Blitz) or `POST
+   * StoreDatabase/RestoreJobs` (BO 4038, Restore: restore and drop a side copy) — one rail, the door by kind.
    */
-  requestJob: (body: StoreDbJobRequest): Promise<StoreDbJobAccepted> => api.post<StoreDbJobAccepted>('StoreDatabase/Jobs', body),
+  requestJob: (body: StoreDbJobRequest): Promise<StoreDbJobAccepted> => api.post<StoreDbJobAccepted>(jobDoor(body.kind), body),
 
   /** `GET StoreDatabase/BackupSchedule?code=` (BO 4035) — View. The store's EFFECTIVE schedule, with the fleet default. */
   backupSchedule: (code: string): Promise<StoreDbBackupSchedule> => api.get<StoreDbBackupSchedule>('StoreDatabase/BackupSchedule', { code }),

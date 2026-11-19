@@ -9,15 +9,15 @@ import { formatDateTime } from '@/core/util/date-format'
 import { AUDIT_KEY } from '../api'
 import ReasonDialog from '../ReasonDialog'
 import { storeDbApi, storeDbJobsKey } from './api'
-import { jobRequest, refusalKey, runsTonightByDefault, type StoreDbJobExtra } from './job-helpers'
+import { jobRequest, refusalKey, runsTonightByDefault } from './job-helpers'
 
 export interface JobDialogProps {
   /** The store the job runs on. */
   code: string
   /** The job to ask for; `null` = closed. */
   kind: StoreDbJobKind | null
-  /** The field a kind needs (919: `file` for RestoreSideCopy, `database` for DropSideCopy). */
-  extra?: StoreDbJobExtra
+  /** What the kind acts on (919: the `.bak` for RestoreSideCopy, the side copy for DropSideCopy). */
+  target?: string
   /** Replaces the kind's own note (`storeDb.jobs.kinds.<Kind>.note`). */
   note?: string
   /** Shown above the reason (919: the side-copy name a restore will create). */
@@ -29,7 +29,7 @@ export interface JobDialogProps {
 
 /**
  * Asks for one store database job (oms 918; BO 4034, spec D12) on the console's reason dialog: the reason is required,
- * a heavy kind (data shrink, side-copy restore / drop) waits for tonight's window unless **Run now** is chosen, and a
+ * every kind waits for tonight's window unless **Run now** is chosen (the server windows them all), and a
  * refusal shows the server's own text with its code while the dialog stays open. Kind-generic — 919 opens it for
  * RestoreSideCopy, DropSideCopy, InstallBlitz and RemoveBlitz. Success toasts when the job will start, then re-reads
  * the store's jobs and the console's audit.
@@ -39,7 +39,7 @@ export default function JobDialog(props: JobDialogProps) {
   return <Ask key={props.kind} {...props} kind={props.kind} />
 }
 
-function Ask({ code, kind, extra, note, children, onClose, onDone }: JobDialogProps & { kind: StoreDbJobKind }) {
+function Ask({ code, kind, target, note, children, onClose, onDone }: JobDialogProps & { kind: StoreDbJobKind }) {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
   const tonight = runsTonightByDefault(kind)
@@ -47,7 +47,7 @@ function Ask({ code, kind, extra, note, children, onClose, onDone }: JobDialogPr
   const label = t(`storeDb.jobs.kinds.${kind}.label`)
 
   const send = useMutation({
-    mutationFn: (reason: string) => storeDbApi.requestJob(jobRequest(code, kind, reason, runNow, extra)),
+    mutationFn: (reason: string) => storeDbApi.requestJob(jobRequest(code, kind, reason, runNow, target)),
     onSuccess: (accepted) => {
       notify.success(t('storeDb.jobs.dialog.queued', { kind: label, code: fsi(code), at: fsi(formatDateTime(accepted.notBefore)) }))
       if (accepted.warning) notify.warn(accepted.warning)

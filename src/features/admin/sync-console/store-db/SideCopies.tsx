@@ -42,7 +42,7 @@ export default function SideCopies({ code, copies }: { code: string; copies: Sto
       <JobDialog
         code={code}
         kind={dropping ? 'DropSideCopy' : null}
-        extra={dropping ? { database: dropping.name } : undefined}
+        target={dropping?.name}
         onClose={() => setDropping(null)}
       >
         {dropping && (

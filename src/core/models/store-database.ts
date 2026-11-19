@@ -245,8 +245,8 @@ export interface StoreDbHealthCheck {
 
 // ── 918 Jobs + Space + Backup ───────────────────────────────────────────────────
 
-/** A job's state as the door derives it from `IsProcessed` / `HasError` (BO 4034). GUESSED words. */
-export type StoreDbJobState = 'Queued' | 'Running' | 'Done' | 'Failed' | 'Deferred'
+/** A job's state (`StoreDatabaseJobState`, BO 4034). */
+export type StoreDbJobState = 'Waiting' | 'Running' | 'Retrying' | 'Done' | 'Failed'
 
 /** One row of `GET StoreDatabase/Jobs?code=` (BO 4034), newest first. GUESSED names. */
 export interface StoreDbJob {
@@ -273,22 +273,24 @@ export interface StoreDbJob {
   error: string | null
 }
 
-/** `POST StoreDatabase/Jobs` (BO 4034): `{ code, kind, reason, runNow }`, plus the field a kind needs (GUESSED). */
+/** `POST StoreDatabase/Jobs` / `RestoreJobs` (`StoreDatabaseJobRequest`). `runNow: false` = the night window. */
 export interface StoreDbJobRequest {
   code: string
   kind: StoreDbJobKind
   reason: string
   runNow: boolean
-  /** `RestoreSideCopy`: the `.bak` to restore (full path, from Browse). GUESSED. */
-  file?: string
-  /** `DropSideCopy`: the side copy's name. GUESSED. */
-  database?: string
+  /** What the kind acts on: the `.bak`'s full path (RestoreSideCopy), the side copy's name (DropSideCopy). */
+  target?: string
 }
 
-/** The Jobs door's answer to a request. GUESSED — `warning` is 4036's "a data shrink blocks the till". */
+/** What the job doors queued (`StoreDatabaseJobQueued`). `warning` is `""` for most kinds (4036: a data shrink). */
 export interface StoreDbJobAccepted {
   jobId: string
+  code: string
+  kind: string
   notBefore: string
+  runNow: boolean
+  auditId: string
   warning: string | null
 }
 

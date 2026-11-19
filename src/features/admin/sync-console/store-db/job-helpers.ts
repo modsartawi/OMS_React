@@ -7,37 +7,54 @@ import type { Severity } from '@/core/ui/severity'
 import { codeBadge, type CodeBadge } from '../helpers'
 
 /**
- * The kinds that wait for the night window unless Run now is chosen (spec D13/story 26–27: the ones that take the
- * store's sync locks). Every other kind runs at once — the dialog offers no choice for it.
+ * Whether a kind waits for the night window unless Run now is chosen. The server holds EVERY kind for its store's
+ * window when `runNow` is false (`StoreDatabaseJobWindow.NotBefore`, pricing2 fa2759e8f); owner ruling: follow it, so
+ * every kind defaults to tonight with a Run now override.
  */
-const NIGHT_WINDOW_KINDS: ReadonlySet<StoreDbJobKind> = new Set(['ShrinkData', 'RestoreSideCopy', 'DropSideCopy'])
+export const runsTonightByDefault = (_kind: StoreDbJobKind): boolean => true
 
-export const runsTonightByDefault = (kind: StoreDbJobKind): boolean => NIGHT_WINDOW_KINDS.has(kind)
+/** The kinds that need `StoreDatabase.Restore` and are asked at their own door (BO 4038). */
+const RESTORE_KINDS: ReadonlySet<StoreDbJobKind> = new Set(['RestoreSideCopy', 'DropSideCopy'])
 
-/** The extra field a kind carries (919: the `.bak` for a restore, the side copy for a drop). */
-export type StoreDbJobExtra = Pick<StoreDbJobRequest, 'file' | 'database'>
+/** The door a kind is asked at: `POST StoreDatabase/RestoreJobs` (Restore) or `POST StoreDatabase/Jobs` (Act). */
+export const jobDoor = (kind: StoreDbJobKind): 'StoreDatabase/Jobs' | 'StoreDatabase/RestoreJobs' =>
+  RESTORE_KINDS.has(kind) ? 'StoreDatabase/RestoreJobs' : 'StoreDatabase/Jobs'
 
-/** The `POST StoreDatabase/Jobs` body. A light kind always runs now; `runNow` is honoured for the heavy ones only. */
-export function jobRequest(code: string, kind: StoreDbJobKind, reason: string, runNow: boolean, extra: StoreDbJobExtra = {}): StoreDbJobRequest {
-  return { code, kind, reason, runNow: runsTonightByDefault(kind) ? runNow : true, ...extra }
+/** A job request's body. `target` is what the kind acts on (the `.bak` to restore, the side copy to drop). */
+export function jobRequest(code: string, kind: StoreDbJobKind, reason: string, runNow: boolean, target?: string): StoreDbJobRequest {
+  return target === undefined ? { code, kind, reason, runNow } : { code, kind, reason, runNow, target }
 }
 
 /**
- * The refusal codes this bundle has words for (`storeDb.jobs.refusals.<CODE>`). GUESSED spellings (contract.md §7);
- * an unknown code still shows the server's own text — `ReasonDialog` draws that text through `apiErrorMessage`.
+ * The refusal codes of the store database doors (pricing2 fa2759e8f), each with words at `storeDb.jobs.refusals.<CODE>`;
+ * the server's own text is drawn beside them by `ReasonDialog` through `apiErrorMessage`. An unknown code shows that
+ * text alone.
  */
-const REFUSAL_CODES = new Set([
+export const STORE_DB_REFUSAL_CODES: readonly string[] = [
+  'BAD_REQUEST',
   'REASON_REQUIRED',
   'UNKNOWN_KIND',
-  'NOT_WORKER_STORE',
+  'NO_STORE',
+  'NO_READING',
   'JOB_OPEN',
-  'TOO_LITTLE_FREE',
-  'DISK_TOO_LOW',
+  'STORE_UNREACHABLE',
+  'RESTORE_GRANT_REQUIRED',
+  'NOT_A_RESTORE_KIND',
+  'SHRINK_FREE_LOW',
+  'DISK_LOW',
   'CLEANUP_OFF',
   'NEWER_ENGINE',
   'NOT_A_SIDE_COPY',
+  'BACKUP_UNREADABLE',
+  'NOT_A_FULL_BACKUP',
+  'BACKUP_FOLDER',
+  'BAD_SCHEDULE',
   'BLITZ_NOT_INSTALLED',
-])
+  'BLITZ_FAILED',
+  'NO_BLITZ_BUILD',
+]
+
+const REFUSAL_CODES = new Set(STORE_DB_REFUSAL_CODES)
 
 /** The words for a refusal code (`ReasonDialog`'s `codeLabel`), or `null` for one this bundle does not know. */
 export const refusalKey = (code: string | null): string | null => (code && REFUSAL_CODES.has(code) ? `storeDb.jobs.refusals.${code}` : null)
@@ -46,12 +63,12 @@ export const refusalKey = (code: string | null): string | null => (code && REFUS
 export const jobFailure = (job: Pick<StoreDbJob, 'error'>): string | null => (job.error && job.error.trim() !== '' ? job.error : null)
 
 const JOB_STATE_SEVERITY: Record<StoreDbJobState, Severity> = {
-  Queued: 'mute',
+  Waiting: 'mute',
   Running: 'go',
+  // Open after a failed attempt: tried again at the next tick.
+  Retrying: 'warn',
   Done: 'ok',
   Failed: 'bad',
-  // Gave way to a sync visit holding the store's locks; retried next tick without an attempt (4036/4037).
-  Deferred: 'warn',
 }
 
 /** A job state's badge; an unknown state is neutral with no key (the cell shows the raw word). */

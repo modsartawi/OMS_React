@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/sync-console.json'
 import ar from '@/locales/ar/sync-console.json'
+import { refusalKey, STORE_DB_REFUSAL_CODES } from './job-helpers'
 
 /**
  * Arabic beside English for the Store database tab (oms 915–919): every key under `storeDb` is in both bundles, with
@@ -36,5 +37,13 @@ describe('the Store database words', () => {
     for (const s of ['Ok', 'Watch', 'Critical', 'DiskLow', 'NotChecked']) expect(at(en, `storeDb.states.${s}`), s).toBeTruthy()
     const engines = (en as { storeDb?: { engines?: Record<string, string> } }).storeDb?.engines ?? {}
     expect(Object.keys(engines).sort()).toEqual(['2008', '2008 R2', '2019', 'other'])
+  })
+
+  it('has words for every refusal code the server sends, NO_BLITZ_BUILD among them', () => {
+    expect(STORE_DB_REFUSAL_CODES).toContain('NO_BLITZ_BUILD')
+    for (const code of STORE_DB_REFUSAL_CODES) {
+      expect(at(en, refusalKey(code)!), `en ${code}`).toBeTruthy()
+      expect(at(ar, refusalKey(code)!), `ar ${code}`).toBeTruthy()
+    }
   })
 })

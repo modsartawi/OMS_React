@@ -120,7 +120,7 @@ export default function RestorePanel({ store }: StoreDbPanelProps) {
       <JobDialog
         code={store.code}
         kind={chosen ? 'RestoreSideCopy' : null}
-        extra={chosen ? { file: chosen.file } : undefined}
+        target={chosen?.file}
         onClose={() => setChosen(null)}
       >
         {chosen && (

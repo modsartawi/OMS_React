@@ -273,9 +273,20 @@ export function groupSum(members: readonly MapPoint[]): number {
   return sum
 }
 
-/** The features the engine draws at a zoom, with each colour token resolved by `inkOf`. */
-export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: MapGrouping | null, inkOf: (token: string) => string): MapFeature[] {
-  return groupsAt(points, zoom, grouping).map((g): MapFeature => {
+/**
+ * The features the engine draws at a zoom, with each colour token resolved by `inkOf`. `groupNearby` false (spec 4050
+ * review 4, a case's route): no point joins a group at any zoom — an opaque group disc would lie over the short legs
+ * between them and their words. Absent or true: nearby points group as {@link groupsAt} says (881, 909).
+ */
+export function featuresAt(
+  points: readonly MapPoint[],
+  zoom: number,
+  grouping: MapGrouping | null,
+  inkOf: (token: string) => string,
+  groupNearby = true,
+): MapFeature[] {
+  const shown: MapGroupOrPoint[] = groupNearby ? groupsAt(points, zoom, grouping) : points.map((point) => ({ kind: 'point', point }))
+  return shown.map((g): MapFeature => {
     if (g.kind === 'group') {
       const label = groupLabel(g.members, grouping)
       return {

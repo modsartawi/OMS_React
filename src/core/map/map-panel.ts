@@ -148,6 +148,11 @@ export interface OpenMapPanel {
   inkOf?: (token: string) => string
   /** How groups read (881). Absent: a group shows its count only. */
   grouping?: MapGrouping | null
+  /**
+   * Whether nearby points join into groups (881, 909). Absent or true: they do, as on every map before. False (spec 4050
+   * review 4, a case's route): each point stays its own at every zoom, so no group disc lies over a short leg.
+   */
+  groupNearby?: boolean
   /** The card to show changed (881, M23): whose, where, pinned or not; null hides it. */
   onCard?(card: MapCardState): void
 }
@@ -220,7 +225,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
   const featuresOf = (zoom: number) => {
     const z = Math.floor(zoom)
     let f = drawn.get(z)
-    if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf)))
+    if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf, open.groupNearby !== false)))
     return f
   }
   // A target is read against the features it was drawn from (review W8): the zoom may have moved on since.

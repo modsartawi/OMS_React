@@ -276,3 +276,21 @@ describe('a map opened in a box with no size yet is fitted once the box has one 
   })
 })
 
+
+describe('a panel told not to join nearby points draws each point on its own (spec 4050 review 4: a case’s route)', () => {
+  // Olaya and Malaz, 5.6 km apart: under 40 pixels apart below zoom 11, so one group there by default (881).
+  const OLAYA = { id: '1001', lon: 46.6853, lat: 24.6943 }
+  const MALAZ = { id: '1002', lon: 46.7311, lat: 24.6612 }
+
+  it('by default nearby points still join into one group: every map before the route is drawn as it was', () => {
+    const e = standIn()
+    open(e.engine, { points: [OLAYA, MALAZ] })
+    expect(e.started[0].featuresAt(6).map((f) => [f.kind, f.members ?? f.id])).toEqual([['group', ['1001', '1002']]])
+  })
+
+  it('told not to, each point at every zoom: no opaque group disc over a short leg and its words', () => {
+    const e = standIn()
+    open(e.engine, { points: [OLAYA, MALAZ], groupNearby: false })
+    for (const zoom of [3, 6, 10, 17]) expect([zoom, e.started[0].featuresAt(zoom).map((f) => [f.kind, f.id])]).toEqual([zoom, [['point', '1001'], ['point', '1002']]])
+  })
+})

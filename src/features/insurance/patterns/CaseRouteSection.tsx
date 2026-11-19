@@ -68,6 +68,9 @@ export default function CaseRouteSection({ detail }: { detail: PatternCaseDetail
           <LazyMapPanel
             points={route.points}
             lines={route.lines}
+            // A route's stores are never joined into a group: its disc would lie over the short legs and their words
+            // (two pharmacies in one city, review 4). Each store stays a point; zooming in parts them.
+            groupNearby={false}
             maps={detail.maps}
             ariaLabel={t('case.route.mapLabel', { caseNumber: fsi(detail.caseNumber) })}
             className="h-96 w-full"

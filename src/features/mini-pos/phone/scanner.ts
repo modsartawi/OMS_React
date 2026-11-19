@@ -38,6 +38,9 @@ export const ITEM_FORMATS: readonly ScanFormat[] = ['ean_13', 'ean_8', 'upc_a', 
 /** The pharmacy's unlock code (the till screen's changing QR, or the printed one). */
 export const PHARMACY_CODE_FORMATS: readonly ScanFormat[] = ['qr_code']
 
+/** The customer's Arbahi app code (a QR, single use, 120 s; oms 917). */
+export const MEMBER_CODE_FORMATS: readonly ScanFormat[] = ['qr_code']
+
 /** One frame's read, before it is timed. */
 export interface FrameHit {
   format: string

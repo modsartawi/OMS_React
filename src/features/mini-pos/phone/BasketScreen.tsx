@@ -7,6 +7,7 @@ import Ltr from '@/core/ui/Ltr'
 import { formatMoneyOfUnknownCurrency } from '@/core/money'
 import type { SessionLine, SessionState } from '@/core/models/callcenter'
 import KeyedCodeField, { type KeyedCode } from './KeyedCodeField'
+import NoConnection from './NoConnection'
 import RefusalBanner from './RefusalBanner'
 import ScannerView from './ScannerView'
 import { ITEM_FORMATS, type ScanRead } from './scanner'
@@ -22,6 +23,9 @@ export default function BasketScreen({
   busy,
   refusal,
   belowStock,
+  editing = null,
+  offline = false,
+  noConnection = false,
   customerSlot,
   onScan,
   onKeyed,
@@ -37,7 +41,13 @@ export default function BasketScreen({
   refusal: ShownRefusal | null
   /** An add waiting on "below the pharmacy's stock, add anyway?" (the session's pending confirmation). */
   belowStock: boolean
-  /** The customer step's seam (oms 917). */
+  /** The order number this basket edits (a reopened order, oms 917): its submit resubmits that order. */
+  editing?: string | null
+  /** The phone is offline (oms 917): submit waits for the connection. */
+  offline?: boolean
+  /** The last call never reached the server: said plainly; a retry re-sends the same submit. */
+  noConnection?: boolean
+  /** The attached customer (oms 917). */
   customerSlot: ReactNode
   onScan: (read: ScanRead) => void
   onKeyed: (code: KeyedCode) => void
@@ -60,6 +70,15 @@ export default function BasketScreen({
         </span>
       </div>
 
+      {editing && (
+        <div data-editing={editing} className="flex items-baseline justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">{t('basket.editing')}</span>
+          <span className="font-mono font-semibold">
+            <Ltr>{editing}</Ltr>
+          </span>
+        </div>
+      )}
+
       {customerSlot}
 
       <ScannerView formats={ITEM_FORMATS} onRead={onScan} paused={busy || belowStock} />
@@ -79,6 +98,7 @@ export default function BasketScreen({
         </div>
       )}
 
+      {(offline || noConnection) && <NoConnection />}
       {refusal && <RefusalBanner refusal={refusal} />}
 
       {state.lines.length === 0 ? (
@@ -135,10 +155,11 @@ export default function BasketScreen({
 
       <Button
         className="h-12 w-full text-base justify-center"
-        disabled={busy || belowStock || state.lines.length === 0 || !state.capabilities.canSubmit}
+        data-submit
+        disabled={busy || offline || belowStock || state.lines.length === 0 || !state.capabilities.canSubmit}
         onClick={onSubmit}
       >
-        {busy ? t('app.working') : t('basket.submit')}
+        {busy ? t('app.working') : editing ? t('basket.resubmit') : t('basket.submit')}
       </Button>
       <Button variant="text" className="h-10 w-full justify-center" disabled={busy} onClick={onAbandon}>
         {t('basket.abandon')}

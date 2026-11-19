@@ -1,5 +1,13 @@
-import { api } from '@/core/api'
-import type { AbandonResult, OpenResult, SessionState, SubmitResult } from '@/core/models/callcenter'
+import { api, apiErrorCode } from '@/core/api'
+import type {
+  AbandonResult,
+  LoyaltyMember,
+  LoyaltySignupCapture,
+  LoyaltySignupConfirmCapture,
+  OpenResult,
+  SessionState,
+  SubmitResult,
+} from '@/core/models/callcenter'
 import { newRequestId } from '@/core/engine-session/request-id'
 import { phoneHeaders } from './phone-session'
 
@@ -52,6 +60,29 @@ export interface AddItemInput {
   confirmToken?: string
 }
 
+/** One of the promoter's orders of today (`MiniPos/MyOrdersToday`, BackOffice 4071), as the server states it. */
+export interface MiniPosOrder {
+  documentNo: string
+  /** `open` (editable), `held` (open at a till right now), `paid` (billed at a till), `closed` (the day ended, or
+   *  cancelled; an expired order the sweep has not reached yet is listed closed too). The server's word. */
+  status: MiniPosOrderStatus | string
+  enteredAt: string
+  netTotal: number
+  storeCode: string
+  customerId: string
+}
+
+export type MiniPosOrderStatus = 'open' | 'held' | 'paid' | 'closed'
+
+/** `MiniPos/Reopen` — the order being edited, and the new basket it was loaded into (priced again). */
+export interface MiniPosReopened {
+  documentNo: string
+  state: SessionState
+}
+
+/** `LoyMemberService`'s "no member with this mobile" (the call-center console's lookup reads it as absence too). */
+export const MEMBER_NOT_FOUND = 'LOY-00100'
+
 const post = <T>(path: string, body: unknown) => api.post<T>(path, body, undefined, phoneHeaders())
 
 export const miniPosApi = {
@@ -88,5 +119,45 @@ export const miniPosApi = {
   },
   abandon(transactionId: string): Promise<AbandonResult> {
     return post('MiniPos/Abandon', { transactionId, requestId: newRequestId() })
+  },
+
+  // ----- the customer (BackOffice 4070): find or sign up a member, then attach -----
+
+  /** A member by the mobile as typed (normalised by the server), or `null` when the mobile is not a member. */
+  async memberByMobile(mobile: string): Promise<LoyaltyMember | null> {
+    try {
+      return await api.get<LoyaltyMember>(`MiniPos/MemberByMobile/${encodeURIComponent(mobile)}`, undefined, phoneHeaders())
+    } catch (err) {
+      if (apiErrorCode(err) === MEMBER_NOT_FOUND) return null
+      throw err
+    }
+  },
+  /** The Arbahi app's QR, as read. Single use and short-lived (120 s): the server burns it on this call. */
+  memberByScanCode(scanCode: string): Promise<LoyaltyMember> {
+    return post('MiniPos/MemberByScanCode', { scanCode })
+  },
+  /** Sends the sign-up code to a new mobile. No branch on the wire: the server enrols at the assigned pharmacy. */
+  signUp(requestId: string, capture: LoyaltySignupCapture): Promise<unknown> {
+    return post('MiniPos/SignUpByBranch', { requestId, ...capture })
+  },
+  /** The code the customer received → the new member, whom the phone then attaches. */
+  confirmSignUp(requestId: string, capture: LoyaltySignupConfirmCapture): Promise<LoyaltyMember> {
+    return post('MiniPos/ConfirmSignUpByBranch', { requestId, ...capture })
+  },
+  attachCustomer(transactionId: string, customerId: string): Promise<SessionState> {
+    return post('MiniPos/AttachCustomer', { transactionId, requestId: newRequestId(), customerId })
+  },
+
+  // ----- my orders today, reopen and resubmit (BackOffice 4071) -----
+
+  myOrdersToday(): Promise<MiniPosOrder[]> {
+    return api.get('MiniPos/MyOrdersToday', undefined, phoneHeaders())
+  },
+  reopen(documentNo: string): Promise<MiniPosReopened> {
+    return post('MiniPos/Reopen', { documentNo, requestId: newRequestId() })
+  },
+  /** A reopened basket's submit: the order's lines replaced under the same number. */
+  resubmit(transactionId: string, requestId: string): Promise<SubmitResult> {
+    return post('MiniPos/Resubmit', { transactionId, requestId })
   },
 }

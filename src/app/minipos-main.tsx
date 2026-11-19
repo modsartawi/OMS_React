@@ -18,10 +18,12 @@ const language = storedLanguage()
 document.documentElement.lang = language
 void i18n.changeLanguage(language)
 
+// `networkMode: 'always'`: with no connection a call fails at once and the phone says "no connection" (oms 917), rather
+// than TanStack pausing it and sending it by itself, unseen, when the line comes back.
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false, retry: false },
-    mutations: { retry: false },
+    queries: { refetchOnWindowFocus: false, retry: false, networkMode: 'always' },
+    mutations: { retry: false, networkMode: 'always' },
   },
 })
 

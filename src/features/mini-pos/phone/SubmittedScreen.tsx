@@ -8,13 +8,24 @@ import Barcode from './Barcode'
  * Submitted (spec 4063 story 22): the order number as a large barcode, for the cashier to scan off the phone with
  * "Find in Orders" at any till of the pharmacy, and in digits beneath it. The number is the server's, as minted.
  */
-export default function SubmittedScreen({ documentNo, onNewBasket }: { documentNo: string; onNewBasket: () => void }) {
+export default function SubmittedScreen({
+  documentNo,
+  resubmitted = false,
+  onNewBasket,
+  onMyOrders,
+}: {
+  documentNo: string
+  /** The order was edited and resubmitted under the same number (oms 917). */
+  resubmitted?: boolean
+  onNewBasket: () => void
+  onMyOrders?: () => void
+}) {
   const { t } = useTranslation('mini-pos-phone')
   return (
     <div className="flex flex-col items-stretch gap-4">
       <h1 className="flex items-center gap-2 text-lg font-semibold text-success">
         <CheckCircle2 className="size-5" aria-hidden />
-        {t('submitted.title')}
+        {resubmitted ? t('submitted.resubmittedTitle') : t('submitted.title')}
       </h1>
       <Barcode value={documentNo} label={t('submitted.barcode')} />
       <div className="flex flex-col items-center gap-1">
@@ -27,6 +38,11 @@ export default function SubmittedScreen({ documentNo, onNewBasket }: { documentN
       <Button className="h-12 w-full text-base justify-center" onClick={onNewBasket}>
         {t('submitted.newBasket')}
       </Button>
+      {onMyOrders && (
+        <Button variant="outlined" className="h-11 w-full justify-center" onClick={onMyOrders}>
+          {t('orders.title')}
+        </Button>
+      )}
     </div>
   )
 }

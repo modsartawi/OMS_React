@@ -59,7 +59,10 @@
     "addAnyway": "Add anyway",
     "dontAdd": "Don't add",
     "customer": "Customer",
-    "noCustomer": "No customer attached yet."
+    "noCustomer": "No customer attached yet.",
+    "tier": "Tier",
+    "editing": "Editing order",
+    "resubmit": "Resubmit order"
   },
   "existing": {
     "title": "You have a basket open",
@@ -72,6 +75,57 @@
     "hint": "Show this barcode at any till of the pharmacy. The customer also gets the order number by SMS.",
     "orderNo": "Order number",
     "barcode": "The order number as a barcode",
-    "newBasket": "New basket"
+    "newBasket": "New basket",
+    "resubmittedTitle": "Order updated"
+  },
+  "customer": {
+    "title": "The customer",
+    "hint": "Type the customer's mobile, or scan the QR in their Arbahi app.",
+    "mobile": "Mobile",
+    "find": "Find",
+    "scanTitle": "Arbahi app QR",
+    "scanHint": "The code works once and lasts two minutes. If it was refused, ask the customer to show a new one.",
+    "notMember": "Not a member yet:",
+    "country": "Country",
+    "countries": {
+      "SA": "Saudi Arabia (+966)",
+      "BH": "Bahrain (+973)",
+      "KW": "Kuwait (+965)",
+      "AE": "UAE (+971)",
+      "QA": "Qatar (+974)",
+      "OM": "Oman (+968)"
+    },
+    "language": "Messages in",
+    "languageChoose": "Ask the customer",
+    "languageArabic": "Arabic",
+    "languageEnglish": "English",
+    "sendCode": "Sign up: send the code",
+    "back": "Back",
+    "codeSent": "A code was sent by SMS to",
+    "code": "The code the customer received",
+    "confirm": "Confirm and sign up",
+    "resend": "Send the code again",
+    "attach": "Take this customer",
+    "attaching": "Taking the customer…"
+  },
+  "orders": {
+    "title": "My orders today",
+    "none": "No orders today yet.",
+    "edit": "Edit",
+    "refresh": "Refresh",
+    "back": "Back to the basket",
+    "status": {
+      "open": "Open",
+      "held": "At a till",
+      "paid": "Paid",
+      "closed": "Closed"
+    }
+  },
+  "connection": {
+    "title": "No connection",
+    "hint": "Nothing more is sent until the phone is back online. Trying again never places an order twice."
+  },
+  "phoneArabic": {
+    "NO_CUSTOMER_ATTACHED": "أضف العميل أولاً: ابحث برقم الجوال أو امسح رمز تطبيق أرباحي."
   }
 }

@@ -47,3 +47,14 @@ export function doorScreenFor(err: unknown): DoorScreen | null {
       return null
   }
 }
+
+/**
+ * The session verbs' refusals the phone gives an Arabic line of its own, because the server sends English only
+ * (`NO_CUSTOMER_ATTACHED` is the session's, not a Mini POS door refusal). The English stays the server's.
+ */
+export const PHONE_ARABIC_CODES = ['NO_CUSTOMER_ATTACHED'] as const
+
+export function withPhoneArabic(shown: ShownRefusal, arabicFor: (code: string) => string): ShownRefusal {
+  if (shown.arabic || !shown.code || !(PHONE_ARABIC_CODES as readonly string[]).includes(shown.code)) return shown
+  return { ...shown, arabic: arabicFor(shown.code) }
+}

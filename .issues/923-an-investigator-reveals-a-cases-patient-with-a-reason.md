@@ -98,3 +98,4 @@ machine value in `Ltr`, in the dialog only.
 - **Not here:** "Reveal (patient)" is not in `CONTEXT.md` yet (spec 4050 lists it for the glossary).
 - **Still owed:** the live walk with a seeded investigator on BO 4053's local endpoints: the reveal row in
   `InsurancePatternReveal`.
+- **2026-11-19, spec 4050 code-review fixes (`impl/4050-review`) touching this slice:** 1 (a reveal dialog closes with its case: the case body is keyed by its id, so no reason posts to another case) and 2 (a reveal in flight survives a double Escape: `core/ui/Modal` shows a non-dismissable dialog again when the browser closes it itself); reveal drive 58/58. Status left open.

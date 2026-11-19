@@ -20,6 +20,8 @@ import CaseRouteSection from './CaseRouteSection'
 import CaseTimeline from './CaseTimeline'
 import { casePath, PATTERNS_PATH } from './paths'
 import { severitySev, severityText, signalText, statusSev, statusText, unitWords } from './words'
+// 924 · the header's block action (its own file and predicate; it renders nothing unless offered)
+import CaseBlockAction from './CaseBlockAction'
 
 /**
  * **A pattern case** (oms 922; BackOffice spec 4050, door 4053 — STUBBED, the door is not built): one patient's run of
@@ -115,6 +117,7 @@ function CaseHeader({ detail }: { detail: PatternCaseDetail }) {
             its own state (never useQuery/useMutation, the URL, storage, a log or a toast). */}
 
         {/* 924 · "Add to blocked-patient list": only when detail.status === 'confirmed' && canRevealPatient && canBlockPatient. */}
+        <CaseBlockAction detail={detail} />
       </div>
     </div>
   )

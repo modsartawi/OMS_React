@@ -1,7 +1,9 @@
 {
   "menu": {
     "group": "Insurance",
-    "cases": "Pattern cases"
+    "cases": "Pattern cases",
+    "settings": "Pattern settings",
+    "reveals": "Reveal log"
   },
   "title": "Pattern cases",
   "subtitle": "Patients who dispense across our pharmacies, scored on impossible travel, supply overlap and pharmacy hopping. A case shows a number, never a patient.",
@@ -73,6 +75,134 @@
   "units": {
     "km": "{{km}} km",
     "kmPerHour": "{{speed}} km/h"
+  },
+  "settings": {
+    "title": "Pattern settings",
+    "subtitle": "The thresholds the nightly job finds and scores multi-pharmacy cases with.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to pattern settings",
+      "deniedHint": "Pattern settings need the insurance pattern manager grant. Ask your administrator.",
+      "unreachableTitle": "Your access could not be read",
+      "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+    },
+    "nextRun": "A change applies from the next run: the nightly job reads these thresholds each time it starts. Cases it has already closed are never re-scored.",
+    "reading": "Reading the settings…",
+    "failed": "The settings could not be read",
+    "formLabel": "The thresholds",
+    "name": {
+      "WindowDays": "Window (days)",
+      "MinStores": "Pharmacies for hopping",
+      "MaxKmPerHour": "Impossible speed (km/h)",
+      "MinTravelKm": "Shortest travel (km)",
+      "OverlapShare": "Supply still left (share)",
+      "CaseQuietDays": "Quiet days to close a case",
+      "LookbackDays": "History read (days)"
+    },
+    "help": {
+      "WindowDays": "The rolling window a patient's dispenses must fall in to make a pattern.",
+      "MinStores": "Distinct pharmacies in the window that count as pharmacy hopping.",
+      "MaxKmPerHour": "The speed between two counter dispenses above which the travel is impossible.",
+      "MinTravelKm": "The shortest distance a too-fast leg must cover to count as travel.",
+      "OverlapShare": "The share of the last supply still left when the same medicine is dispensed at another pharmacy (0.25 = 25%).",
+      "CaseQuietDays": "Days with no matching dispense after which a case closes.",
+      "LookbackDays": "Days of dispense history each run reads."
+    },
+    "range": "Allowed: {{range}}",
+    "was": "Saved value: {{value}}",
+    "problem": {
+      "missing": "Enter a value.",
+      "notNumber": "Enter a number.",
+      "notWhole": "Enter a whole number.",
+      "outOfRange": "Out of range: allowed {{range}}."
+    },
+    "changedCount_one": "{{n}} threshold changed",
+    "changedCount_other": "{{n}} thresholds changed",
+    "save": "Save settings",
+    "saving": "Saving…",
+    "saved": "Settings saved",
+    "savedDetail": "They apply from the next run.",
+    "discard": "Discard changes",
+    "nothingChanged": "Nothing has changed.",
+    "fixFirst": "Fix the values marked first.",
+    "notSaved": "The settings were not saved",
+    "log": {
+      "title": "Change log",
+      "none": "No threshold has been changed yet.",
+      "setting": "Threshold",
+      "old": "Old value",
+      "new": "New value",
+      "by": "Changed by",
+      "at": "When"
+    }
+  },
+  "revealLog": {
+    "title": "Reveal log",
+    "subtitle": "Who revealed which case's patient, when and why, including each block that used the patient's identity. The patients themselves are never shown here.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to the reveal log",
+      "deniedHint": "The reveal log needs the insurance pattern manager grant. Ask your administrator.",
+      "unreachableTitle": "Your access could not be read",
+      "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+    },
+    "filters": {
+      "label": "Filter the reveals",
+      "from": "From",
+      "to": "To",
+      "user": "User",
+      "userHint": "Who revealed",
+      "case": "Case",
+      "caseOn": "Case {{caseNumber}}",
+      "caseClear": "Show every case",
+      "clear": "Clear filters",
+      "backwards": "The period ends before it starts."
+    },
+    "count_one": "{{n}} reveal",
+    "count_other": "{{n}} reveals",
+    "order": "Newest first.",
+    "reading": "Reading the log…",
+    "failed": "The reveal log could not be read",
+    "empty": "No reveal matches these filters.",
+    "col": {
+      "at": "When",
+      "case": "Case",
+      "by": "Revealed by",
+      "reason": "Reason"
+    },
+    "openCase": "Open case {{caseNumber}}",
+    "onlyCase": "Only the reveals of case {{caseNumber}}"
+  },
+  "block": {
+    "action": "Add to blocked-patient list",
+    "title": "Add the patient to the blocked-patient list",
+    "body": "The patient of case {{caseNumber}} is added to the blocked-patient list. From its start day, the insurance guards refuse the patient's requests at every store, under every payer.",
+    "recorded": "The entry's reference names case {{caseNumber}}, and this use of the patient's identity is written to the reveal log.",
+    "reasonKind": "Kind of finding",
+    "choose": "Choose abuse or fraud",
+    "kind": {
+      "abuse": "Abuse",
+      "fraud": "Fraud"
+    },
+    "payer": "Reporting payer",
+    "payerHint": "Optional: who reported the finding. A note only: the block applies under every payer.",
+    "startsOn": "Starts on",
+    "startsHint": "Blank: from today.",
+    "endsOn": "Ends on",
+    "endsHint": "Blank: no end.",
+    "problem": {
+      "reasonKind": "Choose the kind of finding: abuse or fraud.",
+      "payerTooLong": "The payer is longer than {{max}} characters.",
+      "startInvalid": "Enter a real start day.",
+      "endInvalid": "Enter a real end day.",
+      "endPast": "The end cannot be before today.",
+      "startAfterEnd": "The start is after the end."
+    },
+    "cancel": "Cancel",
+    "confirm": "Add to the list",
+    "adding": "Adding…",
+    "added": "Added to the blocked-patient list",
+    "refused": "The patient was not added"
   },
   "case": {
     "pageTitle": "Pattern case",

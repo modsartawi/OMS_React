@@ -31,7 +31,15 @@ export const insuranceRoute: RouteObject = {
     // 923 · the reveal is a dialog on the case screen: no route of its own.
 
     // 924 · Pattern settings (`patterns/settings`, the manager's)
+    {
+      path: 'patterns/settings',
+      lazy: async () => ({ Component: (await import('@/features/insurance/patterns/PatternSettingsPage')).default }),
+    },
 
-    // 924 · Reveal log (`patterns/reveals`, the manager's)
+    // 924 · Reveal log (`patterns/reveals`, the manager's; `?from=&to=&user=&case=&page=`)
+    {
+      path: 'patterns/reveals',
+      lazy: async () => ({ Component: (await import('@/features/insurance/patterns/RevealLogPage')).default }),
+    },
   ],
 }

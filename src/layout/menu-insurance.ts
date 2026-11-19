@@ -1,7 +1,10 @@
 import { Route, Waypoints } from 'lucide-react'
 // 924 · icons
+import { FileClock, SlidersHorizontal } from 'lucide-react'
 // 922 · the pattern screens' OWN grants (BackOffice 4053, guessed keys; the feature's `access` module is the one reading)
 import { canOpenPatternCases } from '@/features/insurance/patterns/access'
+// 924 · the manager's grant (BackOffice 4055, guessed key): the settings and the reveal log
+import { canManagePatterns } from '@/features/insurance/patterns/access'
 // Type-only: `menu-model` imports this module, so a value import would be a cycle.
 import type { ShellMenuItem } from './menu-model'
 
@@ -29,7 +32,19 @@ export const INSURANCE_MENU: ShellMenuItem = {
 
     // 924 · Pattern settings (`menu.settings`, `/insurance/patterns/settings`, `requires: canManagePatterns`). A static
     // leaf under `/insurance/patterns` is matched more specifically than the cases leaf, so it lights on its own.
+    {
+      labelKey: 'insurance-patterns:menu.settings',
+      icon: SlidersHorizontal,
+      routerLink: '/insurance/patterns/settings',
+      requires: canManagePatterns,
+    },
 
     // 924 · Reveal log (`menu.reveals`, `/insurance/patterns/reveals`, `requires: canManagePatterns`)
+    {
+      labelKey: 'insurance-patterns:menu.reveals',
+      icon: FileClock,
+      routerLink: '/insurance/patterns/reveals',
+      requires: canManagePatterns,
+    },
   ],
 }

@@ -300,6 +300,38 @@ export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: 
   })
 }
 
+/**
+ * One line to draw between two places (oms 922, BackOffice spec 4050): a pattern case's leg between two pharmacies. Drawn
+ * from `from` to `to` beneath the points, with its words at its middle. A map given no lines draws none (every map
+ * before 922).
+ */
+export interface MapLine {
+  id: string
+  from: { lon: number; lat: number }
+  to: { lon: number; lat: number }
+  /** Its colour, as a token name (`--map-worse`). */
+  tone: string
+  /** Its words, drawn at its middle; a newline breaks them. Absent: no words. */
+  label?: string
+}
+
+/** A line as the engine draws it: its colour resolved, its words given or empty. */
+export interface MapLineFeature {
+  id: string
+  from: { lon: number; lat: number }
+  to: { lon: number; lat: number }
+  stroke: string
+  label: string
+}
+
+/** How wide a line is drawn, in pixels. */
+export const LINE_WIDTH = 3
+
+/** The lines the engine draws, in the order given, each colour token resolved by `inkOf`. */
+export function lineFeatures(lines: readonly MapLine[], inkOf: (token: string) => string): MapLineFeature[] {
+  return lines.map((l) => ({ id: l.id, from: l.from, to: l.to, stroke: inkOf(l.tone), label: l.label ?? '' }))
+}
+
 /** Where the engine reports a pointer or a tap: the feature under it, and the place on the panel in pixels. */
 export interface MapTarget {
   id: string

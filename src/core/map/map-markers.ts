@@ -1,4 +1,4 @@
-import { GROUP_LABEL_TEXT, POINT_RADIUS, type MapFeature } from './map-drawing'
+import { GROUP_LABEL_TEXT, POINT_RADIUS, type MapFeature, type MapLineFeature } from './map-drawing'
 import type { MapEngineEvents } from './map-panel'
 
 /**
@@ -53,6 +53,35 @@ export function markerLook(f: MapFeature, labelInk: string): MarkerLook {
     })
   }
   return { style, label: f.label }
+}
+
+/**
+ * A line's words (922: a leg's km and time), drawn at the line's middle: a small card in the page's card colours, edged
+ * in the line's own colour so a warning leg's words read as its, set in the app's face like a group's. They lie beneath
+ * every point (a point is never hidden by a label) and let the pointer through to the map. A newline breaks them.
+ */
+export function lineLabelLook(line: MapLineFeature): MarkerLook {
+  return {
+    style: {
+      position: 'absolute',
+      transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none',
+      whiteSpace: 'pre',
+      textAlign: 'center',
+      padding: '1px 6px',
+      borderRadius: '6px',
+      border: `1px solid ${line.stroke}`,
+      background: 'var(--card)',
+      color: 'var(--card-foreground)',
+      fontFamily: GROUP_LABEL_TEXT.family,
+      fontSize: `${GROUP_LABEL_TEXT.size}px`,
+      lineHeight: '1.3',
+      fontWeight: '500',
+      zIndex: '50',
+      userSelect: 'none',
+    },
+    label: line.label,
+  }
 }
 
 /** A tap on the map this soon after a tap on a marker is that same tap, seen by the map too: it closes nothing. */

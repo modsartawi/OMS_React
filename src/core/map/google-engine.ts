@@ -1,6 +1,6 @@
 import { googleLoader, type GoogleLoader } from './google-loader'
-import { markerHits, markerLook } from './map-markers'
-import type { MapFeature } from './map-drawing'
+import { lineLabelLook, markerHits, markerLook } from './map-markers'
+import { LINE_WIDTH, type MapFeature } from './map-drawing'
 import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapView } from './map-panel'
 
 /**
@@ -20,6 +20,8 @@ import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapV
  *   `OverlayView` with `./map-markers`' look — no map ID needed, so the map stays raster with Google's default style.
  *   Redrawn when the whole zoom changes; the panel's own grouping is the one source, so a tap, a group's opening zoom
  *   and the card's fold all read the features drawn. A click on a group eases to the zoom where it opens.
+ * - Lines (922): each `start.lines` entry a Google `Polyline` in its resolved colour (beneath every overlay, so the
+ *   points lie on top), taking no tap; its words an HTML element on the same overlay, at the line's middle as drawn.
  * - "Drawn": the points are put on the map before Google can report anything; the panel then waits for `tilesloaded` and
  *   `idle` (M37).
  * - Google draws into an element of the adapter's own inside the panel's box, taken out again when the map is closed
@@ -59,8 +61,16 @@ interface GOverlayViewClass {
   new (): GOverlayView
   preventMapHitsAndGesturesFrom(el: HTMLElement): void
 }
+/** 922: a line on the map. */
+interface GPolyline {
+  setMap(map: GMap | null): void
+}
 interface GoogleMapsNs {
-  importLibrary(name: 'maps'): Promise<{ Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap; RenderingType: { RASTER: unknown } }>
+  importLibrary(name: 'maps'): Promise<{
+    Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap
+    RenderingType: { RASTER: unknown }
+    Polyline: new (options: Record<string, unknown>) => GPolyline
+  }>
   ControlPosition: { TOP_LEFT: unknown; TOP_RIGHT: unknown }
   OverlayView: GOverlayViewClass
   event: { addListenerOnce(target: GMap, event: string, handler: () => void): GListener }
@@ -82,6 +92,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       let g: GoogleMapsNs | undefined
       const listeners: GListener[] = []
       let overlay: GOverlayView | null = null
+      // 922: the lines drawn, taken off the map again when it is closed.
+      const polylines: GPolyline[] = []
       let resize: ResizeObserver | null = null
       const fail = (reason: 'refused' | 'unreachable' | 'no-graphics') => {
         if (destroyed || ended) return
@@ -120,7 +132,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       const draw = async () => {
         g = googleMaps()
         if (!g) throw new Error('Google Maps did not define google.maps')
-        const { Map, RenderingType } = await g.importLibrary('maps')
+        const { Map, RenderingType, Polyline } = await g.importLibrary('maps')
         if (destroyed || refused) return
         const view = start.view
         try {
@@ -150,6 +162,23 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         const hits = markerHits(events, () => m.getZoom() ?? 0)
         overlay = markersOverlay(g, m, start, hits, project)
         overlay.setMap(m)
+        // 922: each line a polyline in its colour, in the order given. Google draws polylines beneath every overlay, so
+        // the points (and the lines' words) lie on top; a line takes no tap; the map's taps stay the panel's.
+        for (const line of start.lines ?? []) {
+          polylines.push(
+            new Polyline({
+              map: m,
+              path: [
+                { lat: line.from.lat, lng: line.from.lon },
+                { lat: line.to.lat, lng: line.to.lon },
+              ],
+              strokeColor: line.stroke,
+              strokeOpacity: 0.9,
+              strokeWeight: LINE_WIDTH,
+              clickable: false,
+            }),
+          )
+        }
         listeners.push(
           m.addListener('click', () => !destroyed && hits.mapClick()),
           m.addListener('tilesloaded', () => !destroyed && events.tilesLoaded()),
@@ -178,6 +207,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
           stopRefused()
           resize?.disconnect()
           for (const l of listeners) l.remove()
+          for (const p of polylines) p.setMap(null)
+          polylines.length = 0
           overlay?.setMap(null)
           overlay = null
           map = null
@@ -247,10 +278,28 @@ function markersOverlay(
       return { f, el }
     })
   }
+  // 922: the lines' words, made once (a zoom does not change them), in a layer of their own beside the markers'.
+  const wordsLayer = document.createElement('div')
+  wordsLayer.setAttribute('data-map-lines', '')
+  const words = (start.lines ?? [])
+    .filter((line) => line.label !== '')
+    .map((line) => {
+      const el = document.createElement('div')
+      const look = lineLabelLook(line)
+      Object.assign(el.style, look.style)
+      el.setAttribute('data-map-line', line.id)
+      // `auto`: Arabic words read right to left; the digits stay Latin.
+      el.dir = 'auto'
+      el.textContent = look.label
+      wordsLayer.appendChild(el)
+      return { line, el }
+    })
   const overlay = new g.OverlayView()
   return Object.assign(overlay, {
     onAdd() {
-      overlay.getPanes()?.overlayMouseTarget.appendChild(layer)
+      const pane = overlay.getPanes()?.overlayMouseTarget
+      pane?.appendChild(layer)
+      if (words.length > 0) pane?.appendChild(wordsLayer)
     },
     draw() {
       const zoom = Math.floor(map.getZoom() ?? 0)
@@ -263,9 +312,19 @@ function markersOverlay(
         el.style.left = `${at.x}px`
         el.style.top = `${at.y}px`
       }
+      // A line's words stand at its middle as drawn: halfway between its two ends' pixels (a polyline is straight on the
+      // screen, so its middle there is not the middle of the two latitudes).
+      for (const { line, el } of words) {
+        const a = projection.fromLatLngToDivPixel({ lat: line.from.lat, lng: line.from.lon })
+        const b = projection.fromLatLngToDivPixel({ lat: line.to.lat, lng: line.to.lon })
+        if (!a || !b) continue
+        el.style.left = `${(a.x + b.x) / 2}px`
+        el.style.top = `${(a.y + b.y) / 2}px`
+      }
     },
     onRemove() {
       layer.remove()
+      wordsLayer.remove()
       shown = []
       drawnZoom = null
     },

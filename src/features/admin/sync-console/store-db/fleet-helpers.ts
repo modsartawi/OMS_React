@@ -5,8 +5,9 @@
  * 🚩 **States come from the door.** The thresholds (Watch, Critical, Disk low, the days-to-cap window) are server
  * config: nothing here judges a store again, it only names, colours, orders and filters what `state` already says.
  */
+import type { TFunction } from 'i18next'
 import type { Severity } from '@/core/ui/severity'
-import type { StoreDbFleetRow, StoreDbState } from '@/core/models/store-database'
+import { STORE_DB_ENGINES, type StoreDbFleetRow, type StoreDbState } from '@/core/models/store-database'
 import { codeBadge, type CodeBadge } from '../helpers'
 
 // ── State → label + severity ────────────────────────────────────────────────────
@@ -39,8 +40,8 @@ export interface FleetRowView {
 
 export function fleetRowView(row: StoreDbFleetRow): FleetRowView {
   const chip = storeDbStateBadge(row.state)
-  const share = row.capKb > 0 ? row.usedShare : null
-  const bar = share == null || !Number.isFinite(share) ? null : { percent: clampPercent(share * 100), sev: chip.sev }
+  const percent = (row.capKb ?? 0) > 0 ? row.usedPercent : null
+  const bar = percent == null || !Number.isFinite(percent) ? null : { percent: clampPercent(percent), sev: chip.sev }
   return { chip, bar }
 }
 
@@ -49,10 +50,10 @@ const clampPercent = (n: number): number => Math.min(100, Math.max(0, Math.round
 // ── Order and filters ───────────────────────────────────────────────────────────
 
 /**
- * Worst first (BO 4031 sorts the door the same way; the client sorts too, so an older door still reads right).
- * GUESSED rank: Critical, Disk low, Not checked, Watch, OK; a state this bundle does not know last.
+ * Worst first, as the door sorts (`StoreDatabaseFleetReads`): Critical, Disk low, Watch, Not checked, OK; a state this
+ * bundle does not know last. The client sorts too, so a filter keeps the order.
  */
-const STATE_RANK: Record<StoreDbState, number> = { Critical: 0, DiskLow: 1, NotChecked: 2, Watch: 3, Ok: 4 }
+const STATE_RANK: Record<StoreDbState, number> = { Critical: 0, DiskLow: 1, Watch: 2, NotChecked: 3, Ok: 4 }
 const stateRank = (state: string): number => (Object.hasOwn(STATE_RANK, state) ? STATE_RANK[state as StoreDbState] : 5)
 
 /** Fewest days first; no forecast after every forecast. */
@@ -94,7 +95,27 @@ export function shownFleet(rows: readonly StoreDbFleetRow[], filter: FleetFilter
   return kept.sort(order)
 }
 
+const engineRank = (e: string): number => {
+  const i = (STORE_DB_ENGINES as readonly string[]).indexOf(e)
+  return i < 0 ? STORE_DB_ENGINES.length : i
+}
+
+/** The engines the fleet holds (the server's labels), once each, by release — a label this bundle does not know last. */
+export function fleetEngines(rows: readonly StoreDbFleetRow[]): string[] {
+  return [...new Set(rows.map((r) => r.engine).filter((e): e is string => !!e))].sort((a, b) => engineRank(a) - engineRank(b) || a.localeCompare(b))
+}
+
 /** The editions the fleet holds, once each, for the edition filter. */
 export function fleetEditions(rows: readonly StoreDbFleetRow[]): string[] {
   return [...new Set(rows.map((r) => r.edition).filter((e): e is string => !!e))].sort((a, b) => a.localeCompare(b))
+}
+
+/** The words for the server's bitness (`x64` / `x86`); `null` for none or a value this bundle does not know (shown raw). */
+export const bitnessKey = (bitness: string | null | undefined): string | null =>
+  bitness === 'x64' || bitness === 'x86' ? `storeDb.fleet.bitness.${bitness}` : null
+
+/** A bitness in words: the known ones named, an unknown one raw, none blank. Fits a grid `valueFormatter`. */
+export const bitnessText = (t: TFunction, bitness: string | null | undefined): string => {
+  const key = bitnessKey(bitness)
+  return key ? t(key) : (bitness ?? '')
 }

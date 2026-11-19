@@ -6,7 +6,7 @@ import type { StoreDbHealthCheck, StoreDbHealthFinding } from '@/core/models/sto
 import type { Severity } from '@/core/ui/severity'
 
 /**
- * The checks this bundle has words for (GUESSED machine names, spec 4016 D11's list). A check the server adds later is
+ * The checks this bundle has words for (`StoreDatabaseHealthCheck`'s stable names). A check the server adds later is
  * shown by its own word — never hidden, never a raw key.
  */
 export const KNOWN_CHECKS = [
@@ -21,7 +21,7 @@ export const KNOWN_CHECKS = [
   'NearSizeCap',
   'LargeTempdb',
   'ShortUptime',
-  'NoRecentBackup',
+  'NoFullBackup',
 ] as const
 
 const KNOWN = new Set<string>(KNOWN_CHECKS)
@@ -51,10 +51,14 @@ export function healthGroups(findings: readonly StoreDbHealthFinding[]): HealthG
   return [...by.entries()].sort(([a], [b]) => a - b).map(([priority, list]) => ({ priority, findings: list }))
 }
 
-/** Tolerant read of the door: fills a MISSING member only, derives nothing. */
+/** A check that faulted (could not run) — the server's level `CheckFailed`; its detail says why. */
+export const checkFailed = (finding: StoreDbHealthFinding): boolean => finding.level === 'CheckFailed'
+
+/** Tolerant read of the door: fills a MISSING member only (an empty fix is none), derives nothing. */
 export function healthCheckOf(data: Partial<StoreDbHealthCheck> | null): StoreDbHealthCheck {
   return {
+    ...data,
     takenAt: data?.takenAt ?? null,
-    findings: (data?.findings ?? []).map((f) => ({ ...f, fix: f.fix ?? null, faulted: f.faulted ?? false })),
+    findings: (data?.findings ?? []).map((f) => ({ ...f, fix: f.fix || null })),
   }
 }

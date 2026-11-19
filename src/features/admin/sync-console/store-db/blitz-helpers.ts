@@ -7,7 +7,7 @@ import type { StoreDbBlitz, StoreDbBlitzFinding, StoreDbBlitzState } from '@/cor
 import type { Permissions } from '@/core/permissions'
 import { canActStoreDb, canViewStoreDb } from '../access'
 
-/** GUESSED refusal code of `GET StoreDatabase/Blitz` when the procedure is absent (BO 4039: "never an empty result"). */
+/** The refusal of `GET StoreDatabase/Blitz` when the procedure is absent (409, `StoreDatabaseBlitz.BlitzNotInstalled`). */
 export const BLITZ_NOT_INSTALLED = 'BLITZ_NOT_INSTALLED'
 
 export interface BlitzControls {
@@ -29,6 +29,17 @@ export function blitzControls(p: Permissions, state: StoreDbBlitzState | null | 
 /** The findings, most urgent first (sp_Blitz's own order within one priority). A missing list is none. */
 export function blitzFindings(data: Partial<StoreDbBlitz> | null | undefined): StoreDbBlitzFinding[] {
   return [...(data?.findings ?? [])].sort((a, b) => a.priority - b.priority)
+}
+
+/**
+ * sp_Blitz's install state as far as this page knows it. BO 4039 is open and no read carries the state (not the Store
+ * door), so it is unknown (`null`) until sp_Blitz is run: a report says installed (HQ's recorded build, `""` = none), a
+ * `BLITZ_NOT_INSTALLED` refusal says not; any other failure leaves it unknown.
+ */
+export function blitzState(report: Pick<StoreDbBlitz, 'installedVersion'> | null | undefined, err: unknown): StoreDbBlitzState | null {
+  if (report) return { installed: true, version: report.installedVersion?.trim() || null }
+  if (blitzNotInstalled(err)) return { installed: false, version: null }
+  return null
 }
 
 /** The door refused because sp_Blitz is not on the store — shown plainly, with Install beside it for Act. */

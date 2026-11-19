@@ -41,7 +41,7 @@ function buildTableColumns(t: TFunction): ColDef<StoreDbTable>[] {
     { headerName: t('storeDb.readings.tables.columns.table'), field: 'tableName', flex: 1, minWidth: 180, cellClass: MONO },
     {
       headerName: t('storeDb.readings.tables.columns.rows'),
-      field: 'rows',
+      field: 'tableRows',
       width: 120,
       type: 'rightAligned',
       valueFormatter: (p: ValueFormatterParams<StoreDbTable, number | null>) => (p.value == null ? '' : figure(p.value)),

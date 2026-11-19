@@ -11,8 +11,8 @@ import { figure } from '../helpers'
 import type { LiveSectionKey } from './live-helpers'
 
 /**
- * The Live activity panel's four column sets (oms 917, BO 4032), in ONE file: if BO answers the four result sets in a
- * generic `{ columns, rows }` shape instead of the GUESSED typed one, this is the one file that changes. Every value
+ * The Live activity panel's four column sets (oms 917, BO 4032), in ONE file, named as `StoreDatabaseLiveActivity`'s
+ * typed rows (`seconds`, `waitSeconds`, `openTransactions`, `idleSeconds`, `runningSeconds`, `transactionSeconds`). Every value
  * is a plain grid value, isolated by the base col def (bidi rule); never `fsi()` here.
  */
 
@@ -61,16 +61,16 @@ function running(t: TFunction): ColDef<StoreDbRunningRequest>[] {
   return [
     session(t),
     { ...num(t, 'blockedBy', 90), valueFormatter: blocker },
-    num(t, 'secs', 80),
+    num(t, 'seconds', 80),
     text(t, 'status', 100),
     text(t, 'command', 110),
     text(t, 'waitType', 140, true),
-    num(t, 'waitSecs', 90),
+    num(t, 'waitSeconds', 90),
     text(t, 'waitResource', 200, true),
     text(t, 'hostName'),
     text(t, 'programName'),
     text(t, 'loginName', 110),
-    num(t, 'openTran', 90),
+    num(t, 'openTransactions', 90),
     num(t, 'cpuTime', 100),
     num(t, 'logicalReads', 120),
     sql(t, 'statementText'),
@@ -88,8 +88,8 @@ function headBlockers(t: TFunction): ColDef<StoreDbHeadBlocker>[] {
     text(t, 'loginName', 110),
     time(t, 'lastRequestStartTime'),
     time(t, 'lastRequestEndTime'),
-    num(t, 'idleSecs', 90),
-    num(t, 'openTran', 90),
+    num(t, 'idleSeconds', 90),
+    num(t, 'openTransactions', 90),
     sql(t, 'lastSql'),
   ]
 }
@@ -103,8 +103,8 @@ function workerSessions(t: TFunction): ColDef<StoreDbWorkerSession>[] {
     text(t, 'command', 110),
     text(t, 'waitType', 140, true),
     { ...num(t, 'blockedBy', 90), valueFormatter: blocker },
-    num(t, 'runningSecs', 100),
-    num(t, 'openTran', 90),
+    num(t, 'runningSeconds', 100),
+    num(t, 'openTransactions', 90),
     sql(t, 'sqlText'),
   ]
 }
@@ -112,7 +112,7 @@ function workerSessions(t: TFunction): ColDef<StoreDbWorkerSession>[] {
 function longTransactions(t: TFunction): ColDef<StoreDbLongTransaction>[] {
   return [
     session(t),
-    num(t, 'tranSecs', 100),
+    num(t, 'transactionSeconds', 100),
     time(t, 'transactionBeginTime'),
     text(t, 'status', 100),
     text(t, 'hostName'),

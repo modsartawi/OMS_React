@@ -12,7 +12,7 @@ import { figure } from '../helpers'
 import Loading from '../Loading'
 import { storeDbHealthQuery } from './api'
 import BlitzSection from './BlitzSection'
-import { checkLabelKey, healthGroups, priorityBadge } from './health-helpers'
+import { checkFailed, checkLabelKey, healthGroups, priorityBadge } from './health-helpers'
 import type { StoreDbPanelProps } from './panel-views'
 
 /**
@@ -69,7 +69,7 @@ function Finding({ finding }: { finding: StoreDbHealthFinding }) {
     <li
       className="flex flex-col gap-1.5 rounded-md border border-border/60 p-3 text-sm"
       data-health-finding={finding.check}
-      data-health-faulted={finding.faulted ? 'true' : 'false'}
+      data-health-faulted={checkFailed(finding) ? 'true' : 'false'}
     >
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge sev={badge.sev}>
@@ -78,7 +78,7 @@ function Finding({ finding }: { finding: StoreDbHealthFinding }) {
         <span className="font-medium" data-health-check="">
           {label ? t(label) : <Ltr>{finding.check}</Ltr>}
         </span>
-        {finding.faulted && (
+        {checkFailed(finding) && (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" data-health-faulted-note="">
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
             {t('storeDb.health.faulted')}

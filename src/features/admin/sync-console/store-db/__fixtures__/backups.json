@@ -1,10 +1,125 @@
 {
+  "code": "P104",
   "folder": "D:\\SQLBackup\\P104",
   "storeEngineVersion": "10.50.6000",
   "files": [
-    { "file": "D:\\SQLBackup\\P104\\POS_full.bak", "fileName": "POS_full.bak", "database": "POS", "backupDate": "2026-11-17T02:15:00", "sizeKb": 2936012, "engineVersion": "10.50.6000", "newerEngine": false, "error": null },
-    { "file": "D:\\SQLBackup\\P104\\POS_20261101.bak", "fileName": "POS_20261101.bak", "database": "POS", "backupDate": "2026-11-01T02:10:00", "sizeKb": 2809856, "engineVersion": "10.50.4000", "newerEngine": false, "error": null },
-    { "file": "D:\\SQLBackup\\P104\\POS_from_2019.bak", "fileName": "POS_from_2019.bak", "database": "POS", "backupDate": "2026-11-12T14:30:00", "sizeKb": 3014656, "engineVersion": "15.0.2000", "newerEngine": true, "error": null },
-    { "file": "D:\\SQLBackup\\P104\\half_copied.bak", "fileName": "half_copied.bak", "database": null, "backupDate": null, "sizeKb": null, "engineVersion": null, "error": "The media family on device 'D:\\SQLBackup\\P104\\half_copied.bak' is incorrectly formed." }
-  ]
+    {
+      "file": "D:\\SQLBackup\\P104\\POS_full.bak",
+      "error": "",
+      "position": 1,
+      "databaseName": "POS",
+      "backupType": 1,
+      "backupStartedAt": "2026-11-17T02:15:00",
+      "backupFinishedAt": "2026-11-17T02:15:40",
+      "backupSizeKb": 2936012,
+      "engineMajor": 10,
+      "engineMinor": 50,
+      "engineBuild": 6000,
+      "engineVersion": "10.50.6000",
+      "newerThanStore": false,
+      "files": [
+        {
+          "logicalName": "POS",
+          "physicalName": "D:\\Data\\POS.mdf",
+          "type": "D",
+          "fileId": 1,
+          "sizeKb": 3407872
+        },
+        {
+          "logicalName": "POS_log",
+          "physicalName": "D:\\Data\\POS_log.ldf",
+          "type": "L",
+          "fileId": 2,
+          "sizeKb": 524288
+        }
+      ],
+      "restoreSizeKb": 3932160,
+      "readable": true
+    },
+    {
+      "file": "D:\\SQLBackup\\P104\\POS_20261101.bak",
+      "error": "",
+      "position": 1,
+      "databaseName": "POS",
+      "backupType": 1,
+      "backupStartedAt": "2026-11-01T02:10:00",
+      "backupFinishedAt": "2026-11-01T02:10:40",
+      "backupSizeKb": 2809856,
+      "engineMajor": 10,
+      "engineMinor": 50,
+      "engineBuild": 4000,
+      "engineVersion": "10.50.4000",
+      "newerThanStore": false,
+      "files": [
+        {
+          "logicalName": "POS",
+          "physicalName": "D:\\Data\\POS.mdf",
+          "type": "D",
+          "fileId": 1,
+          "sizeKb": 3407872
+        },
+        {
+          "logicalName": "POS_log",
+          "physicalName": "D:\\Data\\POS_log.ldf",
+          "type": "L",
+          "fileId": 2,
+          "sizeKb": 524288
+        }
+      ],
+      "restoreSizeKb": 3932160,
+      "readable": true
+    },
+    {
+      "file": "D:\\SQLBackup\\P104\\POS_from_2019.bak",
+      "error": "",
+      "position": 1,
+      "databaseName": "POS",
+      "backupType": 1,
+      "backupStartedAt": "2026-11-12T14:30:00",
+      "backupFinishedAt": "2026-11-12T14:30:40",
+      "backupSizeKb": 3014656,
+      "engineMajor": 15,
+      "engineMinor": 0,
+      "engineBuild": 2000,
+      "engineVersion": "15.0.2000",
+      "newerThanStore": true,
+      "files": [
+        {
+          "logicalName": "POS",
+          "physicalName": "D:\\Data\\POS.mdf",
+          "type": "D",
+          "fileId": 1,
+          "sizeKb": 3407872
+        },
+        {
+          "logicalName": "POS_log",
+          "physicalName": "D:\\Data\\POS_log.ldf",
+          "type": "L",
+          "fileId": 2,
+          "sizeKb": 524288
+        }
+      ],
+      "restoreSizeKb": 3932160,
+      "readable": true
+    },
+    {
+      "file": "D:\\SQLBackup\\P104\\half_copied.bak",
+      "error": "The media family on device 'D:\\SQLBackup\\P104\\half_copied.bak' is incorrectly formed.",
+      "position": 0,
+      "databaseName": "",
+      "backupType": 0,
+      "backupStartedAt": null,
+      "backupFinishedAt": null,
+      "backupSizeKb": 0,
+      "engineMajor": 0,
+      "engineMinor": 0,
+      "engineBuild": 0,
+      "engineVersion": "0.0.0",
+      "newerThanStore": false,
+      "files": [],
+      "restoreSizeKb": 0,
+      "readable": false
+    }
+  ],
+  "truncated": false
 }

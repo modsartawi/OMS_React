@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TFunction } from 'i18next'
-import { kbSize, kbText, sharePercent } from './size'
+import { driveFreeKb, kbSize, kbText, sharePercent } from './size'
 
 /** One size spelling for every Store database panel (oms 915): the wire carries KB, the tab reads MB / GB. */
 describe('a size as the tab draws it', () => {
@@ -23,6 +23,14 @@ describe('a size as the tab draws it', () => {
   it('has nothing to say for no reading', () => {
     expect(kbSize(null)).toBeNull()
     expect(kbSize(undefined)).toBeNull()
+  })
+
+  it('reads a drive the server could not match (-1) as unknown, never "-1 KB"', () => {
+    expect(driveFreeKb(-1)).toBeNull()
+    expect(kbSize(driveFreeKb(-1))).toBeNull()
+    expect(driveFreeKb(0)).toBe(0)
+    expect(driveFreeKb(18874368)).toBe(18874368)
+    expect(driveFreeKb(null)).toBeNull()
   })
 
   it('reads a share as a percent, to one decimal only when it has one', () => {

@@ -25,7 +25,7 @@ export default function SpacePanel({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
   const permissions = usePermissions()
   const [kind, setKind] = useState<StoreDbJobKind | null>(null)
-  const lines = readingLines(store.reading).filter((l) => SPACE_LINES.includes(l.key))
+  const lines = readingLines(store.reading, store.files).filter((l) => SPACE_LINES.includes(l.key))
   return (
     <div className="flex flex-col gap-5" data-space-panel="">
       <section className="flex flex-col gap-2" data-space-lines={lines.length}>

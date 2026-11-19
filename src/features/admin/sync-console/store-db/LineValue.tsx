@@ -6,6 +6,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatParts } from '@/core/util/bidi'
 import { figure } from '../helpers'
 import type { ReadingLine } from './reading-helpers'
+import { bitnessText } from './fleet-helpers'
 import { sizeText } from './size'
 
 /**
@@ -29,8 +30,8 @@ export function ReadingLineList({ lines, data }: { lines: readonly ReadingLine[]
 }
 
 /**
- * One reading line's value. A machine value is isolated whole (`Ltr`); a word (bitness, "Other", "No cap", "None
- * open") takes the text's own direction (bidi rule). The Backup panel (918) reuses it for the last full backup.
+ * One reading line's value. A machine value is isolated whole (`Ltr`); a word (bitness, "No cap", "None open") takes
+ * the text's own direction (bidi rule). The Backup panel (918) reuses it for the last full backup.
  */
 export default function LineValue({ line }: { line: ReadingLine }) {
   const { t } = useTranslation('sync-console')
@@ -40,17 +41,15 @@ export default function LineValue({ line }: { line: ReadingLine }) {
   )
   switch (line.kind) {
     case 'engine': {
-      const label = t(`storeDb.engines.${line.engine}`, { defaultValue: line.engine })
-      // A known engine's label is a release number (machine value) and leads the version; "Other" is a word.
-      const known = line.engine !== 'other'
-      const machine = formatParts([known ? label : null, line.version].filter((p): p is string => !!p))
+      // The server's engine label (`SQL Server 2008 R2`) leads the version: one machine value, isolated once.
+      const machine = formatParts([line.engine, line.version].filter((p): p is string => !!p))
+      const bitness = bitnessText(t, line.bitness)
       const parts: ReactNode[] = [
-        known ? null : label,
         machine ? <Ltr>{machine}</Ltr> : null,
         line.edition ? <bdi>{line.edition}</bdi> : null,
-        line.is64Bit == null ? null : t(line.is64Bit ? 'storeDb.fleet.bitness.x64' : 'storeDb.fleet.bitness.x86'),
+        bitness ? <bdi>{bitness}</bdi> : null,
       ].filter((p) => p != null)
-      // Independent facts, each isolated by its kind and listed in the text's direction ("2008 R2 · 10.50… · Express Edition · 64-bit").
+      // Independent facts, each isolated by its kind and listed in the text's direction ("SQL Server 2008 R2 · 10.50… · Express Edition · 64-bit").
       return (
         <>
           {parts.map((p, i) => (
@@ -98,9 +97,7 @@ export default function LineValue({ line }: { line: ReadingLine }) {
     case 'noTransaction':
       return <>{t('storeDb.readings.values.noTransaction')}</>
     case 'backup':
-      return line.size
-        ? slotted('storeDb.readings.values.backup', { at: formatDateTime(line.at), size: sizeText(t, line.size) }, { at: <Ltr />, size: <Ltr /> })
-        : <Ltr>{formatDateTime(line.at)}</Ltr>
+      return <Ltr>{formatDateTime(line.at)}</Ltr>
     case 'missing':
       return missing
   }

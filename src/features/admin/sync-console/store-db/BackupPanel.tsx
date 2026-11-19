@@ -31,7 +31,7 @@ export default function BackupPanel({ store }: StoreDbPanelProps) {
   const act = canActStoreDb(permissions)
   const [kind, setKind] = useState<StoreDbJobKind | null>(null)
   const schedule = useQuery(storeDbScheduleQuery(store.code))
-  const last = readingLines(store.reading).find((l) => l.key === 'lastBackup')
+  const last = readingLines(store.reading, store.files).find((l) => l.key === 'lastBackup')
 
   return (
     <div className="flex flex-col gap-5" data-backup-panel="">

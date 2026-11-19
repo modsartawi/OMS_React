@@ -13,24 +13,24 @@ import { MONO } from '../console-columns'
 import { figure } from '../helpers'
 import TabGrid from '../TabGrid'
 import { storeDbBlitzQuery } from './api'
-import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled } from './blitz-helpers'
+import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled, blitzState } from './blitz-helpers'
 import JobButtons from './JobButtons'
 import JobDialog from './JobDialog'
 import type { StoreDbPanelProps } from './panel-views'
 
 /**
- * sp_Blitz on the Health check panel (oms 919; BO 4039, spec 4016 D18): whether it is installed and its version (from
- * the store door), Run (a View read, up to 30 s) with its findings, and Install / Remove (Act jobs on the write rail).
+ * sp_Blitz on the Health check panel (oms 919; BO 4039, spec 4016 D18): whether it is installed and its version (unknown
+ * until it is run — BO 4039 is open and no read carries the state), Run (a View read, up to 30 s) with its findings, and Install / Remove (Act jobs on the write rail).
  * A store without it is told so plainly — the door refuses, it never answers empty.
  */
 export default function BlitzSection({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
   const permissions = usePermissions()
-  const state = store.blitz ?? null
-  const controls = blitzControls(permissions, state)
   const [asked, setAsked] = useState(false)
   const [kind, setKind] = useState<StoreDbJobKind | null>(null)
   const blitz = useQuery(storeDbBlitzQuery(store.code, asked))
+  const state = blitzState(blitz.data, blitz.error)
+  const controls = blitzControls(permissions, state)
   const rows = useMemo(() => (blitz.data ? blitzFindings(blitz.data) : undefined), [blitz.data])
   const columns = useMemo(() => buildBlitzColumns(t), [t])
   const notInstalled = blitzNotInstalled(blitz.error)

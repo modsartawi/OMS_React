@@ -30,7 +30,8 @@ describe('liveActivityOf', () => {
 
 describe('lookTime', () => {
   it('is the server\'s time of the look when it sends one', () => {
-    expect(lookTime(live, Date.parse('2026-11-18T10:45:00'))).toBe('2026-11-18T10:41:30')
+    // The look stamps DateTime.Now, which carries the server's offset; formatDateTime reads it through Date.
+    expect(lookTime(live, Date.parse('2026-11-18T10:45:00'))).toBe('2026-11-18T10:41:30.5512345+03:00')
   })
 
   it('is the moment the answer arrived when the server sends none (local wall-clock, no zone)', () => {

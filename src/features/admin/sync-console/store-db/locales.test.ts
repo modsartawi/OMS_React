@@ -33,10 +33,10 @@ describe('the Store database words', () => {
     for (const key of enKeys) expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
   })
 
-  it('names every state and engine the door is known to send', () => {
+  it('names every state and job state the door is known to send (the engine is the server’s own label, shown as sent)', () => {
     for (const s of ['Ok', 'Watch', 'Critical', 'DiskLow', 'NotChecked']) expect(at(en, `storeDb.states.${s}`), s).toBeTruthy()
-    const engines = (en as { storeDb?: { engines?: Record<string, string> } }).storeDb?.engines ?? {}
-    expect(Object.keys(engines).sort()).toEqual(['2008', '2008 R2', '2019', 'other'])
+    for (const s of ['Waiting', 'Running', 'Retrying', 'Done', 'Failed']) expect(at(en, `storeDb.jobs.states.${s}`), s).toBeTruthy()
+    expect(at(en, 'storeDb.engines')).toBeUndefined()
   })
 
   it('has words for every refusal code the server sends, NO_BLITZ_BUILD among them', () => {

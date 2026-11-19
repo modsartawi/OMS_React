@@ -12,13 +12,13 @@ import { canActStoreDb } from '../access'
 import { AUDIT_KEY } from '../api'
 import ReasonDialog from '../ReasonDialog'
 import { STORE_DB_FLEET_KEY, storeDbApi, storeDbHealthKey, storeDbStoreKey } from './api'
-import { checkNowBody } from './check-now'
+import { checkNowBody, checkNowOutcome } from './check-now'
 
 /**
  * Check now (oms 917, BO 4032 door `POST StoreDatabase/CheckNow`): `StoreDatabase.Act`, a reason, audited. Hidden
- * without Act. The fresh reading the door answers REPLACES the page's read (`setQueryData` on the store's key), so the
- * header, the Not checked banner and the Readings panel show it at once; the health check is re-run, the fleet and
- * the audit feed re-read. The read can take up to ~30 s (spec D3): the dialog stays busy meanwhile.
+ * without Act. The door answers the reading it took, not a store page: the server keeps it, so the store's page and its
+ * health check are re-read (exact keys — the live look and sp_Blitz are not re-run), and the fleet and the audit feed.
+ * A failed read is told as a failure. The read can take up to ~30 s (spec D3): the dialog stays busy meanwhile.
  */
 export default function CheckNowButton({ store }: { store: StoreDbStore }) {
   const { t } = useTranslation('sync-console')
@@ -46,12 +46,12 @@ function CheckNowDialog({ store, onClose }: { store: StoreDbStore; onClose: () =
       if (!body) return Promise.reject(new Error('reason required'))
       return storeDbApi.checkNow(body)
     },
-    onSuccess: (fresh) => {
-      qc.setQueryData(storeDbStoreKey(store.code), fresh)
-      void qc.invalidateQueries({ queryKey: storeDbHealthKey(store.code) })
+    onSuccess: (answer) => {
+      void qc.invalidateQueries({ queryKey: storeDbStoreKey(store.code), exact: true })
+      void qc.invalidateQueries({ queryKey: storeDbHealthKey(store.code), exact: true })
       void qc.invalidateQueries({ queryKey: STORE_DB_FLEET_KEY })
       void qc.invalidateQueries({ queryKey: AUDIT_KEY })
-      if (fresh.lastAttempt?.succeeded === false) notify.warn(t('storeDb.live.checkNow.failedRead', { code: fsi(store.code) }))
+      if (checkNowOutcome(answer) === 'failedRead') notify.warn(t('storeDb.live.checkNow.failedRead', { code: fsi(store.code) }))
       else notify.success(t('storeDb.live.checkNow.done', { code: fsi(store.code) }))
       onClose()
     },

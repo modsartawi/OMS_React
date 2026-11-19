@@ -6,7 +6,10 @@
 import type { StoreDbBackupFile } from '@/core/models/store-database'
 
 /** Why a backup cannot be restored here (`storeDb.restore.why.<why>`). */
-export type RestoreRefusal = 'newerEngine' | 'unreadable' | 'unknownEngine'
+export type RestoreRefusal = 'newerEngine' | 'unreadable' | 'unknownEngine' | 'notFull'
+
+/** A backup's file name: the last part of the full path the door sends (`D:\SQLBackup\P104\POS_full.bak` → `POS_full.bak`). */
+export const backupFileName = (file: string): string => file.split(/[\\/]/).pop() ?? file
 
 export type RestoreChoice = { ok: true } | { ok: false; why: RestoreRefusal }
 
@@ -18,14 +21,16 @@ function engineOf(version: string | null | undefined): [number, number] | null {
 
 /**
  * Whether a backup Browse found can be restored into a side copy (BO 4038 refuses a newer-engine backup "with that
- * reason"). The server's `newerEngine` flag wins; without one, the backup's engine is compared to the store's by
+ * reason"). The server's `newerThanStore` verdict wins; without one, the backup's engine is compared to the store's by
  * `major.minor` — a later build of the same engine (a service pack) is not newer, 2008 R2 (10.50) onto 2008 (10.0)
- * is. A file the engine could not read, or one that cannot be judged, cannot be chosen.
+ * is. A file the engine could not read, one that is not a full backup (`backupType` ≠ 1, refused `NOT_A_FULL_BACKUP`),
+ * or one that cannot be judged, cannot be chosen.
  */
 export function restoreChoice(file: StoreDbBackupFile, storeEngineVersion: string | null): RestoreChoice {
   if (file.error) return { ok: false, why: 'unreadable' }
-  if (file.newerEngine === true) return { ok: false, why: 'newerEngine' }
-  if (file.newerEngine === false) return { ok: true }
+  if (file.backupType != null && file.backupType !== 1) return { ok: false, why: 'notFull' }
+  if (file.newerThanStore === true) return { ok: false, why: 'newerEngine' }
+  if (file.newerThanStore === false) return { ok: true }
   const backup = engineOf(file.engineVersion)
   const store = engineOf(storeEngineVersion)
   if (!backup || !store) return { ok: false, why: 'unknownEngine' }
@@ -38,8 +43,8 @@ const SIDE_COPY_PREFIX = 'POS_Restore_'
 /**
  * The side copy a restore will create (spec D16): `POS_Restore_yyyymmdd`, with `_2`, `_3` … when that name is taken
  * on the store. `day` is a local `yyyy-MM-dd`. Names compare case-insensitively, as the store's CI collation does.
- * 🚩 GUESSED day: the day asked for; a job left for tonight's window may run (and be named) after midnight — the
- * server's own `nextSideCopyName` is shown instead when it sends one.
+ * The server names the copy when the job runs (`SideCopyJobs`), so a job left for tonight's window that runs after
+ * midnight takes the next day's name: this is the name as of the day asked for, shown as a forecast.
  */
 export function sideCopyName(day: string, taken: readonly string[]): string {
   const base = `${SIDE_COPY_PREFIX}${day.replace(/-/g, '')}`

@@ -20,40 +20,50 @@ describe('notCheckedBanner', () => {
     expect(notCheckedBanner(read)).toBeNull()
   })
 
-  it('a failed last attempt shows the banner even before the state catches up', () => {
-    expect(notCheckedBanner({ ...read, lastAttempt: { takenAt: '2026-11-18T05:00:00', succeeded: false, error: 'Login failed.' } })).toEqual({
+  it('a failed last attempt shows the banner even before the state catches up (flat lastTakenAt / lastSucceeded / lastError)', () => {
+    expect(notCheckedBanner({ ...read, lastTakenAt: '2026-11-18T05:00:00', lastSucceeded: false, lastError: 'Login failed.' })).toEqual({
       at: '2026-11-18T05:00:00',
       error: 'Login failed.',
     })
   })
 
   it('a store never tried shows the banner with no error and no time', () => {
-    expect(notCheckedBanner({ state: 'NotChecked', lastAttempt: null })).toEqual({ at: null, error: null })
+    expect(notCheckedBanner({ state: 'NotChecked', lastTakenAt: null, lastSucceeded: null, lastError: null })).toEqual({ at: null, error: null })
+  })
+
+  it('a succeeded attempt’s empty error is no error', () => {
+    expect(notCheckedBanner({ state: 'NotChecked', lastTakenAt: '2026-11-18T05:00:00', lastSucceeded: true, lastError: '' })).toEqual({ at: '2026-11-18T05:00:00', error: null })
   })
 })
 
 describe('historyRows', () => {
-  it('the fixture history draws one row per day, sizes in MB, the cap beside them', () => {
+  it('the fixture history draws one row per day kept, labelled by its day (the DateTime’s date), sizes in MB, the cap beside them', () => {
     const { files } = historyRows(read.history, read.reading?.capKb ?? 0)
-    expect(files).toHaveLength(7)
+    expect(read.history[0].day).toBe('2026-11-12T00:00:00')
+    expect(files).toHaveLength(6)
     expect(files[0]).toEqual({
       x: '2026-11-12',
       label: '2026-11-12',
       values: { used: 2997, allocated: 3328, log: 512, cap: 4096 },
       slot: null,
     })
-    expect(files[6].values).toEqual({ used: 3072, allocated: 3328, log: 512, cap: 4096 })
+    expect(files[5].values).toEqual({ used: 3072, allocated: 3328, log: 512, cap: 4096 })
   })
 
   it('drive free draws on its own chart, in GB to one place', () => {
     const { drive } = historyRows(read.history, 4194304)
     expect(drive[0]).toEqual({ x: '2026-11-12', label: '2026-11-12', values: { driveFree: 18.3 }, slot: null })
-    expect(drive.map((r) => r.values.driveFree)).toEqual([18.3, 18.2, 18.2, null, 18.1, 18, 18])
+    expect(drive.map((r) => r.values.driveFree)).toEqual([18.3, 18.2, 18.2, 18.1, 18, 18])
   })
 
-  it('a day the worker did not read stays null — never 0', () => {
-    const { files } = historyRows(read.history, 4194304)
-    expect(files[3].values).toEqual({ used: null, allocated: null, log: null, cap: 4096 })
+  it('a day whose drive was not matched (-1) draws a gap, never a dip to 0', () => {
+    const history = read.history.map((d, i) => (i === 2 ? { ...d, driveFreeKb: -1 } : d))
+    expect(historyRows(history, 0).drive[2].values).toEqual({ driveFree: null })
+  })
+
+  it('a size the day did not carry stays null — never 0', () => {
+    const history = read.history.map((d, i) => (i === 3 ? { ...d, usedKb: null, allocatedKb: null, logAllocatedKb: null } : d))
+    expect(historyRows(history, 4194304).files[3].values).toEqual({ used: null, allocated: null, log: null, cap: 4096 })
   })
 
   it('a store with no cap draws no cap line', () => {
@@ -63,7 +73,7 @@ describe('historyRows', () => {
 
   it('the days draw oldest first, whatever order the door sends', () => {
     const { files } = historyRows([...read.history].reverse(), 0)
-    expect(files.map((r) => r.x)).toEqual(read.history.map((d) => d.day))
+    expect(files.map((r) => r.x)).toEqual(read.history.map((d) => d.day.slice(0, 10)))
   })
 
   it('no history is no rows', () => {
@@ -72,7 +82,7 @@ describe('historyRows', () => {
 })
 
 describe('readingLines', () => {
-  const lines = readingLines(read.reading)
+  const lines = readingLines(read.reading, read.files)
   const line = (key: string) => lines.find((l) => l.key === key)
 
   it('names the reading in the order the panel reads it', () => {
@@ -85,7 +95,6 @@ describe('readingLines', () => {
       'log',
       'recoveryModel',
       'driveFree',
-      'machine',
       'cpus',
       'memory',
       'uptime',
@@ -99,10 +108,10 @@ describe('readingLines', () => {
     expect(line('engine')).toEqual({
       key: 'engine',
       kind: 'engine',
-      engine: '2008 R2',
+      engine: 'SQL Server 2008 R2',
       version: '10.50.6000.34 SP3',
       edition: 'Express Edition',
-      is64Bit: true,
+      bitness: 'x64',
     })
   })
 
@@ -120,12 +129,18 @@ describe('readingLines', () => {
     expect(line('uptime')).toEqual({ key: 'uptime', kind: 'uptime', days: 15, hours: 21 })
   })
 
-  it('reads the last backup as its time and size, and the drive with its letter', () => {
-    expect(line('lastBackup')).toEqual({ key: 'lastBackup', kind: 'backup', at: '2026-11-17T02:15:00', size: { unit: 'gb', n: '2.8' } })
+  it('reads the last backup as its time, and the drive with the data file’s letter (files[])', () => {
+    expect(line('lastBackup')).toEqual({ key: 'lastBackup', kind: 'backup', at: '2026-11-17T02:15:00' })
     expect(line('driveFree')).toEqual({ key: 'driveFree', kind: 'drive', drive: 'D:', size: { unit: 'gb', n: '18.0' } })
+    expect(readingLines(read.reading).find((l) => l.key === 'driveFree')).toEqual({ key: 'driveFree', kind: 'drive', drive: null, size: { unit: 'gb', n: '18.0' } })
   })
 
-  it('reads the machine’s CPU count and physical memory beside its name (story 15)', () => {
+  it('a drive the server could not match (-1) reads as missing, never "-1 KB"', () => {
+    const l = readingLines({ ...read.reading!, driveFreeKb: -1 }, read.files)
+    expect(l.find((x) => x.key === 'driveFree')).toEqual({ key: 'driveFree', kind: 'drive', drive: 'D:', size: null })
+  })
+
+  it('reads the machine’s CPU count and physical memory (story 15)', () => {
     expect(line('cpus')).toEqual({ key: 'cpus', kind: 'count', n: 4 })
     expect(line('memory')).toEqual({ key: 'memory', kind: 'size', size: { unit: 'gb', n: '8.0' } })
   })
@@ -157,7 +172,7 @@ describe('readingLines', () => {
   })
 
   it('a figure the reading did not carry reads as missing, never 0', () => {
-    const l = readingLines({ ...read.reading!, dataAllocatedKb: null, sqlStartedAt: null, lastFullBackupAt: null })
+    const l = readingLines({ ...read.reading!, allocatedKb: null, sqlStartedAt: null, lastFullBackupAt: null })
     expect(l.find((x) => x.key === 'freeInFile')).toEqual({ key: 'freeInFile', kind: 'size', size: null })
     expect(l.find((x) => x.key === 'uptime')).toEqual({ key: 'uptime', kind: 'missing' })
     expect(l.find((x) => x.key === 'lastBackup')).toEqual({ key: 'lastBackup', kind: 'missing' })
@@ -169,15 +184,15 @@ describe('readingLines', () => {
 })
 
 describe('growth', () => {
-  it('reads days to cap with the rate behind it and its window', () => {
-    expect(growth(read)).toEqual({ days: 41, perDay: { unit: 'mb', n: '12' }, windowDays: 14, shrinking: false })
+  it('reads days to cap with the rate behind it and the reading it is measured from (growthFrom)', () => {
+    expect(growth(read)).toEqual({ days: 41, perDay: { unit: 'mb', n: '12' }, since: '2026-11-04T03:10:00', shrinking: false })
   })
 
   it('no forecast keeps the rate, and says when the database is not growing', () => {
     expect(growth({ ...read, daysToCap: null, growthKbPerDay: -2048 })).toEqual({
       days: null,
       perDay: { unit: 'mb', n: '2' },
-      windowDays: 14,
+      since: '2026-11-04T03:10:00',
       shrinking: true,
     })
   })

@@ -1,9 +1,9 @@
 /**
  * The Store database tab's server calls (oms 915–919, BackOffice spec 4016, doors 4030–4039).
  *
- * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`). 🚩 The doors are not built yet: paths are
- * spelled by the BO tickets, the shapes (`@/core/models/store-database`) are GUESSED — built stubbed, driven by
- * `tools/store-db-*-drive.mjs` over `tools/store-db-stubs.mjs`.
+ * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`). Paths and shapes are the real doors on BO
+ * `pricing2` (fa2759e8f, `StoreDatabaseWebEndpoints.cs`); the drives (`tools/store-db-*-drive.mjs`) stub them with
+ * fixtures copied from the server DTOs.
  *
  * One section per ticket, so the tickets that run side by side append inside their own block. Every query key nests
  * under `STORE_DB_KEY`; every one-store panel under `storeDbStoreKey(code)`, so Check now or a job can refresh one
@@ -14,6 +14,7 @@ import type {
   StoreDbBackupSchedule,
   StoreDbBackups,
   StoreDbBlitz,
+  StoreDbCheckNowAnswer,
   StoreDbCheckNowBody,
   StoreDbFleetRow,
   StoreDbHealthCheck,
@@ -37,22 +38,17 @@ export const storeDbStoreKey = (code: string) => [...STORE_DB_KEY, 'store', code
 /** The readings are taken by the worker on its own cadence, not live: a minute is fresh enough. */
 export const STORE_DB_STALE_MS = 60_000
 
-/**
- * GUESSED: the Fleet door answers a bare array (unpaged — the fleet is a few hundred rows). A `{ rows }` wrapper is
- * read the same way, so either shape BO picks works.
- */
+/** The Fleet door answers a bare array (unpaged — the fleet is a few hundred rows); a `{ rows }` wrapper reads the same. */
 type WireFleet = StoreDbFleetRow[] | { rows?: StoreDbFleetRow[] } | null
 const fleetRows = (data: WireFleet): StoreDbFleetRow[] => (Array.isArray(data) ? data : (data?.rows ?? []))
 
-/**
- * Tolerant read of the Store door: a list the door leaves out (side copies before BO 4038) is an empty list. Fills a
- * MISSING member only — nothing is derived.
- */
+/** Tolerant read of the Store door: a list it leaves out is an empty list. Fills a MISSING member only — nothing is derived. */
 const storeOf = (data: StoreDbStore): StoreDbStore => ({
   ...data,
   reading: data.reading ?? null,
-  lastAttempt: data.lastAttempt ?? null,
   largestTables: data.largestTables ?? [],
+  files: data.files ?? [],
+  drives: data.drives ?? [],
   history: data.history ?? [],
   sideCopies: data.sideCopies ?? [],
 })
@@ -79,16 +75,15 @@ export const storeDbApi = {
     healthCheckOf(await api.get<Partial<StoreDbHealthCheck> | null>('StoreDatabase/HealthCheck', { code })),
 
   /**
-   * `POST StoreDatabase/CheckNow` (BO 4032) — Act, reason, audited. Synchronous (~30 s at most, spec D3). GUESSED: it
-   * answers the store as `GET StoreDatabase/Store` does, so the page's read is replaced by it. A failed read is not a
-   * refusal: it comes back as a failed `lastAttempt`.
+   * `POST StoreDatabase/CheckNow` (BO 4032) — Act, reason, audited. Synchronous (~30 s at most, spec D3). It answers the
+   * reading it took (`StoreDatabaseCheckNowAnswer`), NOT a store page; the server keeps it, so the page is re-read. A
+   * failed read is not a refusal: it comes back `succeeded: false`.
    */
-  checkNow: async (body: StoreDbCheckNowBody): Promise<StoreDbStore> =>
-    storeOf(await api.post<StoreDbStore>('StoreDatabase/CheckNow', body)),
+  checkNow: (body: StoreDbCheckNowBody): Promise<StoreDbCheckNowAnswer> => api.post<StoreDbCheckNowAnswer>('StoreDatabase/CheckNow', body),
 
   // ── 918 Jobs + Space + Backup ─────────────────────────────────────────────────
 
-  /** `GET StoreDatabase/Jobs?code=` (BO 4034) — View. The store's jobs, newest first (GUESSED: unpaged). */
+  /** `GET StoreDatabase/Jobs?code=` (BO 4034) — View. The store's jobs, newest first, at most 200 (a bare array). */
   jobs: async (code: string): Promise<StoreDbJob[]> => (await api.get<StoreDbJob[] | null>('StoreDatabase/Jobs', { code })) ?? [],
 
   /**
@@ -112,7 +107,7 @@ export const storeDbApi = {
    */
   backups: async (code: string, folder: string | null): Promise<StoreDbBackups> => {
     const data = await api.get<Partial<StoreDbBackups> | null>('StoreDatabase/Backups', { code, folder })
-    return { folder: data?.folder ?? folder ?? '', storeEngineVersion: data?.storeEngineVersion ?? null, files: data?.files ?? [], nextSideCopyName: data?.nextSideCopyName ?? null }
+    return { ...data, folder: data?.folder ?? folder ?? '', storeEngineVersion: data?.storeEngineVersion ?? null, files: data?.files ?? [], truncated: data?.truncated ?? false }
   },
 
   /** `GET StoreDatabase/Blitz?code=` (BO 4039) — View. Runs sp_Blitz (30 s); refused when it is not installed. */

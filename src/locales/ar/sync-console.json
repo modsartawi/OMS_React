@@ -177,12 +177,6 @@
       "DiskLow": "القرص منخفض",
       "NotChecked": "لم يُفحص"
     },
-    "engines": {
-      "2008": "2008",
-      "2008 R2": "2008 R2",
-      "2019": "2019",
-      "other": "أخرى"
-    },
     "store": {
       "back": "كل قواعد بيانات الفروع"
     },
@@ -222,7 +216,6 @@
         "log": "السجل",
         "recoveryModel": "نموذج الاسترداد",
         "driveFree": "المساحة الحرة على القرص",
-        "machine": "الجهاز",
         "cpus": "المعالجات",
         "memory": "الذاكرة",
         "uptime": "مدة تشغيل SQL Server",
@@ -237,7 +230,6 @@
         "logUsed": "<used>{{used}}</used> مستخدمة من <size>{{size}}</size>",
         "driveOn": "<size>{{size}}</size> على <drive>{{drive}}</drive>",
         "uptime": "<days>{{days}}</days> يوم، <hours>{{hours}}</hours> ساعة",
-        "backup": "<at>{{at}}</at>، <size>{{size}}</size>",
         "noTransaction": "لا توجد معاملة مفتوحة",
         "ageHours": "<h>{{h}}</h> ساعة <m>{{m}}</m> دقيقة",
         "ageMinutes": "<m>{{m}}</m> دقيقة <s>{{s}}</s> ثانية",
@@ -247,9 +239,9 @@
         "title": "الأيام حتى بلوغ الحد",
         "days": "<days>{{days}}</days> يومًا حتى بلوغ الحد",
         "noForecast": "لا توجد توقعات",
-        "rate": "تنمو <rate>{{rate}}</rate> يوميًا خلال آخر <window>{{window}}</window> يومًا",
+        "rate": "تنمو <rate>{{rate}}</rate> يوميًا منذ <since>{{since}}</since>",
         "rateOnly": "تنمو <rate>{{rate}}</rate> يوميًا",
-        "shrinking": "لا تنمو: تصغر <rate>{{rate}}</rate> يوميًا خلال آخر <window>{{window}}</window> يومًا",
+        "shrinking": "لا تنمو: تصغر <rate>{{rate}}</rate> يوميًا منذ <since>{{since}}</since>",
         "shrinkingOnly": "لا تنمو: تصغر <rate>{{rate}}</rate> يوميًا"
       },
       "history": {
@@ -306,16 +298,16 @@
       "columns": {
         "sessionId": "الجلسة",
         "blockedBy": "محجوبة بواسطة",
-        "secs": "الثواني",
+        "seconds": "الثواني",
         "status": "الحالة",
         "command": "الأمر",
         "waitType": "نوع الانتظار",
-        "waitSecs": "الانتظار (ث)",
+        "waitSeconds": "الانتظار (ث)",
         "waitResource": "مورد الانتظار",
         "hostName": "الجهاز",
         "programName": "البرنامج",
         "loginName": "المستخدم",
-        "openTran": "معاملات مفتوحة",
+        "openTransactions": "معاملات مفتوحة",
         "cpuTime": "المعالج (مللي ث)",
         "logicalReads": "القراءات المنطقية",
         "statementText": "العبارة",
@@ -323,13 +315,13 @@
         "blocksCount": "تحجب",
         "lastRequestStartTime": "بدء آخر طلب",
         "lastRequestEndTime": "انتهاء آخر طلب",
-        "idleSecs": "خمول (ث)",
+        "idleSeconds": "خمول (ث)",
         "lastSql": "آخر SQL",
         "loginTime": "وقت الدخول",
-        "runningSecs": "قيد التشغيل (ث)",
+        "runningSeconds": "قيد التشغيل (ث)",
         "sqlText": "SQL",
         "transactionBeginTime": "بدء المعاملة",
-        "tranSecs": "مفتوحة منذ (ث)"
+        "transactionSeconds": "مفتوحة منذ (ث)"
       },
       "checkNow": {
         "button": "افحص الآن",
@@ -362,7 +354,7 @@
         "NearSizeCap": "قريب من حد الحجم",
         "LargeTempdb": "tempdb كبيرة",
         "ShortUptime": "أُعيد تشغيل SQL Server مؤخراً",
-        "NoRecentBackup": "لا نسخة احتياطية كاملة حديثة"
+        "NoFullBackup": "لا نسخة احتياطية كاملة حديثة"
       }
     },
 
@@ -561,7 +553,8 @@
         "ok": "نعم",
         "newerEngine": "لا — أُخذت على محرك أحدث من محرك الفرع.",
         "unreadable": "لا — تعذّر على المحرك قراءة هذا الملف.",
-        "unknownEngine": "لا — إصدار محركها غير معروف."
+        "unknownEngine": "لا — إصدار محركها غير معروف.",
+        "notFull": "لا — لا يمكن استعادة إلا نسخة احتياطية كاملة."
       },
       "whyError": {
         "newerEngine": "لا — أُخذت على محرك أحدث من محرك الفرع. <error>{{error}}</error>",

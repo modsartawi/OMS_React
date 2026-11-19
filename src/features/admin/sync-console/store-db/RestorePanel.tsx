@@ -51,9 +51,7 @@ export default function RestorePanel({ store }: StoreDbPanelProps) {
     else setAsked(next)
   }
 
-  const newName =
-    data?.nextSideCopyName ||
-    sideCopyName(
+  const newName = sideCopyName(
       toIsoDate(new Date()),
       store.sideCopies.map((c) => c.name),
     )
@@ -129,7 +127,7 @@ export default function RestorePanel({ store }: StoreDbPanelProps) {
               <Trans
                 t={t}
                 i18nKey="storeDb.restore.dialog.file"
-                values={{ file: chosen.file, at: formatDateTime(chosen.backupDate) }}
+                values={{ file: chosen.file, at: formatDateTime(chosen.backupStartedAt) }}
                 components={{ file: <Ltr />, at: <Ltr /> }}
               />
             </p>

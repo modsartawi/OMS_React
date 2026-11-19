@@ -1,7 +1,35 @@
 {
+  "code": "P104",
+  "takenAt": "2026-11-18T10:44:10.0000000+03:00",
+  "installedVersion": "8.19",
+  "installedAt": "2026-11-12T02:30:00",
   "findings": [
-    { "priority": 50, "findingsGroup": "Reliability", "finding": "Page Verification Not Optimal", "databaseName": "POS", "details": "Database [POS] has TORN_PAGE_DETECTION for page verification.", "url": "https://www.brentozar.com/go/torn" },
-    { "priority": 1, "findingsGroup": "Backup", "finding": "Backups Not Performed Recently", "databaseName": "master", "details": "Last backed up: never", "url": "https://www.brentozar.com/go/nobak" },
-    { "priority": 200, "findingsGroup": "Informational", "finding": "Collation is SQL_Latin1_General_CP1256_CI_AS", "databaseName": null, "details": "Collation differences between user databases and tempdb can cause conflicts.", "url": null }
+    {
+      "priority": 50,
+      "findingsGroup": "Reliability",
+      "finding": "Page Verification Not Optimal",
+      "databaseName": "POS",
+      "url": "https://www.brentozar.com/go/torn",
+      "details": "Database [POS] has TORN_PAGE_DETECTION for page verification.",
+      "checkId": 1
+    },
+    {
+      "priority": 1,
+      "findingsGroup": "Backup",
+      "finding": "Backups Not Performed Recently",
+      "databaseName": "master",
+      "url": "https://www.brentozar.com/go/nobak",
+      "details": "Last backed up: never",
+      "checkId": 2
+    },
+    {
+      "priority": 200,
+      "findingsGroup": "Informational",
+      "finding": "Collation is SQL_Latin1_General_CP1256_CI_AS",
+      "databaseName": "",
+      "url": "",
+      "details": "Collation differences between user databases and tempdb can cause conflicts.",
+      "checkId": 3
+    }
   ]
 }

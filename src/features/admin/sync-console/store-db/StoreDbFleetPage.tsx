@@ -7,7 +7,7 @@ import Chip from '@/core/ui/Chip'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
-import { STORE_DB_ENGINES, STORE_DB_STATES, type StoreDbFleetRow } from '@/core/models/store-database'
+import { STORE_DB_STATES, type StoreDbFleetRow } from '@/core/models/store-database'
 import { fsi } from '@/core/util/bidi'
 import { canViewStoreDb } from '../access'
 import ConsoleNav from '../ConsoleNav'
@@ -15,7 +15,7 @@ import { figure } from '../helpers'
 import TabGrid from '../TabGrid'
 import { storeDbFleetQuery } from './api'
 import { buildStoreDbFleetColumns } from './fleet-columns'
-import { ALL_FLEET, fleetEditions, fleetFiltered, shownFleet, type FleetFilter } from './fleet-helpers'
+import { ALL_FLEET, fleetEditions, fleetEngines, fleetFiltered, shownFleet, type FleetFilter } from './fleet-helpers'
 
 /**
  * The Store database tab (oms 915, BackOffice spec 4016 D10) — `/admin/sync/database`.
@@ -48,6 +48,7 @@ function Fleet() {
   const columns = useMemo(() => buildStoreDbFleetColumns(t), [t])
   const all = fleet.data
   const rows = useMemo(() => (all ? shownFleet(all, filter) : undefined), [all, filter])
+  const engines = useMemo(() => (all ? fleetEngines(all) : []), [all])
   const editions = useMemo(() => (all ? fleetEditions(all) : []), [all])
   const filtered = fleetFiltered(filter)
 
@@ -78,9 +79,10 @@ function Fleet() {
               data-filter-engine=""
             >
               <option value="">{t('storeDb.fleet.filters.all')}</option>
-              {STORE_DB_ENGINES.map((e) => (
+              {engines.map((e) => (
+                // The server's engine label is data in a string-only sink: isolated whole.
                 <option key={e} value={e}>
-                  {t(`storeDb.engines.${e}`)}
+                  {fsi(e)}
                 </option>
               ))}
             </Select>

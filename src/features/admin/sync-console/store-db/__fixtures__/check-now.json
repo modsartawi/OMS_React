@@ -1,167 +1,137 @@
 {
   "code": "P104",
-  "name": "Riyadh Olaya 3",
-  "state": "Ok",
-  "daysToCap": 41,
-  "growthKbPerDay": 12800,
-  "growthWindowDays": 14,
+  "takenAt": "2026-11-18T10:43:12.1234567+03:00",
+  "succeeded": true,
+  "error": "",
   "reading": {
+    "id": "01JD0RCHECKNOW00000000P104",
     "takenAt": "2026-11-18T10:43:12",
-    "engine": "2008 R2",
+    "engine": "SQL Server 2008 R2",
     "productVersion": "10.50.6000.34",
     "productLevel": "SP3",
     "edition": "Express Edition",
-    "is64Bit": true,
+    "bitness": "x64",
     "capKb": 4194304,
-    "dataAllocatedKb": 3407872,
-    "dataUsedKb": 3145728,
+    "usedKb": 3145728,
+    "allocatedKb": 3407872,
+    "freeInsideFileKb": 262144,
+    "driveFreeKb": 18874368,
     "logAllocatedKb": 524288,
     "logUsedKb": 61440,
     "recoveryModel": "SIMPLE",
-    "driveFreeKb": 18874368,
-    "dataDrive": "D:",
-    "machineName": "P104-POS01",
     "cpuCount": 4,
     "physicalMemoryKb": 8388608,
     "sqlStartedAt": "2026-11-02T06:40:00",
     "longestOpenTransactionSeconds": 754,
     "blockedSessions": 2,
     "lastFullBackupAt": "2026-11-17T02:15:00",
-    "lastFullBackupSizeKb": 2936012
-  },
-  "lastAttempt": {
-    "takenAt": "2026-11-18T10:43:12",
-    "succeeded": true,
-    "error": null
+    "isAutoShrinkOn": false,
+    "isAutoCloseOn": false,
+    "pageVerify": "CHECKSUM",
+    "compatibilityLevel": 100,
+    "collation": "SQL_Latin1_General_CP1256_CI_AS"
   },
   "largestTables": [
     {
+      "id": "01JD0T000000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 1,
       "tableName": "dbo.SalesLine",
-      "rows": 8412093,
+      "tableRows": 8412093,
       "reservedKb": 1153024,
       "dataKb": 901120,
       "indexKb": 249856
     },
     {
+      "id": "01JD0T010000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 2,
       "tableName": "dbo.SalesHeader",
-      "rows": 1203311,
+      "tableRows": 1203311,
       "reservedKb": 409600,
       "dataKb": 300032,
       "indexKb": 107520
     },
     {
+      "id": "01JD0T020000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 3,
       "tableName": "dbo.ActionLog",
-      "rows": 5021774,
+      "tableRows": 5021774,
       "reservedKb": 358400,
       "dataKb": 348160,
       "indexKb": 9216
     },
     {
+      "id": "01JD0T030000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 4,
       "tableName": "dbo.Payment",
-      "rows": 1302114,
+      "tableRows": 1302114,
       "reservedKb": 204800,
       "dataKb": 153600,
       "indexKb": 49152
     },
     {
+      "id": "01JD0T040000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 5,
       "tableName": "dbo.StockMove",
-      "rows": 2209981,
+      "tableRows": 2209981,
       "reservedKb": 184320,
       "dataKb": 143360,
       "indexKb": 38912
     },
     {
+      "id": "01JD0T050000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 6,
       "tableName": "dbo.Prescription",
-      "rows": 302114,
+      "tableRows": 302114,
       "reservedKb": 122880,
       "dataKb": 110592,
       "indexKb": 10240
     },
     {
+      "id": "01JD0T060000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 7,
       "tableName": "dbo.Customer",
-      "rows": 410203,
+      "tableRows": 410203,
       "reservedKb": 81920,
       "dataKb": 61440,
       "indexKb": 18432
     },
     {
+      "id": "01JD0T070000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 8,
       "tableName": "dbo.Item",
-      "rows": 61022,
+      "tableRows": 61022,
       "reservedKb": 40960,
       "dataKb": 30720,
       "indexKb": 9216
     },
     {
+      "id": "01JD0T080000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 9,
       "tableName": "dbo.SyncQueue",
-      "rows": 120330,
+      "tableRows": 120330,
       "reservedKb": 30720,
       "dataKb": 28672,
       "indexKb": 1024
     },
     {
+      "id": "01JD0T090000000000000000",
+      "readingId": "01JD0RCHECKNOW00000000P104",
+      "position": 10,
       "tableName": "dbo.Coupon",
-      "rows": 90211,
+      "tableRows": 90211,
       "reservedKb": 20480,
       "dataKb": 16384,
       "indexKb": 3072
     }
   ],
-  "history": [
-    {
-      "day": "2026-11-12",
-      "usedKb": 3068928,
-      "allocatedKb": 3407872,
-      "logKb": 524288,
-      "driveFreeKb": 19136512
-    },
-    {
-      "day": "2026-11-13",
-      "usedKb": 3081216,
-      "allocatedKb": 3407872,
-      "logKb": 524288,
-      "driveFreeKb": 19087360
-    },
-    {
-      "day": "2026-11-14",
-      "usedKb": 3094528,
-      "allocatedKb": 3407872,
-      "logKb": 524288,
-      "driveFreeKb": 19038208
-    },
-    {
-      "day": "2026-11-15",
-      "usedKb": null,
-      "allocatedKb": null,
-      "logKb": null,
-      "driveFreeKb": null
-    },
-    {
-      "day": "2026-11-16",
-      "usedKb": 3119104,
-      "allocatedKb": 3407872,
-      "logKb": 524288,
-      "driveFreeKb": 18939904
-    },
-    {
-      "day": "2026-11-17",
-      "usedKb": 3132416,
-      "allocatedKb": 3407872,
-      "logKb": 524288,
-      "driveFreeKb": 18907136
-    },
-    {
-      "day": "2026-11-18",
-      "usedKb": 3145728,
-      "allocatedKb": 3407872,
-      "logKb": 524288,
-      "driveFreeKb": 18874368
-    }
-  ],
-  "sideCopies": [
-    {
-      "name": "POS_Restore_20261110",
-      "sizeKb": 2936012,
-      "createdAt": "2026-11-10T11:20:00"
-    }
-  ]
+  "auditId": "01JD0A0000000000000000AUD1"
 }

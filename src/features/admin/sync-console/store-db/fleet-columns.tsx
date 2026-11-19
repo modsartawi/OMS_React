@@ -10,8 +10,8 @@ import { formatCount, formatPair } from '@/core/util/bidi'
 import CodeBadgeView from '../CodeBadgeView'
 import { MONO, formatTime } from '../console-columns'
 import { figure } from '../helpers'
-import { fleetRowView } from './fleet-helpers'
-import { kbText, sharePercent } from './size'
+import { bitnessText, fleetRowView } from './fleet-helpers'
+import { driveFreeKb, kbText, sharePercent } from './size'
 
 /**
  * The Store database tab's columns (oms 915). The order is the tab's (worst first, `shownFleet`), so no column is
@@ -22,7 +22,7 @@ export function buildStoreDbFleetColumns(t: TFunction): ColDef<StoreDbFleetRow>[
   /** "used / cap" as ONE value (bidi rule); a store with no cap reads its used size beside "No cap". The cell's copy text. */
   const usedOfCap = (row: StoreDbFleetRow): string => {
     if (row.usedKb == null) return ''
-    return row.capKb > 0 ? formatCount(kbText(t, row.usedKb), kbText(t, row.capKb)) : formatPair(kbText(t, row.usedKb), t('storeDb.fleet.noCap'))
+    return (row.capKb ?? 0) > 0 ? formatCount(kbText(t, row.usedKb), kbText(t, row.capKb)) : formatPair(kbText(t, row.usedKb), t('storeDb.fleet.noCap'))
   }
   return [
     {
@@ -63,11 +63,12 @@ export function buildStoreDbFleetColumns(t: TFunction): ColDef<StoreDbFleetRow>[
     },
     {
       headerName: t('storeDb.fleet.columns.share'),
-      field: 'usedShare',
+      field: 'usedPercent',
       width: 80,
       type: 'rightAligned',
       valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, number | null>) => {
-        const n = sharePercent(p.data && p.data.capKb > 0 ? p.value : null)
+        // The door sends 0..100 to one decimal.
+        const n = sharePercent(p.data && (p.data.capKb ?? 0) > 0 && p.value != null ? p.value / 100 : null)
         return n === null ? '' : t('storeDb.fleet.share', { n })
       },
     },
@@ -83,23 +84,17 @@ export function buildStoreDbFleetColumns(t: TFunction): ColDef<StoreDbFleetRow>[
       field: 'driveFreeKb',
       width: 110,
       type: 'rightAligned',
-      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, number | null>) => kbText(t, p.value),
+      // -1 = the drive was not matched: blank (unknown), never "-1 KB".
+      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, number | null>) => kbText(t, driveFreeKb(p.value)),
     },
-    {
-      headerName: t('storeDb.fleet.columns.engine'),
-      field: 'engine',
-      width: 90,
-      // A label this bundle does not know shows raw, never a raw key.
-      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, string>) =>
-        p.value ? t(`storeDb.engines.${p.value}`, { defaultValue: p.value }) : '',
-    },
+    // The server's engine label (`SQL Server 2008 R2`) is data, shown as sent.
+    { headerName: t('storeDb.fleet.columns.engine'), field: 'engine', width: 150 },
     { headerName: t('storeDb.fleet.columns.edition'), field: 'edition', width: 150 },
     {
       headerName: t('storeDb.fleet.columns.bitness'),
-      field: 'is64Bit',
+      field: 'bitness',
       width: 90,
-      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, boolean | null>) =>
-        p.value == null ? '' : t(p.value ? 'storeDb.fleet.bitness.x64' : 'storeDb.fleet.bitness.x86'),
+      valueFormatter: (p: ValueFormatterParams<StoreDbFleetRow, string | null>) => bitnessText(t, p.value),
     },
     { headerName: t('storeDb.fleet.columns.takenAt'), field: 'takenAt', width: 150, valueFormatter: formatTime },
   ]
@@ -133,7 +128,7 @@ function UsedCapBar({ row }: { row: StoreDbFleetRow }) {
       )}
       <span className="relative ms-1 tabular-nums">
         {/* "used / cap" is one machine value, isolated once; with no cap only the size is — "No cap" is a word. */}
-        {row.usedKb == null ? null : row.capKb > 0 ? (
+        {row.usedKb == null ? null : (row.capKb ?? 0) > 0 ? (
           <Ltr>{formatCount(used, kbText(t, row.capKb))}</Ltr>
         ) : (
           <>

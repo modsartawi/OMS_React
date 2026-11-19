@@ -3,7 +3,7 @@ import { ApiError } from '@/core/api'
 import { permissionsOf } from '@/core/permissions'
 import type { StoreDbBlitz } from '@/core/models/store-database'
 import blitzFixture from './__fixtures__/blitz.json'
-import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled } from './blitz-helpers'
+import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled, blitzState } from './blitz-helpers'
 
 /** Oms 919 (BackOffice 4039, spec 4016 D18): sp_Blitz on the Health check panel. */
 const VIEW = permissionsOf({ screens: ['StoreDatabaseView:03'] })
@@ -44,6 +44,24 @@ describe('a store without sp_Blitz', () => {
     expect(blitzNotInstalled(refused)).toBe(true)
     expect(blitzNotInstalled(new ApiError('server', 'boom', 500))).toBe(false)
     expect(blitzNotInstalled(null)).toBe(false)
+  })
+})
+
+describe('the install state (BO 4039 open: no door carries it)', () => {
+  const refused = new ApiError('business', 'sp_Blitz is not installed on P104.', 409, [{ errorCode: 'BLITZ_NOT_INSTALLED', errorMessage: 'sp_Blitz is not installed on P104.', internalErrorCode: '' }])
+
+  it('is unknown until sp_Blitz is run', () => {
+    expect(blitzState(undefined, null)).toBeNull()
+  })
+
+  it('a run that answered says it is installed, with HQ’s recorded build when there is one', () => {
+    expect(blitzState(blitzFixture as StoreDbBlitz, null)).toEqual({ installed: true, version: '8.19' })
+    expect(blitzState({ ...(blitzFixture as StoreDbBlitz), installedVersion: '' }, null)).toEqual({ installed: true, version: null })
+  })
+
+  it('a run refused BLITZ_NOT_INSTALLED says it is not; any other failure leaves it unknown', () => {
+    expect(blitzState(undefined, refused)).toEqual({ installed: false, version: null })
+    expect(blitzState(undefined, new ApiError('server', 'boom', 502))).toBeNull()
   })
 })
 

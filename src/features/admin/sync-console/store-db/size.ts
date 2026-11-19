@@ -1,6 +1,6 @@
 /**
  * Sizes as every Store database panel spells them (oms 915; later panels reuse it). The wire carries KB (spec D6,
- * GUESSED field suffix `Kb`); the tab reads GB / MB / KB. Pure: the unit word is the caller's `t()`
+ * every field suffixed `Kb`); the tab reads GB / MB / KB. Pure: the unit word is the caller's `t()`
  * (`storeDb.units.<unit>`, `{{n}}` slot) — so if BO sends MB instead, only this file changes.
  */
 
@@ -20,6 +20,9 @@ export const KB_PER_GB = 1024 * 1024
 
 const fixed = (n: number, digits: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+
+/** A drive's free KB as the server sends it: `-1` = the drive was not matched — unknown, never a size. */
+export const driveFreeKb = (kb: number | null | undefined): number | null => (kb == null || kb < 0 ? null : kb)
 
 /** A KB figure as a size; `null` when there is no reading. */
 export function kbSize(kb: number | null | undefined): Size | null {

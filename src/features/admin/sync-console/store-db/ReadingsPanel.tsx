@@ -2,6 +2,7 @@ import { useIsFetching } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 
 import Ltr from '@/core/ui/Ltr'
+import { formatDateTime } from '@/core/util/date-format'
 import { figure } from '../helpers'
 import { storeDbStoreKey } from './api'
 import HistoryChart from './HistoryChart'
@@ -19,7 +20,7 @@ import { sizeText } from './size'
 export default function ReadingsPanel({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
   const busy = useIsFetching({ queryKey: storeDbStoreKey(store.code), exact: true }) > 0
-  const lines = readingLines(store.reading)
+  const lines = readingLines(store.reading, store.files)
   return (
     <div className="flex flex-col gap-5" data-readings-panel="">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -41,7 +42,7 @@ export default function ReadingsPanel({ store }: StoreDbPanelProps) {
   )
 }
 
-/** Days to cap as the server forecast it, with the growth rate and window behind it. */
+/** Days to cap as the server forecast it, with the growth rate behind it and the reading it is measured from. */
 function Growth({ store }: StoreDbPanelProps) {
   const { t } = useTranslation('sync-console')
   const g = growth(store)
@@ -59,12 +60,12 @@ function Growth({ store }: StoreDbPanelProps) {
       </p>
       {rate && (
         <p className="text-sm text-muted-foreground" data-growth-rate="">
-          {g?.windowDays != null ? (
+          {g?.since ? (
             <Trans
               t={t}
               i18nKey={`storeDb.readings.growth.${rateKey}`}
-              values={{ rate, window: figure(g.windowDays) }}
-              components={{ rate: <Ltr />, window: <Ltr /> }}
+              values={{ rate, since: formatDateTime(g.since) }}
+              components={{ rate: <Ltr />, since: <Ltr /> }}
             />
           ) : (
             <Trans t={t} i18nKey={`storeDb.readings.growth.${rateKey}Only`} values={{ rate }} components={{ rate: <Ltr /> }} />

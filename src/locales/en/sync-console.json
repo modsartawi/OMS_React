@@ -1451,12 +1451,6 @@
       "DiskLow": "Disk low",
       "NotChecked": "Not checked"
     },
-    "engines": {
-      "2008": "2008",
-      "2008 R2": "2008 R2",
-      "2019": "2019",
-      "other": "Other"
-    },
     "store": {
       "back": "All store databases"
     },
@@ -1496,7 +1490,6 @@
         "log": "Log",
         "recoveryModel": "Recovery model",
         "driveFree": "Drive free",
-        "machine": "Machine",
         "cpus": "CPUs",
         "memory": "Memory",
         "uptime": "SQL Server up for",
@@ -1511,7 +1504,6 @@
         "logUsed": "<used>{{used}}</used> used of <size>{{size}}</size>",
         "driveOn": "<size>{{size}}</size> on <drive>{{drive}}</drive>",
         "uptime": "<days>{{days}}</days> days, <hours>{{hours}}</hours> hours",
-        "backup": "<at>{{at}}</at>, <size>{{size}}</size>",
         "noTransaction": "None open",
         "ageHours": "<h>{{h}}</h> h <m>{{m}}</m> min",
         "ageMinutes": "<m>{{m}}</m> min <s>{{s}}</s> s",
@@ -1521,9 +1513,9 @@
         "title": "Days to cap",
         "days": "<days>{{days}}</days> days to the cap",
         "noForecast": "No forecast",
-        "rate": "Growing <rate>{{rate}}</rate> a day over the last <window>{{window}}</window> days",
+        "rate": "Growing <rate>{{rate}}</rate> a day since <since>{{since}}</since>",
         "rateOnly": "Growing <rate>{{rate}}</rate> a day",
-        "shrinking": "Not growing: <rate>{{rate}}</rate> a day smaller over the last <window>{{window}}</window> days",
+        "shrinking": "Not growing: <rate>{{rate}}</rate> a day smaller since <since>{{since}}</since>",
         "shrinkingOnly": "Not growing: <rate>{{rate}}</rate> a day smaller"
       },
       "history": {
@@ -1580,16 +1572,16 @@
       "columns": {
         "sessionId": "Session",
         "blockedBy": "Blocked by",
-        "secs": "Seconds",
+        "seconds": "Seconds",
         "status": "Status",
         "command": "Command",
         "waitType": "Wait type",
-        "waitSecs": "Wait (s)",
+        "waitSeconds": "Wait (s)",
         "waitResource": "Wait resource",
         "hostName": "Host",
         "programName": "Program",
         "loginName": "Login",
-        "openTran": "Open trans",
+        "openTransactions": "Open trans",
         "cpuTime": "CPU (ms)",
         "logicalReads": "Logical reads",
         "statementText": "Statement",
@@ -1597,13 +1589,13 @@
         "blocksCount": "Blocks",
         "lastRequestStartTime": "Last request started",
         "lastRequestEndTime": "Last request ended",
-        "idleSecs": "Idle (s)",
+        "idleSeconds": "Idle (s)",
         "lastSql": "Last SQL",
         "loginTime": "Logged in",
-        "runningSecs": "Running (s)",
+        "runningSeconds": "Running (s)",
         "sqlText": "SQL",
         "transactionBeginTime": "Transaction began",
-        "tranSecs": "Open for (s)"
+        "transactionSeconds": "Open for (s)"
       },
       "checkNow": {
         "button": "Check now",
@@ -1636,7 +1628,7 @@
         "NearSizeCap": "Near the size cap",
         "LargeTempdb": "Large tempdb",
         "ShortUptime": "SQL Server restarted recently",
-        "NoRecentBackup": "No recent full backup"
+        "NoFullBackup": "No recent full backup"
       }
     },
 
@@ -1835,7 +1827,8 @@
         "ok": "Yes",
         "newerEngine": "No — taken on a newer engine than the store's.",
         "unreadable": "No — the engine could not read this file.",
-        "unknownEngine": "No — its engine version is unknown."
+        "unknownEngine": "No — its engine version is unknown.",
+        "notFull": "No — only a full backup can be restored."
       },
       "whyError": {
         "newerEngine": "No — taken on a newer engine than the store's. <error>{{error}}</error>",

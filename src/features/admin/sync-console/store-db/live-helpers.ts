@@ -20,6 +20,7 @@ export const liveSections = (live: StoreDbLiveActivity): LiveSection[] =>
 /** Tolerant read of the door: a result set it leaves out is empty. Fills a MISSING member only. */
 export function liveActivityOf(data: Partial<StoreDbLiveActivity> | null): StoreDbLiveActivity {
   return {
+    ...data,
     takenAt: data?.takenAt ?? null,
     running: data?.running ?? [],
     headBlockers: data?.headBlockers ?? [],

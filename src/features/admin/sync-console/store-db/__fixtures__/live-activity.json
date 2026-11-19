@@ -1,17 +1,95 @@
 {
-  "takenAt": "2026-11-18T10:41:30",
+  "code": "P104",
+  "takenAt": "2026-11-18T10:41:30.5512345+03:00",
+  "workerHost": "SYNC-HQ01",
   "running": [
-    { "sessionId": 57, "blockedBy": 61, "secs": 48, "status": "suspended", "command": "UPDATE", "waitType": "LCK_M_U", "waitSecs": 47, "waitResource": "KEY: 5:72057594045071360 (8194443284a0)", "hostName": "P104-TILL02", "programName": "DawaaPOS", "loginName": "pos", "openTran": 1, "cpuTime": 12, "logicalReads": 340, "statementText": "UPDATE dbo.StockOnHand SET Qty = Qty - @q WHERE ItemCode = @i", "batchText": "(@q int,@i nvarchar(18))UPDATE dbo.StockOnHand SET Qty = Qty - @q WHERE ItemCode = @i" },
-    { "sessionId": 64, "blockedBy": 0, "secs": 3, "status": "running", "command": "SELECT", "waitType": null, "waitSecs": 0, "waitResource": null, "hostName": "P104-TILL01", "programName": "DawaaPOS", "loginName": "pos", "openTran": 0, "cpuTime": 2900, "logicalReads": 184220, "statementText": "SELECT * FROM dbo.SalesLine WHERE SaleDate >= @d", "batchText": null }
+    {
+      "sessionId": 57,
+      "blockedBy": 61,
+      "seconds": 48,
+      "status": "suspended",
+      "command": "UPDATE",
+      "waitType": "LCK_M_U",
+      "waitSeconds": 47,
+      "waitResource": "KEY: 5:72057594045071360 (8194443284a0)",
+      "hostName": "P104-TILL02",
+      "programName": "DawaaPOS",
+      "loginName": "pos",
+      "openTransactions": 1,
+      "cpuTime": 12,
+      "logicalReads": 340,
+      "statementText": "UPDATE dbo.StockOnHand SET Qty = Qty - @q WHERE ItemCode = @i",
+      "batchText": "(@q int,@i nvarchar(18))UPDATE dbo.StockOnHand SET Qty = Qty - @q WHERE ItemCode = @i"
+    },
+    {
+      "sessionId": 64,
+      "blockedBy": 0,
+      "seconds": 3,
+      "status": "running",
+      "command": "SELECT",
+      "waitType": null,
+      "waitSeconds": 0,
+      "waitResource": null,
+      "hostName": "P104-TILL01",
+      "programName": "DawaaPOS",
+      "loginName": "pos",
+      "openTransactions": 0,
+      "cpuTime": 2900,
+      "logicalReads": 184220,
+      "statementText": "SELECT * FROM dbo.SalesLine WHERE SaleDate >= @d",
+      "batchText": null
+    }
   ],
   "headBlockers": [
-    { "sessionId": 61, "status": "sleeping", "hostName": "HQ-SYNC01", "programName": "SyncWorker", "loginName": "sync", "lastRequestStartTime": "2026-11-18T10:40:12", "lastRequestEndTime": "2026-11-18T10:40:13", "idleSecs": 77, "blocksCount": 1, "openTran": 1, "lastSql": "INSERT INTO dbo.PriceChange (ItemCode, Price) VALUES (@p0, @p1)" }
+    {
+      "sessionId": 61,
+      "status": "sleeping",
+      "hostName": "HQ-SYNC01",
+      "programName": "SyncWorker",
+      "loginName": "sync",
+      "lastRequestStartTime": "2026-11-18T10:40:12",
+      "lastRequestEndTime": "2026-11-18T10:40:13",
+      "idleSeconds": 77,
+      "blocksCount": 1,
+      "openTransactions": 1,
+      "lastSql": "INSERT INTO dbo.PriceChange (ItemCode, Price) VALUES (@p0, @p1)"
+    }
   ],
   "workerSessions": [
-    { "sessionId": 61, "status": "sleeping", "loginTime": "2026-11-18T10:38:00", "lastRequestStartTime": "2026-11-18T10:40:12", "command": null, "waitType": null, "blockedBy": null, "runningSecs": null, "openTran": 1, "sqlText": "INSERT INTO dbo.PriceChange (ItemCode, Price) VALUES (@p0, @p1)" },
-    { "sessionId": 70, "status": "running", "loginTime": "2026-11-18T10:41:25", "lastRequestStartTime": "2026-11-18T10:41:29", "command": "SELECT", "waitType": "ASYNC_NETWORK_IO", "blockedBy": 0, "runningSecs": 1, "openTran": 0, "sqlText": "SELECT TOP (500) * FROM dbo.ActionLog WHERE Id > @last" }
+    {
+      "sessionId": 61,
+      "status": "sleeping",
+      "loginTime": "2026-11-18T10:38:00",
+      "lastRequestStartTime": "2026-11-18T10:40:12",
+      "command": null,
+      "waitType": null,
+      "blockedBy": null,
+      "runningSeconds": null,
+      "openTransactions": 1,
+      "sqlText": "INSERT INTO dbo.PriceChange (ItemCode, Price) VALUES (@p0, @p1)"
+    },
+    {
+      "sessionId": 70,
+      "status": "running",
+      "loginTime": "2026-11-18T10:41:25",
+      "lastRequestStartTime": "2026-11-18T10:41:29",
+      "command": "SELECT",
+      "waitType": "ASYNC_NETWORK_IO",
+      "blockedBy": 0,
+      "runningSeconds": 1,
+      "openTransactions": 0,
+      "sqlText": "SELECT TOP (500) * FROM dbo.ActionLog WHERE Id > @last"
+    }
   ],
   "longTransactions": [
-    { "sessionId": 61, "hostName": "HQ-SYNC01", "programName": "SyncWorker", "status": "sleeping", "transactionBeginTime": "2026-11-18T10:40:12", "tranSecs": 78, "lastSql": "INSERT INTO dbo.PriceChange (ItemCode, Price) VALUES (@p0, @p1)" }
+    {
+      "sessionId": 61,
+      "hostName": "HQ-SYNC01",
+      "programName": "SyncWorker",
+      "status": "sleeping",
+      "transactionBeginTime": "2026-11-18T10:40:12",
+      "transactionSeconds": 78,
+      "lastSql": "INSERT INTO dbo.PriceChange (ItemCode, Price) VALUES (@p0, @p1)"
+    }
   ]
 }

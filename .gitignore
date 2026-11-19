@@ -177,3 +177,4 @@ tools/.stock-health-shots/
 tools/.store-db-*-shots/
 # Item lists drive screenshots (tools/item-lists-drive.mjs, ticket 925)
 tools/.item-lists-shots/
+tools/.item-lists-copilot-shots/

@@ -19,6 +19,7 @@ import CaseMarks from './CaseMarks'
 import CaseRouteSection from './CaseRouteSection'
 import CaseTimeline from './CaseTimeline'
 import { casePath, PATTERNS_PATH } from './paths'
+import RevealPatient from './RevealPatient'
 import { severitySev, severityText, signalText, statusSev, statusText, unitWords } from './words'
 
 /**
@@ -113,6 +114,7 @@ function CaseHeader({ detail }: { detail: PatternCaseDetail }) {
       <div className="flex flex-wrap items-center gap-2" data-testid="pattern-case-actions">
         {/* 923 · "Show patient": visible with canRevealPatient only; the reason dialog posts …/Reveal and holds the answer in
             its own state (never useQuery/useMutation, the URL, storage, a log or a toast). */}
+        <RevealPatient caseId={detail.caseId} caseNumber={detail.caseNumber} />
 
         {/* 924 · "Add to blocked-patient list": only when detail.status === 'confirmed' && canRevealPatient && canBlockPatient. */}
       </div>

@@ -74,6 +74,33 @@
     "km": "{{km}} km",
     "kmPerHour": "{{speed}} km/h"
   },
+  "reveal": {
+    "open": "Show patient",
+    "title": "Show the patient of case {{caseNumber}}",
+    "logged": "Each reveal is logged: your name, the time, this case and your reason go to the reveal log, which the insurance manager reads.",
+    "reason": "Reason",
+    "reasonHint": "Why you need the patient, in at least {{min}} characters. It is kept with the reveal.",
+    "problem": {
+      "short": "Write at least {{min}} characters.",
+      "tooLong": "The reason is longer than {{max}} characters."
+    },
+    "cancel": "Cancel",
+    "send": "Log and show",
+    "sending": "Logging…",
+    "failed": "The patient was not shown",
+    "failure": {
+      "denied": "The server refused: showing a patient needs the insurance pattern investigator grant.",
+      "empty": "The server answered without a patient key, so nobody is shown.",
+      "unexpected": "Try again. If it keeps happening, the server may be down."
+    },
+    "patient": "The patient",
+    "patientKey": "Patient key",
+    "memberId": "Member ID",
+    "notGiven": "Not given",
+    "loggedWith": "Logged with your reason:",
+    "onlyHere": "The patient shows in this window only. Closing it clears them; showing them again is another logged reveal.",
+    "close": "Close"
+  },
   "case": {
     "pageTitle": "Pattern case",
     "pageSubtitle": "Its route between pharmacies, its dispenses and the team's marks. The patient is not shown here.",

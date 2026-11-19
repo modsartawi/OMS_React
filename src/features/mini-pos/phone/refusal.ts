@@ -1,7 +1,7 @@
 import { apiErrorCode, apiErrorData, apiErrorKind, apiErrorMessage } from '@/core/api'
 
 /**
- * A refusal as the phone shows it (spec 4032: "each refusal carries its own error code and an Arabic and English
+ * A refusal as the phone shows it (spec 4063: "each refusal carries its own error code and an Arabic and English
  * message"). The Mini POS door's own refusals carry both: English on `message`, Arabic on `data.messageAr`
  * (`MiniPosEndpointHelpers.Refusal`). The session verbs' refusals (an unknown item, `NO_CUSTOMER_ATTACHED`, a busy
  * session) carry English only, and are shown as they came. The words are the server's; nothing is re-worded here.

@@ -1,10 +1,10 @@
 import type * as ZXingModule from '@zxing/library'
 
 /**
- * The phone's scanner adapter (spec 4032, ticket 916), lifted from the 3709 prototype: the built-in `BarcodeDetector`
+ * The phone's scanner adapter (spec 4063, ticket 916), lifted from the 3709 prototype: the built-in `BarcodeDetector`
  * when Chrome offers one for the wanted formats, ZXing (`@zxing/library`, loaded only then) otherwise, and a
  * keyboard-wedge input beside both. Every read reports its reader, its format, its value and the time it took from
- * arming to the read; the add-item verb sends them on (the scan event, BackOffice 4042).
+ * arming to the read; the add-item verb sends them on (the scan event, BackOffice 4073).
  *
  * Format names are the built-in detector's (`ean_13`, `data_matrix`, `qr_code`): ZXing's `EAN_13` is lowered to match,
  * so a read means the same whichever reader made it.

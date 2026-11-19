@@ -5,7 +5,7 @@ const QUIET = 10
 const HEIGHT = 50
 
 /**
- * The order number as a large Code 128 barcode (spec 4032 story 22): the cashier scans it off the phone with "Find in
+ * The order number as a large Code 128 barcode (spec 4063 story 22): the cashier scans it off the phone with "Find in
  * Orders". Black bars on a white ground in either theme, because a scanner needs the contrast the code was made for
  * (the palette gate's allowlist names this file, as it names the login QR's quiet zone).
  */

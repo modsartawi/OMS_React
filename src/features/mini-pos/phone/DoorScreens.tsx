@@ -8,7 +8,7 @@ import ScannerView from './ScannerView'
 import { PHARMACY_CODE_FORMATS, type ScanRead } from './scanner'
 import type { ShownRefusal } from './refusal'
 
-/** "Not assigned today" (spec 4032 story 3), or another refusal of the door that selling cannot get past. */
+/** "Not assigned today" (spec 4063 story 3), or another refusal of the door that selling cannot get past. */
 export function DoorRefusedScreen({
   notAssigned,
   refusal,
@@ -20,7 +20,7 @@ export function DoorRefusedScreen({
   busy: boolean
   onRetry: () => void
 }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const Icon = notAssigned ? CalendarX2 : ShieldX
   return (
     <div className="flex flex-col gap-4" data-screen={notAssigned ? 'not-assigned' : 'blocked'}>
@@ -38,7 +38,7 @@ export function DoorRefusedScreen({
 }
 
 /**
- * Unlock (spec 4032 stories 4-8): scan the changing code on a till screen of the assigned pharmacy, or its printed code.
+ * Unlock (spec 4063 stories 4-8): scan the changing code on a till screen of the assigned pharmacy, or its printed code.
  * The server checks the code's signature, its window or print version, and the pharmacy; each refusal says which.
  */
 export function UnlockScreen({
@@ -50,7 +50,7 @@ export function UnlockScreen({
   busy: boolean
   onCode: (read: ScanRead) => void
 }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   return (
     <div className="flex flex-col gap-4" data-screen="unlock">
       <h1 className="flex items-center gap-2 text-lg font-semibold">
@@ -79,7 +79,7 @@ export function ExistingBasketScreen({
   onResume: () => void
   onStartNew: () => void
 }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   return (
     <div className="flex flex-col gap-4" data-screen="existing">
       <h1 className="text-lg font-semibold">{t('existing.title')}</h1>

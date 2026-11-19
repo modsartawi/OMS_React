@@ -1,7 +1,7 @@
 ---
 status: done
-spec: BO 4032 (E:\Projects\BackOffice\.issues\4032-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
-blocked-by: BO 4034, BO 4036, BO 4038
+spec: BO 4063 (E:\Projects\BackOffice\.issues\4063-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
+blocked-by: BO 4065, BO 4067, BO 4069
 ---
 
 # 916 — A promoter installs the Mini POS app, signs in, unlocks at the pharmacy, scans a basket and submits it
@@ -29,7 +29,7 @@ interface BarcodeScanner { start(video: HTMLVideoElement): Promise<void>; stop()
 
 ## Spine reach
 
-UI (PWA) → BackOffice SIS.Api (4034, 4036, 4038)
+UI (PWA) → BackOffice SIS.Api (4065, 4067, 4069)
 
 ## Proof (→ `tdd` red-green cycles)
 
@@ -44,20 +44,20 @@ Separate build entry; nothing changes for the existing OMS app.
 
 ## Done when
 
-On a phone, a promoter can install, sign in, unlock, scan and submit against a SIS.Api with 4034/4036/4038.
+On a phone, a promoter can install, sign in, unlock, scan and submit against a SIS.Api with 4065/4067/4069.
 
 ## Blocked by
 
-BO [4034](E:\Projects\BackOffice\.issues\4034-tracer-an-assigned-promoter-prices-and-submits-a-basket-that-becomes-an-mpos-order-at-thei.md), BO [4036](E:\Projects\BackOffice\.issues\4036-selling-unlocks-only-after-scanning-todays-pharmacys-changing-or-printed-qr.md), BO [4038](E:\Projects\BackOffice\.issues\4038-pharmacist-only-and-refused-items-are-refused-at-scan-and-again-at-submit.md)
+BO [4065](E:\Projects\BackOffice\.issues\4065-tracer-an-assigned-promoter-prices-and-submits-a-basket-that-becomes-an-mpos-order-at-thei.md), BO [4067](E:\Projects\BackOffice\.issues\4067-selling-unlocks-only-after-scanning-todays-pharmacys-changing-or-printed-qr.md), BO [4069](E:\Projects\BackOffice\.issues\4069-pharmacist-only-and-refused-items-are-refused-at-scan-and-again-at-submit.md)
 
 ## Comments
 
 **2026-11-19, implementer (branch `t916`, worktree `E:\Projects\OMS_React-t916`)**, on `spec/4032-mini-pos`. Built
 against BackOffice `spec4032` (read only): `MiniPosEndpoints.cs`, `MiniPosRefusals.cs`, `UaAuthEndpoints.cs`, and the
-answers of 4034, 4036, 4038, 4039, 4042. SIS.Api was not run: the server is stubbed in the tests and the drive.
+answers of 4065, 4067, 4069, 4070, 4073. SIS.Api was not run: the server is stubbed in the tests and the drive.
 
-- **Second Vite entry.** `minipos/index.html` → `src/app/minipos-main.tsx` → `src/features/minipos/phone/` (area
-  `minipos`, URL `/minipos/`). `vite.config.ts` names both inputs. The OMS entry, router and menu are untouched.
+- **Second Vite entry.** `minipos/index.html` → `src/app/minipos-main.tsx` → `src/features/mini-pos/phone/` (the
+  `mini-pos` area beside 915's screens; served at `/minipos/`). `vite.config.ts` names both inputs. The OMS entry, router and menu are untouched.
 - **Manifest + worker.** `public/minipos/` holds `manifest.webmanifest` and three PNG icons (192, 512, 512 maskable).
   `tools/minipos-sw.mjs` is a dependency-free Vite plugin that emits `minipos/sw.js`. It reads the precache list off the
   bundle: the entry, every chunk it reaches statically or by dynamic import (ZXing is one, about 400 kB), their CSS
@@ -83,7 +83,7 @@ answers of 4034, 4036, 4038, 4039, 4042. SIS.Api was not run: the server is stub
   Session-verb refusals (`NO_CUSTOMER_ATTACHED`, unknown item) carry English only.
 - **One core change.** `core/api.ts` `setUnauthorizedHandler`. When one is installed it replaces the OMS
   `/login` redirect on a 401. The phone installs it; OMS installs none. Tested in `api.test.ts`.
-- **i18n.** The `minipos` namespace, en and ar, registered in `core/i18n.ts`, with a key-parity test. The language
+- **i18n.** The `mini-pos-phone` namespace, en and ar, registered in `core/i18n.ts`, with a key-parity test. The language
   switch writes `oms.locale` and reloads, as in OMS.
 - **Tests.** `gs1.test.ts`, `scanner.test.ts` (fallback, read timing, wedge), `code128.test.ts` (round trip through
   ZXing's Code 128 reader), `refusal.test.ts`, `screens.test.ts` (refusal shown, barcode drawn, locale parity) and
@@ -95,21 +95,21 @@ answers of 4034, 4036, 4038, 4039, 4042. SIS.Api was not run: the server is stub
 - **Build.** `npm run build` emits `dist/minipos/{index.html, sw.js, manifest.webmanifest, icons}`.
 
 **Seams for 917:** `CustomerSlot.tsx` is the customer step's place. The server refuses `AddItem`, `PriceCheck` and
-`Submit` with `NO_CUSTOMER_ATTACHED` until a member is attached (4039). **Until 917 lands, a live walk cannot add a
+`Submit` with `NO_CUSTOMER_ATTACHED` until a member is attached (4070). **Until 917 lands, a live walk cannot add a
 line**, and the basket shows that refusal. "My orders today", reopen and resubmit join `MiniPosPhonePage`'s `Screen`
 union.
 
 **Owed / for the owner:**
 1. **Phone trial (3709) on the chosen model:** the camera, the torch, the GS1 DataMatrix read in poor light, and
    Chrome's install prompt. Headless has no camera.
-2. **Live walk** against a SIS.Api with 4034/4036/4038 (and 4039 for a line to price).
+2. **Live walk** against a SIS.Api with 4065/4036/4038 (and 4070 for a line to price).
 3. **Deploy:** IIS must serve `/minipos/` (default document `index.html`, not swallowed by the OMS SPA rewrite) and
    `.webmanifest` as `application/manifest+json` (IIS has no default MIME for it). `sw.js` must not be cached long.
    Set `VITE_MINIPOS_API_KEY` at build time to the mobile channel key. A build without it says so at sign-in.
-4. **4036's open point stands:** if the phone's channel key passes `ApiKeyEndpointFilter`, it can read
+4. **4067's open point stands:** if the phone's channel key passes `ApiKeyEndpointFilter`, it can read
    `MiniPos/TillCode` for any store. The key ships in the phone's JavaScript, as any client key does.
 5. **Bundle:** the phone reaches `core/api`, which imports `core/i18n` and so every OMS locale (about 1.7 MB raw in
    one chunk). It is cached once by the worker. Trimming it means a leaner i18n entry for the phone, a later change.
 6. A pack whose item master holds only the GTIN-14 (not the EAN-13) would not resolve from a DataMatrix. Check
-   `LookupBarcodeAsync` on the trial items. Serialised items are refused today anyway (4042).
+   `LookupBarcodeAsync` on the trial items. Serialised items are refused today anyway (4073).
 

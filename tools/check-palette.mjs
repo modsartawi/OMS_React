@@ -79,12 +79,12 @@ const ALLOWED = [
     why: 'QR quiet zone — a QR needs a white module ground to scan, in either theme',
   },
   {
-    file: 'src/features/minipos/phone/Barcode.tsx',
+    file: 'src/features/mini-pos/phone/Barcode.tsx',
     match: 'bg-white',
     why: 'the order barcode’s ground — a till scanner needs black bars on white, in either theme (oms 916)',
   },
   {
-    file: 'src/features/minipos/phone/Barcode.tsx',
+    file: 'src/features/mini-pos/phone/Barcode.tsx',
     match: 'fill-black',
     why: 'the order barcode’s bars — a till scanner needs black bars on white, in either theme (oms 916)',
   },

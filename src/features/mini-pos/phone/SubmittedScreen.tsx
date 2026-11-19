@@ -5,11 +5,11 @@ import Ltr from '@/core/ui/Ltr'
 import Barcode from './Barcode'
 
 /**
- * Submitted (spec 4032 story 22): the order number as a large barcode, for the cashier to scan off the phone with
+ * Submitted (spec 4063 story 22): the order number as a large barcode, for the cashier to scan off the phone with
  * "Find in Orders" at any till of the pharmacy, and in digits beneath it. The number is the server's, as minted.
  */
 export default function SubmittedScreen({ documentNo, onNewBasket }: { documentNo: string; onNewBasket: () => void }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   return (
     <div className="flex flex-col items-stretch gap-4">
       <h1 className="flex items-center gap-2 text-lg font-semibold text-success">

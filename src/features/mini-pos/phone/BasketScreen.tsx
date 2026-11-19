@@ -13,7 +13,7 @@ import { ITEM_FORMATS, type ScanRead } from './scanner'
 import type { ShownRefusal } from './refusal'
 
 /**
- * The basket (spec 4032 stories 13-22): scan with the camera, type a code, change a quantity, remove a line, submit.
+ * The basket (spec 4063 stories 13-22): scan with the camera, type a code, change a quantity, remove a line, submit.
  * Every figure is the server's (the session state, priced at the pharmacy as its till would); the phone never sums a
  * line or a total. A refusal is shown in the server's words, over the basket it refused from.
  */
@@ -48,7 +48,7 @@ export default function BasketScreen({
   onAddAnyway: () => void
   onDontAdd: () => void
 }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const header = state.header
 
   return (

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BarcodeFormat, BinaryBitmap, Code128Reader, HybridBinarizer, RGBLuminanceSource } from '@zxing/library'
 import { code128Modules, code128Symbols } from './code128'
 
-// The order barcode must scan back to the plain document number (spec 4032 story 22, "Find in Orders" reads it).
+// The order barcode must scan back to the plain document number (spec 4063 story 22, "Find in Orders" reads it).
 // Proved by reading what the encoder draws with an independent decoder: ZXing's Code 128 reader.
 
 function decode(text: string): { text: string; format: string } {

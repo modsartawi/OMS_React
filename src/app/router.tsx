@@ -110,6 +110,14 @@ export const router = createBrowserRouter([
     handle: PRINT_ROUTE,
     children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsCatalogPrintPage')).default }) }],
   },
+  // A pharmacy's Mini POS QR (oms 915, BackOffice 4043): outside the shell so the paper is the code alone; `chromeless`
+  // keeps the session guard. The page reads `MiniPosAdmin:06` itself.
+  {
+    path: '/mini-pos/print/:storeCode',
+    element: <ProtectedLayout chromeless />,
+    handle: PRINT_ROUTE,
+    children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/mini-pos/stores/MiniPosQrPrintPage')).default }) }],
+  },
   {
     path: '/collection/receipt/:collectionReceiptId',
     element: <ProtectedLayout chromeless />,
@@ -385,6 +393,20 @@ export const router = createBrowserRouter([
         lazy: async () => ({
           Component: (await import('@/features/oms/store-stages/StoreStagesPage')).default,
         }),
+      },
+      // Mini POS (oms 915, BackOffice spec 4032 / doors 4043) - the operations lead's assignments, pharmacies and item
+      // lists. Behind `MiniPosAdmin:03`; every change behind `MiniPosAdmin:06`.
+      {
+        path: 'mini-pos/assignments',
+        lazy: async () => ({ Component: (await import('@/features/mini-pos/assignments/MiniPosAssignmentsPage')).default }),
+      },
+      {
+        path: 'mini-pos/stores',
+        lazy: async () => ({ Component: (await import('@/features/mini-pos/stores/MiniPosStoresPage')).default }),
+      },
+      {
+        path: 'mini-pos/items',
+        lazy: async () => ({ Component: (await import('@/features/mini-pos/items/MiniPosItemsPage')).default }),
       },
       // Stock health (oms 912, BackOffice spec 4011 / door 4012) - whether batch stock is in good shape, one tile per
       // signal, re-read every minute. Behind its own key, `StockHealth:03`.

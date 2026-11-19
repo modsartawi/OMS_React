@@ -1520,9 +1520,9 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [914](914-one-permissions-answer-replaces-every-access-probe.md) — One permissions answer replaces every Access probe · *(ticket · BackOffice spec 4002; endpoint 4007)* · **open** · blocked by: BO 4007 (done; deploy before the walk)
 
-## Mini POS (BackOffice spec 4032, filed 2026-11-18)
+## Mini POS (BackOffice spec 4063, filed 2026-11-18)
 
-- [915](915-the-operations-lead-keeps-mini-pos-assignments-pharmacies-and-item-lists-in-oms.md) — The operations lead keeps Mini POS assignments, pharmacies and item lists in OMS · *(ticket · BackOffice spec 4032)* · **open** · blocked by: BO 4043
-- [916](916-a-promoter-installs-the-mini-pos-app-signs-in-unlocks-at-the-pharmacy-scans-a-basket-and-s.md) — A promoter installs the Mini POS app, signs in, unlocks at the pharmacy, scans a basket and submits it · *(ticket · BackOffice spec 4032)* · **done 2026-11-19** (stubbed; phone trial + live walk owed) · blocked by: BO 4034, BO 4036, BO 4038
-- [917](917-a-promoter-takes-the-customer-follows-their-orders-of-today-and-edits-and-resubmits-an-ope.md) — A promoter takes the customer, follows their orders of today, and edits and resubmits an open order · *(ticket · BackOffice spec 4032)* · **open** · blocked by: BO 4039, BO 4040, 916
-- [918](918-the-panel-reads-the-mini-pos-scorecard-and-the-weekly-reviewers-read-its-weekly-view.md) — The panel reads the Mini POS scorecard, and the weekly reviewers read its weekly view · *(ticket · BackOffice spec 4032)* · **open** · blocked by: BO 4044
+- [915](915-the-operations-lead-keeps-mini-pos-assignments-pharmacies-and-item-lists-in-oms.md) — The operations lead keeps Mini POS assignments, pharmacies and item lists in OMS · *(ticket · BackOffice spec 4063)* · **done 2026-11-19** (component tests; live walk owed) · blocked by: BO 4074
+- [916](916-a-promoter-installs-the-mini-pos-app-signs-in-unlocks-at-the-pharmacy-scans-a-basket-and-s.md) — A promoter installs the Mini POS app, signs in, unlocks at the pharmacy, scans a basket and submits it · *(ticket · BackOffice spec 4063)* · **done 2026-11-19** (stubbed; phone trial + live walk owed) · blocked by: BO 4065, BO 4067, BO 4069
+- [917](917-a-promoter-takes-the-customer-follows-their-orders-of-today-and-edits-and-resubmits-an-ope.md) — A promoter takes the customer, follows their orders of today, and edits and resubmits an open order · *(ticket · BackOffice spec 4063)* · **open** · blocked by: BO 4070, BO 4071, 916
+- [918](918-the-panel-reads-the-mini-pos-scorecard-and-the-weekly-reviewers-read-its-weekly-view.md) — The panel reads the Mini POS scorecard, and the weekly reviewers read its weekly view · *(ticket · BackOffice spec 4063)* · **open** · blocked by: BO 4075

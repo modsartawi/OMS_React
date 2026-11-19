@@ -14,7 +14,7 @@ export interface KeyedCode {
 }
 
 /**
- * A code typed by hand when the camera cannot read a damaged label (spec 4032 story 14), or typed by a hardware
+ * A code typed by hand when the camera cannot read a damaged label (spec 4063 story 14), or typed by a hardware
  * scanner (the keyboard wedge): the same field, told apart by how fast it was keyed. Enter or Add sends it.
  */
 export default function KeyedCodeField({
@@ -28,7 +28,7 @@ export default function KeyedCodeField({
   disabled?: boolean
   onCode: (code: KeyedCode) => void
 }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const [value, setValue] = useState('')
   const wedge = useRef(createWedge())
 

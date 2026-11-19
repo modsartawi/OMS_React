@@ -1,5 +1,5 @@
 /**
- * The GS1 element string a phone reads off a serialised pack's DataMatrix (spec 4032, ticket 916), parsed the way the
+ * The GS1 element string a phone reads off a serialised pack's DataMatrix (spec 4063, ticket 916), parsed the way the
  * 3709 prototype parsed it: `(01)` GTIN-14, `(17)` expiry, `(10)` batch and `(21)` serial. Fixed-length AIs read their
  * length; `(10)` and `(21)` run to the group separator (`<GS>`, 0x1D) or to the end.
  *

@@ -23,7 +23,7 @@ import SignInScreen from './SignInScreen'
 import SubmittedScreen from './SubmittedScreen'
 
 /**
- * The Mini POS phone app (BackOffice spec 4032, oms ticket 916): sign in → (not assigned today | unlock) → basket →
+ * The Mini POS phone app (BackOffice spec 4063, oms ticket 916): sign in → (not assigned today | unlock) → basket →
  * submitted. 🚩 THE PHONE DECIDES NOTHING. Which screen comes next is the door's answer (`doorScreenFor`): the phone
  * asks to open a basket, and the server says whether this promoter is assigned today, has unlocked at the pharmacy, or
  * may sell. The store, the promoter and every price are the server's.
@@ -47,7 +47,7 @@ const basketKey = (transactionId: string) => ['minipos', 'basket', transactionId
 const BASKET_SCOPE = { id: 'minipos-basket' }
 
 export default function MiniPosPhonePage() {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const queryClient = useQueryClient()
   const [screen, setScreen] = useState<Screen>(() => (phoneSession() ? { kind: 'starting' } : { kind: 'signIn' }))
   const [refusal, setRefusal] = useState<ShownRefusal | null>(null)

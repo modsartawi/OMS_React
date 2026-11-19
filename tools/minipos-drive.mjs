@@ -1,4 +1,4 @@
-// Drive: the Mini POS phone app (oms 916, BackOffice spec 4032) against a stubbed SIS.Api, at phone size.
+// Drive: the Mini POS phone app (oms 916, BackOffice spec 4063) against a stubbed SIS.Api, at phone size.
 //
 // Proves the wiring the unit tests cannot: the two-step mobile sign-in, the door's answer choosing the screen (not
 // assigned today; unlock), the basket's typed add carrying its entry mode with the channel key and the bearer, a

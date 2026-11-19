@@ -20,7 +20,7 @@ export default function ScannerView({
   /** While a verb is running, reads are dropped rather than queued behind it. */
   paused?: boolean
 }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const video = useRef<HTMLVideoElement>(null)
   const scanner = useRef<BarcodeScanner | null>(null)
   const latest = useRef({ onRead, paused })

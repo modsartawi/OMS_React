@@ -5,13 +5,13 @@ import type { SessionState } from '@/core/models/callcenter'
 
 /**
  * 🚩 THE CUSTOMER STEP'S SEAM (oms 917). The server refuses pricing until a loyalty member is attached
- * (`NO_CUSTOMER_ATTACHED`, BackOffice 4039), and taking the customer (mobile, Arbahi QR, sign-up) is ticket 917's.
+ * (`NO_CUSTOMER_ATTACHED`, BackOffice 4070), and taking the customer (mobile, Arbahi QR, sign-up) is ticket 917's.
  * Until then the basket shows who the server says is attached, and the refusal says the rest. 917 replaces this slot
  * with the step that finds and attaches the member, and puts it between the unlock and the basket in
  * `MiniPosPhonePage`'s flow.
  */
 export default function CustomerSlot({ state }: { state: SessionState }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const customer = state.header.customer
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">

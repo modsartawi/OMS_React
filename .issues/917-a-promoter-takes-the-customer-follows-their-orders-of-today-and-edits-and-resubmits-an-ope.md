@@ -1,7 +1,7 @@
 ---
 status: open
-spec: BO 4032 (E:\Projects\BackOffice\.issues\4032-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
-blocked-by: BO 4039, BO 4040, 916
+spec: BO 4063 (E:\Projects\BackOffice\.issues\4063-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
+blocked-by: BO 4070, BO 4071, 916
 ---
 
 # 917 — A promoter takes the customer, follows their orders of today, and edits and resubmits an open order
@@ -17,12 +17,12 @@ The rest of the phone flow:
 
 ## Spine reach
 
-UI (PWA) → BackOffice SIS.Api (4039, 4040)
+UI (PWA) → BackOffice SIS.Api (4070, 4071)
 
 ## Proof (→ `tdd` red-green cycles)
 
 - [ ] Component: customer required before the basket; refusal while held; no double submit offline · vitest
-- [ ] Live walk against a SIS.Api with 4039/4040
+- [ ] Live walk against a SIS.Api with 4070/4071
 
 ## Boundaries
 
@@ -34,4 +34,4 @@ The full phone flow works end to end against a test pharmacy.
 
 ## Blocked by
 
-BO [4039](E:\Projects\BackOffice\.issues\4039-pricing-needs-a-member-a-new-mobile-signs-up-at-the-pharmacy-and-the-customer-gets-the-ord.md), BO [4040](E:\Projects\BackOffice\.issues\4040-a-promoter-edits-and-resubmits-their-open-order-and-the-edit-is-refused-while-a-till-holds.md), [916](916-a-promoter-installs-the-mini-pos-app-signs-in-unlocks-at-the-pharmacy-scans-a-basket-and-s.md)
+BO [4070](E:\Projects\BackOffice\.issues\4070-pricing-needs-a-member-a-new-mobile-signs-up-at-the-pharmacy-and-the-customer-gets-the-ord.md), BO [4071](E:\Projects\BackOffice\.issues\4071-a-promoter-edits-and-resubmits-their-open-order-and-the-edit-is-refused-while-a-till-holds.md), [916](916-a-promoter-installs-the-mini-pos-app-signs-in-unlocks-at-the-pharmacy-scans-a-basket-and-s.md)

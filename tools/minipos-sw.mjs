@@ -1,4 +1,4 @@
-// The Mini POS phone app's service worker (BackOffice spec 4032, oms 916), emitted by the build.
+// The Mini POS phone app's service worker (BackOffice spec 4063, oms 916), emitted by the build.
 //
 // The phone app is the second Vite entry (`minipos/index.html`, served at `/minipos/`). Its worker precaches the app
 // shell — the entry's HTML, every chunk and stylesheet it reaches, statically or by a dynamic import (the scanner

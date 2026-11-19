@@ -60,7 +60,7 @@ function versionAsset(): Plugin {
 // prod client uses base `/` (see src/core/api.ts, issue 435).
 export default defineConfig({
   plugins: [react(), tailwindcss(), versionAsset(), miniPosServiceWorker()],
-  // Two apps, one build: the OMS portal, and the Mini POS phone app at /minipos/ (BackOffice spec 4032, oms 916) with
+  // Two apps, one build: the OMS portal, and the Mini POS phone app at /minipos/ (BackOffice spec 4063, oms 916) with
   // its manifest (public/minipos/) and its service worker (tools/minipos-sw.mjs).
   build: {
     rolldownOptions: {

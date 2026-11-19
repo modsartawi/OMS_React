@@ -1,5 +1,5 @@
 /**
- * A Code 128 encoder for the order number the submitted screen shows (spec 4032 story 22): the cashier scans it off the
+ * A Code 128 encoder for the order number the submitted screen shows (spec 4063 story 22): the cashier scans it off the
  * phone with "Find in Orders", which reads the plain document number. Code 128 because every till scanner reads it and
  * a document number is all digits, which code set C packs two to a symbol, so the bars stay wide on a phone screen.
  *

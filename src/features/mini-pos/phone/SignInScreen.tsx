@@ -10,12 +10,12 @@ import RefusalBanner from './RefusalBanner'
 import { readRefusal, type ShownRefusal } from './refusal'
 
 /**
- * Sign in on the Ua `mobile` channel: username and password, then the authenticator code (spec 4032 story 1). The
+ * Sign in on the Ua `mobile` channel: username and password, then the authenticator code (spec 4063 story 1). The
  * server answers each step in the body (`success`, `requiresTotp`, `mustChangePassword`), and a failed step is a
  * message, not a throw. The token it mints is what every Mini POS call then carries.
  */
 export default function SignInScreen({ onSignedIn }: { onSignedIn: (session: PhoneSession) => void }) {
-  const { t } = useTranslation('minipos')
+  const { t } = useTranslation('mini-pos-phone')
   const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
   const [totp, setTotp] = useState('')

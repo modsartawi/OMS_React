@@ -4,8 +4,8 @@ import { newRequestId } from '@/core/engine-session/request-id'
 import { phoneHeaders } from './phone-session'
 
 /**
- * The Mini POS phone's server calls (spec 4032, ticket 916): the Ua two-step login on the `mobile` channel, then the
- * `MiniPos/*` door (BackOffice 4034, 4036, 4038). Every call carries the channel key and the mobile bearer; no body
+ * The Mini POS phone's server calls (spec 4063, ticket 916): the Ua two-step login on the `mobile` channel, then the
+ * `MiniPos/*` door (BackOffice 4065, 4067, 4069). Every call carries the channel key and the mobile bearer; no body
  * carries a store, a promoter, a seat or an amount, because the server decides them all (3706 P15).
  *
  * The session verbs are the call-center web session's under the Mini POS seat, so they answer the same projection
@@ -36,7 +36,7 @@ export interface MiniPosUnlocked {
   unlockedAt: string
 }
 
-/** How the code on an add reached the phone (the scan event, BackOffice 4042). */
+/** How the code on an add reached the phone (the scan event, BackOffice 4073). */
 export type EntryMode = 'camera' | 'typed' | 'wedge'
 
 export interface AddItemInput {

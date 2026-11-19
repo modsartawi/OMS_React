@@ -51,7 +51,8 @@ function OpenedList({ id }: { id: string }) {
         {t('list.loading')}
       </p>
     )
-  if (!list.data)
+  // A failed re-read (the list deleted or unshared since) is shown over the copy already held, never behind it.
+  if (list.isError || !list.data)
     return (
       <div data-item-list-failed="">
         <ErrorBanner message={apiErrorMessage(list.error, t('list.failed'))} />

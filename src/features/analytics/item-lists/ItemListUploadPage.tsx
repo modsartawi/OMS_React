@@ -63,7 +63,7 @@ function Reupload({ id }: { id: string }) {
         {t('list.loading')}
       </p>
     )
-  if (!list.data) return <ErrorBanner message={apiErrorMessage(list.error, t('upload.loadFailed'))} />
+  if (list.isError || !list.data) return <ErrorBanner message={apiErrorMessage(list.error, t('upload.loadFailed'))} />
   const can = itemListActions(permissions, userId, list.data)
   return (
     <div className="flex flex-col gap-4">

@@ -18,6 +18,14 @@ export type TierWrite =
   | { key: 'reassign'; owner: string }
   | { key: Exclude<TierActionKey, 'share' | 'narrow' | 'reassign'> }
 
+/**
+ * 926: an item list's page, versions and folders are read through the item-lists feature's keys (`ITEM_LISTS_KEY`,
+ * `itemListKey`, named by value: a feature may not import another). Its tier writes re-read them, and a delete drops
+ * the list's own.
+ */
+const ITEM_LISTS_KEY = ['analytics', 'itemLists'] as const
+const itemListKeyOf = (id: string) => [...ITEM_LISTS_KEY, 'one', id] as const
+
 /** The toast's key: an audience change on a Shared item (826) says so, not "shared with everyone". */
 const doneKey = (w: TierWrite, tier: AnalyticsItem['tier']): string =>
   w.key === 'share' ? (tier === 'personal' ? ('everyone' in w.audience ? 'share' : 'shareChosen') : 'audience') : w.key
@@ -45,6 +53,7 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
     void queryClient.invalidateQueries({ queryKey: analyticsBoardKey(id) })
     // 834: a report is read through its own key.
     void queryClient.invalidateQueries({ queryKey: analyticsReportKey(id) })
+    void queryClient.invalidateQueries({ queryKey: ITEM_LISTS_KEY })
   }
 
   const mutation = useMutation({
@@ -75,6 +84,7 @@ export function useItemTier(item: AnalyticsItem | AnalyticsBoard | AnalyticsRepo
         queryClient.removeQueries({ queryKey: analyticsItemKey(item.id) })
         queryClient.removeQueries({ queryKey: analyticsBoardKey(item.id) })
         queryClient.removeQueries({ queryKey: analyticsReportKey(item.id) })
+        queryClient.removeQueries({ queryKey: itemListKeyOf(item.id) })
         return
       }
       reread(item.id)

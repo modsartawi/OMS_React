@@ -56,9 +56,8 @@ machine value in `Ltr`, in the dialog only.
   a name; no patient key is not a reveal; a bad reason is never sent; a refusal passes through), `reveal-contract` (a
   source contract: the dialog names no query or mutation hook or client and no storage, console, toast or address sink;
   no other file of the feature names `patientKey` or `memberId`), `reveal-i18n` (every `reveal.*` key the dialog names
-  exists in EN and AR; both say the reveal is logged). Full suite: 11,407 of 11,410 on a machine held at 100% CPU by
-  the parallel slices; the 3 misses were timeouts in unrelated files (`core/util/copy-text`, `admin/data-sync`
-  create-helpers, `collection/settlement` search), which pass on their own (44/44).
+  exists in EN and AR; both say the reveal is logged). Full suite green after merging `spec/4050-insurance-patterns`:
+  11,410 of 11,410 (an earlier run with the machine at 100% CPU timed out 3 unrelated tests, which passed alone).
 - **Drive** `tools/insurance-patterns-reveal-drive.mjs`: **53/53** on the real app against 922's stubs, with its own
   reveal door chained after `patternsDoors`. No button for an analyst (also with the manager and block keys), "no
   access" for the investigator key alone. The send is held at 0, 9 and 9-with-spaces characters and past 250, its reason

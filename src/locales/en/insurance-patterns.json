@@ -288,6 +288,7 @@
         "speed": "Speed",
         "travel": "Travel signal",
         "notOnMap": "Not on the map",
+        "offMap": "Legs the map cannot draw (a store without coordinates):",
         "none": "No legs: fewer than two counter dispenses."
       }
     },

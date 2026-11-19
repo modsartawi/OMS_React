@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { PatternCaseDetail, PatternDispense, PatternLeg } from '@/core/models/insurance-patterns'
-import { caseRoute, LEG_TONE, routeLegs, type RouteWords } from './route'
+import { caseRoute, LEG_TONE, legsBesideMap, routeLegs, type RouteWords } from './route'
 
 const NEVER = '0001-01-01T00:00:00'
 
@@ -200,5 +200,19 @@ describe('the legs as a table (when the map cannot draw)', () => {
       [3, 7004, '5060', '1001', true],
       [4, 7005, '1001', '4090', false],
     ])
+  })
+})
+
+describe('the legs listed beside the route (review 9: no leg appears nowhere)', () => {
+  it('with no map to read them on, every leg, numbered in time order', () => {
+    expect(legsBesideMap(routeLegs(detail()), false).map((r) => r.n)).toEqual([1, 2, 3, 4])
+  })
+
+  it('beside a map, the legs it cannot draw: the leg to the store without coordinates, keeping its number', () => {
+    expect(legsBesideMap(routeLegs(detail()), true).map((r) => [r.n, r.from?.storeCode, r.to?.storeCode])).toEqual([[4, '1001', '4090']])
+  })
+
+  it('beside a map that draws every leg, none', () => {
+    expect(legsBesideMap(routeLegs(detail({ legs: [LEG_1, LEG_2, LEG_3] })), true)).toEqual([])
   })
 })

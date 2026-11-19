@@ -90,6 +90,15 @@ export function routeLegs(detail: RouteSource): RouteLegRow[] {
     }))
 }
 
+/**
+ * The legs listed under the route (review 9), so no leg the server sent is nowhere: every leg when there is no map to
+ * read them on (it cannot draw, or has nothing to draw), else the legs the map does not draw (a store without
+ * coordinates). Each keeps its number, so the list and the map count alike.
+ */
+export function legsBesideMap(rows: readonly RouteLegRow[], onMap: boolean): RouteLegRow[] {
+  return onMap ? rows.filter((r) => !r.drawn) : [...rows]
+}
+
 /** The case as the map draws it. */
 export function caseRoute(detail: RouteSource, words: RouteWords): CaseRoute {
   const places = placesOf(detail)

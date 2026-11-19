@@ -8,7 +8,7 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair, formatParts, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { caseRoute, routeLegs, type RouteLegRow, type RouteWords } from './route'
+import { caseRoute, legsBesideMap, routeLegs, type RouteLegRow, type RouteWords } from './route'
 import { unitWords } from './words'
 
 /**
@@ -18,7 +18,7 @@ import { unitWords } from './words'
  *
  * When the map cannot draw — no `maps` part on the case (a guessed BackOffice ask), Google refusing the key, Google
  * unreachable — the legs show as a table instead, numbered as on the map: the screen stays usable. A store without
- * coordinates is listed under the map.
+ * coordinates is listed under the map, and so are the legs the map cannot draw for it (review 9), with their numbers.
  */
 export default function CaseRouteSection({ detail }: { detail: PatternCaseDetail }) {
   const { t } = useTranslation('insurance-patterns')
@@ -47,6 +47,8 @@ export default function CaseRouteSection({ detail }: { detail: PatternCaseDetail
   const [failedWith, setFailedWith] = useState<string | null>(null)
   const cannotDraw = failedWith !== null && failedWith === key
   const nothingToDraw = route.points.length === 0
+  const onMap = !cannotDraw && !nothingToDraw
+  const listed = legsBesideMap(legRows, onMap)
 
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" aria-labelledby="pattern-route-title" data-testid="pattern-route">
@@ -82,7 +84,7 @@ export default function CaseRouteSection({ detail }: { detail: PatternCaseDetail
           ))}
         </p>
       )}
-      {(cannotDraw || nothingToDraw) && <LegsTable rows={legRows} />}
+      {onMap ? listed.length > 0 && <LegsTable rows={listed} title={t('case.route.legs.offMap')} /> : <LegsTable rows={listed} />}
     </section>
   )
 }
@@ -110,8 +112,11 @@ function Legend() {
   )
 }
 
-/** The legs as a table: every leg the server sent, numbered as on the map. */
-function LegsTable({ rows }: { rows: RouteLegRow[] }) {
+/**
+ * The legs as a table, numbered as on the map: every leg the server sent, or — under a map, `title` naming them — the
+ * legs it cannot draw.
+ */
+function LegsTable({ rows, title }: { rows: RouteLegRow[]; title?: string }) {
   const { t } = useTranslation('insurance-patterns')
   const units = unitWords(t)
   if (rows.length === 0)
@@ -130,42 +135,49 @@ function LegsTable({ rows }: { rows: RouteLegRow[] }) {
       </span>
     )
   return (
-    <div className="overflow-auto">
-      <table className="w-full text-sm" aria-label={t('case.route.legs.title')} data-testid="pattern-legs">
-        <thead className="text-xs text-muted-foreground">
-          <tr>
-            <th className={`${TH} text-end`}>{t('case.route.legs.n')}</th>
-            <th className={TH}>{t('case.route.legs.from')}</th>
-            <th className={TH}>{t('case.route.legs.to')}</th>
-            <th className={`${TH} text-end`}>{t('case.route.legs.km')}</th>
-            <th className={TH}>{t('case.route.legs.time')}</th>
-            <th className={`${TH} text-end`}>{t('case.route.legs.speed')}</th>
-            <th className={TH}>{t('case.route.legs.travel')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={`${r.leg.fromEventId}-${r.leg.toEventId}`} className="border-t border-border/60" data-testid="pattern-leg" data-travel={r.leg.travel}>
-              <td className={`${TD} text-end tabular-nums`}>
-                <Ltr>{r.n}</Ltr>
-              </td>
-              <td className={TD}>{end(r.from)}</td>
-              <td className={TD}>{end(r.to)}</td>
-              <td className={`${TD} text-end`}>{r.leg.km !== null && <bdi>{units.km(r.leg.km)}</bdi>}</td>
-              <td className={TD}>
-                <bdi>{units.duration(r.leg.minutes)}</bdi>
-              </td>
-              <td className={`${TD} text-end`}>{r.leg.kmPerHour !== null && <bdi>{units.speed(r.leg.kmPerHour)}</bdi>}</td>
-              <td className={TD}>
-                <span className="flex flex-wrap gap-1">
-                  {r.leg.travel && <StatusBadge sev="warn">{t('signal.travel')}</StatusBadge>}
-                  {!r.drawn && <StatusBadge sev="mute">{t('case.route.legs.notOnMap')}</StatusBadge>}
-                </span>
-              </td>
+    <div className="flex flex-col gap-1">
+      {title && (
+        <p className="text-xs text-muted-foreground" data-testid="pattern-legs-off-map">
+          {title}
+        </p>
+      )}
+      <div className="overflow-auto">
+        <table className="w-full text-sm" aria-label={title ?? t('case.route.legs.title')} data-testid="pattern-legs">
+          <thead className="text-xs text-muted-foreground">
+            <tr>
+              <th className={`${TH} text-end`}>{t('case.route.legs.n')}</th>
+              <th className={TH}>{t('case.route.legs.from')}</th>
+              <th className={TH}>{t('case.route.legs.to')}</th>
+              <th className={`${TH} text-end`}>{t('case.route.legs.km')}</th>
+              <th className={TH}>{t('case.route.legs.time')}</th>
+              <th className={`${TH} text-end`}>{t('case.route.legs.speed')}</th>
+              <th className={TH}>{t('case.route.legs.travel')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.leg.fromEventId}-${r.leg.toEventId}`} className="border-t border-border/60" data-testid="pattern-leg" data-travel={r.leg.travel}>
+                <td className={`${TD} text-end tabular-nums`}>
+                  <Ltr>{r.n}</Ltr>
+                </td>
+                <td className={TD}>{end(r.from)}</td>
+                <td className={TD}>{end(r.to)}</td>
+                <td className={`${TD} text-end`}>{r.leg.km !== null && <bdi>{units.km(r.leg.km)}</bdi>}</td>
+                <td className={TD}>
+                  <bdi>{units.duration(r.leg.minutes)}</bdi>
+                </td>
+                <td className={`${TD} text-end`}>{r.leg.kmPerHour !== null && <bdi>{units.speed(r.leg.kmPerHour)}</bdi>}</td>
+                <td className={TD}>
+                  <span className="flex flex-wrap gap-1">
+                    {r.leg.travel && <StatusBadge sev="warn">{t('signal.travel')}</StatusBadge>}
+                    {!r.drawn && <StatusBadge sev="mute">{t('case.route.legs.notOnMap')}</StatusBadge>}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

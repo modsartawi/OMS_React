@@ -12,7 +12,7 @@ import { analyticsApi, analyticsQueryKey } from './api'
 import { pointOf } from './drill'
 import { drilledDefinition, effectiveQuery, panelKey, panelPeriod, queryKeyOf, type BoardContext, type CrossFilter, type DrillStep, type ViewPanel } from './effective-query'
 import PanelActions from './PanelActions'
-import PanelBody, { bodyState } from './PanelBody'
+import PanelBody, { bodyState, shownAnswer } from './PanelBody'
 import PanelDrill from './PanelDrill'
 import { useFullscreen, useScrollToPanel } from './panel-hooks'
 import { panelMarks, panelPermalink, refusedParam, retiredMembers } from './panel-state'
@@ -199,8 +199,11 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
   }, [onParamNotice, panel.id, fellBackNames, invalid])
   useEffect(() => (onParamNotice ? () => onParamNotice(panel.id, { fellBack: [], invalid: null }) : undefined), [onParamNotice, panel.id])
   const unfiltered = useMemo(
-    () => (answer.data ? notFilteredBy(context.params, context.values, answer.data.notReached ?? [], role) : []),
-    [answer.data, context.params, context.values, role],
+    () => {
+      const data = shownAnswer(answer.data, answer.error)
+      return data ? notFilteredBy(context.params, context.values, data.notReached ?? [], role) : []
+    },
+    [answer.data, answer.error, context.params, context.values, role],
   )
 
   // 777: a view deleted from under the board is a "view removed" panel; the rest of the board keeps working.
@@ -233,7 +236,8 @@ function ViewPanelCard({ panel, item, itemError, context, model, lang, onFetchin
     )
   }
 
-  const result = answer.data
+  // 926: a list that is gone hands no figures to the actions or the marks.
+  const result = shownAnswer(answer.data, answer.error)
   const title = viewTitleOf(item, model, lang, t)
   return (
     <Card

@@ -8,7 +8,7 @@ import Button from '@/core/ui/Button'
 import { apiErrorCode, apiErrorData } from '@/core/api'
 import { fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
-import { panelFailure, panelShows, refusalField, unavailableReason } from './panel-state'
+import { figuresOf, panelFailure, panelShows, refusalField, unavailableReason } from './panel-state'
 import { panelTable } from './panel-table'
 import Refused, { RefusalText } from './Refused'
 import AreaNotes, { useAreaNoteWords, useTableWords } from './AreaNotes'
@@ -52,6 +52,9 @@ export function bodyState(result: AnalyticsQueryResult | undefined, error: unkno
 }
 
 const failureOf = (error: unknown) => panelFailure(apiErrorCode(error), refusalField(apiErrorData(error)))
+
+/** The answer shown around a panel's body: none once its item list is gone (926, `figuresOf`). */
+export const shownAnswer = (data: AnalyticsQueryResult | undefined, error: unknown) => figuresOf(error ? failureOf(error) : null, data)
 
 export default function PanelBody({
   result,

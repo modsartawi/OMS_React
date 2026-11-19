@@ -134,6 +134,14 @@ export function panelShows(failure: PanelFailure | null, result: AnalyticsQueryR
 }
 
 /**
+ * The answer a panel hands everything around its body — the actions (CSV, XLSX, PNG, table), the marks, the as-of and
+ * the period line: none once the list is gone (`panelShows`), so nothing exports or describes figures read through it.
+ */
+export function figuresOf(failure: PanelFailure | null, result: AnalyticsQueryResult | undefined): AnalyticsQueryResult | undefined {
+  return panelShows(failure, result) === 'listGone' ? undefined : result
+}
+
+/**
  * The members a definition names that the model no longer holds (766 §B: "a definition that still names a
  * removed member renders a 'this measure was retired' panel and never fails the board"), measures first.
  * Such a panel is not asked at all: it shows the retired state while the rest of the board runs.

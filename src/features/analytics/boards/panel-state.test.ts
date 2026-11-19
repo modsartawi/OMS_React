@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fetchedAgo, isBehind, ITEM_LIST_GONE, mayStillRise, panelFailure, panelMarks, panelPermalink, panelShows, retiredMembers, unavailableReason } from './panel-state'
+import { fetchedAgo, figuresOf, isBehind, ITEM_LIST_GONE, mayStillRise, panelFailure, panelMarks, panelPermalink, panelShows, retiredMembers, unavailableReason } from './panel-state'
 import type { AnalyticsModel, AnalyticsQueryResult, AnalyticsViewDefinition } from '@/core/models/analytics'
 
 const now = new Date('2026-11-05T10:00:00')
@@ -178,5 +178,12 @@ describe('panel failure: the item list is not available (926)', () => {
     expect(panelShows('retry', undefined)).toBe('retry')
     expect(panelShows('refused', undefined)).toBe('refused')
     expect(panelShows(null, before)).toBe('figures')
+  })
+  it('the figures a panel hands its actions, marks and period line: none once the list is gone', () => {
+    const before = { rows: [{ till_sales: 1200 }] } as unknown as AnalyticsQueryResult
+    expect(figuresOf('listGone', before)).toBeUndefined()
+    expect(figuresOf('retry', before)).toBe(before)
+    expect(figuresOf(null, before)).toBe(before)
+    expect(figuresOf(null, undefined)).toBeUndefined()
   })
 })

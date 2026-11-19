@@ -20,7 +20,7 @@ import ItemHistory from './ItemHistory'
 import PinToggle from './PinToggle'
 import ItemTierActions from './ItemTierActions'
 import PanelActions from './PanelActions'
-import PanelBody, { bodyState } from './PanelBody'
+import PanelBody, { bodyState, shownAnswer } from './PanelBody'
 import { useFullscreen } from './panel-hooks'
 import { panelPermalink, retiredMembers } from './panel-state'
 import Refused from './Refused'
@@ -96,7 +96,8 @@ function ViewPanel({ item, model }: { item: AnalyticsItem; model: AnalyticsModel
 
   const title = viewTitleOf(item, model, lang, t)
   const subtitle = saysIn(item.subtitle, lang)
-  const result = answer.data
+  // 926: a list that is gone hands no figures to the actions, the as-of or the period line.
+  const result = shownAnswer(answer.data, answer.error)
   const period = result?.period ? formatRange(formatDay(result.period.from, lang), formatDay(result.period.to, lang)) : ''
 
   return (

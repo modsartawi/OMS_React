@@ -539,5 +539,33 @@
     "members_other": "{{count}} members",
     "closed": "This set can no longer be kept.",
     "full": "You already keep 10 named sets. Delete one on \"What the copilot knows about me\" to keep this one."
+  },
+  "itemLists": {
+    "used": "Item lists this answer used",
+    "openList": "Open the list",
+    "periodsTitle": "Sales by stated period",
+    "periodsHeading": "Sales per day by stated period ({{measure}})",
+    "measure": {
+      "units": "units",
+      "value": "value"
+    },
+    "member": "Item or group",
+    "perDayIn": "Per day, {{status}}",
+    "change": "Change",
+    "total": "Total",
+    "noPeriods": "no periods",
+    "status": {
+      "unavailable": "unavailable",
+      "blocked": "blocked",
+      "delisted": "delisted",
+      "limited": "limited supply",
+      "available": "available"
+    },
+    "overlap": {
+      "member": "<member>{{member}}</member>: the {{status}} period <period>{{period}}</period> overlaps <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>), so a season may read as a change.",
+      "memberOpen": "<member>{{member}}</member>: the {{status}} period from <period>{{period}}</period> overlaps <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>), so a season may read as a change.",
+      "total": "The {{status}} period <period>{{period}}</period> overlaps <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>), so a season may read as a change.",
+      "totalOpen": "The {{status}} period from <period>{{period}}</period> overlaps <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>), so a season may read as a change."
+    }
   }
 }

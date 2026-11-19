@@ -509,5 +509,33 @@
     "send": "إرسال",
     "stop": "إيقاف",
     "stopHint": "إيقاف هذه الإجابة. يعود سؤالك إلى المربع لتعدّله وترسله مرة أخرى."
+  },
+  "itemLists": {
+    "used": "قوائم الأصناف التي استخدمتها هذه الإجابة",
+    "openList": "فتح القائمة",
+    "periodsTitle": "المبيعات حسب الفترات المحددة",
+    "periodsHeading": "المبيعات اليومية حسب الفترات المحددة ({{measure}})",
+    "measure": {
+      "units": "الوحدات",
+      "value": "القيمة"
+    },
+    "member": "الصنف أو المجموعة",
+    "perDayIn": "لكل يوم، {{status}}",
+    "change": "التغير",
+    "total": "الإجمالي",
+    "noPeriods": "بلا فترات",
+    "status": {
+      "unavailable": "غير متوفر",
+      "blocked": "محظور",
+      "delisted": "ملغى إدراجه",
+      "limited": "توريد محدود",
+      "available": "متوفر"
+    },
+    "overlap": {
+      "member": "<member>{{member}}</member>: فترة «{{status}}» <period>{{period}}</period> تتداخل مع <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>)، فقد يبدو أثر الموسم تغيرًا.",
+      "memberOpen": "<member>{{member}}</member>: فترة «{{status}}» منذ <period>{{period}}</period> تتداخل مع <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>)، فقد يبدو أثر الموسم تغيرًا.",
+      "total": "فترة «{{status}}» <period>{{period}}</period> تتداخل مع <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>)، فقد يبدو أثر الموسم تغيرًا.",
+      "totalOpen": "فترة «{{status}}» منذ <period>{{period}}</period> تتداخل مع <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>)، فقد يبدو أثر الموسم تغيرًا."
+    }
   }
 }

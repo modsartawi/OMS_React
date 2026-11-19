@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 4050
 blocked-by: BO 4055, BO 4056, 922
 ---

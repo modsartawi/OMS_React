@@ -408,6 +408,12 @@ export const router = createBrowserRouter([
         path: 'mini-pos/items',
         lazy: async () => ({ Component: (await import('@/features/mini-pos/items/MiniPosItemsPage')).default }),
       },
+      // The Mini POS scorecard (oms 918, BackOffice 4075) - the panel's money test and the weekly review. Behind its own
+      // report grant, `MiniPosScorecard:03`.
+      {
+        path: 'mini-pos/scorecard',
+        lazy: async () => ({ Component: (await import('@/features/mini-pos/scorecard/MiniPosScorecardPage')).default }),
+      },
       // Stock health (oms 912, BackOffice spec 4011 / door 4012) - whether batch stock is in good shape, one tile per
       // signal, re-read every minute. Behind its own key, `StockHealth:03`.
       {

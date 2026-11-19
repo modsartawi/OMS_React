@@ -75,6 +75,7 @@ import { CloudDownload } from 'lucide-react'
 import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 import { CalendarClock, Smartphone } from 'lucide-react'
 import { canViewMiniPos } from '@/core/mini-pos/access'
+import { canOpenMiniPosScorecard } from '@/features/mini-pos/scorecard/access'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -434,6 +435,15 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/mini-pos/items',
         activePrefix: '/mini-pos/items',
         requires: canViewMiniPos,
+      },
+      {
+        // The scorecard (oms 918, BackOffice 4075): its own report grant, `MiniPosScorecard:03` - the panel's role and the
+        // lead's both carry it; `MiniPosAdmin:03` alone does not.
+        labelKey: 'mini-pos-assignments:menu.scorecard',
+        icon: Gauge,
+        routerLink: '/mini-pos/scorecard',
+        activePrefix: '/mini-pos/scorecard',
+        requires: canOpenMiniPosScorecard,
       },
     ],
   },

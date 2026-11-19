@@ -1,7 +1,7 @@
 /**
- * The Mini POS nav group (oms 915, BackOffice spec 4032): three leaves, each on `MiniPosAdmin:03` off the one permissions
- * answer, failing closed. `MiniPosAdmin:06` alone (or the promoter's `MiniPos:03`) opens nothing. Read out of the real
- * `MENU`, never re-declared.
+ * The Mini POS nav group (oms 915, BackOffice spec 4032): three leaves on `MiniPosAdmin:03` and the scorecard (oms 918) on
+ * its own `MiniPosScorecard:03`, off the one permissions answer, failing closed. `MiniPosAdmin:06` alone (or the
+ * promoter's `MiniPos:03`) opens nothing. Read out of the real `MENU`, never re-declared.
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
@@ -13,9 +13,9 @@ const labels = (items: ShellMenuItem[]): string[] => items.flatMap((i) => [i.lab
 const holding = (...screens: string[]) => permissionsOf({ screens })
 
 describe('the Mini POS nav group', () => {
-  it('has the three screens under /mini-pos, each gated', () => {
+  it('has the four screens under /mini-pos, each gated', () => {
     expect(group).toBeDefined()
-    expect(group!.items!.map((i) => i.routerLink)).toEqual(['/mini-pos/assignments', '/mini-pos/stores', '/mini-pos/items'])
+    expect(group!.items!.map((i) => i.routerLink)).toEqual(['/mini-pos/assignments', '/mini-pos/stores', '/mini-pos/items', '/mini-pos/scorecard'])
     for (const leaf of group!.items!) expect(isGated(leaf)).toBe(true)
   })
 
@@ -26,6 +26,14 @@ describe('the Mini POS nav group', () => {
       'mini-pos-assignments:menu.stores',
       'mini-pos-assignments:menu.items',
     ])
+  })
+
+  it('shows the scorecard alone for MiniPosScorecard:03 (the panel), and all four for the lead holding both', () => {
+    expect(labels(resolveMenu([group!], holding('MiniPosScorecard:03')).items)).toEqual([
+      'mini-pos-assignments:menu.group',
+      'mini-pos-assignments:menu.scorecard',
+    ])
+    expect(labels(resolveMenu([group!], holding('MiniPosAdmin:03', 'MiniPosScorecard:03')).items)).toHaveLength(5)
   })
 
   it('disappears for a denial, the manage key alone, the promoter key, an error and pending', () => {

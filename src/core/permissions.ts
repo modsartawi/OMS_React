@@ -162,6 +162,8 @@ export const SCREEN_KEYS = [
   // Mini POS (BackOffice spec 4032, ticket 4043; role OMS_MINIPOS_ADMIN): 03 reads, 06 writes and the printed code
   'MiniPosAdmin:03',
   'MiniPosAdmin:06',
+  // Mini POS scorecard (BackOffice 4075; role OMS_MINIPOS_SCORECARD, and the lead's OMS_MINIPOS_ADMIN): the report
+  'MiniPosScorecard:03',
 ] as const
 
 /**

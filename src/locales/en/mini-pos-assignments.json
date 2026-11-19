@@ -3,7 +3,8 @@
     "group": "Mini POS",
     "assignments": "Assignments",
     "stores": "Pharmacies",
-    "items": "Items"
+    "items": "Items",
+    "scorecard": "Scorecard"
   },
   "title": "Mini POS assignments",
   "subtitle": "Which promoter works at which pharmacy, on which days and for how many hours a day.",

@@ -205,6 +205,9 @@ import miniPosStores from '@/locales/en/mini-pos-stores.json'
 import miniPosStoresAr from '@/locales/ar/mini-pos-stores.json'
 import miniPosItems from '@/locales/en/mini-pos-items.json'
 import miniPosItemsAr from '@/locales/ar/mini-pos-items.json'
+// The Mini POS scorecard (oms 918, BackOffice 4075): the panel's money test and the weekly review, English and Arabic.
+import miniPosScorecard from '@/locales/en/mini-pos-scorecard.json'
+import miniPosScorecardAr from '@/locales/ar/mini-pos-scorecard.json'
 // The insurance-rules area (BackOffice spec 3126, oms 607): every one of its namespaces, English and Arabic,
 // is registered in `@/core/insurance-rules/locales` — a later slice edits THAT file, never this one.
 import { INSURANCE_RULES_AR, INSURANCE_RULES_EN, INSURANCE_RULES_NS } from '@/core/insurance-rules/locales'
@@ -279,7 +282,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -367,6 +370,7 @@ i18n.use(initReactI18next).init({
       'mini-pos-assignments': miniPosAssignments,
       'mini-pos-stores': miniPosStores,
       'mini-pos-items': miniPosItems,
+      'mini-pos-scorecard': miniPosScorecard,
       ...INSURANCE_RULES_EN,
     },
     ar: {
@@ -420,6 +424,7 @@ i18n.use(initReactI18next).init({
       'mini-pos-assignments': miniPosAssignmentsAr,
       'mini-pos-stores': miniPosStoresAr,
       'mini-pos-items': miniPosItemsAr,
+      'mini-pos-scorecard': miniPosScorecardAr,
       callcenter: callcenterAr,
       boards: boardsAr,
       copilot: copilotAr,

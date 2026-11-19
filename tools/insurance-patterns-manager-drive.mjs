@@ -15,7 +15,7 @@
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { permissions } from './permissions-stub.mjs'
-import { CLEARED_CASE, envelope, generatedCase, KEYS, patternsDoors, patternsState, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
+import { businessRefusal, CLEARED_CASE, envelope, generatedCase, KEYS, patternsDoors, patternsState, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
 import { managerDoors, managerState, PLANTED } from './insurance-patterns-manager-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -34,11 +34,29 @@ const check = (name, pass, detail = '') => {
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '')
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const planted = (text) => text.includes(PLANTED.patientKey) || text.includes(PLANTED.memberId) || text.includes(PLANTED.patientKey.slice(3))
+/** Whether a wait ended in time: a review check must fail, not stop the drive, when what it waits for never comes. */
+const settles = (promise) => promise.then(() => true, () => false)
+const apiPath = (req) => decodeURIComponent(new URL(req.url()).pathname.split('/api/')[1] ?? '')
 
 async function run() {
   // A loaded machine (parallel worktrees driving their own browsers) can take minutes to start Chromium.
   const browser = await chromium.launch({ timeout: 600000 })
   const errors = []
+  /** How often the app read its permissions (a 403 makes it read them again). */
+  const seen = { permissions: 0 }
+
+  /**
+   * One request handled on purpose (spec 4050 review): the next request `match` accepts is held until `release()` (a slow
+   * server) when `held`, and answered with `answer` instead of the stubs when given. `arrived` resolves once it is in.
+   */
+  const special = []
+  const once = (match, { answer = null, held = false } = {}) => {
+    const s = { match, answer, used: false }
+    s.released = held ? new Promise((r) => (s.release = r)) : Promise.resolve()
+    s.arrived = new Promise((r) => (s.arrive = r))
+    special.push(s)
+    return s
+  }
 
   /** A page signed in with `keys`, 922's doors and this slice's chained over `patterns` and `mine`. */
   const open = async (patterns, mine, { keys = [KEYS.manager], dir = 'ltr' } = {}) => {
@@ -56,7 +74,17 @@ async function run() {
       const req = route.request()
       const path = decodeURIComponent(new URL(req.url()).pathname.split('/api/')[1])
       if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-      if (path === 'Auth/Permissions') return route.fulfill(permissions(keys))
+      if (path === 'Auth/Permissions') {
+        seen.permissions++
+        return route.fulfill(permissions(keys))
+      }
+      const s = special.find((x) => !x.used && x.match(req))
+      if (s) {
+        s.used = true
+        s.arrive()
+        await s.released
+        if (s.answer) return route.fulfill(s.answer)
+      }
       return route.fulfill(doors.reduce((answer, door) => answer ?? door(req), null) ?? envelope({}))
     })
     return page
@@ -364,6 +392,151 @@ async function run() {
   const dateBoxes = await page.locator('[data-testid=pattern-block-dialog] input[type=date]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().x))
   check('RTL: the start stands right of the end', dateBoxes[0] > dateBoxes[1], JSON.stringify(dateBoxes))
   await page.screenshot({ path: join(SHOT_DIR, '924-block-dialog-rtl-ar.png') })
+  await page.close()
+
+  const blockDialogOpen = (p) => p.evaluate(() => document.querySelector('[data-testid=pattern-block-dialog]')?.closest('dialog')?.open === true)
+
+  // ── 10. Review 3: a bare 403 on Block — the dialog stays to say why, and names the grants ──────────────────────────
+  special.length = 0
+  patterns = blockScenario()
+  mine = managerState()
+  const blockKeys = [KEYS.analyst, KEYS.investigator, KEYS.block]
+  page = await open(patterns, mine, { keys: blockKeys })
+  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.click('[data-testid=pattern-block-open]')
+  await page.waitForSelector('[data-testid=pattern-block-dialog]')
+  await page.selectOption('[data-testid=pattern-block-kind]', 'fraud')
+  // The grant is withdrawn on the server: its door answers a bare 403 (the grant filter, no envelope), and the next read
+  // of the permissions says so.
+  mine.blockAnswer = { status: 403, contentType: 'text/plain', body: '' }
+  blockKeys.splice(blockKeys.indexOf(KEYS.block), 1)
+  const permissionReads = seen.permissions
+  await page.click('[data-testid=pattern-block-confirm]')
+  await settles(page.waitForFunction(() => document.querySelectorAll('[data-testid=pattern-block-open]').length === 0, null, { timeout: 10000 }))
+  await page.waitForTimeout(400)
+  const denied = strip(await page.evaluate(() => document.querySelector('[data-testid=pattern-block-dialog]')?.textContent ?? ''))
+  check(
+    'a bare 403 on Block: the permissions are read again and the action goes, while the dialog stays open to say why',
+    seen.permissions > permissionReads && (await page.locator('[data-testid=pattern-block-open]').count()) === 0 && (await blockDialogOpen(page)),
+    JSON.stringify({ permissionReads, now: seen.permissions }),
+  )
+  check(
+    '…naming the two grants a block needs, not "Unexpected API error (HTTP 403)"',
+    denied.includes('The server refused: adding the patient to the blocked-patient list needs the insurance pattern investigator grant and the change grant of the blocked-patient list.') && !denied.includes('HTTP 403'),
+    denied,
+  )
+  check('…and nobody is on the page', !planted(strip(await page.textContent('body'))))
+  await page.close()
+
+  // ── 11. Review 2: a block in flight cannot be closed by a double Escape ─────────────────────────────────────────────
+  // Chromium's close watcher lets a page refuse ONE Escape without a click or key between: the second `cancel` cannot be
+  // prevented and the browser closes the dialog itself, while the app still holds it open.
+  special.length = 0
+  patterns = blockScenario()
+  mine = managerState()
+  page = await open(patterns, mine, { keys: [KEYS.analyst, KEYS.investigator, KEYS.block] })
+  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.click('[data-testid=pattern-block-open]')
+  await page.waitForSelector('[data-testid=pattern-block-dialog]')
+  await page.selectOption('[data-testid=pattern-block-kind]', 'abuse')
+  const slowBlock = once((r) => r.method() === 'POST' && /\/Block$/.test(apiPath(r)), { held: true })
+  await page.click('[data-testid=pattern-block-confirm]')
+  await slowBlock.arrived
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  check('a block in flight: a double Escape leaves its dialog open', await blockDialogOpen(page))
+  slowBlock.release()
+  await page.waitForSelector('[data-sonner-toast]:has-text("Added to the blocked-patient list")')
+  await settles(page.waitForSelector('[data-testid=pattern-block-dialog]', { state: 'detached', timeout: 6000 }))
+  check('…and once added, the dialog closes as ever, the action still offered', (await page.locator('[data-testid=pattern-block-dialog]').count()) === 0 && (await page.locator('[data-testid=pattern-block-open]').count()) === 1)
+  await page.close()
+
+  // ── 12. Review 5: an emptied page of the reveal log falls back to its last page ─────────────────────────────────────
+  special.length = 0
+  patterns = patternsState()
+  mine = managerState()
+  page = await open(patterns, mine)
+  await page.goto(REVEALS + '?user=investigator2&page=3')
+  await waitUntil(() => lastReveals(mine).user === 'investigator2')
+  const fellBack = await settles(page.waitForFunction(() => !new URL(location.href).searchParams.has('page'), null, { timeout: 8000 }))
+  await waitUntil(() => lastReveals(mine).skip === '0')
+  check(
+    'an emptied page past the first falls back to the last page (page 1): its 10 rows, no "no reveal matches"',
+    fellBack && same(lastReveals(mine), { user: 'investigator2', skip: '0', take: '25' }) && (await page.locator('[data-testid=reveals-row]').count()) === 10 && (await page.locator('[data-testid=reveals-empty]').count()) === 0,
+    JSON.stringify({ fellBack, last: lastReveals(mine), url: page.url() }),
+  )
+  await page.close()
+
+  // ── 13. Review 6: a save answered with only what it changed blanks no field, and the settings are read again ───────
+  special.length = 0
+  patterns = patternsState()
+  mine = managerState({ putAnswer: 'changed-only' })
+  page = await open(patterns, mine)
+  await page.goto(SETTINGS)
+  await page.waitForSelector('[data-testid=pattern-settings-form]')
+  await page.fill(field('WindowDays'), '12')
+  await page.click('[data-testid=pattern-settings-save]')
+  await page.waitForSelector('[data-sonner-toast]:has-text("Settings saved")')
+  await waitUntil(() => mine.calls.settingsGet >= 2, 4000)
+  await page.waitForTimeout(300)
+  const afterPartial = await page.locator('[data-testid=pattern-setting]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-setting'), e.value]))
+  check(
+    'a save answered with only the threshold it changed blanks no field: all seven read their saved values',
+    same(afterPartial, [['WindowDays', '12'], ['MinStores', '3'], ['MaxKmPerHour', '120'], ['MinTravelKm', '50'], ['OverlapShare', '0.25'], ['CaseQuietDays', '30'], ['LookbackDays', '90']]),
+    JSON.stringify(afterPartial),
+  )
+  check('…and the settings are read again after the save', mine.calls.settingsGet >= 2, String(mine.calls.settingsGet))
+  await page.close()
+
+  // ── 14. Review 8: a value typed while a save is in flight is kept ────────────────────────────────────────────────────
+  special.length = 0
+  patterns = patternsState()
+  mine = managerState()
+  page = await open(patterns, mine)
+  await page.goto(SETTINGS)
+  await page.waitForSelector('[data-testid=pattern-settings-form]')
+  const slowPut = once((r) => r.method() === 'PUT' && apiPath(r) === 'Insurance/Patterns/Settings', { held: true })
+  await page.fill(field('CaseQuietDays'), '45')
+  await page.click('[data-testid=pattern-settings-save]')
+  await slowPut.arrived
+  await page.fill(field('LookbackDays'), '120')
+  slowPut.release()
+  await settles(page.waitForFunction(() => document.querySelector('[data-setting=CaseQuietDays]')?.getAttribute('data-changed') === 'false', null, { timeout: 8000 }))
+  await page.waitForTimeout(300)
+  check('the save sent only what was typed before it', same(mine.calls.settingsPut.at(-1)?.body, { settings: [{ name: 'CaseQuietDays', value: 45 }] }), JSON.stringify(mine.calls.settingsPut))
+  check(
+    'a value typed while a save was in flight is kept, still marked changed, not wiped by the save',
+    (await page.inputValue(field('LookbackDays'))) === '120' && (await page.getAttribute(field('LookbackDays'), 'data-changed')) === 'true',
+    `${await page.inputValue(field('LookbackDays'))} changed=${await page.getAttribute(field('LookbackDays'), 'data-changed')}`,
+  )
+  check('…and the value saved reads saved, no longer marked changed', (await page.inputValue(field('CaseQuietDays'))) === '45' && (await page.getAttribute(field('CaseQuietDays'), 'data-changed')) === 'false')
+  await page.close()
+
+  // ── 15. Review 7: a failed re-read after a save keeps the form, with a banner and Read again ──────────────────────────
+  special.length = 0
+  patterns = patternsState()
+  mine = managerState()
+  page = await open(patterns, mine)
+  await page.goto(SETTINGS)
+  await page.waitForSelector('[data-testid=pattern-settings-form]')
+  once((r) => r.method() === 'GET' && apiPath(r) === 'Insurance/Patterns/Settings', {
+    answer: businessRefusal('SETTINGS_BUSY', 'The settings store is busy; try again in a minute.', 503),
+  })
+  await page.fill(field('MinTravelKm'), '60')
+  await page.click('[data-testid=pattern-settings-save]')
+  await page.waitForSelector('[data-sonner-toast]:has-text("Settings saved")')
+  const staleShown = await settles(page.waitForSelector('[data-testid=pattern-settings-stale]', { timeout: 6000 }))
+  check(
+    'a failed re-read after a save keeps the form on screen, with a banner saying it could not be read again',
+    staleShown && (await page.locator('[data-testid=pattern-settings-form]').count()) === 1 && strip(await page.textContent('[data-testid=pattern-settings-stale]')).includes('The settings store is busy; try again in a minute.'),
+  )
+  if (staleShown) {
+    const getsBefore = mine.calls.settingsGet
+    await page.click('[data-testid=pattern-settings-retry]')
+    await settles(page.waitForSelector('[data-testid=pattern-settings-stale]', { state: 'detached', timeout: 6000 }))
+    check('"Read again" reads the settings and the banner goes, the saved value in place', mine.calls.settingsGet > getsBefore && (await page.locator('[data-testid=pattern-settings-stale]').count()) === 0 && (await page.inputValue(field('MinTravelKm'))) === '60')
+  } else check('"Read again" reads the settings and the banner goes, the saved value in place', false, 'no banner to read again from')
   await page.close()
 
   check('no page errors', errors.length === 0, errors.join(' | '))

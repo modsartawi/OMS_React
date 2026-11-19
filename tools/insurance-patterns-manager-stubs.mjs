@@ -63,7 +63,9 @@ export function revealRows() {
 
 /**
  * The manager doors' state for one scenario. `settingsRefusal` / `blockRefusal`: `{ code, message }` to refuse the next
- * save or block. `calls` records what the app sent.
+ * save or block. `blockAnswer`: a raw fulfil argument the block door answers instead while set (a bare 403). `putAnswer`:
+ * `'changed-only'` answers a save with only the thresholds it changed (a server answering less than the GET).
+ * `calls` records what the app sent.
  */
 export function managerState(over = {}) {
   return {
@@ -75,6 +77,8 @@ export function managerState(over = {}) {
     reveals: revealRows(),
     settingsRefusal: null,
     blockRefusal: null,
+    blockAnswer: null,
+    putAnswer: 'all',
     user: 'msartawi',
     clock: 0,
     calls: { settingsGet: 0, settingsPut: [], reveals: [], blocks: [] },
@@ -125,6 +129,11 @@ export function managerDoors(patterns, mine) {
         mine.changes.push({ name, oldValue: s.value, newValue: value, by: mine.user, at: stamp(mine) })
         s.value = value
       }
+      if (mine.putAnswer === 'changed-only') {
+        const sent = new Set((body.settings ?? []).map((s) => s.name))
+        const answer = settingsAnswer(mine)
+        return envelope({ ...answer, settings: answer.settings.filter((s) => sent.has(s.name)) })
+      }
       return envelope(settingsAnswer(mine))
     }
     if (path === 'Insurance/Patterns/Reveals' && method === 'GET') {
@@ -143,6 +152,7 @@ export function managerDoors(patterns, mine) {
     if (m && method === 'POST') {
       const body = JSON.parse(request.postData() || '{}')
       mine.calls.blocks.push({ caseId: m[1], body, csrf })
+      if (mine.blockAnswer) return mine.blockAnswer
       if (mine.blockRefusal) return businessRefusal(mine.blockRefusal.code, mine.blockRefusal.message)
       const d = patterns.details.get(m[1])
       if (!d) return businessRefusal('CASE_NOT_FOUND', 'No case has this id.', 404)

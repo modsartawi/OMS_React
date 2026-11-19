@@ -15,7 +15,7 @@
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { permissions } from './permissions-stub.mjs'
-import { businessRefusal, envelope, KEYS, patternsDoors, patternsState, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
+import { businessRefusal, CLEARED_CASE, envelope, KEYS, patternsDoors, patternsState, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -38,6 +38,21 @@ const check = (name, pass, detail = '') => {
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '')
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const leaks = (text) => SECRETS.filter((s) => (text ?? '').includes(s))
+/** Whether a wait ended in time: a review check must fail, not stop the drive, when what it waits for never comes. */
+const settles = (promise) => promise.then(() => true, () => false)
+
+/**
+ * Requests held back on purpose (spec 4050 review: a slow server): the next request `match` accepts waits until
+ * `release()`; `arrived` resolves once it is in.
+ */
+const held = []
+const hold = (match) => {
+  const h = { match, used: false }
+  h.released = new Promise((r) => (h.release = r))
+  h.arrived = new Promise((r) => (h.arrive = r))
+  held.push(h)
+  return h
+}
 
 /**
  * The reveal door (BackOffice 4053, guessed): `POST Insurance/Patterns/Cases/{caseId}/Reveal` `{ reason }` →
@@ -84,6 +99,12 @@ async function run() {
       if (path === 'Auth/Permissions') {
         access.reads++
         return route.fulfill(permissions(access.keys))
+      }
+      const h = held.find((x) => !x.used && x.match(req))
+      if (h) {
+        h.used = true
+        h.arrive()
+        await h.released
       }
       return route.fulfill(doors(req) ?? reveal(req) ?? envelope({}))
     })
@@ -302,6 +323,56 @@ async function run() {
   await page.waitForSelector(dialog, { state: 'detached' })
   where = await lingering(page)
   check('RTL: closed, the patient is nowhere', leaked(where).length === 0, leaked(where).join(' | '))
+  await page.close()
+
+  // ── 7. Review 1: a reveal dialog never follows the reader to another case ────────────────────────────────────────
+  // PC-000099 is read (and cached), then Back to PC-000123, the dialog opened with a reason, then Forward: the page is
+  // reused for the cached case. A dialog still open there would post the reason to the OTHER case's Reveal.
+  state = newState()
+  access = investigator()
+  page = await open(state, access)
+  await page.goto(CASE)
+  await page.waitForSelector('[data-testid=pattern-reveal-open]')
+  await page.click(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseId}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.goBack()
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${TRAVEL_CASE.caseId}"]`)
+  await openDialog(page)
+  await page.fill('[data-testid=pattern-reveal-reason]', REASON)
+  await page.goForward()
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.waitForTimeout(300)
+  check('another case starts afresh: the reveal dialog opened on the last case closes with it', (await page.locator(dialog).count()) === 0, strip(await page.evaluate(() => document.querySelector('dialog')?.textContent ?? '')).slice(0, 120))
+  check('…and no reveal was sent, to either case', state.reveals.length === 0, JSON.stringify(state.reveals))
+  await page.close()
+
+  // ── 8. Review 2: a reveal in flight cannot be closed by a double Escape ─────────────────────────────────────────
+  // Chromium's close watcher lets a page refuse ONE Escape without a click or key between: the second `cancel` cannot be
+  // prevented and the browser closes the dialog itself, while the app still holds it open.
+  state = newState()
+  access = investigator()
+  page = await open(state, access)
+  await page.goto(CASE)
+  await openDialog(page)
+  await page.fill('[data-testid=pattern-reveal-reason]', REASON)
+  const slow = hold((r) => r.method() === 'POST' && /\/Reveal$/.test(new URL(r.url()).pathname))
+  await page.click('[data-testid=pattern-reveal-send]')
+  await slow.arrived
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  const revealDialogOpen = () => page.evaluate(() => document.querySelector('[data-testid=pattern-reveal]')?.closest('dialog')?.open === true)
+  check('a reveal in flight: a double Escape leaves the dialog open', await revealDialogOpen())
+  slow.release()
+  await page.waitForFunction(() => document.querySelector('[data-testid=pattern-reveal]')?.getAttribute('data-step') === 'shown')
+  const shownOpen = await settles(page.waitForSelector('dialog[open] [data-testid=pattern-reveal-patient-key]', { state: 'visible', timeout: 4000 }))
+  check('…the answer lands in the dialog on screen, the patient shown there', shownOpen)
+  if (shownOpen) {
+    await page.click('[data-testid=pattern-reveal-close]')
+    await page.waitForSelector(dialog, { state: 'detached' })
+    await openDialog(page)
+    check('…and "Show patient" opens the dialog again after', (await step(page)) === 'asking' && (await revealDialogOpen()))
+  } else check('…and "Show patient" opens the dialog again after', false, 'the dialog the answer landed in is not on screen')
   await page.close()
 
   check('no page errors', errors.length === 0, errors.join(' | '))

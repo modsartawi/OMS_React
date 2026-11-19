@@ -13,7 +13,7 @@
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { permissions } from './permissions-stub.mjs'
-import { CLEARED_CASE, envelope, KEYS, patternsDoors, patternsState, standInGoogle, STORES, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
+import { businessRefusal, CLEARED_CASE, envelope, KEYS, patternsDoors, patternsState, standInGoogle, STORES, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -31,11 +31,27 @@ const check = (name, pass, detail = '') => {
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '')
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const placeOf = (code) => ({ lat: STORES[code].lat, lng: STORES[code].lon })
+/** Whether a wait ended in time: a review check must fail, not stop the drive, when what it waits for never comes. */
+const settles = (promise) => promise.then(() => true, () => false)
+const apiPath = (req) => decodeURIComponent(new URL(req.url()).pathname.split('/api/')[1] ?? '')
 
 async function run() {
   const browser = await chromium.launch()
   const errors = []
   const googleAsked = []
+
+  /**
+   * One request handled on purpose (spec 4050 review): the next request `match` accepts is held until `release()` (a slow
+   * server) when `held`, and answered with `answer` instead of the stub when given. `arrived` resolves once it is in.
+   */
+  const special = []
+  const once = (match, { answer = null, held = false } = {}) => {
+    const s = { match, answer, used: false }
+    s.released = held ? new Promise((r) => (s.release = r)) : Promise.resolve()
+    s.arrived = new Promise((r) => (s.arrive = r))
+    special.push(s)
+    return s
+  }
 
   /** A page signed in with `keys`, the pattern doors stubbed from `state`, Google stood in when the case has a key. */
   const open = async (state, { keys = [KEYS.analyst], dir = 'ltr' } = {}) => {
@@ -56,6 +72,13 @@ async function run() {
       const path = decodeURIComponent(new URL(req.url()).pathname.split('/api/')[1])
       if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
       if (path === 'Auth/Permissions') return route.fulfill(permissions(keys))
+      const s = special.find((x) => !x.used && x.match(req))
+      if (s) {
+        s.used = true
+        s.arrive()
+        await s.released
+        if (s.answer) return route.fulfill(s.answer)
+      }
       return route.fulfill(doors(req) ?? envelope({}))
     })
     return page
@@ -146,7 +169,18 @@ async function run() {
   check('Clear filters empties the address and asks with no filter', same(lastList(state), { skip: '0', take: '25' }) && (await page.inputValue('[data-testid=patterns-filter-store]')) === '')
   await page.goto(LIST + '?signal=overlap&status=cleared&page=2')
   await waitUntil(() => lastList(state).signal === 'overlap')
-  check('a pasted address is read back as filters and page', same(lastList(state), { signal: 'overlap', status: 'cleared', skip: '25', take: '25' }), JSON.stringify(lastList(state)))
+  // Asked as pasted (the page falls back once the answer is in: review 5, below), so any read of it counts.
+  const pasted = { signal: 'overlap', status: 'cleared', skip: '25', take: '25' }
+  check('a pasted address is read back as filters and page', state.calls.list.some((c) => same(c.query, pasted)), JSON.stringify(lastList(state)))
+  // Review 5: nine cases match, so page 2 is empty. It falls back to the last page (page 1), never "no case matches"
+  // beside a count of 9 with no pager to leave by.
+  const clamped = await settles(page.waitForFunction(() => !new URL(location.href).searchParams.has('page'), null, { timeout: 8000 }))
+  await waitUntil(() => lastList(state).skip === '0')
+  check(
+    'an emptied page past the first falls back to the last page (page 1): its rows, no "no case matches"',
+    clamped && same(lastList(state), { signal: 'overlap', status: 'cleared', skip: '0', take: '25' }) && (await page.locator('[data-testid=patterns-row]').count()) === 9 && (await page.locator('[data-testid=patterns-empty]').count()) === 0,
+    JSON.stringify({ clamped, last: lastList(state), url: page.url() }),
+  )
   await page.close()
 
   // ── 4. The case screen, the map drawn by the real adapter on a stand-in Google ─────────────────────────────────
@@ -298,6 +332,97 @@ async function run() {
   check('RTL: the filters read right to left (store first)', filterBoxes[0] > filterBoxes[1], JSON.stringify(filterBoxes))
   check('RTL: the count reads in Arabic', strip(await page.textContent('[data-testid=patterns-count]')) === '62 حالة', strip(await page.textContent('[data-testid=patterns-count]')))
   await page.screenshot({ path: join(SHOT_DIR, '922-insurance-pattern-list-rtl-ar.png'), fullPage: true })
+  await page.close()
+
+  // ── 11. Review 9 and 4: beside a drawn map, the leg it cannot draw; two nearby stores stay two points ─────────────
+  state = patternsState({ maps: MAPS })
+  page = await open(state)
+  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
+  const offMap = (await page.locator('[data-testid=pattern-leg]').allTextContents()).map(strip)
+  check(
+    'beside a drawn map, the leg it cannot draw (to the store without coordinates) is listed, numbered 4 as in time order',
+    offMap.length === 1 && offMap[0].startsWith('4') && offMap[0].includes('4090 · Qurtubah (new)') && offMap[0].includes('Not on the map'),
+    JSON.stringify(offMap),
+  )
+  // Olaya and Malaz are 5.6 km apart: at the fitted zoom they would join under one opaque group disc, over their legs.
+  await page.click(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseId}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
+  const marks = await page.locator('[data-map-markers] [data-feature]').evaluateAll((els) => els.map((e) => e.getAttribute('data-feature')))
+  check('a route never joins its stores into a group: two stores 5.6 km apart are two points, their legs readable', same(marks, ['point', 'point']), JSON.stringify(marks))
+  check('…and the two legs between them read on the map', same((await page.locator('[data-map-line]').allTextContents()).map(strip), ['1 · 5.6 km · 1 d 20 h\n2 · 5.6 km · 2 d 13 h']))
+
+  // ── 12. Review 1: another case starts afresh — nothing typed on one case is carried to the next ─────────────────
+  // PC-000099 is cached now. Back to PC-000123, a draft typed, then Forward: the page is reused for the cached case.
+  await page.goBack()
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${TRAVEL_CASE.caseId}"]`)
+  await page.selectOption('[data-testid=pattern-mark-status]', 'confirmed')
+  await page.fill('[data-testid=pattern-mark-note]', 'A draft typed on PC-000123.')
+  await page.goForward()
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  check(
+    'another case starts afresh: the mark drafted on the last case is not carried to it',
+    (await page.inputValue('[data-testid=pattern-mark-note]')) === '' && (await page.inputValue('[data-testid=pattern-mark-status]')) === '',
+    JSON.stringify([await page.inputValue('[data-testid=pattern-mark-status]'), await page.inputValue('[data-testid=pattern-mark-note]')]),
+  )
+  await page.close()
+
+  // ── 13. Review 10: a case opened at an address with its id padded is read again after a mark ─────────────────────
+  state = patternsState()
+  page = await open(state)
+  await page.goto(`${LIST}/%20${TRAVEL_CASE.caseId}`)
+  await page.waitForSelector('[data-testid=pattern-case][data-status=open]')
+  let readsBefore = state.calls.detail.length
+  await page.selectOption('[data-testid=pattern-mark-status]', 'watching')
+  await page.fill('[data-testid=pattern-mark-note]', 'Opened from a pasted link with a space in it.')
+  await page.click('[data-testid=pattern-mark-save]')
+  await page.waitForSelector('[data-sonner-toast]:has-text("Mark saved")')
+  const reread = await settles(page.waitForFunction(() => document.querySelector('[data-testid=pattern-case]')?.getAttribute('data-status') === 'watching', null, { timeout: 6000 }))
+  check('a case opened at a padded address is read again after a mark: it reads Watching', reread && state.calls.detail.length > readsBefore, JSON.stringify({ reread, reads: state.calls.detail }))
+  await page.close()
+
+  // ── 14. Review 8 and 7: a note typed while a mark saves is kept; a failed re-read keeps the case ─────────────────
+  special.length = 0
+  state = patternsState()
+  page = await open(state)
+  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.waitForSelector('[data-testid=pattern-case][data-status=open]')
+  const markPost = once((r) => r.method() === 'POST' && /\/Marks$/.test(apiPath(r)), { held: true })
+  await page.selectOption('[data-testid=pattern-mark-status]', 'confirmed')
+  await page.fill('[data-testid=pattern-mark-note]', 'First note.')
+  await page.click('[data-testid=pattern-mark-save]')
+  await markPost.arrived
+  const later = 'A second thought, typed while the first was saving.'
+  await page.fill('[data-testid=pattern-mark-note]', later)
+  markPost.release()
+  await page.waitForSelector('[data-sonner-toast]:has-text("Mark saved")')
+  await settles(page.waitForFunction(() => document.querySelector('[data-testid=pattern-case]')?.getAttribute('data-status') === 'confirmed', null, { timeout: 6000 }))
+  await page.waitForTimeout(300)
+  const noteNow = () => page.evaluate(() => document.querySelector('[data-testid=pattern-mark-note]')?.value ?? null)
+  check('the mark saved is the note sent, not the one typed after', state.calls.marks.at(-1)?.body.note === 'First note.', JSON.stringify(state.calls.marks.at(-1)))
+  check('a note typed while a mark was saving is kept, not wiped by the save', (await noteNow()) === later, String(await noteNow()))
+
+  // The case's re-read after the next mark fails: the case stays on screen, as last read.
+  const failedRead = once((r) => r.method() === 'GET' && /^Insurance\/Patterns\/Cases\/[^/]+$/.test(apiPath(r)), {
+    answer: businessRefusal('CASES_BUSY', 'The case store is busy; try again in a minute.', 503),
+  })
+  await page.selectOption('[data-testid=pattern-mark-status]', 'watching')
+  await page.fill('[data-testid=pattern-mark-note]', 'Asked the payer for the claims.')
+  await page.click('[data-testid=pattern-mark-save]')
+  await settles(Promise.race([failedRead.arrived, new Promise((_, no) => setTimeout(no, 6000))]))
+  await page.waitForTimeout(400)
+  const stale = await settles(page.waitForSelector('[data-testid=pattern-case-stale]', { timeout: 6000 }))
+  check(
+    'a failed re-read keeps the case on screen, with a banner saying it could not be read again',
+    stale && (await page.locator('[data-testid=pattern-case]').count()) === 1 && strip(await page.textContent('[data-testid=pattern-case-stale]')).includes('The case store is busy; try again in a minute.'),
+  )
+  if (stale) {
+    readsBefore = state.calls.detail.length
+    await page.click('[data-testid=pattern-case-retry]')
+    await settles(page.waitForSelector('[data-testid=pattern-case-stale]', { state: 'detached', timeout: 6000 }))
+    check('"Read again" reads the case: it reads Watching and the banner goes', state.calls.detail.length > readsBefore && (await page.getAttribute('[data-testid=pattern-case]', 'data-status')) === 'watching' && (await page.locator('[data-testid=pattern-case-stale]').count()) === 0)
+  } else check('"Read again" reads the case: it reads Watching and the banner goes', false, 'no banner to read again from')
   await page.close()
 
   check('no page errors', errors.length === 0, errors.join(' | '))

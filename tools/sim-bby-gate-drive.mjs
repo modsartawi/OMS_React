@@ -82,6 +82,29 @@ const DETAIL = {
  */
 let accessState = 'granted'
 
+// ---- ticket 921 (spec 4040): the minimum's basis. Stubbed against the spec's contract — the
+// engine result (BackOffice 4041) carries `minValueInclVat` on a potential bonus buy, and the
+// detail header (4044) carries it too; an older engine/server sends no field (reads off).
+let simVariant = 'capture'
+const PREREQ_921 = {
+  prereqNumber: '1', materialNumber: null, matGrouping: 'PANADOL', requiredQty: 0, foundQty: 0,
+  minValue: 40, foundValue: 12.5, isMet: false,
+}
+const CAPTURE_921 = {
+  ...CAPTURE,
+  potentialBonusBuys: [
+    ...CAPTURE.potentialBonusBuys,
+    { ...CAPTURE.potentialBonusBuys[0], bbyNumber: '000100000901', description: 'Spend 100 incl. VAT, 10% off',
+      minValue: 100, minValueInclVat: true, prerequisites: [PREREQ_921], discount: { discountType: '%', value: 10, conditionType: 'ZB12' } },
+    { ...CAPTURE.potentialBonusBuys[0], bbyNumber: '000100000902', description: 'Spend 100 excl. VAT, 10% off',
+      minValue: 100, minValueInclVat: false, prerequisites: [PREREQ_921], discount: { discountType: '%', value: 10, conditionType: 'ZB12' } },
+  ],
+}
+const HEADERS_921 = {
+  '000100000901': { minValue: 100, maxValue: 0, minValueInclVat: true },
+  '000100000902': { minValue: 100, maxValue: 0, minValueInclVat: false },
+}
+
 async function run() {
   const browser = await chromium.launch()
   // 1600 px: the work area clears the 900 px container breakpoint, so the rail sits
@@ -107,12 +130,12 @@ async function run() {
       )
     if (p === 'Auth/Permissions')
       return route.fulfill(permissions(['PosSimulation:03', ...(accessState === 'granted' ? ['BbyInquiry:03'] : [])]))
-    if (p === 'Pricing/Simulate') return route.fulfill(envelope(CAPTURE))
+    if (p === 'Pricing/Simulate') return route.fulfill(envelope(simVariant === '921' ? CAPTURE_921 : CAPTURE))
     if (p === 'Bby/Detail') {
       detailCalls++
       lastDetailBby = new URL(route.request().url()).searchParams.get('bbyNumber')
       return route.fulfill(
-        envelope({ ...DETAIL, header: { ...DETAIL.header, bbyNumber: lastDetailBby } }),
+        envelope({ ...DETAIL, header: { ...DETAIL.header, bbyNumber: lastDetailBby, ...(HEADERS_921[lastDetailBby] ?? {}) } }),
       )
     }
     return route.fulfill(envelope({}))
@@ -290,6 +313,48 @@ async function run() {
   await page.keyboard.press('Escape')
   await page.waitForTimeout(250)
   check('closing the near-miss modal returns to the basket too', (await dialog().count()) === 0)
+
+  // ============================================================== 921 · the minimum's basis
+  simVariant = '921'
+  accessState = 'granted'
+  await runBasket()
+  const missedCard = (bby) => rail().locator(`[data-promo-card="missed"][data-bby="${bby}"]`)
+  const readMissed = async (bby) => {
+    const card = missedCard(bby)
+    await card.locator('button[aria-expanded]').click()
+    await page.waitForTimeout(150)
+    const line = card.locator('[data-missed-minimum]')
+    return {
+      basis: await line.getAttribute('data-missed-minimum').catch(() => null),
+      text: (await line.innerText().catch(() => '')).replace(/[⁦-⁩]/g, ''),
+      meter: (await card.locator('[role="progressbar"]').locator('..').innerText().catch(() => '')).replace(/[⁦-⁩]/g, ''),
+    }
+  }
+  const m1 = await readMissed('000100000901')
+  check('921: the marked near-miss reads "Basket minimum 100.00 incl. VAT"', m1.basis === 'incl-vat' && m1.text === 'Basket minimum 100.00 incl. VAT', m1.text)
+  check('921: ...and its prerequisite meter stays unlabelled', /40\.00/.test(m1.meter) && !/VAT/.test(m1.meter), m1.meter.replace(/\n/g, ' '))
+  const m2 = await readMissed('000100000902')
+  check('921: the unmarked near-miss reads "Basket minimum 100.00", no basis', m2.basis === 'plain' && m2.text === 'Basket minimum 100.00', m2.text)
+  const m0 = await missedCard(CAPTURE.potentialBonusBuys[0].bbyNumber).locator('[data-missed-minimum]').count()
+  check('921: a near-miss with no header minimum shows no minimum line', m0 === 0, `${m0} line(s)`)
+  const minMaxFrom = async (bby) => {
+    await missedCard(bby).locator('[data-bby-details]').click()
+    // "Header & rules" opens collapsed; the Min / Max line lives inside it.
+    await dialog().locator('button[aria-expanded="false"]', { hasText: 'Header & rules' }).click({ timeout: 5000 }).catch(() => {})
+    await dialog().locator('[data-bby-min-max]').waitFor({ timeout: 5000 }).catch(() => {})
+    const line = dialog().locator('[data-bby-min-max]')
+    const out = {
+      basis: await line.getAttribute('data-bby-min-max').catch(() => null),
+      text: (await line.innerText().catch(() => '')).replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ').trim(),
+    }
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(250)
+    return out
+  }
+  const d1 = await minMaxFrom('000100000901')
+  check('921: its detail modal reads "100.00 / — SAR (incl. VAT)"', d1.basis === 'incl-vat' && /\(incl\. VAT\)$/.test(d1.text), d1.text)
+  const d2 = await minMaxFrom('000100000902')
+  check('921: the unmarked one\'s detail carries no basis', d2.basis === 'plain' && !/VAT/.test(d2.text), d2.text)
 
   check('no page errors while driving the gate', errors.length === 0, errors.join(' | '))
 

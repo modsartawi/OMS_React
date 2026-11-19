@@ -120,6 +120,11 @@ export interface MissedPromo {
   /** The first unmet prerequisite, or `null` when all were met but accumulation
    *  blocked it (see `skipReason`). */
   prereq: MissedPrereq | null
+  /** The bonus buy's HEADER minimum and its basis (spec 4040, ticket 921): `inclVat` reads the
+   *  engine result's `minValueInclVat`, absent = off. `null` when the header has no minimum.
+   *  Nested, not a bare number: it is a requirement, never a savings figure. The prerequisite's
+   *  own minimum (on `prereq`) is always excl. VAT and carries no basis. */
+  minimum: { value: number; inclVat: boolean } | null
   /** What the offer GIVES, as a definition — `20% off`, `both for 29.95` — resolved
    *  through the shared `@/core/promotions` wording rule and rendered with `t()`.
    *  `null` when the discount code did not classify, so the card falls back to the
@@ -369,6 +374,7 @@ function buildMissed(p: PotentialBonusBuy): MissedPromo {
           foundValue: driving.foundValue,
         }
       : null,
+    minimum: p.minValue > 0 ? { value: p.minValue, inclVat: p.minValueInclVat === true } : null,
     // The definition, not a total. `Pricing/Simulate`'s `PotentialDiscount` carries
     // no piece count and no free-goods ordinal, so the phrase resolves to its
     // count-less spelling here; the console's own payload (171) may carry more.

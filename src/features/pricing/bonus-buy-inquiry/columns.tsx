@@ -21,7 +21,7 @@ import {
   formatNumber,
 } from '@/core/bonus-buy/formatters'
 
-// The FULL 28-field BBY inquiry grid (spec 061, ticket 063) — the operator's
+// The FULL 29-field BBY inquiry grid (spec 061, ticket 063) — the operator's
 // scan/filter/export surface. All formatting/label logic lives in the pure
 // `formatters` + `codeLabels` modules (testable in-memory); the column defs only
 // wire those pure fns to `valueFormatter`s and small presentational renderers.
@@ -29,7 +29,7 @@ import {
 // Raw row values are NEVER mutated — every formatter is display-only — so CSV export
 // (065) still dumps the raw `yyyyMMdd` dates, `HHMMSS` times and single-letter codes.
 //
-// 28 columns: the pinned identity column (bbyNumber) + 27 columns across six groups —
+// 29 columns: the pinned identity column (bbyNumber) + 28 columns across six groups —
 // Identity & offer · Validity · Buy/Get rules · Stacking · Loyalty · Audit.
 
 /** Default per-column behaviour. `floatingFilter` (the WPF `ShowAutoFilterRow`) is
@@ -76,7 +76,7 @@ const codeChip =
    handle, the identity badge is the at-a-glance marker. */
 
 /** The pinned-start identity cell: status badge + "valid today" marker + BBY number +
- *  a Details ▸ action. The row stays readable while the operator scrolls the 27 other
+ *  a Details ▸ action. The row stays readable while the operator scrolls the 28 other
  *  columns (story 21). The Details button renders + is clickable here; slice 066 wires
  *  it to the modal. Colour is never the only channel — title/aria carry the marker. */
 function IdentityCell(
@@ -206,6 +206,8 @@ export function buildInquiryColumns(
         codeCol('linkCategoryGet', 'link', 120),
         numCol('limitNumber'),
         numCol('minValue'),
+        // Spec 4040: whether that minimum is measured incl. VAT (absent before BackOffice 4044 → –).
+        boolCol('minValueInclVat'),
         numCol('maxValue'),
         textCol('includes', 160),
         textCol('excludes', 160),

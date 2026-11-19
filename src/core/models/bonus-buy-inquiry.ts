@@ -26,6 +26,11 @@ export interface BbyInquiryRow {
   offerId: string
   limitNumber: number
   minValue: number
+  /**
+   * The minimum is measured including VAT (BackOffice spec 4040, read by BackOffice 4044). Spec 4040
+   * reading, reconcile when 4044 ships: a server before it sends no field, which reads as off.
+   */
+  minValueInclVat?: boolean
   maxValue: number
   condTargetType: string // R=Document / P / M / G
   includes: string
@@ -78,6 +83,11 @@ export interface BbyDetailDto {
     bbyStatus: string // blank/1/2/3, read through `readBbyStatus`
     condTargetType: string // R=Document -> total-discount layout
     minValue: number // doubles as the Document total-discount basket requirement
+    /**
+     * The minimum is measured including VAT (BackOffice spec 4040, read by BackOffice 4044). Spec 4040
+     * reading, reconcile when 4044 ships: a server before it sends no field, which reads as off.
+     */
+    minValueInclVat?: boolean
     maxValue: number
     limitNumber: number
     score: number

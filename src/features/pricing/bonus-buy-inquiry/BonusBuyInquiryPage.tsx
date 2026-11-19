@@ -37,7 +37,7 @@ import { exportBbyToCsv } from './export'
 // Reset restores the default.
 // The cap-reached amber banner warns when the 1,000-row cap truncated the result, and
 // date errors surface the server's message+code via `apiErrorMessage` (never "unexpected").
-// Export CSV (065) writes the current filtered/sorted set — all 28 raw fields.
+// Export CSV (065) writes the current filtered/sorted set — all 29 raw fields.
 // The two malformed/reversed-date business codes Bby/List returns (contract 057); their
 // server message is passed through, and the code drives a distinct "check the dates" title.
 const DATE_ERROR_CODES = new Set(['INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE'])

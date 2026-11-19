@@ -216,6 +216,10 @@ export interface PotentialBonusBuy {
   validFrom: string
   validTo: string
   minValue: number
+  /** The header minimum is measured including VAT (BackOffice spec 4040, carried by the engine
+   *  result in 4041). Spec reading, reconcile when 4041 ships: an older engine sends no field,
+   *  which reads as off. A prerequisite's own minimum is always excl. VAT and has no mark. */
+  minValueInclVat?: boolean
   maxValue: number
   remainingUsage: number
   skipReason: string | null

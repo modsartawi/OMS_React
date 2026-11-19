@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ChevronRight } from 'lucide-react'
 import Ltr from '@/core/ui/Ltr'
+import { fsi } from '@/core/util/bidi'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
 import { KIND_CHIP, MISS_GLYPH, PROMO_CARD_ROW } from './promo-kind'
@@ -178,6 +179,19 @@ function MissedRow({
       {/* Expanded — the found-vs-required meter + a plain-language reason. */}
       {expanded ? (
         <div className="border-t border-border/60 p-2.5">
+          {/* The header minimum with its basis (spec 4040, ticket 921): "incl. VAT" only when the
+              engine says the mark is on. The prerequisite meter below stays unlabelled — a
+              prerequisite's minimum is always excl. VAT. */}
+          {missed.minimum ? (
+            <p
+              data-missed-minimum={missed.minimum.inclVat ? 'incl-vat' : 'plain'}
+              className="mb-1.5 text-xs font-medium"
+            >
+              {t(missed.minimum.inclVat ? 'missed.minimumInclVat' : 'missed.minimum', {
+                value: fsi(formatMoney(missed.minimum.value)),
+              })}
+            </p>
+          ) : null}
           {missed.prereq ? (
             <PrereqMeter prereq={missed.prereq} t={t} />
           ) : (

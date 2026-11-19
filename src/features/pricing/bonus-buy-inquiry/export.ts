@@ -10,7 +10,7 @@ import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 //
 // "Current grid" = exactly what the operator sees: only the rows left after the active
 // per-column filters, in the active sort order (`exportDataAsCsv` walks
-// after-filter-and-sort by default). We export all 28 columns.
+// after-filter-and-sort by default). We export all 29 columns.
 //
 // RAW values, not display chips: every column's underlying value is the raw wire value
 // (063 rendered dates/codes with display-only formatters + cellRenderers, never mutating
@@ -26,7 +26,7 @@ import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 export function exportBbyToCsv(api: GridApi<BbyInquiryRow>, fileNameBase: string): void {
   api.exportDataAsCsv({
     fileName: fileName(fileNameBase),
-    // One clean header row of the 28 leaf fields — drop AG Grid's column-group header row.
+    // One clean header row of the 29 leaf fields — drop AG Grid's column-group header row.
     skipColumnGroupHeaders: true,
     // Raw values only — bypass the display valueFormatters so codes/dates export verbatim.
     processCellCallback: (params: ProcessCellForExportParams<BbyInquiryRow>) => {

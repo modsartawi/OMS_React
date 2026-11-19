@@ -164,7 +164,9 @@
     "reasonQty": "Basket has {{found}} of the {{required}} required.",
     "reasonValue": "Basket has {{found}} of the {{required}} minimum.",
     "skipReason": "Didn't fire: {{reason}}",
-    "noReason": "This promotion didn't fire for this basket."
+    "noReason": "This promotion didn't fire for this basket.",
+    "minimum": "Basket minimum {{value}}",
+    "minimumInclVat": "Basket minimum {{value}} incl. VAT"
   },
   "detail": {
     "rulesTitle": "Applied pricing rules",

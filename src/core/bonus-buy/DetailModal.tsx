@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Boxes, ChevronDown, Gift, Info, ShoppingCart, TriangleAlert } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { BbyDetailDto } from '@/core/models/bonus-buy-inquiry'
@@ -14,6 +15,7 @@ import GroupingMembersModal, { type GroupingTarget } from './GroupingMembersModa
 import { codeLabelKey, type CodeSet } from './codeLabels'
 import { formatAmount, formatBbyDate, formatBbyTime } from './formatters'
 import {
+  minMaxView,
   toDetailView,
   type DetailBuyRow,
   type DetailGetRow,
@@ -122,6 +124,7 @@ function DetailBody({
 }) {
   const { header, org } = view
   const currency = org.currency
+  const minMax = minMaxView(header, currency, t('detail.dash'))
   return (
     <div className="flex flex-col gap-5">
       <TitleRecap t={t} view={view} />
@@ -181,15 +184,16 @@ function DetailBody({
               <Chip>{codeText(t, 'link', header.linkCategoryGet)}</Chip>
             </span>
           </Def>
-          <Def
-            k={t('detail.rules.minMax')}
-            v={
-              header.minValue || header.maxValue
-                ? `${header.minValue ? formatAmount(header.minValue) : t('detail.dash')} / ${header.maxValue ? formatAmount(header.maxValue) : t('detail.dash')} ${currency}`
-                : ''
-            }
-            mono
-          />
+          <Def k={t('detail.rules.minMax')} mono>
+            {minMax ? (
+              <span data-bby-min-max={minMax.inclVat ? 'incl-vat' : 'plain'}>
+                {/* The amounts and currency are one machine value, isolated once; the basis
+                    is words in the page's own direction (spec 4040, ticket 921). */}
+                <Ltr>{minMax.amounts}</Ltr>
+                {minMax.inclVat ? <> <span className="font-sans">{t('detail.rules.inclVat')}</span></> : null}
+              </span>
+            ) : null}
+          </Def>
           <Def k={t('detail.rules.stackability')} v={stackabilityText(t, header)} />
           <Def k={t('detail.rules.score')} v={header.score != null ? String(header.score) : ''} mono />
 

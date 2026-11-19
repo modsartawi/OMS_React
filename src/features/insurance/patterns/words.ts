@@ -7,6 +7,7 @@ import type { TFunction } from 'i18next'
 import type { PatternStatus } from '@/core/models/insurance-patterns'
 import type { Severity } from '@/core/ui/severity'
 import { fsi } from '@/core/util/bidi'
+import { formatFigure } from '@/core/util/number-format'
 import { SEVERITIES, SIGNALS, STATUSES } from './filter'
 import { durationWords, kmFigure, speedFigure } from './units'
 
@@ -29,8 +30,8 @@ export const signalText = (t: TFunction, signal: string) => (known(SIGNALS, sign
 /** A severity in words; one the screen does not know is shown as sent. */
 export const severityText = (t: TFunction, severity: string) => (known(SEVERITIES, severity) ? t(`severity.${severity}`) : severity)
 
-/** A count for a plural sentence: `count` picks the form, `n` is the figure shown, isolated. */
-export const counted = (count: number) => ({ count, n: fsi(count) })
+/** A count for a plural sentence: `count` picks the form, `n` is the figure shown, grouped (`1,234`) and isolated. */
+export const counted = (count: number) => ({ count, n: fsi(formatFigure(count)) })
 
 /** Spans and distances in the screen's words. */
 export function unitWords(t: TFunction) {

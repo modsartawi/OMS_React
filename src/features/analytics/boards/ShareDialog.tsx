@@ -12,6 +12,7 @@ import Field from '@/core/ui/Field'
 import Modal from '@/core/ui/Modal'
 import MultiSelect from '@/core/ui/MultiSelect'
 import { fsi } from '@/core/util/bidi'
+import { shareRights } from './share-rights'
 import { analyticsRefusal, refusalWords } from './wire'
 
 const audienceSeed = (item: AnalyticsItem | AnalyticsBoard | AnalyticsReport) =>
@@ -55,6 +56,8 @@ export default function ShareDialog({
   const valid = mode === 'narrow' ? isNarrowing(before, draft) : !!write && (item.tier === 'personal' || changed)
   const refused = error ? refusalWords(analyticsRefusal(error, t('tierActions.failed')), t) : null
   const title = saysIn(item.title, i18n.language)
+  // 926: an item list's audience reads and exports it; a view's, board's or report's runs it.
+  const rights = shareRights(item.kind)
 
   return (
     <Modal
@@ -97,7 +100,7 @@ export default function ShareDialog({
               {t('share.canTitle')}
             </p>
             <ul className="list-disc ps-4 text-muted-foreground">
-              {(['run', 'params', 'export', 'link'] as const).map((k) => (
+              {rights.can.map((k) => (
                 <li key={k}>{t(`share.can.${k}`)}</li>
               ))}
             </ul>
@@ -108,7 +111,7 @@ export default function ShareDialog({
               {t('share.cannotTitle')}
             </p>
             <ul className="list-disc ps-4 text-muted-foreground">
-              {(['edit', 'ai', 'copy'] as const).map((k) => (
+              {rights.cannot.map((k) => (
                 <li key={k}>{t(`share.cannot.${k}`)}</li>
               ))}
             </ul>

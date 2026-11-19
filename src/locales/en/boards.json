@@ -917,7 +917,8 @@
         "body": {
           "view": "This analytics view stops being Certified, and leaves the Certified group on the home.",
           "board": "This board stops being Certified, and leaves the Certified group on the home.",
-          "report": "This report stops being Certified, and leaves the Certified group on the home."
+          "report": "This report stops being Certified, and leaves the Certified group on the home.",
+          "itemlist": "This item list stops being Certified, and leaves the Certified group on the home."
         }
       },
       "delete": {
@@ -925,7 +926,8 @@
         "body": {
           "view": "This analytics view is deleted for everyone who sees it. A board that shows it keeps a \"view removed\" panel.",
           "board": "This board is deleted for everyone who sees it. The analytics views on it are not deleted.",
-          "report": "This report is deleted for everyone who sees it, with its schedules. Its kept runs stay listed until they expire."
+          "report": "This report is deleted for everyone who sees it, with its schedules. Its kept runs stay listed until they expire.",
+          "itemlist": "This item list is deleted for everyone who sees it. A saved question that reads it shows \"list not available\"."
         },
         "usedBy": {
           "checking": "Checking which boards use this view…",
@@ -1190,12 +1192,14 @@
       "share": {
         "view": "Share this view",
         "board": "Share this board",
-        "report": "Share this report"
+        "report": "Share this report",
+        "itemlist": "Share this item list"
       },
       "narrow": {
         "view": "Narrow who sees this view",
         "board": "Narrow who sees this board",
-        "report": "Narrow who sees this report"
+        "report": "Narrow who sees this report",
+        "itemlist": "Narrow who sees this item list"
       }
     },
     "cancel": "Cancel",
@@ -1211,13 +1215,16 @@
       "run": "open and run it",
       "params": "change every parameter",
       "export": "export what they see",
-      "link": "copy a link with their values"
+      "link": "copy a link with their values",
+      "readList": "open it and read its items and periods",
+      "exportList": "export it as a workbook"
     },
     "cannotTitle": "They can’t",
     "cannot": {
       "edit": "edit, save or delete it",
       "ai": "ask the AI to change it",
-      "copy": "save a copy (authors in the audience can)"
+      "copy": "save a copy (authors in the audience can)",
+      "changeList": "upload a new version of it, or delete it"
     },
     "history": "Every audience change is written to its history."
   },
@@ -1226,7 +1233,8 @@
     "untitled": {
       "view": "Hand this view to another author",
       "board": "Hand this board to another author",
-      "report": "Hand this report to another author"
+      "report": "Hand this report to another author",
+      "itemlist": "Hand this item list to another author"
     },
     "save": "Hand it over",
     "hint": "Its owner is {{owner}}. The new owner must hold the author grant; who sees it and its tier stay as they are.",

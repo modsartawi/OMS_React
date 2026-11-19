@@ -1,0 +1,106 @@
+{
+  "menu": {
+    "group": "Mini POS",
+    "assignments": "Assignments",
+    "stores": "Pharmacies",
+    "items": "Items"
+  },
+  "title": "Mini POS assignments",
+  "subtitle": "Which promoter works at which pharmacy, on which days and for how many hours a day.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Mini POS assignments",
+    "deniedHint": "Your account does not hold the Mini POS operations grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "refresh": "Refresh",
+  "loading": "Loading…",
+  "failed": "SIS.Api did not answer. Try again in a moment.",
+  "cancel": "Cancel",
+  "today": {
+    "title": "Today",
+    "empty": "No promoter is assigned to a pharmacy today.",
+    "store": "Pharmacy",
+    "count": "· {{n}} promoters",
+    "failedTitle": "Today's assignments could not be read"
+  },
+  "row": {
+    "promoter": "Promoter",
+    "store": "Pharmacy",
+    "days": "Days",
+    "hours": "Hours a day",
+    "enteredBy": "Entered by",
+    "state": "State",
+    "actions": "Actions",
+    "ended": "Ended",
+    "active": "Active",
+    "end": "End",
+    "endPromoter": "End this promoter now"
+  },
+  "overlap": {
+    "title": "These days overlap another assignment",
+    "detail": "{{promoter}} is already assigned to pharmacy {{store}} from {{from}} to {{to}}. End that assignment or choose other days."
+  },
+  "add": {
+    "title": "Add an assignment",
+    "promoter": "Promoter login ID",
+    "promoterHint": "The promoter's sign-in ID (their SAP number).",
+    "staff": "Staff ID (optional)",
+    "store": "Pharmacy code",
+    "from": "From",
+    "to": "To (inclusive)",
+    "hours": "Planned hours a day",
+    "commit": "Add",
+    "failedTitle": "The assignment was not added",
+    "done": {
+      "title": "Assignment added",
+      "detail": "{{promoter}} at pharmacy {{store}}."
+    },
+    "problem": {
+      "promoter": "Enter the promoter's login ID.",
+      "store": "Enter the pharmacy code.",
+      "dates": "Choose both days.",
+      "past": "An assignment starts today or later.",
+      "order": "The last day comes on or after the first.",
+      "hours": "Enter the planned hours a day, more than 0 and at most 24."
+    }
+  },
+  "find": {
+    "title": "Find assignments",
+    "promoter": "Promoter login ID",
+    "store": "Pharmacy code",
+    "which": "Show",
+    "current": "Current and future",
+    "all": "All, with ended and past",
+    "go": "Find",
+    "empty": "No assignment matches.",
+    "failedTitle": "The assignments could not be read"
+  },
+  "end": {
+    "title": "End this assignment?",
+    "body": "{{promoter}} will no longer be assigned to pharmacy {{store}}. It applies at the promoter's next sign-in; the row is kept.",
+    "confirm": "End assignment",
+    "failedTitle": "Not done",
+    "done": {
+      "title": "Assignment ended",
+      "detail": "{{promoter}} at pharmacy {{store}}."
+    }
+  },
+  "endPromoter": {
+    "title": "End this promoter now?",
+    "body": "Every current and future assignment of {{promoter}} ends, and the promoter is signed out of Mini POS on their phone at once.",
+    "confirm": "End now",
+    "done": {
+      "title": "{{promoter}} ended",
+      "detail": "Assignments ended: {{rows}}. Phone sessions signed out: {{sessions}}."
+    }
+  },
+  "refusal": {
+    "past": "An assignment starts today or later, and a past one cannot be ended.",
+    "promoterUnknown": "No user has this login ID. Create the promoter first.",
+    "storeNotEnabled": "This pharmacy does not run Mini POS. Enable it on the Pharmacies screen first.",
+    "notFound": "This assignment no longer exists. Refresh the list.",
+    "ended": "This assignment is already ended."
+  }
+}

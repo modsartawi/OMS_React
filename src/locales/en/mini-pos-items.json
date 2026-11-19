@@ -1,0 +1,49 @@
+{
+  "title": "Mini POS items",
+  "subtitle": "The A-level categories a promoter may sell, and the items refused whatever their category.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Mini POS items",
+    "deniedHint": "Your account does not hold the Mini POS operations grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "loading": "Loading…",
+  "failed": "SIS.Api did not answer. Try again in a moment.",
+  "enteredBy": "Entered by",
+  "enteredAt": "Entered at",
+  "actions": "Actions",
+  "remove": "Remove",
+  "addFailed": "Not added",
+  "removeFailed": "Not removed",
+  "readFailed": "The list could not be read",
+  "category": {
+    "title": "Allowed categories",
+    "hint": "Only items in these A-level categories can be sold on Mini POS.",
+    "code": "A-level code",
+    "add": "Allow",
+    "empty": "No category is allowed yet, so Mini POS sells nothing.",
+    "added": "Category {{code}} allowed",
+    "removed": "Category {{code}} removed",
+    "problem": {
+      "required": "Enter the A-level code.",
+      "tooLong": "The code is at most 30 characters."
+    }
+  },
+  "refused": {
+    "title": "Refused items",
+    "hint": "These items are refused on Mini POS even in an allowed category. The promoter sees the reason.",
+    "item": "Item number",
+    "reason": "Reason",
+    "add": "Refuse",
+    "empty": "No item is refused.",
+    "added": "Item {{item}} refused",
+    "removed": "Item {{item}} removed from the refusal list",
+    "problem": {
+      "item": "Enter the item number.",
+      "itemTooLong": "The item number is at most 30 characters.",
+      "reason": "Enter the reason.",
+      "reasonTooLong": "The reason is at most 200 characters."
+    }
+  }
+}

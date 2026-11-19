@@ -73,6 +73,8 @@ import { Radio } from 'lucide-react'
 import { DatabaseZap } from 'lucide-react'
 import { CloudDownload } from 'lucide-react'
 import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
+import { CalendarClock, Smartphone } from 'lucide-react'
+import { canViewMiniPos } from '@/core/mini-pos/access'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -401,6 +403,37 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/oms/delivery-statistics',
         activePrefix: '/oms/delivery-statistics',
         requires: canOpenDeliveryStatistics,
+      },
+    ],
+  },
+  {
+    // Mini POS (oms 915, BackOffice spec 4032): `/mini-pos/*` is a new URL prefix and a new nav group, right after OMS
+    // (the tail's order is pinned by the channel groups' tests) — the operations lead's assignments, pharmacies and item
+    // lists. Leaf labels live in `mini-pos-assignments` (the area's first namespace). Every leaf on `MiniPosAdmin:03`
+    // (role OMS_MINIPOS_ADMIN); the changes inside on `MiniPosAdmin:06`.
+    labelKey: 'mini-pos-assignments:menu.group',
+    icon: Smartphone,
+    items: [
+      {
+        labelKey: 'mini-pos-assignments:menu.assignments',
+        icon: CalendarClock,
+        routerLink: '/mini-pos/assignments',
+        activePrefix: '/mini-pos/assignments',
+        requires: canViewMiniPos,
+      },
+      {
+        labelKey: 'mini-pos-assignments:menu.stores',
+        icon: Store,
+        routerLink: '/mini-pos/stores',
+        activePrefix: '/mini-pos/stores',
+        requires: canViewMiniPos,
+      },
+      {
+        labelKey: 'mini-pos-assignments:menu.items',
+        icon: ListChecks,
+        routerLink: '/mini-pos/items',
+        activePrefix: '/mini-pos/items',
+        requires: canViewMiniPos,
       },
     ],
   },

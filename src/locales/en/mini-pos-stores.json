@@ -1,0 +1,79 @@
+{
+  "title": "Mini POS pharmacies",
+  "subtitle": "Which pharmacies run Mini POS, each one's trial role, and the QR the promoter scans to unlock it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Mini POS pharmacies",
+    "deniedHint": "Your account does not hold the Mini POS operations grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "printAccess": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the Mini POS QR",
+    "deniedHint": "Your account does not hold the Mini POS operations grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "refresh": "Refresh",
+  "loading": "Loading…",
+  "failed": "SIS.Api did not answer. Try again in a moment.",
+  "list": {
+    "title": "Pharmacies",
+    "empty": "No pharmacy runs Mini POS yet.",
+    "store": "Pharmacy",
+    "state": "Mini POS",
+    "trialRole": "Trial role",
+    "version": "QR version",
+    "updated": "Last change",
+    "actions": "Actions",
+    "failedTitle": "The pharmacies could not be read"
+  },
+  "state": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "noKey": "No key yet: enable it again."
+  },
+  "trialRole": {
+    "trial": "Trial",
+    "control": "Control",
+    "none": "None"
+  },
+  "action": {
+    "enable": "Enable",
+    "disable": "Disable",
+    "print": "Print QR",
+    "reprint": "Reprint",
+    "enabled": "Pharmacy {{store}} enabled",
+    "disabled": "Pharmacy {{store}} disabled",
+    "roleSet": "Pharmacy {{store}}: trial role {{role}}",
+    "failed": "Pharmacy {{store}} was not changed"
+  },
+  "reprint": {
+    "title": "Reprint the QR?",
+    "body": "Pharmacy {{store}} gets a new QR: version {{next}} replaces version {{current}}.",
+    "warning": "Every older print stops working at once. The promoter cannot unlock this pharmacy until the new QR is up.",
+    "cancel": "Cancel",
+    "confirm": "Reprint",
+    "done": "Pharmacy {{store}} now has QR version {{version}}. Print it and replace the old one.",
+    "printNew": "Print the new QR"
+  },
+  "add": {
+    "title": "Add a pharmacy",
+    "store": "Pharmacy code",
+    "enable": "Enable",
+    "markControl": "Mark as control",
+    "hint": "A trial pharmacy or one with no role is enabled for Mini POS. A control pharmacy is only marked: it never runs Mini POS.",
+    "done": "Pharmacy {{store}} added",
+    "failedTitle": "The pharmacy was not added"
+  },
+  "print": {
+    "heading": "Mini POS",
+    "store": "Pharmacy",
+    "howTo": "Promoter: scan this code with the Mini POS app to start work at this pharmacy.",
+    "version": "QR version {{version}}",
+    "now": "Print",
+    "loading": "Reading the QR…",
+    "failedTitle": "The QR could not be read"
+  }
+}

@@ -121,6 +121,13 @@ export const SCREEN_KEYS = [
   // BackOffice owner ruling 2026-11-18: approve a guard draft you submitted or last edited.
   'InsuranceRuleSelfApproval:06',
   'InsurancePayerMonth:03',
+  // Insurance pattern cases (BackOffice spec 4050, 4053; oms 922-924). GUESSED: 4053 names a CONTROLLER InsurancePattern
+  // seeded like 3965, not yet built. 03 the analyst (cases, marks), 06 the investigator (reveal), 02 the manager
+  // (settings, reveal log); InsurancePatientBlock:02 is 3965's own Change on the blocked-patient list (924).
+  'InsurancePattern:03',
+  'InsurancePattern:06',
+  'InsurancePattern:02',
+  'InsurancePatientBlock:02',
   // Nphies
   'Nphies:03',
   'NphiesReleaseApproval:03',

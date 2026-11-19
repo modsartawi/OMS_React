@@ -1,0 +1,87 @@
+/**
+ * The case list's filters and page (oms 922; BackOffice 4053 `GET Insurance/Patterns/Cases`): read from the URL, written
+ * back to it, and turned into the query the door is asked. Pure; the page keeps them in the address (`useUrlQuery`), so
+ * a filtered list can be shared and Back leaves the screen.
+ *
+ * The server orders the rows — score, then the last dispense — so no order is ever sent (ticket 922: "ordered by score").
+ */
+import type { PatternCasesQuery, PatternSeverity, PatternSignal, PatternStatus } from '@/core/models/insurance-patterns'
+import { skipForPage } from '@/core/ui/pager'
+
+/** Rows a page. */
+export const PAGE_SIZE = 25
+
+export const SIGNALS: readonly PatternSignal[] = ['travel', 'overlap', 'hopping']
+export const STATUSES: readonly PatternStatus[] = ['open', 'watching', 'cleared', 'confirmed', 'closed']
+export const SEVERITIES: readonly PatternSeverity[] = ['action', 'info']
+
+export interface CaseFilters {
+  /** A store code; a case touching it is listed. */
+  store: string
+  /** `yyyy-MM-dd`, local, inclusive; '' = open. */
+  from: string
+  to: string
+  signal: PatternSignal | ''
+  status: PatternStatus | ''
+  severity: PatternSeverity | ''
+  /** 1-based. */
+  page: number
+}
+
+export const NO_FILTERS: CaseFilters = Object.freeze({ store: '', from: '', to: '', signal: '', status: '', severity: '', page: 1 })
+
+const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+const oneOf = <T extends string>(values: readonly T[], v: string | null): T | '' => ((values as readonly string[]).includes(v ?? '') ? (v as T) : '')
+const day = (v: string | null) => (v && DAY.test(v) ? v : '')
+const pageOf = (v: string | null) => {
+  const n = Number(v)
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
+export function filtersFromParams(params: URLSearchParams): CaseFilters {
+  return {
+    store: (params.get('store') ?? '').trim(),
+    from: day(params.get('from')),
+    to: day(params.get('to')),
+    signal: oneOf(SIGNALS, params.get('signal')),
+    status: oneOf(STATUSES, params.get('status')),
+    severity: oneOf(SEVERITIES, params.get('severity')),
+    page: pageOf(params.get('page')),
+  }
+}
+
+export function filtersToParams(f: CaseFilters): URLSearchParams {
+  const p = new URLSearchParams()
+  if (f.store) p.set('store', f.store)
+  if (f.from) p.set('from', f.from)
+  if (f.to) p.set('to', f.to)
+  if (f.signal) p.set('signal', f.signal)
+  if (f.status) p.set('status', f.status)
+  if (f.severity) p.set('severity', f.severity)
+  if (f.page > 1) p.set('page', String(f.page))
+  return p
+}
+
+/** The door's query: each set filter under the door's own name, and the page as skip/take. */
+export function casesQuery(f: CaseFilters): PatternCasesQuery {
+  return {
+    ...(f.store ? { storeCode: f.store } : {}),
+    ...(f.from ? { from: f.from } : {}),
+    ...(f.to ? { to: f.to } : {}),
+    ...(f.signal ? { signal: f.signal } : {}),
+    ...(f.status ? { status: f.status } : {}),
+    ...(f.severity ? { severity: f.severity } : {}),
+    skip: skipForPage(f.page, PAGE_SIZE),
+    take: PAGE_SIZE,
+  }
+}
+
+/** A filter changed: the list starts again at page 1. */
+export function changeFilter(f: CaseFilters, change: Partial<Omit<CaseFilters, 'page'>>): CaseFilters {
+  return { ...f, ...change, page: 1 }
+}
+
+/** A period that ends before it starts: shown as a problem and never asked for. */
+export function periodBackwards(f: CaseFilters): boolean {
+  return f.from !== '' && f.to !== '' && f.from > f.to
+}

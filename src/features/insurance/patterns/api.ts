@@ -8,6 +8,7 @@
 import { api } from '@/core/api'
 import type { PatternCaseDetail, PatternCasesPage, PatternCasesQuery, PatternMark } from '@/core/models/insurance-patterns'
 import { markBody, type MarkDraft } from './mark'
+import { readRevealedPatient, revealBody, RevealEmptyError, RevealNotSentError, type RevealedPatient } from './reveal'
 import { readCaseDetail, readCasesPage, readMark } from './wire'
 
 const CASES = 'Insurance/Patterns/Cases'
@@ -35,6 +36,19 @@ export const patternsApi = {
   /** `GET Insurance/Patterns/Cases/{caseId}` — the case with its timeline, legs, signals, marks and previous cases. */
   async detail(caseId: string): Promise<PatternCaseDetail> {
     return readCaseDetail(await api.get<unknown>(`${CASES}/${seg(caseId)}`))
+  },
+
+  /**
+   * `POST …/Cases/{caseId}/Reveal` (923) — the investigator's logged reveal: the server writes its log row, then answers
+   * the patient key and member id. 🔒 The answer goes to the caller only, the reveal dialog's own state: this door is
+   * never wrapped in `useQuery` or `useMutation` (both caches would keep it), and it is never logged.
+   */
+  async reveal(caseId: string, reason: string): Promise<RevealedPatient> {
+    const body = revealBody(reason)
+    if (!body) throw new RevealNotSentError()
+    const patient = readRevealedPatient(await api.post<unknown>(`${CASES}/${seg(caseId)}/Reveal`, body))
+    if (!patient) throw new RevealEmptyError()
+    return patient
   },
 
   /** `POST …/Cases/{caseId}/Marks` — answers the new mark; the page then re-reads the case. */

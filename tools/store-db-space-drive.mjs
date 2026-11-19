@@ -38,8 +38,8 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-const VIEW = ['ActionSyncConsole:03', 'StoreDatabase:03']
-const ACT = [...VIEW, 'StoreDatabase:06']
+const VIEW = ['ActionSyncConsole:03', 'StoreDatabaseView:03']
+const ACT = [...VIEW, 'StoreDatabaseAct:06']
 const ACCEPTED = { jobId: '01JD0000000000000000000000', notBefore: '2026-11-18T23:05:00', warning: null }
 const TONIGHT = { jobId: '01JD0000000000000000000001', notBefore: '2026-11-19T02:00:00', warning: 'A data shrink blocks the till while it runs.' }
 

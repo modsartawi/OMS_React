@@ -4,7 +4,7 @@
 // 🚩 NOTHING here is driven against a live SIS.Api.
 //
 // It verifies:
-//   1. with StoreDatabase:03 the console's nav carries Store database, and it opens /admin/sync/database;
+//   1. with StoreDatabaseView:03 the console's nav carries Store database, and it opens /admin/sync/database;
 //   2. the fleet is listed worst state first, then fewest days to cap, no forecast last;
 //   3. each row's state chip names the door's state (Not checked never green); an unknown state reads raw;
 //   4. the used / cap bar fills to the share of the store's own cap, and reads "used / cap" as one value;
@@ -12,7 +12,7 @@
 //   5. the state, engine and edition filters narrow the list, together;
 //   6. Needs 2019 lists only the 4 GB-cap stores, nearest the cap first, with its note;
 //   7. a store's code opens its database page (916's shell) and its back link returns;
-//   8. without StoreDatabase:03 the tab is not in the nav, and the hand-typed URL shows the denial;
+//   8. without StoreDatabaseView:03 the tab is not in the nav, and the hand-typed URL shows the denial;
 //   9. a failed Fleet read shows the error, not an empty list;
 //  10. under Arabic (RTL) the bar mirrors: it grows from the inline start. (Arabic words: store-db/locales.test.ts.)
 //
@@ -34,7 +34,7 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-const VIEW = ['ActionSyncConsole:03', 'StoreDatabase:03']
+const VIEW = ['ActionSyncConsole:03', 'StoreDatabaseView:03']
 const browser = await chromium.launch()
 
 async function open(path, { screens = VIEW, overrides = {}, locale = 'en' } = {}) {
@@ -139,9 +139,9 @@ const settle = (page) => page.waitForTimeout(250)
 
 // ── 8: no View grant ─────────────────────────────────────────────────────────────
 {
-  const { context, page, errors } = await open('/admin/sync/scripts', { screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06', 'StoreDatabase:06'] })
+  const { context, page, errors } = await open('/admin/sync/scripts', { screens: ['ActionSyncConsole:03', 'ActionSyncConsole:06', 'StoreDatabaseAct:06'] })
   await page.locator('[data-console-page="scripts"]').waitFor({ timeout: 15000 })
-  check('8. without StoreDatabase:03 the tab is not in the nav', (await page.locator('[data-console-page="database"]').count()) === 0)
+  check('8. without StoreDatabaseView:03 the tab is not in the nav', (await page.locator('[data-console-page="database"]').count()) === 0)
   await page.goto(`${BASE}/admin/sync/database`)
   await page.getByText('No access to the store databases').waitFor({ timeout: 15000 })
   check('8. …and the hand-typed URL shows the denial, no grid', (await page.locator(GRID).count()) === 0)

@@ -24,14 +24,14 @@ export const canEnrolObjects = (p: Permissions): boolean => p.has('SyncObjectEnr
 export const canRunStoreScripts = (p: Permissions): boolean => p.has('SyncStoreScript:06')
 
 // ── Store database (oms 915, BackOffice spec 4016 D9) ───────────────────────────
-// 🚩 The keys are GUESSED: BO names the grants StoreDatabase.View / .Act / .Restore (each its own controller under
-// `BackOfficeScreen`), not their `CONTROLLER:COMMAND` spelling. Reconcile when BO writes the 4016 brief.
+// The keys are the server's (BO pricing2 fa2759e8f, `StoreDatabaseGrants.cs`): StoreDatabase.View / .Act / .Restore are
+// three controllers — `StoreDatabaseView:03`, `StoreDatabaseAct:06`, `StoreDatabaseRestore:06`.
 
 /** `StoreDatabase.View` — the Store database tab, its store page and every read. */
-export const canViewStoreDb = (p: Permissions): boolean => p.has('StoreDatabase:03')
+export const canViewStoreDb = (p: Permissions): boolean => p.has('StoreDatabaseView:03')
 
 /** `StoreDatabase.Act` — Check now, the jobs and the backup schedule. Counts only beside View: the page needs it. */
-export const canActStoreDb = (p: Permissions): boolean => canViewStoreDb(p) && p.has('StoreDatabase:06')
+export const canActStoreDb = (p: Permissions): boolean => canViewStoreDb(p) && p.has('StoreDatabaseAct:06')
 
 /** `StoreDatabase.Restore` — restore a backup as a side copy. Counts only beside View, as Act does. */
 export const canRestoreStoreDb = (p: Permissions): boolean => canViewStoreDb(p) && p.has('StoreDatabaseRestore:06')

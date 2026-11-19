@@ -14,7 +14,7 @@
 //   6. a check that faulted says so;
 //   7. the Health panel carries 919's sp_Blitz section;
 //   8. a failed look / health check shows the server's message;
-//   9. Check now is hidden without StoreDatabase:06;
+//   9. Check now is hidden without StoreDatabaseAct:06;
 //  10. Check now opens the reason dialog: Confirm stays off without a reason (and for white space);
 //  11. with a reason it posts `{ code, reason }` (trimmed), closes, toasts, and the fresh reading replaces the page's
 //      (read time, state chip), and the health check is re-run;
@@ -40,8 +40,8 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-const VIEW = ['ActionSyncConsole:03', 'StoreDatabase:03']
-const ACT = [...VIEW, 'StoreDatabase:06']
+const VIEW = ['ActionSyncConsole:03', 'StoreDatabaseView:03']
+const ACT = [...VIEW, 'StoreDatabaseAct:06']
 const browser = await chromium.launch()
 
 async function open(path, { screens = VIEW, overrides = {}, locale = 'en' } = {}) {
@@ -93,7 +93,7 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   await page.locator('[data-live-refresh]').click()
   await page.waitForTimeout(600)
   check('3. Look again takes another look', asked(calls, 'LiveActivity').length === before + 1, `${before} → ${asked(calls, 'LiveActivity').length}`)
-  check('9. Check now is hidden without StoreDatabase:06', (await page.locator('[data-check-now]').count()) === 0)
+  check('9. Check now is hidden without StoreDatabaseAct:06', (await page.locator('[data-check-now]').count()) === 0)
   check('no page errors (live)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -156,7 +156,7 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   const { context, page, errors, calls, posts } = await open('/admin/sync/database/P104?panel=health', { screens: ACT })
   await page.locator('[data-health-finding]').first().waitFor({ timeout: 15000 })
   const button = page.locator('[data-check-now]')
-  check('10. Check now shows to a holder of StoreDatabase:06', (await button.count()) === 1)
+  check('10. Check now shows to a holder of StoreDatabaseAct:06', (await button.count()) === 1)
   await button.click()
   const dialog = page.locator('[data-reason-dialog]')
   await dialog.waitFor({ timeout: 5000 })

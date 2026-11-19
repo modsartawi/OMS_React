@@ -6,8 +6,8 @@ import blitzFixture from './__fixtures__/blitz.json'
 import { blitzControls, blitzFindings, blitzLink, blitzNotInstalled } from './blitz-helpers'
 
 /** Oms 919 (BackOffice 4039, spec 4016 D18): sp_Blitz on the Health check panel. */
-const VIEW = permissionsOf({ screens: ['StoreDatabase:03'] })
-const ACT = permissionsOf({ screens: ['StoreDatabase:03', 'StoreDatabase:06'] })
+const VIEW = permissionsOf({ screens: ['StoreDatabaseView:03'] })
+const ACT = permissionsOf({ screens: ['StoreDatabaseView:03', 'StoreDatabaseAct:06'] })
 
 describe('the sp_Blitz controls', () => {
   it('a View holder may run it, never install or remove it', () => {

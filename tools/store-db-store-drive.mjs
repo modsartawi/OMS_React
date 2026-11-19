@@ -15,7 +15,7 @@
 //   8. a store read on its last attempt shows no Not checked banner;
 //   9. a Not checked store shows the banner with the last error, and its chip says so;
 //  10. an unknown store (NO_STORE) shows the not-found card; another failure shows its error;
-//  11. without StoreDatabase:03 the page shows the denial and asks no door;
+//  11. without StoreDatabaseView:03 the page shows the denial and asks no door;
 //  12. Refresh asks the Store door again;
 //  13. under Arabic (RTL) the page lays out right to left and the chart box stays left to right.
 //
@@ -37,7 +37,7 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-const VIEW = ['ActionSyncConsole:03', 'StoreDatabase:03']
+const VIEW = ['ActionSyncConsole:03', 'StoreDatabaseView:03']
 const browser = await chromium.launch()
 
 async function open(path, { screens = VIEW, overrides = {}, locale = 'en' } = {}) {
@@ -175,7 +175,7 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
 {
   const { context, page, errors, calls } = await open('/admin/sync/database/P104', { screens: ['ActionSyncConsole:03'] })
   await page.getByText('No access to the store databases').waitFor({ timeout: 15000 })
-  check('11. without StoreDatabase:03 the page shows the denial and asks no door', storeCalls(calls).length === 0)
+  check('11. without StoreDatabaseView:03 the page shows the denial and asks no door', storeCalls(calls).length === 0)
   check('no page errors (denied)', errors.length === 0, errors.join(' | '))
   await context.close()
 }

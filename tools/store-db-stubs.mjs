@@ -10,7 +10,7 @@
 // A drive overrides any door (a refusal, a hang, another fixture) through `overrides[<Door>]`.
 //
 //   import { storeDbRoute, refusal } from './store-db-stubs.mjs'
-//   await page.route('**/api/**', storeDbRoute({ screens: ['ActionSyncConsole:03', 'StoreDatabase:03'] }))
+//   await page.route('**/api/**', storeDbRoute({ screens: ['ActionSyncConsole:03', 'StoreDatabaseView:03'] }))
 //   storeDbRoute({ screens, overrides: { Fleet: refusal('NO_ACCESS', 'Nope.', 500) } })
 import { existsSync, readFileSync } from 'node:fs'
 import { permissions } from './permissions-stub.mjs'

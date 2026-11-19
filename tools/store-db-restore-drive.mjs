@@ -38,8 +38,8 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-const VIEW = ['ActionSyncConsole:03', 'StoreDatabase:03']
-const ACT = [...VIEW, 'StoreDatabase:06']
+const VIEW = ['ActionSyncConsole:03', 'StoreDatabaseView:03']
+const ACT = [...VIEW, 'StoreDatabaseAct:06']
 const OWNER = [...ACT, 'StoreDatabaseRestore:06']
 const ACCEPTED = { jobId: '01JD0000000000000000000009', notBefore: '2026-11-20T02:00:00', warning: null }
 const pad = (n) => String(n).padStart(2, '0')

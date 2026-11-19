@@ -7,6 +7,7 @@
  */
 import type { PatternCasesQuery, PatternSeverity, PatternSignal, PatternStatus } from '@/core/models/insurance-patterns'
 import { skipForPage } from '@/core/ui/pager'
+import { windowProblem } from '@/core/util/date-window'
 
 /** Rows a page. */
 export const PAGE_SIZE = 25
@@ -32,7 +33,8 @@ export const NO_FILTERS: CaseFilters = Object.freeze({ store: '', from: '', to: 
 
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 const oneOf = <T extends string>(values: readonly T[], v: string | null): T | '' => ((values as readonly string[]).includes(v ?? '') ? (v as T) : '')
-const day = (v: string | null) => (v && DAY.test(v) ? v : '')
+/** A day the address names, kept only when the calendar has it (no 2026-02-30): it reads back as the same day. */
+const day = (v: string | null) => (v && DAY.test(v) && windowProblem(v, v, { maxDays: 1 }) === null ? v : '')
 const pageOf = (v: string | null) => {
   const n = Number(v)
   return Number.isInteger(n) && n >= 1 ? n : 1

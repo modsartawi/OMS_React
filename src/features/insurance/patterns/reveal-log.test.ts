@@ -36,6 +36,11 @@ describe('the address', () => {
     expect(revealFiltersFromParams(params('page=2.5')).page).toBe(1)
   })
 
+  it('drops a day the calendar does not have: shaped like a day is not enough', () => {
+    expect(revealFiltersFromParams(params('from=2026-02-30&to=2026-11-31'))).toEqual(NO_REVEAL_FILTERS)
+    expect(revealFiltersFromParams(params('from=2028-02-29&to=2026-11-30'))).toMatchObject({ from: '2028-02-29', to: '2026-11-30' })
+  })
+
   it('writes back only what is set, the page only past the first, and reads back the same', () => {
     expect(revealFiltersToParams(NO_REVEAL_FILTERS).toString()).toBe('')
     const filters = { from: '2026-11-01', to: '', user: 'investigator1', caseId: '01JD3K7Q2WPC0123', page: 3 }

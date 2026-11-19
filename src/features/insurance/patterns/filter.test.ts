@@ -33,6 +33,12 @@ describe('the URL read as filters', () => {
     expect(from('page=2.5').page).toBe(1)
   })
 
+  it('a day the calendar does not have is dropped: shaped like a day is not enough', () => {
+    expect(from('from=2026-02-30&to=2026-02-29')).toEqual(NO_FILTERS)
+    expect(from('from=2026-04-31&to=2026-06-31')).toEqual(NO_FILTERS)
+    expect(from('from=2028-02-29&to=2026-12-31')).toMatchObject({ from: '2028-02-29', to: '2026-12-31' })
+  })
+
   it('a store is trimmed', () => {
     expect(from('store=%201001%20').store).toBe('1001')
   })

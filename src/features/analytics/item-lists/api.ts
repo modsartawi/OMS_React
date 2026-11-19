@@ -6,7 +6,7 @@ import {
   ITEM_LIST_STATUSES,
   type ItemList,
   type ItemListCreate,
-  type ItemListLevel,
+  type ItemListLevelRead,
   type ItemListPreview,
   type ItemListPreviewRow,
   type ItemListProblem,
@@ -46,8 +46,15 @@ const text = (v: unknown): string => (typeof v === 'string' ? v : typeof v === '
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 const rowsOf = (r: Record<string, unknown>): number[] =>
   Array.isArray(r.rows) ? r.rows.filter((n): n is number => typeof n === 'number') : typeof r.row === 'number' ? [r.row] : []
-const levelOf = (v: unknown): ItemListLevel => ((ITEM_LIST_LEVELS as readonly string[]).includes(text(v)) ? (text(v) as ItemListLevel) : 'item')
-const statusOf = (v: unknown): ItemListStatus | null => ((ITEM_LIST_STATUSES as readonly string[]).includes(text(v)) ? (text(v) as ItemListStatus) : null)
+/** The one of `known` the word names, in any case; `null` when it names none. */
+const oneOf = <T extends string>(known: readonly T[], v: unknown): T | null => {
+  const w = text(v).trim().toLowerCase()
+  return known.find((k) => k === w) ?? null
+}
+/** A level as read: the known one in any case, else the word as sent (drawn as itself) — never made into `item`. */
+const levelOf = (v: unknown): ItemListLevelRead => oneOf(ITEM_LIST_LEVELS, v) ?? text(v).trim()
+/** A status the five do not name is none (drawn neutral, with its words); never made into one of them. */
+const statusOf = (v: unknown): ItemListStatus | null => oneOf(ITEM_LIST_STATUSES, v)
 const words = (v: unknown): AnalyticsLabel => (typeof v === 'string' ? { en: v, ar: v } : { en: text(rec(v).en), ar: text(rec(v).ar) })
 const tierOf = (v: unknown): AnalyticsTier => (v === 'shared' || v === 'certified' ? v : 'personal')
 
@@ -61,6 +68,7 @@ function readRow(v: unknown): ItemListPreviewRow {
     from: text(r.from) || null,
     to: text(r.to) || null,
     status: statusOf(r.status),
+    statusText: text(r.status),
     note: text(r.note),
   }
 }
@@ -108,7 +116,7 @@ export function readItemList(raw: unknown): ItemList {
     }),
     periods: list(def.periods).map((v) => {
       const p = rec(v)
-      return { level: levelOf(p.level), member: text(p.member), from: text(p.from), to: text(p.to) || null, status: statusOf(p.status) ?? 'unavailable', note: text(p.note) }
+      return { level: levelOf(p.level), member: text(p.member), from: text(p.from), to: text(p.to) || null, status: statusOf(p.status), statusText: text(p.status), note: text(p.note) }
     }),
     unknown: list(def.unknown).map((v) => {
       const u = rec(v)
@@ -128,9 +136,10 @@ export function readVersions(raw: unknown): ItemListVersion[] {
     .sort((a, b) => b.revision - a.revision)
 }
 
-/** `GET Analytics/Folders` — the caller's own folders, for the folder picker (837's door, read to id and name). */
+/** `GET Analytics/Folders` — the caller's own folders, for the folder picker (837's door, read to id and name; a bare
+ * array or `{ folders }`, as the library's reader takes it). */
 export function readFolders(raw: unknown): { id: string; name: string }[] {
-  return list(raw)
+  return (Array.isArray(raw) ? raw : list(rec(raw).folders))
     .map(rec)
     .map((f) => ({ id: text(f.id), name: text(f.name), order: num(f.order) }))
     .filter((f) => f.id)

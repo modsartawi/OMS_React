@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import { isExpiredTokenRefusal, readItemList, readPreview, TOKEN_EXPIRED_CODE } from './api'
+import { isExpiredTokenRefusal, readFolders, readItemList, readPreview, TOKEN_EXPIRED_CODE } from './api'
 
 const refusal = (code: string, status = 400) => new ApiError('business', `Refused: ${code}`, status, [{ errorCode: code, internalErrorCode: '', errorMessage: code }])
 
@@ -29,7 +29,7 @@ describe('readPreview: the proposed preview wire (BackOffice 4058), read defensi
     })
     expect(p.token).toBe('tok-9')
     expect(p.rowCount).toBe(6)
-    expect(p.matched).toEqual([{ row: 2, level: 'item', key: '100234', label: 'Panadol', from: '2026-09-03', to: null, status: 'unavailable', note: 'Supplier recall' }])
+    expect(p.matched).toEqual([{ row: 2, level: 'item', key: '100234', label: 'Panadol', from: '2026-09-03', to: null, status: 'unavailable', statusText: 'unavailable', note: 'Supplier recall' }])
     expect(p.problems).toEqual([
       { kind: 'unknown', rows: [3], level: 'item', value: '0099999', reason: '' },
       { kind: 'duplicate', rows: [4, 5], level: 'brand', value: 'Panadol', reason: '' },
@@ -69,9 +69,46 @@ describe('readItemList: the list as its audience reads it', () => {
     })
     expect(l.title).toEqual({ en: 'Shortage Q3', ar: 'Shortage Q3' })
     expect(l.members).toEqual([{ level: 'item', key: '100234', label: 'Panadol' }])
-    expect(l.periods).toEqual([{ level: 'item', member: '100234', from: '2026-09-03', to: null, status: 'unavailable', note: 'recall' }])
+    expect(l.periods).toEqual([{ level: 'item', member: '100234', from: '2026-09-03', to: null, status: 'unavailable', statusText: 'unavailable', note: 'recall' }])
     expect(l.unknown).toEqual([{ row: 3, level: 'item', value: '0099999' }])
     expect(l.upload).toEqual({ fileName: 'shortage.xlsx', rows: 6, matched: 5, by: 'msartawi', at: '2026-11-19T09:00:00' })
     expect(l.folderId).toBeNull()
+  })
+})
+
+describe('readItemList: a status or level the reader does not know is never made into one it does', () => {
+  it('reads a known status or level in any case, as its own', () => {
+    const l = readItemList({ definition: { members: [{ level: 'Brand', key: 'Panadol' }], periods: [{ level: 'BRAND', member: 'Panadol', from: '2026-09-03', status: 'Limited' }] } })
+    expect(l.members[0].level).toBe('brand')
+    expect(l.periods[0]).toMatchObject({ level: 'brand', status: 'limited', statusText: 'Limited' })
+  })
+  it('keeps an unknown status as none, with the words as sent, and an unknown level as sent', () => {
+    const l = readItemList({ definition: { periods: [{ level: 'shelf', member: '1', from: '2026-09-03', status: 'recalled' }] } })
+    expect(l.periods[0]).toMatchObject({ level: 'shelf', status: null, statusText: 'recalled' })
+  })
+})
+
+describe('readPreview: a matched row reads its status and level in any case', () => {
+  it('a known one in another case is known; an unknown one is kept as sent', () => {
+    const p = readPreview({ matched: [{ row: 2, level: 'ITEM', key: '1', status: 'Blocked' }, { row: 3, level: 'aisle', key: '2', status: 'gone' }] })
+    expect(p.matched.map((r) => [r.level, r.status, r.statusText])).toEqual([
+      ['item', 'blocked', 'Blocked'],
+      ['aisle', null, 'gone'],
+    ])
+  })
+})
+
+describe('readFolders: the folders door, as the library reads it', () => {
+  const folders = [
+    { id: 'f2', name: 'Supply', order: 2 },
+    { id: 'f1', name: 'Pricing', order: 1 },
+    { name: 'no id' },
+  ]
+  it('reads a bare array and a `{ folders }` envelope alike, by order', () => {
+    expect(readFolders(folders)).toEqual([
+      { id: 'f1', name: 'Pricing' },
+      { id: 'f2', name: 'Supply' },
+    ])
+    expect(readFolders({ folders })).toEqual(readFolders(folders))
   })
 })

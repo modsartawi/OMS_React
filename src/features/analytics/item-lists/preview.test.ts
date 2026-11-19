@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ItemListPreview } from '@/core/models/item-list'
 import { fileProblem, problemGroups, saveState, tokenExpired } from './preview'
 
-const matchedRow = { row: 2, level: 'item' as const, key: '100234', label: 'Panadol 500mg 24', from: '2026-09-03', to: null, status: 'unavailable' as const, note: '' }
+const matchedRow = { row: 2, level: 'item' as const, key: '100234', label: 'Panadol 500mg 24', from: '2026-09-03', to: null, status: 'unavailable' as const, statusText: 'unavailable', note: '' }
 
 const preview = (over: Partial<ItemListPreview> = {}): ItemListPreview => ({
   token: 'tok-1',

@@ -19,12 +19,22 @@ export const STATUS_SEV: Record<ItemListStatus, Severity> = {
   available: 'ok',
 }
 
-function StatusCell({ value }: ICellRendererParams) {
+/** A status the five do not name is drawn neutral in the server's own words (`statusText`), never as one of them. */
+function StatusCell({ value, data }: ICellRendererParams<{ statusText?: string }>) {
   const { t } = useTranslation('item-lists')
-  if (!value) return null
+  if (value)
+    return (
+      <span data-item-list-status={value}>
+        <StatusBadge sev={STATUS_SEV[value as ItemListStatus]}>{t(`status.${value}`)}</StatusBadge>
+      </span>
+    )
+  const said = data?.statusText?.trim()
+  if (!said) return null
   return (
-    <span data-item-list-status={value}>
-      <StatusBadge sev={STATUS_SEV[value as ItemListStatus]}>{t(`status.${value}`)}</StatusBadge>
+    <span data-item-list-status-unknown={said}>
+      <StatusBadge sev="mute">
+        <bdi>{said}</bdi>
+      </StatusBadge>
     </span>
   )
 }

@@ -9,13 +9,15 @@ import type { AnalyticsAudience, AnalyticsLabel, AnalyticsTier } from './analyti
 /** A member's level: `item` (the zero-stripped `item_key`) or a level of the merchandising hierarchy. */
 export const ITEM_LIST_LEVELS = ['item', 'category', 'class_b', 'class_c', 'therapeutic_class', 'ingredient_class', 'brand', 'vendor', 'manufacturer'] as const
 export type ItemListLevel = (typeof ITEM_LIST_LEVELS)[number]
+/** A level as read: one of {@link ITEM_LIST_LEVELS} (matched in any case), else the server's word as sent — never coerced. */
+export type ItemListLevelRead = ItemListLevel | (string & {})
 
 /** The five stated statuses (spec 4057 default 3). */
 export const ITEM_LIST_STATUSES = ['unavailable', 'blocked', 'delisted', 'limited', 'available'] as const
 export type ItemListStatus = (typeof ITEM_LIST_STATUSES)[number]
 
 export interface ItemListMember {
-  level: ItemListLevel
+  level: ItemListLevelRead
   /** The level's value as `item_sales` publishes it. */
   key: string
   /** Its words (an item's description, a group's name); may be empty. */
@@ -23,14 +25,17 @@ export interface ItemListMember {
 }
 
 export interface ItemListPeriod {
-  level: ItemListLevel
+  level: ItemListLevelRead
   /** The member's key. */
   member: string
   /** A local calendar date, `yyyy-mm-dd`. */
   from: string
   /** `null` is open: "still", read as today on each question. */
   to: string | null
-  status: ItemListStatus
+  /** `null` when the server's word is none of the five (drawn neutral, as `statusText`). */
+  status: ItemListStatus | null
+  /** The status as the server sent it. */
+  statusText: string
   note: string
 }
 
@@ -70,12 +75,14 @@ export interface ItemList {
 /** A matched row of the preview, with its row number in the file. */
 export interface ItemListPreviewRow {
   row: number
-  level: ItemListLevel
+  level: ItemListLevelRead
   key: string
   label: string
   from: string | null
   to: string | null
   status: ItemListStatus | null
+  /** The status as the file said it. */
+  statusText: string
   note: string
 }
 

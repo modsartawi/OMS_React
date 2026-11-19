@@ -768,3 +768,21 @@ _Avoid_: public, published, official.
 A holder of the analytics curation grant, beside the screen grant. Only a curator certifies,
 un-certifies, or edits a Certified item. The AI is never a curator.
 _Avoid_: admin, editor, owner (an owner is the person who made an item).
+
+**Multi-pharmacy case**:
+One patient's open run of dispenses across our pharmacies that matched an abuse signal: pharmacy
+hopping, impossible travel, or the same medicine again elsewhere while the last supply runs (supply
+overlap). The nightly HQ job builds it from the patient dispense history and ranks it by the
+signals that fired (a score, never a verdict). A patient has at most one open case: a new matching
+dispense grows it, and it closes after the quiet days or when the team marks it. It is shown by its
+case number, never by the patient (spec 4050). It is not a prescription session, and not a monitor
+review item.
+_Avoid_: patient case, fraud case (it ranks, it does not judge), session, review item.
+
+**Reveal** (of a patient):
+Showing a multi-pharmacy case's patient key and member ID: the one door identity leaves a case by.
+Only an investigator may, with a reason of at least 10 characters, and the server writes the
+reveal-log row (who, when, which case, why) before it answers, and answers nobody if that write
+fails. The patient shows in the reveal dialog alone and goes when it closes; showing them again is
+another reveal. The reveal log says who looked, never at whom (spec 4050).
+_Avoid_: unmask, lookup, view patient (opening a case is not a reveal; only showing its patient is).

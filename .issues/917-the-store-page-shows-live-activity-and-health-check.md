@@ -68,3 +68,7 @@ HealthCheck `{ takenAt, findings: [{ priority (1 = most urgent), check, detail, 
 machine names; the Check now audit action word (not labelled; shows raw on the Audit page).
 
 **Owed:** "Done when" — the panels against the dev store on a local SIS.Api — waits on BO 4032.
+
+**2026-11-19 — reconciled to the real doors (BO `pricing2`, merge fa2759e8f).** Guesses replaced: Check now answers `StoreDatabaseCheckNowAnswer` — a reading result `{ code, takenAt, succeeded, error, reading, largestTables, auditId }`, NOT a store page — so the page is no longer `setQueryData`'d with it: the store's page and health check are invalidated (exact keys, so the live look and sp_Blitz are not re-run) and re-read, and a read that came back `succeeded: false` toasts as a failure (it used to toast success); the live-activity durations are `seconds`, `waitSeconds`, `idleSeconds`, `runningSeconds`, `transactionSeconds` and `openTransactions` (were `secs`/`waitSecs`/`idleSecs`/`runningSecs`/`tranSecs`/`openTran` — those columns were blank); a faulted health check is `level: "CheckFailed"` (no `faulted` flag) and `NoRecentBackup` is `NoFullBackup`; the on-demand looks stamp `DateTime.Now` with the server's offset. Fixtures `check-now.json`, `live-activity.json`, `health-check.json` re-made from the DTOs; the live drive passes 48/48 (contexts in Asia/Riyadh).
+
+**Still owed:** the live walk against the dev store on a SIS.Api carrying 4032.

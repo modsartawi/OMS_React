@@ -81,3 +81,7 @@ Open rulings:
 
 **Owed:** "Done when" — the tab against the dev fleet on a local SIS.Api — waits on BO 4030 (and 4031 for the sort +
 days to cap).
+
+**2026-11-19 — reconciled to the real doors (BO `pricing2`, merge fa2759e8f; branch `spec/4016-reconcile`).** Guesses replaced by the server's contract: the grant keys are `StoreDatabaseView:03` / `StoreDatabaseAct:06` (`StoreDatabaseGrants.cs`; the guessed `StoreDatabase:03/06` hid the tab from every real user); the Fleet row reads `usedPercent` (0..100, was `usedShare` 0..1), `bitness` `x64`/`x86` (was `is64Bit`), `capKb` null when never read, and `growthKbPerDay`/`succeeded`/`error`; the engine is the server's label (`SQL Server 2008 R2`, …), so the `storeDb.engines` words are gone and the engine filter is built from the labels the fleet holds; the state rank is the server's (Watch before Not checked); `driveFreeKb = -1` (drive not matched) is blank, never "-1 KB". Fixture `fleet.json` re-made from `StoreDatabaseFleetRow`; the fleet drive passes 32/32 on it.
+
+**Still owed:** the live walk against the dev fleet on a SIS.Api carrying 4030/4031.

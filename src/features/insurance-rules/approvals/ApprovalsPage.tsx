@@ -15,6 +15,7 @@ import { INSURANCE_RULES_PATH, guardRulePath, ruleSeverity, type GuardRule, type
 import { saysIn } from '@/core/rules/sentence'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
+import { usePermissions } from '@/core/permissions'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -94,7 +95,8 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
     retry: false,
   })
   const verdict = checks.data ? checksVerdict(checks.data) : null
-  const actions = actionsFor({ approval, userId, backtest: bt, checks: verdict })
+  const selfApprove = usePermissions().has('InsuranceRuleSelfApproval:06')
+  const actions = actionsFor({ approval, userId, backtest: bt, checks: verdict, selfApprove })
   const [note, setNote] = useState('')
 
   const act = useMutation({

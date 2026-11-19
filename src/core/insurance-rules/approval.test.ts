@@ -48,3 +48,21 @@ describe('actionsFor without a back-test (category / coverage)', () => {
     expect(actionsFor({ approval: approval(), userId: 'a', backtest: null, checks: pass })[0].why).toBe('noBacktest')
   })
 })
+
+describe('actionsFor with the self-approval grant (BackOffice, owner ruling 2026-11-18)', () => {
+  const waiting = approval({ state: 'waiting', submittedBy: 'NAlharbi', lastEditedBy: 'nalharbi', viewer: { author: true, approver: true } })
+  it('the author approves their own draft, and still never sends it back', () => {
+    expect(actionsFor({ approval: waiting, userId: 'nalharbi', backtest: null, checks: pass, selfApprove: true })).toEqual([
+      { kind: 'approve', enabled: true, why: null },
+      { kind: 'sendBack', enabled: false, why: 'ownSubmission' },
+    ])
+  })
+  it('it still waits for, and stops on, the checks', () => {
+    expect(actionsFor({ approval: waiting, userId: 'nalharbi', backtest: null, checks: null, selfApprove: true })[0]).toEqual({ kind: 'approve', enabled: false, why: 'checking' })
+    expect(actionsFor({ approval: waiting, userId: 'nalharbi', backtest: null, checks: { errors: 1, warnings: 0, blocked: true }, selfApprove: true })[0].why).toBe('checks')
+  })
+  it('without the grant, or with no user, the author is refused as before', () => {
+    expect(actionsFor({ approval: waiting, userId: 'nalharbi', backtest: null, checks: pass })[0].why).toBe('ownSubmission')
+    expect(actionsFor({ approval: waiting, userId: null, backtest: null, checks: pass, selfApprove: true })[0].why).toBe('ownSubmission')
+  })
+})

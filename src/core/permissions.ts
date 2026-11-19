@@ -118,6 +118,8 @@ export const SCREEN_KEYS = [
   'InsuranceRuleInspection:03',
   'InsuranceRuleHits:03',
   'InsuranceRuleAuthoring:03',
+  // BackOffice owner ruling 2026-11-18: approve a guard draft you submitted or last edited.
+  'InsuranceRuleSelfApproval:06',
   'InsurancePayerMonth:03',
   // Nphies
   'Nphies:03',

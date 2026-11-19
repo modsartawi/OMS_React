@@ -76,11 +76,14 @@ export interface ActionsInput {
   needsBacktest?: boolean
   /** Unsaved changes on screen: what is asked for is the SAVED revision, so save first. */
   dirty?: boolean
+  /** The session holds `InsuranceRuleSelfApproval:06` (BackOffice, owner ruling 2026-11-18): it may approve its own draft.
+   *  It still never sends its own draft back. HQ decides again at the door. */
+  selfApprove?: boolean
 }
 
 const STANDING_WHY = { none: 'noBacktest', running: 'backtestRunning', failed: 'backtestFailed', stale: 'backtestStale' } as const
 
-export function actionsFor({ approval, userId, backtest, checks, needsBacktest = true, dirty = false }: ActionsInput): ApprovalAction[] {
+export function actionsFor({ approval, userId, backtest, checks, needsBacktest = true, dirty = false, selfApprove = false }: ActionsInput): ApprovalAction[] {
   if (approval.state === 'draft') {
     if (!approval.viewer.author || approval.exists === false) return []
     const standing = needsBacktest ? backtestStanding(backtest, approval.revision) : 'current'
@@ -100,7 +103,8 @@ export function actionsFor({ approval, userId, backtest, checks, needsBacktest =
   const own = !userId || !approval.submittedBy || same(approval.submittedBy) || same(approval.lastEditedBy)
   const ownWhy: ApproveWhy | null = own ? 'ownSubmission' : null
   // Publishing waits to have shown HQ's answer, and stops on a refusal (698). Sending back never waits.
-  const why = ownWhy ?? (!checks ? 'checking' : checks.blocked ? 'checks' : null)
+  const approveOwn = own && selfApprove && !!userId
+  const why = (approveOwn ? null : ownWhy) ?? (!checks ? 'checking' : checks.blocked ? 'checks' : null)
   return [
     { kind: 'approve', enabled: why === null, why },
     { kind: 'sendBack', enabled: !own, why: ownWhy },

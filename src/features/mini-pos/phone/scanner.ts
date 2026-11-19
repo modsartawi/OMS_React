@@ -89,15 +89,18 @@ export function browserEnv(): ScannerEnv {
   }
 }
 
-/** The built-in detector for `formats`, or null when there is none or it reads none of them. */
+/**
+ * The built-in detector for `formats`, or null when there is none or it lacks any of them. A detector that reads the
+ * pack barcodes but not the DataMatrix would leave every serial unread, so a single missing format means ZXing, which
+ * reads them all.
+ */
 async function nativeDecoder(env: ScannerEnv, formats: readonly ScanFormat[]): Promise<FrameDecoder | null> {
   const Detector = env.BarcodeDetector
   if (!Detector) return null
   try {
     const supported = await Detector.getSupportedFormats()
-    const wanted = formats.filter((f) => supported.includes(f))
-    if (!wanted.length) return null
-    const detector = new Detector({ formats: wanted })
+    if (!formats.length || formats.some((f) => !supported.includes(f))) return null
+    const detector = new Detector({ formats: [...formats] })
     return async (video) => {
       const codes = await detector.detect(video)
       return codes.length ? { format: codes[0].format, value: codes[0].rawValue } : null
@@ -245,22 +248,29 @@ export async function createScanner(
   return scanner
 }
 
+/** A keyed read. `timed: false` when no first character was ever seen to time it from. */
+export type KeyedRead = ScanRead & { timed?: boolean }
+
 /**
  * A hardware scanner that types into a field and ends with Enter (the keyboard wedge). Feed it every key of the
  * field; it answers the read on Enter, timed from the first character, and `null` otherwise.
+ *
+ * A soft keyboard that reports every key as `Unidentified` (Gboard), a paste and an autofill give no first character
+ * to time from: that read is answered `timed: false`, `msToRead` 0, and {@link keyedEntry} counts it as typed.
  */
 export function createWedge(now: () => number = () => performance.now()) {
-  let startedAt = 0
+  let startedAt: number | null = null
   return {
-    key(key: string, value: string): ScanRead | null {
+    key(key: string, value: string): KeyedRead | null {
       if (key === 'Enter') {
         const at = now()
-        const ms = startedAt ? Math.round(at - startedAt) : 0
-        startedAt = 0
+        const timed = startedAt !== null
+        const ms = startedAt !== null ? Math.round(at - startedAt) : 0
+        startedAt = null
         const trimmed = value.trim()
-        return trimmed ? { reader: 'wedge', format: 'keyboard', value: trimmed, msToRead: ms } : null
+        return trimmed ? { reader: 'wedge', format: 'keyboard', value: trimmed, msToRead: ms, timed } : null
       }
-      if (!startedAt && key.length === 1) startedAt = now()
+      if (startedAt === null && key.length === 1) startedAt = now()
       return null
     },
   }
@@ -273,7 +283,48 @@ export const WEDGE_MS_PER_CHAR = 35
  * One field takes both a typed code and a wedge scanner's (the scanner types into whatever has focus). A read keyed
  * in at scanner speed is the wedge's; anything slower is typed by hand, and reports no reader and no time-to-read.
  */
-export function keyedEntry(read: ScanRead): { entryMode: 'wedge' | 'typed'; reader: 'wedge' | null; msToRead: number | null } {
+export function keyedEntry(read: KeyedRead): { entryMode: 'wedge' | 'typed'; reader: 'wedge' | null; msToRead: number | null } {
+  // No first character to time from: typed, and its time not measured. 0, never null: the scan event (BackOffice 4073)
+  // stores 0 as "not measured" and keeps it out of every median.
+  if (read.timed === false) return { entryMode: 'typed', reader: null, msToRead: 0 }
   const wedge = read.value.length >= 6 && read.msToRead <= read.value.length * WEDGE_MS_PER_CHAR
   return wedge ? { entryMode: 'wedge', reader: 'wedge', msToRead: read.msToRead } : { entryMode: 'typed', reader: null, msToRead: null }
+}
+
+/**
+ * One mounted camera view's scanner: made once, started and stopped by the view, and disposed when the view goes. A
+ * start still pending at dispose (the permission prompt, ZXing loading) stops the camera the moment it resolves, so an
+ * unmount never leaves the camera on, and answers `disposed` so the view sets no state after it has gone.
+ */
+export function createCameraSession(create: () => Promise<BarcodeScanner>) {
+  let disposed = false
+  let scanner: BarcodeScanner | null = null
+  let making: Promise<BarcodeScanner> | null = null
+  return {
+    get scanner() {
+      return scanner
+    },
+    async start(video: HTMLVideoElement): Promise<'running' | 'disposed'> {
+      if (disposed) return 'disposed'
+      if (!scanner) {
+        making ??= create()
+        const made = await making
+        if (disposed) return 'disposed'
+        scanner = made
+      }
+      try {
+        await scanner.start(video)
+      } finally {
+        if (disposed) scanner.stop()
+      }
+      return disposed ? 'disposed' : 'running'
+    },
+    stop() {
+      scanner?.stop()
+    },
+    dispose() {
+      disposed = true
+      scanner?.stop()
+    },
+  }
 }

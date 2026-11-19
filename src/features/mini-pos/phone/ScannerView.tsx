@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Camera, CameraOff, Flashlight, FlashlightOff } from 'lucide-react'
 import Button from '@/core/ui/Button'
-import { createScanner, type BarcodeScanner, type ScanFormat, type ScanRead } from './scanner'
+import { createCameraSession, createScanner, type ScanFormat, type ScanRead } from './scanner'
 
 /**
  * The camera, behind the scanner adapter: start and stop, the torch when the phone has one, and which reader the
@@ -22,27 +22,21 @@ export default function ScannerView({
 }) {
   const { t } = useTranslation('mini-pos-phone')
   const video = useRef<HTMLVideoElement>(null)
-  const scanner = useRef<BarcodeScanner | null>(null)
   const latest = useRef({ onRead, paused })
   latest.current = { onRead, paused }
+  /** This mount's camera: made in the mount effect, disposed by its cleanup, which also stops a start still pending. */
+  const session = useRef<ReturnType<typeof createCameraSession> | null>(null)
   const [running, setRunning] = useState(false)
   const [reader, setReader] = useState<'native' | 'zxing' | null>(null)
   const [torch, setTorch] = useState<'off' | 'on' | 'none'>('off')
   const [refused, setRefused] = useState(false)
 
   const start = async () => {
-    if (!video.current) return
+    const current = session.current
+    if (!video.current || !current) return
     setRefused(false)
     try {
-      if (!scanner.current) {
-        const made = await createScanner(formats)
-        made.onRead((read) => {
-          if (!latest.current.paused) latest.current.onRead(read)
-        })
-        scanner.current = made
-        setReader(made.reader)
-      }
-      await scanner.current.start(video.current)
+      if ((await current.start(video.current)) === 'disposed') return
       setRunning(true)
       setTorch('off')
     } catch {
@@ -52,19 +46,33 @@ export default function ScannerView({
   }
 
   const stop = () => {
-    scanner.current?.stop()
+    session.current?.stop()
     setRunning(false)
   }
 
   const toggleTorch = async () => {
     const on = torch !== 'on'
-    const ok = (await scanner.current?.torch?.(on)) ?? false
+    const ok = (await session.current?.scanner?.torch?.(on)) ?? false
     setTorch(ok ? (on ? 'on' : 'off') : 'none')
   }
 
   useEffect(() => {
+    // A session per mount (StrictMode mounts twice in dev: the first one's is disposed, the second starts afresh).
+    let disposed = false
+    const mounted = createCameraSession(async () => {
+      const made = await createScanner(formats)
+      made.onRead((read) => {
+        if (!latest.current.paused) latest.current.onRead(read)
+      })
+      if (!disposed) setReader(made.reader)
+      return made
+    })
+    session.current = mounted
     if (autoStart) void start()
-    return () => scanner.current?.stop()
+    return () => {
+      disposed = true
+      mounted.dispose()
+    }
     // Started once per mount; the formats of a mounted view do not change.
   }, [])
 

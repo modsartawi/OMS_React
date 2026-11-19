@@ -14,14 +14,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <script>
       // Theme and direction before first paint, as the OMS index.html sets them (spec 380 F22): the stored choice,
-      // else the OS preference; direction from the stored locale, which a language switch writes before reloading.
+      // else the OS preference; direction from the phone's own stored locale (`minipos.locale`, never OMS's `oms.locale`:
+      // same origin), which a language switch writes before reloading.
       try {
         var stored = localStorage.getItem('oms.darkMode')
         var dark = stored !== null ? stored === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches
         if (dark) document.documentElement.classList.add('dark')
       } catch (e) {}
       try {
-        var locale = localStorage.getItem('oms.locale')
+        var locale = localStorage.getItem('minipos.locale')
         if (locale) document.documentElement.dir = locale.split('-')[0] === 'ar' ? 'rtl' : 'ltr'
       } catch (e) {}
     </script>

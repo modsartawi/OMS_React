@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { MINIPOS_PUBLIC_FILES, serviceWorkerSource, shellFiles } from './minipos-sw.mjs'
+import { MINIPOS_PUBLIC_FILES, miniPosServiceWorker, serviceWorkerSource, shellFiles } from './minipos-sw.mjs'
 
 // oms 916: the Mini POS app installs (its manifest) and reopens with no connection (its worker caches the shell and the
 // scanner library). The worker's list is read off the bundle; these prove what it takes and what it leaves.
@@ -46,6 +46,36 @@ describe('the worker precaches the phone app’s shell', () => {
     expect(cacheName(a)).toBe(cacheName(serviceWorkerSource(['/minipos/', '/assets/a.js'])))
     expect(() => new Function(a)).not.toThrow()
     expect(a).toContain("if (request.method !== 'GET') return")
+  })
+})
+
+// Review 4063 #8: the cache name must change whenever any shell file changes, not only when the list of paths does. The
+// page (`index.html`), the manifest and the icons keep their names across builds; with a name hashed from the paths
+// alone, a change to any of them never reached an installed phone (same worker bytes: no update, the old cache kept).
+describe('the cache is named for the shell’s contents', () => {
+  const cacheName = (src) => /const CACHE = '(minipos-[0-9a-f]+)'/.exec(src)[1]
+  const shell = ['/minipos/', '/minipos/index.html', '/assets/a.js']
+
+  it('same paths, a file’s content changed: a new cache', () => {
+    const v1 = { '/minipos/index.html': '<html>1</html>', '/assets/a.js': 'a' }
+    const v2 = { '/minipos/index.html': '<html>2</html>', '/assets/a.js': 'a' }
+    expect(cacheName(serviceWorkerSource(shell, (p) => v1[p]))).not.toBe(cacheName(serviceWorkerSource(shell, (p) => v2[p])))
+    expect(cacheName(serviceWorkerSource(shell, (p) => v1[p]))).toBe(cacheName(serviceWorkerSource(shell, (p) => ({ ...v1 })[p])))
+  })
+
+  const emitted = (htmlSource, manifest) => {
+    let sw = null
+    const plugin = miniPosServiceWorker({ readPublic: (f) => (f === 'manifest.webmanifest' ? manifest : 'png') })
+    const withHtml = { ...bundle, 'minipos/index.html': { type: 'asset', fileName: 'minipos/index.html', source: htmlSource } }
+    plugin.generateBundle.call({ emitFile: (f) => (sw = f.source) }, {}, withHtml)
+    return cacheName(sw)
+  }
+
+  it('the build’s worker: a changed page or a changed manifest is a new cache, an identical build the same one', () => {
+    const base = emitted('<html>1</html>', '{"name":"Mini POS"}')
+    expect(emitted('<html>1</html>', '{"name":"Mini POS"}')).toBe(base)
+    expect(emitted('<html>2</html>', '{"name":"Mini POS"}')).not.toBe(base)
+    expect(emitted('<html>1</html>', '{"name":"Mini POS 2"}')).not.toBe(base)
   })
 })
 

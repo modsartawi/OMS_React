@@ -8,6 +8,10 @@
 // connection: held while offline, and retried with the SAME request id. The camera itself is the 3709 phone trial's
 // (a headless browser has none).
 //
+// The `faults` run (review 4063): a basket read the server refuses shows the refusal with Try again (never a blank
+// screen); a submit refused with SESSION_CLOSED goes back to the door, which opens anew and SHOWS why; the language
+// switch writes the phone's own key, never OMS's `oms.locale`.
+//
 //   1. run the app:  VITE_MINIPOS_API_KEY=drive-key npx vite --port 5199
 //   2. node tools/minipos-drive.mjs          (SHOTS=<dir> saves a screenshot of each screen, never into the repo)
 //
@@ -71,6 +75,8 @@ async function run(door) {
   let lines = []
   let customer = null
   let resubmits = 0
+  let opens = 0
+  let stateReads = 0
 
   await page.route('**/api/**', async (route) => {
     const req = route.request()
@@ -83,6 +89,9 @@ async function run(door) {
       if (door === 'notAssigned')
         return route.fulfill(refusal(403, 'MINIPOS_NOT_ASSIGNED_TODAY', 'You are not assigned to a pharmacy today.', 'لست مكلّفاً بصيدلية اليوم.'))
       if (door === 'locked') return route.fulfill(refusal(403, 'MINIPOS_NOT_UNLOCKED', 'Scan your pharmacy QR code.', 'امسح رمز QR.'))
+      opens += 1
+      if (door === 'faults' && opens === 1)
+        return route.fulfill(ok({ outcome: 'refusedExisting', state: null, existing: { transactionId: 'TX9', customerName: 'Sara Al-Qahtani', lineCount: 1, openedAt: '2026-11-19T09:00:00', plant: 'S001' } }))
       lines = []
       customer = null
       return route.fulfill(ok({ outcome: 'opened', state: state('TX1', lines, customer), existing: null }))
@@ -110,7 +119,22 @@ async function run(door) {
       lines = [line(body.newQty)]
       return route.fulfill(ok(state(body.transactionId, lines, customer)))
     }
-    if (path === 'MiniPos/Submit') return route.fulfill(ok({ outcome: 'submitted', documentNo: '1000001181', state: null }))
+    if (path === 'MiniPos/State') {
+      stateReads += 1
+      if (stateReads === 1) return route.fulfill(refusal(500, 'MINIPOS_STATE_FAILED', 'The basket could not be read.', 'تعذّرت قراءة السلة.'))
+      lines = [line()]
+      customer = sara
+      return route.fulfill(ok(state('TX9', lines, customer)))
+    }
+    if (path === 'MiniPos/Submit') {
+      if (door === 'faults')
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ statusCode: 409, success: false, message: 'This order was already submitted.', errors: [{ errorCode: 'SESSION_CLOSED', errorMessage: 'This order was already submitted.' }], data: { reason: 'submitted' } }),
+        })
+      return route.fulfill(ok({ outcome: 'submitted', documentNo: '1000001181', state: null }))
+    }
     // ----- my orders today, reopen, resubmit (4071) -----
     if (path === 'MiniPos/MyOrdersToday')
       return route.fulfill(
@@ -153,6 +177,30 @@ async function run(door) {
   } else if (door === 'locked') {
     await page.locator('[data-screen="unlock"]').waitFor()
     check(true, '[locked] a sign-in that has not unlocked lands on the unlock screen')
+  } else if (door === 'faults') {
+    // ----- #2: a refused basket read is shown, with Try again -----
+    await page.getByRole('button', { name: 'Continue this basket' }).click()
+    await page.locator('[data-refusal="MINIPOS_STATE_FAILED"]').waitFor()
+    check(await page.getByRole('button', { name: 'Try again' }).isVisible(), '[faults] a refused basket read shows the refusal and Try again, not a blank screen')
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/minipos-state-refused.png`, fullPage: true })
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await page.locator('[data-line="100045"]').waitFor()
+    check(stateReads === 2, '[faults] Try again reads the basket again, and it shows')
+
+    // ----- #3, #4: a submit refused SESSION_CLOSED goes back to the door, and the refusal is shown on what it opens -----
+    await page.getByRole('button', { name: 'Submit order' }).click()
+    await page.locator('[data-screen="customer"]').waitFor()
+    check(opens === 2, '[faults] a submit refused SESSION_CLOSED goes back to the door, which opens anew')
+    await page.locator('[data-refusal="SESSION_CLOSED"]').waitFor({ timeout: 3000 }).catch(() => {})
+    check(await page.locator('[data-refusal="SESSION_CLOSED"]').isVisible(), '[faults] the SESSION_CLOSED refusal is shown on the new basket, not cleared unseen')
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/minipos-session-closed.png`, fullPage: true })
+
+    // ----- #9: the phone's language is its own -----
+    await page.getByTitle('Switch to Arabic').click()
+    await page.waitForFunction(() => document.documentElement.dir === 'rtl')
+    const keys = await page.evaluate(() => ({ phone: localStorage.getItem('minipos.locale'), oms: localStorage.getItem('oms.locale') }))
+    check(keys.phone === 'ar' && keys.oms === null, '[faults] the language switch writes the phone’s key, never OMS’s oms.locale')
+    await page.evaluate(() => localStorage.removeItem('minipos.locale'))
   } else {
     // ----- the customer step, before the basket -----
     await page.locator('[data-screen="customer"]').waitFor()
@@ -251,7 +299,7 @@ async function run(door) {
   await browser.close()
 }
 
-for (const door of ['notAssigned', 'locked', 'open']) await run(door)
+for (const door of ['notAssigned', 'locked', 'open', 'faults']) await run(door)
 if (fails.length) {
   console.error(`\n${fails.length} check(s) failed`)
   process.exit(1)

@@ -1,5 +1,8 @@
 import { toast } from 'sonner'
-import i18n from '@/core/i18n'
+// The i18next instance itself, not `@/core/i18n`: each app's entry initialises it with its own namespaces (OMS with all of
+// them, the Mini POS phone with its own, `app/minipos-i18n.ts`), and the client only reads `common`'s error sentences.
+// Importing the OMS init here would put every OMS locale into the phone bundle.
+import i18n from 'i18next'
 import { navigateTo, currentPath } from '@/core/nav'
 import { useSession } from '@/core/session'
 import { filenameFromDisposition } from '@/core/util/content-disposition'

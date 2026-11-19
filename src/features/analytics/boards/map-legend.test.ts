@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+// The OMS words, initialised as the OMS entry does (`app/main.tsx`): `@/core/api` no longer imports the init itself.
+import '@/core/i18n'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { AnalyticsModel } from '@/core/models/analytics'

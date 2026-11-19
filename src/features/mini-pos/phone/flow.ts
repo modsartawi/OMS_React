@@ -1,6 +1,8 @@
 import { apiErrorKind } from '@/core/api'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { SessionState } from '@/core/models/callcenter'
+import { readSessionFault } from '@/core/engine-session/session-fault'
+import type { ExistingOrder, OpenResult, SessionState } from '@/core/models/callcenter'
+import { doorScreenFor, type DoorScreen, type ShownRefusal } from './refusal'
 
 /**
  * The phone's flow rules for oms 917 (spec 4063), kept pure so they are tested without a DOM. None of them decides
@@ -19,6 +21,55 @@ export function basketView(state: Pick<SessionState, 'header'>): 'customer' | 'b
 /** A call that never reached the server (no network, the server unreachable): its outcome is unknown, not refused. */
 export function isNoConnection(err: unknown): boolean {
   return apiErrorKind(err) === 'network'
+}
+
+/**
+ * Where a failed call sends the phone. One routing for every call on the basket (a verb, submit or resubmit, abandon,
+ * the state read), so none of them can forget a case:
+ * - `noConnection`: the call never reached the server; nothing moves.
+ * - `start`: the order is over or not this sign-in's (`SESSION_CLOSED`, `NOT_YOUR_SESSION`): back to the door, which
+ *   opens anew, carrying the refusal that says why, to be shown on what the door opens.
+ * - `door`: a refusal of the door itself (signed out, not assigned, blocked, not unlocked).
+ * - `here`: any other refusal, shown where it happened.
+ */
+export type FaultRoute =
+  | { to: 'noConnection' }
+  | { to: 'start'; refusal: ShownRefusal }
+  | { to: 'door'; door: DoorScreen; refusal: ShownRefusal }
+  | { to: 'here'; refusal: ShownRefusal }
+
+export function routeFault(err: unknown, shown: (err: unknown) => ShownRefusal): FaultRoute {
+  if (isNoConnection(err)) return { to: 'noConnection' }
+  if (readSessionFault(err)) return { to: 'start', refusal: shown(err) }
+  const door = doorScreenFor(err)
+  return door ? { to: 'door', door, refusal: shown(err) } : { to: 'here', refusal: shown(err) }
+}
+
+/**
+ * Where an answered open lands, and the refusal shown there: none on a plain open, or the one a session fault carried
+ * back to the door (the order that was submitted elsewhere, or swept), so it is drawn rather than cleared unseen.
+ */
+export function afterOpen(
+  result: OpenResult,
+  carried: ShownRefusal | null,
+): {
+  next: { kind: 'basket'; transactionId: string; editing: null } | { kind: 'existing'; existing: ExistingOrder } | null
+  refusal: ShownRefusal | null
+} {
+  if (result.outcome === 'opened' && result.state)
+    return { next: { kind: 'basket', transactionId: result.state.transactionId, editing: null }, refusal: carried }
+  if (result.existing) return { next: { kind: 'existing', existing: result.existing }, refusal: carried }
+  return { next: null, refusal: carried }
+}
+
+/**
+ * What the basket screen shows while it holds no state: the read in flight, the read lost to the connection, or the
+ * read refused (with the refusal and a retry). Never nothing. `null` once there is state.
+ */
+export function basketWait(read: { data: SessionState | undefined; error: unknown }): 'loading' | 'noConnection' | 'refused' | null {
+  if (read.data) return null
+  if (!read.error) return 'loading'
+  return isNoConnection(read.error) ? 'noConnection' : 'refused'
 }
 
 /** How a submit (or resubmit) ended, as far as the phone can know. */

@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import i18n from '@/core/i18n'
+import i18n from '@/app/minipos-i18n'
 import '@/app/global.css'
 import { ConfirmHost } from '@/core/services/confirm'
 import MiniPosPhonePage from '@/features/mini-pos/phone/MiniPosPhonePage'

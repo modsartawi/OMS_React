@@ -6,7 +6,6 @@ import { setUnauthorizedHandler } from '@/core/api'
 import Button from '@/core/ui/Button'
 import { applyState } from '@/core/engine-session/session-state'
 import { newRequestId } from '@/core/engine-session/request-id'
-import { readSessionFault } from '@/core/engine-session/session-fault'
 import { confirmAction } from '@/core/services/confirm'
 import type { ExistingOrder, LoyaltyMember, OpenResult, SessionLine, SessionState, SubmitResult } from '@/core/models/callcenter'
 import { miniPosApi, type AddItemInput } from './api'
@@ -18,9 +17,10 @@ import { addItemCode } from './gs1'
 import type { KeyedCode } from './KeyedCodeField'
 import { switchLanguage } from './language'
 import { clearPhoneSession, phoneSession, savePhoneSession, type PhoneSession } from './phone-session'
-import { basketView, createSubmitGuard, isNoConnection } from './flow'
+import { afterOpen, basketView, basketWait, createSubmitGuard, isNoConnection, routeFault } from './flow'
 import NoConnection, { useOnline } from './NoConnection'
 import OrdersScreen from './OrdersScreen'
+import RefusalBanner from './RefusalBanner'
 import { doorScreenFor, readRefusal, withPhoneArabic, type ShownRefusal } from './refusal'
 import type { ScanRead } from './scanner'
 import SignInScreen from './SignInScreen'
@@ -68,6 +68,8 @@ export default function MiniPosPhonePage() {
   const [noConnection, setNoConnection] = useState(false)
   const online = useOnline()
   const submitGuard = useRef(createSubmitGuard())
+  /** Why the phone went back to the door (the order was over, or not this sign-in's): shown on what the door opens. */
+  const carried = useRef<ShownRefusal | null>(null)
 
   const signOut = () => {
     clearPhoneSession()
@@ -77,6 +79,7 @@ export default function MiniPosPhonePage() {
     setBelowStock(null)
     setMember(null)
     setNoConnection(false)
+    carried.current = null
     setScreen({ kind: 'signIn' })
   }
 
@@ -99,43 +102,57 @@ export default function MiniPosPhonePage() {
   const put = (state: SessionState, source: 'verb' | 'read' = 'verb') =>
     queryClient.setQueryData<SessionState>(basketKey(state.transactionId), (current) => applyState(current, state, source))
 
-  /** A refusal of the door moves the phone; any other is shown where it happened. No connection moves nothing. */
+  /**
+   * Every failed call, one routing (`routeFault`): no connection moves nothing; an order that is over or not this
+   * sign-in's goes back to the door, carrying its refusal; a refusal of the door moves the phone; any other is shown
+   * where it happened.
+   */
   const refused = (err: unknown) => {
-    if (isNoConnection(err)) {
+    const route = routeFault(err, shownOf)
+    if (route.to === 'noConnection') {
       setNoConnection(true)
       return
     }
     setNoConnection(false)
-    const shown = shownOf(err)
-    switch (doorScreenFor(err)) {
+    if (route.to === 'start') {
+      // The order is over or not this sign-in's (submitted elsewhere, swept): back to the door, which opens anew.
+      carried.current = route.refusal
+      setRefusal(route.refusal)
+      setBelowStock(null)
+      setScreen({ kind: 'starting' })
+      return
+    }
+    if (route.to === 'here') {
+      setRefusal(route.refusal)
+      return
+    }
+    switch (route.door) {
       case 'signIn':
         signOut()
         return
       case 'notAssigned':
-        setScreen({ kind: 'refused', notAssigned: true, refusal: shown })
+        setScreen({ kind: 'refused', notAssigned: true, refusal: route.refusal })
         return
       case 'blocked':
-        setScreen({ kind: 'refused', notAssigned: false, refusal: shown })
+        setScreen({ kind: 'refused', notAssigned: false, refusal: route.refusal })
         return
       case 'unlock':
         setRefusal(null)
         setScreen({ kind: 'unlock' })
         return
-      default:
-        setRefusal(shown)
     }
   }
 
   const opened = (result: OpenResult) => {
-    setRefusal(null)
+    const { next, refusal: shown } = afterOpen(result, carried.current)
+    carried.current = null
+    setRefusal(shown)
     setNoConnection(false)
-    if (result.outcome === 'opened' && result.state) {
+    if (next?.kind === 'basket' && result.state) {
       put(result.state, 'read')
       setMember(null)
-      setScreen({ kind: 'basket', transactionId: result.state.transactionId, editing: null })
-    } else if (result.existing) {
-      setScreen({ kind: 'existing', existing: result.existing })
     }
+    if (next) setScreen(next)
   }
 
   // ----- the door: open a basket, and go where the answer says -----
@@ -147,6 +164,7 @@ export default function MiniPosPhonePage() {
     },
     onSuccess: opened,
     onError: (err) => {
+      carried.current = null
       // A door refusal moves the phone; anything else (a network fault, a server error) stays on a screen that can
       // try again.
       if (doorScreenFor(err)) refused(err)
@@ -202,15 +220,7 @@ export default function MiniPosPhonePage() {
       setNoConnection(false)
       put(state)
     },
-    onError: (err) => {
-      // The order is over or not this sign-in's (submitted elsewhere, swept): back to the door, which opens anew.
-      if (readSessionFault(err)) {
-        setRefusal(readRefusal(err, t('app.failed')))
-        setScreen({ kind: 'starting' })
-        return
-      }
-      refused(err)
-    },
+    onError: refused,
   })
 
   const add = (input: AddItemInput) =>
@@ -222,13 +232,14 @@ export default function MiniPosPhonePage() {
       return state
     })
 
-  const addCode = (value: string, entry: Pick<AddItemInput, 'entryMode' | 'reader' | 'msToRead'>) => {
+  const addCode = (value: string, entry: Pick<AddItemInput, 'entryMode' | 'reader' | 'msToRead'>, format?: string) => {
     if (!transactionId) return
-    const { code, serial } = addItemCode(value)
+    const { code, serial } = addItemCode(value, format)
     add({ transactionId, requestId: newRequestId(), code, qty: 1, serial, ...entry })
   }
 
-  const onScan = (read: ScanRead) => addCode(read.value, { entryMode: 'camera', reader: read.reader, msToRead: read.msToRead })
+  const onScan = (read: ScanRead) =>
+    addCode(read.value, { entryMode: 'camera', reader: read.reader, msToRead: read.msToRead }, read.format)
   const onKeyed = (keyed: KeyedCode) =>
     addCode(keyed.value, { entryMode: keyed.entryMode, reader: keyed.reader, msToRead: keyed.msToRead })
   const onQty = (line: SessionLine, qty: number) => transactionId && verb.mutate(() => miniPosApi.changeQty(transactionId, line.lineId, qty))
@@ -411,13 +422,21 @@ export default function MiniPosPhonePage() {
             onDontAdd={() => setBelowStock(null)}
           />
         )}
-        {screen.kind === 'basket' && !basket.data && !basket.error && (
+        {screen.kind === 'basket' && basketWait(basket) === 'loading' && (
           <p className="py-10 text-center text-sm text-muted-foreground">{t('app.working')}</p>
         )}
-        {screen.kind === 'basket' && !basket.data && isNoConnection(basket.error) && (
+        {screen.kind === 'basket' && (basketWait(basket) === 'noConnection' || basketWait(basket) === 'refused') && (
           <>
-            <NoConnection />
-            <Button variant="secondary" className="h-11 w-full justify-center" disabled={basket.isFetching} onClick={() => void basket.refetch()}>
+            {basketWait(basket) === 'noConnection' ? <NoConnection /> : refusal && <RefusalBanner refusal={refusal} />}
+            <Button
+              variant="secondary"
+              className="h-11 w-full justify-center"
+              disabled={basket.isFetching}
+              onClick={() => {
+                setRefusal(null)
+                void basket.refetch()
+              }}
+            >
               {t('app.retry')}
             </Button>
           </>

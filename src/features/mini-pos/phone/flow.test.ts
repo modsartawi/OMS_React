@@ -9,7 +9,7 @@ import { MEMBER_NOT_FOUND, miniPosApi, type MiniPosOrder } from './api'
 import BasketScreen from './BasketScreen'
 import CustomerScreen from './CustomerScreen'
 import CustomerSlot from './CustomerSlot'
-import { basketView, createSubmitGuard, isNoConnection } from './flow'
+import { afterOpen, basketView, basketWait, createSubmitGuard, isNoConnection, routeFault } from './flow'
 import OrdersScreen, { offersEdit } from './OrdersScreen'
 import { readRefusal, withPhoneArabic, type ShownRefusal } from './refusal'
 
@@ -209,5 +209,48 @@ describe('no double submit, offline or not', () => {
     expect(editing).toContain('data-editing="1000001181"')
     expect(editing).toContain('Resubmit order')
     expect(editing).not.toContain('data-screen="no-connection"')
+  })
+})
+
+// Review 4063 #2-#4: one routing for every failure of the basket (a verb, submit/resubmit, abandon, the state read), so
+// an order that is over or not this sign-in's always goes back to the door; and the refusal that says why survives the
+// door's re-open, instead of being cleared before it is ever drawn.
+describe('a basket failure is routed the same whichever call failed', () => {
+  const shown = (err: unknown) => readRefusal(err, 'failed')
+  const closed = () =>
+    new ApiError('business', 'The order was already submitted.', 409, [{ errorCode: 'SESSION_CLOSED', internalErrorCode: '', errorMessage: 'The order was already submitted.' }], { reason: 'submitted' })
+
+  it('no connection moves nothing', () => {
+    expect(routeFault(network(), shown)).toEqual({ to: 'noConnection' })
+  })
+
+  it('an order that is over, or not this sign-in’s, goes back to the door with the refusal that says so', () => {
+    expect(routeFault(closed(), shown)).toEqual({ to: 'start', refusal: expect.objectContaining({ code: 'SESSION_CLOSED', english: 'The order was already submitted.' }) })
+    expect(routeFault(refusal('NOT_YOUR_SESSION', 403, 'Not yours.'), shown)).toMatchObject({ to: 'start', refusal: { code: 'NOT_YOUR_SESSION' } })
+  })
+
+  it('a refusal of the door moves the phone; any other is shown where it happened', () => {
+    expect(routeFault(refusal('MINIPOS_NOT_ASSIGNED_TODAY', 403, 'Not assigned.'), shown)).toMatchObject({ to: 'door', door: 'notAssigned' })
+    expect(routeFault(refusal('MINIPOS_ITEM_PHARMACIST_ONLY', 422, 'Pharmacist only.'), shown)).toMatchObject({ to: 'here', refusal: { code: 'MINIPOS_ITEM_PHARMACIST_ONLY' } })
+    expect(routeFault(new ApiError('server', 'Server error', 500), shown)).toMatchObject({ to: 'here', refusal: { english: 'Server error' } })
+  })
+
+  it('the refusal carried back to the door is the one the opened basket shows', () => {
+    const why = shown(closed())
+    const opened = { outcome: 'opened' as const, state: state(false), existing: null }
+    expect(afterOpen(opened, why)).toEqual({ next: { kind: 'basket', transactionId: 'T1', editing: null }, refusal: why })
+    const existing = { outcome: 'refusedExisting' as const, state: null, existing: { transactionId: 'T9' } as never }
+    expect(afterOpen(existing, why)).toEqual({ next: { kind: 'existing', existing: { transactionId: 'T9' } }, refusal: why })
+    expect(afterOpen(opened, null).refusal).toBeNull()
+  })
+})
+
+describe('the basket screen while it has no state', () => {
+  it('loading, no connection, or the read’s refusal with a retry: never a blank screen', () => {
+    expect(basketWait({ data: undefined, error: null })).toBe('loading')
+    expect(basketWait({ data: undefined, error: network() })).toBe('noConnection')
+    expect(basketWait({ data: undefined, error: new ApiError('server', 'Server error', 500) })).toBe('refused')
+    expect(basketWait({ data: undefined, error: refusal('MINIPOS_STATE_GONE', 404, 'Gone.') })).toBe('refused')
+    expect(basketWait({ data: state(true), error: new ApiError('server', 'Server error', 500) })).toBeNull()
   })
 })

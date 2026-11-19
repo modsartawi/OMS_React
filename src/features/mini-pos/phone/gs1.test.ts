@@ -47,3 +47,30 @@ describe('the code an add sends', () => {
     expect(addItemCode('100045')).toEqual({ code: '100045', serial: null })
   })
 })
+
+// Review 4063 #1: a code that merely opens with 00/01/02 is not a GS1 element string. Only a DataMatrix read, the `]d2`
+// prefix, the bracketed form or a <GS> marks one; a bare read must carry a whole 14-digit AI 01 to be read as GS1.
+describe('only a GS1-marked read is parsed as GS1', () => {
+  it('a UPC-A and an EAN-13 opening with 01 are sent whole', () => {
+    expect(parseGs1('016000275287')).toBeNull()
+    expect(parseGs1('0123456789012')).toBeNull()
+    expect(addItemCode('016000275287', 'upc_a')).toEqual({ code: '016000275287', serial: null })
+    expect(addItemCode('0123456789012', 'ean_13')).toEqual({ code: '0123456789012', serial: null })
+  })
+
+  it('typed item numbers pass through untouched', () => {
+    expect(addItemCode('0012345')).toEqual({ code: '0012345', serial: null })
+    expect(addItemCode('0212345678')).toEqual({ code: '0212345678', serial: null })
+    expect(addItemCode('016000275287')).toEqual({ code: '016000275287', serial: null })
+  })
+
+  it('a DataMatrix read is GS1 even without a prefix, and a bare read with a whole AI 01 is GS1', () => {
+    expect(addItemCode(`0106281234567893` + `21SER1`, 'data_matrix')).toEqual({ code: '6281234567893', serial: 'SER1' })
+    expect(addItemCode('0106281234567893')).toEqual({ code: '6281234567893', serial: null })
+  })
+
+  it('a <GS> marks a GS1 string', () => {
+    expect(parseGs1(`10LOT9${GS}0106281234567893`)).toBeNull() // not opening with an SSCC/GTIN AI
+    expect(parseGs1(`${GS}0106281234567893`)).toMatchObject({ gtin: '06281234567893' })
+  })
+})

@@ -251,7 +251,9 @@
     "buy": {
       "title": "Buy",
       "minValue": "Total Minimum Value",
-      "minAmount": "Minimum value amount"
+      "minAmount": "Minimum value amount",
+      "minInclVat": "incl. VAT",
+      "minInclVatHint": "Measure the minimum value including each line's VAT, as the customer sees it on the shelf."
     },
     "get": {
       "title": "Get",

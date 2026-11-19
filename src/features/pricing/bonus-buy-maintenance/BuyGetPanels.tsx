@@ -31,6 +31,7 @@ import {
   pasteLines,
   SCALE_TYPES,
   type ScaleType,
+  setMinValueOn,
 } from './editor'
 
 /**
@@ -230,7 +231,7 @@ export function BuyPanel({
   couponMaterial: CouponMaterialAction
 }) {
   const { t } = useTranslation('bonus-buy-maintenance')
-  const { minAmountEnabled } = buyPanelLayout(state, readOnly)
+  const { minAmountEnabled, inclVatEnabled } = buyPanelLayout(state, readOnly)
   const setLine = (key: string, patch: Partial<BuyLine>) =>
     setState((s) => ({ ...s, buy: s.buy.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
 
@@ -246,7 +247,10 @@ export function BuyPanel({
           <input
             type="checkbox"
             checked={state.minValueOn}
-            onChange={(e) => setState((s) => ({ ...s, minValueOn: e.target.checked }))}
+            onChange={(e) => {
+              const on = e.target.checked
+              setState((s) => setMinValueOn(s, on))
+            }}
           />
           {t('editor.buy.minValue')}
         </label>
@@ -265,6 +269,23 @@ export function BuyPanel({
           <span className="font-mono text-xs text-muted-foreground">
             <Ltr>{currency}</Ltr>
           </span>
+          {/* The minimum's basis (spec 4040): beside the figure, so the two read together. */}
+          <label
+            className={`flex h-7 items-center gap-2 text-sm ${inclVatEnabled ? '' : 'text-muted-foreground'}`}
+            title={t('editor.buy.minInclVatHint')}
+          >
+            <input
+              type="checkbox"
+              data-bby-min-incl-vat=""
+              checked={state.minValueInclVat}
+              disabled={!inclVatEnabled}
+              onChange={(e) => {
+                const on = e.target.checked
+                setState((s) => ({ ...s, minValueInclVat: on }))
+              }}
+            />
+            {t('editor.buy.minInclVat')}
+          </label>
         </div>
       </div>
 

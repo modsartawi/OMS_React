@@ -169,6 +169,13 @@ export interface BbyBonusBuyWire {
   limitNumber: number
   /** Total Minimum Value; 0 = none. */
   minValue: number
+  /**
+   * The minimum is measured including VAT (BackOffice spec 4040, ticket 4043). Off on a new bonus
+   * buy and on every SAP or Relex one. Spec 4040 reading, reconcile when BackOffice 4043 ships: an
+   * older server's read has no field, which reads as off. The server refuses it on a zero minimum,
+   * and while HQ's switch is off.
+   */
+  minValueInclVat?: boolean
   linkCategoryBuy: string | null
   linkCategoryGet: string | null
   engineRules: BbyEngineRulesWire

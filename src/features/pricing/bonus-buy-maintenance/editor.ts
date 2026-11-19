@@ -144,6 +144,8 @@ export interface EditorState {
   linkGet: LinkCategory
   minValueOn: boolean
   minValue: string
+  /** The minimum is incl. VAT (spec 4040). Travels only while the minimum is on with a value. */
+  minValueInclVat: boolean
   totalDiscountOn: boolean
   total: { condNumber: string | null; discountType: DiscountType; value: string }
   buy: BuyLine[]
@@ -200,6 +202,7 @@ export function newEditor(promo: { promoNumber: string; salesFrom: string | null
     linkGet: 'A',
     minValueOn: false,
     minValue: '',
+    minValueInclVat: false,
     totalDiscountOn: false,
     total: { condNumber: null, discountType: '%', value: '' },
     buy: [emptyBuyLine()],
@@ -239,6 +242,7 @@ export function fromDocument(doc: BbyBonusBuyDocument): EditorState {
     linkGet: link(b.linkCategoryGet),
     minValueOn: (b.minValue ?? 0) > 0,
     minValue: (b.minValue ?? 0) > 0 ? numStr(b.minValue) : '',
+    minValueInclVat: b.minValueInclVat === true,
     totalDiscountOn: b.totalDiscount != null,
     total: b.totalDiscount
       ? {
@@ -334,6 +338,8 @@ export function toRequest(s: EditorState): BbyBonusBuyWire {
     validTo: s.validTo || null,
     limitNumber: num(s.limitNumber),
     minValue: s.minValueOn ? num(s.minValue) : 0,
+    // A mark whose box is disabled (no minimum to measure) never travels.
+    minValueInclVat: s.minValueInclVat && minValueApplies(s),
     linkCategoryBuy: s.linkBuy,
     linkCategoryGet: s.linkGet,
     engineRules: {
@@ -410,9 +416,24 @@ export function getPanelLayout(totalDiscountOn: boolean): { columns: GetColumn[]
     : { columns: [...GET_BASE, ...GET_REWARD], sidePanel: false }
 }
 
-/** Total Minimum Value enables its amount; display never does. */
-export function buyPanelLayout(s: Pick<EditorState, 'minValueOn'>, readOnly: boolean): { minAmountEnabled: boolean } {
-  return { minAmountEnabled: !readOnly && s.minValueOn }
+/**
+ * Whether the minimum has something to be incl. VAT about (spec 4040 story 3): ticked, with an
+ * amount above 0. The mark is offered, and sent, only then.
+ */
+const minValueApplies = (s: Pick<EditorState, 'minValueOn' | 'minValue'>): boolean =>
+  s.minValueOn && (boxNumber(s.minValue) ?? 0) > 0
+
+/** Total Minimum Value enables its amount, and the amount enables its incl. VAT mark; display enables neither. */
+export function buyPanelLayout(
+  s: Pick<EditorState, 'minValueOn' | 'minValue'>,
+  readOnly: boolean,
+): { minAmountEnabled: boolean; inclVatEnabled: boolean } {
+  return { minAmountEnabled: !readOnly && s.minValueOn, inclVatEnabled: !readOnly && minValueApplies(s) }
+}
+
+/** Ticking or unticking Total Minimum Value. Unticking clears the incl. VAT mark (ticket 920). */
+export function setMinValueOn(s: EditorState, on: boolean): EditorState {
+  return on ? { ...s, minValueOn: true } : { ...s, minValueOn: false, minValueInclVat: false }
 }
 
 /**

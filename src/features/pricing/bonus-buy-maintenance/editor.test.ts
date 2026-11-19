@@ -15,6 +15,7 @@ import {
   ENGINE_LIST_MAX,
   ORIGIN_FILTER_MAX,
   buyPanelLayout,
+  setMinValueOn,
   couponMaterialDefault,
   couponMaterialLands,
   couponMaterialOffered,
@@ -61,6 +62,7 @@ const WIRE: BbyBonusBuyWire = {
   validTo: '2026-10-31T00:00:00',
   limitNumber: 2,
   minValue: 100,
+  minValueInclVat: false,
   linkCategoryBuy: 'A',
   linkCategoryGet: 'O',
   engineRules: {
@@ -171,6 +173,59 @@ describe('total minimum value enables its amount', () => {
   it('a read with a minimum value opens ticked', () => {
     expect(fromDocument(doc()).minValueOn).toBe(true)
     expect(fromDocument(doc({ bonusBuy: { ...WIRE, minValue: 0 } })).minValueOn).toBe(false)
+  })
+})
+
+describe('the minimum value can be marked incl. VAT (ticket 920, BackOffice spec 4040)', () => {
+  it('a new bonus buy has the mark off, and the request says so', () => {
+    const s = newEditor(PROMO)
+    expect(s.minValueInclVat).toBe(false)
+    expect(toRequest(s).minValueInclVat).toBe(false)
+  })
+
+  it('round-trip: a read marked incl. VAT opens marked and saves marked; unmarked or absent reads off', () => {
+    const marked = fromDocument(doc({ bonusBuy: { ...WIRE, minValueInclVat: true } }))
+    expect(marked.minValueInclVat).toBe(true)
+    expect(toRequest(marked)).toMatchObject({ minValue: 100, minValueInclVat: true })
+    expect(fromDocument(doc({ bonusBuy: { ...WIRE, minValueInclVat: false } })).minValueInclVat).toBe(false)
+    // A server before BackOffice 4043 sends no field: the mark is off, never guessed on.
+    const { minValueInclVat: _absent, ...older } = WIRE
+    expect(fromDocument(doc({ bonusBuy: older })).minValueInclVat).toBe(false)
+  })
+
+  it('the mark is enabled only while the minimum is on and has a value', () => {
+    const s = newEditor(PROMO)
+    expect(buyPanelLayout(s, false).inclVatEnabled).toBe(false)
+    expect(buyPanelLayout({ ...s, minValueOn: true }, false).inclVatEnabled).toBe(false)
+    expect(buyPanelLayout({ ...s, minValueOn: true, minValue: '0' }, false).inclVatEnabled).toBe(false)
+    expect(buyPanelLayout({ ...s, minValueOn: true, minValue: '100' }, false).inclVatEnabled).toBe(true)
+    expect(buyPanelLayout({ ...s, minValueOn: false, minValue: '100' }, false).inclVatEnabled).toBe(false)
+  })
+
+  it('turning the minimum off clears the mark, and turning it back on leaves it off', () => {
+    const marked = fromDocument(doc({ bonusBuy: { ...WIRE, minValueInclVat: true } }))
+    const off = setMinValueOn(marked, false)
+    expect(off).toMatchObject({ minValueOn: false, minValueInclVat: false })
+    expect(toRequest(off)).toMatchObject({ minValue: 0, minValueInclVat: false })
+    expect(setMinValueOn(off, true)).toMatchObject({ minValueOn: true, minValueInclVat: false })
+  })
+
+  it('the mark is read-only on a Tested or Activated bonus buy, like every other field', () => {
+    const marked = { ...WIRE, minValueInclVat: true }
+    for (const bbyStatus of ['3', '']) {
+      const d = doc({ bonusBuy: marked, bbyStatus, readOnly: true })
+      const s = fromDocument(d)
+      expect(s.minValueInclVat, bbyStatus).toBe(true)
+      expect(buyPanelLayout(s, editorAccess('change', d).readOnly).inclVatEnabled, bbyStatus).toBe(false)
+    }
+    // …while Planned, the same bonus buy may change it.
+    const planned = doc({ bonusBuy: marked })
+    expect(buyPanelLayout(fromDocument(planned), editorAccess('change', planned).readOnly).inclVatEnabled).toBe(true)
+  })
+
+  it('a mark whose box is disabled (the minimum blanked) is not sent', () => {
+    const marked = fromDocument(doc({ bonusBuy: { ...WIRE, minValueInclVat: true } }))
+    expect(toRequest({ ...marked, minValue: '' })).toMatchObject({ minValue: 0, minValueInclVat: false })
   })
 })
 

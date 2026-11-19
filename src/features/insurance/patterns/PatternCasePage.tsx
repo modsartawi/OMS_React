@@ -34,16 +34,19 @@ import CaseBlockAction from './CaseBlockAction'
  */
 export default function PatternCasePage() {
   const { t } = useTranslation('insurance-patterns')
+  const { caseId = '' } = useParams()
   return (
     <ScreenGate can={canOpenPatternCases} ns="insurance-patterns" title={t('case.pageTitle')} subtitle={t('case.pageSubtitle')}>
-      <CaseBody />
+      {/* Keyed by case (review 1): Previous cases, Back and Forward reuse this route for another case, which starts
+          afresh — no mark drafted, dialog left open or map refusal of the last case is carried to it (a cached case
+          renders at once, so a reused body would post the last case's draft or reason to this one). */}
+      <CaseBody key={caseId} caseId={caseId} />
     </ScreenGate>
   )
 }
 
-function CaseBody() {
+function CaseBody({ caseId }: { caseId: string }) {
   const { t } = useTranslation('insurance-patterns')
-  const { caseId = '' } = useParams()
   const read = useQuery({ queryKey: caseKey(caseId), queryFn: () => patternsApi.detail(caseId), retry: false })
 
   const back = (

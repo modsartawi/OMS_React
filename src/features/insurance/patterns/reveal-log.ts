@@ -56,13 +56,16 @@ export function revealFiltersToParams(f: RevealFilters): URLSearchParams {
   return p
 }
 
-/** The door's query: each set filter under the door's own name, and the page as skip/take. */
+/**
+ * The door's query: every filter under the door's own name, and the page as skip/take. A blank filter is passed
+ * through, not left out here: `@/core/api`'s `buildQuery` drops it (`.claude/rules/api-envelope.md`).
+ */
 export function revealsQuery(f: RevealFilters): PatternRevealsQuery {
   return {
-    ...(f.from ? { from: f.from } : {}),
-    ...(f.to ? { to: f.to } : {}),
-    ...(f.user ? { user: f.user } : {}),
-    ...(f.caseId ? { caseId: f.caseId } : {}),
+    from: f.from,
+    to: f.to,
+    user: f.user,
+    caseId: f.caseId,
     skip: skipForPage(f.page, REVEALS_PAGE_SIZE),
     take: REVEALS_PAGE_SIZE,
   }

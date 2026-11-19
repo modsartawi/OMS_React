@@ -58,9 +58,18 @@ describe('the filters written back to the URL', () => {
 })
 
 describe('the query sent', () => {
-  it(`no filter: page 1 of ${PAGE_SIZE}, nothing else`, () => {
+  it(`no filter: page 1 of ${PAGE_SIZE}, every filter passed through blank (core's \`buildQuery\` drops a blank, api-envelope)`, () => {
     expect(PAGE_SIZE).toBe(25)
-    expect(casesQuery(NO_FILTERS)).toEqual({ skip: 0, take: 25 })
+    expect(casesQuery(NO_FILTERS)).toStrictEqual({
+      storeCode: '',
+      from: '',
+      to: '',
+      signal: undefined,
+      status: undefined,
+      severity: undefined,
+      skip: 0,
+      take: 25,
+    })
   })
 
   it('every filter under the door’s own names, and the page as skip/take', () => {
@@ -76,9 +85,10 @@ describe('the query sent', () => {
     })
   })
 
-  it('one end of the period alone is sent alone', () => {
-    expect(casesQuery({ ...NO_FILTERS, from: '2026-11-01' })).toEqual({ from: '2026-11-01', skip: 0, take: 25 })
-    expect(casesQuery({ ...NO_FILTERS, to: '2026-11-19' })).toEqual({ to: '2026-11-19', skip: 0, take: 25 })
+  it('one end of the period alone: the other passes through blank', () => {
+    const blank = { storeCode: '', signal: undefined, status: undefined, severity: undefined, skip: 0, take: 25 }
+    expect(casesQuery({ ...NO_FILTERS, from: '2026-11-01' })).toStrictEqual({ ...blank, from: '2026-11-01', to: '' })
+    expect(casesQuery({ ...NO_FILTERS, to: '2026-11-19' })).toStrictEqual({ ...blank, from: '', to: '2026-11-19' })
   })
 })
 

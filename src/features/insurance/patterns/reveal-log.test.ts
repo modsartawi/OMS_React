@@ -50,8 +50,8 @@ describe('the address', () => {
 })
 
 describe('the door’s query', () => {
-  it('page 1 with no filter asks the first page only', () => {
-    expect(revealsQuery(NO_REVEAL_FILTERS)).toEqual({ skip: 0, take: 25 })
+  it('page 1 with no filter: every filter passed through blank (core’s `buildQuery` drops a blank, api-envelope)', () => {
+    expect(revealsQuery(NO_REVEAL_FILTERS)).toStrictEqual({ from: '', to: '', user: '', caseId: '', skip: 0, take: 25 })
     expect(REVEALS_PAGE_SIZE).toBe(25)
   })
 

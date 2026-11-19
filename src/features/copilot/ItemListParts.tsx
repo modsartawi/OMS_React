@@ -22,8 +22,9 @@ export function UsedLists({ model, lang }: { model: CopilotAnswerModel; lang: st
   if (rows.length === 0) return null
   return (
     <ul aria-label={t('itemLists.used')} className="flex flex-col gap-1 text-sm" data-copilot-used-lists>
-      {rows.map((r) => (
-        <li key={r.listId} className="flex flex-wrap items-center gap-x-2 gap-y-1" data-copilot-used-list={r.listId}>
+      {/* The index joins the id: an answer may name one list twice (two of its versions). */}
+      {rows.map((r, i) => (
+        <li key={`${i}:${r.listId}`} className="flex flex-wrap items-center gap-x-2 gap-y-1" data-copilot-used-list={r.listId}>
           <ListChecks className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           <span dir={lineDir(lang)} lang={lang} data-copilot-used-line>
             <bdi>{r.text}</bdi>
@@ -78,8 +79,9 @@ export function ListPeriodsPart({ lp, lang }: { lp: CopilotListPeriods; lang: st
             </tr>
           </thead>
           <tbody>
-            {table.rows.map((r) => (
-              <tr key={r.key} className="border-t border-border/60" data-copilot-list-member={r.key}>
+            {/* The index joins the member's key: two members may share a level and key (an item listed twice). */}
+            {table.rows.map((r, n) => (
+              <tr key={`${n}:${r.key}`} className="border-t border-border/60" data-copilot-list-member={r.key}>
                 <td className="px-2 py-1.5">
                   <bdi>{r.member}</bdi>
                   {r.noPeriods && <span className="ms-2 text-muted-foreground" data-copilot-no-periods>{t('itemLists.noPeriods')}</span>}

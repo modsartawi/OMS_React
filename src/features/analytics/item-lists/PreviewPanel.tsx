@@ -3,17 +3,19 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import type { ItemListPreview } from '@/core/models/item-list'
 import Ltr from '@/core/ui/Ltr'
 import { formatTimeOfDay } from '@/core/util/date-format'
-import { MatchedGrid } from './ItemListGrids'
+import { MembersGrid, PeriodsGrid } from './ItemListGrids'
 import { problemGroups } from './preview'
 
 /**
- * The preview (spec 4057 story 5): the file's counts, its problems — unknown values, duplicates, bad dates,
- * overlapping periods and refused rows — each with its row numbers, then the matched rows. Nothing is kept yet.
+ * The preview (spec 4057 story 5; BO 4058's `AnalyticsItemListPreview`): the file's counts, its unknown values and its
+ * problems — duplicates, bad dates, overlapping periods, refused rows — and notices, each with its row numbers, then the
+ * list as it would be kept (its members and periods). Nothing is kept yet.
  */
 export default function PreviewPanel({ preview }: { preview: ItemListPreview }) {
   const { t } = useTranslation('item-lists')
   const groups = problemGroups(preview)
-  const problemCount = groups.reduce((n, g) => n + g.problems.length, 0)
+  // The problems are what refuse the save; the unknown values (kept, story 6) and the notices are listed but not counted.
+  const problemCount = preview.problems.length
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" data-item-list-preview="">
       <header className="flex flex-col gap-1">
@@ -29,7 +31,7 @@ export default function PreviewPanel({ preview }: { preview: ItemListPreview }) 
           <Ltr>{preview.rowCount}</Ltr>
         </Count>
         <Count k="matched" label={t('preview.matched')}>
-          <Ltr>{preview.matched.length}</Ltr>
+          <Ltr>{preview.matchedRows}</Ltr>
         </Count>
         <Count k="problems" label={t('preview.problems')}>
           <Ltr>{problemCount}</Ltr>
@@ -74,9 +76,9 @@ export default function PreviewPanel({ preview }: { preview: ItemListPreview }) 
                         <bdi>{p.value}</bdi>
                       </span>
                     )}
-                    {p.reason && (
-                      <span className="text-xs">
-                        <bdi>{p.reason}</bdi>
+                    {p.message && (
+                      <span className="text-xs" data-item-list-problem-message="">
+                        <bdi>{p.message}</bdi>
                       </span>
                     )}
                   </li>
@@ -87,15 +89,23 @@ export default function PreviewPanel({ preview }: { preview: ItemListPreview }) 
         </div>
       )}
 
-      {preview.matched.length === 0 ? (
+      {preview.members.length === 0 ? (
         <p role="alert" className="rounded-md border border-danger-border bg-danger-050 p-3 text-sm text-danger-800" data-item-list-none-matched="">
           {t('preview.noneMatched')}
         </p>
       ) : (
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold">{t('preview.matchedTitle')}</h3>
-          <MatchedGrid rows={preview.matched} />
-        </div>
+        <>
+          <div className="flex flex-col gap-1" data-item-list-preview-members={preview.members.length}>
+            <h3 className="text-sm font-semibold">{t('list.members')}</h3>
+            <MembersGrid members={preview.members} periods={preview.periods} />
+          </div>
+          {preview.periods.length > 0 && (
+            <div className="flex flex-col gap-1" data-item-list-preview-periods={preview.periods.length}>
+              <h3 className="text-sm font-semibold">{t('list.periods')}</h3>
+              <PeriodsGrid members={preview.members} periods={preview.periods} />
+            </div>
+          )}
+        </>
       )}
     </section>
   )

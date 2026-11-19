@@ -4,7 +4,7 @@ import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
-import type { ItemListMember, ItemListPeriod, ItemListPreviewRow, ItemListStatus } from '@/core/models/item-list'
+import type { ItemListMember, ItemListPeriod, ItemListStatus } from '@/core/models/item-list'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { Severity } from '@/core/ui/severity'
@@ -66,26 +66,6 @@ function Grid<T>({ rows, columns, testId }: { rows: T[]; columns: ColDef<T>[]; t
 const useLevelWords = () => {
   const { t } = useTranslation('item-lists')
   return (level: unknown) => (typeof level === 'string' && level ? t(`level.${level}`, { defaultValue: level }) : '')
-}
-
-/** The preview's matched rows, each with its row number in the file. */
-export function MatchedGrid({ rows }: { rows: ItemListPreviewRow[] }) {
-  const { t } = useTranslation('item-lists')
-  const levelWords = useLevelWords()
-  const columns = useMemo(
-    (): ColDef<ItemListPreviewRow>[] => [
-      { colId: 'row', field: 'row', headerName: t('columns.row'), width: 80 },
-      { colId: 'level', field: 'level', headerName: t('columns.level'), width: 150, valueFormatter: ({ value }) => levelWords(value) },
-      { colId: 'key', field: 'key', headerName: t('columns.key'), width: 150, cellClass: 'font-mono' },
-      { colId: 'label', field: 'label', headerName: t('columns.label'), flex: 1, minWidth: 180 },
-      { colId: 'from', field: 'from', headerName: t('columns.from'), width: 120 },
-      { colId: 'to', field: 'to', headerName: t('columns.to'), width: 120, valueFormatter: ({ value, data }) => (value ? String(value) : data?.from ? t('open') : '') },
-      { colId: 'status', field: 'status', headerName: t('columns.status'), width: 190, cellRenderer: StatusCell },
-      { colId: 'note', field: 'note', headerName: t('columns.note'), flex: 1, minWidth: 160 },
-    ],
-    [t, levelWords],
-  )
-  return <Grid rows={rows} columns={columns} testId="matched" />
 }
 
 interface MemberRow extends ItemListMember {

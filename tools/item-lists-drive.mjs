@@ -1,17 +1,18 @@
 // Item lists drive (oms 925, BackOffice spec 4057) — drives the REAL upload page and list page in Chromium against
-// STUBBED `Analytics/ItemLists*` envelopes, shaped from the guesses in `src/features/analytics/item-lists/api.ts`.
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 4058 was not built; the walk on its local endpoints
-// is what closes the live half.
+// STUBBED `Analytics/ItemLists*` envelopes, shaped from BackOffice 4058's REAL wire (spec4057 d919921f5:
+// `AnalyticsItemListPreview`, `AnalyticsItemInfo` over the v1 `AnalyticsItemListDefinition`, refusal codes 434/435).
+// 🚩 NOTHING here is driven against a live SIS.Api: the walk on BO 4058's endpoints is what closes the live half.
 //
 // It verifies, in English (LTR) and Arabic (RTL):
 //   1. the template downloads; a file that is not .xlsx/.csv is refused before it is sent;
-//   2. the preview names each problem kind with its row numbers, and shows the matched rows;
+//   2. a preview with problems (no token) names each kind with its row numbers and the server's words, and holds Save;
+//      a clean preview shows the members and periods it would keep, its unknown values and its notices;
 //   3. Save is held without a name or audience, and enabled once named;
 //   4. an expired token (Save's refusal) asks for the file again; after a fresh preview Save posts the token, name,
 //      audience and folder and lands on the list page;
 //   5. the list page shows members, periods with status chips and notes, unknown values, versions; Export downloads;
 //   6. the re-upload goes through the same preview and PUTs the new token;
-//   7. a preview where nothing matched holds Save; a preview whose clock runs out asks for the file again;
+//   7. a preview where nothing matched holds Save; a preview whose 30 minutes run out asks for the file again;
 //   8. without the author grant there is no upload or re-upload, but the list page and Export still work;
 //   9. the layout mirrors under Arabic (screenshots in tools/.item-lists-shots);
 //  10. (review) a refused file after a preview clears the preview and Save; a server clock hours away from this
@@ -40,58 +41,68 @@ const READER = ['Analytics:03']
 const AUTHOR = ['Analytics:03', 'Analytics:02']
 const ARABIC_NOTE = 'سحب من المورد'
 
-const inMinutes = (m) => new Date(Date.now() + m * 60_000).toISOString()
-const PREVIEW = (over = {}) => ({
-  token: 'tok-1',
-  issuedAt: inMinutes(0),
-  expiresAt: inMinutes(30),
-  fileName: 'shortage-q3.xlsx',
-  rows: 9,
-  matched: [
-    { row: 2, level: 'item', key: '100234', label: 'Panadol 500mg 24', from: '2026-09-03', to: null, status: 'unavailable', note: ARABIC_NOTE },
-    { row: 4, level: 'brand', key: 'Brufen', label: 'Brufen', from: '2026-08-01', to: '2026-09-15', status: 'blocked', note: '' },
-    { row: 5, level: 'item', key: '100777', label: 'Augmentin 1g', from: null, to: null, status: null, note: '' },
+/** The estate's local wall clock, `yyyy-MM-ddTHH:mm:ss` with no zone, as SIS.Api writes `expiresAt`. */
+const localAt = (minutes) => {
+  const d = new Date(Date.now() + minutes * 60_000)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+const DEFINITION = {
+  version: 1,
+  members: [
+    { level: 'item', key: '100234', label: 'Panadol 500mg 24' },
+    { level: 'brand', key: 'Brufen', label: 'Brufen' },
+    { level: 'item', key: '100777', label: 'Augmentin 1g' },
+  ],
+  periods: [
+    { member: 'item:100234', from: '2026-09-03', status: 'unavailable', note: ARABIC_NOTE },
+    { member: 'brand:Brufen', from: '2026-08-01', to: '2026-09-15', status: 'blocked' },
+    { member: 'brand:Brufen', from: '2026-09-16', status: 'available', note: 'Back on shelves' },
   ],
   unknown: [
-    { row: 7, level: 'brand', value: 'Panadool' },
-    { row: 3, level: 'item', value: '0099999' },
+    { level: 'brand', value: 'Panadool', row: 7 },
+    { level: 'item', value: '0099999', row: 3 },
   ],
-  duplicates: [{ rows: [8, 6], level: 'category', key: 'Analgesics' }],
-  badDates: [{ row: 9, value: '31/02/2026' }],
-  overlaps: [{ rows: [10, 2], level: 'item', key: '100234' }],
-  refused: [{ row: 11, level: 'item', key: '100235', reason: 'The note holds a phone number.' }],
+  upload: { fileName: 'shortage-q3.xlsx', rows: 9, matched: 7, unknown: 2, who: 'msartawi', when: '2026-11-19T09:00:00' },
+}
+/** A preview that may be saved: a token, the list as it would be kept, a notice (never a problem). */
+const PREVIEW = (over = {}) => ({
+  token: 'tok-1',
+  expiresAt: localAt(30),
+  name: '',
+  definition: DEFINITION,
+  problems: [],
+  notices: [{ rows: [12], field: 'note', reason: 'clamped', message: 'Row 12: the note is cut to 200 characters.' }],
+  overrides: [],
+  canSave: true,
   ...over,
+})
+/** A preview with problems: BO 4058 keeps none of it and answers no token. */
+const REFUSED = PREVIEW({
+  token: null,
+  expiresAt: null,
+  problems: [
+    { rows: [8, 6], field: 'key', reason: 'duplicate', message: 'Rows 6 and 8 name Analgesics twice.' },
+    { rows: [9], field: 'from', reason: 'from', message: "Row 9: '31/02/2026' is not a date." },
+    { rows: [10, 2], field: 'from', reason: 'overlap', message: 'Rows 2 and 10 give 100234 periods that overlap.' },
+    { rows: [11], field: 'note', reason: 'personalData', message: 'Row 11: a note cannot hold a phone number, an ID number or an email address.' },
+  ],
+  canSave: false,
 })
 
 const LIST = {
   id: 'il-1',
   kind: 'itemlist',
-  title: 'Shortage Q3',
+  title: { en: 'Shortage Q3', ar: 'Shortage Q3' },
   owner: 'msartawi',
   tier: 'shared',
   revision: 2,
   updatedAt: '2026-11-19T09:00:00',
   updatedBy: 'msartawi',
   audience: { everyone: true },
+  actions: ['share', 'unshare', 'audience', 'delete', 'revisions'],
   folderId: null,
-  definition: {
-    version: 1,
-    members: [
-      { level: 'item', key: '100234', label: 'Panadol 500mg 24' },
-      { level: 'brand', key: 'Brufen', label: 'Brufen' },
-      { level: 'item', key: '100777', label: 'Augmentin 1g' },
-    ],
-    periods: [
-      { level: 'item', member: '100234', from: '2026-09-03', status: 'unavailable', note: ARABIC_NOTE },
-      { level: 'brand', member: 'Brufen', from: '2026-08-01', to: '2026-09-15', status: 'blocked', note: '' },
-      { level: 'brand', member: 'Brufen', from: '2026-09-16', status: 'available', note: 'Back on shelves' },
-    ],
-    unknown: [
-      { row: 3, level: 'item', value: '0099999' },
-      { row: 7, level: 'brand', value: 'Panadool' },
-    ],
-    upload: { fileName: 'shortage-q3.xlsx', rows: 9, matched: 3, by: 'msartawi', at: '2026-11-19T09:00:00' },
-  },
+  definition: DEFINITION,
 }
 const VERSIONS = [
   { revision: 1, savedBy: 'msartawi', savedAt: '2026-11-18T10:00:00' },
@@ -110,6 +121,8 @@ async function open(dir, grants, opts = {}) {
   const errors = []
   const calls = []
   let saveRefusals = opts.expireFirstSave ? 1 : 0
+  const previews = [...(opts.previews ?? [])]
+  if (opts.clock) await page.clock.install()
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -123,9 +136,10 @@ async function open(dir, grants, opts = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: opts.userId ?? 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'Auth/Permissions') return route.fulfill(permissions(grants))
     if (p === 'Analytics/ItemLists/Template') return route.fulfill(workbook('item-list-template.xlsx'))
-    if (p === 'Analytics/ItemLists/Preview') return route.fulfill(envelope(opts.preview ? opts.preview() : PREVIEW()))
+    if (p === 'Analytics/ItemLists/Preview') return route.fulfill(envelope(previews.length ? previews.shift() : opts.preview ? opts.preview() : PREVIEW()))
     if (p === 'Analytics/ItemLists' && req.method() === 'POST') {
-      if (saveRefusals-- > 0) return route.fulfill(refusal('ANALYTICS-433', 'The preview expired. Upload the file again.', 410))
+      if (saveRefusals-- > 0)
+        return route.fulfill(refusal('ANALYTICS-435', 'This preview is no longer available (previews are kept 30 minutes, for their uploader, and used once). Upload the file again.', 400))
       return route.fulfill(envelope(opts.created ?? LIST))
     }
     if (p === 'Analytics/ItemLists/il-1/Export') return route.fulfill(workbook('Shortage Q3.xlsx'))
@@ -142,7 +156,7 @@ const attr = (loc, name) => loc.getAttribute(name)
 
 async function authorWalk(dir) {
   const L = dir.toUpperCase()
-  const { context, page, errors, calls } = await open(dir, AUTHOR, { expireFirstSave: true })
+  const { context, page, errors, calls } = await open(dir, AUTHOR, { expireFirstSave: true, previews: [REFUSED] })
   await page.goto(`${BASE}/analytics/itemlist/new`)
   await page.locator('[data-item-list-upload="create"]').waitFor()
   check(`${L}: the page is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
@@ -162,16 +176,26 @@ async function authorWalk(dir) {
   const sent = calls.find((c) => c.p === 'Analytics/ItemLists/Preview')
   check(`${L}: the file is posted as multipart`, !!sent && sent.method === 'POST' && sent.body.includes('filename="shortage-q3.xlsx"'))
   const kinds = await page.locator('[data-item-list-problem-kind]').evaluateAll((els) => els.map((e) => e.getAttribute('data-item-list-problem-kind')))
-  check(`${L}: every problem kind, in order`, kinds.join() === 'unknown,duplicate,badDate,overlap,refused', kinds.join())
+  check(`${L}: every kind, in order (unknown values, the problems, the notice)`, kinds.join() === 'unknown,duplicate,badDate,overlap,refused,notice', kinds.join())
   const rowsOf = async (kind) => page.locator(`[data-item-list-problem="${kind}"]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-rows')))
   check(`${L}: unknown values by row, ascending`, (await rowsOf('unknown')).join('|') === '3|7')
   check(`${L}: a duplicate names both rows`, (await rowsOf('duplicate')).join('|') === '6 8')
   check(`${L}: a bad date names its row`, (await rowsOf('badDate')).join('|') === '9')
   check(`${L}: an overlap names both rows`, (await rowsOf('overlap')).join('|') === '2 10')
-  check(`${L}: a refused row carries the server's reason`, (await page.locator('[data-item-list-problem="refused"]').innerText()).includes('phone number'))
-  check(`${L}: the matched rows are in the grid`, (await page.locator('[data-item-list-grid="matched"] [role="gridcell"][col-id="key"]').count()) === 3)
-  check(`${L}: an Arabic note reads exactly`, (await page.locator('[data-item-list-grid="matched"]').innerText()).includes(ARABIC_NOTE))
-  check(`${L}: matched count`, (await page.locator('[data-item-list-count="matched"]').innerText()).includes('3'))
+  check(`${L}: a refused row carries the server's words`, (await page.locator('[data-item-list-problem="refused"]').innerText()).includes('phone number'))
+  check(`${L}: the problem count leaves the notice out`, (await page.locator('[data-item-list-count="problems"]').innerText()).includes('4'))
+  check(`${L}: a preview with problems (no token) holds Save`, (await page.locator('[data-item-list-save]').isDisabled()) && (await attr(page.locator('[data-item-list-save-hold]'), 'data-item-list-save-hold')) === 'problems')
+  await page.screenshot({ path: `${SHOTS}/${dir}-problems.png`, fullPage: true })
+  // The file fixed and chosen again: a clean preview, with a token.
+  await page.locator('[data-item-list-file]').setInputFiles(FILE)
+  await page.waitForFunction(() => !document.querySelector('[data-item-list-problem-kind="duplicate"]') && !!document.querySelector('[data-item-list-preview]'), null, { timeout: 10000 })
+  const clean = await page.locator('[data-item-list-problem-kind]').evaluateAll((els) => els.map((e) => e.getAttribute('data-item-list-problem-kind')))
+  check(`${L}: the clean preview lists its unknown values and its notice only`, clean.join() === 'unknown,notice', clean.join())
+  const preview = page.locator('[data-item-list-preview]')
+  check(`${L}: the members it would keep are in the grid`, (await preview.locator('[data-item-list-grid="members"] [role="gridcell"][col-id="key"]').count()) === 3)
+  const memberCells = await preview.locator('[data-item-list-grid="periods"] [role="gridcell"][col-id="member"]').allInnerTexts()
+  check(`${L}: …and its periods (member read from level:key), an Arabic note exactly`, memberCells.join() === '100234,Brufen,Brufen' && (await preview.locator('[data-item-list-grid="periods"]').innerText()).includes(ARABIC_NOTE), memberCells.join())
+  check(`${L}: matched count is the upload's matched rows`, (await page.locator('[data-item-list-count="matched"]').innerText()).includes('7'))
 
   // 3. Save's holds
   const save = page.locator('[data-item-list-save]')
@@ -239,7 +263,7 @@ async function edgeWalk(dir) {
   const L = dir.toUpperCase()
   // 7a. nothing matched
   {
-    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ matched: [] }) })
+    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ token: null, expiresAt: null, canSave: false, definition: { ...DEFINITION, members: [], periods: [] } }) })
     await page.goto(`${BASE}/analytics/itemlist/new`)
     await page.locator('[data-item-list-file]').setInputFiles(FILE)
     await page.locator('[data-item-list-preview]').waitFor()
@@ -249,12 +273,15 @@ async function edgeWalk(dir) {
     check(`${L}: (nothing matched) no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
-  // 7b. the preview's own clock runs out
+  // 7b. the preview's 30 minutes run out (this page's clock, fast-forwarded)
   {
-    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ issuedAt: inMinutes(0), expiresAt: new Date(Date.now() + 1500).toISOString() }) })
+    const { context, page, errors } = await open(dir, AUTHOR, { clock: true })
     await page.goto(`${BASE}/analytics/itemlist/new`)
     await page.locator('[data-item-list-file]').setInputFiles(FILE)
     await page.locator('[data-item-list-preview]').waitFor()
+    await page.clock.fastForward('29:00')
+    check(`${L}: the preview stands at 29 minutes`, (await page.locator('[data-item-list-preview]').count()) === 1)
+    await page.clock.fastForward('01:05')
     await page.locator('[data-item-list-expired]').waitFor({ timeout: 6000 })
     check(`${L}: a lapsed preview asks for the file again by itself`, (await page.locator('[data-item-list-preview]').count()) === 0)
     await page.screenshot({ path: `${SHOTS}/${dir}-expired.png`, fullPage: true })
@@ -276,7 +303,7 @@ async function edgeWalk(dir) {
   }
   // 10b. the server's clock three hours behind this machine's: the window is its 30 minutes from receipt
   {
-    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ issuedAt: inMinutes(-180), expiresAt: inMinutes(-150) }) })
+    const { context, page, errors } = await open(dir, AUTHOR, { preview: () => PREVIEW({ expiresAt: localAt(-150) }) })
     await page.goto(`${BASE}/analytics/itemlist/new`)
     await page.locator('[data-item-list-file]').setInputFiles(FILE)
     await page.locator('[data-item-list-preview]').waitFor()

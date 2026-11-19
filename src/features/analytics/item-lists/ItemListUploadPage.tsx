@@ -105,7 +105,7 @@ function Uploader({ mode, listId }: { mode: SaveMode; listId?: string }) {
     onSuccess: (p) => {
       const received = Date.now()
       setPreview(p)
-      setDeadline(tokenDeadline(p, received))
+      setDeadline(tokenDeadline(received))
       setNow(received)
     },
   })
@@ -118,8 +118,8 @@ function Uploader({ mode, listId }: { mode: SaveMode; listId?: string }) {
     save.reset()
   }
 
-  // The preview's own clock: at its deadline (the server's window from receipt) the page asks for the file again,
-  // before Save is ever pressed. Save's `ANALYTICS-433` refusal is what decides; this only spares a doomed press.
+  // The preview's own clock: at its deadline (30 minutes from receipt) the page asks for the file again, before Save is
+  // ever pressed. Save's `ANALYTICS-435` refusal is what decides; this only spares a doomed press.
   useEffect(() => {
     if (!preview || !Number.isFinite(deadline)) return
     const left = deadline - Date.now()

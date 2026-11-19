@@ -5,47 +5,83 @@ import { isExpiredTokenRefusal, readFolders, readItemList, readPreview, TOKEN_EX
 const refusal = (code: string, status = 400) => new ApiError('business', `Refused: ${code}`, status, [{ errorCode: code, internalErrorCode: '', errorMessage: code }])
 
 describe('isExpiredTokenRefusal: Save answered that the preview token lapsed', () => {
-  it('the expired-token code is; any other refusal or failure is not', () => {
-    expect(isExpiredTokenRefusal(refusal(TOKEN_EXPIRED_CODE))).toBe(true)
+  it("BackOffice 4058's ANALYTICS-435 is; 433 (never certified), 434 (the file refused) or any other failure is not", () => {
+    expect(TOKEN_EXPIRED_CODE).toBe('ANALYTICS-435')
+    expect(isExpiredTokenRefusal(refusal('ANALYTICS-435'))).toBe(true)
+    expect(isExpiredTokenRefusal(refusal('ANALYTICS-433'))).toBe(false)
+    expect(isExpiredTokenRefusal(refusal('ANALYTICS-434'))).toBe(false)
     expect(isExpiredTokenRefusal(refusal('ANALYTICS-406'))).toBe(false)
     expect(isExpiredTokenRefusal(new ApiError('network', 'offline', 0))).toBe(false)
     expect(isExpiredTokenRefusal(new Error('boom'))).toBe(false)
   })
 })
 
-describe('readPreview: the proposed preview wire (BackOffice 4058), read defensively', () => {
-  it('reads the token, the matched rows and each problem list into one problem model, with row numbers', () => {
-    const p = readPreview({
-      token: 'tok-9',
-      issuedAt: '2026-11-19T12:00:00Z',
-      expiresAt: '2026-11-19T12:30:00Z',
-      fileName: 'shortage.xlsx',
-      rows: 6,
-      matched: [{ row: 2, level: 'item', key: '100234', label: 'Panadol', from: '2026-09-03', to: null, status: 'unavailable', note: 'Supplier recall' }],
-      unknown: [{ row: 3, level: 'item', value: '0099999' }],
-      duplicates: [{ rows: [4, 5], level: 'brand', key: 'Panadol' }],
-      badDates: [{ row: 6, value: '31/02/2026' }],
-      overlaps: [{ rows: [2, 7], level: 'item', key: '100234' }],
-      refused: [{ row: 8, level: 'item', key: '100235', reason: 'A phone number in the note.' }],
-    })
-    expect(p.token).toBe('tok-9')
-    expect([p.issuedAt, p.expiresAt]).toEqual(['2026-11-19T12:00:00Z', '2026-11-19T12:30:00Z'])
-    expect(p.rowCount).toBe(6)
-    expect(p.matched).toEqual([{ row: 2, level: 'item', key: '100234', label: 'Panadol', from: '2026-09-03', to: null, status: 'unavailable', statusText: 'unavailable', note: 'Supplier recall' }])
-    expect(p.problems).toEqual([
-      { kind: 'unknown', rows: [3], level: 'item', value: '0099999', reason: '' },
-      { kind: 'duplicate', rows: [4, 5], level: 'brand', value: 'Panadol', reason: '' },
-      { kind: 'badDate', rows: [6], level: '', value: '31/02/2026', reason: '' },
-      { kind: 'overlap', rows: [2, 7], level: 'item', value: '100234', reason: '' },
-      { kind: 'refused', rows: [8], level: 'item', value: '100235', reason: 'A phone number in the note.' },
+describe("readPreview: BackOffice 4058's preview (AnalyticsItemListPreview), read defensively", () => {
+  // The wire as SIS.Api writes it (System.Text.Json, camelCase): the list as it would be kept under `definition`, the
+  // problems that refuse the save, the notices that do not, and a token only when it may be saved.
+  const wire = {
+    token: 'tok-9',
+    expiresAt: '2026-11-19T12:30:00',
+    name: '',
+    definition: {
+      version: 1,
+      members: [{ level: 'item', key: '100234', label: 'Panadol' }, { level: 'brand', key: 'NUTRI', label: 'NUTRI' }],
+      periods: [{ member: 'item:100234', from: '2026-09-03', status: 'unavailable', note: 'Supplier recall' }],
+      unknown: [{ level: 'item', value: '0099999', row: 3 }],
+      upload: { fileName: 'shortage.xlsx', rows: 6, matched: 5, unknown: 1, who: 'msartawi', when: '2026-11-19T12:00:00' },
+    },
+    problems: [
+      { rows: [4, 5], field: 'key', reason: 'duplicate', message: 'Rows 4 and 5 name NUTRI twice.' },
+      { rows: [6], field: 'from', reason: 'from', message: "Row 6: '31/02/2026' is not a date." },
+      { rows: [2, 7], field: 'from', reason: 'overlap', message: 'Rows 2 and 7 give 100234 periods that overlap.' },
+      { rows: [8], field: 'note', reason: 'personalData', message: 'Row 8: a note cannot hold a phone number.' },
+      { rows: [], field: 'name', reason: 'tooLong', message: 'The name is too long.' },
+    ],
+    notices: [{ rows: [9], field: 'note', reason: 'clamped', message: 'Row 9: the note is cut to 200 characters.' }],
+    overrides: [{ item: '100234', level: 'brand', group: 'NUTRI' }],
+    canSave: false,
+  }
+  it('reads the token, the window, the counts and the definition (a period names its member as `level:key`)', () => {
+    const p = readPreview(wire)
+    expect([p.token, p.expiresAt]).toEqual(['tok-9', '2026-11-19T12:30:00'])
+    expect([p.fileName, p.rowCount, p.matchedRows, p.unknownRows]).toEqual(['shortage.xlsx', 6, 5, 1])
+    expect(p.members).toEqual([
+      { level: 'item', key: '100234', label: 'Panadol' },
+      { level: 'brand', key: 'NUTRI', label: 'NUTRI' },
     ])
+    expect(p.periods).toEqual([{ level: 'item', member: '100234', from: '2026-09-03', to: null, status: 'unavailable', statusText: 'unavailable', note: 'Supplier recall' }])
+    expect(p.unknown).toEqual([{ row: 3, level: 'item', value: '0099999' }])
+    expect(p.overrides).toEqual([{ item: '100234', level: 'brand', group: 'NUTRI' }])
+  })
+  it("sorts each problem into its kind by the server's reason, keeping its rows and its words", () => {
+    expect(readPreview(wire).problems).toEqual([
+      { kind: 'duplicate', rows: [4, 5], field: 'key', reason: 'duplicate', message: 'Rows 4 and 5 name NUTRI twice.' },
+      { kind: 'badDate', rows: [6], field: 'from', reason: 'from', message: "Row 6: '31/02/2026' is not a date." },
+      { kind: 'overlap', rows: [2, 7], field: 'from', reason: 'overlap', message: 'Rows 2 and 7 give 100234 periods that overlap.' },
+      { kind: 'refused', rows: [8], field: 'note', reason: 'personalData', message: 'Row 8: a note cannot hold a phone number.' },
+      { kind: 'refused', rows: [], field: 'name', reason: 'tooLong', message: 'The name is too long.' },
+    ])
+    expect(readPreview(wire).notices).toEqual([{ kind: 'notice', rows: [9], field: 'note', reason: 'clamped', message: 'Row 9: the note is cut to 200 characters.' }])
+  })
+  it('a preview with problems carries no token (null on the wire): it reads as none', () => {
+    expect(readPreview({ ...wire, token: null, expiresAt: null }).token).toBe('')
   })
   it('an empty answer is an empty preview, never a throw', () => {
-    expect(readPreview(null)).toEqual({ token: '', issuedAt: '', expiresAt: '', fileName: '', rowCount: 0, matched: [], problems: [] })
-  })
-  it('a row with an unknown level or status keeps the row, the status read as none', () => {
-    const p = readPreview({ matched: [{ row: 2, level: 'item', key: '1', status: 'gone' }] })
-    expect(p.matched[0].status).toBeNull()
+    expect(readPreview(null)).toEqual({
+      token: '',
+      expiresAt: '',
+      name: '',
+      fileName: '',
+      rowCount: 0,
+      matchedRows: 0,
+      unknownRows: 0,
+      members: [],
+      periods: [],
+      unknown: [],
+      problems: [],
+      notices: [],
+      overrides: [],
+    })
   })
 })
 
@@ -64,38 +100,38 @@ describe('readItemList: the list as its audience reads it', () => {
       definition: {
         version: 1,
         members: [{ level: 'item', key: '100234', label: 'Panadol' }],
-        periods: [{ member: '100234', level: 'item', from: '2026-09-03', status: 'unavailable', note: 'recall' }],
+        periods: [{ member: 'item:100234', from: '2026-09-03', status: 'unavailable', note: 'recall' }],
         unknown: [{ row: 3, level: 'item', value: '0099999' }],
-        upload: { fileName: 'shortage.xlsx', rows: 6, matched: 5, by: 'msartawi', at: '2026-11-19T09:00:00' },
+        upload: { fileName: 'shortage.xlsx', rows: 6, matched: 5, unknown: 1, who: 'msartawi', when: '2026-11-19T09:00:00' },
       },
     })
     expect(l.title).toEqual({ en: 'Shortage Q3', ar: 'Shortage Q3' })
     expect(l.members).toEqual([{ level: 'item', key: '100234', label: 'Panadol' }])
     expect(l.periods).toEqual([{ level: 'item', member: '100234', from: '2026-09-03', to: null, status: 'unavailable', statusText: 'unavailable', note: 'recall' }])
     expect(l.unknown).toEqual([{ row: 3, level: 'item', value: '0099999' }])
-    expect(l.upload).toEqual({ fileName: 'shortage.xlsx', rows: 6, matched: 5, by: 'msartawi', at: '2026-11-19T09:00:00' })
+    expect(l.upload).toEqual({ fileName: 'shortage.xlsx', rows: 6, matched: 5, unknown: 1, by: 'msartawi', at: '2026-11-19T09:00:00' })
     expect(l.folderId).toBeNull()
   })
 })
 
 describe('readItemList: a status or level the reader does not know is never made into one it does', () => {
   it('reads a known status or level in any case, as its own', () => {
-    const l = readItemList({ definition: { members: [{ level: 'Brand', key: 'Panadol' }], periods: [{ level: 'BRAND', member: 'Panadol', from: '2026-09-03', status: 'Limited' }] } })
+    const l = readItemList({ definition: { members: [{ level: 'Brand', key: 'Panadol' }], periods: [{ member: 'brand:Panadol', from: '2026-09-03', status: 'Limited' }] } })
     expect(l.members[0].level).toBe('brand')
-    expect(l.periods[0]).toMatchObject({ level: 'brand', status: 'limited', statusText: 'Limited' })
+    expect(l.periods[0]).toMatchObject({ level: 'brand', member: 'Panadol', status: 'limited', statusText: 'Limited' })
   })
   it('keeps an unknown status as none, with the words as sent, and an unknown level as sent', () => {
-    const l = readItemList({ definition: { periods: [{ level: 'shelf', member: '1', from: '2026-09-03', status: 'recalled' }] } })
+    const l = readItemList({ definition: { periods: [{ member: 'shelf:1', from: '2026-09-03', status: 'recalled' }] } })
     expect(l.periods[0]).toMatchObject({ level: 'shelf', status: null, statusText: 'recalled' })
   })
 })
 
-describe('readPreview: a matched row reads its status and level in any case', () => {
-  it('a known one in another case is known; an unknown one is kept as sent', () => {
-    const p = readPreview({ matched: [{ row: 2, level: 'ITEM', key: '1', status: 'Blocked' }, { row: 3, level: 'aisle', key: '2', status: 'gone' }] })
-    expect(p.matched.map((r) => [r.level, r.status, r.statusText])).toEqual([
-      ['item', 'blocked', 'Blocked'],
-      ['aisle', null, 'gone'],
+describe('readItemList: a period names its member as `level:key`, split at the first colon', () => {
+  it('a key holding a colon keeps it; a member with no level reads its level as blank', () => {
+    const l = readItemList({ definition: { periods: [{ member: 'brand:A:B', from: '2026-09-03', status: 'blocked' }, { member: 'X1', from: '2026-09-03', status: 'blocked' }] } })
+    expect(l.periods.map((p) => [p.level, p.member])).toEqual([
+      ['brand', 'A:B'],
+      ['', 'X1'],
     ])
   })
 })

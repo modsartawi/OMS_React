@@ -7,30 +7,31 @@ import {
   type ItemList,
   type ItemListCreate,
   type ItemListLevelRead,
+  type ItemListMember,
+  type ItemListPeriod,
   type ItemListPreview,
-  type ItemListPreviewRow,
   type ItemListProblem,
   type ItemListProblemKind,
   type ItemListStatus,
+  type ItemListUnknown,
+  type ItemListUpload,
   type ItemListVersion,
 } from '@/core/models/item-list'
 
-// ── The item list's doors (BackOffice spec 4057 "Upload and preview", ticket 4058). ⚠ 4058 was NOT built when oms 925
-// was: the routes below are the spec's, and everything the spec leaves unnamed — the preview's `data` shape, the
-// multipart part's name, the create body's field names, the list's read shape, the expired-token code, the versions
-// door — is GUESSED HERE, in this one file, and listed in ticket 925's comments. Reconcile against 4058 when it lands.
-// Calls go through `@/core/api` (.claude/rules/api-envelope.md).
+// ── The item list's doors (BackOffice spec 4057, ticket 4058 — `AnalyticsItemListEndpoints.cs`; reconciled to BO spec4057
+// d919921f5). The six doors below; everything else a list does (share, audience, delete, revisions, folders) is the item's
+// own `Analytics/Item/{id}/…` doors. Calls go through `@/core/api` (.claude/rules/api-envelope.md).
 const TEMPLATE = 'Analytics/ItemLists/Template'
 const PREVIEW = 'Analytics/ItemLists/Preview'
 const CREATE = 'Analytics/ItemLists'
 const one = (id: string) => `Analytics/ItemLists/${encodeURIComponent(id)}`
 const exportOf = (id: string) => `${one(id)}/Export`
-/** ⚠ Guessed: the list is an analytics item, so its versions are the item machinery's revisions (779's door). */
+/** The item machinery's revisions (779's door): a list is an analytics item. */
 const revisionsOf = (id: string) => `Analytics/Item/${encodeURIComponent(id)}/Revisions`
-/** ⚠ Guessed: the multipart part carrying the file. */
+/** The multipart part carrying the file (`IFormFile? file`). */
 const FILE_PART = 'file'
-/** ⚠ Guessed: the refusal Save answers once the preview's 30-minute token lapsed (the next free `ANALYTICS-4xx`). */
-export const TOKEN_EXPIRED_CODE = 'ANALYTICS-433'
+/** `ANALYTICS-435`: a create or replace naming a preview token that is unknown, past its 30 minutes, used, or another user's. */
+export const TOKEN_EXPIRED_CODE = 'ANALYTICS-435'
 
 /** The names a workbook is saved under when the reply's `Content-Disposition` names none. */
 export const TEMPLATE_FALLBACK_NAME = 'item-list-template.xlsx'
@@ -58,47 +59,78 @@ const statusOf = (v: unknown): ItemListStatus | null => oneOf(ITEM_LIST_STATUSES
 const words = (v: unknown): AnalyticsLabel => (typeof v === 'string' ? { en: v, ar: v } : { en: text(rec(v).en), ar: text(rec(v).ar) })
 const tierOf = (v: unknown): AnalyticsTier => (v === 'shared' || v === 'certified' ? v : 'personal')
 
-function readRow(v: unknown): ItemListPreviewRow {
-  const r = rec(v)
+const memberOf = (v: unknown): ItemListMember => {
+  const m = rec(v)
+  return { level: levelOf(m.level), key: text(m.key), label: text(m.label) }
+}
+
+/** A period names its member as `level:key` (BO `AnalyticsItemListMember.Ref`): split at the first colon. */
+const periodOf = (v: unknown): ItemListPeriod => {
+  const p = rec(v)
+  const ref = text(p.member)
+  const at = ref.indexOf(':')
   return {
-    row: num(r.row),
-    level: levelOf(r.level),
-    key: text(r.key),
-    label: text(r.label),
-    from: text(r.from) || null,
-    to: text(r.to) || null,
-    status: statusOf(r.status),
-    statusText: text(r.status),
-    note: text(r.note),
+    level: at < 0 ? '' : levelOf(ref.slice(0, at)),
+    member: at < 0 ? ref : ref.slice(at + 1),
+    from: text(p.from),
+    to: text(p.to) || null,
+    status: statusOf(p.status),
+    statusText: text(p.status),
+    note: text(p.note),
   }
 }
 
-/** ⚠ Guessed shape: one list per problem kind, each entry naming its row (or rows) and the value at fault. */
-const PROBLEM_LISTS: [string, ItemListProblemKind][] = [
-  ['unknown', 'unknown'],
-  ['duplicates', 'duplicate'],
-  ['badDates', 'badDate'],
-  ['overlaps', 'overlap'],
-  ['refused', 'refused'],
-]
-
-/** `POST Analytics/ItemLists/Preview`'s `data`. */
-export function readPreview(raw: unknown): ItemListPreview {
-  const d = rec(raw)
-  const problems: ItemListProblem[] = PROBLEM_LISTS.flatMap(([field, kind]) =>
-    list(d[field]).map((v) => {
-      const r = rec(v)
-      return { kind, rows: rowsOf(r), level: text(r.level), value: text(r.value) || text(r.key), reason: text(r.reason) }
-    }),
-  )
-  return { token: text(d.token), issuedAt: text(d.issuedAt), expiresAt: text(d.expiresAt), fileName: text(d.fileName), rowCount: num(d.rows), matched: list(d.matched).map(readRow), problems }
+const unknownOf = (v: unknown): ItemListUnknown => {
+  const u = rec(v)
+  return { row: num(u.row), level: text(u.level), value: text(u.value) }
 }
 
-/** `GET Analytics/ItemLists/{id}`: the item, with the spec's version-1 definition (`members`, `periods`, `unknown`, `upload`). */
+const uploadOf = (v: unknown): ItemListUpload => {
+  const u = rec(v)
+  return { fileName: text(u.fileName), rows: num(u.rows), matched: num(u.matched), unknown: num(u.unknown), by: text(u.who), at: text(u.when) }
+}
+
+/** The kind a problem is drawn under, by the server's `reason` (`AnalyticsItemListProblem.Reason`). */
+const kindOf = (reason: string): ItemListProblemKind =>
+  reason === 'duplicate' ? 'duplicate' : reason === 'overlap' ? 'overlap' : reason === 'from' || reason === 'to' ? 'badDate' : 'refused'
+
+const problemOf =
+  (kind: (reason: string) => ItemListProblemKind) =>
+  (v: unknown): ItemListProblem => {
+    const r = rec(v)
+    const reason = text(r.reason)
+    return { kind: kind(reason), rows: rowsOf(r), field: text(r.field), reason, message: text(r.message) }
+  }
+
+/** `POST Analytics/ItemLists/Preview`'s `data` (`AnalyticsItemListPreview`). */
+export function readPreview(raw: unknown): ItemListPreview {
+  const d = rec(raw)
+  const def = rec(d.definition)
+  const upload = uploadOf(def.upload)
+  return {
+    token: text(d.token),
+    expiresAt: text(d.expiresAt),
+    name: text(d.name),
+    fileName: upload.fileName,
+    rowCount: upload.rows,
+    matchedRows: upload.matched,
+    unknownRows: upload.unknown,
+    members: list(def.members).map(memberOf),
+    periods: list(def.periods).map(periodOf),
+    unknown: list(def.unknown).map(unknownOf),
+    problems: list(d.problems).map(problemOf(kindOf)),
+    notices: list(d.notices).map(problemOf(() => 'notice')),
+    overrides: list(d.overrides).map((v) => {
+      const o = rec(v)
+      return { item: text(o.item), level: levelOf(o.level), group: text(o.group) }
+    }),
+  }
+}
+
+/** `GET Analytics/ItemLists/{id}` (an `AnalyticsItemInfo`): the item, with its version-1 definition. */
 export function readItemList(raw: unknown): ItemList {
   const d = rec(raw)
   const def = rec(d.definition)
-  const up = rec(def.upload)
   const audience = readAudience(d.audience)
   return {
     id: text(d.id),
@@ -110,19 +142,10 @@ export function readItemList(raw: unknown): ItemList {
     updatedBy: text(d.updatedBy),
     ...(audience ? { audience } : {}),
     folderId: text(d.folderId) || null,
-    members: list(def.members).map((v) => {
-      const m = rec(v)
-      return { level: levelOf(m.level), key: text(m.key), label: text(m.label) }
-    }),
-    periods: list(def.periods).map((v) => {
-      const p = rec(v)
-      return { level: levelOf(p.level), member: text(p.member), from: text(p.from), to: text(p.to) || null, status: statusOf(p.status), statusText: text(p.status), note: text(p.note) }
-    }),
-    unknown: list(def.unknown).map((v) => {
-      const u = rec(v)
-      return { row: num(u.row), level: text(u.level), value: text(u.value) }
-    }),
-    upload: def.upload ? { fileName: text(up.fileName), rows: num(up.rows), matched: num(up.matched), by: text(up.by), at: text(up.at) } : null,
+    members: list(def.members).map(memberOf),
+    periods: list(def.periods).map(periodOf),
+    unknown: list(def.unknown).map(unknownOf),
+    upload: def.upload ? uploadOf(def.upload) : null,
   }
 }
 
@@ -175,9 +198,10 @@ export const itemListApi = {
   async create(body: ItemListCreate): Promise<ItemList> {
     return readItemList(await api.post<unknown>(CREATE, body))
   },
-  /** `PUT Analytics/ItemLists/{id}` (token) — the re-upload, a new revision of its contents. */
-  async replace(id: string, token: string): Promise<ItemList> {
-    return readItemList(await api.put<unknown>(one(id), { token }))
+  /** `PUT Analytics/ItemLists/{id}` (token, baseRevision) — the re-upload, a new revision of its contents; its owner only
+   * (BO `RequireEdit`, `ANALYTICS-403` otherwise). `baseRevision`, when given, must still be current (`ANALYTICS-405`). */
+  async replace(id: string, token: string, baseRevision?: number): Promise<ItemList> {
+    return readItemList(await api.put<unknown>(one(id), baseRevision ? { token, baseRevision } : { token }))
   },
   /** `GET Analytics/ItemLists/{id}` — anyone in its audience. */
   async get(id: string): Promise<ItemList> {

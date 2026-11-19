@@ -1,56 +1,70 @@
 import { audienceWrite, type AudienceDraft } from '@/core/analytics-audience/audience'
-import type { ItemListPreview, ItemListProblem, ItemListProblemKind } from '@/core/models/item-list'
+import type { ItemListPreview, ItemListProblemKind } from '@/core/models/item-list'
 
 /**
- * The item list's preview (oms 925, BackOffice spec 4057 "Upload and preview"), pure: what the file holds, what it
- * refuses, and whether it may be saved. Nothing is kept until Save, which spends the preview's token.
+ * The item list's preview (oms 925, BackOffice spec 4057 "Upload and preview", ticket 4058), pure: what the file holds,
+ * what it refuses, and whether it may be saved. Nothing is kept until Save, which spends the preview's token.
  */
 
-/** The order the preview names its problems in: what matched nothing first, then what the file got wrong. */
-export const PROBLEM_KINDS: readonly ItemListProblemKind[] = ['unknown', 'duplicate', 'badDate', 'overlap', 'refused']
+/** The order the preview lists in: what matched nothing first, then what refuses the save, then the notices. */
+export const PROBLEM_KINDS: readonly ItemListProblemKind[] = ['unknown', 'duplicate', 'badDate', 'overlap', 'refused', 'notice']
+
+/** One line of a group: its rows, and either the value that matched nothing (`unknown`) or the server's words. */
+export interface ProblemLine {
+  rows: number[]
+  /** The level the file named (an unknown value only). */
+  level: string
+  /** The value that matched nothing (an unknown value only). */
+  value: string
+  /** The server's words (a problem or a notice). */
+  message: string
+}
 
 export interface ProblemGroup {
   kind: ItemListProblemKind
-  problems: ItemListProblem[]
+  problems: ProblemLine[]
 }
 
-const firstRow = (p: ItemListProblem) => (p.rows.length ? p.rows[0] : Number.MAX_SAFE_INTEGER)
+const firstRow = (p: ProblemLine) => (p.rows.length ? p.rows[0] : Number.MAX_SAFE_INTEGER)
 
-/** The preview's problems by kind, in `PROBLEM_KINDS` order, each problem's rows ascending, problems by first row. */
+/** The preview's unknown values, problems and notices by kind, in `PROBLEM_KINDS` order, rows ascending, lines by first row. */
 export function problemGroups(preview: ItemListPreview): ProblemGroup[] {
+  const lines: { kind: ItemListProblemKind; line: ProblemLine }[] = [
+    ...preview.unknown.map((u) => ({ kind: 'unknown' as const, line: { rows: [u.row], level: u.level, value: u.value, message: '' } })),
+    ...[...preview.problems, ...preview.notices].map((p) => ({ kind: p.kind, line: { rows: p.rows, level: '', value: '', message: p.message } })),
+  ]
   return PROBLEM_KINDS.map((kind) => ({
     kind,
-    problems: preview.problems
-      .filter((p) => p.kind === kind)
-      .map((p) => ({ ...p, rows: [...p.rows].sort((a, b) => a - b) }))
+    problems: lines
+      .filter((l) => l.kind === kind)
+      .map(({ line }) => ({ ...line, rows: [...line.rows].sort((a, b) => a - b) }))
       .sort((a, b) => firstRow(a) - firstRow(b)),
   })).filter((g) => g.problems.length > 0)
 }
 
-/** The server keeps a preview's token 30 minutes (spec 4057). */
+/** The server keeps a preview's token 30 minutes (spec 4057; BO `AnalyticsItemListPreviews.Kept`, absolute). */
 export const TOKEN_MINUTES = 30
 
 /**
- * When the preview's token lapses, on this machine's clock (ms): the server's window — its `expiresAt` less its own
- * `issuedAt` — counted from `receivedAt`, when this page received the preview; else 30 minutes from then. The
- * server's instants are never compared with this machine's clock, which may be skewed or in another zone. It is
- * only a courtesy: Save's `ANALYTICS-433` refusal is what says the token lapsed.
+ * When the preview's token lapses, on this machine's clock (ms): 30 minutes from `receivedAt`, when this page received
+ * the preview. The server's `expiresAt` is its local wall clock with no zone and is never compared with this machine's
+ * clock. It is only a courtesy: Save's `ANALYTICS-435` refusal is what says the token lapsed.
  */
-export function tokenDeadline(preview: Pick<ItemListPreview, 'issuedAt' | 'expiresAt'>, receivedAt: number): number {
-  const window = Date.parse(preview.expiresAt) - Date.parse(preview.issuedAt)
-  return receivedAt + (Number.isFinite(window) && window > 0 ? window : TOKEN_MINUTES * 60_000)
+export function tokenDeadline(receivedAt: number): number {
+  return receivedAt + TOKEN_MINUTES * 60_000
 }
 
 /** `create` makes a new list (name, audience, folder); `replace` is a re-upload, a new revision of its contents only. */
 export type SaveMode = 'create' | 'replace'
 
 /** Why Save is held, in the order it is judged; `null` when it may be pressed. */
-export type SaveHold = 'noFile' | 'expired' | 'nothingMatched' | 'noName' | 'noAudience' | 'saving'
+export type SaveHold = 'noFile' | 'expired' | 'nothingMatched' | 'problems' | 'noName' | 'noAudience' | 'saving'
 
 /**
  * Save's state. It is held with no preview, once the token lapsed, while nothing matched (the unknown rows alone are
- * no list), and — on a new list — without a name or with a chosen audience left empty. Unknown rows never hold it:
- * the matched rows are saved and the unknown ones listed (story 6).
+ * no list), while the file has problems (BO 4058 then gives the preview no token), and — on a new list — without a
+ * name or with a chosen audience left empty. Unknown values never hold it: the members are saved and the unknown
+ * values listed (story 6).
  */
 export function saveState(s: {
   preview: ItemListPreview | null
@@ -65,7 +79,8 @@ export function saveState(s: {
   const hold = (reason: SaveHold) => ({ enabled: false, reason })
   if (!s.preview) return hold('noFile')
   if (s.now >= s.deadline) return hold('expired')
-  if (s.preview.matched.length === 0) return hold('nothingMatched')
+  if (s.preview.members.length === 0) return hold('nothingMatched')
+  if (!s.preview.token) return hold('problems')
   if (s.mode === 'create' && !s.name.trim()) return hold('noName')
   if (s.mode === 'create' && !audienceWrite(s.audience)) return hold('noAudience')
   if (s.pending) return hold('saving')

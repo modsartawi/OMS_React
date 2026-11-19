@@ -1,9 +1,9 @@
 import type { AnalyticsAudience, AnalyticsLabel, AnalyticsTier } from './analytics'
 
 /**
- * An item list (BackOffice spec 4057, ticket 4058 — ⚠ PROPOSED, not built when oms 925 was): a shared analytics item
- * holding items or item groups, each with the availability periods its team states. Not a named set (one reader's
- * stores) and not stock data. The wire is read defensively in `features/analytics/item-lists/api.ts`.
+ * An item list (BackOffice spec 4057, ticket 4058 — reconciled to BO spec4057 d919921f5): a shared analytics item of kind
+ * `itemlist` holding items or item groups, each with the availability periods its team states. Not a named set (one
+ * reader's stores) and not stock data. The wire is read defensively in `features/analytics/item-lists/api.ts`.
  */
 
 /** A member's level: `item` (the zero-stripped `item_key`) or a level of the merchandising hierarchy. */
@@ -25,6 +25,7 @@ export interface ItemListMember {
 }
 
 export interface ItemListPeriod {
+  /** The member's level: the wire names the member as `level:key` (BO `AnalyticsItemListMember.Ref`), split here. */
   level: ItemListLevelRead
   /** The member's key. */
   member: string
@@ -46,12 +47,15 @@ export interface ItemListUnknown {
   value: string
 }
 
-/** The last upload: file name, rows, matched, who and when. */
+/** The last upload: file name, rows, matched, unknown, who and when (the wire's `who` / `when`). */
 export interface ItemListUpload {
   fileName: string
   rows: number
   matched: number
+  /** The rows whose value matched nothing. */
+  unknown: number
   by: string
+  /** Estate local wall clock, `yyyy-MM-ddTHH:mm:ss`. */
   at: string
 }
 
@@ -72,49 +76,57 @@ export interface ItemList {
   upload: ItemListUpload | null
 }
 
-/** A matched row of the preview, with its row number in the file. */
-export interface ItemListPreviewRow {
-  row: number
+/**
+ * What the preview says of the file, sorted by the server's `reason`: a row repeated (`duplicate`), two periods of one
+ * member that overlap (`overlap`), a date that is not one (`from` / `to`: `badDate`), anything else it refuses
+ * (`refused`: a level or status it does not know, no key, a note with personal data, the name), and what the save keeps
+ * but the author should know (`notice`: a note clamped, a note on a row with no period). The values that matched
+ * nothing are not problems: they are the preview's `unknown`, kept on the list (story 6).
+ */
+export type ItemListProblemKind = 'unknown' | 'duplicate' | 'badDate' | 'overlap' | 'refused' | 'notice'
+
+/** `AnalyticsItemListProblem`: its rows (two or more for a duplicate or an overlap; none for the name), the column, the
+ * server's reason code and its words. */
+export interface ItemListProblem {
+  kind: ItemListProblemKind
+  rows: number[]
+  /** The column at fault: `level`, `key`, `from`, `to`, `status`, `note`, or `name`. */
+  field: string
+  reason: string
+  /** The server's words; free text. */
+  message: string
+}
+
+/** An item row whose own periods win over a group row's ("the most specific wins"). */
+export interface ItemListOverride {
+  item: string
   level: ItemListLevelRead
-  key: string
-  label: string
-  from: string | null
-  to: string | null
-  status: ItemListStatus | null
-  /** The status as the file said it. */
-  statusText: string
-  note: string
+  group: string
 }
 
 /**
- * What the preview refuses, each naming its rows: a value that matched nothing, a row repeated, a date that is not
- * one, two periods of one member that overlap, and a note the scrubber refused (or a row past a limit).
+ * `POST Analytics/ItemLists/Preview` — nothing kept. The list as it would be kept (`members`, `periods`, `unknown`), what
+ * refuses the save (`problems`) and what does not (`notices`). The server keeps the preview 30 minutes under `token`, and
+ * only when it may be saved: a preview with any problem (or no member) has none.
  */
-export type ItemListProblemKind = 'unknown' | 'duplicate' | 'badDate' | 'overlap' | 'refused'
-
-export interface ItemListProblem {
-  kind: ItemListProblemKind
-  /** The file's row numbers, ascending; an overlap and a duplicate name two or more. */
-  rows: number[]
-  /** The level the row named (may be what the file said, unrecognised). */
-  level: string
-  /** The value at fault: the unmatched key, the bad date, the member's key. */
-  value: string
-  /** The server's words on a refused row (the scrubber's reason, a limit); free text. */
-  reason: string
-}
-
-/** `POST Analytics/ItemLists/Preview` — nothing kept; the token saves it for 30 minutes. */
 export interface ItemListPreview {
+  /** Empty when the preview cannot be saved. */
   token: string
-  /** ⚠ Guessed: the server's own now when it answered; empty when it sent none. With `expiresAt` it gives the window. */
-  issuedAt: string
-  /** ISO instant the token lapses at, on the server's clock; empty when the server sent none. */
+  /** Estate local wall clock, `yyyy-MM-ddTHH:mm:ss`, no zone; empty with no token. Shown, never compared with this
+   * machine's clock. */
   expiresAt: string
+  /** The name the preview was given, cleaned (oms sends none: the name is given at Save). */
+  name: string
   fileName: string
   rowCount: number
-  matched: ItemListPreviewRow[]
+  matchedRows: number
+  unknownRows: number
+  members: ItemListMember[]
+  periods: ItemListPeriod[]
+  unknown: ItemListUnknown[]
   problems: ItemListProblem[]
+  notices: ItemListProblem[]
+  overrides: ItemListOverride[]
 }
 
 /** A version of the list: its revision, who saved it, when. */
@@ -124,7 +136,7 @@ export interface ItemListVersion {
   at: string
 }
 
-/** `POST Analytics/ItemLists` — create from a preview's token. */
+/** `POST Analytics/ItemLists` — create from a preview's token. BO: no audience keeps the list Personal (oms always sends one). */
 export interface ItemListCreate {
   token: string
   name: string

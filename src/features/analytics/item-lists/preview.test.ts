@@ -1,51 +1,58 @@
 import { describe, expect, it } from 'vitest'
-import type { ItemListPreview } from '@/core/models/item-list'
+import type { ItemListPreview, ItemListProblem } from '@/core/models/item-list'
 import { fileProblem, problemGroups, saveState, tokenDeadline } from './preview'
-
-const matchedRow = { row: 2, level: 'item' as const, key: '100234', label: 'Panadol 500mg 24', from: '2026-09-03', to: null, status: 'unavailable' as const, statusText: 'unavailable', note: '' }
 
 const preview = (over: Partial<ItemListPreview> = {}): ItemListPreview => ({
   token: 'tok-1',
-  issuedAt: '2026-11-19T12:00:00Z',
-  expiresAt: '2026-11-19T12:30:00Z',
+  expiresAt: '2026-11-19T12:30:00',
+  name: '',
   fileName: 'shortage-q3.xlsx',
   rowCount: 9,
-  matched: [matchedRow],
+  matchedRows: 8,
+  unknownRows: 1,
+  members: [{ level: 'item', key: '100234', label: 'Panadol 500mg 24' }],
+  periods: [],
+  unknown: [],
   problems: [],
+  notices: [],
+  overrides: [],
   ...over,
 })
+const problem = (kind: ItemListProblem['kind'], rows: number[], message = ''): ItemListProblem => ({ kind, rows, field: 'key', reason: kind, message })
 
-describe('problemGroups: each problem kind, in the preview’s order, each problem with its row numbers', () => {
-  it('lists unknown values, then duplicates, bad dates, overlaps and refused rows — each kind once, rows ascending', () => {
+describe('problemGroups: the unknown values, each problem kind, then the notices — each with its row numbers', () => {
+  it('lists unknown values first, then duplicates, bad dates, overlaps, refused rows and notices; rows ascending', () => {
     const groups = problemGroups(
       preview({
-        problems: [
-          { kind: 'overlap', rows: [9, 4], level: 'item', value: '100234', reason: '' },
-          { kind: 'unknown', rows: [7], level: 'brand', value: 'Panadool', reason: '' },
-          { kind: 'badDate', rows: [5], level: 'item', value: '31/02/2026', reason: '' },
-          { kind: 'unknown', rows: [3], level: 'item', value: '0099999', reason: '' },
-          { kind: 'duplicate', rows: [8, 6], level: 'category', value: 'Analgesics', reason: '' },
-          { kind: 'refused', rows: [10], level: 'item', value: '100235', reason: 'The note holds a phone number.' },
+        unknown: [
+          { row: 7, level: 'brand', value: 'Panadool' },
+          { row: 3, level: 'item', value: '0099999' },
         ],
+        problems: [problem('overlap', [9, 4]), problem('badDate', [5]), problem('duplicate', [8, 6]), problem('refused', [10], 'The note holds a phone number.')],
+        notices: [problem('notice', [11], 'The note is cut to 200 characters.')],
       }),
     )
-    expect(groups.map((g) => g.kind)).toEqual(['unknown', 'duplicate', 'badDate', 'overlap', 'refused'])
+    expect(groups.map((g) => g.kind)).toEqual(['unknown', 'duplicate', 'badDate', 'overlap', 'refused', 'notice'])
     expect(groups[0].problems.map((p) => [p.rows, p.value])).toEqual([
       [[3], '0099999'],
       [[7], 'Panadool'],
     ])
     expect(groups[1].problems[0].rows).toEqual([6, 8])
     expect(groups[3].problems[0].rows).toEqual([4, 9])
-    expect(groups[4].problems[0].reason).toBe('The note holds a phone number.')
+    expect(groups[4].problems[0].message).toBe('The note holds a phone number.')
+    expect(groups[5].problems[0].message).toBe('The note is cut to 200 characters.')
   })
 
-  it('a kind with no problem is left out; a clean file has no groups', () => {
+  it('a kind with nothing in it is left out; a clean file has no groups', () => {
     expect(problemGroups(preview())).toEqual([])
-    expect(problemGroups(preview({ problems: [{ kind: 'badDate', rows: [2], level: 'item', value: 'soon', reason: '' }] })).map((g) => g.kind)).toEqual(['badDate'])
+    expect(problemGroups(preview({ problems: [problem('badDate', [2])] })).map((g) => g.kind)).toEqual(['badDate'])
+  })
+  it('a problem naming no row (the name) is listed last in its kind', () => {
+    expect(problemGroups(preview({ problems: [problem('refused', []), problem('refused', [4])] }))[0].problems.map((p) => p.rows)).toEqual([[4], []])
   })
 })
 
-describe('saveState: Save is enabled only on a live preview that matched something, named and shared', () => {
+describe('saveState: Save is enabled only on a saveable preview, named and shared', () => {
   const now = Date.parse('2026-11-19T12:00:00Z')
   const everyone = { everyone: true, roles: [], users: [] }
   const deadline = Date.parse('2026-11-19T12:30:00Z')
@@ -55,11 +62,15 @@ describe('saveState: Save is enabled only on a live preview that matched somethi
     expect(saveState(ready)).toEqual({ enabled: true, reason: null })
   })
   it('is disabled while nothing matched, even with every other field filled', () => {
-    expect(saveState({ ...ready, preview: preview({ matched: [] }) })).toEqual({ enabled: false, reason: 'nothingMatched' })
+    expect(saveState({ ...ready, preview: preview({ members: [], token: '' }) })).toEqual({ enabled: false, reason: 'nothingMatched' })
   })
-  it('saves the matched rows when some are unknown (story 6)', () => {
-    const some = preview({ problems: [{ kind: 'unknown', rows: [3], level: 'item', value: '0099999', reason: '' }] })
+  it('saves the matched members when some values are unknown (story 6): they never hold it', () => {
+    const some = preview({ unknown: [{ row: 3, level: 'item', value: '0099999' }] })
     expect(saveState({ ...ready, preview: some }).enabled).toBe(true)
+  })
+  it('is held while the file has problems: the server gives such a preview no token (BO 4058)', () => {
+    const refused = preview({ token: '', expiresAt: '', problems: [problem('duplicate', [4, 5])] })
+    expect(saveState({ ...ready, preview: refused })).toEqual({ enabled: false, reason: 'problems' })
   })
   it('is disabled with no file read, a blank name, an empty chosen audience, or while saving', () => {
     expect(saveState({ ...ready, preview: null }).reason).toBe('noFile')
@@ -77,16 +88,9 @@ describe('saveState: Save is enabled only on a live preview that matched somethi
 })
 
 describe('tokenDeadline: the token lives the server’s 30 minutes counted from when this page received it', () => {
-  const received = Date.parse('2026-11-19T15:00:00Z')
-  it('takes the server’s window (its expiresAt less its own now), whatever this machine’s clock or zone says', () => {
-    // The server's clock says 12:00 and 12:30; this machine's says 15:00 — three hours apart, or in another zone.
-    const p = preview({ issuedAt: '2026-11-19T12:00:00Z', expiresAt: '2026-11-19T12:30:00Z' })
-    expect(tokenDeadline(p, received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
-  })
-  it('without the server’s now, or with an unreadable window, it is 30 minutes from receipt', () => {
-    expect(tokenDeadline(preview({ issuedAt: '', expiresAt: '2026-11-19T12:30:00Z' }), received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
-    expect(tokenDeadline(preview({ issuedAt: 'now', expiresAt: 'soon' }), received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
-    expect(tokenDeadline(preview({ issuedAt: '2026-11-19T12:30:00Z', expiresAt: '2026-11-19T12:00:00Z' }), received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
+  it('is 30 minutes from receipt: the server’s expiresAt is its local wall clock with no zone, never compared with this machine’s', () => {
+    const received = Date.parse('2026-11-19T15:00:00Z')
+    expect(tokenDeadline(received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
   })
 })
 

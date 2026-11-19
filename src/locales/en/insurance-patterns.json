@@ -288,7 +288,7 @@
         "speed": "Speed",
         "travel": "Travel signal",
         "notOnMap": "Not on the map",
-        "none": "No legs: the counter dispenses were all at one store."
+        "none": "No legs: fewer than two counter dispenses."
       }
     },
     "timeline": {

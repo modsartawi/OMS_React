@@ -1,0 +1,131 @@
+{
+  "app": {
+    "title": "Mini POS",
+    "signOut": "Sign out",
+    "switchLanguage": "عربي",
+    "switchLanguageLabel": "Switch to Arabic",
+    "retry": "Try again",
+    "working": "Working…",
+    "failed": "Something went wrong. Try again."
+  },
+  "signIn": {
+    "title": "Sign in",
+    "userId": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "totpTitle": "Authenticator code",
+    "totpHint": "Enter the 6-digit code from your authenticator app.",
+    "totpCode": "Code",
+    "verify": "Verify",
+    "mustChangePassword": "Your password must be changed first. Change it at the OMS sign-in, then sign in here again.",
+    "notConfigured": "This app was built without its channel key. Ask IT for the configured Mini POS app."
+  },
+  "notAssigned": {
+    "title": "Not assigned today",
+    "hint": "Call your operations lead. A change made today applies at your next sign-in."
+  },
+  "blocked": {
+    "title": "Mini POS is not available"
+  },
+  "unlock": {
+    "title": "Unlock at the pharmacy",
+    "hint": "Scan the Mini POS code on a till screen of your pharmacy, or the pharmacy's printed code.",
+    "unlocking": "Unlocking…"
+  },
+  "scanner": {
+    "start": "Start camera",
+    "stop": "Stop camera",
+    "torchOn": "Torch on",
+    "torchOff": "Torch off",
+    "readerNative": "Built-in reader",
+    "readerZxing": "Library reader",
+    "cameraRefused": "The camera could not start. Allow the camera for this app, or type the code.",
+    "video": "Camera view"
+  },
+  "basket": {
+    "pharmacy": "Pharmacy",
+    "codeLabel": "Barcode or item number",
+    "add": "Add",
+    "empty": "Scan an item to start the basket.",
+    "qty": "Quantity",
+    "decrease": "One less",
+    "increase": "One more",
+    "remove": "Remove",
+    "total": "Total",
+    "submit": "Submit order",
+    "abandon": "Cancel basket",
+    "abandonConfirm": "Cancel this basket? Its items are removed.",
+    "belowStock": "Below the pharmacy's stock. Add it anyway?",
+    "addAnyway": "Add anyway",
+    "dontAdd": "Don't add",
+    "customer": "Customer",
+    "noCustomer": "No customer attached yet.",
+    "tier": "Tier",
+    "editing": "Editing order",
+    "resubmit": "Resubmit order"
+  },
+  "existing": {
+    "title": "You have a basket open",
+    "lines": "Items in it:",
+    "resume": "Continue this basket",
+    "startNew": "Cancel it and start a new one"
+  },
+  "submitted": {
+    "title": "Order placed",
+    "hint": "Show this barcode at any till of the pharmacy. The customer also gets the order number by SMS.",
+    "orderNo": "Order number",
+    "barcode": "The order number as a barcode",
+    "newBasket": "New basket",
+    "resubmittedTitle": "Order updated"
+  },
+  "customer": {
+    "title": "The customer",
+    "hint": "Type the customer's mobile, or scan the QR in their Arbahi app.",
+    "mobile": "Mobile",
+    "find": "Find",
+    "scanTitle": "Arbahi app QR",
+    "scanHint": "The code works once and lasts two minutes. If it was refused, ask the customer to show a new one.",
+    "notMember": "Not a member yet:",
+    "country": "Country",
+    "countries": {
+      "SA": "Saudi Arabia (+966)",
+      "BH": "Bahrain (+973)",
+      "KW": "Kuwait (+965)",
+      "AE": "UAE (+971)",
+      "QA": "Qatar (+974)",
+      "OM": "Oman (+968)"
+    },
+    "language": "Messages in",
+    "languageChoose": "Ask the customer",
+    "languageArabic": "Arabic",
+    "languageEnglish": "English",
+    "sendCode": "Sign up: send the code",
+    "back": "Back",
+    "codeSent": "A code was sent by SMS to",
+    "code": "The code the customer received",
+    "confirm": "Confirm and sign up",
+    "resend": "Send the code again",
+    "attach": "Take this customer",
+    "attaching": "Taking the customer…"
+  },
+  "orders": {
+    "title": "My orders today",
+    "none": "No orders today yet.",
+    "edit": "Edit",
+    "refresh": "Refresh",
+    "back": "Back to the basket",
+    "status": {
+      "open": "Open",
+      "held": "At a till",
+      "paid": "Paid",
+      "closed": "Closed"
+    }
+  },
+  "connection": {
+    "title": "No connection",
+    "hint": "Nothing more is sent until the phone is back online. Trying again never places an order twice."
+  },
+  "phoneArabic": {
+    "NO_CUSTOMER_ATTACHED": "أضف العميل أولاً: ابحث برقم الجوال أو امسح رمز تطبيق أرباحي."
+  }
+}

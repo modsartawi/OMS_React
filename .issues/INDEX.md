@@ -1543,3 +1543,10 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 - [925](925-an-author-uploads-an-item-list-sees-the-preview-and-shares-it.md) — An author uploads an item list, sees the preview, and shares it · *(ticket · BackOffice spec 4057)* · **open** · blocked by: BO 4058 · upload page with preview problems by row, audience picker; list page with members, periods, versions, export, re-upload
 - [926](926-item-lists-sit-in-the-library-and-a-copilot-answer-shows-the-list-it-used.md) — Item lists sit in the library, and a Copilot answer shows the list it used · *(ticket · BackOffice spec 4057)* · **open** · blocked by: BO 4061, 925 · library kind; Used line link; list_periods table + calendar warning; list-not-available panel
+
+## Mini POS (BackOffice spec 4063, filed 2026-11-18)
+
+- [927](927-the-operations-lead-keeps-mini-pos-assignments-pharmacies-and-item-lists-in-oms.md) — The operations lead keeps Mini POS assignments, pharmacies and item lists in OMS · *(ticket · BackOffice spec 4063)* · **done 2026-11-19** (component tests; live walk owed) · blocked by: BO 4074
+- [928](928-a-promoter-installs-the-mini-pos-app-signs-in-unlocks-at-the-pharmacy-scans-a-basket-and-s.md) — A promoter installs the Mini POS app, signs in, unlocks at the pharmacy, scans a basket and submits it · *(ticket · BackOffice spec 4063)* · **done 2026-11-19** (stubbed; phone trial + live walk owed) · blocked by: BO 4065, BO 4067, BO 4069
+- [929](929-a-promoter-takes-the-customer-follows-their-orders-of-today-and-edits-and-resubmits-an-ope.md) — A promoter takes the customer, follows their orders of today, and edits and resubmits an open order · *(ticket · BackOffice spec 4063)* · **done 2026-11-19** (stubbed; live walk owed) · blocked by: BO 4070, BO 4071, 928
+- [930](930-the-panel-reads-the-mini-pos-scorecard-and-the-weekly-reviewers-read-its-weekly-view.md) — The panel reads the Mini POS scorecard, and the weekly reviewers read its weekly view · *(ticket · BackOffice spec 4063)* · **done 2026-11-20** (component tests; live walk owed; prorated-cost fields owed by BO 4075 fix) · blocked by: BO 4075

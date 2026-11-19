@@ -1,14 +1,14 @@
 ---
 status: done
-spec: BO 4032 (E:\Projects\BackOffice\.issues\4032-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
-blocked-by: BO 4043
+spec: BO 4063 (E:\Projects\BackOffice\.issues\4063-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
+blocked-by: BO 4074
 ---
 
 # 915 — The operations lead keeps Mini POS assignments, pharmacies and item lists in OMS
 
 ## What to build
 
-Three screens behind the 4043 grants:
+Three screens behind the 4074 grants:
 - **Mini POS assignments:** today's view (who is where), add a row with dates and planned hours (the overlap
   message comes from the server), end a row, and "end this promoter now" (sessions and future rows).
 - **Mini POS pharmacies:** enable, trial role, print or reprint the signed QR as a printable page.
@@ -18,28 +18,28 @@ Arabic and English, RTL, phone width.
 
 ## Spine reach
 
-UI → BackOffice SIS.Api (4043)
+UI → BackOffice SIS.Api (4074)
 
 ## Proof (→ `tdd` red-green cycles)
 
 - [x] Component tests: today view, the overlap message shown, the reprint confirm, the list add/remove · vitest
-- [ ] Live walk against a SIS.Api with 4043 — owed: no SIS.Api with 4043 and the `OMS_MINIPOS_ADMIN` seed was reachable from the build session
+- [ ] Live walk against a SIS.Api with 4074 — owed: no SIS.Api with 4074 and the `OMS_MINIPOS_ADMIN` seed was reachable from the build session
 
 ## Boundaries
 
-Behind the 4043 grants. No back-end change here.
+Behind the 4074 grants. No back-end change here.
 
 ## Done when
 
-The three screens work against 4043 and their component tests are green.
+The three screens work against 4074 and their component tests are green.
 
 ## Blocked by
 
-BO [4043](E:\Projects\BackOffice\.issues\4043-the-operations-lead-manages-assignments-pharmacies-and-item-lists-through-sis-api.md)
+BO [4074](E:\Projects\BackOffice\.issues\4074-the-operations-lead-manages-assignments-pharmacies-and-item-lists-through-sis-api.md)
 
 ## Comments
 
-**2026-11-19 — built on `t915` (from `spec/4032-mini-pos`).**
+**2026-11-19 — built on `t915` (from `spec/4063-mini-pos`).**
 
 - New area `src/features/mini-pos/` (URL prefix `/mini-pos/*`, its own nav group right after OMS): `assignments`,
   `stores`, `items`, each with its `api.ts`, a pure module and props-only view components; namespaces
@@ -60,6 +60,6 @@ BO [4043](E:\Projects\BackOffice\.issues\4043-the-operations-lead-manages-assign
   static markup through real en/ar i18next instances and stub the network at `@/core/api`; three guards were
   mutation-checked (manage gate on the row actions, the reprint warning, the list add's de-duplication). Full suite,
   typecheck, build and the lint gates green, except `check-boundaries`' four violations in
-  `src/features/insurance-rules/aliases/door-shapes.test.ts`, which are on `spec/4032-mini-pos` already.
-- Owed: the live walk against a SIS.Api carrying 4043, with `Seed-MiniPos-Admin-Authorization.sql` applied and a holder
+  `src/features/insurance-rules/aliases/door-shapes.test.ts`, which are on `spec/4063-mini-pos` already.
+- Owed: the live walk against a SIS.Api carrying 4074, with `Seed-MiniPos-Admin-Authorization.sql` applied and a holder
   bound to `OMS_MINIPOS_ADMIN`.

@@ -1,7 +1,7 @@
 ---
 status: open
-spec: BO 4032 (E:\Projects\BackOffice\.issues\4032-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
-blocked-by: BO 4034, BO 4036, BO 4038
+spec: BO 4063 (E:\Projects\BackOffice\.issues\4063-mini-pos-promoters-sell-non-pharmacy-items-spec.md)
+blocked-by: BO 4065, BO 4067, BO 4069
 ---
 
 # 916 — A promoter installs the Mini POS app, signs in, unlocks at the pharmacy, scans a basket and submits it
@@ -29,7 +29,7 @@ interface BarcodeScanner { start(video: HTMLVideoElement): Promise<void>; stop()
 
 ## Spine reach
 
-UI (PWA) → BackOffice SIS.Api (4034, 4036, 4038)
+UI (PWA) → BackOffice SIS.Api (4065, 4067, 4069)
 
 ## Proof (→ `tdd` red-green cycles)
 
@@ -43,8 +43,8 @@ Separate build entry; nothing changes for the existing OMS app.
 
 ## Done when
 
-On a phone, a promoter can install, sign in, unlock, scan and submit against a SIS.Api with 4034/4036/4038.
+On a phone, a promoter can install, sign in, unlock, scan and submit against a SIS.Api with 4065/4067/4069.
 
 ## Blocked by
 
-BO [4034](E:\Projects\BackOffice\.issues\4034-tracer-an-assigned-promoter-prices-and-submits-a-basket-that-becomes-an-mpos-order-at-thei.md), BO [4036](E:\Projects\BackOffice\.issues\4036-selling-unlocks-only-after-scanning-todays-pharmacys-changing-or-printed-qr.md), BO [4038](E:\Projects\BackOffice\.issues\4038-pharmacist-only-and-refused-items-are-refused-at-scan-and-again-at-submit.md)
+BO [4065](E:\Projects\BackOffice\.issues\4065-tracer-an-assigned-promoter-prices-and-submits-a-basket-that-becomes-an-mpos-order-at-thei.md), BO [4067](E:\Projects\BackOffice\.issues\4067-selling-unlocks-only-after-scanning-todays-pharmacys-changing-or-printed-qr.md), BO [4069](E:\Projects\BackOffice\.issues\4069-pharmacist-only-and-refused-items-are-refused-at-scan-and-again-at-submit.md)

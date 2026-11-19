@@ -1,7 +1,7 @@
 // Store database Restore + sp_Blitz drive (oms 919, BackOffice spec 4016 D16/D18, doors 4038/4039) — drives the REAL
 // store page in Chromium against STUBBED `StoreDatabase/*` envelopes (`tools/store-db-stubs.mjs`, fixtures
 // `src/features/admin/sync-console/store-db/__fixtures__/store.json`, `backups.json`, `blitz.json`), shaped to the
-// GUESSED contract. 🚩 NOTHING here is driven against a live SIS.Api.
+// real doors on BO pricing2 (fa2759e8f) — the fixtures copy the server DTOs. NOTHING here is driven against a live SIS.Api.
 //
 // It verifies:
 //   1. with Restore the strip ends with Restore, and the panel says the live database is never replaced;
@@ -10,14 +10,16 @@
 //   3. each file shows whether it can be restored: OK, newer engine, unreadable (with the engine's error);
 //   4. a newer-engine or unreadable file's Restore is disabled with its reason; the store's own engine's is enabled;
 //   5. Restore asks for a reason, shows the side copy it will create (POS_Restore_<today>), defaults to tonight and
-//      posts `{ code, kind: 'RestoreSideCopy', reason, runNow: false, file }`;
+//      posts `{ code, kind: 'RestoreSideCopy', reason, runNow: false, target }` to `StoreDatabase/RestoreJobs` (never Jobs);
 //   6. a typed folder is asked for by name;
 //   7. a taken side-copy name takes the `_2` suffix;
-//   8. Drop on the Space panel's side copy posts `{ kind: 'DropSideCopy', database }`;
+//   8. Drop on the Space panel's side copy posts `{ kind: 'DropSideCopy', target }` to `StoreDatabase/RestoreJobs`;
 //   9. without the Restore key (Act only) no Restore or Drop shows; Browse still lists;
-//  10. Health shows sp_Blitz installed with its version; Run lists its findings, most urgent first;
-//  11. with Act Install / Remove show and Install posts kind InstallBlitz; a View holder sees Run only;
-//  12. a store without sp_Blitz is told so plainly (the door's refusal), not an empty list;
+//  10. Health says sp_Blitz's install state is not reported (BO 4039 open) until Run; Run lists its findings, most
+//      urgent first, and then reads installed with HQ's recorded build;
+//  11. with Act Install / Remove show and Install posts kind InstallBlitz for tonight; NO_BLITZ_BUILD has its words;
+//      a View holder sees Run only;
+//  12. a store without sp_Blitz is told so plainly (the door's 409 refusal), not an empty list, and then reads Not installed;
 //  13. under Arabic (RTL) the Restore panel lays out right to left.
 //
 //   1. run the app:  npx vite --port 5199      (or any port: DRIVE_PORT=5219)
@@ -41,7 +43,8 @@ const check = (name, pass, detail = '') => {
 const VIEW = ['ActionSyncConsole:03', 'StoreDatabaseView:03']
 const ACT = [...VIEW, 'StoreDatabaseAct:06']
 const OWNER = [...ACT, 'StoreDatabaseRestore:06']
-const ACCEPTED = { jobId: '01JD0000000000000000000009', notBefore: '2026-11-20T02:00:00', warning: null }
+/** `StoreDatabaseJobQueued`, as the job doors answer. */
+const ACCEPTED = { jobId: '01JD0000000000000000000009', code: 'P104', kind: 'RestoreSideCopy', notBefore: '2026-11-20T02:00:00', runNow: false, auditId: '01JD0A00000000000000000009', warning: '' }
 const pad = (n) => String(n).padStart(2, '0')
 const now = new Date()
 const TODAY = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
@@ -62,7 +65,7 @@ async function open(path, { screens = OWNER, overrides = {}, locale = 'en' } = {
     localStorage.setItem('oms.locale', lng)
     localStorage.setItem('oms.railExpanded', 'true')
   }, locale)
-  await page.route('**/api/**', storeDbRoute({ screens, overrides: { Jobs: jobsDoor, ...overrides }, calls, posts }))
+  await page.route('**/api/**', storeDbRoute({ screens, overrides: { Jobs: jobsDoor, RestoreJobs: () => envelope(ACCEPTED), ...overrides }, calls, posts }))
   await page.goto(`${BASE}${path}`, { timeout: 120000 })
   return { context, page, errors, calls, posts }
 }
@@ -115,9 +118,9 @@ const status = (page, name) => page.locator(`[data-tab-grid="store-db-backups"] 
   await page.locator('[data-reason-input]').fill('Check last week’s sales lines against HQ')
   await page.locator('[data-reason-confirm]').click()
   await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
-  const body = posts.Jobs?.[0]
-  const want = { code: 'P104', kind: 'RestoreSideCopy', reason: 'Check last week’s sales lines against HQ', runNow: false, file: 'D:\\SQLBackup\\P104\\POS_full.bak' }
-  check('5. …and posts the file to restore', JSON.stringify(body) === JSON.stringify(want), JSON.stringify(body))
+  const body = posts.RestoreJobs?.[0]
+  const want = { code: 'P104', kind: 'RestoreSideCopy', reason: 'Check last week’s sales lines against HQ', runNow: false, target: fixture('backups').files[0].file }
+  check('5. …and posts the file to restore as its target, at the Restore door', JSON.stringify(body) === JSON.stringify(want) && !posts.Jobs, JSON.stringify(body))
 
   await page.locator('[data-restore-folder]').fill('E:\\Other')
   await page.locator('[data-restore-browse-button]').click()
@@ -155,8 +158,8 @@ const status = (page, name) => page.locator(`[data-tab-grid="store-db-backups"] 
   await page.locator('[data-reason-input]').fill('Done comparing')
   await page.locator('[data-reason-confirm]').click()
   await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
-  const body = posts.Jobs?.[0]
-  check('8. …and posts the side copy to drop', JSON.stringify(body) === JSON.stringify({ code: 'P104', kind: 'DropSideCopy', reason: 'Done comparing', runNow: false, database: 'POS_Restore_20261110' }), JSON.stringify(body))
+  const body = posts.RestoreJobs?.[0]
+  check('8. …and posts the side copy to drop as its target, at the Restore door', JSON.stringify(body) === JSON.stringify({ code: 'P104', kind: 'DropSideCopy', reason: 'Done comparing', runNow: false, target: 'POS_Restore_20261110' }) && !posts.Jobs, JSON.stringify(body))
   check('no page errors (drop)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -183,41 +186,57 @@ const status = (page, name) => page.locator(`[data-tab-grid="store-db-backups"] 
   const { context, page, errors, calls, posts } = await open('/admin/sync/database/P104?panel=health', { screens: ACT })
   await page.locator('[data-blitz]').waitFor({ timeout: 60000 })
   const state = await text(page.locator('[data-blitz-state]'))
-  check('10. Health shows sp_Blitz installed with its version', state === 'Installed, version 8.19 (2008 build)', state)
+  check('10. Health says the install state is not reported until Run (BO 4039 open)', state === 'Install state not reported', state)
   check('10. …and does not run it until asked', !calls.some((c) => c.startsWith('StoreDatabase/Blitz')))
   await page.locator('[data-blitz-run]').click()
   await page.locator('[data-tab-grid="store-db-blitz"] .ag-row').first().waitFor({ timeout: 60000 })
   check('10. Run lists its findings', (await page.locator('[data-tab-grid="store-db-blitz"] .ag-row').count()) === 3)
   const first = await text(page.locator('[data-tab-grid="store-db-blitz"] .ag-row[row-index="0"]'))
   check('10. …most urgent first', /Backups Not Performed Recently/.test(first), first)
+  const after = await text(page.locator('[data-blitz-state]'))
+  check('10. …and then reads installed with HQ’s recorded build', after === 'Installed, version 8.19', after)
 
   const jobs = await page.locator('[data-blitz] [data-job-buttons]').getAttribute('data-job-buttons')
   check('11. with Act Install and Remove show', jobs === 'InstallBlitz RemoveBlitz', jobs)
   await page.locator('[data-job-button="InstallBlitz"]').click()
   await dialog(page).waitFor()
-  check('11. …Install runs now (no Run now offered)', (await page.locator('[data-job-run-now]').count()) === 0)
+  check('11. …Install defaults to tonight, with Run now', (await page.locator('[data-job-when]').getAttribute('data-job-when')) === 'tonight' && (await page.locator('[data-job-run-now]').count()) === 1)
   await page.locator('[data-reason-input]').fill('Deeper look at the slow till')
   await page.locator('[data-reason-confirm]').click()
   await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
-  check('11. …and posts kind InstallBlitz', JSON.stringify(posts.Jobs?.[0]) === JSON.stringify({ code: 'P104', kind: 'InstallBlitz', reason: 'Deeper look at the slow till', runNow: true }), JSON.stringify(posts.Jobs?.[0]))
+  check('11. …and posts kind InstallBlitz', JSON.stringify(posts.Jobs?.[0]) === JSON.stringify({ code: 'P104', kind: 'InstallBlitz', reason: 'Deeper look at the slow till', runNow: false }), JSON.stringify(posts.Jobs?.[0]))
   await page.screenshot({ path: `${SHOTS}/blitz.png`, fullPage: true })
   check('no page errors (blitz)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
+// ── 11: Install refused while HQ's sp_Blitz build slot is empty (BO 4039) ─────────
+{
+  const jobs = (url, req) => (req.method() === 'POST' ? refusal('NO_BLITZ_BUILD', 'No sp_Blitz build is loaded at HQ yet.', 409) : envelope(fixture('jobs')))
+  const { context, page, errors } = await open('/admin/sync/database/P104?panel=health', { screens: ACT, overrides: { Jobs: jobs } })
+  await page.locator('[data-job-button="InstallBlitz"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-reason-input]').fill('Deeper look at the slow till')
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error]').waitFor({ timeout: 10000 })
+  const code = await page.locator('[data-reason-error]').getAttribute('data-reason-error')
+  const label = await text(page.locator('[data-reason-error-label]'))
+  check('11. NO_BLITZ_BUILD is refused with its own words', code === 'NO_BLITZ_BUILD' && /no sp_Blitz build/.test(label), `${code} | ${label}`)
+  check('no page errors (no build)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 11–12: View only, and a store without sp_Blitz ───────────────────────────────
 {
-  const store = fixture('store')
-  store.blitz = { installed: false, version: null }
   const { context, page, errors } = await open('/admin/sync/database/P104?panel=health', {
     screens: VIEW,
-    overrides: { Store: envelope(store), Blitz: refusal('BLITZ_NOT_INSTALLED', 'sp_Blitz is not installed on P104.', 400) },
+    overrides: { Blitz: refusal('BLITZ_NOT_INSTALLED', 'sp_Blitz is not installed on P104.', 409) },
   })
   await page.locator('[data-blitz]').waitFor({ timeout: 60000 })
   check('11. a View holder sees Run only', (await page.locator('[data-blitz-run]').count()) === 1 && (await page.locator('[data-blitz] [data-job-button]').count()) === 0)
-  check('12. the state reads Not installed', (await text(page.locator('[data-blitz-state]'))) === 'Not installed')
   await page.locator('[data-blitz-run]').click()
   await page.locator('[data-blitz-not-installed]').waitFor({ timeout: 30000 })
+  check('12. after the refusal the state reads Not installed', (await text(page.locator('[data-blitz-state]'))) === 'Not installed')
   const said = await text(page.locator('[data-blitz-not-installed]'))
   check('12. a store without sp_Blitz is told so plainly', /not installed on this store/.test(said) && /P104/.test(said), said)
   check('12. …not an empty list', (await page.locator('[data-tab-grid="store-db-blitz"]').count()) === 0 && (await page.locator('[data-tab-empty="store-db-blitz"]').count()) === 0)

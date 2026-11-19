@@ -1,8 +1,9 @@
 // Stubs of the Store database doors (BackOffice spec 4016, doors 4030–4039; oms 915–919), shared by every
 // `tools/store-db-*-drive.mjs`.
 //
-// 🚩 GUESSED contract. No BackOffice brief exists for 4016: the paths are the BO tickets', every field is a guess
-// (`src/core/models/store-database.ts`). NOTHING here is driven against a live SIS.Api.
+// The real doors on BO pricing2 (fa2759e8f, `StoreDatabaseWebEndpoints.cs`): the fixtures copy the server DTOs
+// (`src/core/models/store-database.ts`). NOTHING here is driven against a live SIS.Api. The job doors (`Jobs`,
+// `RestoreJobs`) answer a list on GET and `StoreDatabaseJobQueued` on POST: a drive stubs the POST itself.
 //
 // Convention, so a later ticket adds a fixture FILE, not a line here:
 //   GET|POST StoreDatabase/<Door>  →  src/features/admin/sync-console/store-db/__fixtures__/<door-kebab>.json

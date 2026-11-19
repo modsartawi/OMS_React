@@ -1,15 +1,15 @@
 // Store database fleet drive (oms 915, BackOffice spec 4016 D10, door 4030/4031) — drives the REAL Store database tab
 // in Chromium against STUBBED `StoreDatabase/*` envelopes (`tools/store-db-stubs.mjs`, fixture
-// `src/features/admin/sync-console/store-db/__fixtures__/fleet.json`), shaped to the GUESSED contract.
-// 🚩 NOTHING here is driven against a live SIS.Api.
+// `src/features/admin/sync-console/store-db/__fixtures__/fleet.json`), shaped to the real doors on BO pricing2
+// (fa2759e8f) — the fixture copies `StoreDatabaseFleetRow`. NOTHING here is driven against a live SIS.Api.
 //
 // It verifies:
 //   1. with StoreDatabaseView:03 the console's nav carries Store database, and it opens /admin/sync/database;
-//   2. the fleet is listed worst state first, then fewest days to cap, no forecast last;
+//   2. the fleet is listed worst state first (the server's rank: Watch before Not checked), then fewest days to cap;
 //   3. each row's state chip names the door's state (Not checked never green); an unknown state reads raw;
-//   4. the used / cap bar fills to the share of the store's own cap, and reads "used / cap" as one value;
-//      a store with no cap or no reading draws no bar;
-//   5. the state, engine and edition filters narrow the list, together;
+//   4. the used / cap bar fills to `usedPercent` (0..100), and reads "used / cap" as one value; a store with no cap
+//      or no reading draws no bar; a drive not matched (-1) is blank, never "-1 KB";
+//   5. the state, engine (the server's labels, from the fleet) and edition filters narrow the list, together;
 //   6. Needs 2019 lists only the 4 GB-cap stores, nearest the cap first, with its note;
 //   7. a store's code opens its database page (916's shell) and its back link returns;
 //   8. without StoreDatabaseView:03 the tab is not in the nav, and the hand-typed URL shows the denial;
@@ -76,7 +76,7 @@ const settle = (page) => page.waitForTimeout(250)
 
   const order = await rowIds(page)
   check('2. worst state first, then fewest days to cap, no forecast last',
-    JSON.stringify(order) === JSON.stringify(['P014', 'P221', 'C011', 'P300', 'P102', 'P050', 'P007', 'P900']), order.join(','))
+    JSON.stringify(order) === JSON.stringify(['P014', 'P221', 'C011', 'P102', 'P300', 'P050', 'P007', 'P900']), order.join(','))
 
   const chip = async (code) => plain(await cell(page, code, 'state').innerText())
   check('3. state chips name the door\'s state',
@@ -95,10 +95,16 @@ const settle = (page) => page.waitForTimeout(250)
   check('4. …"used / cap" reads as one value', used === '3.8 GB / 4.0 GB', used)
   const noCap = plain(await cell(page, 'C011', 'used').innerText())
   check('4. …a store with no cap says so', noCap === '20.0 GB · No cap', noCap)
-  const share = plain(await cell(page, 'P102', 'usedShare').innerText())
+  const share = plain(await cell(page, 'P102', 'usedPercent').innerText())
   const drive = plain(await cell(page, 'P014', 'driveFreeKb').innerText())
   check('4. …share, drive free, bitness and taken at are drawn', share === '72.5%' && drive === '30.0 GB' &&
-    plain(await cell(page, 'P221', 'is64Bit').innerText()) === '32-bit' && /2026/.test(await cell(page, 'P014', 'takenAt').innerText()), `${share} ${drive}`)
+    plain(await cell(page, 'P221', 'bitness').innerText()) === '32-bit' && /2026/.test(await cell(page, 'P014', 'takenAt').innerText()), `${share} ${drive}`)
+  const unmatched = plain(await cell(page, 'P007', 'driveFreeKb').innerText())
+  check('4. …a drive the server could not match (-1) is blank, never "-1 KB"', unmatched === '', unmatched)
+  const engine = plain(await cell(page, 'P014', 'engine').innerText())
+  check('4. …the engine reads the server’s label', engine === 'SQL Server 2008 R2', engine)
+  const offered = await page.locator('[data-filter-engine] option').evaluateAll((os) => os.map((o) => o.value).filter(Boolean))
+  check('5. the engine filter offers the engines the fleet holds, by release', offered.join(',') === 'SQL Server 2008,SQL Server 2008 R2,SQL Server 2019,SQL Server 2022', offered.join(','))
   check('4. …and the shown line counts the fleet', plain(await page.locator('[data-store-db-shown]').innerText()) === 'Showing 8 of 8 stores')
   await page.screenshot({ path: `${SHOTS}/fleet.png`, fullPage: true })
 
@@ -106,7 +112,7 @@ const settle = (page) => page.waitForTimeout(250)
   await settle(page)
   check('5. the state filter narrows the list', JSON.stringify(await rowIds(page)) === '["P014","P221"]', (await rowIds(page)).join(','))
   await page.locator('[data-filter-state]').selectOption('')
-  await page.locator('[data-filter-engine]').selectOption('2008')
+  await page.locator('[data-filter-engine]').selectOption('SQL Server 2008')
   await page.locator('[data-filter-edition]').selectOption('Express Edition')
   await settle(page)
   check('5. …engine and edition filter together', JSON.stringify(await rowIds(page)) === '["P221","P007"]', (await rowIds(page)).join(','))
@@ -121,7 +127,7 @@ const settle = (page) => page.waitForTimeout(250)
   await page.locator('[data-needs-2019]').click()
   await settle(page)
   check('6. Needs 2019: only the 4 GB-cap stores, nearest the cap first',
-    JSON.stringify(await rowIds(page)) === '["P014","P221","P102","P300","P007"]', (await rowIds(page)).join(','))
+    JSON.stringify(await rowIds(page)) === '["P014","P221","P102","P007"]', (await rowIds(page)).join(','))
   check('6. …with its note, and the chip pressed', (await page.locator('[data-needs-2019-note]').count()) === 1 &&
     (await page.locator('[data-needs-2019]').getAttribute('aria-pressed')) === 'true')
   await page.screenshot({ path: `${SHOTS}/needs-2019.png`, fullPage: true })

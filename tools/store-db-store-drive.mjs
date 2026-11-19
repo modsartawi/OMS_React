@@ -1,19 +1,20 @@
 // Store database store-page drive (oms 916, BackOffice spec 4016, door 4031) — drives the REAL store page in Chromium
 // against STUBBED `StoreDatabase/*` envelopes (`tools/store-db-stubs.mjs`, fixtures
-// `src/features/admin/sync-console/store-db/__fixtures__/store.json` + `store-not-checked.json`), shaped to the GUESSED
-// contract. 🚩 NOTHING here is driven against a live SIS.Api.
+// `src/features/admin/sync-console/store-db/__fixtures__/store.json` + `store-not-checked.json`), shaped to the real
+// doors on BO pricing2 (fa2759e8f) — the fixtures copy the server DTOs. NOTHING here is driven against a live SIS.Api.
 //
 // It verifies:
 //   1. the page asks `GET StoreDatabase/Store?code=` for its store, and its header names code, name, state, read time;
 //   2. the panel strip shows the mounted panels (Readings today), and an unknown `?panel=` falls back to the first;
-//   3. the latest reading reads in plain words: engine, cap, used of cap, allocated, free inside the file, log,
-//      recovery model, drive free, machine, uptime, last backup;
-//   4. days to cap reads with the growth rate and window behind it;
+//   3. the latest reading reads in plain words: engine (the server's label), cap, used of cap, allocated, free inside
+//      the file, log, recovery model, drive free on the data file's drive (files[]), uptime, last backup; a drive the
+//      server could not match (-1) reads as not reported, never "-1 KB";
+//   4. days to cap reads with the growth rate behind it and the reading it is measured from (growthFrom);
 //   5. the daily history draws two charts: files (used, allocated, log + the cap) and drive free;
 //   6. the 10 largest tables are listed in the server's order, sizes in their unit;
 //   7. the side copies are not on Readings (918 moved them to Space);
 //   8. a store read on its last attempt shows no Not checked banner;
-//   9. a Not checked store shows the banner with the last error, and its chip says so;
+//   9. a Not checked store shows the banner with the last error (flat lastTakenAt / lastError), and its chip says so;
 //  10. an unknown store (NO_STORE) shows the not-found card; another failure shows its error;
 //  11. without StoreDatabaseView:03 the page shows the denial and asks no door;
 //  12. Refresh asks the Store door again;
@@ -73,9 +74,9 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
   check('2. the strip shows the mounted panels, Readings first', (await page.locator('[data-store-db-panels]').getAttribute('data-store-db-panels')).split(' ')[0] === 'readings')
   check('2. …an unknown ?panel= opens the first', (await page.locator('[data-panel-open]').getAttribute('data-panel-open')) === 'readings')
 
-  check('3. the reading has its 15 lines', (await page.locator('[data-reading-line]').count()) === 15)
+  check('3. the reading has its 14 lines', (await page.locator('[data-reading-line]').count()) === 14)
   const engine = await text(line(page, 'engine'))
-  check('3. …engine with version, edition and bitness', engine === '2008 R2 · 10.50.6000.34 SP3 · Express Edition · 64-bit', engine)
+  check('3. …engine with version, edition and bitness', engine === 'SQL Server 2008 R2 · 10.50.6000.34 SP3 · Express Edition · 64-bit', engine)
   const used = await text(line(page, 'used'))
   check('3. …used against the cap', used === '3.0 GB, 75% of the cap', used)
   const cap = await text(line(page, 'cap'))
@@ -87,22 +88,21 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
   const drive = await text(line(page, 'driveFree'))
   check('3. …drive free on its drive', drive === '18.0 GB on D:', drive)
   const rm = await text(line(page, 'recoveryModel'))
-  const machine = await text(line(page, 'machine'))
-  check('3. …recovery model and machine', rm === 'SIMPLE' && machine === 'P104-POS01', `${rm} | ${machine}`)
+  check('3. …recovery model', rm === 'SIMPLE', rm)
   const cpus = await text(line(page, 'cpus'))
   const memory = await text(line(page, 'memory'))
-  check('3. …CPU count and memory beside the machine (story 15)', cpus === '4' && memory === '8.0 GB', `${cpus} | ${memory}`)
+  check('3. …CPU count and memory (story 15)', cpus === '4' && memory === '8.0 GB', `${cpus} | ${memory}`)
   const longest = await text(line(page, 'longestTransaction'))
   const blocked = await text(line(page, 'blockedSessions'))
   check('3. …longest open transaction and blocked sessions (story 16)', longest === '12 min 34 s' && blocked === '2', `${longest} | ${blocked}`)
   const uptime = await text(line(page, 'uptime'))
   check('3. …uptime from the SQL start to the reading', uptime === '15 days, 21 hours', uptime)
   const backup = await text(line(page, 'lastBackup'))
-  check('3. …last backup with its size', backup === '2026-11-17 02:15, 2.8 GB', backup)
+  check('3. …last backup (the door sends its time, not its size)', backup === '2026-11-17 02:15', backup)
 
   const days = await text(page.locator('[data-days-to-cap]'))
   const rate = await text(page.locator('[data-growth-rate]'))
-  check('4. days to cap with the growth behind it', days === '41 days to the cap' && rate === 'Growing 12 MB a day over the last 14 days', `${days} | ${rate}`)
+  check('4. days to cap with the growth behind it', days === '41 days to the cap' && rate === 'Growing 12 MB a day since 2026-11-04 03:10', `${days} | ${rate}`)
 
   await page.locator('[data-history-chart="files"] .recharts-line').first().waitFor({ timeout: 10000 })
   const fileLines = await page.locator('[data-history-chart="files"] .recharts-line').count()
@@ -111,13 +111,13 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
   const legend = await text(page.locator('[data-history-chart="files"] .recharts-legend-wrapper'))
   check('5. …named in its legend', /Used/.test(legend) && /Allocated/.test(legend) && /Log/.test(legend) && /Cap/.test(legend), legend)
   check('5. …and drive free draws on its own chart', driveLines === 1, String(driveLines))
-  check('5. …over the 7 kept days', (await page.locator('[data-store-db-history]').getAttribute('data-store-db-history')) === '7')
+  check('5. …over the 6 days the server kept a reading for', (await page.locator('[data-store-db-history]').getAttribute('data-store-db-history')) === '6')
 
   const TABLES = '[data-tab-grid="store-db-tables"]'
   const firstRow = page.locator(`${TABLES} .ag-row[row-index="0"]`)
   const tableName = await text(firstRow.locator('[col-id="tableName"]').first())
   const reserved = await text(firstRow.locator('[col-id="reservedKb"]').first())
-  const rows = await text(firstRow.locator('[col-id="rows"]').first())
+  const rows = await text(firstRow.locator('[col-id="tableRows"]').first())
   check('6. the 10 largest tables, largest first', (await page.locator('[data-store-db-tables]').getAttribute('data-store-db-tables')) === '10' &&
     tableName === 'dbo.SalesLine' && reserved === '1.1 GB' && rows === '8,412,093', `${tableName} ${reserved} ${rows}`)
 
@@ -145,9 +145,21 @@ const storeCalls = (calls) => calls.filter((c) => c.startsWith('StoreDatabase/St
   const error = await text(page.locator('[data-not-checked-error]'))
   check('9. …and the last error', /The wait operation timed out\./.test(error) && /Last error/.test(error), error)
   check('9. …and the chip reads Not checked', (await text(page.locator('[data-store-db-state]'))) === 'Not checked')
-  check('9. …the last good reading still shows below', (await page.locator('[data-reading-line]').count()) === 15)
+  check('9. …the last good reading still shows below', (await page.locator('[data-reading-line]').count()) === 14)
   await page.screenshot({ path: `${SHOTS}/not-checked.png`, fullPage: true })
   check('no page errors (not checked)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 3b: a drive the server could not match ───────────────────────────────────────
+{
+  const store = fixture('store')
+  store.reading.driveFreeKb = -1
+  const { context, page, errors } = await open('/admin/sync/database/P104', { overrides: { Store: () => envelope(store) } })
+  await page.locator('[data-reading-line]').first().waitFor({ timeout: 15000 })
+  const drive = await text(page.locator('[data-reading-line="driveFree"] dd'))
+  check('3. a drive the server could not match (-1) reads as not reported, never "-1 KB"', !/-1/.test(drive) && !/KB/.test(drive), drive)
+  check('no page errors (drive not matched)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

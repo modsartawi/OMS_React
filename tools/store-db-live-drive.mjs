@@ -1,25 +1,26 @@
 // Store database Live activity / Health check / Check now drive (oms 917, BackOffice spec 4016, door 4032) — drives the
 // REAL store page in Chromium against STUBBED `StoreDatabase/*` envelopes (`tools/store-db-stubs.mjs`, fixtures
 // `src/features/admin/sync-console/store-db/__fixtures__/live-activity.json`, `health-check.json`, `check-now.json`),
-// shaped to the GUESSED contract. 🚩 NOTHING here is driven against a live SIS.Api.
+// shaped to the real doors on BO pricing2 (fa2759e8f) — the fixtures copy the server DTOs. NOTHING here is driven
+// against a live SIS.Api. Contexts run in Asia/Riyadh: the on-demand looks stamp `DateTime.Now` with its offset.
 //
 // It verifies:
 //   1. the strip shows Readings, Live activity and Health check;
-//   2. Live activity asks `GET StoreDatabase/LiveActivity?code=` and draws its four tables with their rows, and the
-//      time of the look;
+//   2. Live activity asks `GET StoreDatabase/LiveActivity?code=` and draws its four tables with their rows, the
+//      durations and open transactions (`seconds`, `waitSeconds`, `openTransactions`), and the time of the look;
 //   3. Look again takes another look (the door is asked again) — and nothing polls meanwhile;
 //   4. a result set with no rows says so;
 //   5. Health check asks `GET StoreDatabase/HealthCheck?code=` and lists the findings most urgent first, with the
 //      check's words, the server's detail and the fix; an unknown check shows the server's own word;
-//   6. a check that faulted says so;
+//   6. a check that faulted (level CheckFailed) says so;
 //   7. the Health panel carries 919's sp_Blitz section;
 //   8. a failed look / health check shows the server's message;
 //   9. Check now is hidden without StoreDatabaseAct:06;
 //  10. Check now opens the reason dialog: Confirm stays off without a reason (and for white space);
-//  11. with a reason it posts `{ code, reason }` (trimmed), closes, toasts, and the fresh reading replaces the page's
-//      (read time, state chip), and the health check is re-run;
+//  11. with a reason it posts `{ code, reason }` (trimmed), closes, toasts, and — the answer being a reading, not a
+//      page — the store page is re-read (read time, state chip) and the health check re-run;
 //  12. a refusal stays in the dialog with its code;
-//  13. a fresh reading that FAILED shows the Not checked banner at once;
+//  13. a fresh reading that FAILED (`succeeded: false`) is told as a failure and the re-read page shows the banner;
 //  14. under Arabic (RTL) the Live panel and Health panel lay out right to left with no error.
 //
 //   1. run the app:  npx vite --port 5199      (or any port: DRIVE_PORT=5217)
@@ -45,7 +46,7 @@ const ACT = [...VIEW, 'StoreDatabaseAct:06']
 const browser = await chromium.launch()
 
 async function open(path, { screens = VIEW, overrides = {}, locale = 'en' } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1500, height: 1100 } })
+  const context = await browser.newContext({ viewport: { width: 1500, height: 1100 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
   const calls = []
@@ -83,6 +84,9 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   check('2. …a blocked request names its blocker and wait', blocked === '61' && wait === 'LCK_M_U', `${blocked} ${wait}`)
   const notBlocked = await text(page.locator('[data-live-section="running"] .ag-row[row-index="1"] [col-id="blockedBy"]').first())
   check('2. …an unblocked one shows no blocker', notBlocked === '', notBlocked)
+  const cell = (key, row, col) => text(page.locator(`[data-live-section="${key}"] .ag-row[row-index="${row}"] [col-id="${col}"]`).first())
+  const secs = [await cell('running', 0, 'seconds'), await cell('running', 0, 'waitSeconds'), await cell('running', 0, 'openTransactions'), await cell('longTransactions', 0, 'transactionSeconds')]
+  check('2. …with the durations and open transactions the door names', secs.every((s) => /^\d[\d,]*$/.test(s)) && secs[0] === '48' && secs[1] === '47' && secs[2] === '1', secs.join(' | '))
   const at = await text(page.locator('[data-live-looked-at]'))
   check('2. …and the time of the look', at === 'Looked at 2026-11-18 10:41', at)
   await page.screenshot({ path: `${SHOTS}/live.png`, fullPage: true })
@@ -125,7 +129,9 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   check('5. Health check asks its door for the store', asked(calls, 'HealthCheck')[0] === 'StoreDatabase/HealthCheck?code=P104', asked(calls, 'HealthCheck').join(','))
   const order = await page.locator('[data-health-finding]').evaluateAll((els) => els.map((e) => e.getAttribute('data-health-finding')))
   check('5. …findings most urgent first, server order within a priority',
-    order.join(',') === 'NearSizeCap,LogLargerThanData,NoRecentBackup,LastGoodCheckDb,AutoShrinkOn,ReplicaLagUnusual', order.join(','))
+    order.join(',') === 'NearSizeCap,LogLargerThanData,NoFullBackup,AutoShrinkOn,LastGoodCheckDb,ReplicaLagUnusual', order.join(','))
+  const noFull = await text(page.locator('[data-health-finding="NoFullBackup"] [data-health-check]'))
+  check('5. …NoFullBackup has its words', noFull === 'No recent full backup', noFull)
   const first = await text(page.locator('[data-health-finding="NearSizeCap"]'))
   check('5. …with priority, the check\'s words, the detail and the fix',
     /^Priority 1 Near the size cap Data used is 3\.1 GB of the 4 GB cap \(78%\)\. Fix: ?Shrink the log/.test(first), first)
@@ -151,9 +157,20 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   await context.close()
 }
 
+/** The Store door before and after a Check now: the server keeps the reading, so the re-read page carries it. */
+const checkNowDoors = (answer, after) => {
+  let checked = false
+  return {
+    CheckNow: () => ((checked = true), envelope(answer)),
+    Store: () => envelope(checked ? after : fixture('store')),
+  }
+}
+
 // ── 10–11: Check now ─────────────────────────────────────────────────────────────
 {
-  const { context, page, errors, calls, posts } = await open('/admin/sync/database/P104?panel=health', { screens: ACT })
+  const answer = fixture('check-now')
+  const fresh = { ...fixture('store'), state: 'Ok', lastTakenAt: answer.reading.takenAt, lastSucceeded: true, lastError: '', reading: answer.reading }
+  const { context, page, errors, calls, posts } = await open('/admin/sync/database/P104?panel=health', { screens: ACT, overrides: checkNowDoors(answer, fresh) })
   await page.locator('[data-health-finding]').first().waitFor({ timeout: 15000 })
   const button = page.locator('[data-check-now]')
   check('10. Check now shows to a holder of StoreDatabaseAct:06', (await button.count()) === 1)
@@ -168,6 +185,7 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   await page.locator('[data-reason-input]').fill('  helpdesk 5512: till slow  ')
   check('10. …and on with a reason', await confirm.isEnabled())
   const healthBefore = asked(calls, 'HealthCheck').length
+  const storeBefore = asked(calls, 'Store?').length
   await confirm.click()
   await dialog.waitFor({ state: 'detached', timeout: 10000 })
   check('11. it posts the store and the trimmed reason',
@@ -175,7 +193,7 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
   const toast = await text(page.locator('[data-sonner-toast]').first())
   check('11. …toasts', /Store P104 was read just now\./.test(toast), toast)
   const read = await page.locator('[data-store-db-taken-at]').getAttribute('data-store-db-taken-at')
-  check('11. …the fresh reading replaces the page\'s', read === '2026-11-18T10:43:12', read ?? '')
+  check('11. …the page is re-read (not replaced by the answer) and carries the fresh reading', read === '2026-11-18T10:43:12' && asked(calls, 'Store?').length === storeBefore + 1, `${read} | ${storeBefore} → ${asked(calls, 'Store?').length}`)
   check('11. …the state chip follows it', (await text(page.locator('[data-store-db-state]'))) === 'OK', await text(page.locator('[data-store-db-state]')))
   await page.waitForTimeout(500)
   check('11. …and the health check is re-run', asked(calls, 'HealthCheck').length === healthBefore + 1, `${healthBefore} → ${asked(calls, 'HealthCheck').length}`)
@@ -204,7 +222,10 @@ const asked = (calls, door) => calls.filter((c) => c.startsWith(`StoreDatabase/$
 {
   const { context, page, errors } = await open('/admin/sync/database/P104', {
     screens: ACT,
-    overrides: { CheckNow: () => envelope(fixture('store-not-checked')) },
+    overrides: checkNowDoors(
+      { ...fixture('check-now'), succeeded: false, error: fixture('store-not-checked').lastError, reading: null, largestTables: [] },
+      fixture('store-not-checked'),
+    ),
   })
   await page.locator('[data-check-now]').click()
   await page.locator('[data-reason-input]').fill('till cannot sync')

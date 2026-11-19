@@ -1,0 +1,174 @@
+{
+  "menu": {
+    "group": "Insurance",
+    "cases": "Pattern cases"
+  },
+  "title": "Pattern cases",
+  "subtitle": "Patients who dispense across our pharmacies, scored on impossible travel, supply overlap and pharmacy hopping. A case shows a number, never a patient.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to pattern cases",
+    "deniedHint": "Pattern cases need the insurance pattern analyst grant. Ask your administrator.",
+    "unreachableTitle": "Your access could not be read",
+    "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+  },
+  "filters": {
+    "label": "Filter the cases",
+    "store": "Store",
+    "storeHint": "A store code",
+    "from": "From",
+    "to": "To",
+    "signal": "Signal",
+    "status": "Status",
+    "severity": "Severity",
+    "any": "Any",
+    "clear": "Clear filters",
+    "backwards": "The period ends before it starts."
+  },
+  "list": {
+    "count_one": "{{n}} case",
+    "count_other": "{{n}} cases",
+    "order": "Strongest first: by score, then the latest dispense.",
+    "reading": "Reading the cases…",
+    "failed": "The cases could not be read",
+    "empty": "No case matches these filters.",
+    "openCase": "Open case {{caseNumber}}"
+  },
+  "col": {
+    "case": "Case",
+    "stores": "Stores",
+    "dispenses": "Dispenses",
+    "span": "Span",
+    "longestLeg": "Longest leg",
+    "shortestGap": "Shortest gap",
+    "signals": "Signals",
+    "score": "Score",
+    "status": "Status",
+    "value": "Value (SAR)"
+  },
+  "signal": {
+    "travel": "Impossible travel",
+    "overlap": "Supply overlap",
+    "hopping": "Pharmacy hopping"
+  },
+  "status": {
+    "open": "Open",
+    "watching": "Watching",
+    "cleared": "Cleared",
+    "confirmed": "Confirmed",
+    "closed": "Closed",
+    "unknown": "Unknown status"
+  },
+  "severity": {
+    "action": "Action",
+    "info": "Info"
+  },
+  "duration": {
+    "minutes": "{{m}} min",
+    "hours": "{{h}} h",
+    "hoursMinutes": "{{h}} h {{m}} min",
+    "days": "{{d}} d",
+    "daysHours": "{{d}} d {{h}} h"
+  },
+  "units": {
+    "km": "{{km}} km",
+    "kmPerHour": "{{speed}} km/h"
+  },
+  "case": {
+    "pageTitle": "Pattern case",
+    "pageSubtitle": "Its route between pharmacies, its dispenses and the team's marks. The patient is not shown here.",
+    "back": "All pattern cases",
+    "heading": "Case {{caseNumber}}",
+    "scoreLine": "Score {{score}}",
+    "reading": "Reading the case…",
+    "failed": "The case could not be read",
+    "actions": "Case actions",
+    "facts": {
+      "label": "The case in figures",
+      "stores": "Stores",
+      "dispenses": "Dispenses",
+      "span": "Span",
+      "longestLeg": "Longest leg",
+      "shortestGap": "Shortest gap",
+      "value": "Value (SAR)",
+      "opened": "Opened",
+      "lastDispense": "Last dispense",
+      "closed": "Closed",
+      "stillOpen": "Still open"
+    },
+    "clearance": {
+      "title": "This patient was cleared before",
+      "body": "Case {{caseNumber}} was cleared by {{by}} on {{at}}.",
+      "open": "Open case {{caseNumber}}"
+    },
+    "signals": {
+      "title": "Signals",
+      "none": "The server sent no words for this case's signals."
+    },
+    "route": {
+      "title": "Route",
+      "mapLabel": "The route of case {{caseNumber}} between pharmacies",
+      "cannotDraw": "The map could not be drawn here. The legs are listed below.",
+      "unplaced": "Not on the map (no coordinates):",
+      "noStores": "No store of this case has coordinates, so there is nothing to draw.",
+      "legendPoint": "A store, larger with more dispenses",
+      "legendLeg": "A leg between counter dispenses, numbered in time order",
+      "legendTravel": "A leg that fired the travel signal",
+      "legendDelivery": "A delivery dispense is a point with no leg",
+      "card": {
+        "dispenses": "Dispenses",
+        "deliveries": "Of which delivery"
+      },
+      "legs": {
+        "title": "Legs",
+        "n": "No.",
+        "from": "From",
+        "to": "To",
+        "km": "Distance",
+        "time": "Time",
+        "speed": "Speed",
+        "travel": "Travel signal",
+        "notOnMap": "Not on the map",
+        "none": "No legs: the counter dispenses were all at one store."
+      }
+    },
+    "timeline": {
+      "title": "Timeline",
+      "count_one": "{{n}} dispense",
+      "count_other": "{{n}} dispenses",
+      "store": "Store",
+      "at": "Time",
+      "item": "Item",
+      "quantity": "Quantity",
+      "daysSupply": "Days' supply",
+      "payer": "Payer",
+      "channel": "Channel",
+      "pharmacist": "Pharmacist",
+      "delivery": "Delivery: a point, not a leg",
+      "daysUnknown": "Not known"
+    },
+    "marks": {
+      "title": "Marks",
+      "none": "No mark yet.",
+      "status": "Set the status",
+      "choose": "Choose a status",
+      "note": "Note",
+      "noteHint": "Say why: the team reads it, and a cleared patient's next case shows it.",
+      "save": "Save mark",
+      "saving": "Saving…",
+      "saved": "Mark saved",
+      "failed": "The mark was not saved",
+      "byAt": "{{by}} on {{at}}",
+      "problem": {
+        "status": "Choose a status.",
+        "note": "Write a note that says why.",
+        "tooLong": "The note is longer than {{max}} characters."
+      }
+    },
+    "previous": {
+      "title": "Previous cases",
+      "none": "No earlier case for this patient.",
+      "open": "Open case {{caseNumber}}"
+    }
+  }
+}

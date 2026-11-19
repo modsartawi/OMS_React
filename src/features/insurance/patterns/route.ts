@@ -53,7 +53,10 @@ export interface CaseRoute {
 
 type Place = { lon: number; lat: number }
 
-const placesOf = (detail: PatternCaseDetail): Map<string, Place> => {
+/** What the route reads of a case: its stores, its dispenses and its legs (the rest of the case never moves the map). */
+export type RouteSource = Pick<PatternCaseDetail, 'stores' | 'dispenses' | 'legs'>
+
+const placesOf = (detail: RouteSource): Map<string, Place> => {
   const places = new Map<string, Place>()
   for (const s of detail.stores) {
     if (typeof s.lat === 'number' && typeof s.lon === 'number' && Number.isFinite(s.lat) && Number.isFinite(s.lon))
@@ -62,21 +65,17 @@ const placesOf = (detail: PatternCaseDetail): Map<string, Place> => {
   return places
 }
 
-const byTime = (a: PatternDispense, b: PatternDispense) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.eventId - b.eventId)
+/** Local ISO times without a zone sort as text; a time not known (a leg's dispense missing) sorts last. */
+const cmp = (a: string | undefined, b: string | undefined) => (a === b ? 0 : a === undefined ? 1 : b === undefined ? -1 : a < b ? -1 : 1)
+const byTime = (a: PatternDispense, b: PatternDispense) => cmp(a.at, b.at) || a.eventId - b.eventId
 
 /** Every leg the server sent, in time order (by its first dispense, then its second), numbered from 1. */
-export function routeLegs(detail: PatternCaseDetail): RouteLegRow[] {
+export function routeLegs(detail: RouteSource): RouteLegRow[] {
   const byId = new Map(detail.dispenses.map((d) => [d.eventId, d]))
   const places = placesOf(detail)
-  const LAST = '￿'
   return detail.legs
     .map((leg) => ({ leg, from: byId.get(leg.fromEventId) ?? null, to: byId.get(leg.toEventId) ?? null }))
-    .sort(
-      (a, b) =>
-        (a.from?.at ?? LAST).localeCompare(b.from?.at ?? LAST) ||
-        (a.to?.at ?? LAST).localeCompare(b.to?.at ?? LAST) ||
-        a.leg.fromEventId - b.leg.fromEventId,
-    )
+    .sort((a, b) => cmp(a.from?.at, b.from?.at) || cmp(a.to?.at, b.to?.at) || a.leg.fromEventId - b.leg.fromEventId)
     .map((row, i) => ({
       ...row,
       n: i + 1,
@@ -92,7 +91,7 @@ export function routeLegs(detail: PatternCaseDetail): RouteLegRow[] {
 }
 
 /** The case as the map draws it. */
-export function caseRoute(detail: PatternCaseDetail, words: RouteWords): CaseRoute {
+export function caseRoute(detail: RouteSource, words: RouteWords): CaseRoute {
   const places = placesOf(detail)
   const named = new Map(detail.stores.map((s) => [s.storeCode, s.storeName]))
   const storeOf = (code: string, fallback: string): PatternCaseStore => ({ storeCode: code, storeName: named.get(code) || fallback })

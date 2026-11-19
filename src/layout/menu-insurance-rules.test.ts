@@ -12,10 +12,11 @@ const group = MENU.find((g) => g.labelKey === 'insurance-rules:menu.group')
 const leaves = (items: ShellMenuItem[]): ShellMenuItem[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
 
 describe('the Insurance rules nav group', () => {
-  it('is ONE group of its own, the LAST, right after HungerStation', () => {
+  it('is ONE group of its own, right after Hybris stock (922 put Insurance last, beside it)', () => {
     expect(MENU.filter((g) => g.labelKey === 'insurance-rules:menu.group')).toHaveLength(1)
-    expect(MENU.at(-1)).toBe(group)
-    expect(MENU.at(-2)?.labelKey).toBe('hybris-stock-stores:menu.hybrisStock')
+    expect(MENU.at(-2)).toBe(group)
+    expect(MENU.at(-3)?.labelKey).toBe('hybris-stock-stores:menu.hybrisStock')
+    expect(MENU.at(-1)?.labelKey).toBe('insurance-patterns:menu.group')
   })
 
   it('607 ships Guards first, at /insurance-rules/guards', () => {

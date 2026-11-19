@@ -27,6 +27,7 @@ import { canOpenStoreStages } from '@/features/oms/store-stages/access'
 import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { canOpenStockHealth } from '@/features/oms/stock-health/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
+import { INSURANCE_MENU } from './menu-insurance'
 import { canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from '@/core/rules/access'
 import { canViewPrescriptionSessions } from '@/features/oms/prescription-sessions/access'
 // Analytics (spec 766, ticket 767): declared in `./menu-analytics`, where 770–780 add their leaves.
@@ -1118,9 +1119,12 @@ export const MENU: ShellMenuItem[] = [
       },
     ],
   },
-  // Insurance rules (BackOffice spec 3126, oms 607), LAST: declared in `./menu-insurance-rules`, where 608–617
+  // Insurance rules (BackOffice spec 3126, oms 607): declared in `./menu-insurance-rules`, where 608–617
   // add their leaves without touching this file.
   INSURANCE_RULES_MENU,
+  // Insurance (BackOffice spec 4050, oms 922), LAST, beside Insurance rules: declared in `./menu-insurance`, where 924
+  // adds its leaves without touching this file.
+  INSURANCE_MENU,
 ]
 
 /**

@@ -3,6 +3,9 @@ import { saysIn } from '@/core/rules/sentence'
 import { formatCount } from '@/core/util/bidi'
 
 /**
+ * Graduated from `features/analytics/boards` at oms 925 (spec 4057): the item lists share an item's audience the boards' way,
+ * and a feature may not import another, so the audience model and its picker live in `@/core/analytics-audience`.
+ *
  * A Shared item's audience (spec 819 §C/§E, ticket 826), pure: the chip's words, and what the share dialog may
  * write. Membership is the store's to resolve through authz; the web only names who the item is shared with.
  */

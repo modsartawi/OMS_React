@@ -36,7 +36,7 @@ import {
   readVariants,
 } from '@/core/models/analytics-calculations'
 import { saysIn } from '@/core/rules/sentence'
-import { readAudience } from './audience'
+import { readAudience } from '@/core/analytics-audience/audience'
 import { readSqlPanelAnswer } from './sql-editor'
 
 /**

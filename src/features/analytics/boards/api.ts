@@ -7,7 +7,6 @@
  */
 import { api, ApiError, type FileResponse } from '@/core/api'
 import type {
-  AnalyticsAudienceCandidates,
   AnalyticsCatalog,
   AnalyticsCatalogPreview,
   AnalyticsCatalogPreviewRequest,
@@ -45,7 +44,6 @@ import type {
   AnalyticsUsedBy,
 } from '@/core/models/analytics'
 import type { AnalyticsSqlItem, AnalyticsSqlItemCreate, AnalyticsSqlItemUpdate, AnalyticsSqlResult, AnalyticsSqlRunRequest, AnalyticsSqlVerifyBody } from '@/core/models/analytics-sql'
-import { readCandidates } from './audience'
 import { readHealth } from './health'
 import { itemsQuery } from './home'
 import { readHome, readPinState } from './home-page'
@@ -97,8 +95,6 @@ export const analyticsWordsKey = (id: string, body: AnalyticsReportWordsRequest)
 export const analyticsSqlItemKey = (id: string) => ['analytics', 'sql-item', id] as const
 /** An item's last 20 revisions (779). */
 export const analyticsRevisionsKey = (id: string) => ['analytics', 'revisions', id] as const
-/** 826: the share dialog's candidates for a search (roles and analytics users). */
-export const analyticsAudienceCandidatesKey = (search: string, reportId?: string) => ['analytics', 'audienceCandidates', search, ...(reportId ? [reportId] : [])] as const
 /** 833: a report's schedules, and its kept runs. */
 export const analyticsSchedulesKey = (reportId: string) => ['analytics', 'schedules', reportId] as const
 /** 886: the reader's personal schedules — the page's list and the menu leaf's probe; in core since 885 (the copilot saves one too). */
@@ -353,15 +349,6 @@ export const analyticsApi = {
    */
   async setAudience(id: string, body: AnalyticsItemAudience): Promise<AnalyticsItem> {
     return readItem(await api.put<Record<string, unknown>>(`Analytics/Item/${encodeURIComponent(id)}/Audience`, body))
-  },
-  /**
-   * 826: `GET Analytics/AudienceCandidates` with `search` (a name or an employee id) — up to 50 authz roles (a
-   * deleted one `removed`) and analytics users. Feeds the share dialog and the reassign picker.
-   */
-  async audienceCandidates(search: string, reportId?: string): Promise<AnalyticsAudienceCandidates> {
-    // 833: with `reportId` (⚠ proposed) each user also says their address, the run grant and whether they sit in
-    // that report's audience — the schedule editor's recipient filter (`./schedule`).
-    return readCandidates(await api.get<unknown>('Analytics/AudienceCandidates', { search, reportId }))
   },
   /**
    * 826: `POST Analytics/Item/{id}/Reassign` with `{ owner }` (curators only) — hands the item to another author;

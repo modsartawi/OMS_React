@@ -15,7 +15,7 @@ import type {
   Weekday,
 } from '@/core/models/analytics'
 import { fsi } from '@/core/util/bidi'
-import { readUser } from './audience'
+import { readUser } from '@/core/analytics-audience/audience'
 
 /**
  * A report's schedules (spec 819 §C/§E, ticket 833; research 803), pure: the sentence a cadence reads as, and who

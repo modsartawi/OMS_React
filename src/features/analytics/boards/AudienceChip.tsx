@@ -5,7 +5,7 @@ import i18n from '@/core/i18n'
 import type { AnalyticsItem } from '@/core/models/analytics'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { audienceOf, audienceSummary } from './audience'
+import { audienceOf, audienceSummary } from '@/core/analytics-audience/audience'
 
 /**
  * A Shared item's audience chip (spec 819 §E, ticket 826) — on the home's rows, the board's header, the view's and

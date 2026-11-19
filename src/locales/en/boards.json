@@ -1200,13 +1200,6 @@
       "narrow": "Narrow"
     },
     "who": "Who can run it",
-    "everyone": "Everyone with analytics",
-    "chosen": "Chosen roles and people",
-    "roles": "Roles (from Authz)",
-    "rolesHint": "Membership is read from Authz every time it opens; someone who leaves the role loses it at once.",
-    "removedRole": "removed from Authz — ignored",
-    "people": "People",
-    "peopleHint": "Search by name or employee id.",
     "narrowHint": "As a curator you can narrow who sees it, or unshare it. Only its owner can widen it.",
     "canTitle": "They can",
     "can": {

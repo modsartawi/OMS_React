@@ -24,7 +24,7 @@ import { canManageSchedules } from './item-actions'
 import { defaultsOf, paramLabel, valueOf } from './params'
 import { runValues } from './report'
 import { cadenceSummary, RECIPIENT_CAP, recipientFilter, refusedRecipients, type RecipientRefusal } from './schedule'
-import { useCandidates } from './ShareDialog'
+import { useCandidates } from '@/core/analytics-audience/use-candidates'
 import { useItemActor } from './use-item-save'
 import { analyticsRefusal, refusalWords } from './wire'
 

@@ -17,7 +17,12 @@ const seg = (v: string) => encodeURIComponent(v.trim())
 /** Every read sits under this prefix. */
 export const PATTERNS_KEY = ['insurance-patterns'] as const
 export const casesKey = (query: PatternCasesQuery) => [...PATTERNS_KEY, 'cases', query] as const
-export const caseKey = (caseId: string) => [...PATTERNS_KEY, 'case', caseId] as const
+/**
+ * Every case's read sits under this prefix. A write on a case invalidates the PREFIX (review 10): the screen's read is
+ * keyed by the id as the route spelled it, which the door trims, so the id the answer carries may not name it.
+ */
+export const CASE_READS_KEY = [...PATTERNS_KEY, 'case'] as const
+export const caseKey = (caseId: string) => [...CASE_READS_KEY, caseId] as const
 
 /** Thrown before any request when a mark's draft would not be sent (no status, a blank or over-long note). */
 export class MarkNotSentError extends Error {

@@ -15,7 +15,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { caseKey, patternsApi, PATTERNS_KEY } from './api'
+import { CASE_READS_KEY, patternsApi, PATTERNS_KEY } from './api'
 import { MARK_STATUSES, markProblem, NOTE_MAX, type MarkDraft } from './mark'
 import { statusSev, statusText } from './words'
 
@@ -40,7 +40,8 @@ export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
       setDraft(EMPTY)
       setTried(false)
       toast.success(t('case.marks.saved'), { description: fsi(detail.caseNumber) })
-      void queryClient.invalidateQueries({ queryKey: caseKey(detail.caseId) })
+      // The case reads by prefix: the screen's read is keyed by the id as the route spelled it (review 10).
+      void queryClient.invalidateQueries({ queryKey: CASE_READS_KEY })
       void queryClient.invalidateQueries({ queryKey: [...PATTERNS_KEY, 'cases'] })
     },
   })

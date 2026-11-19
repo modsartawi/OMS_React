@@ -15,7 +15,7 @@ import Modal from '@/core/ui/Modal'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { localToday } from '@/core/util/date-window'
-import { caseKey, PATTERNS_KEY } from './api'
+import { CASE_READS_KEY, PATTERNS_KEY } from './api'
 import { BLOCK_PAYER_MAX, BLOCK_REASON_KINDS, blockProblems, canOfferBlock, EMPTY_BLOCK, type BlockForm, type BlockProblem } from './block'
 import { managerApi, REVEALS_KEY } from './manager-api'
 
@@ -53,8 +53,9 @@ function BlockAction({ detail }: { detail: PatternCaseDetail }) {
     onSuccess: () => {
       setOpen(false)
       toast.success(t('block.added'), { description: fsi(detail.caseNumber) })
-      // Whatever the server recorded on the case, and the reveal-log row the block wrote, are read again.
-      void queryClient.invalidateQueries({ queryKey: caseKey(detail.caseId) })
+      // Whatever the server recorded on the case, and the reveal-log row the block wrote, are read again. The case reads
+      // by prefix: the screen's read is keyed by the id as the route spelled it (review 10).
+      void queryClient.invalidateQueries({ queryKey: CASE_READS_KEY })
       void queryClient.invalidateQueries({ queryKey: [...PATTERNS_KEY, 'cases'] })
       void queryClient.invalidateQueries({ queryKey: REVEALS_KEY })
     },

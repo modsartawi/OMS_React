@@ -27,13 +27,18 @@ export function problemGroups(preview: ItemListPreview): ProblemGroup[] {
   })).filter((g) => g.problems.length > 0)
 }
 
+/** The server keeps a preview's token 30 minutes (spec 4057). */
+export const TOKEN_MINUTES = 30
+
 /**
- * Whether the preview's token has lapsed by `now` (ms). The server keeps it 30 minutes and says when; a token with no
- * readable `expiresAt` is never judged expired here — Save is sent and the server's refusal says so.
+ * When the preview's token lapses, on this machine's clock (ms): the server's window — its `expiresAt` less its own
+ * `issuedAt` — counted from `receivedAt`, when this page received the preview; else 30 minutes from then. The
+ * server's instants are never compared with this machine's clock, which may be skewed or in another zone. It is
+ * only a courtesy: Save's `ANALYTICS-433` refusal is what says the token lapsed.
  */
-export function tokenExpired(preview: Pick<ItemListPreview, 'expiresAt'>, now: number): boolean {
-  const at = Date.parse(preview.expiresAt)
-  return Number.isFinite(at) && now >= at
+export function tokenDeadline(preview: Pick<ItemListPreview, 'issuedAt' | 'expiresAt'>, receivedAt: number): number {
+  const window = Date.parse(preview.expiresAt) - Date.parse(preview.issuedAt)
+  return receivedAt + (Number.isFinite(window) && window > 0 ? window : TOKEN_MINUTES * 60_000)
 }
 
 /** `create` makes a new list (name, audience, folder); `replace` is a re-upload, a new revision of its contents only. */
@@ -52,12 +57,14 @@ export function saveState(s: {
   mode: SaveMode
   name: string
   audience: AudienceDraft
+  /** The token's deadline on this machine's clock (`tokenDeadline`). */
+  deadline: number
   now: number
   pending: boolean
 }): { enabled: boolean; reason: SaveHold | null } {
   const hold = (reason: SaveHold) => ({ enabled: false, reason })
   if (!s.preview) return hold('noFile')
-  if (tokenExpired(s.preview, s.now)) return hold('expired')
+  if (s.now >= s.deadline) return hold('expired')
   if (s.preview.matched.length === 0) return hold('nothingMatched')
   if (s.mode === 'create' && !s.name.trim()) return hold('noName')
   if (s.mode === 'create' && !audienceWrite(s.audience)) return hold('noAudience')

@@ -17,6 +17,7 @@ describe('readPreview: the proposed preview wire (BackOffice 4058), read defensi
   it('reads the token, the matched rows and each problem list into one problem model, with row numbers', () => {
     const p = readPreview({
       token: 'tok-9',
+      issuedAt: '2026-11-19T12:00:00Z',
       expiresAt: '2026-11-19T12:30:00Z',
       fileName: 'shortage.xlsx',
       rows: 6,
@@ -28,6 +29,7 @@ describe('readPreview: the proposed preview wire (BackOffice 4058), read defensi
       refused: [{ row: 8, level: 'item', key: '100235', reason: 'A phone number in the note.' }],
     })
     expect(p.token).toBe('tok-9')
+    expect([p.issuedAt, p.expiresAt]).toEqual(['2026-11-19T12:00:00Z', '2026-11-19T12:30:00Z'])
     expect(p.rowCount).toBe(6)
     expect(p.matched).toEqual([{ row: 2, level: 'item', key: '100234', label: 'Panadol', from: '2026-09-03', to: null, status: 'unavailable', statusText: 'unavailable', note: 'Supplier recall' }])
     expect(p.problems).toEqual([
@@ -39,7 +41,7 @@ describe('readPreview: the proposed preview wire (BackOffice 4058), read defensi
     ])
   })
   it('an empty answer is an empty preview, never a throw', () => {
-    expect(readPreview(null)).toEqual({ token: '', expiresAt: '', fileName: '', rowCount: 0, matched: [], problems: [] })
+    expect(readPreview(null)).toEqual({ token: '', issuedAt: '', expiresAt: '', fileName: '', rowCount: 0, matched: [], problems: [] })
   })
   it('a row with an unknown level or status keeps the row, the status read as none', () => {
     const p = readPreview({ matched: [{ row: 2, level: 'item', key: '1', status: 'gone' }] })

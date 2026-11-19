@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemListPreview } from '@/core/models/item-list'
-import { fileProblem, problemGroups, saveState, tokenExpired } from './preview'
+import { fileProblem, problemGroups, saveState, tokenDeadline } from './preview'
 
 const matchedRow = { row: 2, level: 'item' as const, key: '100234', label: 'Panadol 500mg 24', from: '2026-09-03', to: null, status: 'unavailable' as const, statusText: 'unavailable', note: '' }
 
 const preview = (over: Partial<ItemListPreview> = {}): ItemListPreview => ({
   token: 'tok-1',
+  issuedAt: '2026-11-19T12:00:00Z',
   expiresAt: '2026-11-19T12:30:00Z',
   fileName: 'shortage-q3.xlsx',
   rowCount: 9,
@@ -47,7 +48,8 @@ describe('problemGroups: each problem kind, in the preview’s order, each probl
 describe('saveState: Save is enabled only on a live preview that matched something, named and shared', () => {
   const now = Date.parse('2026-11-19T12:00:00Z')
   const everyone = { everyone: true, roles: [], users: [] }
-  const ready = { preview: preview(), mode: 'create' as const, name: 'Shortage Q3', audience: everyone, now, pending: false }
+  const deadline = Date.parse('2026-11-19T12:30:00Z')
+  const ready = { preview: preview(), mode: 'create' as const, name: 'Shortage Q3', audience: everyone, deadline, now, pending: false }
 
   it('a matched preview, a name and an audience may be saved', () => {
     expect(saveState(ready)).toEqual({ enabled: true, reason: null })
@@ -68,20 +70,23 @@ describe('saveState: Save is enabled only on a live preview that matched somethi
   it('a re-upload needs neither name nor audience: it replaces the list’s contents only', () => {
     expect(saveState({ ...ready, mode: 'replace', name: '', audience: { everyone: false, roles: [], users: [] } })).toEqual({ enabled: true, reason: null })
   })
-  it('an expired token is disabled before anything else is judged', () => {
-    expect(saveState({ ...ready, now: Date.parse('2026-11-19T12:30:00Z') }).reason).toBe('expired')
+  it('an expired token is disabled before anything else is judged: live before its deadline, expired at it', () => {
+    expect(saveState({ ...ready, now: deadline - 1 }).reason).toBeNull()
+    expect(saveState({ ...ready, now: deadline }).reason).toBe('expired')
   })
 })
 
-describe('tokenExpired: the preview’s token lapses at its expiresAt (30 minutes)', () => {
-  it('is live before, expired at and after', () => {
-    const p = preview({ expiresAt: '2026-11-19T12:30:00Z' })
-    expect(tokenExpired(p, Date.parse('2026-11-19T12:29:59Z'))).toBe(false)
-    expect(tokenExpired(p, Date.parse('2026-11-19T12:30:00Z'))).toBe(true)
+describe('tokenDeadline: the token lives the server’s 30 minutes counted from when this page received it', () => {
+  const received = Date.parse('2026-11-19T15:00:00Z')
+  it('takes the server’s window (its expiresAt less its own now), whatever this machine’s clock or zone says', () => {
+    // The server's clock says 12:00 and 12:30; this machine's says 15:00 — three hours apart, or in another zone.
+    const p = preview({ issuedAt: '2026-11-19T12:00:00Z', expiresAt: '2026-11-19T12:30:00Z' })
+    expect(tokenDeadline(p, received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
   })
-  it('a token with no or an unreadable expiry is the server’s to judge (never expired here)', () => {
-    expect(tokenExpired(preview({ expiresAt: '' }), Date.parse('2030-01-01T00:00:00Z'))).toBe(false)
-    expect(tokenExpired(preview({ expiresAt: 'soon' }), Date.parse('2030-01-01T00:00:00Z'))).toBe(false)
+  it('without the server’s now, or with an unreadable window, it is 30 minutes from receipt', () => {
+    expect(tokenDeadline(preview({ issuedAt: '', expiresAt: '2026-11-19T12:30:00Z' }), received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
+    expect(tokenDeadline(preview({ issuedAt: 'now', expiresAt: 'soon' }), received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
+    expect(tokenDeadline(preview({ issuedAt: '2026-11-19T12:30:00Z', expiresAt: '2026-11-19T12:00:00Z' }), received)).toBe(Date.parse('2026-11-19T15:30:00Z'))
   })
 })
 

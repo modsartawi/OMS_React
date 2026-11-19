@@ -107,7 +107,9 @@ export interface ItemListProblem {
 /** `POST Analytics/ItemLists/Preview` — nothing kept; the token saves it for 30 minutes. */
 export interface ItemListPreview {
   token: string
-  /** ISO instant the token lapses at; empty when the server sent none. */
+  /** ⚠ Guessed: the server's own now when it answered; empty when it sent none. With `expiresAt` it gives the window. */
+  issuedAt: string
+  /** ISO instant the token lapses at, on the server's clock; empty when the server sent none. */
   expiresAt: string
   fileName: string
   rowCount: number

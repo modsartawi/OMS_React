@@ -91,7 +91,7 @@ export function readPreview(raw: unknown): ItemListPreview {
       return { kind, rows: rowsOf(r), level: text(r.level), value: text(r.value) || text(r.key), reason: text(r.reason) }
     }),
   )
-  return { token: text(d.token), expiresAt: text(d.expiresAt), fileName: text(d.fileName), rowCount: num(d.rows), matched: list(d.matched).map(readRow), problems }
+  return { token: text(d.token), issuedAt: text(d.issuedAt), expiresAt: text(d.expiresAt), fileName: text(d.fileName), rowCount: num(d.rows), matched: list(d.matched).map(readRow), problems }
 }
 
 /** `GET Analytics/ItemLists/{id}`: the item, with the spec's version-1 definition (`members`, `periods`, `unknown`, `upload`). */

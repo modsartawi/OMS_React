@@ -64,3 +64,21 @@ Proof is green, and there is a live walk on BO 4061.
   new version or deletes it; tier writes re-read the item-lists keys and a delete drops the list's own; the copilot's
   used-list and list-periods rows key by index too. Tests in `panel-state.test.ts` and `kind-locale.test.ts`;
   `tools/item-lists-copilot-drive.mjs` 58/58 (share words, delete confirm, list gone over a held answer added).
+- **2026-11-19 — reconciled to BackOffice's real 4059/4060 and in-progress 4061** (BO `spec4057` d919921f5; BO
+  `t4061` f374504d9 plus its UNCOMMITTED working tree; read only). Commit 9845a300. Guess → real:
+  - Library `GET Analytics/Items?kind=itemlist`; a saved query's `itemList` is the list's id (string): **matched**.
+  - `usedLists[{listId,name,version,members,line:{en,ar}}]` → **`itemLists[{id,name,version,itemsAndGroups,line}]`**,
+    where `line` is the INDEX of the server's "Used:" line inside `assumptions`. The reader now takes the line from
+    `assumptions`, draws it once (linked, under the plain assumption lines, which leave it out; reading choices keep
+    their own lines). Fixed.
+  - `listPeriods` answer part: **BO sends none.** 4060's `ListPeriodsResult` (statuses, change + base, breakdown,
+    entries, top/bottom 5 recoveries, calendar overlaps) goes to the model only; the answer's `trace` carries inputs, not
+    results, and no panel table was added. The oms reader/table stays dormant (drawn only if a later BO ticket sends it);
+    recoveries cannot be drawn. Open ask for BO if the table is wanted.
+  - List gone: **`ANALYTICS-437`** with `data { itemList, reason: 'deleted' | 'not-shared' }`, not 434 (434 is 4058's
+    refused file). ⚠ It exists only UNCOMMITTED in t4061's tree; t4061's committed state still answers the expansion's
+    404/413 to a saved panel. Recheck when 4061 merges.
+  - Drive `tools/item-lists-copilot-drive.mjs` restubbed: **48/48** (was 58: the list_periods table/warning checks were
+    replaced by "none drawn").
+  - Still unverified: 4061 is unfinished (no Comments, uncommitted store/query/refusal changes, eval cases and live
+    walk not done); no live walk (no local SIS.Api with these doors; BO's dev Cube unreachable).

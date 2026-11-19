@@ -93,3 +93,30 @@ Not done here: the library kind and New entry, and the menu (926).
   a save answering no id lands on `/analytics/library?kind=itemlist`; a failed re-read of a list (404 after delete or
   unshare) shows its error over the held copy. Tests in `api.test.ts` / `preview.test.ts`; `tools/item-lists-drive.mjs`
   108/108 (refused file, skewed server clock, no-id save added).
+- **2026-11-19 — reconciled to BackOffice's real 4058** (BO `spec4057` at d919921f5: b28afdce4 doors + workbook,
+  668ed26da kind/parser/store/service; read only). Commit 6b7f8a6c. Guess → real:
+  - Routes (Template, Preview, POST create, PUT replace, GET, Export), Revisions (`Analytics/Item/{id}/Revisions`,
+    `savedBy`/`savedAt`), Folders, multipart part `file`, create body `{token,name,audience,folderId}`: **matched**.
+  - Expired token: **`ANALYTICS-435`**, not 433 (433 = a list is never certified, 434 = file refused as a whole with
+    `data { reason, limit?, columns? }`, 436 = generic save/copy on a list). Fixed.
+  - Preview shape: **changed**. Real `{ token, expiresAt, name, definition{version,members,periods,unknown,upload},
+    problems[], notices[], overrides[], canSave }`; problems are `{rows, field, reason, message}` (reasons `level`,
+    `key`, `from`, `to`, `status`, `personalData`, `duplicate`, `overlap`, `blank`, `tooLong`), notices `clamped` /
+    `noteWithoutPeriod`. There is no per-row matched list and no `issuedAt`. **Problems block the save: the preview then
+    has no token** (unknown values never block). The page now shows the members and periods it would keep, unknown
+    values, problems by kind (by reason) with the server's words, and a new "Notices" group; Save holds `problems`
+    when there is no token. `expiresAt` is local wall clock with no zone: the deadline is 30 min from receipt (BO keeps
+    an absolute 30 min).
+  - List read: `AnalyticsItemInfo` with `definition`; a period names its member as **`level:key`** (no `level` field),
+    the upload says **`who`/`when`** and carries `unknown`. Readers fixed. Title arrives as `{en,ar}` (both the name).
+  - PUT body is `{ token, baseRevision? }`; `replace()` now takes an optional `baseRevision` (the page does not send it).
+  - Re-upload rule (open ruling): **BO PUT = author grant + owner only** (`RequireEdit`, 403 otherwise; a list is never
+    certified, so no curator path). Our rule matches; ruling closed by the code.
+  - Statuses (`unavailable, blocked, delisted, limited, available`) and levels (`item, category, class_b, class_c,
+    therapeutic_class, ingredient_class, brand, vendor, manufacturer`): **matched**.
+  - Drive `tools/item-lists-drive.mjs` restubbed to the real wire: **116/116** (problems preview holds Save, then a
+    clean one saves; 30-minute lapse via Playwright's clock). typecheck, test, build clean; lint clean but the
+    pre-existing `insurance-rules/aliases/door-shapes.test.ts` boundary hits.
+  - Still unverified: no live walk (BO's own live check failed: dev Cube `10.211.55.2:14101` refused; no local SIS.Api
+    up here). BO creates Personal when no audience is sent; oms always sends one — fine. Unused key `preview.matchedTitle`
+    removed.

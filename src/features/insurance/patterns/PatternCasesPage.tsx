@@ -12,7 +12,7 @@ import Field from '@/core/ui/Field'
 import GridPager from '@/core/ui/GridPager'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
-import { showsPager } from '@/core/ui/pager'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Select from '@/core/ui/Select'
 import { TD, TH } from '@/core/ui/sheet-table'
@@ -89,6 +89,19 @@ function CasesBody() {
     retry: false,
   })
   const page = cases.data
+
+  // An emptied page past the first (the cases shrank under it, or a pasted address asks too far) falls back to the last
+  // page, never "no case matches" beside a count with no pager to leave by (review 5). Only on the answer for THIS page,
+  // never the previous one kept on screen.
+  const rowCount = page?.items.length ?? 0
+  const totalMatches = page?.totalMatches ?? 0
+  const settled = cases.isSuccess && !cases.isPlaceholderData
+  useEffect(() => {
+    if (!settled) return
+    const last = clampToLastPageWhenCurrentPageEmpties({ page: filters.page, rowCount, totalMatches, pageSize: PAGE_SIZE })
+    if (last !== filters.page) update((f) => ({ ...f, page: last }))
+    // `update` composes against the latest query written.
+  }, [settled, filters.page, rowCount, totalMatches])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">

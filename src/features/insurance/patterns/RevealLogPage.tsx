@@ -13,7 +13,7 @@ import GridPager from '@/core/ui/GridPager'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
-import { showsPager } from '@/core/ui/pager'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { useUrlQuery } from '@/core/ui/use-url-query'
@@ -88,6 +88,19 @@ function RevealsBody() {
     retry: false,
   })
   const page = reveals.data
+
+  // An emptied page past the first (a pasted address asks too far) falls back to the last page, never "no reveal
+  // matches" beside a count with no pager to leave by (review 5). Only on the answer for THIS page.
+  const rowCount = page?.items.length ?? 0
+  const totalMatches = page?.totalMatches ?? 0
+  const settled = reveals.isSuccess && !reveals.isPlaceholderData
+  useEffect(() => {
+    if (!settled) return
+    const last = clampToLastPageWhenCurrentPageEmpties({ page: filters.page, rowCount, totalMatches, pageSize: REVEALS_PAGE_SIZE })
+    if (last !== filters.page) update((f) => ({ ...f, page: last }))
+    // `update` composes against the latest query written.
+  }, [settled, filters.page, rowCount, totalMatches])
+
   // The case filter names its case by number once a row of it is read; its id until then.
   const caseNumber = filters.caseId ? (page?.items.find((r) => r.caseId === filters.caseId)?.caseNumber ?? filters.caseId) : ''
 

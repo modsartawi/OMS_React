@@ -2,10 +2,11 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
-import { ArrowLeft, History, Loader2 } from 'lucide-react'
+import { ArrowLeft, History, Loader2, RotateCcw } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import type { PatternCaseDetail } from '@/core/models/insurance-patterns'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -56,7 +57,16 @@ function CaseBody({ caseId }: { caseId: string }) {
     </Link>
   )
 
-  if (read.isPending)
+  const detail = read.data
+  // The whole screen says the case could not be read only when nothing of it was ever read (review 7).
+  if (!detail && read.isError)
+    return (
+      <div className="flex flex-col gap-3">
+        {back}
+        <ErrorBanner title={t('case.failed')} message={apiErrorMessage(read.error, t('case.failed'))} className="p-3" />
+      </div>
+    )
+  if (!detail)
     return (
       <div className="flex flex-col gap-3">
         {back}
@@ -66,18 +76,21 @@ function CaseBody({ caseId }: { caseId: string }) {
         </p>
       </div>
     )
-  if (read.isError)
-    return (
-      <div className="flex flex-col gap-3">
-        {back}
-        <ErrorBanner title={t('case.failed')} message={apiErrorMessage(read.error, t('case.failed'))} className="p-3" />
-      </div>
-    )
 
-  const detail = read.data
   return (
     <div className="flex flex-col gap-3" data-testid="pattern-case" data-case={detail.caseId} data-status={detail.status}>
       {back}
+      {/* A failed re-read (after a mark, a block) keeps the case as last read, says so, and offers to read it again. */}
+      {read.isError && (
+        <div data-testid="pattern-case-stale">
+          <ErrorBanner title={t('case.stale')} message={apiErrorMessage(read.error, t('case.stale'))} className="p-2">
+            <Button variant="outlined" className="mt-2" onClick={() => void read.refetch()} disabled={read.isFetching} data-testid="pattern-case-retry">
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              {t('case.readAgain')}
+            </Button>
+          </ErrorBanner>
+        </div>
+      )}
       <CaseHeader detail={detail} />
       {detail.previousClearance && <ClearanceBanner clearance={detail.previousClearance} />}
       <CaseFacts detail={detail} />

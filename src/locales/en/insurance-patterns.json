@@ -91,6 +91,8 @@
     "nextRun": "A change applies from the next run: the nightly job reads these thresholds each time it starts. Cases it has already closed are never re-scored.",
     "reading": "Reading the settings…",
     "failed": "The settings could not be read",
+    "stale": "The settings could not be read again. They are shown as last read.",
+    "readAgain": "Read again",
     "formLabel": "The thresholds",
     "name": {
       "WindowDays": "Window (days)",
@@ -241,6 +243,8 @@
     "scoreLine": "Score {{score}}",
     "reading": "Reading the case…",
     "failed": "The case could not be read",
+    "stale": "The case could not be read again. It is shown as last read.",
+    "readAgain": "Read again",
     "actions": "Case actions",
     "facts": {
       "label": "The case in figures",

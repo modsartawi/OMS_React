@@ -82,16 +82,18 @@ function SettingsBody() {
     },
   })
 
-  if (read.isPending)
+  const data = read.data
+  // The whole page says the settings could not be read only when they never were (review 7).
+  if (!data && read.isError) return <ErrorBanner title={t('settings.failed')} message={apiErrorMessage(read.error, t('settings.failed'))} className="p-3" />
+  if (!data)
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         {t('settings.reading')}
       </p>
     )
-  if (read.isError) return <ErrorBanner title={t('settings.failed')} message={apiErrorMessage(read.error, t('settings.failed'))} className="p-3" />
 
-  const saved = read.data.settings
+  const saved = data.settings
   const drafts: SettingDrafts = { ...draftsOf(saved), ...edits }
   const changed = changedSettings(drafts, saved)
   const problems = Object.fromEntries(SETTING_NAMES.map((name) => [name, settingProblem(name, drafts[name])])) as Record<SettingName, SettingProblem | null>
@@ -116,6 +118,17 @@ function SettingsBody() {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* A failed re-read (after a save) keeps the settings as last read, says so, and offers to read them again. */}
+      {read.isError && (
+        <div data-testid="pattern-settings-stale">
+          <ErrorBanner title={t('settings.stale')} message={apiErrorMessage(read.error, t('settings.stale'))} className="p-2">
+            <Button variant="outlined" className="mt-2" onClick={() => void read.refetch()} disabled={read.isFetching} data-testid="pattern-settings-retry">
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              {t('settings.readAgain')}
+            </Button>
+          </ErrorBanner>
+        </div>
+      )}
       <p role="note" className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/40 p-3 text-sm" data-testid="pattern-settings-next-run">
         <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <span>{t('settings.nextRun')}</span>
@@ -187,7 +200,7 @@ function SettingsBody() {
         </div>
       </form>
 
-      <ChangeLog changes={read.data.changes} />
+      <ChangeLog changes={data.changes} />
     </div>
   )
 }

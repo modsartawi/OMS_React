@@ -104,9 +104,9 @@
 //      Up To, uneven 133.33, "off" on an amount; nothing on %, a blank Per or under Total Discount;
 //      grouped money (25000 × 4 → 100,000.00); Per 2.5 → no hint and a plain Curr/Pe.
 //
-// Ticket 920 — a bonus buy's minimum marked incl. VAT (BackOffice spec 4040; 4043 NOT shipped: the
-// `minValueInclVat` boolean on the read and on Validate/Save, and the switch-off refusal, are stubbed
-// in the spec's reading — the refusal's code `BBY-MIN-INCL-VAT-OFF` is a guess, shown as any refusal).
+// Ticket 920 — a bonus buy's minimum marked incl. VAT (BackOffice spec 4040). The stub mirrors BackOffice
+// 4043 as shipped on pricing2: `minValueInclVat` on the read and on Validate/Save, and the switch-off
+// refusal `BBY-MINVALUE-INCLVAT-OFF` with its real EN/AR text (`BbyMaintainRefusals.MinValueInclVatSwitchedOff`).
 //  50. a new bonus buy: the mark off and disabled; the minimum ticked with no amount keeps it disabled;
 //      an amount enables it; unticking the minimum clears it, and re-ticking leaves it off.
 //      A marked read opens ticked; Check sends minValueInclVat:true and the switch-off refusal is
@@ -191,9 +191,9 @@ let bonusBuyGets = 0
 // Ticket 920: a Planned and a Tested bonus buy whose minimum is marked incl. VAT (spec 4040).
 const INCL_BBY = 'OMS000000127'
 const INCL_TESTED = 'OMS000000128'
-const INCL_OFF = refusal('BBY-MIN-INCL-VAT-OFF',
-  'A minimum value including VAT is not yet available — the tills are being upgraded.',
-  'الحد الأدنى للقيمة شاملاً ضريبة القيمة المضافة غير متاح بعد — يجري تحديث نقاط البيع.')
+const INCL_OFF = refusal('BBY-MINVALUE-INCLVAT-OFF',
+  'Total Minimum Value incl. VAT is not yet available - the tills are being upgraded. Save the minimum excluding VAT, or wait until it is switched on.',
+  'الحد الأدنى للقيمة الإجمالية شاملاً ضريبة القيمة المضافة غير متاح بعد - يجري تحديث أجهزة نقاط البيع. احفظ الحد الأدنى دون ضريبة القيمة المضافة، أو انتظر حتى يتم تفعيله.')
 // Ticket 419: each OMS bonus buy's status as the stub's server holds it (default Planned), and the
 // test mark the read carries. MarkTested / BackToPlanned move it, so a re-read shows the move.
 const statusOf = { OMS000000002: '', OMS000000003: '2', OMS000000004: '3' }
@@ -861,18 +861,18 @@ async function run() {
     posts.length = 0
     await page.locator('button', { hasText: /^Check$/ }).click()
     await waitPost('BonusBuy/Validate')
-    await page.waitForSelector('text=BBY-MIN-INCL-VAT-OFF', { timeout: 5000 }).catch(() => {})
+    await page.waitForSelector('text=BBY-MINVALUE-INCLVAT-OFF', { timeout: 5000 }).catch(() => {})
     const iv = lastPost('BonusBuy/Validate')
     check('50. Check sends minValueInclVat:true with the minimum', iv?.minValueInclVat === true && iv?.minValue === 100, JSON.stringify({ m: iv?.minValue, v: iv?.minValueInclVat }))
     const ir = await report417()
     check('50. the switch-off refusal is listed with its code, English and Arabic',
-      ir.includes('BBY-MIN-INCL-VAT-OFF') && ir.includes('the tills are being upgraded') && ir.includes('يجري تحديث نقاط البيع'), JSON.stringify(ir))
+      ir.includes('BBY-MINVALUE-INCLVAT-OFF') && ir.includes('the tills are being upgraded') && ir.includes('يجري تحديث أجهزة نقاط البيع'), JSON.stringify(ir))
     await page.locator('button', { hasText: /^Save$/ }).click()
     await waitPost('BonusBuy/Save')
     await page.waitForTimeout(300)
     const is = lastPost('BonusBuy/Save')
     const sr = await report417()
-    check('50. Save is refused the same way, nothing saved', is?.minValueInclVat === true && sr.includes('BBY-MIN-INCL-VAT-OFF') && !sr.includes('Reload'), JSON.stringify(sr))
+    check('50. Save is refused the same way, nothing saved', is?.minValueInclVat === true && sr.includes('BBY-MINVALUE-INCLVAT-OFF') && !sr.includes('Reload'), JSON.stringify(sr))
     await page.screenshot({ path: 'tools/.bby-maintenance-shots/editor-min-incl-vat-refused.png', fullPage: true }).catch(() => {})
 
     await page.goto(`${EDIT}/OMS000000124`)

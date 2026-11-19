@@ -32,8 +32,9 @@ export interface ModalProps {
   footer?: ReactNode
   /**
    * `false` while work the dialog owns is in flight (a batch of writes, a run of lookups): Escape and
-   * a backdrop click then do nothing, so the dialog cannot vanish under a running batch. The
-   * caller's own buttons decide for themselves. Defaults to `true`.
+   * a backdrop click then do nothing, so the dialog cannot vanish under a running batch — a second
+   * Escape the browser will not let be refused shows it again at once. The caller's own buttons
+   * decide for themselves. Defaults to `true`.
    */
   dismissable?: boolean
   /**
@@ -70,6 +71,25 @@ export default function Modal({
     } else if (!open && dialog.open) {
       dialog.close()
     }
+  }, [open])
+
+  // Read when the browser closes the dialog, not when the listener was added.
+  const dismissableRef = useRef(dismissable)
+  dismissableRef.current = dismissable
+
+  // Chromium's close watcher lets a page refuse ONE Escape per click or key: a second Escape with nothing between fires
+  // a `cancel` that cannot be prevented, and the browser closes the dialog itself while `open` still says shown. A
+  // dialog that may not be dismissed now (work in flight) would vanish, its answer landing in a dialog nobody sees (spec
+  // 4050 review 2), so it is shown again at once — not shown anew: `onShow` does not run. A dismissable dialog is left
+  // alone: its `cancel` already told its owner (`onClose`), who closes it.
+  useEffect(() => {
+    const dialog = ref.current
+    if (!open || !dialog) return
+    const onNativeClose = () => {
+      if (!dialog.open && dialog.isConnected && !dismissableRef.current) dialog.showModal()
+    }
+    dialog.addEventListener('close', onNativeClose)
+    return () => dialog.removeEventListener('close', onNativeClose)
   }, [open])
 
   if (!open) return null

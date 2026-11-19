@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Mini POS</title>
+    <!-- The Mini POS phone app (BackOffice spec 4032, oms 916): a second Vite entry, served at /minipos/. -->
+    <link rel="manifest" href="/minipos/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/minipos/icon-192.png" />
+    <link rel="apple-touch-icon" href="/minipos/icon-192.png" />
+    <!-- Mobile browser chrome: these track `--background` in src/app/global.css, as the OMS index.html's do. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F4F4" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A111D" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <script>
+      // Theme and direction before first paint, as the OMS index.html sets them (spec 380 F22): the stored choice,
+      // else the OS preference; direction from the stored locale, which a language switch writes before reloading.
+      try {
+        var stored = localStorage.getItem('oms.darkMode')
+        var dark = stored !== null ? stored === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (dark) document.documentElement.classList.add('dark')
+      } catch (e) {}
+      try {
+        var locale = localStorage.getItem('oms.locale')
+        if (locale) document.documentElement.dir = locale.split('-')[0] === 'ar' ? 'rtl' : 'ltr'
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/app/minipos-main.tsx"></script>
+  </body>
+</html>

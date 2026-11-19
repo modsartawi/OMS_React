@@ -1,0 +1,17 @@
+{
+  "id": "/minipos/",
+  "name": "Mini POS",
+  "short_name": "Mini POS",
+  "description": "Sell non-pharmacy items in the aisle: scan, price at the pharmacy, and hand the order to the till.",
+  "start_url": "/minipos/",
+  "scope": "/minipos/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F4F4",
+  "theme_color": "#172031",
+  "icons": [
+    { "src": "/minipos/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/minipos/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/minipos/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

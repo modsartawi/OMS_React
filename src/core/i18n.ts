@@ -261,6 +261,9 @@ import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
 // The chart wrapper's words (`@/core/charts`) live in `common` (spec 766 §F); a PARTIAL Arabic `common`, those words only.
 import commonAr from '@/locales/ar/common.json'
+// The Mini POS phone app (BackOffice spec 4032, oms 916): its own Vite entry, `minipos/`, English and Arabic together.
+import minipos from '@/locales/en/minipos.json'
+import miniposAr from '@/locales/ar/minipos.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -268,7 +271,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'release-queue', 'minipos', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -352,6 +355,7 @@ i18n.use(initReactI18next).init({
       'hold-daily-list': holdDailyList,
       'store-stages': storeStages,
       'stock-health': stockHealth,
+      minipos,
       ...INSURANCE_RULES_EN,
     },
     ar: {
@@ -406,6 +410,7 @@ i18n.use(initReactI18next).init({
       boards: boardsAr,
       copilot: copilotAr,
       common: commonAr,
+      minipos: miniposAr,
       ...INSURANCE_RULES_AR,
     },
   },

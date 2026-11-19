@@ -51,7 +51,8 @@
   "signal": {
     "travel": "Impossible travel",
     "overlap": "Supply overlap",
-    "hopping": "Pharmacy hopping"
+    "hopping": "Pharmacy hopping",
+    "unknown": "Unknown signal"
   },
   "status": {
     "open": "Open",
@@ -63,7 +64,8 @@
   },
   "severity": {
     "action": "Action",
-    "info": "Info"
+    "info": "Info",
+    "unknown": "Unknown severity"
   },
   "duration": {
     "minutes": "{{m}} min",

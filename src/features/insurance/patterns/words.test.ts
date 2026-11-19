@@ -24,3 +24,30 @@ describe('a count in a sentence', () => {
     expect(counted(0)).toEqual({ count: 0, n: `${FSI}0${PDI}` })
   })
 })
+
+describe('a code the screen knows reads in words', () => {
+  it('a signal, a severity, a status', () => {
+    expect(signalText(en, 'travel')).toBe('Impossible travel')
+    expect(severityText(en, 'action')).toBe('Action')
+    expect(statusText(en, 'cleared')).toBe('Cleared')
+  })
+})
+
+describe('a code the screen does not know reads "unknown" — never the raw code, never an empty badge', () => {
+  it('a signal', () => {
+    expect(signalText(en, 'teleport')).toBe('Unknown signal')
+    expect(signalText(en, '')).toBe('Unknown signal')
+    expect(signalText(ar, 'teleport')).toBe('مؤشر غير معروف')
+  })
+
+  it('a severity', () => {
+    expect(severityText(en, 'urgent')).toBe('Unknown severity')
+    expect(severityText(en, '')).toBe('Unknown severity')
+    expect(severityText(ar, '')).toBe('خطورة غير معروفة')
+  })
+
+  it('a status (as it already did)', () => {
+    expect(statusText(en, 'reopened')).toBe('Unknown status')
+    expect(statusText(ar, '')).toBe('وضع غير معروف')
+  })
+})

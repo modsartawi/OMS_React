@@ -77,7 +77,9 @@ describe('insurance-patterns — the keys the screens build exist', () => {
       ...STATUSES.map((s) => `status.${s}`),
       'status.unknown',
       ...SIGNALS.map((s) => `signal.${s}`),
+      'signal.unknown',
       ...SEVERITIES.map((s) => `severity.${s}`),
+      'severity.unknown',
       ...DURATIONS.map((d) => `duration.${d}`),
       ...PROBLEMS.map((p) => `case.marks.problem.${p}`),
     ]

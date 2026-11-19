@@ -24,11 +24,11 @@ const known = (values: readonly string[], v: string) => values.includes(v)
 /** A status in words; one the screen does not know reads "Unknown status". */
 export const statusText = (t: TFunction, status: string) => (known(STATUSES, status) ? t(`status.${status}`) : t('status.unknown'))
 
-/** A signal in words; one the screen does not know is shown as sent. */
-export const signalText = (t: TFunction, signal: string) => (known(SIGNALS, signal) ? t(`signal.${signal}`) : signal)
+/** A signal in words; one the screen does not know (or none) reads "Unknown signal". */
+export const signalText = (t: TFunction, signal: string) => (known(SIGNALS, signal) ? t(`signal.${signal}`) : t('signal.unknown'))
 
-/** A severity in words; one the screen does not know is shown as sent. */
-export const severityText = (t: TFunction, severity: string) => (known(SEVERITIES, severity) ? t(`severity.${severity}`) : severity)
+/** A severity in words; one the screen does not know (or none) reads "Unknown severity". */
+export const severityText = (t: TFunction, severity: string) => (known(SEVERITIES, severity) ? t(`severity.${severity}`) : t('severity.unknown'))
 
 /** A count for a plural sentence: `count` picks the form, `n` is the figure shown, grouped (`1,234`) and isolated. */
 export const counted = (count: number) => ({ count, n: fsi(formatFigure(count)) })

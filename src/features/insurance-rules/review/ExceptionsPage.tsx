@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Plus } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
+import { normalisePatientKey } from '@/core/insurance-rules/patient-key'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
@@ -68,18 +69,16 @@ export default function ExceptionsPage() {
 
 const STATUS_SEV: Record<ExceptionStatus, Severity> = { active: 'ok', expired: 'mute', revoked: 'bad' }
 
-/** A National ID / Iqama: HQ lists one patient's exceptions (3135), never all of them. */
-const PATIENT_KEY = /^\d{10}$/
-
 function Exceptions({ patientKey: key, onPatientKey: setKey }: { patientKey: string; onPatientKey: (key: string) => void }) {
   const { t } = useTranslation('insurance-review')
-  const typed = key.trim()
+  // A National ID / Iqama, or a typed `TYPE:VALUE` key (spec 4015): HQ lists one patient's exceptions (3135), never all.
+  const typed = normalisePatientKey(key)
   return (
     <div className="flex flex-col gap-3">
       <Field label={t('exceptions.patientKey')}>
-        <Input dir="ltr" inputMode="numeric" className="w-56" placeholder={t('issue.patientKeyHint')} value={key} onChange={(e) => setKey(e.target.value)} data-field="exceptions-patient" />
+        <Input dir="ltr" className="w-56" placeholder={t('issue.patientKeyHint')} value={key} onChange={(e) => setKey(e.target.value)} data-field="exceptions-patient" />
       </Field>
-      {PATIENT_KEY.test(typed) ? (
+      {typed ? (
         <ExceptionsOf patientKey={typed} />
       ) : (
         <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-exceptions-ask="">
@@ -355,7 +354,7 @@ function IssueDialog({ onClose, onIssued }: { onClose: () => void; onIssued: (pa
     >
       <div className="flex flex-col gap-3" data-issue-dialog="">
         <Field label={t('issue.patientKey')} error={problem('patientKey')}>
-          <Input dir="ltr" inputMode="numeric" placeholder={t('issue.patientKeyHint')} value={form.patientKey} onChange={(e) => set('patientKey', e.target.value)} data-field="patientKey" />
+          <Input dir="ltr" placeholder={t('issue.patientKeyHint')} value={form.patientKey} onChange={(e) => set('patientKey', e.target.value)} data-field="patientKey" />
         </Field>
         <Field label={t('issue.rule')}>
           <Select value={form.ruleId} onChange={(e) => set('ruleId', e.target.value)} data-field="ruleId">

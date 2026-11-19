@@ -123,8 +123,8 @@
     "loading": "Loading…",
     "patient": {
       "none": "There is no patient list.",
-      "lede": "By National ID or Iqama. A rule can leave out the patients of a list (VIP).",
-      "key": "National ID / Iqama",
+      "lede": "By National ID or Iqama, or TYPE:number for a visa, border, displaced-person or passport number (e.g. BN:4668104765). A rule can leave out the patients of a list (VIP).",
+      "key": "National ID / Iqama / TYPE:number",
       "newTitle": "New patient list"
     },
     "policy": {
@@ -187,7 +187,7 @@
   },
   "entryProblem": {
     "keyMissing": "Enter the key.",
-    "keyInvalid": "This key is not valid: a National ID or Iqama is 10 digits starting with 1 or 2; a SubscriberId has no spaces; a policy class is up to 29 characters with no \"|\".",
+    "keyInvalid": "This key is not valid: a National ID or Iqama is 10 digits starting with 1 or 2, any other patient id is VP:, BN:, DP: or PPN: and up to 16 letters or digits; a SubscriberId has no spaces; a policy class is up to 29 characters with no \"|\".",
     "reasonMissing": "Give a reason.",
     "reasonTooLong": "The reason is longer than 200 characters.",
     "expiryInvalid": "The expiry is not a date.",
@@ -222,7 +222,7 @@
   },
   "patientPage": {
     "title": "Patient lists",
-    "lede": "Blocked patients and the other patient lists, by National ID or Iqama. Only insurance managers see them. A change takes effect at the next check, with no approval, and is logged."
+    "lede": "Blocked patients and the other patient lists, by National ID or Iqama, or TYPE:number for other patient ids. Only insurance managers see them. A change takes effect at the next check, with no approval, and is logged."
   },
   "reasonKind": {
     "abuse": "Abuse",

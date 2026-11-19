@@ -1,10 +1,12 @@
 import { REASON_MAX } from '@/core/reason/reason'
 import type { LocalDate } from '@/core/util/date-window'
 import type { KeyedListKind } from '@/core/insurance-rules/registry'
+import { isPatientKey, normalisePatientKey } from '@/core/insurance-rules/patient-key'
 
 /**
  * Adding an entry to a patient, policy or class list (ticket 610; BackOffice 3133 + 3172). A patient is keyed by
- * National ID (`1…`) or Iqama (`2…`), ten digits; a policy by its SubscriberId; a class by its policy class code
+ * National ID (`1…`) or Iqama (`2…`), ten digits, or a typed key `TYPE:VALUE` for a VP, BN, DP or PPN number
+ * (BackOffice spec 4015, kept upper case); a policy by its SubscriberId; a class by its policy class code
  * (up to 29, no `|`, kept upper case), with an optional insurer (its SAP customer id, up to 10; blank = any
  * insurer). Every entry carries a reason; the expiry is optional and, when given, the last LOCAL day it counts —
  * today or later.
@@ -54,16 +56,20 @@ export interface EntryRules {
   reasonKindRequired?: boolean
 }
 
-const PATIENT_KEY = /^[12]\d{9}$/
 const SUBSCRIBER_ID = /^\S{1,40}$/
 const CLASS_CODE = /^[^|]{1,29}$/
 const PAYER = /^\S{1,10}$/
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
-const KEY_RULE: Record<KeyedListKind, RegExp> = { patient: PATIENT_KEY, policy: SUBSCRIBER_ID, class: CLASS_CODE }
+const KEY_RULE: Record<KeyedListKind, (key: string) => boolean> = {
+  patient: isPatientKey,
+  policy: (key) => SUBSCRIBER_ID.test(key),
+  class: (key) => CLASS_CODE.test(key),
+}
 
-/** The key as HQ keeps it: trimmed; a class code upper case. */
-const keyOf = (form: EntryForm, kind: KeyedListKind) => (kind === 'class' ? form.key.trim().toUpperCase() : form.key.trim())
+/** The key as HQ keeps it: trimmed; a class code upper case; a patient key normalised (`bn:1` → `BN:1`, spec 4015). */
+const keyOf = (form: EntryForm, kind: KeyedListKind) =>
+  kind === 'class' ? form.key.trim().toUpperCase() : kind === 'patient' ? (normalisePatientKey(form.key) ?? form.key.trim()) : form.key.trim()
 const payerOf = (form: EntryForm, kind: KeyedListKind) => (kind === 'class' ? (form.payer ?? '').trim() : '')
 /** A patient entry's reporting payer (a note, not part of the key). */
 const notePayerOf = (form: EntryForm, kind: KeyedListKind) => (kind === 'patient' ? (form.payer ?? '').trim() : '')
@@ -87,7 +93,7 @@ export function entryProblems(form: EntryForm, kind: KeyedListKind, today: Local
   const key = keyOf(form, kind)
   const payer = payerOf(form, kind)
   if (!key) out.push('keyMissing')
-  else if (!KEY_RULE[kind].test(key)) out.push('keyInvalid')
+  else if (!KEY_RULE[kind](key)) out.push('keyInvalid')
   if (payer && !PAYER.test(payer)) out.push('payerInvalid')
   if (notePayerOf(form, kind).length > PAYER_NOTE_MAX) out.push('payerInvalid')
   const reason = form.reason.trim()

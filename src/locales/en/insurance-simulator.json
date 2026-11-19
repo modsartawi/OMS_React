@@ -17,7 +17,7 @@
     "policy": "Policy",
     "class": "Class",
     "patientKey": "Patient key",
-    "patientKeyHint": "National ID or Iqama",
+    "patientKeyHint": "National ID / Iqama, or e.g. BN:4668104765",
     "lines": "Lines",
     "line": "Line",
     "item": "Item",

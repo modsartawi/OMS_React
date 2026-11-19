@@ -17,6 +17,11 @@ describe('entryProblems', () => {
     expect(entryProblems({ ...ok, key: '101234567' }, 'patient', today)).toEqual(['keyInvalid'])
     // A key already there is a change (HQ replaces its reason and expiry, logged `change`), not a refusal.
     expect(entryProblems({ ...ok, key: ' 1012345678 ' }, 'patient', today)).toEqual([])
+    // Spec 4015: any NPHIES identifier type is a key, as TYPE:VALUE.
+    expect(entryProblems({ ...ok, key: 'BN:4668104765' }, 'patient', today)).toEqual([])
+    expect(entryProblems({ ...ok, key: 'ppn:p1234567' }, 'patient', today)).toEqual([])
+    expect(entryProblems({ ...ok, key: 'NI:1012345678' }, 'patient', today)).toEqual(['keyInvalid'])
+    expect(entryProblems({ ...ok, key: 'XX:123' }, 'patient', today)).toEqual(['keyInvalid'])
   })
 
   it('a policy list takes any SubscriberId without spaces', () => {
@@ -40,6 +45,7 @@ describe('entryProblems', () => {
 describe('entryBody', () => {
   it('trims, and leaves the expiry out when there is none', () => {
     expect(entryBody({ key: ' 1012345678 ', reason: ' Board member ', expiresOn: '' })).toEqual({ key: '1012345678', reason: 'Board member' })
+    expect(entryBody({ key: ' bn:4668104765 ', reason: 'r', expiresOn: '' })).toEqual({ key: 'BN:4668104765', reason: 'r' })
     expect(entryBody({ key: '1012345678', reason: 'r', expiresOn: '2027-01-31' })).toEqual({ key: '1012345678', reason: 'r', expiresOn: '2027-01-31' })
   })
 })

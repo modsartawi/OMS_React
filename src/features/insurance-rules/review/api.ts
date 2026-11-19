@@ -5,7 +5,7 @@
  *   GET  InsuranceRules/Review?kind&pharmacist&store&rule&reason   → ReviewReply[] (at most 500, newest first)
  *   POST InsuranceRules/Review/{id}               { mark: ok|questioned, note } → { mark, note, by, at }
  *   POST InsuranceRules/Review/{id}/Clear         { note } → a drift item's row (only drift is cleared; 3293)
- *   GET  InsuranceRules/Exceptions?patientKey=    → ONE patient's exceptions (a 10-digit key is required: 400 otherwise)
+ *   GET  InsuranceRules/Exceptions?patientKey=    → ONE patient's exceptions (a National ID / Iqama or a TYPE:VALUE key is required: 400 otherwise)
  *   GET  InsuranceRules/Exceptions/Reasons        → the NCPDP codes, the session's read of `Guards/Reasons` (an API-key door)
  *   POST InsuranceRules/Exceptions                { patientKey, ruleId|null, scope, validUntil, reason, note } → the exception
  *   POST InsuranceRules/Exceptions/{id}/Revoke    { note } (required) → the exception, revoked

@@ -14,9 +14,12 @@ import type { StoreDbPanelProps } from './panel-views'
 import LineValue from './LineValue'
 import { readingLines } from './reading-helpers'
 import ScheduleEditor from './ScheduleEditor'
-import { scheduleWords } from './schedule-helpers'
+import { fleetSetting, scheduleDraft, scheduleWords, storeScheduleDraft } from './schedule-helpers'
 
 const BACKUP_JOBS: readonly StoreDbJobKind[] = ['Backup']
+
+/** Where the effective schedule comes from: the store's own, the fleet default's row, or nothing set (Off). */
+const effectiveSource = (source: string): 'Store' | 'Fleet' | 'Default' => (source === 'Store' || source === 'Fleet' ? source : 'Default')
 
 /**
  * The Backup panel (oms 918, BO 4035): the last full backup from the reading, Back up now (Act), the store's
@@ -51,20 +54,20 @@ export default function BackupPanel({ store }: StoreDbPanelProps) {
             <p className="text-sm" data-schedule-effective="">
               <Trans
                 t={t}
-                i18nKey={`storeDb.backup.effective.${schedule.data.source === 'Fleet' ? 'Fleet' : 'Store'}`}
+                i18nKey={`storeDb.backup.effective.${effectiveSource(schedule.data.source)}`}
                 values={{ schedule: scheduleWords(t, schedule.data) }}
                 components={{ schedule: <span />, source: <span className="text-muted-foreground" /> }}
               />
             </p>
-            {act && <ScheduleEditor key={`store:${schedule.dataUpdatedAt}`} code={store.code} current={schedule.data} />}
+            {act && <ScheduleEditor key={`store:${schedule.dataUpdatedAt}`} code={store.code} current={storeScheduleDraft(schedule.data)} />}
             {act && (
               <div className="flex flex-col gap-2 rounded-md border border-border/60 p-3" data-fleet-default="">
                 <h4 className="text-xs font-semibold text-muted-foreground">{t('storeDb.backup.fleetTitle')}</h4>
                 <p className="text-sm">
-                  {scheduleWords(t, schedule.data.fleetDefault)}
+                  {scheduleWords(t, fleetSetting(schedule.data))}
                 </p>
                 <p className="text-xs text-muted-foreground">{t('storeDb.backup.fleetNote')}</p>
-                <ScheduleEditor key={`fleet:${schedule.dataUpdatedAt}`} code={null} current={schedule.data.fleetDefault} />
+                <ScheduleEditor key={`fleet:${schedule.dataUpdatedAt}`} code={null} current={scheduleDraft(fleetSetting(schedule.data))} />
               </div>
             )}
           </>

@@ -299,23 +299,34 @@ export type StoreDbBackupFrequency = 'Off' | 'Daily' | 'Weekly'
 
 export interface StoreDbScheduleSetting {
   frequency: string
-  /** `0` = Sunday … `6` = Saturday (.NET `DayOfWeek`, GUESSED); `null` unless weekly. */
-  weekday: number | null
+  /** The day's NAME (`Friday`, .NET `DayOfWeek`); `null` unless weekly. */
+  weekday: string | null
 }
 
-/** `GET StoreDatabase/BackupSchedule?code=` (BO 4035): the store's EFFECTIVE schedule. GUESSED shape. */
+/** `GET StoreDatabase/BackupSchedule?code=` (`StoreDatabaseBackupScheduleView`): the store's EFFECTIVE schedule. */
 export interface StoreDbBackupSchedule extends StoreDbScheduleSetting {
-  code: string | null
-  /** Where the effective schedule comes from: the store's own row (`Store`), or the fleet default (`Fleet`). */
+  /** The store, or `*` for the fleet default. */
+  code: string
+  /** `Store` (its own row), `Fleet` (follows the fleet default's row) or `Default` (nothing set anywhere: Off). */
   source: string
-  fleetDefault: StoreDbScheduleSetting
+  /** The backup folder on the store machine; `""` = the SQL instance's default. */
+  folder: string | null
+  /** The fleet default, flat. */
+  fleetFrequency: string
+  fleetWeekday: string | null
+  updatedBy: string | null
+  updatedAt: string | null
+  /** The PUT's audit row; `null` on a GET. */
+  auditId: string | null
 }
 
-/** `PUT StoreDatabase/BackupSchedule` (BO 4035): `code: null` sets the fleet default. GUESSED body. */
+/** `PUT StoreDatabase/BackupSchedule` (`StoreDatabaseBackupScheduleRequest`); `fleet: true` sets the fleet default. */
 export interface StoreDbScheduleRequest {
   code: string | null
-  frequency: StoreDbBackupFrequency
-  weekday: number | null
+  fleet: boolean
+  /** `Off` / `Daily` / `Weekly`; for a store also `Fleet` (drop its own row and follow the fleet default). */
+  frequency: string
+  weekday: string | null
   reason: string
 }
 

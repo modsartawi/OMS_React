@@ -1664,26 +1664,28 @@
       "failed": "The backup schedule could not be read.",
       "effective": {
         "Store": "<schedule>{{schedule}}</schedule> <source>(this store's own schedule)</source>",
-        "Fleet": "<schedule>{{schedule}}</schedule> <source>(the fleet default)</source>"
+        "Fleet": "<schedule>{{schedule}}</schedule> <source>(the fleet default)</source>",
+        "Default": "<schedule>{{schedule}}</schedule> <source>(nothing is set: the fleet default is off)</source>"
       },
       "fleetTitle": "Fleet default",
       "fleetNote": "Every store without its own schedule follows this. Off unless you turn it on.",
       "frequency": "Frequency",
       "weekday": "Weekday",
       "frequencies": {
+        "Fleet": "Follow the fleet default",
         "Off": "Off",
         "Daily": "Daily",
         "Weekly": "Weekly"
       },
       "weeklyOn": "Weekly on {{weekday}}",
       "weekdays": {
-        "0": "Sunday",
-        "1": "Monday",
-        "2": "Tuesday",
-        "3": "Wednesday",
-        "4": "Thursday",
-        "5": "Friday",
-        "6": "Saturday"
+        "Sunday": "Sunday",
+        "Monday": "Monday",
+        "Tuesday": "Tuesday",
+        "Wednesday": "Wednesday",
+        "Thursday": "Thursday",
+        "Friday": "Friday",
+        "Saturday": "Saturday"
       },
       "save": "Save schedule",
       "saveTitle": "Change this store's backup schedule",

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import type { StoreDbScheduleSetting } from '@/core/models/store-database'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import Field from '@/core/ui/Field'
@@ -11,17 +10,17 @@ import { AUDIT_KEY } from '../api'
 import ReasonDialog from '../ReasonDialog'
 import { STORE_DB_KEY, storeDbApi } from './api'
 import { refusalKey } from './job-helpers'
-import { BACKUP_FREQUENCIES, DEFAULT_WEEKDAY, WEEKDAYS, scheduleChanged, scheduleDraft, scheduleReady, scheduleRequest, type ScheduleDraft } from './schedule-helpers'
+import { BACKUP_FREQUENCIES, DEFAULT_WEEKDAY, STORE_FREQUENCIES, WEEKDAYS, scheduleChanged, scheduleReady, scheduleRequest, type ScheduleDraft, type ScheduleFrequency } from './schedule-helpers'
 
 /**
  * Edits one backup schedule (oms 918, BO 4035): a store's (`code`) or the fleet default (`code: null`). Off / daily /
- * weekly + weekday; Save asks for a reason on the console's reason dialog and sends `PUT StoreDatabase/BackupSchedule`,
+ * weekly + weekday, and for a store Fleet (follow the fleet default); Save asks for a reason on the console's reason dialog and sends `PUT StoreDatabase/BackupSchedule`,
  * then re-reads every store's schedule (a fleet default changes the stores that follow it) and the audit.
  */
-export default function ScheduleEditor({ code, current }: { code: string | null; current: StoreDbScheduleSetting }) {
+export default function ScheduleEditor({ code, current }: { code: string | null; current: ScheduleDraft }) {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
-  const [draft, setDraft] = useState<ScheduleDraft>(() => scheduleDraft(current))
+  const [draft, setDraft] = useState<ScheduleDraft>(current)
   const [asking, setAsking] = useState(false)
   const ready = scheduleReady(draft) && scheduleChanged(draft, current)
 
@@ -40,10 +39,13 @@ export default function ScheduleEditor({ code, current }: { code: string | null;
       <Field label={t('storeDb.backup.frequency')} className="w-40">
         <Select
           value={draft.frequency}
-          onChange={(e) => setDraft(scheduleDraft({ frequency: e.target.value, weekday: draft.weekday ?? DEFAULT_WEEKDAY }))}
+          onChange={(e) => {
+            const frequency = e.target.value as ScheduleFrequency
+            setDraft({ frequency, weekday: frequency === 'Weekly' ? (draft.weekday ?? DEFAULT_WEEKDAY) : null })
+          }}
           data-schedule-frequency=""
         >
-          {BACKUP_FREQUENCIES.map((f) => (
+          {(code === null ? BACKUP_FREQUENCIES : STORE_FREQUENCIES).map((f) => (
             <option key={f} value={f}>
               {t(`storeDb.backup.frequencies.${f}`)}
             </option>
@@ -54,7 +56,7 @@ export default function ScheduleEditor({ code, current }: { code: string | null;
         <Field label={t('storeDb.backup.weekday')} className="w-40">
           <Select
             value={draft.weekday ?? ''}
-            onChange={(e) => setDraft({ frequency: 'Weekly', weekday: e.target.value === '' ? null : Number(e.target.value) })}
+            onChange={(e) => setDraft({ frequency: 'Weekly', weekday: e.target.value === '' ? null : e.target.value })}
             data-schedule-weekday=""
           >
             {WEEKDAYS.map((d) => (

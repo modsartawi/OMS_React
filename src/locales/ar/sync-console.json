@@ -390,26 +390,28 @@
       "failed": "تعذّرت قراءة جدول النسخ الاحتياطي.",
       "effective": {
         "Store": "<schedule>{{schedule}}</schedule> <source>(جدول هذا الفرع)</source>",
-        "Fleet": "<schedule>{{schedule}}</schedule> <source>(الإعداد الافتراضي لجميع الفروع)</source>"
+        "Fleet": "<schedule>{{schedule}}</schedule> <source>(الإعداد الافتراضي لجميع الفروع)</source>",
+        "Default": "<schedule>{{schedule}}</schedule> <source>(لا شيء مضبوط: الإعداد الافتراضي لجميع الفروع متوقف)</source>"
       },
       "fleetTitle": "الإعداد الافتراضي لجميع الفروع",
       "fleetNote": "كل فرع ليس له جدول خاص يتبع هذا الإعداد. متوقف ما لم تشغّله.",
       "frequency": "التكرار",
       "weekday": "يوم الأسبوع",
       "frequencies": {
+        "Fleet": "اتباع الإعداد الافتراضي لجميع الفروع",
         "Off": "متوقف",
         "Daily": "يومياً",
         "Weekly": "أسبوعياً"
       },
       "weeklyOn": "أسبوعياً يوم {{weekday}}",
       "weekdays": {
-        "0": "الأحد",
-        "1": "الاثنين",
-        "2": "الثلاثاء",
-        "3": "الأربعاء",
-        "4": "الخميس",
-        "5": "الجمعة",
-        "6": "السبت"
+        "Sunday": "الأحد",
+        "Monday": "الاثنين",
+        "Tuesday": "الثلاثاء",
+        "Wednesday": "الأربعاء",
+        "Thursday": "الخميس",
+        "Friday": "الجمعة",
+        "Saturday": "السبت"
       },
       "save": "حفظ الجدول",
       "saveTitle": "تغيير جدول النسخ الاحتياطي لهذا الفرع",

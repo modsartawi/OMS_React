@@ -1,7 +1,12 @@
 {
   "code": "P104",
   "frequency": "Weekly",
-  "weekday": 5,
+  "weekday": "Friday",
   "source": "Store",
-  "fleetDefault": { "frequency": "Off", "weekday": null }
+  "folder": "D:\\Backup",
+  "fleetFrequency": "Off",
+  "fleetWeekday": null,
+  "updatedBy": "msartawi",
+  "updatedAt": "2026-11-17T09:12:44.123",
+  "auditId": null
 }

@@ -667,28 +667,44 @@ export interface CopilotAnswer {
    */
   language?: 'ar'
   /**
-   * ⚠ GUESSED (oms-react 926; BackOffice 4061 not built): the item lists the answer used, each with the server's "Used"
-   * line. Absent with `Copilot:Answers:ItemLists` off or when no list was used. See {@link CopilotUsedList}.
+   * BackOffice 4061 (t4061 f374504d9): the item lists the answer's queries ran on, each pointing at its server-written
+   * "Used:" line in `assumptions` by index. Absent with `Copilot:Answers:ItemLists` off or when no list was used.
    */
-  usedLists?: CopilotUsedList[]
-  /** ⚠ GUESSED (oms-react 926; BackOffice 4060 not built): the `list_periods` analysis's result. See {@link CopilotListPeriods}. */
+  itemLists?: CopilotItemListRef[]
+  /**
+   * ⚠ NOT SENT by BackOffice (4060 keeps `list_periods`' result to the model: no answer part, no panel table). Read only
+   * if a later BO ticket adds it in this proposed shape. See {@link CopilotListPeriods}.
+   */
   listPeriods?: CopilotListPeriods
 }
 
 // ── BackOffice spec 4057 (item lists), oms-react 926 ─────────────────────────────────────────────────────────────
-// ⚠ EVERY shape below is GUESSED: BackOffice 4059–4061 are not built. Reconcile them here (and in
-// `features/copilot/answer-item-lists.ts`, which reads them) once they ship.
+// `CopilotItemListRef` is BO 4061's real wire; the `list_periods` shapes further down are a PROPOSAL BO never sent.
+// `features/copilot/answer-item-lists.ts` reads them.
+
+/** BO 4061 `CopilotItemListRef`: one list an answer used, read from the query that ran, never from the model. */
+export interface CopilotItemListRef {
+  id: string
+  /** The list's name, as its team gave it. */
+  name: string
+  /** The version the server read for this answer. */
+  version: number
+  /** How many items and groups the list held at that version. */
+  itemsAndGroups: number
+  /** The index of its "Used:" line in the answer's `assumptions`, as sent. */
+  line: number
+}
 
 /**
- * ⚠ GUESS (BO 4061): one list the answer used. `line` is the server's whole sentence, both languages ("Used: *Shortage
- * Q3* (v4), 38 items, periods stated by the team"), written by the server and never number-checked; the panel shows it
- * as sent. `listId` is what the link opens.
+ * One list the answer used, as the panel draws it: its "Used:" line (the server's whole sentence, both languages — "Used:
+ * 'Shortage Q3' (v4), 38 items and groups, periods stated by the team." — never number-checked), taken out of the plain
+ * assumption lines, and the list's id for the link.
  */
 export interface CopilotUsedList {
   listId: string
   name: string
   version: number
-  members: number
+  itemsAndGroups: number
   line: AnalyticsLabel
 }
 

@@ -108,9 +108,9 @@ export interface CopilotAnswerModel {
   sql: AnswerSql | null
   /** "Try in SQL mode" (888, BackOffice 3674, Q28) under a can't-answer; `null` when the server added none. */
   sqlOffer: CopilotSqlOffer | null
-  /** 926 (BO 4061, ⚠ guessed shape): the item lists the answer used, each with the server's "Used" line; none reads as `[]`. */
+  /** 926 (BO 4061 `itemLists`): the item lists the answer used, each with its "Used:" line (taken out of `assumptions`). */
   usedLists: CopilotUsedList[]
-  /** 926 (BO 4060, ⚠ guessed shape): the `list_periods` comparison, or `null`. */
+  /** 926: the `list_periods` comparison, or `null` — ⚠ BO never sends it (4060 keeps it to the model). */
   listPeriods: CopilotListPeriods | null
 }
 
@@ -252,6 +252,7 @@ export function inlineMarks(text: string): InlineMark[] {
 
 export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefined): CopilotAnswerModel {
   const r = reply ?? {}
+  const used = usedListsOf(r.itemLists, r.assumptions)
   return {
     conversationId: typeof r.conversationId === 'string' ? r.conversationId : null,
     questionNo: typeof r.questionNo === 'number' ? r.questionNo : null,
@@ -264,7 +265,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
     reportEdit: reportEditOf(r.reportEdit),
     boardEdit: boardEditOf(r.boardEdit),
-    ...assumptionsOf(r.assumptions, r.assumptionChoices),
+    ...assumptionsOf(r.assumptions, r.assumptionChoices, used.lines),
     readingOffer: readingOfferOf(r.readingOffer),
     namedSet: namedSetOf(r.namedSet),
     language: r.language === 'ar' ? 'ar' : null,
@@ -273,7 +274,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     figuresOnly: r.outcome === 'figures-only',
     sql: sqlOf(r.sql),
     sqlOffer: sqlOfferOf(r.sqlOffer),
-    usedLists: usedListsOf(r.usedLists),
+    usedLists: used.usedLists,
     listPeriods: listPeriodsOf(r.listPeriods),
     suggestions: Array.isArray(r.suggestions) ? r.suggestions.flatMap(suggestionOf).slice(0, COPILOT_MAX_SUGGESTIONS) : [],
     ask: r.outcome === 'asked' ? askOf(r.ask) : null,
@@ -489,7 +490,7 @@ const said = (l: AnalyticsLabel): boolean => l.en.trim() !== '' || l.ar.trim() !
  * The assumption lines kept (blank ones dropped) and, beside each, its choices (3685). An entry naming no line, an unknown
  * kind, or no choice with a value is left out: that line is drawn plain.
  */
-function assumptionsOf(raw: unknown, rawChoices: unknown): Pick<CopilotAnswerModel, 'assumptions' | 'assumptionChoices'> {
+function assumptionsOf(raw: unknown, rawChoices: unknown, usedLines: ReadonlySet<number> = new Set()): Pick<CopilotAnswerModel, 'assumptions' | 'assumptionChoices'> {
   if (!Array.isArray(raw)) return { assumptions: [], assumptionChoices: [] }
   const byLine = new Map<number, CopilotAssumptionChoice>()
   for (const c of Array.isArray(rawChoices) ? (rawChoices as unknown[]) : []) {
@@ -502,7 +503,10 @@ function assumptionsOf(raw: unknown, rawChoices: unknown): Pick<CopilotAnswerMod
     })
     if (list.length > 0) byLine.set(line, { line, kind, value: typeof value === 'string' ? value : null, choices: list })
   }
-  const kept = raw.map((a, line) => ({ label: bilingual(a), choice: byLine.get(line) ?? null })).filter((a) => said(a.label))
+  // 926: a list's "Used:" line (BO 4061) is drawn once, linked, under these lines — never also as a plain one.
+  const kept = raw
+    .map((a, line) => ({ line, label: bilingual(a), choice: byLine.get(line) ?? null }))
+    .filter((a) => said(a.label) && !usedLines.has(a.line))
   return { assumptions: kept.map((a) => a.label), assumptionChoices: kept.map((a) => a.choice) }
 }
 

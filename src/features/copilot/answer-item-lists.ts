@@ -16,8 +16,9 @@ import { formatRange } from '@/core/util/bidi'
  * line with a link to the list, and the `list_periods` analysis drawn as a table with a per-status total and its
  * calendar warnings.
  *
- * ⚠ The wire shapes (`usedLists`, `listPeriods` on `Copilot/Ask`'s answer) are GUESSED (`@/core/models/copilot`):
- * BackOffice 4059–4061 are not built. Every read of them is in this file, tolerant: a malformed part reads as none.
+ * `itemLists` is BO 4061's real wire (t4061 f374504d9): each entry points at its "Used:" line in `assumptions`. The
+ * `listPeriods` part is a PROPOSAL BO never sent (4060 keeps the result to the model), so it is drawn only if a later BO
+ * ticket adds it. Every read is in this file, tolerant: a malformed part reads as none.
  *
  * The copilot links the list by route string (`@/core/analytics-routes`), never by importing the item-lists feature.
  */
@@ -37,17 +38,27 @@ const isStatus = (v: unknown): v is CopilotListStatus => typeof v === 'string' &
 
 // ── The "Used" line (BO 4061) ────────────────────────────────────────────────────────────────────────────────
 
-/** The `usedLists` entries kept: each with an id and some words. */
-export function usedListsOf(raw: unknown): CopilotUsedList[] {
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((v): CopilotUsedList[] => {
+/**
+ * The `itemLists` entries kept, each with its "Used:" line read from `assumptions` (as sent) at its `line`, and the
+ * indices of those lines, which the plain assumption lines then leave out (the line is drawn once, linked). An entry
+ * with no id, or whose `line` is not an assumption with words, is left out — and that line stays a plain line.
+ */
+export function usedListsOf(raw: unknown, assumptions: unknown): { usedLists: CopilotUsedList[]; lines: Set<number> } {
+  const lines = new Set<number>()
+  const sent = Array.isArray(assumptions) ? assumptions : []
+  if (!Array.isArray(raw)) return { usedLists: [], lines }
+  const usedLists = raw.flatMap((v): CopilotUsedList[] => {
     const o = obj(v)
     if (!o) return []
-    const listId = idOf(o.listId)
-    const line = label(o.line)
-    if (!listId || (!line.en.trim() && !line.ar.trim())) return []
-    return [{ listId, name: text(o.name), version: num(o.version) ?? 0, members: num(o.members) ?? 0, line }]
+    const listId = idOf(o.id)
+    const at = o.line
+    if (!listId || typeof at !== 'number' || !Number.isInteger(at) || at < 0 || at >= sent.length) return []
+    const line = label(sent[at])
+    if (!line.en.trim() && !line.ar.trim()) return []
+    lines.add(at)
+    return [{ listId, name: text(o.name), version: num(o.version) ?? 0, itemsAndGroups: num(o.itemsAndGroups) ?? 0, line }]
   })
+  return { usedLists, lines }
 }
 
 export interface UsedListRow {

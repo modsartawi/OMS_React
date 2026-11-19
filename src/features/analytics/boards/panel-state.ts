@@ -107,12 +107,13 @@ export function fetchedAgo(fetchedAt: string | null | undefined, now: Date): Fet
 export type PanelFailure = 'retry' | 'unavailable' | 'retired' | 'refused' | 'listGone'
 
 /**
- * 926 (BackOffice spec 4057, ticket 4061): the refusal of a saved query that reads an item list (`itemList`) when the
- * list is deleted or the viewer is no longer in its audience — the panel says "list not available" and is never run
- * without the list. ⚠ GUESSED code: BackOffice 4061 is not built and names none yet (925 guessed `-433` for its expired
- * preview token; this takes the next).
+ * 926 (BackOffice spec 4057, ticket 4061): "list not available" — a saved view, board or report panel, or a report's
+ * live figure, whose query reads an item list (`query.itemList`, the list's id) that was deleted or whose audience no
+ * longer holds the viewer. It is never run without the list. `data { itemList, reason: 'deleted' | 'not-shared' }`.
+ * ⚠ BO 4061 (t4061) carries this code UNCOMMITTED in its working tree (`AnalyticsErrorCodes.ItemListNotAvailable`); its
+ * committed state still answers the expansion's own 404 / 413 there. Recheck when 4061 merges.
  */
-export const ITEM_LIST_GONE = 'ANALYTICS-434'
+export const ITEM_LIST_GONE = 'ANALYTICS-437'
 
 /** `field`: the member a refusal names (`data.field`, ⚠ as `./editor-refusal` reads it); a 406 naming one is retired. */
 export function panelFailure(code: string | null | undefined, field?: string | null): PanelFailure {

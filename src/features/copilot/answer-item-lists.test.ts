@@ -18,15 +18,15 @@ const reply: Partial<CopilotAnswer> = {
   assumptions: [{ en: 'Last month is October.', ar: 'الشهر الماضي هو أكتوبر.' }],
 }
 
-const usedLists = [
-  {
-    listId: 'L-7',
-    name: 'Shortage Q3',
-    version: 4,
-    members: 38,
-    line: { en: 'Used: Shortage Q3 (v4), 38 items, periods stated by the team', ar: 'المستخدمة: Shortage Q3 (الإصدار 4)، 38 صنفًا، فترات حددها الفريق' },
-  },
-]
+// BO 4061 (t4061 f374504d9): the "Used:" line is one of the answer's `assumptions`, written by the server; `itemLists[]`
+// points each list at its line by index (`line`), as sent.
+const USED_EN = "Used: 'Shortage Q3' (v4), 38 items and groups, periods stated by the team."
+const USED_AR = 'استُخدمت القائمة «Shortage Q3» (الإصدار 4)، الأصناف والمجموعات: 38، بالفترات التي حددها الفريق.'
+const withUsed: Partial<CopilotAnswer> = {
+  ...reply,
+  assumptions: [{ en: 'Last month is October.', ar: 'الشهر الماضي هو أكتوبر.' }, { en: USED_EN, ar: USED_AR }],
+}
+const itemLists = [{ id: 'L-7', name: 'Shortage Q3', version: 4, itemsAndGroups: 38, line: 1 }]
 
 const listPeriods = {
   step: 0,
@@ -65,28 +65,41 @@ const listPeriods = {
   ],
 } as unknown as CopilotAnswer['listPeriods']
 
-describe('the "Used" line (BO 4061): the server’s words, linked to the list', () => {
-  it('reads the line in the question’s language, and links the list by its route', () => {
-    const model = copilotAnswerModel({ ...reply, usedLists } as Partial<CopilotAnswer>)
-    expect(usedListRows(model, 'en')).toEqual([
-      { listId: 'L-7', text: 'Used: Shortage Q3 (v4), 38 items, periods stated by the team', href: '/analytics/itemlist/L-7' },
-    ])
-    expect(usedListRows(model, 'ar')[0].text).toBe('المستخدمة: Shortage Q3 (الإصدار 4)، 38 صنفًا، فترات حددها الفريق')
+describe('the "Used" line (BO 4061): the server’s assumption line, linked to the list', () => {
+  it('reads the line `itemLists[].line` points at, in the question’s language, and links the list by its route', () => {
+    const model = copilotAnswerModel({ ...withUsed, itemLists } as Partial<CopilotAnswer>)
+    expect(usedListRows(model, 'en')).toEqual([{ listId: 'L-7', text: USED_EN, href: '/analytics/itemlist/L-7' }])
+    expect(usedListRows(model, 'ar')[0].text).toBe(USED_AR)
+    expect(model.usedLists[0]).toMatchObject({ listId: 'L-7', name: 'Shortage Q3', version: 4, itemsAndGroups: 38 })
   })
-  it('is drawn right under the assumption lines', () => {
-    const parts = answerLayout(copilotAnswerModel({ ...reply, usedLists } as Partial<CopilotAnswer>)).parts
+  it('is drawn once: its line leaves the plain assumption lines, right under which it stands', () => {
+    const model = copilotAnswerModel({ ...withUsed, itemLists } as Partial<CopilotAnswer>)
+    expect(model.assumptions).toEqual([{ en: 'Last month is October.', ar: 'الشهر الماضي هو أكتوبر.' }])
+    const parts = answerLayout(model).parts
     expect(parts.slice(parts.indexOf('assumptions'), parts.indexOf('assumptions') + 2)).toEqual(['assumptions', 'usedLists'])
   })
-  it('an entry with no id, or no words, is left out; an answer without one draws nothing new', () => {
-    const odd = [{ name: 'x', line: { en: 'Used: x', ar: '' } }, { listId: 'L-8', line: { en: '', ar: '' } }, 'junk']
-    expect(copilotAnswerModel({ ...reply, usedLists: odd } as unknown as Partial<CopilotAnswer>).usedLists).toEqual([])
+  it('a reading choice on a later line stays beside its own line once the Used line is taken out', () => {
+    const three: Partial<CopilotAnswer> = {
+      ...withUsed,
+      assumptions: [...withUsed.assumptions!, { en: 'Last month is October 2026.', ar: 'الشهر الماضي أكتوبر 2026.' }],
+      assumptionChoices: [{ line: 2, kind: 'period', value: 'last-month', choices: [{ value: 'this-month', label: { en: 'This month', ar: 'هذا الشهر' } }] }],
+    } as unknown as Partial<CopilotAnswer>
+    const model = copilotAnswerModel({ ...three, itemLists } as Partial<CopilotAnswer>)
+    expect(model.assumptions.map((a) => a.en)).toEqual(['Last month is October.', 'Last month is October 2026.'])
+    expect(model.assumptionChoices.map((c) => c?.line ?? null)).toEqual([null, 2])
+  })
+  it('an entry with no id, or a line that is not one of the assumptions, is left out — and that line stays a plain line', () => {
+    const odd = [{ name: 'x', line: 1 }, { id: 'L-8', line: 9 }, { id: 'L-9', line: '1' }, 'junk']
+    const model = copilotAnswerModel({ ...withUsed, itemLists: odd } as unknown as Partial<CopilotAnswer>)
+    expect(model.usedLists).toEqual([])
+    expect(model.assumptions).toHaveLength(2)
     const plain = copilotAnswerModel(reply)
     expect(plain.usedLists).toEqual([])
     expect(answerLayout(plain).parts).not.toContain('usedLists')
   })
   it('a line missing in Arabic reads the English one', () => {
-    const model = copilotAnswerModel({ ...reply, usedLists: [{ ...usedLists[0], line: { en: 'Used: Shortage Q3 (v4)', ar: '' } }] } as Partial<CopilotAnswer>)
-    expect(usedListRows(model, 'ar')[0].text).toBe('Used: Shortage Q3 (v4)')
+    const model = copilotAnswerModel({ ...withUsed, assumptions: [withUsed.assumptions![0], { en: USED_EN, ar: '' }], itemLists } as Partial<CopilotAnswer>)
+    expect(usedListRows(model, 'ar')[0].text).toBe(USED_EN)
   })
 })
 

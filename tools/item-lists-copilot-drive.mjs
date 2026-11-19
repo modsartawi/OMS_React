@@ -1,15 +1,16 @@
 // Item lists in the library and in Copilot's answer (oms 926, BackOffice spec 4057) — drives the REAL app in Chromium
-// against STUBBED doors (`tools/analytics-stubs.mjs`), shaped from the guesses in `src/core/models/copilot.ts`
-// (`usedLists`, `listPeriods`) and `src/features/analytics/boards/panel-state.ts` (`ITEM_LIST_GONE`).
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 4059–4061 were not built; the live walk on BO 4061 is
-// what closes the live half.
+// against STUBBED doors (`tools/analytics-stubs.mjs`), shaped from BackOffice's REAL wire: the answer's `itemLists[]`
+// pointing at its server-written "Used:" line in `assumptions` (t4061 f374504d9), the library's `kind=itemlist` (4058),
+// a saved query's `itemList` id (4059) and "list not available" `ANALYTICS-437` (⚠ t4061, UNCOMMITTED when written).
+// BO sends no `list_periods` part (4060 keeps its result to the model), so the answer here carries none.
+// 🚩 NOTHING here is driven against a live SIS.Api: the live walk on BO 4061 is what closes the live half.
 //
 // It verifies, in English (LTR) and Arabic (RTL):
 //   1. the library's kind chip offers item lists and narrows to them; a list row has its icon, opens the list's page,
 //      and carries its owner's share and delete (never certify); an author gets "New item list" → the upload page;
-//   2. a Copilot answer that used a list shows the server's "Used" line under the assumptions, linked to the list;
-//   3. the list_periods table: one column per status present, a "no periods" member, the per-status total row;
-//   4. the calendar overlap is a warning line naming the event;
+//   2. a Copilot answer that used a list shows the server's "Used" line under the assumptions, linked to the list,
+//      and drawn once (not also as a plain assumption line);
+//   3–4. the answer draws no list_periods table or calendar warning (BO sends none);
 //   5. a saved view whose list is gone says "list not available" and draws no chart or table;
 //   5b. (review) a list that goes while its answer is held: no figures behind the export / table actions or the period
 //       line; the share dialog says what a list's audience can do (read, export), and Delete says "item list";
@@ -46,37 +47,27 @@ const list = (id, over = {}) => ({
 })
 const LISTS = [list('il-1'), list('il-2', { title: label('Delisted brands', 'العلامات الملغاة'), tier: 'shared', owner: 'aalharbi', updatedAt: '2026-11-18T09:00:00' })]
 
-// A saved view that reads an item list which is now gone (⚠ ANALYTICS-434 is the guessed code).
+// A saved view that reads an item list which is now gone (BO 4061's ANALYTICS-437, data { itemList, reason }).
 const GONE_VIEW = { ...ITEMS['v-bar'], id: 'v-list-gone', title: label('Shortage Q3 by region', 'نقص الربع الثالث حسب المنطقة'), definition: { ...ITEMS['v-bar'].definition, query: { ...ITEMS['v-bar'].definition.query, itemList: 'il-9' } } }
 
-// The same, but its list goes while its first answer is on screen: the refresh answers ANALYTICS-434.
+// The same, but its list goes while its first answer is on screen: the refresh answers ANALYTICS-437.
 const STALE_VIEW = { ...GONE_VIEW, id: 'v-list-stale' }
 const STALE_FIRST = { ...QUERY['v-bar'], period: { from: '2026-10-01', to: '2026-10-30' } }
 
 const USED = {
-  en: 'Used: Shortage Q3 (v4), 38 items, periods stated by the team',
-  ar: 'المستخدمة: نقص الربع الثالث (الإصدار 4)، 38 صنفًا، فترات حددها الفريق',
+  en: "Used: 'Shortage Q3' (v4), 38 items and groups, periods stated by the team.",
+  ar: 'استُخدمت القائمة «نقص الربع الثالث» (الإصدار 4)، الأصناف والمجموعات: 38، بالفترات التي حددها الفريق.',
 }
 const answerIn = (lang) => ({
   ...COPILOT_ANSWER,
   answer: lang === 'ar' ? 'تعافت مبيعات القائمة بنسبة 18% يوميًا بعد عودة التوفر.' : 'The list recovered 18% per day once available again.',
-  trace: [{ tool: 'list_periods', input: { itemList: 'il-1', measure: 'units' }, rows: 3, ms: 900, ok: true }],
+  // BO 4059/4060: the trace names the list as { id, version }, never a member.
+  trace: [{ tool: 'list_periods', input: { list: 'il-1', measure: 'units', itemList: { id: 'il-1', version: 4 } }, rows: 3, ms: 900, ok: true }],
   ...(lang === 'ar' ? { language: 'ar' } : {}),
-  assumptions: [label('Last quarter is July to September.', 'الربع الماضي من يوليو إلى سبتمبر.')],
-  usedLists: [{ listId: 'il-1', name: 'Shortage Q3', version: 4, members: 38, line: label(USED.en, USED.ar) }],
-  listPeriods: {
-    step: 0,
-    listId: 'il-1',
-    measure: 'units',
-    members: [
-      { level: 'item', key: '100234', label: 'Panadol 500mg', noPeriods: false, change: 0.18, segments: [{ status: 'available', days: 30, perDay: 118 }, { status: 'unavailable', days: 12, perDay: 100 }] },
-      { level: 'brand', key: 'NUTRI', label: 'نوتري', noPeriods: false, change: -0.05, segments: [{ status: 'blocked', days: 5, perDay: 40 }, { status: 'available', days: 20, perDay: 38 }] },
-      { level: 'item', key: '100999', label: 'Brufen 400mg', noPeriods: true, change: null, segments: [] },
-    ],
-    totals: [{ status: 'available', days: 50, perDay: 156 }, { status: 'unavailable', days: 12, perDay: 100 }, { status: 'blocked', days: 5, perDay: 40 }],
-    overlaps: [{ member: 'Panadol 500mg', status: 'unavailable', from: '2026-02-20', to: '2026-03-03', event: label('Ramadan', 'رمضان'), eventFrom: '2026-02-18', eventTo: '2026-03-19' }],
-  },
+  assumptions: [label('Last quarter is July to September.', 'الربع الماضي من يوليو إلى سبتمبر.'), label(USED.en, USED.ar)],
+  itemLists: [{ id: 'il-1', name: 'Shortage Q3', version: 4, itemsAndGroups: 38, line: 1 }],
 })
+const GONE = refusal('ANALYTICS-437', 'The item list this is focused on was deleted, so it is not run.', 400)
 
 const browser = await chromium.launch()
 
@@ -93,8 +84,8 @@ async function open(dir, opts = {}) {
   const stub = await installAnalyticsStubs(page, {
     list: [...LIST, ...LISTS],
     items: { ...ITEMS, 'v-list-gone': GONE_VIEW, 'v-list-stale': STALE_VIEW },
-    query: { ...QUERY, 'v-list-gone': refusal('ANALYTICS-434', 'The item list is not available.', 404), 'v-list-stale': STALE_FIRST },
-    querySequence: { 'v-list-stale': [STALE_FIRST, refusal('ANALYTICS-434', 'The item list is not available.', 404)] },
+    query: { ...QUERY, 'v-list-gone': GONE, 'v-list-stale': STALE_FIRST },
+    querySequence: { 'v-list-stale': [STALE_FIRST, GONE] },
     copilot: 'granted',
     copilotAnswer: answerIn(dir === 'rtl' ? 'ar' : 'en'),
     ...opts,
@@ -159,19 +150,10 @@ async function walk(dir) {
     return !!a && !!u && !!(a.compareDocumentPosition(u) & Node.DOCUMENT_POSITION_FOLLOWING)
   })
   check(`${L}: … under the assumption lines`, order)
-  const statuses = await sheet.locator('[data-copilot-list-periods-table] thead [data-status]').evaluateAll((els) => els.map((e) => e.getAttribute('data-status')))
-  check(`${L}: list_periods: a column per status present, in order`, statuses.join() === 'unavailable,blocked,available', statuses.join())
-  check(`${L}: … a row per member`, (await sheet.locator('[data-copilot-list-member]').count()) === 3)
-  check(`${L}: … the member without periods says so`, (await sheet.locator('[data-copilot-list-member="item:100999"] [data-copilot-no-periods]').count()) === 1)
-  const total = await sheet.locator('[data-copilot-list-periods-total] [data-status]').evaluateAll((els) => els.map((e) => e.textContent.trim()))
-  check(`${L}: … the per-status total row`, total.join('|') === '100|40|156', total.join('|'))
-  const change = (await sheet.locator('[data-copilot-list-member="item:100234"] td').last().innerText()).trim()
-  check(`${L}: … the change, signed`, change === '+18.0%', change)
-  const warning = page.locator('[data-copilot-calendar-warning="unavailable"]')
-  check(`${L}: the calendar overlap is a warning line`, (await warning.count()) === 1)
-  const w = (await warning.innerText()).trim()
-  check(`${L}: … naming the event and both periods`, w.includes(dir === 'rtl' ? 'رمضان' : 'Ramadan') && w.includes('2026-02-20') && w.includes('2026-03-19'), w)
-  await sheet.locator('[data-copilot-list-periods]').scrollIntoViewIfNeeded()
+  const plain = await sheet.locator('[data-copilot-assumptions]').innerText()
+  check(`${L}: … drawn once: not also among the plain assumption lines`, !plain.includes(dir === 'rtl' ? USED.ar : USED.en) && plain.includes(dir === 'rtl' ? 'الربع الماضي' : 'Last quarter'), plain.replace(/\s+/g, ' ').slice(0, 200))
+  check(`${L}: no list_periods table or calendar warning (BO sends none)`, (await sheet.locator('[data-copilot-list-periods]').count()) === 0 && (await page.locator('[data-copilot-calendar-warning]').count()) === 0)
+  await sheet.locator('[data-copilot-used-lists]').scrollIntoViewIfNeeded()
   await sheet.screenshot({ path: `${SHOTS}/${dir}-copilot.png` })
   await page.keyboard.press('Escape')
 

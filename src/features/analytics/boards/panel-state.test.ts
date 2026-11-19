@@ -165,7 +165,9 @@ describe('panelMarks (827): the model caveats and the "may still rise" mark of a
 // or the viewer is no longer in its audience) says "list not available" and never shows figures run without it.
 describe('panel failure: the item list is not available (926)', () => {
   it('the list-gone refusal is its own state', () => {
+    expect(ITEM_LIST_GONE).toBe('ANALYTICS-437') // BO 4061 (t4061, uncommitted): "list not available"
     expect(panelFailure(ITEM_LIST_GONE)).toBe('listGone')
+    expect(panelFailure('ANALYTICS-434')).toBe('refused') // 434 is BO 4058's refused file, not a list gone
   })
   it('it shows no figures, even over an answer fetched before the list went', () => {
     const before = { rows: [{ till_sales: 1200 }] } as unknown as AnalyticsQueryResult

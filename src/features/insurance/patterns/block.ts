@@ -11,6 +11,7 @@
  * `features/insurance-rules/lists/entry-form.ts` — a feature never imports another, and two small copies of a
  * two-word kind and a width are cheaper than a shared module neither owns.
  */
+import { isBareDenial } from '@/core/api'
 import type { PatternBlockBody, PatternBlockReasonKind } from '@/core/models/insurance-pattern-manager'
 import type { LocalDate } from '@/core/util/date-window'
 import type { Permissions } from '@/core/permissions'
@@ -76,4 +77,15 @@ export function blockBody(form: BlockForm, today: LocalDate): PatternBlockBody |
  */
 export function canOfferBlock(status: string, p: Permissions): boolean {
   return status === 'confirmed' && canRevealPatient(p) && canBlockPatient(p)
+}
+
+/**
+ * Why a block failed, for the dialog's words (review 3): `denied` a bare 403 — the grant filter refused before any
+ * handler ran, so no sentence came back, and the dialog names the two grants a block needs rather than "Unexpected API
+ * error (HTTP 403)"; `refused` anything else, the server's own sentence through `apiErrorMessage`.
+ */
+export type BlockFailure = 'denied' | 'refused'
+
+export function blockFailure(error: unknown): BlockFailure {
+  return isBareDenial(error) ? 'denied' : 'refused'
 }

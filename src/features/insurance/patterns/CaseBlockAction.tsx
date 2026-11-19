@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Loader2, ShieldBan } from 'lucide-react'
@@ -16,7 +17,7 @@ import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { localToday } from '@/core/util/date-window'
 import { CASE_READS_KEY, PATTERNS_KEY } from './api'
-import { BLOCK_PAYER_MAX, BLOCK_REASON_KINDS, blockProblems, canOfferBlock, EMPTY_BLOCK, type BlockForm, type BlockProblem } from './block'
+import { BLOCK_PAYER_MAX, BLOCK_REASON_KINDS, blockFailure, blockProblems, canOfferBlock, EMPTY_BLOCK, type BlockForm, type BlockProblem } from './block'
 import { managerApi, REVEALS_KEY } from './manager-api'
 
 /**
@@ -31,17 +32,38 @@ import { managerApi, REVEALS_KEY } from './manager-api'
  *
  * 🔒 The patient is never read here: the body names no patient, and the door's answer is dropped by `managerApi.block`,
  * so the mutation holds no data. A refusal renders in the dialog (a toast would sit under the modal's scrim).
+ *
+ * The button shows with `canOfferBlock` only. An open dialog stays open if a grant is withdrawn under it (a 403 re-reads
+ * the permissions answer), so it can say why — a bare 403 in words that name the two grants (review 3); the button is
+ * gone once it closes.
  */
 export default function CaseBlockAction({ detail }: { detail: PatternCaseDetail }) {
-  const permissions = usePermissions()
-  if (!canOfferBlock(detail.status, permissions)) return null
-  return <BlockAction detail={detail} />
+  const { t } = useTranslation('insurance-patterns')
+  const offered = canOfferBlock(detail.status, usePermissions())
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      {offered && (
+        <Button variant="danger-outlined" onClick={() => setOpen(true)} data-testid="pattern-block-open">
+          <ShieldBan className="h-3.5 w-3.5" aria-hidden />
+          {t('block.action')}
+        </Button>
+      )}
+      {/* Mounted while open only, and outside the grant check: every open starts blank (a block is decided afresh each
+          time), and a refusal stays on screen to say why. */}
+      {open && <BlockDialog detail={detail} onClose={() => setOpen(false)} />}
+    </>
+  )
 }
 
-function BlockAction({ detail }: { detail: PatternCaseDetail }) {
+/** A refused block in words: the two grants for a bare 403 (review 3), else the server's own sentence. */
+function failureText(t: TFunction, error: unknown): string {
+  return blockFailure(error) === 'denied' ? t('block.failure.denied') : apiErrorMessage(error, t('block.refused'))
+}
+
+function BlockDialog({ detail, onClose }: { detail: PatternCaseDetail; onClose: () => void }) {
   const { t } = useTranslation('insurance-patterns')
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
   const [form, setForm] = useState<BlockForm>(EMPTY_BLOCK)
   // The kind's problem shows once a confirm was tried; a payer or a date shows its own as it is typed.
   const [tried, setTried] = useState(false)
@@ -51,7 +73,7 @@ function BlockAction({ detail }: { detail: PatternCaseDetail }) {
   const block = useMutation({
     mutationFn: (sent: BlockForm) => managerApi.block(detail.caseId, sent, today),
     onSuccess: () => {
-      setOpen(false)
+      onClose()
       toast.success(t('block.added'), { description: fsi(detail.caseNumber) })
       // Whatever the server recorded on the case, and the reveal-log row the block wrote, are read again. The case reads
       // by prefix: the screen's read is keyed by the id as the route spelled it (review 10).
@@ -62,7 +84,7 @@ function BlockAction({ detail }: { detail: PatternCaseDetail }) {
   })
 
   const close = () => {
-    if (!block.isPending) setOpen(false)
+    if (!block.isPending) onClose()
   }
   const confirm = () => {
     setTried(true)
@@ -82,90 +104,78 @@ function BlockAction({ detail }: { detail: PatternCaseDetail }) {
   const caseNumber = fsi(detail.caseNumber)
 
   return (
-    <>
-      <Button variant="danger-outlined" onClick={() => setOpen(true)} data-testid="pattern-block-open">
-        <ShieldBan className="h-3.5 w-3.5" aria-hidden />
-        {t('block.action')}
-      </Button>
-      <Modal
-        open={open}
-        onClose={close}
-        title={t('block.title')}
-        // Every open starts blank: a block is decided afresh each time.
-        onShow={() => {
-          setForm(EMPTY_BLOCK)
-          setTried(false)
-          block.reset()
-        }}
-        width="34rem"
-        dismissable={!block.isPending}
-        footer={
-          <>
-            <Button variant="text" onClick={close} disabled={block.isPending}>
-              {t('block.cancel')}
-            </Button>
-            <Button
-              variant="danger"
-              aria-disabled={problems.length > 0 || block.isPending}
-              title={problems.length > 0 ? text(problems[0]) : undefined}
-              onClick={confirm}
-              data-testid="pattern-block-confirm"
-            >
-              {block.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ShieldBan className="h-3.5 w-3.5" aria-hidden />}
-              {t(block.isPending ? 'block.adding' : 'block.confirm')}
-            </Button>
-          </>
-        }
-      >
-        <form className="flex flex-col gap-3 text-sm" onSubmit={submit} noValidate data-testid="pattern-block-dialog">
-          <p>{t('block.body', { caseNumber })}</p>
-          <p className="text-muted-foreground">{t('block.recorded', { caseNumber })}</p>
+    <Modal
+      open
+      onClose={close}
+      title={t('block.title')}
+      width="34rem"
+      dismissable={!block.isPending}
+      footer={
+        <>
+          <Button variant="text" onClick={close} disabled={block.isPending}>
+            {t('block.cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            aria-disabled={problems.length > 0 || block.isPending}
+            title={problems.length > 0 ? text(problems[0]) : undefined}
+            onClick={confirm}
+            data-testid="pattern-block-confirm"
+          >
+            {block.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ShieldBan className="h-3.5 w-3.5" aria-hidden />}
+            {t(block.isPending ? 'block.adding' : 'block.confirm')}
+          </Button>
+        </>
+      }
+    >
+      <form className="flex flex-col gap-3 text-sm" onSubmit={submit} noValidate data-testid="pattern-block-dialog">
+        <p>{t('block.body', { caseNumber })}</p>
+        <p className="text-muted-foreground">{t('block.recorded', { caseNumber })}</p>
 
-          {block.isError && <ErrorBanner title={t('block.refused')} message={apiErrorMessage(block.error, t('block.refused'))} className="p-2" />}
+        {block.isError && <ErrorBanner title={t('block.refused')} message={failureText(t, block.error)} className="p-2" />}
 
-          <Field label={t('block.reasonKind')} error={tried ? shown('reasonKind') : undefined}>
-            <Select
-              value={form.reasonKind}
-              onChange={(e) => setForm((f) => ({ ...f, reasonKind: e.target.value as BlockForm['reasonKind'] }))}
-              data-testid="pattern-block-kind"
-            >
-              <option value="" disabled>
-                {t('block.choose')}
+        <Field label={t('block.reasonKind')} error={tried ? shown('reasonKind') : undefined}>
+          <Select
+            value={form.reasonKind}
+            onChange={(e) => setForm((f) => ({ ...f, reasonKind: e.target.value as BlockForm['reasonKind'] }))}
+            data-testid="pattern-block-kind"
+          >
+            <option value="" disabled>
+              {t('block.choose')}
+            </option>
+            {BLOCK_REASON_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {t(`block.kind.${k}`)}
               </option>
-              {BLOCK_REASON_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {t(`block.kind.${k}`)}
-                </option>
-              ))}
-            </Select>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('block.payer')} hint={t('block.payerHint')} error={shown('payerTooLong')}>
+          <Input dir="ltr" value={form.payer} onChange={(e) => setForm((f) => ({ ...f, payer: e.target.value }))} data-testid="pattern-block-payer" />
+        </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label={t('block.startsOn')} hint={t('block.startsHint')} error={shown('startInvalid', 'startAfterEnd')}>
+            <Input
+              type="date"
+              dir="ltr"
+              value={form.startsOn}
+              max={form.endsOn || undefined}
+              onChange={(e) => setForm((f) => ({ ...f, startsOn: e.target.value }))}
+              data-testid="pattern-block-starts"
+            />
           </Field>
-          <Field label={t('block.payer')} hint={t('block.payerHint')} error={shown('payerTooLong')}>
-            <Input dir="ltr" value={form.payer} onChange={(e) => setForm((f) => ({ ...f, payer: e.target.value }))} data-testid="pattern-block-payer" />
+          <Field label={t('block.endsOn')} hint={t('block.endsHint')} error={shown('endInvalid', 'endPast')}>
+            <Input
+              type="date"
+              dir="ltr"
+              value={form.endsOn}
+              min={form.startsOn > today ? form.startsOn : today}
+              onChange={(e) => setForm((f) => ({ ...f, endsOn: e.target.value }))}
+              data-testid="pattern-block-ends"
+            />
           </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label={t('block.startsOn')} hint={t('block.startsHint')} error={shown('startInvalid', 'startAfterEnd')}>
-              <Input
-                type="date"
-                dir="ltr"
-                value={form.startsOn}
-                max={form.endsOn || undefined}
-                onChange={(e) => setForm((f) => ({ ...f, startsOn: e.target.value }))}
-                data-testid="pattern-block-starts"
-              />
-            </Field>
-            <Field label={t('block.endsOn')} hint={t('block.endsHint')} error={shown('endInvalid', 'endPast')}>
-              <Input
-                type="date"
-                dir="ltr"
-                value={form.endsOn}
-                min={form.startsOn > today ? form.startsOn : today}
-                onChange={(e) => setForm((f) => ({ ...f, endsOn: e.target.value }))}
-                data-testid="pattern-block-ends"
-              />
-            </Field>
-          </div>
-        </form>
-      </Modal>
-    </>
+        </div>
+      </form>
+    </Modal>
   )
 }

@@ -41,4 +41,8 @@ describe.each([
   it('the plural the reveal log counts with', () => {
     expect(hasLocaleKey(locale, 'revealLog.count_other')).toBe(true)
   })
+
+  it('a block the grant filter refused, in words that name its grants (review 3)', () => {
+    expect(hasLocaleKey(locale, 'block.failure.denied')).toBe(true)
+  })
 })

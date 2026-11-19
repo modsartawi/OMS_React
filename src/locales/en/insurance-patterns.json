@@ -206,7 +206,10 @@
     "confirm": "Add to the list",
     "adding": "Adding…",
     "added": "Added to the blocked-patient list",
-    "refused": "The patient was not added"
+    "refused": "The patient was not added",
+    "failure": {
+      "denied": "The server refused: adding the patient to the blocked-patient list needs the insurance pattern investigator grant and the change grant of the blocked-patient list."
+    }
   },
   "reveal": {
     "open": "Show patient",

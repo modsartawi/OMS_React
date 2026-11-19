@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsFromQuery, permissionsOf } from '@/core/permissions'
-import { blockBody, blockProblems, canOfferBlock, EMPTY_BLOCK } from './block'
+import { ApiError } from '@/core/api'
+import { blockBody, blockFailure, blockProblems, canOfferBlock, EMPTY_BLOCK } from './block'
 
 const holding = (...screens: string[]) => permissionsOf({ screens })
 const BOTH = holding('InsurancePattern:06', 'InsurancePatientBlock:02')
@@ -110,5 +111,21 @@ describe('the body posted', () => {
   it('names no patient and no actor: the server reads both (the patient off the confirmed case)', () => {
     const body = blockBody({ reasonKind: 'abuse', payer: 'BUPA', startsOn: '2026-11-19', endsOn: '2027-05-19' }, TODAY)
     expect(Object.keys(body ?? {}).sort()).toEqual(['endsOn', 'payer', 'reasonKind', 'startsOn'])
+  })
+})
+
+describe('a refused block, in words (review 3)', () => {
+  const coded = (status: number, code: string, message: string) =>
+    new ApiError('business', message, status, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
+
+  it('a bare 403 (the grant filter refused before any handler: no sentence came back) is a denial the dialog names', () => {
+    expect(blockFailure(new ApiError('unknown', 'Unexpected API error (HTTP 403)', 403))).toBe('denied')
+  })
+
+  it('anything else is the server’s own refusal: a coded 403 too, a business rule, a network failure', () => {
+    expect(blockFailure(coded(403, 'NOT_INVESTIGATOR', 'Only an investigator may block a patient.'))).toBe('refused')
+    expect(blockFailure(coded(400, 'CASE_NOT_CONFIRMED', 'Only a confirmed case can add its patient to the blocked-patient list.'))).toBe('refused')
+    expect(blockFailure(new ApiError('network', 'The server could not be reached.', 0))).toBe('refused')
+    expect(blockFailure(new Error('boom'))).toBe('refused')
   })
 })

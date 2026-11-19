@@ -83,3 +83,13 @@ feature may not import the boards.
 
 Not done here: the library kind and New entry, and the menu (926).
 
+
+- **2026-11-19 — code review fixed** (`spec/4057-item-lists` review, commits 421f4789..8ee84d1a on `impl/926`): the
+  readers match a status or level in any case and keep an unknown one as sent (no more `?? 'unavailable'` / `'item'`
+  coercion; the grid draws an unknown status as a neutral chip in the server's words, `statusText`); `readFolders`
+  takes a bare array or `{ folders }` like the library's reader; the preview token's deadline is the server's window
+  (`expiresAt − issuedAt`, ⚠ `issuedAt` guessed, else 30 min) counted from receipt, never this machine's clock against
+  `expiresAt` — Save's `ANALYTICS-433` stays the authority; a locally refused file clears the last preview and Save;
+  a save answering no id lands on `/analytics/library?kind=itemlist`; a failed re-read of a list (404 after delete or
+  unshare) shows its error over the held copy. Tests in `api.test.ts` / `preview.test.ts`; `tools/item-lists-drive.mjs`
+  108/108 (refused file, skewed server clock, no-id save added).

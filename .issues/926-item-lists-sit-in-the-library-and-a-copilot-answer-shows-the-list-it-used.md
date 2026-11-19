@@ -55,3 +55,12 @@ Proof is green, and there is a live walk on BO 4061.
   - The library asks `GET Analytics/Items?kind=itemlist`; a list row carries the item tier actions (share, unshare,
     narrow, reassign, delete) through the existing Analytics/Item doors (925's list page cannot import them).
 - No "My item lists" menu leaf: lists sit on All items under the Item lists chip.
+
+- **2026-11-19 — code review fixed** (commits 823fd1a9..8ee84d1a on `impl/926`): a gone list (`listGone`) hands no
+  figures to the panel's actions (table / CSV / XLSX / PNG), marks, as-of or period line, on board panels and the view
+  page (`figuresOf` in `panel-state.ts`, `shownAnswer` in `PanelBody.tsx`); the delete and un-certify confirms and the
+  untitled share / narrow / reassign titles have `itemlist` words in en+ar (they rendered raw keys); the share dialog's
+  can / cannot lists are by kind (`share-rights.ts`) — a list's audience reads and exports it, only its owner uploads a
+  new version or deletes it; tier writes re-read the item-lists keys and a delete drops the list's own; the copilot's
+  used-list and list-periods rows key by index too. Tests in `panel-state.test.ts` and `kind-locale.test.ts`;
+  `tools/item-lists-copilot-drive.mjs` 58/58 (share words, delete confirm, list gone over a held answer added).

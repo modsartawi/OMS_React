@@ -50,6 +50,22 @@ export interface BbyPromotion {
   changedBy?: string | null
   changedAt?: string | null
   bonusBuys: BbyOverviewRow[]
+  // ── sales area (BackOffice spec 4096; GUESSED contract, reconcile on BO 4097/4098) ──
+  // Read through `readSalesArea` (`@/core/bonus-buy/sales-area`): absent on an old server → KSA.
+  /** Sales organization, e.g. `1000`. */
+  salesOrganization?: string | null
+  /** Distribution channel, e.g. `20` (KSA) or `21` (Bahrain). */
+  distributionChannel?: string | null
+  /** Looked up by the server from the pair, never stored: `SAR` or `BHD`. */
+  currency?: string | null
+  /** Display names for the header's Organizational Data. */
+  salesOrganizationName?: string | null
+  distributionChannelName?: string | null
+  /** The sales area's own label, EN and AR (e.g. "KSA retail"). */
+  salesAreaEnglish?: string | null
+  salesAreaArabic?: string | null
+  /** BO 4098: true once the promotion holds any bonus buy — the pair can no longer change. */
+  salesAreaLocked?: boolean | null
 }
 
 /** POST Promotion/Save. No `promoNumber` → the server mints `P` + 9 digits. */
@@ -58,6 +74,9 @@ export interface BbyPromotionSave {
   name: string
   salesFrom: string
   salesTo: string
+  /** BO 4097 (guessed): the promotion's sales area. Missing → the server writes KSA. */
+  salesOrganization?: string
+  distributionChannel?: string
 }
 
 /**

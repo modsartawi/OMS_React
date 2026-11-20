@@ -8,6 +8,7 @@ import { fsi } from '@/core/util/bidi'
 import { ReportPanel, type ParamNotice } from './BoardPanel'
 import type { BoardContext } from './effective-query'
 import { fillTokens } from './live-figures'
+import { summaryReasonKey } from './report'
 import SqlPanel from './SqlPanel'
 
 /**
@@ -116,7 +117,10 @@ export function SummaryBlock({ id, lang, words }: { id: string; lang: string; wo
   const summary = words.data?.summary
   const text = !words.failed && summary && 'text' in summary ? saysIn(summary.text, lang) : ''
   const state = text ? 'written' : !words.failed && !words.data ? 'pending' : 'unavailable'
-  const reason = !words.failed && summary && 'unavailable' in summary ? summary.unavailable : ''
+  const sent = !words.failed && summary && 'unavailable' in summary ? summary.unavailable : ''
+  // A reason with words of ours (an item list not available, spec 4057) says them; any other is shown as sent.
+  const reasonKey = summaryReasonKey(sent)
+  const reason = reasonKey ? t(reasonKey) : sent
   return (
     <div className="rounded-lg border border-border/60 bg-muted/40 p-3 [break-inside:avoid]" data-report-summary={state} data-report-block={id}>
       <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -140,7 +144,7 @@ export function SummaryBlock({ id, lang, words }: { id: string; lang: string; wo
           {reason && (
             <>
               {' '}
-              <bdi className="text-xs" data-report-summary-reason>
+              <bdi className="text-xs" data-report-summary-reason={sent}>
                 {reason}
               </bdi>
             </>

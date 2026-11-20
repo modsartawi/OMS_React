@@ -26,6 +26,15 @@ export const reportPanels = (def: AnalyticsReportDefinition): ReportPanelBlock[]
 export const wordsAsked = (def: AnalyticsReportDefinition): boolean =>
   reportBlocks(def).some((b) => b.kind === 'summary' || (b.kind === 'text' && tokensIn(`${b.text.en} ${b.text.ar}`).length > 0))
 
+/**
+ * A Words summary's `unavailable` reason that has words of ours: `listNotAvailable` (BackOffice spec 4057 review fix 7,
+ * `AnalyticsSummaryReasons.ListNotAvailable`) — a panel the summary reads is focused on an item list the viewer cannot
+ * read (deleted, or out of its audience), and the summary is never written without it. Any other reason: `null`, shown
+ * as the server sent it.
+ */
+export const summaryReasonKey = (reason: string): string | null =>
+  reason === 'listNotAvailable' ? 'report.summary.reason.listNotAvailable' : null
+
 /** The full-width place a report panel stands in (a report flows top to bottom; it has no grid). */
 const FLOW = { x: 0, y: 0, w: 12, h: 4 }
 

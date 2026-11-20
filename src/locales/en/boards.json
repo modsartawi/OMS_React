@@ -1167,7 +1167,10 @@
       "title": "Summary",
       "checked": "Every number was checked against this run.",
       "writing": "Writing the summary…",
-      "unavailable": "Summary unavailable."
+      "unavailable": "Summary unavailable.",
+      "reason": {
+        "listNotAvailable": "A panel it reads is focused on an item list you cannot read any more (deleted, or no longer shared with you)."
+      }
     }
   },
   "notShared": {

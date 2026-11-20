@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalyticsLabel, AnalyticsModel, AnalyticsReportDefinition, AnalyticsViewDefinition, Param } from '@/core/models/analytics'
-import { asBoardPanel, figureProblems, reportBlocks, reportPanels, runValues, validateReport, wordsAsked } from './report'
+import { asBoardPanel, figureProblems, reportBlocks, reportPanels, runValues, summaryReasonKey, validateReport, wordsAsked } from './report'
 
 const view: AnalyticsViewDefinition = { chart: { type: 'bar' }, query: { measures: ['orders'], dimensions: ['day'], filters: [] } }
 const l = (en: string) => ({ en, ar: en })
@@ -102,5 +102,16 @@ describe('a report’s save checks (829)', () => {
       { what: 'series', panel: 'p4', why: 'duplicate', series: 'qc' },
       { what: 'summary', why: 'tooMany' },
     ])
+  })
+})
+
+describe("a summary's unavailable reason (BO spec 4057 review fix 7)", () => {
+  it('says listNotAvailable in words: a panel the summary reads is on an item list the viewer cannot read', () => {
+    expect(summaryReasonKey('listNotAvailable')).toBe('report.summary.reason.listNotAvailable')
+  })
+
+  it('leaves every other reason as the server sent it (no words of ours)', () => {
+    expect(summaryReasonKey('aiUnavailable')).toBeNull()
+    expect(summaryReasonKey('')).toBeNull()
   })
 })

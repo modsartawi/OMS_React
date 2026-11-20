@@ -316,6 +316,7 @@
     "credentialsNote": "Never shown in the browser."
   },
   "nav": {
+    "mirror": "Mirror drain",
     "label": "Store sync pages",
     "fleet": "Fleet",
     "passes": "Recent passes",
@@ -1867,6 +1868,128 @@
         "database": "Database",
         "details": "Details"
       }
+    }
+  },
+  "drain": {
+    "title": "Mirror drain",
+    "subtitle": "The mirror's inbox as one queue: what the pull staged, what the apply drained, and what is left.",
+    "readAt": "Read at {{at}}, every minute",
+    "failed": "Could not read the mirror drain.",
+    "link": "Mirror drain",
+    "verdictLabel": {
+      "down": "Down",
+      "behind": "Behind",
+      "warning": "Warning",
+      "healthy": "Healthy",
+      "noData": "No data"
+    },
+    "verdict": {
+      "healthy": "Keeping up: nothing waiting",
+      "healthyEmptyBy": "Draining, empty by {{at}}",
+      "noData": "There is no inbox to read on the mirror sink",
+      "down": "Not applying",
+      "downSince": "Not applying since {{since}}",
+      "behind": "Falling behind",
+      "behindSince": "Falling behind since {{since}}",
+      "warning": "Needs a look",
+      "warningSince": "Needs a look since {{since}}"
+    },
+    "reasons": {
+      "applyStopped": "Nothing applied for {{hours}} h {{minutes}} min",
+      "applyStoppedMinutes": "Nothing applied for {{minutes}} min",
+      "applyStoppedNever": "Nothing has been applied yet",
+      "applyWorkerStale": "The apply worker has not ticked since {{since}}",
+      "applyWorkerNever": "The apply worker has never ticked",
+      "pullPaused": "Pull paused: {{value}} waiting, over the limit of {{limit}}",
+      "pullPausedSince": "Pull paused since {{since}}: {{value}} waiting, over the limit of {{limit}}",
+      "lagging": "The oldest waiting row has waited {{hours}} h {{minutes}} min",
+      "laggingMinutes": "The oldest waiting row has waited {{minutes}} min",
+      "recentParks": "{{value}} rows parked in the last 30 min",
+      "nearThreshold": "{{value}} waiting: over half the pull's limit of {{limit}}",
+      "trouble": {
+        "noApply": "Nothing applied since {{since}}",
+        "pullPaused": "Over the pull's limit since {{since}}",
+        "losingGround": "Losing ground since {{since}}",
+        "slowApply": "Applying at under half the normal rate since {{since}}",
+        "other": "In trouble since {{since}}"
+      }
+    },
+    "why": {
+      "noApply": "Nothing applied",
+      "pullPaused": "Over the pull's limit",
+      "losingGround": "More arrived than left",
+      "slowApply": "Under half the normal rate"
+    },
+    "pie": {
+      "title": "Pulled in the last 24 h",
+      "applied": "Applied",
+      "stillPending": "Waiting to be applied",
+      "parked": "Parked",
+      "centre": "applied",
+      "none": "Nothing pulled in the last 24 h",
+      "notPulled": "Not pulled yet: about {{n}} rows at the stores (measured {{at}})",
+      "notPulledNone": "No store has measured its till backlog yet",
+      "total": "Pulled"
+    },
+    "bars": {
+      "title": "Pulled against applied",
+      "pulled": "Pulled",
+      "applied": "Applied",
+      "parked": "Parked",
+      "pending": "Waiting at the end of the slot",
+      "threshold": "Pull limit",
+      "volume": "Rows per slot",
+      "line": "Waiting",
+      "since": "Trouble since {{at}}",
+      "sinceBefore": "Trouble since {{at}}, before this window",
+      "bad": "Trouble",
+      "window": "Window",
+      "windows": {
+        "6h": "6 h, 10 min slots",
+        "24h": "24 h, hourly",
+        "7d": "7 days, hourly"
+      },
+      "partial": "still running",
+      "empty": "No slots to draw",
+      "aria": "Rows pulled and applied per slot, and the rows waiting at the end of each"
+    },
+    "tiles": {
+      "pending": "Waiting",
+      "pendingOf": "of a {{limit}} limit",
+      "waitingRetry": "{{n}} backing off",
+      "lag": "Oldest waiting",
+      "lagHm": "{{hours}} h {{minutes}} min",
+      "lagM": "{{minutes}} min",
+      "lagNone": "Nothing waiting",
+      "rates": "Applied / arrived per min",
+      "pull": "Pull",
+      "pullRunning": "Running",
+      "pullPaused": "Paused",
+      "pullPausedSince": "Paused since {{since}}",
+      "resumes": "Pull resumes at",
+      "empty": "Empty at",
+      "notDraining": "Not draining",
+      "notPaused": "Not paused",
+      "parks": "Open parks",
+      "parksRecent": "{{n}} in the last 30 min"
+    },
+    "byType": {
+      "title": "Waiting, by type",
+      "entityType": "Type",
+      "action": "Action",
+      "pending": "Waiting",
+      "oldest": "Oldest pulled",
+      "none": "Nothing waiting"
+    },
+    "parks": {
+      "title": "Parked, by reason",
+      "reason": "Reason",
+      "error": "Error",
+      "count": "Rows",
+      "lastAt": "Last",
+      "none": "No open parks",
+      "open": "Retry or acknowledge them on each store's Mirror tab: the Fleet's Dead letters tile lists the stores.",
+      "toFleet": "Open the Fleet"
     }
   }
 }

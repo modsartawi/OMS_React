@@ -80,3 +80,4 @@ BackOffice 4097, 4098
   form fields for a promotion the file creates — the dialog now sends the page promotion's own on-list pair
   (`uploadSalesArea`, pure-tested), none for a no-pair or off-list document. Drive stubs use the shipped shapes
   and refusal text. `bby-sales-area-drive.mjs` 23/23 (new upload step 6). Live walk owed after BO deploy.
+- 2026-11-20 (BO review fixes 1648fd2c3): the Upload POST also takes optional form fields `salesOrganization` / `distributionChannel`, used only when the file creates a new promotion (missing = KSA). New refusal codes to show: `BBY-SALES-AREA-LOCKED`, `BBY-PROMOTION-SALES-AREA-MOVED` (reload and save again), `BBY-PROMOTION-SALES-AREA`, `BBY-COPY-SALES-AREA`. The document and list carry `salesAreaLocked`.

@@ -172,9 +172,17 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const [name, setName] = useState(promo.name)
   const [from, setFrom] = useState(formatDay(promo.salesFrom))
   const [to, setTo] = useState(formatDay(promo.salesTo))
-  // Ticket 932: the sales area as the document holds it, and locked as it says (BO 4098).
+  // Ticket 932: the sales area as the document holds it, and locked as it says (BO 4098). The lock
+  // is read off the CURRENT document every render (an upload or delete refetch moves it); only the
+  // author's pick is state, and it follows the saved pair when a refetch moves that.
   const savedArea = promotionSalesArea(promo)
-  const [area, setArea] = useState(savedArea)
+  const [choice, setChoice] = useState(savedArea.choice)
+  const [syncedChoice, setSyncedChoice] = useState(savedArea.choice)
+  if (syncedChoice !== savedArea.choice) {
+    setSyncedChoice(savedArea.choice)
+    setChoice(savedArea.choice)
+  }
+  const area = { choice, locked: savedArea.locked }
   const areaNames = useSalesAreaNames()
   const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
@@ -277,7 +285,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
 
   const saveHeader = () =>
     guarded(async () => {
-      // Always the pair (ticket 932): a locked promotion sends its own back unchanged.
+      // Ticket 932: a moved area sends its pair; otherwise exactly what the document holds (none for none).
       const outcome = await bbyMaintainApi.savePromotion(
         promotionSaveBody({ promoNumber: promo.promoNumber, name, salesFrom: from, salesTo: to }, area, promo),
       )
@@ -517,7 +525,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
           </div>
           <SalesAreaSelect
             form={area}
-            onChange={(key) => setArea({ ...area, choice: key })}
+            onChange={setChoice}
             disabled={busy}
             otherLabel={salesAreaLabel(promo, areaNames)}
           />

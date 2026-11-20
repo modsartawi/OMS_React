@@ -12,7 +12,7 @@
 //      which reads Bahrain with the select open (empty promotion).
 //   3. a promotion holding bonus buys: the select is disabled with its one-line reason, and a name-only
 //      Save still sends the promotion's own pair.
-//   4. an empty KSA promotion moved to Bahrain: Save sends 1000 / 21; the server's refusal is shown as
+//   4. an old no-pair KSA promotion: a name-only Save sends no pair; moved to Bahrain: Save sends 1000 / 21; the server's refusal is shown as
 //      any other (code, EN + AR).
 //   5. no raw i18n keys; no page errors.
 //
@@ -42,7 +42,6 @@ const strip = (s) => s.replace(/[\u2066-\u2069]/g, '')
 const BAHRAIN = {
   salesOrganization: '1000', distributionChannel: '21', currency: 'BHD',
   salesOrganizationName: 'Al-Dawaa Domestic', distributionChannelName: 'Bahrain Retail',
-  salesAreaEnglish: 'Bahrain retail', salesAreaArabic: 'تجزئة البحرين',
 }
 // An old-server KSA promotion: no pair at all → reads KSA.
 const KSA_OLD = { status: 'found', promoNumber: 'P000000001', name: 'Riyadh flyer', salesFrom: '2026-12-01', salesTo: '2026-12-31', bonusBuys: [] }
@@ -144,6 +143,14 @@ async function run() {
   check('4. an old promotion with no pair reads KSA, open', (await select.inputValue()) === 'ksa' && (await select.isEnabled()))
   const saveBtn = page.locator('button:has-text("Save")').first()
   check('4. Save waits for a change', await saveBtn.isDisabled())
+  // Review fix: a name-only save of a document with no pair sends none back (never invents 1000 / 20).
+  await page.locator('input[type="text"]').nth(1).fill('Riyadh flyer 2')
+  await saveBtn.click()
+  await page.waitForSelector('text=Promotion saved.')
+  const oldSave = posts.at(-1)
+  check('4. a name-only Save of a no-pair promotion sends no pair',
+    oldSave.promoNumber === 'P000000001' && oldSave.name === 'Riyadh flyer 2' && !('salesOrganization' in oldSave) && !('distributionChannel' in oldSave),
+    JSON.stringify(oldSave))
   await select.selectOption('bahrain')
   check('4. picking Bahrain enables Save', await saveBtn.isEnabled())
   await saveBtn.click()

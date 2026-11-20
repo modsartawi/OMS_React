@@ -11,7 +11,7 @@
  * (`BBY-QUANTITY`, `BBY-VALUE-RANGE`): the client never decides that a value is acceptable.
  */
 import { type CodeListMeter, codeListMeter, normaliseCodeList, pastedCodes } from '@/core/util/code-list'
-import { formatMoneyIn } from '@/core/money'
+import { formatMoneyIn, formatMoneyOfUnknownCurrency } from '@/core/money'
 import { minInclVat } from '@/core/bonus-buy/min-basis'
 import { type SalesAreaFields, readSalesArea } from '@/core/bonus-buy/sales-area'
 import { formatRate } from '@/core/util/bidi'
@@ -504,10 +504,12 @@ const perCount = (v: string): number | null => {
  * SAP's Curr/Pe: `%` for a percent, the currency otherwise. A Price is VAT-exclusive and says so
  * (story 23). With a whole Per above 1 it reads the rate as SAP shows it, `SAR / 4 EA`, in the
  * line's own unit (EA when it names none) — one string, for the caller to isolate once (spec 639
- * D9). Any other Per (1, blank, 0.5, 2.5) reads plain.
+ * D9). Any other Per (1, blank, 0.5, 2.5) reads plain. A blank currency (a promotion off the
+ * sales-area list whose server sent none) names no unit: the page words it as unknown.
  */
 export function currPe(discountType: DiscountType, currency: string, per = '1', uom = ''): { unit: string; exVat: boolean } {
   if (discountType === '%') return { unit: '%', exVat: false }
+  if (!currency.trim()) return { unit: '', exVat: discountType === 'P' }
   const n = perCount(per)
   const unit = n !== null && n > 1 ? formatRate(currency, n, uom.trim() || DEFAULT_UOM) : currency
   return { unit, exVat: discountType === 'P' }
@@ -538,7 +540,9 @@ export function perHint(
   const quantity = boxNumber(line.quantity)
   if (value === null || per === null || quantity === null || value < 0 || quantity <= 0) return null
   const rate = value / per
-  const money = (n: number) => `${formatMoneyIn(n, currency)} ${currency}`
+  // A blank currency is unknown, not SAR: every stored digit, and no trailing blank unit.
+  const money = (n: number) =>
+    currency.trim() ? `${formatMoneyIn(n, currency)} ${currency}` : formatMoneyOfUnknownCurrency(n)
   return {
     key: `editor.hint.${line.discountType}.${line.scaleType}`,
     values: {

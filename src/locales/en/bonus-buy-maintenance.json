@@ -257,6 +257,7 @@
       "channel21": "Bahrain Retail"
     },
     "details": "Bonus Buy Details",
+    "currencyUnknown": "Currency not known",
     "buy": {
       "title": "Buy",
       "minValue": "Total Minimum Value",

@@ -6,7 +6,7 @@
 import { apiErrorMessage } from '@/core/api'
 import { bbyStatusSeverity, readBbyStatus, type BbyStatusReading } from '@/core/bonus-buy/status'
 import { formatCount, formatParts, fsi } from '@/core/util/bidi'
-import { KSA, readSalesArea, salesAreaByKey, salesAreaOf, type SalesAreaKey } from '@/core/bonus-buy/sales-area'
+import { KSA, readSalesArea, salesAreaByKey, type SalesAreaKey } from '@/core/bonus-buy/sales-area'
 import type {
   BbyMaintainOutcome,
   BbyOverviewRow,
@@ -218,22 +218,37 @@ export interface PromotionHeader {
 }
 
 /**
- * The `Promotion/Save` body. It **always** carries the pair: the picked area's, or — for a
- * pair outside the list (`other`) — the document's own, so a header-only save never moves it.
+ * The `Promotion/Save` body. A **new** promotion always carries the picked pair. A saved one
+ * carries the picked pair only when the author moved it; a locked, unchanged or off-list (`other`)
+ * save sends back exactly what the document holds — and nothing for a document that holds no pair
+ * (an old server, a pre-4096 promotion), so a header-only save never invents `1000 / 20`.
  */
 export function promotionSaveBody(
   header: PromotionHeader,
   form: SalesAreaForm,
   doc: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency'> | null,
 ): BbyPromotionSave {
-  const area = form.choice === 'other' ? readSalesArea(doc) : salesAreaByKey(form.choice)
-  return {
+  const base: BbyPromotionSave = {
     promoNumber: header.promoNumber,
     name: header.name.trim(),
     salesFrom: header.salesFrom,
     salesTo: header.salesTo,
-    salesOrganization: area.salesOrganization,
-    distributionChannel: area.distributionChannel,
+  }
+  if (doc) {
+    const savedChoice = readSalesArea(doc).key ?? 'other'
+    if (form.locked || form.choice === 'other' || form.choice === savedChoice) return { ...base, ...heldPair(doc) }
+  }
+  const area = form.choice === 'other' ? KSA : salesAreaByKey(form.choice)
+  return { ...base, salesOrganization: area.salesOrganization, distributionChannel: area.distributionChannel }
+}
+
+/** The pair fields the document itself holds, as it holds them; a blank one is left out. */
+function heldPair(
+  doc: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel'>,
+): Pick<BbyPromotionSave, 'salesOrganization' | 'distributionChannel'> {
+  return {
+    ...(doc.salesOrganization?.trim() ? { salesOrganization: doc.salesOrganization } : {}),
+    ...(doc.distributionChannel?.trim() ? { distributionChannel: doc.distributionChannel } : {}),
   }
 }
 
@@ -245,38 +260,47 @@ export function promotionSaveBody(
 export function promotionSalesArea(
   promo: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency' | 'salesAreaLocked' | 'bonusBuys'>,
 ): SalesAreaForm {
-  const area = readSalesArea(promo)
-  const known = salesAreaOf(area.salesOrganization, area.distributionChannel)
   const locked = promo.salesAreaLocked ?? (promo.bonusBuys ?? []).length > 0
-  return { choice: known ? known.key : 'other', locked }
+  return { choice: readSalesArea(promo).key ?? 'other', locked }
 }
 
 /** The closed list's names, as the Page resolves them through `t()`. */
 export type SalesAreaNames = Readonly<Record<SalesAreaKey, string>>
 
 /**
- * The list column's text: `KSA retail · 1000 / 20 · SAR`. A pair outside the closed list shows its
- * own codes and the server's currency with no name, never relabelled KSA. Plain text for a grid
- * cell (the base column def isolates the whole cell; no `fsi` in a grid value).
+ * The list cell's two values: the sales area's translated `name` (free text, blank for a pair
+ * outside the closed list — never relabelled KSA) and its machine `codes`, the pair and the
+ * currency as one string (`1000 / 21 · BHD`). The cell isolates each whole value once — the name
+ * in `<bdi>`, the codes in `Ltr` — so `1000 / 21` never reads `21 / 1000` under RTL.
+ */
+export function salesAreaCell(
+  promo: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency'>,
+  names: SalesAreaNames,
+): { name: string; codes: string } {
+  const area = readSalesArea(promo)
+  return {
+    name: area.key ? names[area.key] : '',
+    codes: formatParts([formatCount(area.salesOrganization, area.distributionChannel), area.currency]),
+  }
+}
+
+/**
+ * The same as plain text (`KSA retail · 1000 / 20 · SAR`), for the column's value (sort, copy) and
+ * the off-list option. No `fsi` here: it is a grid value.
  */
 export function salesAreaLabel(
   promo: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency'>,
   names: SalesAreaNames,
 ): string {
-  const area = readSalesArea(promo)
-  const known = salesAreaOf(area.salesOrganization, area.distributionChannel)
-  return formatParts([
-    known ? names[known.key] : '',
-    formatCount(area.salesOrganization, area.distributionChannel),
-    area.currency,
-  ])
+  const { name, codes } = salesAreaCell(promo, names)
+  return formatParts([name, codes])
 }
 
 /**
- * A select option's text (a string-only sink): the name, then the pair and the currency each
- * isolated whole with `fsi`, so `1000 / 21` never reads `21 / 1000` under RTL.
+ * A select option's text (a string-only sink): the name, then the pair and the currency isolated
+ * once as a whole with `fsi`, so `1000 / 21` never reads `21 / 1000` under RTL.
  */
 export function salesAreaOption(key: SalesAreaKey, names: SalesAreaNames): string {
   const area = salesAreaByKey(key)
-  return formatParts([names[key], fsi(formatCount(area.salesOrganization, area.distributionChannel)), fsi(area.currency)])
+  return formatParts([names[key], fsi(formatParts([formatCount(area.salesOrganization, area.distributionChannel), area.currency]))])
 }

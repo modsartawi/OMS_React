@@ -271,8 +271,8 @@ export function BuyPanel({
               setState((s) => setMinValue(s, value))
             }}
           />
-          <span className="font-mono text-xs text-muted-foreground">
-            <Ltr>{currency}</Ltr>
+          <span className={`text-xs text-muted-foreground ${currency ? 'font-mono' : ''}`}>
+            {currency ? <Ltr>{currency}</Ltr> : t('editor.currencyUnknown')}
           </span>
           {/* The minimum's basis (spec 4040): beside the figure, so the two read together. */}
           <label
@@ -399,9 +399,14 @@ function CurrPeCell({
   const { unit, exVat } = currPe(discountType, currency, per, uom)
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
-      <span className="font-mono text-xs">
-        <Ltr>{unit}</Ltr>
-      </span>
+      {/* A blank unit is a currency the server did not send (an off-list sales area). */}
+      {unit ? (
+        <span className="font-mono text-xs">
+          <Ltr>{unit}</Ltr>
+        </span>
+      ) : (
+        <span className="text-xs text-muted-foreground">{t('editor.currencyUnknown')}</span>
+      )}
       {exVat && (
         <span className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground">
           {t('editor.exVat')}

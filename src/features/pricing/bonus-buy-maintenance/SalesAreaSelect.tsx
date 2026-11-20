@@ -1,16 +1,41 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ICellRendererParams } from 'ag-grid-community'
 import { SALES_AREAS, type SalesAreaKey } from '@/core/bonus-buy/sales-area'
+import type { BbyPromotion } from '@/core/models/bonus-buy-maintenance'
 import Field from '@/core/ui/Field'
+import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
-import { salesAreaOption, type SalesAreaForm, type SalesAreaNames } from './overview'
+import { salesAreaCell, salesAreaOption, type SalesAreaForm, type SalesAreaNames } from './overview'
 
 /** The closed list's names through `t()`, for the pure label builders (stable per language, so a
  *  grid's column defs that read them are not rebuilt every render). */
 export function useSalesAreaNames(): SalesAreaNames {
   const { t } = useTranslation('bonus-buy-maintenance')
   return useMemo(() => ({ ksa: t('salesArea.ksa'), bahrain: t('salesArea.bahrain') }), [t])
+}
+
+/**
+ * The promotion list's Sales area cell (bidi rule): the translated name in `<bdi>` and the pair with
+ * its currency in `Ltr`, each whole value isolated once, so `1000 / 21` never reverses under RTL.
+ * The column's value stays the plain `salesAreaLabel` for sort and copy.
+ */
+export function SalesAreaCell({ data }: ICellRendererParams<BbyPromotion>) {
+  const names = useSalesAreaNames()
+  if (!data) return null
+  const { name, codes } = salesAreaCell(data, names)
+  return (
+    <span>
+      {name && (
+        <>
+          <bdi>{name}</bdi>
+          {' · '}
+        </>
+      )}
+      <Ltr>{codes}</Ltr>
+    </span>
+  )
 }
 
 /**
@@ -33,7 +58,8 @@ export default function SalesAreaSelect({
   const { t } = useTranslation('bonus-buy-maintenance')
   const names = useSalesAreaNames()
   const other = form.choice === 'other'
-  const hint = form.locked ? t('salesArea.locked') : other ? t('salesArea.other') : undefined
+  // Off the list it can never change, locked or not: that is the reason worth saying.
+  const hint = other ? t('salesArea.other') : form.locked ? t('salesArea.locked') : undefined
   return (
     <Field label={t('salesArea.label')} hint={hint}>
       <Select

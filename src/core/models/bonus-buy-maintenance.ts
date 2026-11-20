@@ -61,9 +61,6 @@ export interface BbyPromotion {
   /** Display names for the header's Organizational Data. */
   salesOrganizationName?: string | null
   distributionChannelName?: string | null
-  /** The sales area's own label, EN and AR (e.g. "KSA retail"). */
-  salesAreaEnglish?: string | null
-  salesAreaArabic?: string | null
   /** BO 4098: true once the promotion holds any bonus buy — the pair can no longer change. */
   salesAreaLocked?: boolean | null
 }
@@ -74,10 +71,11 @@ export interface BbyPromotionSave {
   name: string
   salesFrom: string
   salesTo: string
-  /** BO 4097 (guessed): the promotion's sales area. The server reads a missing pair as KSA, but
-   *  this client always sends it (ticket 932). */
-  salesOrganization: string
-  distributionChannel: string
+  /** BO 4097 (guessed): the promotion's sales area. The server reads a missing pair as KSA. A new
+   *  promotion always sends it; a saved one sends back what its document holds — nothing for a
+   *  document that holds none (`promotionSaveBody`, ticket 932). */
+  salesOrganization?: string
+  distributionChannel?: string
 }
 
 /**

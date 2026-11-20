@@ -750,9 +750,16 @@ function HeaderTab({
         <DateInput label={t('editor.header.validFrom')} value={state.validFrom} onChange={(validFrom) => update({ validFrom })} />
         <DateInput label={t('editor.header.validTo')} value={state.validTo} onChange={(validTo) => update({ validTo })} />
         <ReadField label={t('editor.header.currency')}>
-          <span className="font-mono" data-bby-currency="">
-            <Ltr>{currency}</Ltr>
-          </span>
+          {/* A sales area off the list whose server sent no currency: said, never guessed. */}
+          {currency ? (
+            <span className="font-mono" data-bby-currency="">
+              <Ltr>{currency}</Ltr>
+            </span>
+          ) : (
+            <span className="text-muted-foreground" data-bby-currency="">
+              {t('editor.currencyUnknown')}
+            </span>
+          )}
         </ReadField>
         <Field label={t('editor.header.limit')}>
           <Input

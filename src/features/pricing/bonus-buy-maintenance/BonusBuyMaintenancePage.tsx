@@ -27,7 +27,7 @@ import {
   promotionSaveBody,
   salesAreaLabel,
 } from './overview'
-import SalesAreaSelect, { useSalesAreaNames } from './SalesAreaSelect'
+import SalesAreaSelect, { SalesAreaCell, useSalesAreaNames } from './SalesAreaSelect'
 
 /**
  * The promotion list — the screen's entry (ticket 416). Marketing creates a promotion
@@ -71,6 +71,8 @@ function PromotionList() {
         headerName: t('list.col.salesArea'),
         width: 260,
         valueGetter: (p) => (p.data ? salesAreaLabel(p.data, areaNames) : ''),
+        // Name and codes isolated each as a whole (bidi rule): one RTL string would reverse the pair.
+        cellRenderer: SalesAreaCell,
       },
       {
         colId: 'count',

@@ -4,6 +4,9 @@
       "salesArea": "منطقة البيع"
     }
   },
+  "editor": {
+    "currencyUnknown": "العملة غير معروفة"
+  },
   "salesArea": {
     "label": "منطقة البيع",
     "ksa": "تجزئة السعودية",

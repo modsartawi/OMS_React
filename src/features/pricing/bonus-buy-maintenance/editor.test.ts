@@ -1071,3 +1071,19 @@ describe('the request carries no sales area (ticket 933: the server takes it fro
     for (const k of ['salesOrganization', 'distributionChannel', 'currency', 'salesOrg', 'channel']) expect(req).not.toHaveProperty(k)
   })
 })
+
+describe('a promotion off the list with no currency (review fix, ticket 933): never a guessed 2dp currency', () => {
+  it('editorSalesArea keeps the currency blank (unknown)', () => {
+    expect(editorSalesArea({ salesOrganization: '2000', distributionChannel: '10' }).currency).toBe('')
+  })
+  it('Curr/Pe names no unit — the page shows the unknown-currency label', () => {
+    expect(currPe('P', '')).toEqual({ unit: '', exVat: true })
+    expect(currPe('R', '', '4', 'EA')).toEqual({ unit: '', exVat: false })
+    expect(currPe('%', '')).toEqual({ unit: '%', exVat: false })
+  })
+  it('the per-unit hint shows every stored digit and no trailing blank unit', () => {
+    const line = { discountType: 'P' as const, value: '5.02', per: '4', quantity: '1', uom: 'EA', scaleType: 'C' as const }
+    expect(perHint(false, line, '')?.values.total).toBe('1.255')
+    expect(perHint(false, { ...line, value: '5', scaleType: 'A' }, '')?.values.rate).toBe('1.25')
+  })
+})

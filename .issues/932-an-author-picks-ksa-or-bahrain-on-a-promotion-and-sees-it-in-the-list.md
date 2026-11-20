@@ -60,3 +60,9 @@ BackOffice 4097, 4098
     back to English), registered in `core/i18n.ts`. The client names the two areas itself; the document's
     `salesAreaEnglish`/`salesAreaArabic` are not read (the select needs both names before any document exists).
   - The refusal code in the drive (`BBY-SALES-AREA-LOCKED`) is invented; the screen shows whatever code BO 4098 uses.
+- 2026-11-20 code-review fixes: the lock is derived from the current document each render (only the pick is
+  state, re-synced when the saved pair moves); the list cell isolates the name (`<bdi>`) and `pair · currency`
+  (`Ltr`) each whole, and the option `fsi`s `pair · currency` once; a saved promotion's header save sends back
+  exactly the pair its document holds — none for a no-pair document (`BbyPromotionSave` pair optional again; a
+  new promotion always sends it); off-list pairs read `key: null`; the off-list reason wins over Locked;
+  `salesAreaEnglish`/`salesAreaArabic` dropped from the model. Drive 21/21 (new no-pair name-only save check).

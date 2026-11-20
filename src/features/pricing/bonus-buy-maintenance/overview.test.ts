@@ -16,6 +16,7 @@ import {
   overviewSeverity,
   newPromotionSalesArea,
   promotionSalesArea,
+  salesAreaCell,
   salesAreaLabel,
   salesAreaOption,
   promotionSaveBody,
@@ -339,7 +340,58 @@ describe('a promotion is written for KSA or Bahrain', () => {
     expect(salesAreaLabel(promo({ salesOrganization: '1000', distributionChannel: '30', currency: 'XYZ' }), names)).toBe('1000 / 30 · XYZ')
   })
 
-  it('the option text isolates the codes and the currency, never the name', () => {
-    expect(salesAreaOption('bahrain', names)).toBe('Bahrain retail · ⁨1000 / 21⁩ · ⁨BHD⁩')
+  it('the option text isolates the pair and currency once as a whole, never the name', () => {
+    expect(salesAreaOption('bahrain', names)).toBe('Bahrain retail · ⁨1000 / 21 · BHD⁩')
+  })
+
+  it('the list cell splits the free-text name from the machine values (each isolated whole by the cell)', () => {
+    expect(salesAreaCell(promo({ salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' }), names)).toEqual({
+      name: 'Bahrain retail',
+      codes: '1000 / 21 · BHD',
+    })
+    expect(salesAreaCell(promo(), names)).toEqual({ name: 'KSA retail', codes: '1000 / 20 · SAR' })
+    expect(salesAreaCell(promo({ salesOrganization: '1000', distributionChannel: '30', currency: 'XYZ' }), names)).toEqual({
+      name: '',
+      codes: '1000 / 30 · XYZ',
+    })
+  })
+})
+
+/**
+ * Review fix (932): a promotion saved by an old server holds no pair. A header save that does not
+ * move the sales area must send back exactly what the document holds, never invent 1000 / 20.
+ */
+describe('promotionSaveBody — a document with no pair keeps none', () => {
+  const header = { promoNumber: 'P000000001', name: 'Riyadh', salesFrom: '2026-12-01', salesTo: '2026-12-31' }
+  const old = { salesOrganization: null, distributionChannel: null, currency: null }
+
+  it('an unchanged (KSA) header save of a no-pair document omits the pair', () => {
+    const body = promotionSaveBody(header, { choice: 'ksa', locked: false }, old)
+    expect(body).not.toHaveProperty('salesOrganization')
+    expect(body).not.toHaveProperty('distributionChannel')
+  })
+
+  it('a locked no-pair document omits the pair too', () => {
+    const body = promotionSaveBody(header, { choice: 'ksa', locked: true }, {})
+    expect(body).toEqual({ promoNumber: 'P000000001', name: 'Riyadh', salesFrom: '2026-12-01', salesTo: '2026-12-31' })
+  })
+
+  it('moving a no-pair document to Bahrain sends 1000 / 21', () => {
+    const body = promotionSaveBody(header, { choice: 'bahrain', locked: false }, old)
+    expect([body.salesOrganization, body.distributionChannel]).toEqual(['1000', '21'])
+  })
+
+  it('a document that holds a pair, saved unchanged or locked, sends that pair back', () => {
+    const ksa = { salesOrganization: '1000', distributionChannel: '20', currency: 'SAR' }
+    expect(promotionSaveBody(header, { choice: 'ksa', locked: false }, ksa)).toMatchObject({ salesOrganization: '1000', distributionChannel: '20' })
+    const bh = { salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' }
+    expect(promotionSaveBody(header, { choice: 'bahrain', locked: true }, bh)).toMatchObject({ salesOrganization: '1000', distributionChannel: '21' })
+  })
+
+  it('a new promotion always sends the pair', () => {
+    expect(promotionSaveBody({ ...header, promoNumber: null }, { choice: 'ksa', locked: false }, null)).toMatchObject({
+      salesOrganization: '1000',
+      distributionChannel: '20',
+    })
   })
 })

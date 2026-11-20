@@ -13,8 +13,17 @@ describe('readSalesArea', () => {
   })
   it('a pair outside the list keeps its codes, never relabelled KSA', () => {
     const a = readSalesArea({ salesOrganization: '1000', distributionChannel: '30', currency: 'XYZ' })
+    expect(a.key).toBeNull()
     expect(a.distributionChannel).toBe('30')
     expect(a.currency).toBe('XYZ')
     expect(salesAreaOf('1000', '30')).toBeNull()
+  })
+  it('a pair outside the list with no currency keeps the currency blank (unknown), never SAR', () => {
+    expect(readSalesArea({ salesOrganization: '2000', distributionChannel: '10' })).toEqual({
+      key: null,
+      salesOrganization: '2000',
+      distributionChannel: '10',
+      currency: '',
+    })
   })
 })

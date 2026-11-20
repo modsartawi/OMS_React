@@ -57,3 +57,6 @@ BackOffice 4097
 - Proof: `editor.test.ts` (the KSA, BHD 3-decimal and no-sales-area-on-the-wire cases passed on first run:
   the contract's `readSalesArea`, `formatMoneyIn` and `toRequest` already held them).
 - Drive: `tools/bby-maintenance-drive.mjs` step 51, a Bahrain bonus buy on the GUESSED 4097 promotion fields.
+- 2026-11-20 code-review fix: an off-list sales area with no currency is never shown as a 2dp currency with a
+  blank unit — the header, the minimum, Curr/Pe say "Currency not known" (`editor.currencyUnknown`, EN + AR) and
+  the per-unit hint uses `formatMoneyOfUnknownCurrency`. `bby-maintenance-drive.mjs` 258/258.

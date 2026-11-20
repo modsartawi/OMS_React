@@ -616,6 +616,8 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'controls',
       'dialog',
       'disableWarnings',
+      // oms 931: the Mirror drain page is fully worded in Arabic.
+      'drain',
       'failures',
       'fleetView',
       'nav',

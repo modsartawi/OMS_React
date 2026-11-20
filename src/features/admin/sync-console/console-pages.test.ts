@@ -19,6 +19,7 @@ describe('the console’s page links', () => {
   it('keeps the console’s other pages as they were', () => {
     expect(consolePages(permissionsOf({ screens: [console03] })).map((p) => p.key)).toEqual([
       'fleet',
+      'mirror',
       'passes',
       'commands',
       'audit',

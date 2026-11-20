@@ -1265,3 +1265,113 @@ export interface RetryScriptResponse {
   storesRetried: number
   auditId: string | null
 }
+
+// ── The mirror drain (oms 931, BackOffice 4091) ──
+
+/** The drain's verdict, worst first; `noData` when the sink has no inbox or cannot be read. */
+export type MirrorVerdict = 'down' | 'behind' | 'warning' | 'healthy' | 'noData'
+
+/** The bars' window: 36 ten-minute slots, or hourly slots from the rollup. */
+export type MirrorDrainWindow = '6h' | '24h' | '7d'
+
+export const MIRROR_DRAIN_WINDOWS: readonly MirrorDrainWindow[] = ['6h', '24h', '7d']
+
+/** Why a slot is bad: the first rule that held. */
+export type MirrorSlotWhy = 'noApply' | 'pullPaused' | 'losingGround' | 'slowApply'
+
+/** The rule behind one of the verdict's reasons. */
+export type MirrorReasonCode =
+  | 'applyStopped'
+  | 'applyWorkerStale'
+  | 'pullPaused'
+  | 'lagging'
+  | 'trouble'
+  | 'recentParks'
+  | 'nearThreshold'
+
+/** One reason: a code the console words, its own level, time and figures; `text` is the door's English. */
+export interface MirrorReason {
+  code: MirrorReasonCode
+  level: MirrorVerdict
+  since: string | null
+  value: number | null
+  limit: number | null
+  /** `trouble`: the run's most common why. */
+  kind: MirrorSlotWhy | null
+  text: string
+}
+
+/** The rows pulled in the last 24 h, by where they are now: `pulled = applied + stillPending + parked`. */
+export interface MirrorDrainPie {
+  pulled: number
+  applied: number
+  stillPending: number
+  parked: number
+}
+
+/** One bar. `net` is what left minus what arrived: positive drains. */
+export interface MirrorDrainSlot {
+  slot: string
+  /** The slot still running (the last one); never judged. */
+  partial: boolean
+  pulled: number
+  applied: number
+  parked: number
+  net: number
+  /** The pending count when the slot ended, worked back by the door from the count now. */
+  pendingAtEnd: number
+  bad: boolean
+  why: MirrorSlotWhy | null
+}
+
+export interface MirrorPendingType {
+  entityType: string
+  action: string
+  pending: number
+  oldestPulledAt: string | null
+}
+
+export interface MirrorParkGroup {
+  parkReason: DeadLetterReason
+  errorPrefix: string | null
+  count: number
+  lastAt: string | null
+}
+
+/** `GET ActionSync/Mirror/Inbox?window=` (BackOffice 4091): the sink's inbox as one queue over time. */
+export interface MirrorDrain {
+  asOf: string
+  window: MirrorDrainWindow
+  /** 10 for `6h`, 60 for the hourly windows. */
+  slotMinutes: number
+  verdict: MirrorVerdict
+  /** Worst first. */
+  reasons: MirrorReason[]
+  pending: number
+  waitingForRetry: number
+  oldestPendingPulledAt: string | null
+  lagMinutes: number | null
+  lastAppliedAt: string | null
+  lastPulledAt: string | null
+  parkedOpen: number
+  parkedLast30Min: number
+  /** The pull heartbeat's; `null` without one. */
+  backpressureThreshold: number | null
+  pullPaused: boolean
+  pullPausedSince: string | null
+  window24h: MirrorDrainPie
+  applyPerMinute: number
+  arrivePerMinute: number
+  /** `null`: not draining. */
+  etaEmptyAt: string | null
+  /** `null`: the pull is not paused, or the inbox is not draining. */
+  etaPullResumesAt: string | null
+  /** Oldest first, the partial slot last. */
+  slots: MirrorDrainSlot[]
+  /** The door's; never computed in the browser. `null` when the last full slot is good. */
+  troubleSince: string | null
+  tillBacklogKnown: number | null
+  tillBacklogOldestMeasuredAt: string | null
+  pendingByType: MirrorPendingType[]
+  parkedByReason: MirrorParkGroup[]
+}

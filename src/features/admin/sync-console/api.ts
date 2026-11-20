@@ -38,6 +38,8 @@ import type {
   EditStoreRequest,
   FleetLastHour,
   FleetSummary,
+  MirrorDrain,
+  MirrorDrainWindow,
   OnboardRequest,
   OnboardResponse,
   Paged,
@@ -201,6 +203,15 @@ export const syncConsoleApi = {
    */
   storeMirror(code: string, filter: MirrorFilter, page: number): Promise<StoreMirror> {
     return api.get<StoreMirror>('ActionSync/Store/Mirror', mirrorQuery(code, filter, page))
+  },
+
+  /**
+   * `GET ActionSync/Mirror/Inbox?window=` (BackOffice 4091, oms 931) → the sink's inbox as one
+   * queue over time: the verdict and its reasons, the 24 h pie, the bars of the window, the rates and
+   * ETAs. Fleet-wide; never a payload.
+   */
+  mirrorInbox(window: MirrorDrainWindow): Promise<MirrorDrain> {
+    return api.get<MirrorDrain>('ActionSync/Mirror/Inbox', { window })
   },
 
   /**
@@ -583,6 +594,15 @@ export const storeLocationQuery = (code: string) => ({
  * The Mirror tab's read (ticket 457), under the tab's own prefix (`storeTabKey`), so
  * the tab's Refresh and a store-wide invalidation both re-read it. Read when opened.
  */
+/** The Mirror drain page (oms 931): its own minute's refresh, the window in the key. */
+export const MIRROR_DRAIN_REFRESH_MS = 60_000
+
+export const mirrorDrainQuery = (window: MirrorDrainWindow) => ({
+  queryKey: ['sync-console', 'mirror-drain', window] as const,
+  queryFn: () => syncConsoleApi.mirrorInbox(window),
+  refetchInterval: MIRROR_DRAIN_REFRESH_MS,
+})
+
 export const storeMirrorQuery = (code: string, filter: MirrorFilter, page: number) => ({
   queryKey: [...storeKey(code), 'mirror', mirrorQuery(code, filter, page)] as const,
   queryFn: () => syncConsoleApi.storeMirror(code, filter, page),

@@ -175,3 +175,4 @@ tools/.document-family-shots/
 tools/.stock-health-shots/
 # Store database drive screenshots (tools/store-db-*-drive.mjs, tickets 915-919)
 tools/.store-db-*-shots/
+tools/.sync-console-drain-shots/

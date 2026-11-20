@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -221,6 +222,10 @@ function Fleet() {
     <div className="flex min-w-0 flex-col gap-4">
       <ConsoleNav />
       <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground" data-as-of="">
+        {/* oms 931: the mirror as one queue - draining or falling behind, and since when. */}
+        <Link to="/admin/sync/mirror" className="me-auto text-sm text-primary underline-offset-2 hover:underline" data-drain-link="">
+          {t('drain.link')}
+        </Link>
         {(summary.isFetching || stores.isFetching) && (
           <span className="inline-flex items-center gap-1" role="status">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />

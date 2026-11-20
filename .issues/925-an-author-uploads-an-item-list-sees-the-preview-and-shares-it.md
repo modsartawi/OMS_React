@@ -120,3 +120,20 @@ Not done here: the library kind and New entry, and the menu (926).
   - Still unverified: no live walk (BO's own live check failed: dev Cube `10.211.55.2:14101` refused; no local SIS.Api
     up here). BO creates Personal when no audience is sent; oms always sends one — fine. Unused key `preview.matchedTitle`
     removed.
+
+- **2026-11-20 — final reconcile to BackOffice spec4057 723cdb708** (merged into `pricing2`; read only; worktree
+  `oms-react-4057f`, branch `impl/4057-final`, after merging main). Diff read: d919921f5..723cdb708 and
+  f374504d9..723cdb708, with spec 4057's and 4061's Comments.
+  - Routes, multipart part, create/replace bodies, refusal codes 434/435/436, preview and list shapes: **unchanged** (the
+    only endpoint file touched is `AnalyticsItemListWorkbook.cs`, header reading).
+  - 11f21dbb4 (fix 12): an unknown header is a preview problem `{ rows: [headerRow], field: 'header', reason:
+    'unknownColumn' }` (no token). Ours already draws it as a refusing problem in the server's words and holds Save;
+    pinned in `api.test.ts`, drive stub carries it. **No code change.**
+  - 5701dd7d0 (fix 14): the token is claimed atomically; a failed save hands it back. Ours keeps the preview and Save on
+    any non-435 failure, so the retry saves; a second concurrent save gets 435 and asks for the file. **No code change**;
+    the drive now proves fail-then-retry posts the same token.
+  - c51abdd1b (fixes 1, 2): uploads past Cube's 10,000-row cap / 2,100 parameters read in slices; a list over 1,000 values
+    whose parts cannot add up (a rate by region) is a 406 refusal, drawn as any refused panel. **No change.**
+  - Gates: typecheck, test (11,766), build clean; lint clean but the pre-existing
+    `insurance-rules/aliases/door-shapes.test.ts` boundary hits (same imports on main). Drive `tools/item-lists-drive.mjs`
+    **124/124** (LTR + RTL), stubbed. Commits 426cca4a. Status stays open: the live walk on a deployed BO is owed.

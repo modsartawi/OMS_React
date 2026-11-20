@@ -82,3 +82,22 @@ Proof is green, and there is a live walk on BO 4061.
     replaced by "none drawn").
   - Still unverified: 4061 is unfinished (no Comments, uncommitted store/query/refusal changes, eval cases and live
     walk not done); no live walk (no local SIS.Api with these doors; BO's dev Cube unreachable).
+
+- **2026-11-20 — final reconcile to BackOffice spec4057 723cdb708** (merged into `pricing2`; read only). Guess → real:
+  - afc267a0e: `ANALYTICS-437` `data { itemList, reason: 'deleted' | 'not-shared' }` is now COMMITTED, as we read it
+    (saved views, board/report/draft panels, report figures; inline queries keep 404/413). **Matched.**
+  - `itemLists[{ id, name, version, itemsAndGroups, line }]`, `line` an index into `assumptions`: **unchanged**;
+    b2f0413be (fix 15) keeps the Used lines first when the ten-line limit cuts, in the server's order — our index read
+    is unaffected. Still no `listPeriods` answer part (4060's result stays with the model).
+  - 589da89d1 (fix 7): one unreadable list no longer refuses a report's Words; the summary becomes
+    `unavailable: 'listNotAvailable'` and other figures stand. We drew the raw code: **fixed** (be976a43,
+    `summaryReasonKey` + `report.summary.reason.listNotAvailable` en/ar; other reasons still as sent).
+  - aa5e3c4fd (fix 8): a blank `itemList` is refused 406 `query.itemList`. Ours never writes one (it passes the table's
+    query through). **No change.**
+  - 2102f9a7f (fix 13): suggestions carry their list server-side (`CopilotSuggested.ItemList`); the wire's suggestions
+    stay `{ question, by }`. **No change.** 23939613d, 0d8dc1344, 7970b5b45, 09dcf730a, 1784a29df, e2f40417c: server/
+    model-side only. **No change.**
+  - Later on `pricing2` (not 4057): ticket 4089 adds `itemListId` on an assumption line (additive); our `line` index
+    read still works — adopt it if BO drops `line`.
+  - Drive `tools/item-lists-copilot-drive.mjs` **48/48** (LTR + RTL), stubbed. typecheck, test, build clean; lint as 925.
+    Status stays open: the live walk on BO 4061 (deployed) is owed; BO 4061's clean eval run is owed on their side.

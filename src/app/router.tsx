@@ -17,6 +17,28 @@ function ReportPrintGuard() {
   return (search.get('ticket') ?? '').trim() ? <Outlet /> : <ProtectedLayout chromeless />
 }
 // The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
+/**
+ * The Stock area's old addresses (they lived under OMS, Materials and Hybris stock before the Stock group): each
+ * redirects to its new path with its query string, so a bookmark, an email link or a server-sent tile link (Stock
+ * health's `link`) still lands on the page with its filters.
+ */
+const STOCK_MOVES: readonly (readonly [string, string])[] = [
+  ['oms/stock-health', '/stock/health'],
+  ['oms/store-stages', '/stock/store-stages'],
+  ['oms/held-stock-report/refusals', '/stock/refusals'],
+  ['oms/held-stock-report/held', '/stock/held'],
+  ['oms/held-stock-report/gates', '/stock/gates'],
+  ['oms/hold-daily-list', '/stock/stale-holds'],
+  ['materials/stock', '/stock/check'],
+  ['hybris-stock/stores', '/stock/hybris/stores'],
+  ['hybris-stock/materials', '/stock/hybris/materials'],
+  ['hybris-stock/pushes', '/stock/hybris/pushes'],
+]
+const movedTo =
+  (to: string) =>
+  ({ request }: LoaderFunctionArgs) =>
+    redirect(`${to}${new URL(request.url).search}`)
+
 /** 839/840: an analytics library route's loader — an old `/analytics?who=…&kind=…` link lands on its leaf. */
 const libraryLoader =
   (page: LibraryPage) =>
@@ -360,38 +382,38 @@ export const router = createBrowserRouter([
       // HQ's two held-stock reports (BackOffice spec 3849 / ticket 3873), read before a switch is moved — the take refusals
       // and what held would take off the channels' figure — behind its grant on the one permissions answer. Filters in the URL.
       {
-        path: 'oms/held-stock-report/refusals',
+        path: 'stock/refusals',
         lazy: async () => ({
-          Component: (await import('@/features/oms/held-stock-report/RefusalsPage')).default,
+          Component: (await import('@/features/stock/held-stock-report/RefusalsPage')).default,
         }),
       },
       {
-        path: 'oms/held-stock-report/held',
+        path: 'stock/held',
         lazy: async () => ({
-          Component: (await import('@/features/oms/held-stock-report/HeldPage')).default,
+          Component: (await import('@/features/stock/held-stock-report/HeldPage')).default,
         }),
       },
       // The till-side gate figures per store (BackOffice ticket 3900), behind the same probe.
       {
-        path: 'oms/held-stock-report/gates',
+        path: 'stock/gates',
         lazy: async () => ({
-          Component: (await import('@/features/oms/held-stock-report/GatesPage')).default,
+          Component: (await import('@/features/stock/held-stock-report/GatesPage')).default,
         }),
       },
       // HQ's daily list of holds that should have ended (BackOffice spec 3849 / ticket 3872), behind its own
       // grant on the one permissions answer. Kind, cause, stores, tab and the drilled store live in the URL.
       {
-        path: 'oms/hold-daily-list',
+        path: 'stock/stale-holds',
         lazy: async () => ({
-          Component: (await import('@/features/oms/hold-daily-list/HoldDailyListPage')).default,
+          Component: (await import('@/features/stock/hold-daily-list/HoldDailyListPage')).default,
         }),
       },
       // Store stages (BackOffice spec 3849 / ticket 3899) — each store's stage at Stock Visibility and its log; a named
       // permission moves it. Behind its own grant on the one permissions answer. Store, stage and the open store live in the URL.
       {
-        path: 'oms/store-stages',
+        path: 'stock/store-stages',
         lazy: async () => ({
-          Component: (await import('@/features/oms/store-stages/StoreStagesPage')).default,
+          Component: (await import('@/features/stock/store-stages/StoreStagesPage')).default,
         }),
       },
       // Mini POS (oms 927, BackOffice spec 4032 / doors 4043) - the operations lead's assignments, pharmacies and item
@@ -417,9 +439,9 @@ export const router = createBrowserRouter([
       // Stock health (oms 912, BackOffice spec 4011 / door 4012) - whether batch stock is in good shape, one tile per
       // signal, re-read every minute. Behind its own key, `StockHealth:03`.
       {
-        path: 'oms/stock-health',
+        path: 'stock/health',
         lazy: async () => ({
-          Component: (await import('@/features/oms/stock-health/StockHealthPage')).default,
+          Component: (await import('@/features/stock/stock-health/StockHealthPage')).default,
         }),
       },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
@@ -1069,9 +1091,9 @@ export const router = createBrowserRouter([
         }),
       },
       {
-        path: 'materials/stock',
+        path: 'stock/check',
         lazy: async () => ({
-          Component: (await import('@/features/materials/stock-check/StockCheckPage')).default,
+          Component: (await import('@/features/stock/stock-check/StockCheckPage')).default,
         }),
       },
       {
@@ -1142,21 +1164,21 @@ export const router = createBrowserRouter([
       // The Hybris stock area (BackOffice spec 3447, ticket 847) — OMS sends ATP to Hybris's hot
       // folder: Stores (847), Materials (848) and Pushes (849), each its own page.
       {
-        path: 'hybris-stock/stores',
+        path: 'stock/hybris/stores',
         lazy: async () => ({
-          Component: (await import('@/features/hybris-stock/stores/StoresPage')).default,
+          Component: (await import('@/features/stock/hybris-stores/StoresPage')).default,
         }),
       },
       {
-        path: 'hybris-stock/materials',
+        path: 'stock/hybris/materials',
         lazy: async () => ({
-          Component: (await import('@/features/hybris-stock/materials/MaterialsPage')).default,
+          Component: (await import('@/features/stock/hybris-materials/MaterialsPage')).default,
         }),
       },
       {
-        path: 'hybris-stock/pushes',
+        path: 'stock/hybris/pushes',
         lazy: async () => ({
-          Component: (await import('@/features/hybris-stock/pushes/PushesPage')).default,
+          Component: (await import('@/features/stock/hybris-pushes/PushesPage')).default,
         }),
       },
       // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The
@@ -1298,6 +1320,8 @@ export const router = createBrowserRouter([
       // Insurance rules (BackOffice spec 3126, oms 607): the whole area at `/insurance-rules/*` — its leaves
       // live in `./insurance-rules-routes`, so 608–617 add their pages there, never here.
       insuranceRulesRoute,
+      // The Stock area's old addresses (see STOCK_MOVES).
+      ...STOCK_MOVES.map(([path, to]) => ({ path, loader: movedTo(to) })),
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

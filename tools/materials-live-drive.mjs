@@ -177,7 +177,7 @@ console.log(`      this session: ${JSON.stringify(grants)}`)
 if (grants.canSearchMaterials === true) {
   await page.locator('a[href="/materials"]').first().waitFor({ timeout: 20000 }).catch(() => {})
   const menuHas = async (href) => (await page.locator(`a[href="${href}"]`).count()) > 0
-  for (const [href, flag] of [['/materials/stock', 'canCheckStock'], ['/materials/gs1', 'canCheckGs1']]) {
+  for (const [href, flag] of [['/stock/check', 'canCheckStock'], ['/materials/gs1', 'canCheckGs1']]) {
     check(`access: the menu ${grants[flag] ? 'offers' : 'hides'} ${href}`, (await menuHas(href)) === (grants[flag] === true))
   }
 }
@@ -336,7 +336,7 @@ if (ONLY.includes('stock')) {
     skip('stock', 'no stockMaterials / stockCity input')
   } else {
     const since = answers.length
-    await page.goto(`${BASE}/materials/stock`)
+    await page.goto(`${BASE}/stock/check`)
     await page.locator('[data-stock-materials]').waitFor({ timeout: 20000 })
     await page.locator('[data-stock-materials]').fill(INPUTS.stockMaterials.join('\n'))
     await page.locator('[data-stock-set-kind]').selectOption('city')

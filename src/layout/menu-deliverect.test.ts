@@ -23,9 +23,9 @@ const CATALOG = 'DeliverectCatalog:03'
 const TERMS = 'DeliverectTerms:03'
 
 describe('the Deliverect nav group', () => {
-  it('comes right after Materials (551 put the HungerStation group after it, 847 Hybris stock after that; 607 Insurance rules last)', () => {
-    expect(MENU.at(-4)).toBe(deliverect)
-    expect(MENU.at(-5)?.labelKey).toBe('materials-search:menu.materials')
+  it('comes right after Materials (551 put the HungerStation group after it; 607 Insurance rules last; Hybris stock moved into Stock)', () => {
+    expect(MENU.at(-3)).toBe(deliverect)
+    expect(MENU.at(-4)?.labelKey).toBe('materials-search:menu.materials')
   })
 
   it('every leaf is gated; 477 shipped Stores, 478 appends Orders, 479 Catalog, 482 Terms', () => {

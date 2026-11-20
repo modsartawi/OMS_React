@@ -14,7 +14,7 @@ const BASE = `http://localhost:${process.env.DRIVE_PORT || 5244}`
 const SCREENS = [
   ['/materials/gs1', '[data-gs1-scan]'],
   ['/materials', '[data-material-q]'],
-  ['/materials/stock', '[data-stock-materials]'],
+  ['/stock/check', '[data-stock-materials]'],
   ['/loy/members', 'input[placeholder]'],
   ['/pricing/coupon-support', 'input[type=text]'],
   ['/pricing/bonus-buy-download', '#bby-numbers'],

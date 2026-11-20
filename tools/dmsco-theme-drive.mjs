@@ -2306,10 +2306,10 @@ SCREENS.push({
 
 SCREENS.push({
   key: 'remaining-materials',
-  path: '/materials/stock',
+  path: '/stock/check',
   stubs: R605_STUBS,
   modes: lightDarkRtl,
-  ready: (page) => openWorkspacePage(page, '/materials/stock', '[data-stock-materials]'),
+  ready: (page) => openWorkspacePage(page, '/stock/check', '[data-stock-materials]'),
   assert: async (ctx) => {
     const { page } = ctx
     // ── Stock check: the materials Textarea, the store finder, the set Selects.

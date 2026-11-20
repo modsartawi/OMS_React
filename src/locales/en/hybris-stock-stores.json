@@ -1,6 +1,9 @@
 {
   "menu": {
     "hybrisStock": "Hybris stock",
+    "hybrisStores": "Hybris stores",
+    "hybrisMaterials": "Hybris materials",
+    "hybrisPushes": "Hybris pushes",
     "stores": "Stores",
     "materials": "Materials",
     "pushes": "Pushes"

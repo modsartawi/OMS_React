@@ -1,6 +1,7 @@
 {
   "menu": {
-    "stockHealth": "Stock health"
+    "stockHealth": "Stock health",
+    "stock": "Stock"
   },
   "title": "Stock health",
   "subtitle": "Whether batch stock is in good shape: one tile per signal, judged by the server. Open a tile for the screen behind it.",

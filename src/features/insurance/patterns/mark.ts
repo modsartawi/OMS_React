@@ -1,5 +1,5 @@
 /**
- * A reviewer's mark on a case (oms 922; BackOffice 4053 `POST …/Cases/{caseId}/Marks`): the status set and the note
+ * A reviewer's mark on a case (oms 922; BackOffice 4053 `POST …/Cases/{caseNumber}/Marks`): the status set and the note
  * that says why. Pure: the form reads its problem from here, and the call sends only a body this module made.
  */
 import type { PatternMarkBody, PatternMarkStatus } from '@/core/models/insurance-patterns'
@@ -8,10 +8,10 @@ import type { PatternMarkBody, PatternMarkStatus } from '@/core/models/insurance
 export const MARK_STATUSES: readonly PatternMarkStatus[] = ['watching', 'cleared', 'confirmed', 'closed']
 
 /**
- * The longest note sent. GUESSED: BackOffice 4053 stores it as `NVARCHAR` (`StringMaxType`) and clamps it; the client
- * refuses past this rather than let the server cut a note short silently. Reconcile with 4053's clamp.
+ * The longest note sent: BackOffice 4053's clamp (1000 characters). The client refuses past it rather than let the
+ * server cut a note short silently.
  */
-export const NOTE_MAX = 500
+export const NOTE_MAX = 1000
 
 /** The form as typed: no status chosen yet is `''`. */
 export interface MarkDraft {

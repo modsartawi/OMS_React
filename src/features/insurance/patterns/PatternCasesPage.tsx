@@ -19,7 +19,6 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
-import { formatMoney } from '@/core/util/number-format'
 import { useDebounced } from '@/core/util/use-debounced'
 import { canOpenPatternCases } from './access'
 import { casesKey, patternsApi } from './api'
@@ -40,7 +39,7 @@ import { casePath } from './paths'
 import { counted, severitySev, severityText, signalText, statusSev, statusText, unitWords } from './words'
 
 /**
- * **Pattern cases** (oms 922; BackOffice spec 4050, door 4053 — STUBBED, the door is not built): the insurance team's
+ * **Pattern cases** (oms 922; BackOffice spec 4050, door 4053, reconciled as built: `InsuranceRules/Patterns/Cases`): the insurance team's
  * list of multi-pharmacy cases, strongest first. Filters by store, period, signal, status and severity, kept in the URL;
  * paged; the server orders by score, then the last dispense. A case shows its number, never a patient: the patient is
  * behind the investigator's logged reveal on the case screen (923).
@@ -190,12 +189,11 @@ function CasesBody() {
                   <th className={TH}>{t('col.signals')}</th>
                   <th className={TH}>{t('col.score')}</th>
                   <th className={TH}>{t('col.status')}</th>
-                  <th className={`${TH} text-end`}>{t('col.value')}</th>
                 </tr>
               </thead>
               <tbody>
                 {page.items.map((row) => (
-                  <CaseRow key={row.caseId} row={row} />
+                  <CaseRow key={row.caseNumber} row={row} />
                 ))}
               </tbody>
             </table>
@@ -219,10 +217,10 @@ function CaseRow({ row }: { row: PatternCaseRow }) {
   const { t } = useTranslation('insurance-patterns')
   const units = unitWords(t)
   return (
-    <tr className="border-t border-border/60" data-testid="patterns-row" data-case={row.caseId} data-status={row.status} data-score={row.score}>
+    <tr className="border-t border-border/60" data-testid="patterns-row" data-case={row.caseNumber} data-status={row.status} data-score={row.score}>
       <td className={TD}>
         <Link
-          to={casePath(row.caseId)}
+          to={casePath(row.caseNumber)}
           title={t('list.openCase', { caseNumber: fsi(row.caseNumber) })}
           className="font-medium text-primary underline-offset-2 hover:underline"
           data-testid="patterns-row-case"
@@ -264,9 +262,6 @@ function CaseRow({ row }: { row: PatternCaseRow }) {
       </td>
       <td className={TD}>
         <StatusBadge sev={statusSev(row.status)}>{statusText(t, row.status)}</StatusBadge>
-      </td>
-      <td className={`${TD} text-end tabular-nums`}>
-        <Ltr>{formatMoney(row.totalValue)}</Ltr>
       </td>
     </tr>
   )

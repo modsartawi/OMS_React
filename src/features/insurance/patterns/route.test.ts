@@ -47,14 +47,13 @@ const DISPENSES = [
   dispense(7005, '1001', '2026-11-12T18:40:00'),
   dispense(7006, '4090', '2026-11-12T20:00:00'),
 ]
-const LEG_1: PatternLeg = { fromEventId: 7001, toEventId: 7002, km: 312.4, minutes: 100, kmPerHour: 187.4, travel: true }
-const LEG_2: PatternLeg = { fromEventId: 7002, toEventId: 7004, km: 214.9, minutes: 1715, kmPerHour: 7.5, travel: false }
-const LEG_3: PatternLeg = { fromEventId: 7004, toEventId: 7005, km: 637.2, minutes: 1630, kmPerHour: 23.5, travel: false }
-const LEG_4: PatternLeg = { fromEventId: 7005, toEventId: 7006, km: null, minutes: 80, kmPerHour: null, travel: false }
+const LEG_1: PatternLeg = { fromEventId: 7001, toEventId: 7002, km: 312.4, minutes: 100, kmPerHour: 187.4, counter: true, travel: true }
+const LEG_2: PatternLeg = { fromEventId: 7002, toEventId: 7004, km: 214.9, minutes: 1715, kmPerHour: 7.5, counter: true, travel: false }
+const LEG_3: PatternLeg = { fromEventId: 7004, toEventId: 7005, km: 637.2, minutes: 1630, kmPerHour: 23.5, counter: true, travel: false }
+const LEG_4: PatternLeg = { fromEventId: 7005, toEventId: 7006, km: null, minutes: 80, kmPerHour: null, counter: true, travel: false }
 
 const detail = (over: Partial<PatternCaseDetail> = {}): PatternCaseDetail => ({
-  caseId: '01JD3K7Q2W',
-  caseNumber: 'PC-000123',
+  caseNumber: '123',
   stores: STORES,
   dispenseCount: DISPENSES.length,
   openedAt: '2026-11-10T09:15:00',
@@ -67,7 +66,6 @@ const detail = (over: Partial<PatternCaseDetail> = {}): PatternCaseDetail => ({
   score: 4,
   severity: 'action',
   status: 'open',
-  totalValue: 1840.5,
   dispenses: DISPENSES,
   // The server's list, out of time order: the route orders it.
   legs: [LEG_3, LEG_1, LEG_4, LEG_2],
@@ -149,11 +147,22 @@ describe('a delivery dispense is a point without a leg', () => {
   })
 
   it('even when the server lists a leg into or out of it', () => {
-    const intoDelivery: PatternLeg = { fromEventId: 7002, toEventId: 7003, km: 600, minutes: 60, kmPerHour: 600, travel: true }
-    const outOfDelivery: PatternLeg = { fromEventId: 7003, toEventId: 7004, km: 800, minutes: 210, kmPerHour: 228, travel: true }
+    const intoDelivery: PatternLeg = { fromEventId: 7002, toEventId: 7003, km: 600, minutes: 60, kmPerHour: 600, counter: true, travel: true }
+    const outOfDelivery: PatternLeg = { fromEventId: 7003, toEventId: 7004, km: 800, minutes: 210, kmPerHour: 228, counter: true, travel: true }
     const route = caseRoute(detail({ legs: [LEG_1, intoDelivery, outOfDelivery, LEG_2, LEG_3] }), WORDS)
     expect(route.lines).toHaveLength(3)
     expect(route.points.map((p) => p.id)).toContain('3050')
+  })
+})
+
+describe('a leg the server did not mark counter', () => {
+  it('is never drawn, even between two counter dispenses at two placed stores — and is still listed', () => {
+    const unmarked: PatternLeg = { ...LEG_1, counter: false }
+    const d = detail({ legs: [unmarked, LEG_2, LEG_3, LEG_4] })
+    expect(caseRoute(d, WORDS).lines.some((l) => (l.label ?? '').includes('312.4 km'))).toBe(false)
+    const row = routeLegs(d).find((r) => r.leg === unmarked)
+    expect(row?.drawn).toBe(false)
+    expect(legsBesideMap(routeLegs(d), true)).toContainEqual(row)
   })
 })
 
@@ -171,8 +180,8 @@ describe('the same two stores travelled both ways', () => {
     const back = dispense(7010, '1001', '2026-11-10T13:00:00')
     const there = dispense(7011, '2040', '2026-11-10T09:00:00')
     const legs: PatternLeg[] = [
-      { fromEventId: 7010 + 1, toEventId: 7010, km: 312.4, minutes: 240, kmPerHour: 78.1, travel: false },
-      { fromEventId: 7010, toEventId: 7012, km: 312.4, minutes: 95, kmPerHour: 197.3, travel: true },
+      { fromEventId: 7010 + 1, toEventId: 7010, km: 312.4, minutes: 240, kmPerHour: 78.1, counter: true, travel: false },
+      { fromEventId: 7010, toEventId: 7012, km: 312.4, minutes: 95, kmPerHour: 197.3, counter: true, travel: true },
     ]
     const route = caseRoute(
       detail({ dispenses: [there, back, dispense(7012, '2040', '2026-11-10T14:35:00')], legs }),

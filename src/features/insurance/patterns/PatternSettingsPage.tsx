@@ -34,7 +34,7 @@ import {
 import { counted } from './words'
 
 /**
- * **Pattern settings** (oms 924; BackOffice spec 4050, door 4055 — STUBBED, the door is not built): the insurance
+ * **Pattern settings** (oms 924; BackOffice spec 4050, door 4055, reconciled as built: `InsuranceRules/Patterns/Settings`): the insurance
  * manager tunes the seven thresholds the nightly job finds and scores multi-pharmacy cases with, and reads who changed
  * what, when. A change applies from the next run, and closed cases are never re-scored (4055) — the page says so above
  * the form.

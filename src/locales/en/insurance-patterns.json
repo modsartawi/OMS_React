@@ -45,8 +45,7 @@
     "shortestGap": "Shortest gap",
     "signals": "Signals",
     "score": "Score",
-    "status": "Status",
-    "value": "Value (SAR)"
+    "status": "Status"
   },
   "signal": {
     "travel": "Impossible travel",
@@ -246,6 +245,7 @@
     "scoreLine": "Score {{score}}",
     "reading": "Reading the case…",
     "failed": "The case could not be read",
+    "notFound": "No case has this number.",
     "stale": "The case could not be read again. It is shown as last read.",
     "readAgain": "Read again",
     "actions": "Case actions",
@@ -256,7 +256,6 @@
       "span": "Span",
       "longestLeg": "Longest leg",
       "shortestGap": "Shortest gap",
-      "value": "Value (SAR)",
       "opened": "Opened",
       "lastDispense": "Last dispense",
       "closed": "Closed",

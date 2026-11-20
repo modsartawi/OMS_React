@@ -16,7 +16,7 @@ import { unitWords } from './words'
  * the legs between counter dispenses joined in time order, each labelled with its number, km and time, a travel leg in
  * the map's warning orange, a delivery's store a point with no leg (`./route`).
  *
- * When the map cannot draw — no `maps` part on the case (a guessed BackOffice ask), Google refusing the key, Google
+ * When the map cannot draw — no `maps` part on the case (BackOffice 4053 sends none yet: no key source is decided, so today the route is always the legs table), Google refusing the key, Google
  * unreachable — the legs show as a table instead, numbered as on the map: the screen stays usable. A store without
  * coordinates is listed under the map, and so are the legs the map cannot draw for it (review 9), with their numbers.
  */

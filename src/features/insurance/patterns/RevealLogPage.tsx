@@ -36,7 +36,7 @@ import {
 import { counted } from './words'
 
 /**
- * **Reveal log** (oms 924; BackOffice spec 4050, door 4055 — STUBBED, the door is not built): who revealed which case's
+ * **Reveal log** (oms 924; BackOffice spec 4050, door 4055, reconciled as built: `InsuranceRules/Patterns/Reveals`): who revealed which case's
  * patient, when and why — and each block (4056), which uses the identity and is logged with the reason `block`. Filters
  * by period, user and case, kept in the URL; paged; the server orders it, newest first. Each case links to its screen.
  *
@@ -101,8 +101,6 @@ function RevealsBody() {
     // `update` composes against the latest query written.
   }, [settled, filters.page, rowCount, totalMatches])
 
-  // The case filter names its case by number once a row of it is read; its id until then.
-  const caseNumber = filters.caseId ? (page?.items.find((r) => r.caseId === filters.caseId)?.caseNumber ?? filters.caseId) : ''
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -121,11 +119,11 @@ function RevealsBody() {
         <Field label={t('revealLog.filters.user')} hint={t('revealLog.filters.userHint')} className="w-44">
           <Input value={userDraft} onChange={(e) => setUserDraft(e.target.value)} dir="ltr" data-testid="reveals-filter-user" />
         </Field>
-        {filters.caseId && (
+        {filters.caseNumber && (
           <div className="flex flex-col gap-1">
             <span className={FIELD_LABEL}>{t('revealLog.filters.case')}</span>
-            <Button variant="outlined" onClick={() => set({ caseId: '' })} title={t('revealLog.filters.caseClear')} data-testid="reveals-filter-case">
-              {t('revealLog.filters.caseOn', { caseNumber: fsi(caseNumber) })}
+            <Button variant="outlined" onClick={() => set({ caseNumber: '' })} title={t('revealLog.filters.caseClear')} data-testid="reveals-filter-case">
+              {t('revealLog.filters.caseOn', { caseNumber: fsi(filters.caseNumber) })}
               <X className="h-3.5 w-3.5" aria-hidden />
             </Button>
           </div>
@@ -170,7 +168,7 @@ function RevealsBody() {
               </thead>
               <tbody>
                 {page.items.map((row, i) => (
-                  <RevealRow key={`${row.caseId}-${row.at}-${i}`} row={row} filteredToIt={filters.caseId === row.caseId} onOnlyCase={() => set({ caseId: row.caseId })} />
+                  <RevealRow key={`${row.caseNumber}-${row.at}-${i}`} row={row} filteredToIt={filters.caseNumber === row.caseNumber} onOnlyCase={() => set({ caseNumber: row.caseNumber })} />
                 ))}
               </tbody>
             </table>
@@ -193,14 +191,14 @@ function RevealsBody() {
 function RevealRow({ row, filteredToIt, onOnlyCase }: { row: PatternReveal; filteredToIt: boolean; onOnlyCase: () => void }) {
   const { t } = useTranslation('insurance-patterns')
   return (
-    <tr className="border-t border-border/60" data-testid="reveals-row" data-case={row.caseId}>
+    <tr className="border-t border-border/60" data-testid="reveals-row" data-case={row.caseNumber}>
       <td className={TD}>
         <Ltr>{formatDateTime(row.at)}</Ltr>
       </td>
       <td className={TD}>
         <span className="inline-flex items-center gap-1">
           <Link
-            to={casePath(row.caseId)}
+            to={casePath(row.caseNumber)}
             title={t('revealLog.openCase', { caseNumber: fsi(row.caseNumber) })}
             className="font-medium text-primary underline-offset-2 hover:underline"
             data-testid="reveals-row-case"

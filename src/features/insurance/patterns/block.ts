@@ -1,6 +1,6 @@
 /**
- * "Add to blocked-patient list" on a confirmed case (oms 924; BackOffice 4056 `POST Insurance/Patterns/Cases/{id}/Block`,
- * NOT BUILT — the body is GUESSED). Pure: who is offered it, on which case, and the body a form makes — the dialog reads
+ * "Add to blocked-patient list" on a confirmed case (oms 924; BackOffice 4056
+ * `POST InsuranceRules/Patterns/Cases/{caseNumber}/Block`, reconciled as built). Pure: who is offered it, on which case, and the body a form makes — the dialog reads
  * its problems from here, and the call sends only a body this module made.
  *
  * The block goes through the blocked-patient list's own change path (BackOffice 3965), with the reference
@@ -58,7 +58,7 @@ export function blockProblems(form: BlockForm, today: LocalDate): BlockProblem[]
   return out
 }
 
-/** The body posted: the kind, and the payer, start and end only when given. Null while a problem stands. */
+/** The body posted: the kind, and the payer, start and end (the wire's `expiresOn`) only when given. Null while a problem stands. */
 export function blockBody(form: BlockForm, today: LocalDate): PatternBlockBody | null {
   if (blockProblems(form, today).length > 0) return null
   const payer = form.payer.trim()
@@ -66,7 +66,7 @@ export function blockBody(form: BlockForm, today: LocalDate): PatternBlockBody |
     reasonKind: form.reasonKind as PatternBlockReasonKind,
     ...(payer ? { payer } : {}),
     ...(form.startsOn ? { startsOn: form.startsOn } : {}),
-    ...(form.endsOn ? { endsOn: form.endsOn } : {}),
+    ...(form.endsOn ? { expiresOn: form.endsOn } : {}),
   }
 }
 

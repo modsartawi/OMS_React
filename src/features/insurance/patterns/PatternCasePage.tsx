@@ -13,20 +13,19 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { formatMoney } from '@/core/util/number-format'
 import { canOpenPatternCases } from './access'
 import { caseKey, patternsApi } from './api'
 import CaseMarks from './CaseMarks'
 import CaseRouteSection from './CaseRouteSection'
 import CaseTimeline from './CaseTimeline'
-import { casePath, PATTERNS_PATH } from './paths'
+import { caseNumberOf, casePath, PATTERNS_PATH } from './paths'
 import RevealPatient from './RevealPatient'
 import { severitySev, severityText, signalText, statusSev, statusText, unitWords } from './words'
 // 924 · the header's block action (its own file and predicate; it renders nothing unless offered)
 import CaseBlockAction from './CaseBlockAction'
 
 /**
- * **A pattern case** (oms 922; BackOffice spec 4050, door 4053 — STUBBED, the door is not built): one patient's run of
+ * **A pattern case** (oms 922; BackOffice spec 4050, door 4053, reconciled as built: `InsuranceRules/Patterns/Cases/{caseNumber}`): one patient's run of
  * dispenses across our pharmacies, WITHOUT the patient. The route on Google's map, the signals in English and Arabic,
  * the timeline, the marks, a previous clearance of the same patient at the top, and the patient's earlier cases.
  *
@@ -35,27 +34,46 @@ import CaseBlockAction from './CaseBlockAction'
  */
 export default function PatternCasePage() {
   const { t } = useTranslation('insurance-patterns')
-  const { caseId = '' } = useParams()
+  const { caseNumber: param } = useParams()
+  // The server's route is `{number:int}`: an address naming no positive whole number is never asked for (review of the
+  // reconcile with BackOffice 4053) — it is a case that is not found.
+  const caseNumber = caseNumberOf(param)
   return (
     <ScreenGate can={canOpenPatternCases} ns="insurance-patterns" title={t('case.pageTitle')} subtitle={t('case.pageSubtitle')}>
       {/* Keyed by case (review 1): Previous cases, Back and Forward reuse this route for another case, which starts
           afresh — no mark drafted, dialog left open or map refusal of the last case is carried to it (a cached case
           renders at once, so a reused body would post the last case's draft or reason to this one). */}
-      <CaseBody key={caseId} caseId={caseId} />
+      {caseNumber === null ? <CaseNotFound /> : <CaseBody key={caseNumber} caseNumber={caseNumber} />}
     </ScreenGate>
   )
 }
 
-function CaseBody({ caseId }: { caseId: string }) {
+function BackToCases() {
   const { t } = useTranslation('insurance-patterns')
-  const read = useQuery({ queryKey: caseKey(caseId), queryFn: () => patternsApi.detail(caseId), retry: false })
-
-  const back = (
+  return (
     <Link to={PATTERNS_PATH} className="inline-flex items-center gap-1 self-start text-sm text-primary underline-offset-2 hover:underline" data-testid="pattern-case-back">
       <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
       {t('case.back')}
     </Link>
   )
+}
+
+/** An address that names no case number: said at once, and no door is asked. */
+function CaseNotFound() {
+  const { t } = useTranslation('insurance-patterns')
+  return (
+    <div className="flex flex-col gap-3" data-testid="pattern-case-not-found">
+      <BackToCases />
+      <ErrorBanner title={t('case.failed')} message={t('case.notFound')} className="p-3" />
+    </div>
+  )
+}
+
+function CaseBody({ caseNumber }: { caseNumber: string }) {
+  const { t } = useTranslation('insurance-patterns')
+  const read = useQuery({ queryKey: caseKey(caseNumber), queryFn: () => patternsApi.detail(caseNumber), retry: false })
+
+  const back = <BackToCases />
 
   const detail = read.data
   // The whole screen says the case could not be read only when nothing of it was ever read (review 7).
@@ -78,7 +96,7 @@ function CaseBody({ caseId }: { caseId: string }) {
     )
 
   return (
-    <div className="flex flex-col gap-3" data-testid="pattern-case" data-case={detail.caseId} data-status={detail.status}>
+    <div className="flex flex-col gap-3" data-testid="pattern-case" data-case={detail.caseNumber} data-status={detail.status}>
       {back}
       {/* A failed re-read (after a mark, a block) keeps the case as last read, says so, and offers to read it again. */}
       {read.isError && (
@@ -132,7 +150,7 @@ function CaseHeader({ detail }: { detail: PatternCaseDetail }) {
       <div className="flex flex-wrap items-center gap-2" data-testid="pattern-case-actions">
         {/* 923 · "Show patient": visible with canRevealPatient only; the reason dialog posts …/Reveal and holds the answer in
             its own state (never useQuery/useMutation, the URL, storage, a log or a toast). */}
-        <RevealPatient caseId={detail.caseId} caseNumber={detail.caseNumber} />
+        <RevealPatient caseNumber={detail.caseNumber} />
 
         {/* 924 · "Add to blocked-patient list": only when detail.status === 'confirmed' && canRevealPatient && canBlockPatient. */}
         <CaseBlockAction detail={detail} />
@@ -154,7 +172,7 @@ function ClearanceBanner({ clearance }: { clearance: NonNullable<PatternCaseDeta
             <bdi>{clearance.note}</bdi>
           </p>
         )}
-        <Link to={casePath(clearance.caseId)} className="w-fit text-primary underline-offset-2 hover:underline" data-testid="pattern-clearance-link">
+        <Link to={casePath(clearance.caseNumber)} className="w-fit text-primary underline-offset-2 hover:underline" data-testid="pattern-clearance-link">
           {t('case.clearance.open', { caseNumber: fsi(clearance.caseNumber) })}
         </Link>
       </div>
@@ -172,14 +190,13 @@ function CaseFacts({ detail }: { detail: PatternCaseDetail }) {
     ['span', <bdi>{units.duration(detail.spanMinutes)}</bdi>],
     ['longestLeg', detail.longestLegKm !== null && <bdi>{units.km(detail.longestLegKm)}</bdi>],
     ['shortestGap', detail.shortestGapMinutes !== null && <bdi>{units.duration(detail.shortestGapMinutes)}</bdi>],
-    ['value', <Ltr>{formatMoney(detail.totalValue)}</Ltr>],
     ['opened', <Ltr>{formatDateTime(detail.openedAt)}</Ltr>],
     ['lastDispense', <Ltr>{formatDateTime(detail.lastDispenseAt)}</Ltr>],
     ['closed', closed ? <Ltr>{closed}</Ltr> : <span className="text-muted-foreground">{t('case.facts.stillOpen')}</span>],
   ]
   return (
     <dl
-      className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-border/60 bg-card p-3 text-sm sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-9"
+      className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-border/60 bg-card p-3 text-sm sm:grid-cols-4 lg:grid-cols-4 2xl:grid-cols-8"
       aria-label={t('case.facts.label')}
       data-testid="pattern-facts"
     >
@@ -242,9 +259,9 @@ function PreviousCases({ detail }: { detail: PatternCaseDetail }) {
       ) : (
         <ul className="flex flex-col gap-1.5">
           {detail.previousCases.map((c) => (
-            <li key={c.caseId} className="flex flex-wrap items-center gap-2 text-sm" data-testid="pattern-previous-case">
+            <li key={c.caseNumber} className="flex flex-wrap items-center gap-2 text-sm" data-testid="pattern-previous-case">
               <Link
-                to={casePath(c.caseId)}
+                to={casePath(c.caseNumber)}
                 title={t('case.previous.open', { caseNumber: fsi(c.caseNumber) })}
                 className="font-medium text-primary underline-offset-2 hover:underline"
               >

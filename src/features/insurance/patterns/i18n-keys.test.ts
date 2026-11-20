@@ -95,7 +95,7 @@ describe('insurance-patterns — the keys the screens build exist', () => {
 })
 
 describe('insurance-patterns — a case with no legs says only what the legs need', () => {
-  // The server joins consecutive COUNTER dispenses into legs (4053, guessed), so no leg means fewer than two of them.
+  // The server joins consecutive COUNTER dispenses into legs (4053, each marked `counter`), so no leg means fewer than two of them.
   // "The counter dispenses were all at one store" named a cause the screen cannot know, and was often false (review 13).
   it('in English and Arabic, with no cause the screen cannot know', () => {
     expect(localeAt(en, 'case.route.legs.none')).toBe('No legs: fewer than two counter dispenses.')

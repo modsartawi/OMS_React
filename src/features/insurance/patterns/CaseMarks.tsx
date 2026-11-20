@@ -15,6 +15,8 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import { usePermissions } from '@/core/permissions'
+import { canMarkCase } from './access'
 import { CASE_READS_KEY, patternsApi, PATTERNS_KEY } from './api'
 import { draftAfterSave, MARK_STATUSES, markProblem, NOTE_MAX, type MarkDraft } from './mark'
 import { statusSev, statusText } from './words'
@@ -23,25 +25,27 @@ const EMPTY: MarkDraft = { status: '', note: '' }
 
 /**
  * A case's marks (oms 922; BackOffice spec 4050 story 19, door 4053 `POST …/Marks`): the team's marks, newest first, and
- * the form that sets watching, cleared, confirmed or closed with a note saying why. A saved mark re-reads the case (its
+ * the form that sets watching, cleared, confirmed or closed with a note saying why. The marks show to every viewer; the
+ * form only with the mark grant (`canMarkCase`, `InsurancePattern:02`) — fails closed with the permissions answer. A saved mark re-reads the case (its
  * status and marks) and the list. A refusal is the server's own sentence, and the draft stays.
  */
 export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
   const { t } = useTranslation('insurance-patterns')
   const queryClient = useQueryClient()
+  const canMark = canMarkCase(usePermissions())
   const [draft, setDraft] = useState<MarkDraft>(EMPTY)
   // A problem shows once the reviewer tried to save, not while they are still typing.
   const [tried, setTried] = useState(false)
   const problem = markProblem(draft)
 
   const save = useMutation({
-    mutationFn: (sent: MarkDraft) => patternsApi.mark(detail.caseId, sent),
+    mutationFn: (sent: MarkDraft) => patternsApi.mark(detail.caseNumber, sent),
     onSuccess: (_mark, sent) => {
       // Only what was sent is cleared: words typed while the mark was saving stay (review 8).
       setDraft((current) => draftAfterSave(current, sent))
       setTried(false)
       toast.success(t('case.marks.saved'), { description: fsi(detail.caseNumber) })
-      // The case reads by prefix: the screen's read is keyed by the id as the route spelled it (review 10).
+      // The case reads by prefix (review 10); the answer (the whole case) is not used — the re-read is the one truth.
       void queryClient.invalidateQueries({ queryKey: CASE_READS_KEY })
       void queryClient.invalidateQueries({ queryKey: [...PATTERNS_KEY, 'cases'] })
     },
@@ -72,43 +76,45 @@ export default function CaseMarks({ detail }: { detail: PatternCaseDetail }) {
         {t('case.marks.title')}
       </h3>
 
-      <form className="flex flex-col gap-2" onSubmit={submit} noValidate data-testid="pattern-mark-form">
-        <Field label={t('case.marks.status')} error={tried && problem === 'status' ? problemText : undefined}>
-          <Select
-            value={draft.status}
-            onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as MarkDraft['status'] }))}
-            data-testid="pattern-mark-status"
-          >
-            <option value="" disabled>
-              {t('case.marks.choose')}
-            </option>
-            {MARK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {t(`status.${s}`)}
+      {canMark && (
+        <form className="flex flex-col gap-2" onSubmit={submit} noValidate data-testid="pattern-mark-form">
+          <Field label={t('case.marks.status')} error={tried && problem === 'status' ? problemText : undefined}>
+            <Select
+              value={draft.status}
+              onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as MarkDraft['status'] }))}
+              data-testid="pattern-mark-status"
+            >
+              <option value="" disabled>
+                {t('case.marks.choose')}
               </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label={t('case.marks.note')} hint={t('case.marks.noteHint')} error={noteError}>
-          <Textarea
-            rows={3}
-            value={draft.note}
-            onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
-            className="w-full"
-            data-testid="pattern-mark-note"
-          />
-        </Field>
-        <div className="flex items-center justify-between gap-2">
-          <span className={`text-xs ${draft.note.trim().length > NOTE_MAX ? 'text-danger-800' : 'text-muted-foreground'}`} data-testid="pattern-mark-count">
-            <Ltr>{formatCount(draft.note.trim().length, NOTE_MAX)}</Ltr>
-          </span>
-          <Button type="submit" aria-disabled={problem !== null || save.isPending} title={problemText} data-testid="pattern-mark-save">
-            {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Save className="h-3.5 w-3.5" aria-hidden />}
-            {t(save.isPending ? 'case.marks.saving' : 'case.marks.save')}
-          </Button>
-        </div>
-        {save.isError && <ErrorBanner title={t('case.marks.failed')} message={apiErrorMessage(save.error, t('case.marks.failed'))} className="p-2" />}
-      </form>
+              {MARK_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {t(`status.${s}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('case.marks.note')} hint={t('case.marks.noteHint')} error={noteError}>
+            <Textarea
+              rows={3}
+              value={draft.note}
+              onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
+              className="w-full"
+              data-testid="pattern-mark-note"
+            />
+          </Field>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-xs ${draft.note.trim().length > NOTE_MAX ? 'text-danger-800' : 'text-muted-foreground'}`} data-testid="pattern-mark-count">
+              <Ltr>{formatCount(draft.note.trim().length, NOTE_MAX)}</Ltr>
+            </span>
+            <Button type="submit" aria-disabled={problem !== null || save.isPending} title={problemText} data-testid="pattern-mark-save">
+              {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Save className="h-3.5 w-3.5" aria-hidden />}
+              {t(save.isPending ? 'case.marks.saving' : 'case.marks.save')}
+            </Button>
+          </div>
+          {save.isError && <ErrorBanner title={t('case.marks.failed')} message={apiErrorMessage(save.error, t('case.marks.failed'))} className="p-2" />}
+        </form>
+      )}
 
       {marks.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-testid="pattern-marks-none">

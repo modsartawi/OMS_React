@@ -1,6 +1,6 @@
 // Insurance pattern manager — the drive's stubs for oms 924 (BackOffice spec 4050: 4055's settings and reveal log, 4056's
-// block). BackOffice 4055/4056 are NOT built: these envelopes are the contract the spec 4050 implementers agreed (see
-// src/core/models/insurance-pattern-manager.ts), to reconcile when the doors land. Chained AFTER 922's shared doors:
+// block). They serve the REAL shapes of BackOffice 4055/4056 as built (`InsuranceRules/Patterns/Settings`, `…/Reveals`,
+// `…/Cases/{caseNumber}/Block`), so a live walk and the drives agree. Chained AFTER 922's shared doors:
 //
 //   import { patternsState, patternsDoors, envelope } from './insurance-patterns-stubs.mjs'
 //   import { managerState, managerDoors } from './insurance-patterns-manager-stubs.mjs'
@@ -11,31 +11,31 @@
 // Every fixture is synthetic. A careless server is played on purpose: each reveal-log row and the block's answer carry
 // the PLANTED identity below, and the page must never show it (the reader keeps only the agreed fields).
 
-import { businessRefusal, CLEARED_CASE, envelope, generatedCase, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
+import { bareNotFound, businessRefusal, caseNotFound, CLEARED_CASE, envelope, generatedCase, TRAVEL_CASE } from './insurance-patterns-stubs.mjs'
 
 /** A synthetic identity (not a real person: the reserved-looking test range) that must never reach the screen. */
 export const PLANTED = Object.freeze({ patientKey: 'NI:1999999901', memberId: 'M-PLANTED-0042' })
 
 /** BackOffice 4051's defaults, in the order the server lists them. */
 export const DEFAULT_SETTINGS = Object.freeze([
-  { name: 'WindowDays', value: 7 },
-  { name: 'MinStores', value: 3 },
-  { name: 'MaxKmPerHour', value: 120 },
-  { name: 'MinTravelKm', value: 50 },
-  { name: 'OverlapShare', value: 0.25 },
-  { name: 'CaseQuietDays', value: 30 },
-  { name: 'LookbackDays', value: 90 },
+  { key: 'WindowDays', value: 7 },
+  { key: 'MinStores', value: 3 },
+  { key: 'MaxKmPerHour', value: 120 },
+  { key: 'MinTravelKm', value: 50 },
+  { key: 'OverlapShare', value: 0.25 },
+  { key: 'CaseQuietDays', value: 30 },
+  { key: 'LookbackDays', value: 90 },
 ])
 
-/** The server's own ranges (BackOffice 4055), sent beside each value. The page must not need them. */
+/** The server's own ranges and whole-number flags (BackOffice 4055), sent beside each value. The page must not need them. */
 const RANGES = Object.freeze({
-  WindowDays: [1, 30],
-  MinStores: [2, 10],
-  MaxKmPerHour: [30, 500],
-  MinTravelKm: [1, 500],
-  OverlapShare: [0.05, 0.9],
-  CaseQuietDays: [7, 90],
-  LookbackDays: [30, 365],
+  WindowDays: [1, 30, true],
+  MinStores: [2, 10, true],
+  MaxKmPerHour: [30, 500, false],
+  MinTravelKm: [1, 500, false],
+  OverlapShare: [0.05, 0.9, false],
+  CaseQuietDays: [7, 90, true],
+  LookbackDays: [30, 365, true],
 })
 
 const INVESTIGATORS = ['investigator1', 'investigator2', 'investigator3']
@@ -44,20 +44,27 @@ const REASONS = [
   'Matching the CCTV request from Buraydah Central.',
   'block',
   'المطالبة من الجهة الدافعة تتطلب التحقق من هوية المريض.',
-  'Confirming the same patient as on PC-000099 before the call to the payer.',
+  'Confirming the same patient as on case 99 before the call to the payer.',
 ]
 
 /**
- * The log's rows: 31 of them over November, so the log has two pages. Row 0 is the newest. Every row carries the
- * PLANTED identity, as a careless server might send it.
+ * The log's rows (`{ caseNumber, revealedBy, revealedAt, reason, fieldsShown }`): 31 of them over November, so the log
+ * has two pages. Row 0 is the newest. Every row carries the PLANTED identity, as a careless server might send it.
  */
 export function revealRows() {
   const cases = [TRAVEL_CASE, CLEARED_CASE, generatedCase(4), generatedCase(11)]
   return Array.from({ length: 31 }, (_, i) => {
     const c = cases[i % cases.length]
     const day = String(19 - Math.floor(i / 2)).padStart(2, '0')
-    const at = `2026-11-${day}T${String(17 - (i % 2) * 6).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`
-    return { caseId: c.caseId, caseNumber: c.caseNumber, by: INVESTIGATORS[i % INVESTIGATORS.length], at, reason: REASONS[i % REASONS.length], ...PLANTED }
+    const revealedAt = `2026-11-${day}T${String(17 - (i % 2) * 6).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`
+    return {
+      caseNumber: c.caseNumber,
+      revealedBy: INVESTIGATORS[i % INVESTIGATORS.length],
+      revealedAt,
+      reason: REASONS[i % REASONS.length],
+      fieldsShown: 'patientKey,memberId',
+      ...PLANTED,
+    }
   })
 }
 
@@ -69,10 +76,10 @@ export function revealRows() {
  */
 export function managerState(over = {}) {
   return {
-    settings: DEFAULT_SETTINGS.map((s) => ({ ...s })),
+    settings: DEFAULT_SETTINGS.map((s) => ({ ...s, updatedBy: 'system', updatedAt: '2026-10-01T00:00:00' })),
     changes: [
-      { name: 'WindowDays', oldValue: 5, newValue: 7, by: 'manager1', at: '2026-11-02T09:30:00' },
-      { name: 'MinStores', oldValue: 4, newValue: 3, by: 'manager2', at: '2026-11-10T14:05:00' },
+      { key: 'WindowDays', oldValue: 5, newValue: 7, changedBy: 'manager1', changedAt: '2026-11-02T09:30:00' },
+      { key: 'MinStores', oldValue: 4, newValue: 3, changedBy: 'manager2', changedAt: '2026-11-10T14:05:00' },
     ],
     reveals: revealRows(),
     settingsRefusal: null,
@@ -87,20 +94,34 @@ export function managerState(over = {}) {
 }
 
 const dayOf = (iso) => iso.slice(0, 10)
-const newestFirst = (a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)
+const newestFirst = (at) => (a, b) => (a[at] < b[at] ? 1 : a[at] > b[at] ? -1 : 0)
 /** "Now" on the stub's clock: after every fixture row (the newest is 2026-11-19 17:00), one minute a write. */
 const stamp = (mine) => `2026-11-19T18:${String(10 + mine.clock++).padStart(2, '0')}:00`
 
-/** The settings answer: each value with the server's own min and max (which the page never reads), and the log. */
+/** The settings answer as 4055 sends it: each value with its default, range and whole-number flag, and the log newest first. */
 const settingsAnswer = (mine) => ({
-  settings: mine.settings.map((s) => ({ ...s, min: RANGES[s.name]?.[0] ?? null, max: RANGES[s.name]?.[1] ?? null })),
-  changes: mine.changes,
+  settings: mine.settings.map((s) => ({
+    key: s.key,
+    value: s.value,
+    defaultValue: DEFAULT_SETTINGS.find((d) => d.key === s.key)?.value ?? null,
+    min: RANGES[s.key]?.[0] ?? null,
+    max: RANGES[s.key]?.[1] ?? null,
+    wholeNumber: RANGES[s.key]?.[2] ?? false,
+    updatedBy: s.updatedBy,
+    updatedAt: s.updatedAt,
+  })),
+  changes: [...mine.changes].sort(newestFirst('changedAt')),
 })
 
+/** The flat PUT body's entries as the server binds them: case-insensitively, onto the seven keys. */
+const sentSettings = (body) =>
+  Object.entries(body).map(([k, value]) => ({ key: Object.keys(RANGES).find((name) => name.toLowerCase() === k.toLowerCase()) ?? k, value }))
+
 /**
- * The manager doors (BackOffice 4055/4056, guessed): `GET`/`PUT Insurance/Patterns/Settings`, `GET …/Reveals`,
- * `POST …/Cases/{caseId}/Block`. Returns `(request) => fulfil argument | null`: null for a path it does not own.
- * `patterns` is 922's `patternsState` (the block reads the case's status from it).
+ * The manager doors (BackOffice 4055/4056 as built): `GET`/`PUT InsuranceRules/Patterns/Settings`,
+ * `GET …/Reveals?from&to&user&case&page&pageSize`, `POST …/Cases/{caseNumber}/Block`. Returns
+ * `(request) => fulfil argument | null`: null for a path it does not own. `patterns` is 922's `patternsState` (the block
+ * reads the case's status from it).
  */
 export function managerDoors(patterns, mine) {
   return (request) => {
@@ -109,60 +130,64 @@ export function managerDoors(patterns, mine) {
     const method = request.method()
     const csrf = request.headers()['x-web-client'] ?? null
 
-    if (path === 'Insurance/Patterns/Settings' && method === 'GET') {
+    if (path === 'InsuranceRules/Patterns/Settings' && method === 'GET') {
       mine.calls.settingsGet++
       return envelope(settingsAnswer(mine))
     }
-    if (path === 'Insurance/Patterns/Settings' && method === 'PUT') {
+    if (path === 'InsuranceRules/Patterns/Settings' && method === 'PUT') {
       const body = JSON.parse(request.postData() || '{}')
       mine.calls.settingsPut.push({ body, csrf })
       if (mine.settingsRefusal) return businessRefusal(mine.settingsRefusal.code, mine.settingsRefusal.message)
+      const sent = sentSettings(body)
       // The server's own check (4055): every value within its range, or the whole save is refused.
-      for (const { name, value } of body.settings ?? []) {
-        const range = RANGES[name]
+      for (const { key, value } of sent) {
+        const range = RANGES[key]
         if (!range || typeof value !== 'number' || value < range[0] || value > range[1])
-          return businessRefusal('SETTING_OUT_OF_RANGE', `${name} must be between ${range?.[0]} and ${range?.[1]}.`)
+          return businessRefusal('INSPATTERN_BAD_REQUEST', `${key} must be between ${range?.[0]} and ${range?.[1]}.`)
       }
-      for (const { name, value } of body.settings ?? []) {
-        const s = mine.settings.find((x) => x.name === name)
+      for (const { key, value } of sent) {
+        const s = mine.settings.find((x) => x.key === key)
         if (s.value === value) continue
-        mine.changes.push({ name, oldValue: s.value, newValue: value, by: mine.user, at: stamp(mine) })
-        s.value = value
+        const at = stamp(mine)
+        mine.changes.push({ key, oldValue: s.value, newValue: value, changedBy: mine.user, changedAt: at })
+        Object.assign(s, { value, updatedBy: mine.user, updatedAt: at })
       }
       if (mine.putAnswer === 'changed-only') {
-        const sent = new Set((body.settings ?? []).map((s) => s.name))
+        const keys = new Set(sent.map((s) => s.key))
         const answer = settingsAnswer(mine)
-        return envelope({ ...answer, settings: answer.settings.filter((s) => sent.has(s.name)) })
+        return envelope({ ...answer, settings: answer.settings.filter((s) => keys.has(s.key)) })
       }
       return envelope(settingsAnswer(mine))
     }
-    if (path === 'Insurance/Patterns/Reveals' && method === 'GET') {
+    if (path === 'InsuranceRules/Patterns/Reveals' && method === 'GET') {
       const q = Object.fromEntries(url.searchParams)
       mine.calls.reveals.push({ query: q, csrf })
       const rows = mine.reveals
-        .filter((r) => (!q.from || dayOf(r.at) >= q.from) && (!q.to || dayOf(r.at) <= q.to))
-        .filter((r) => !q.user || r.by.toLowerCase() === q.user.toLowerCase())
-        .filter((r) => !q.caseId || r.caseId === q.caseId)
-        .sort(newestFirst)
-      const skip = Number(q.skip ?? 0)
-      const take = Number(q.take ?? 25)
-      return envelope({ items: rows.slice(skip, skip + take), totalMatches: rows.length })
+        .filter((r) => (!q.from || dayOf(r.revealedAt) >= q.from) && (!q.to || dayOf(r.revealedAt) <= q.to))
+        .filter((r) => !q.user || r.revealedBy.toLowerCase() === q.user.toLowerCase())
+        .filter((r) => !q.case || r.caseNumber === Number(q.case))
+        .sort(newestFirst('revealedAt'))
+      const page = Math.max(1, Number(q.page ?? 1))
+      const pageSize = Math.max(1, Number(q.pageSize ?? 25))
+      return envelope({ page, pageSize, total: rows.length, rows: rows.slice((page - 1) * pageSize, page * pageSize) })
     }
-    const m = path.match(/^Insurance\/Patterns\/Cases\/([^/]+)\/Block$/)
+    const m = path.match(/^InsuranceRules\/Patterns\/Cases\/([^/]+)\/Block$/)
     if (m && method === 'POST') {
+      if (!/^\d+$/.test(m[1])) return bareNotFound()
+      const n = Number(m[1])
       const body = JSON.parse(request.postData() || '{}')
-      mine.calls.blocks.push({ caseId: m[1], body, csrf })
+      mine.calls.blocks.push({ caseNumber: n, body, csrf })
       if (mine.blockAnswer) return mine.blockAnswer
       if (mine.blockRefusal) return businessRefusal(mine.blockRefusal.code, mine.blockRefusal.message)
-      const d = patterns.details.get(m[1])
-      if (!d) return businessRefusal('CASE_NOT_FOUND', 'No case has this id.', 404)
-      if (d.status !== 'confirmed') return businessRefusal('CASE_NOT_CONFIRMED', 'Only a confirmed case can add its patient to the blocked-patient list.')
-      if (!['abuse', 'fraud'].includes(body.reasonKind)) return businessRefusal('REASON_KIND_REQUIRED', 'Choose abuse or fraud.')
+      const d = patterns.details.get(n)
+      if (!d) return caseNotFound(n)
+      if (d.status !== 'confirmed') return businessRefusal('INSPATTERN_BAD_REQUEST', 'Only a confirmed case can add its patient to the blocked-patient list.')
+      if (!['abuse', 'fraud'].includes(body.reasonKind)) return businessRefusal('INSPATTERN_BAD_REQUEST', 'Choose abuse or fraud.')
       const at = stamp(mine)
       // 4056: the block uses the identity, so it writes a reveal-log row with the reason "block".
-      mine.reveals.push({ caseId: d.caseId, caseNumber: d.caseNumber, by: mine.user, at, reason: 'block', ...PLANTED })
+      mine.reveals.push({ caseNumber: d.caseNumber, revealedBy: mine.user, revealedAt: at, reason: 'block', fieldsShown: 'patientKey', ...PLANTED })
       // The answer echoes the list entry it made — the patient key with it. The page must keep none of it.
-      return envelope({ key: PLANTED.patientKey, reasonKind: body.reasonKind, payer: body.payer ?? '', reference: `Case ${d.caseNumber}`, startsOn: body.startsOn ?? dayOf(at), expiresOn: body.endsOn ?? '' })
+      return envelope({ key: PLANTED.patientKey, reasonKind: body.reasonKind, payer: body.payer ?? '', reference: `Case ${d.caseNumber}`, startsOn: body.startsOn ?? dayOf(at), expiresOn: body.expiresOn ?? '' })
     }
     return null
   }

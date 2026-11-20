@@ -1,6 +1,6 @@
 /**
  * The investigator's reveal of a case's patient (oms 923; BackOffice spec 4050 story 15, door 4053
- * `POST …/Cases/{caseId}/Reveal`). Pure: the dialog reads its problem from here, and the door sends only a body this
+ * `POST …/Cases/{caseNumber}/Reveal`). Pure: the dialog reads its problem from here, and the door sends only a body this
  * module made.
  *
  * 🔒 What the door answers (the patient key and the member id) is NOT a model and does not live in

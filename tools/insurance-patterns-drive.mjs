@@ -1,7 +1,8 @@
 // Insurance pattern cases drive (oms 922; BackOffice spec 4050) — drives the REAL app in Chromium against MOCKED
-// `Insurance/Patterns/*` envelopes (`./insurance-patterns-stubs.mjs`: BackOffice 4053 is not built, so every shape is the
-// guessed contract) and a stand-in for Google's Maps JavaScript (no key, no billed load, no network), so the real
-// adapter (`src/core/map/google-engine.ts`) is watched drawing the route's lines.
+// `InsuranceRules/Patterns/*` envelopes (`./insurance-patterns-stubs.mjs`, serving BackOffice 4053's shapes as built: a
+// case keyed by its INT case number) and a stand-in for Google's Maps JavaScript (no key, no billed load, no network), so
+// the real adapter (`src/core/map/google-engine.ts`) is watched drawing the route's lines. BackOffice 4053 sends no
+// `maps` part on a case, so the map sections plant one (`patternsState({ maps })`); section 9 is the real server's case.
 //
 // Proves, on the running app: no grant → no nav entry and "no access"; the list's filters (in the URL), paging and the
 // server's order; the case screen's route (legs in time order, travel in the warning colour, a delivery a point with no
@@ -54,7 +55,7 @@ async function run() {
   }
 
   /** A page signed in with `keys`, the pattern doors stubbed from `state`, Google stood in when the case has a key. */
-  const open = async (state, { keys = [KEYS.analyst], dir = 'ltr' } = {}) => {
+  const open = async (state, { keys = [KEYS.analyst, KEYS.marker], dir = 'ltr' } = {}) => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
     page.setDefaultNavigationTimeout(90000)
     page.on('pageerror', (e) => errors.push(String(e)))
@@ -97,7 +98,7 @@ async function run() {
   // ── 1. No grant: no nav entry, the routes say "no access", and no door is asked ─────────────────────────────────
   for (const [label, keys] of [
     ['no key at all', []],
-    ['the investigator and manager keys without the analyst’s', [KEYS.investigator, KEYS.manager, KEYS.block]],
+    ['the mark, reveal and manage keys without the view key', [KEYS.marker, KEYS.investigator, KEYS.manager, KEYS.block]],
   ]) {
     const state = patternsState()
     const page = await open(state, { keys })
@@ -105,7 +106,7 @@ async function run() {
     await page.waitForSelector('text=No access to pattern cases')
     check(`no grant (${label}): the list shows "no access"`, strip(await page.textContent('[role=alert]')).includes('No access to pattern cases'))
     check(`no grant (${label}): no nav entry`, (await page.locator('a[href="/insurance/patterns"]').count()) === 0)
-    await page.goto(CASE(TRAVEL_CASE.caseId))
+    await page.goto(CASE(TRAVEL_CASE.caseNumber))
     await page.waitForSelector('text=No access to pattern cases')
     check(`no grant (${label}): a case's route shows "no access" too`, true)
     check(`no grant (${label}): no pattern door was asked`, state.calls.list.length === 0 && state.calls.detail.length === 0, JSON.stringify(state.calls))
@@ -118,7 +119,7 @@ async function run() {
   await page.goto(LIST)
   await page.waitForSelector('[data-testid=patterns-table]')
   check('the grant: the nav carries the Pattern cases leaf', (await page.locator('a[href="/insurance/patterns"]').count()) > 0)
-  check('the opening read asks page 1 of 25 and nothing else (no order: the server orders)', same(state.calls.list[0].query, { skip: '0', take: '25' }), JSON.stringify(state.calls.list[0]?.query))
+  check('the opening read asks page 1 of 25 and nothing else (no order: the server orders)', same(state.calls.list[0].query, { page: '1', pageSize: '25' }), JSON.stringify(state.calls.list[0]?.query))
   check('…with the X-Web-Client header', !!state.calls.list[0].csrf)
   check('the caption counts every match', strip(await page.textContent('[data-testid=patterns-count]')) === '62 cases', strip(await page.textContent('[data-testid=patterns-caption]')))
   let ids = await rowIds(page)
@@ -128,31 +129,31 @@ async function run() {
   check('the pager reads page 1 of 3', strip(await page.textContent('nav[aria-label="Result pages"]')).includes('Page 1 of 3'))
   const firstPage = ids
   await page.click('nav[aria-label="Result pages"] button:has-text("Next")')
-  await waitUntil(() => lastList(state).skip === '25')
+  await waitUntil(() => lastList(state).page === '2')
   await page.waitForFunction(() => new URL(location.href).searchParams.get('page') === '2')
   await page.waitForFunction((first) => document.querySelector('[data-testid=patterns-row]')?.getAttribute('data-case') !== first, firstPage[0])
   ids = await rowIds(page)
-  check('Next asks skip=25 and writes page=2 to the address', lastList(state).skip === '25' && ids.length === 25 && !ids.includes(firstPage[0]))
+  check('Next asks page=2 and writes page=2 to the address', lastList(state).page === '2' && ids.length === 25 && !ids.includes(firstPage[0]))
 
   // ── 3. The filters: each reaches the door under its name, back on page 1, kept in the address ───────────────────
   await page.selectOption('[data-testid=patterns-filter-signal]', 'travel')
   await waitUntil(() => lastList(state).signal === 'travel')
-  check('a signal is sent as signal=travel, back on page 1', lastList(state).signal === 'travel' && lastList(state).skip === '0', JSON.stringify(lastList(state)))
+  check('a signal is sent as signal=travel, back on page 1', lastList(state).signal === 'travel' && lastList(state).page === '1', JSON.stringify(lastList(state)))
   await page.waitForFunction(() => new URL(location.href).search === '?signal=travel')
   check('…and the address keeps it (and drops the page)', true)
   await page.selectOption('[data-testid=patterns-filter-status]', 'open')
   await waitUntil(() => lastList(state).status === 'open')
   await page.selectOption('[data-testid=patterns-filter-severity]', 'action')
   await waitUntil(() => lastList(state).severity === 'action')
-  check('status and severity are sent with it', same(lastList(state), { signal: 'travel', status: 'open', severity: 'action', skip: '0', take: '25' }), JSON.stringify(lastList(state)))
+  check('status and severity are sent with it', same(lastList(state), { signal: 'travel', status: 'open', severity: 'action', page: '1', pageSize: '25' }), JSON.stringify(lastList(state)))
   const statuses = await page.locator('[data-testid=patterns-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-status')))
   check('…and the rows are the open ones', statuses.length > 0 && statuses.every((s) => s === 'open'), JSON.stringify(statuses))
   await page.fill('[data-testid=patterns-filter-store]', '4090')
-  await waitUntil(() => lastList(state).storeCode === '4090')
-  check('a store typed is sent as storeCode once typing stops', lastList(state).storeCode === '4090')
+  await waitUntil(() => lastList(state).store === '4090')
+  check('a store typed is sent as store once typing stops', lastList(state).store === '4090')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=patterns-row]').length === 1)
   const row = strip(await page.textContent('[data-testid=patterns-row]'))
-  check('the one case touching 4090 reads number, stores, dispenses, span, longest leg, gap, signals, score, status, value', ['PC-000123', '1001 · Olaya', '2040 · Buraydah Central', '4090 · Qurtubah (new)', '2 d 10 h', '637 km', '1 h 20 min', 'Impossible travel', 'Pharmacy hopping', 'Action', 'Open', '1840.50'].every((w) => row.includes(w)), row)
+  check('the one case touching 4090 reads number, stores, dispenses, span, longest leg, gap, signals, score, status — and no value (the history carries no money)', ['123', '1001 · Olaya', '2040 · Buraydah Central', '4090 · Qurtubah (new)', '2 d 10 h', '637 km', '1 h 20 min', 'Impossible travel', 'Pharmacy hopping', 'Action', 'Open'].every((w) => row.includes(w)) && !row.includes('SAR'), row)
   const before = state.calls.list.length
   await page.fill('[data-testid=patterns-filter-from]', '2026-11-19')
   await page.fill('[data-testid=patterns-filter-to]', '2026-11-01')
@@ -165,20 +166,20 @@ async function run() {
   check('a period is sent as from and to', lastList(state).from === '2026-11-01' && lastList(state).to === '2026-11-30', JSON.stringify(lastList(state)))
   await page.click('[data-testid=patterns-filter-clear]')
   await page.waitForFunction(() => new URL(location.href).search === '')
-  await waitUntil(() => same(lastList(state), { skip: '0', take: '25' }))
-  check('Clear filters empties the address and asks with no filter', same(lastList(state), { skip: '0', take: '25' }) && (await page.inputValue('[data-testid=patterns-filter-store]')) === '')
+  await waitUntil(() => same(lastList(state), { page: '1', pageSize: '25' }))
+  check('Clear filters empties the address and asks with no filter', same(lastList(state), { page: '1', pageSize: '25' }) && (await page.inputValue('[data-testid=patterns-filter-store]')) === '')
   await page.goto(LIST + '?signal=overlap&status=cleared&page=2')
   await waitUntil(() => lastList(state).signal === 'overlap')
   // Asked as pasted (the page falls back once the answer is in: review 5, below), so any read of it counts.
-  const pasted = { signal: 'overlap', status: 'cleared', skip: '25', take: '25' }
+  const pasted = { signal: 'overlap', status: 'cleared', page: '2', pageSize: '25' }
   check('a pasted address is read back as filters and page', state.calls.list.some((c) => same(c.query, pasted)), JSON.stringify(lastList(state)))
   // Review 5: nine cases match, so page 2 is empty. It falls back to the last page (page 1), never "no case matches"
   // beside a count of 9 with no pager to leave by.
   const clamped = await settles(page.waitForFunction(() => !new URL(location.href).searchParams.has('page'), null, { timeout: 8000 }))
-  await waitUntil(() => lastList(state).skip === '0')
+  await waitUntil(() => lastList(state).page === '1')
   check(
     'an emptied page past the first falls back to the last page (page 1): its rows, no "no case matches"',
-    clamped && same(lastList(state), { signal: 'overlap', status: 'cleared', skip: '0', take: '25' }) && (await page.locator('[data-testid=patterns-row]').count()) === 9 && (await page.locator('[data-testid=patterns-empty]').count()) === 0,
+    clamped && same(lastList(state), { signal: 'overlap', status: 'cleared', page: '1', pageSize: '25' }) && (await page.locator('[data-testid=patterns-row]').count()) === 9 && (await page.locator('[data-testid=patterns-empty]').count()) === 0,
     JSON.stringify({ clamped, last: lastList(state), url: page.url() }),
   )
   await page.close()
@@ -188,14 +189,14 @@ async function run() {
   page = await open(state)
   await page.goto(LIST + '?store=4090')
   await page.click('[data-testid=patterns-row-case]')
-  await page.waitForURL(`**/insurance/patterns/${TRAVEL_CASE.caseId}`)
+  await page.waitForURL(`**/insurance/patterns/${TRAVEL_CASE.caseNumber}`)
   await page.waitForSelector('[data-testid=pattern-case]')
-  check('a case number opens its screen at /insurance/patterns/:caseId', state.calls.detail.at(-1) === TRAVEL_CASE.caseId)
+  check('a case number opens its screen at /insurance/patterns/:caseNumber', state.calls.detail.at(-1) === TRAVEL_CASE.caseNumber)
   const header = strip(await page.textContent('[data-testid=pattern-case-header]'))
-  check('the header: case number, status, severity, score, signals', ['Case PC-000123', 'Open', 'Action', 'Score 4', 'Impossible travel', 'Pharmacy hopping'].every((w) => header.includes(w)), header)
+  check('the header: case number, status, severity, score, signals', ['Case 123', 'Open', 'Action', 'Score 4', 'Impossible travel', 'Pharmacy hopping'].every((w) => header.includes(w)), header)
   check('the header keeps a place for the case’s actions (923, 924), holding nothing yet', (await page.locator('[data-testid=pattern-case-actions]').count()) === 1 && (await page.locator('[data-testid=pattern-case-actions] > *').count()) === 0)
   const clearance = strip(await page.textContent('[data-testid=pattern-clearance]'))
-  check('a previous clearance of the same patient shows at the top: who, when, why, and a link', clearance.includes('This patient was cleared before') && clearance.includes('Case PC-000099 was cleared by analyst2 on 2026-10-01 12:00.') && clearance.includes('Chronic patient who travels for work'), clearance)
+  check('a previous clearance of the same patient shows at the top: who, when, why, and a link', clearance.includes('This patient was cleared before') && clearance.includes('Case 99 was cleared by analyst2 on 2026-10-01 12:00.') && clearance.includes('Chronic patient who travels for work'), clearance)
   await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
   check('the map draws (the stand-in reports tiles loaded and idle)', true)
   const lines = await page.evaluate(() => window.__googleStandIn.polylines)
@@ -223,7 +224,7 @@ async function run() {
   check('…with store, time, item, quantity, days’ supply, payer, channel, pharmacist', ['1001 · Olaya', '2026-11-10 09:15', '100200 · Insulin glargine 100 IU/ml', '2', '30', 'BUPA', 'Counter', 'phx1001'].every((w) => firstDispense.includes(w)), firstDispense)
   check('…the delivery marked as a point, not a leg', strip(await page.textContent('[data-testid=pattern-dispense][data-counter=false]')).includes('Delivery: a point, not a leg'))
   check('…an unknown days’ supply says so', strip(await timeline.nth(3).textContent()).includes('Not known'))
-  check('the previous cases are linked', strip(await page.textContent('[data-testid=pattern-previous]')).includes('PC-000099') && (await page.locator(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseId}"]`).count()) === 1)
+  check('the previous cases are linked', strip(await page.textContent('[data-testid=pattern-previous]')).includes('99') && (await page.locator(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseNumber}"]`).count()) === 1)
 
   // ── 5. A mark round-trips ───────────────────────────────────────────────────────────────────────────────────────
   const reads = state.calls.detail.length
@@ -272,18 +273,18 @@ async function run() {
   check('back on the list, the case reads its new status', (await page.getAttribute('[data-testid=patterns-row]', 'data-status')) === 'watching')
 
   // ── 8. The previous clearance links to the earlier case ─────────────────────────────────────────────────────────
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.click('[data-testid=pattern-clearance-link]')
-  await page.waitForURL(`**/insurance/patterns/${CLEARED_CASE.caseId}`)
-  await page.waitForFunction(() => document.querySelector('[data-testid=pattern-case-number]')?.textContent?.includes('PC-000099'))
+  await page.waitForURL(`**/insurance/patterns/${CLEARED_CASE.caseNumber}`)
+  await page.waitForFunction(() => document.querySelector('[data-testid=pattern-case-number]')?.textContent?.includes('99'))
   check('the clearance links to the earlier case, which reads Cleared and has no banner of its own', strip(await page.textContent('[data-testid=pattern-case-header]')).includes('Cleared') && (await page.locator('[data-testid=pattern-clearance]').count()) === 0)
   await page.close()
 
-  // ── 9. No `maps` part: the map cannot draw, the legs are a table, Google is never asked ─────────────────────────
+  // ── 9. No `maps` part (BackOffice 4053 as built): the map cannot draw, the legs are a table, Google is never asked ─
   googleAsked.length = 0
   state = patternsState()
   page = await open(state)
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.waitForSelector('[data-testid=pattern-route-cannot-draw]')
   const legRows = page.locator('[data-testid=pattern-leg]')
   check('with no key the map says it cannot draw, and the legs show as a table', (await legRows.count()) === 4)
@@ -291,9 +292,16 @@ async function run() {
   check('…numbered in time order as on the map, with km, time and speed', legText[0].startsWith('1') && legText[0].includes('1001 · Olaya') && legText[0].includes('2040 · Buraydah Central') && legText[0].includes('312 km') && legText[0].includes('1 h 40 min') && legText[0].includes('187 km/h'), legText[0])
   check('…the travel leg marked, the leg to the store without coordinates marked not on the map', legText[0].includes('Impossible travel') && legText[3].includes('Not on the map') && legText[3].includes('4090 · Qurtubah (new)'), JSON.stringify(legText))
   check('…and Google is never asked without a key', googleAsked.length === 0, googleAsked.join(' '))
+  const detailsBefore = state.calls.detail.length
   await page.goto(CASE('01JNOSUCHCASE'))
+  await page.waitForSelector('[data-testid=pattern-case-not-found]')
+  check(
+    'an address naming no case number (the server’s route is {number:int}) says the case is not found, and asks no door',
+    strip(await page.textContent('[role=alert]')).includes('No case has this number.') && state.calls.detail.length === detailsBefore,
+  )
+  await page.goto(CASE('999999'))
   await page.waitForSelector('text=The case could not be read')
-  check('an unknown case shows the server’s sentence', strip(await page.textContent('[role=alert]')).includes('No case has this id.'))
+  check('an unknown case number shows the server’s sentence', strip(await page.textContent('[role=alert]')).includes('No pattern case has the number 999999.'))
   await page.close()
 
   // ── 10. RTL, in Arabic words ────────────────────────────────────────────────────────────────────────────────────
@@ -302,14 +310,14 @@ async function run() {
   const toArabic = (p) => p.evaluate(async () => (await import('/src/core/i18n.ts')).default.changeLanguage('ar'))
   state = patternsState({ maps: MAPS })
   page = await open(state, { dir: 'rtl' })
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
   await toArabic(page)
   await page.waitForSelector('text=المسار')
   await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
   check('RTL: the document is dir=rtl', (await page.getAttribute('html', 'dir')) === 'rtl')
   const body = strip(await page.textContent('[data-testid=pattern-case]'))
-  check('RTL: the case reads in Arabic, no raw key on screen', body.includes('الحالة PC-000123') && body.includes('الخط الزمني') && body.includes('العلامات') && !/case\.(route|marks|timeline|facts)\.|status\.|signal\./.test(body), body.slice(0, 300))
+  check('RTL: the case reads in Arabic, no raw key on screen', body.includes('الحالة 123') && body.includes('الخط الزمني') && body.includes('العلامات') && !/case\.(route|marks|timeline|facts)\.|status\.|signal\./.test(body), body.slice(0, 300))
   const facts = await page.locator('[data-testid=pattern-facts] [data-fact]').evaluateAll((els) => els.slice(0, 3).map((e) => e.getBoundingClientRect().x))
   check('RTL: the facts read right to left', facts[0] > facts[1] && facts[1] > facts[2], JSON.stringify(facts))
   const routeBox = await page.locator('[data-testid=pattern-route]').boundingBox()
@@ -337,7 +345,7 @@ async function run() {
   // ── 11. Review 9 and 4: beside a drawn map, the leg it cannot draw; two nearby stores stay two points ─────────────
   state = patternsState({ maps: MAPS })
   page = await open(state)
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
   const offMap = (await page.locator('[data-testid=pattern-leg]').allTextContents()).map(strip)
   check(
@@ -346,21 +354,21 @@ async function run() {
     JSON.stringify(offMap),
   )
   // Olaya and Malaz are 5.6 km apart: at the fitted zoom they would join under one opaque group disc, over their legs.
-  await page.click(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseId}"]`)
-  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.click(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseNumber}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseNumber}"]`)
   await page.waitForSelector('[data-map-state=drawn]', { timeout: 20000 })
   const marks = await page.locator('[data-map-markers] [data-feature]').evaluateAll((els) => els.map((e) => e.getAttribute('data-feature')))
   check('a route never joins its stores into a group: two stores 5.6 km apart are two points, their legs readable', same(marks, ['point', 'point']), JSON.stringify(marks))
   check('…and the two legs between them read on the map', same((await page.locator('[data-map-line]').allTextContents()).map(strip), ['1 · 5.6 km · 1 d 20 h\n2 · 5.6 km · 2 d 13 h']))
 
   // ── 12. Review 1: another case starts afresh — nothing typed on one case is carried to the next ─────────────────
-  // PC-000099 is cached now. Back to PC-000123, a draft typed, then Forward: the page is reused for the cached case.
+  // Case 99 is cached now. Back to case 123, a draft typed, then Forward: the page is reused for the cached case.
   await page.goBack()
-  await page.waitForSelector(`[data-testid=pattern-case][data-case="${TRAVEL_CASE.caseId}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${TRAVEL_CASE.caseNumber}"]`)
   await page.selectOption('[data-testid=pattern-mark-status]', 'confirmed')
-  await page.fill('[data-testid=pattern-mark-note]', 'A draft typed on PC-000123.')
+  await page.fill('[data-testid=pattern-mark-note]', 'A draft typed on case 123.')
   await page.goForward()
-  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseNumber}"]`)
   check(
     'another case starts afresh: the mark drafted on the last case is not carried to it',
     (await page.inputValue('[data-testid=pattern-mark-note]')) === '' && (await page.inputValue('[data-testid=pattern-mark-status]')) === '',
@@ -368,10 +376,10 @@ async function run() {
   )
   await page.close()
 
-  // ── 13. Review 10: a case opened at an address with its id padded is read again after a mark ─────────────────────
+  // ── 13. Review 10: a case opened at an address with its number padded is read again after a mark ─────────────────
   state = patternsState()
   page = await open(state)
-  await page.goto(`${LIST}/%20${TRAVEL_CASE.caseId}`)
+  await page.goto(`${LIST}/%20${TRAVEL_CASE.caseNumber}`)
   await page.waitForSelector('[data-testid=pattern-case][data-status=open]')
   let readsBefore = state.calls.detail.length
   await page.selectOption('[data-testid=pattern-mark-status]', 'watching')
@@ -386,7 +394,7 @@ async function run() {
   special.length = 0
   state = patternsState()
   page = await open(state)
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.waitForSelector('[data-testid=pattern-case][data-status=open]')
   const markPost = once((r) => r.method() === 'POST' && /\/Marks$/.test(apiPath(r)), { held: true })
   await page.selectOption('[data-testid=pattern-mark-status]', 'confirmed')
@@ -404,7 +412,7 @@ async function run() {
   check('a note typed while a mark was saving is kept, not wiped by the save', (await noteNow()) === later, String(await noteNow()))
 
   // The case's re-read after the next mark fails: the case stays on screen, as last read.
-  const failedRead = once((r) => r.method() === 'GET' && /^Insurance\/Patterns\/Cases\/[^/]+$/.test(apiPath(r)), {
+  const failedRead = once((r) => r.method() === 'GET' && /^InsuranceRules\/Patterns\/Cases\/[^/]+$/.test(apiPath(r)), {
     answer: businessRefusal('CASES_BUSY', 'The case store is busy; try again in a minute.', 503),
   })
   await page.selectOption('[data-testid=pattern-mark-status]', 'watching')

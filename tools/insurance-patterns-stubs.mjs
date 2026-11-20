@@ -1,7 +1,8 @@
-// Insurance pattern cases — the drives' shared stubs (oms 922–924; BackOffice spec 4050). BackOffice 4053/4055/4056 are
-// NOT built: these envelopes are the contract the spec 4050 implementers agreed (see
-// src/core/models/insurance-patterns.ts), to reconcile when the doors land. 923 and 924 import this module and add
-// their own doors beside `patternsDoors` (chain them: the first that answers wins).
+// Insurance pattern cases — the drives' shared stubs (oms 922–924; BackOffice spec 4050). They serve the REAL shapes of
+// BackOffice 4053/4055/4056 as built (routes `InsuranceRules/Patterns/...`, a case keyed by its INT case number; the C#
+// views in `Sartawi.Retail.Data/Modules/InsuranceRules/Patterns/InsurancePatternCaseViews.cs`, camelCased), so a live
+// walk and the drives agree. 923 and 924 import this module and add their own doors beside `patternsDoors` (chain them:
+// the first that answers wins).
 //
 //   import { patternsState, patternsDoors, envelope, KEYS, standInGoogle } from './insurance-patterns-stubs.mjs'
 //   const state = patternsState({ maps: { key: 'drive-stand-in-key' } })
@@ -10,14 +11,16 @@
 //
 // Every fixture is synthetic: no patient key, member id or policy exists in any of them, as in the models.
 
-/** The .NET default the server sends for an unset time. */
-export const NEVER = '0001-01-01T00:00:00'
-
-/** The guessed grant keys (BackOffice 4053; `src/core/permissions.ts`). */
+/** The grant keys as BackOffice 4053/4055 seed them (`src/core/permissions.ts`): CONTROLLER `InsurancePattern`. */
 export const KEYS = Object.freeze({
+  /** 03 view: the list and a case. */
   analyst: 'InsurancePattern:03',
+  /** 02 mark: the mark form. */
+  marker: 'InsurancePattern:02',
+  /** 06 reveal. */
   investigator: 'InsurancePattern:06',
-  manager: 'InsurancePattern:02',
+  /** 01 manage: the settings and the reveal log. */
+  manager: 'InsurancePattern:01',
   block: 'InsurancePatientBlock:02',
 })
 
@@ -32,6 +35,12 @@ export const envelope = (data, { status = 200, success = true, message = '', err
 export const businessRefusal = (code, message, status = 400) =>
   envelope(null, { status, success: false, message, errors: [{ errorCode: code, errorMessage: message }] })
 
+/** What ASP.NET answers a path its `{number:int}` route does not match: a bare 404, no envelope. */
+export const bareNotFound = () => ({ status: 404, contentType: 'text/plain', body: '' })
+
+/** BackOffice 4053's refusal for a case number no case has. */
+export const caseNotFound = (n) => businessRefusal('INSPATTERN_NOT_FOUND', `No pattern case has the number ${n}.`, 404)
+
 /** The stores the fixtures touch. 4090 has no coordinates: it is listed under the map, never drawn. */
 export const STORES = Object.freeze({
   1001: { storeCode: '1001', storeName: 'Olaya', lat: 24.6943, lon: 46.6853 },
@@ -44,13 +53,15 @@ export const STORES = Object.freeze({
   4090: { storeCode: '4090', storeName: 'Qurtubah (new)', lat: null, lon: null },
 })
 
-const store = (code) => ({ storeCode: code, storeName: STORES[code].storeName })
+/** A store on the wire (`InsurancePatternStoreView`). */
+const wireStore = (code) => ({ storeCode: code, storeName: STORES[code].storeName, latitude: STORES[code].lat, longitude: STORES[code].lon })
 
-const dispense = (eventId, code, at, { counter = true, item = ['100200', 'Insulin glargine 100 IU/ml'], quantity = 1, daysSupply = 30, payer = 'BUPA', pharmacist = 'phx' + code } = {}) => ({
-  eventId,
+/** A dispense on the wire (`InsurancePatternDispenseView`): `seq`, `eventTime`, `isCounter`. */
+const dispense = (seq, code, eventTime, { counter = true, item = ['100200', 'Insulin glargine 100 IU/ml'], quantity = 1, daysSupply = 30, payer = 'BUPA', pharmacist = 'phx' + code, signals = [] } = {}) => ({
+  seq,
   storeCode: code,
   storeName: STORES[code].storeName,
-  at,
+  eventTime,
   itemNumber: item[0],
   itemDescription: item[1],
   sfdaCode: '6281100' + item[0].slice(-2),
@@ -58,104 +69,106 @@ const dispense = (eventId, code, at, { counter = true, item = ['100200', 'Insuli
   daysSupply,
   payer,
   channel: counter ? 'Counter' : 'Delivery',
-  counter,
+  isCounter: counter,
   pharmacist,
+  signals,
+})
+
+/** A leg on the wire (`InsurancePatternLegView`): between two consecutive COUNTER dispenses, so always `counter: true`. */
+const leg = (dispenses, fromSeq, toSeq, km, minutes, kmPerHour, travel) => ({
+  fromSeq,
+  toSeq,
+  fromStore: dispenses.find((d) => d.seq === fromSeq).storeCode,
+  toStore: dispenses.find((d) => d.seq === toSeq).storeCode,
+  km,
+  minutes,
+  kmPerHour,
+  counter: true,
+  travel,
 })
 
 const SCORE = { travel: 3, overlap: 2, hopping: 1 }
 const scoreOf = (signals) => signals.reduce((s, x) => s + SCORE[x], 0)
 
+const TRAVEL_DISPENSES = [
+  dispense(1, '1001', '2026-11-10T09:15:00', { quantity: 2 }),
+  dispense(2, '2040', '2026-11-10T10:55:00', { signals: ['travel'] }),
+  dispense(3, '3050', '2026-11-11T12:00:00', { counter: false, payer: 'TAWUNIYA' }),
+  dispense(4, '5060', '2026-11-11T15:30:00', { daysSupply: null }),
+  dispense(5, '1001', '2026-11-12T18:40:00', { item: ['100300', 'Pregabalin 150 mg'] }),
+  dispense(6, '4090', '2026-11-12T20:00:00'),
+]
+
 /**
- * The drive's main case: Olaya → Buraydah (312 km in 1 h 40 min: TRAVEL) → a DELIVERY from Dammam → Hail → Olaya → the
- * store with no coordinates. The server's legs arrive out of time order; the patient was cleared on PC-000099 before.
+ * The drive's main case, number 123: Olaya → Buraydah (312 km in 1 h 40 min: TRAVEL) → a DELIVERY from Dammam → Hail →
+ * Olaya → the store with no coordinates. The server's legs arrive out of time order; the patient was cleared on case 99
+ * before (the client derives the banner from that previous case's clearing mark).
+ *
+ * Internal fixture fields: `stores` are store codes, `signals` the kinds, `previousCases` case numbers; `rowOf` and
+ * `detailOf` turn a fixture into the wire's shapes.
  */
 export const TRAVEL_CASE = Object.freeze({
-  caseId: '01JD3K7Q2WPC0123',
-  caseNumber: 'PC-000123',
-  stores: ['1001', '2040', '3050', '5060', '4090'].map((c) => ({ ...STORES[c] })),
+  caseNumber: 123,
+  stores: ['1001', '2040', '3050', '5060', '4090'],
   dispenseCount: 6,
   openedAt: '2026-11-10T09:15:00',
   lastDispenseAt: '2026-11-12T20:00:00',
-  closedAt: NEVER,
-  spanMinutes: 3525,
+  closedAt: null,
+  spanHours: 58,
   longestLegKm: 637.2,
   shortestGapMinutes: 80,
   signals: ['travel', 'hopping'],
   score: 4,
   severity: 'action',
   status: 'open',
-  totalValue: 1840.5,
-  dispenses: [
-    dispense(7001, '1001', '2026-11-10T09:15:00', { quantity: 2 }),
-    dispense(7002, '2040', '2026-11-10T10:55:00'),
-    dispense(7003, '3050', '2026-11-11T12:00:00', { counter: false, payer: 'TAWUNIYA' }),
-    dispense(7004, '5060', '2026-11-11T15:30:00', { daysSupply: null }),
-    dispense(7005, '1001', '2026-11-12T18:40:00', { item: ['100300', 'Pregabalin 150 mg'] }),
-    dispense(7006, '4090', '2026-11-12T20:00:00'),
-  ],
+  dispenses: TRAVEL_DISPENSES,
   legs: [
-    { fromEventId: 7004, toEventId: 7005, km: 637.2, minutes: 1630, kmPerHour: 23.5, travel: false },
-    { fromEventId: 7001, toEventId: 7002, km: 312.4, minutes: 100, kmPerHour: 187.4, travel: true },
-    { fromEventId: 7005, toEventId: 7006, km: null, minutes: 80, kmPerHour: null, travel: false },
-    { fromEventId: 7002, toEventId: 7004, km: 214.9, minutes: 1715, kmPerHour: 7.5, travel: false },
+    leg(TRAVEL_DISPENSES, 4, 5, 637.2, 1630, 23.5, false),
+    leg(TRAVEL_DISPENSES, 1, 2, 312.4, 100, 187.4, true),
+    leg(TRAVEL_DISPENSES, 5, 6, null, 80, null, false),
+    leg(TRAVEL_DISPENSES, 2, 4, 214.9, 1715, 7.5, false),
   ],
   signalWords: [
-    { kind: 'travel', en: '312 km in 1 h 40 min, Olaya to Buraydah Central', ar: '312 كم في 1 س 40 د، من العليا إلى بريدة المركزي' },
-    { kind: 'hopping', en: '5 pharmacies in 3 days', ar: '5 صيدليات في 3 أيام' },
+    { signal: 'travel', en: '312 km in 1 h 40 min, Olaya to Buraydah Central', ar: '312 كم في 1 س 40 د، من العليا إلى بريدة المركزي' },
+    { signal: 'hopping', en: '5 pharmacies in 3 days', ar: '5 صيدليات في 3 أيام' },
   ],
-  marks: [{ status: 'watching', note: 'Asked Buraydah Central for the CCTV.', by: 'analyst1', at: '2026-11-13T10:05:00' }],
-  previousClearance: {
-    caseId: '01JA00PC0099',
-    caseNumber: 'PC-000099',
-    note: 'Chronic patient who travels for work; confirmed with the payer.',
-    by: 'analyst2',
-    at: '2026-10-01T12:00:00',
-  },
-  previousCases: [{ caseId: '01JA00PC0099', caseNumber: 'PC-000099', status: 'cleared', openedAt: '2026-09-20T08:00:00', closedAt: '2026-10-01T12:00:00' }],
+  marks: [{ status: 'watching', note: 'Asked Buraydah Central for the CCTV.', markedBy: 'analyst1', markedAt: '2026-11-13T10:05:00' }],
+  previousCases: [99],
 })
 
-/** The same patient's earlier case, cleared: what the clearance banner links to. */
+const CLEARED_DISPENSES = [
+  dispense(1, '1001', '2026-09-20T08:00:00'),
+  dispense(2, '1002', '2026-09-22T04:10:00', { signals: ['overlap'] }),
+  dispense(3, '1001', '2026-09-24T17:30:00'),
+]
+
+/** The same patient's earlier case, number 99, cleared: what the clearance banner links to. */
 export const CLEARED_CASE = Object.freeze({
-  caseId: '01JA00PC0099',
-  caseNumber: 'PC-000099',
-  stores: ['1001', '1002'].map((c) => ({ ...STORES[c] })),
+  caseNumber: 99,
+  stores: ['1001', '1002'],
   dispenseCount: 3,
   openedAt: '2026-09-20T08:00:00',
   lastDispenseAt: '2026-09-24T17:30:00',
   closedAt: '2026-10-01T12:00:00',
-  spanMinutes: 6210,
+  spanHours: 105,
   longestLegKm: 5.6,
   shortestGapMinutes: 2650,
   signals: ['overlap'],
   score: 2,
   severity: 'info',
   status: 'cleared',
-  totalValue: 640,
-  dispenses: [
-    dispense(6001, '1001', '2026-09-20T08:00:00'),
-    dispense(6002, '1002', '2026-09-22T04:10:00'),
-    dispense(6003, '1001', '2026-09-24T17:30:00'),
-  ],
-  legs: [
-    { fromEventId: 6001, toEventId: 6002, km: 5.6, minutes: 2650, kmPerHour: 0.1, travel: false },
-    { fromEventId: 6002, toEventId: 6003, km: 5.6, minutes: 3680, kmPerHour: 0.1, travel: false },
-  ],
-  signalWords: [{ kind: 'overlap', en: 'Insulin again at Malaz with 27 of 30 days left', ar: 'إنسولين مرة أخرى في الملز مع بقاء 27 من 30 يوما' }],
-  marks: [{ status: 'cleared', note: 'Chronic patient who travels for work; confirmed with the payer.', by: 'analyst2', at: '2026-10-01T12:00:00' }],
-  previousClearance: null,
+  dispenses: CLEARED_DISPENSES,
+  legs: [leg(CLEARED_DISPENSES, 1, 2, 5.6, 2650, 0.1, false), leg(CLEARED_DISPENSES, 2, 3, 5.6, 3680, 0.1, false)],
+  signalWords: [{ signal: 'overlap', en: 'Insulin again at Malaz with 27 of 30 days left', ar: 'إنسولين مرة أخرى في الملز مع بقاء 27 من 30 يوما' }],
+  marks: [{ status: 'cleared', note: 'Chronic patient who travels for work; confirmed with the payer.', markedBy: 'analyst2', markedAt: '2026-10-01T12:00:00' }],
   previousCases: [],
 })
-
-const ROW_FIELDS = ['caseId', 'caseNumber', 'dispenseCount', 'openedAt', 'lastDispenseAt', 'closedAt', 'spanMinutes', 'longestLegKm', 'shortestGapMinutes', 'signals', 'score', 'severity', 'status', 'totalValue']
-
-/** A case as the list shows it: its stores without coordinates, no timeline. */
-export const rowOf = (detail) => ({ ...Object.fromEntries(ROW_FIELDS.map((f) => [f, detail[f]])), stores: detail.stores.map((s) => store(s.storeCode)) })
 
 const SIGNAL_SETS = [['travel', 'overlap', 'hopping'], ['travel', 'overlap'], ['travel', 'hopping'], ['travel'], ['overlap', 'hopping'], ['overlap'], ['hopping']]
 const STATUS_CYCLE = ['open', 'open', 'watching', 'open', 'confirmed', 'cleared', 'closed']
 const POOL = ['1001', '1002', '2040', '3050', '5060', '7070', '8080']
 
-/** A generated case, so the list has pages (60 of them besides the two above). Deterministic. */
+/** A generated case, number 200 + i, so the list has pages (60 of them besides the two above). Deterministic. */
 export function generatedCase(i) {
   const signals = SIGNAL_SETS[i % SIGNAL_SETS.length]
   const score = scoreOf(signals)
@@ -164,41 +177,85 @@ export function generatedCase(i) {
   const opened = `2026-11-${day}T08:${String(i % 60).padStart(2, '0')}:00`
   const last = `2026-11-${String(Math.min(28, 1 + (i % 18) + 2)).padStart(2, '0')}T19:${String((i * 7) % 60).padStart(2, '0')}:00`
   const status = STATUS_CYCLE[i % STATUS_CYCLE.length]
-  const dispenses = codes.map((c, k) => dispense(9000 + i * 10 + k, c, `2026-11-${day}T${String(9 + k * 3).padStart(2, '0')}:00:00`))
+  const dispenses = codes.map((c, k) => dispense(k + 1, c, `2026-11-${day}T${String(9 + k * 3).padStart(2, '0')}:00:00`))
   return {
-    caseId: `01JGEN${String(i).padStart(4, '0')}`,
-    caseNumber: `PC-${String(200 + i).padStart(6, '0')}`,
-    stores: codes.map((c) => ({ ...STORES[c] })),
+    caseNumber: 200 + i,
+    stores: codes,
     dispenseCount: dispenses.length,
     openedAt: opened,
     lastDispenseAt: last,
-    closedAt: status === 'closed' || status === 'cleared' ? `2026-11-${String(Math.min(28, 1 + (i % 18) + 5)).padStart(2, '0')}T12:00:00` : NEVER,
-    spanMinutes: 180 + i * 37,
-    longestLegKm: i % 5 === 0 ? null : 40 + ((i * 53) % 700),
+    closedAt: status === 'closed' || status === 'cleared' ? `2026-11-${String(Math.min(28, 1 + (i % 18) + 5)).padStart(2, '0')}T12:00:00` : null,
+    spanHours: 3 + Math.floor((i * 37) / 60),
+    // The server's 0: no leg with coordinates at both ends.
+    longestLegKm: i % 5 === 0 ? 0 : 40 + ((i * 53) % 700),
     shortestGapMinutes: 45 + ((i * 29) % 600),
     signals,
     score,
     severity: score >= 3 ? 'action' : 'info',
     status,
-    totalValue: 150 + ((i * 97) % 2400) + 0.25,
     dispenses,
-    legs: dispenses.slice(1).map((d, k) => ({ fromEventId: dispenses[k].eventId, toEventId: d.eventId, km: 120, minutes: 180, kmPerHour: 40, travel: false })),
-    signalWords: signals.map((s) => ({ kind: s, en: `${s} (generated)`, ar: `${s} (مولد)` })),
+    legs: dispenses.slice(1).map((d, k) => leg(dispenses, dispenses[k].seq, d.seq, 120, 180, 40, false)),
+    signalWords: signals.map((s) => ({ signal: s, en: `${s} (generated)`, ar: `${s} (مولد)` })),
     marks: [],
-    previousClearance: null,
     previousCases: [],
   }
 }
+
+/** A case as the list shows it (`InsurancePatternCaseRow`): the signals with their words, the stores with coordinates. */
+export const rowOf = (d) => ({
+  caseNumber: d.caseNumber,
+  status: d.status,
+  severity: d.severity,
+  score: d.score,
+  signals: d.signals.map((s) => d.signalWords.find((w) => w.signal === s) ?? { signal: s, en: s, ar: s }),
+  openedAt: d.openedAt,
+  lastDispenseAt: d.lastDispenseAt,
+  closedAt: d.closedAt,
+  spanHours: d.spanHours,
+  storeCount: d.stores.length,
+  dispenseCount: d.dispenseCount,
+  longestLegKm: d.longestLegKm,
+  shortestGapMinutes: d.shortestGapMinutes,
+  stores: d.stores.map(wireStore),
+})
+
+const newestMarkFirst = (a, b) => (a.markedAt < b.markedAt ? 1 : a.markedAt > b.markedAt ? -1 : 0)
+
+/** One case as `GET …/Cases/{caseNumber}` answers it (`InsurancePatternCaseDetail`). No `maps` part: 4053 sends none. */
+export const detailOf = (state, d) => ({
+  case: rowOf(d),
+  dispenses: d.dispenses,
+  legs: d.legs,
+  marks: [...d.marks].sort(newestMarkFirst),
+  previousCases: d.previousCases
+    .map((n) => state.details.get(n))
+    .filter(Boolean)
+    .map((p) => ({
+      caseNumber: p.caseNumber,
+      status: p.status,
+      signals: p.signals.join(','),
+      openedAt: p.openedAt,
+      lastDispenseAt: p.lastDispenseAt,
+      closedAt: p.closedAt,
+      marks: [...p.marks].sort(newestMarkFirst),
+    })),
+  stores: d.stores.map(wireStore),
+  canReveal: true,
+  // A drive that stands Google in plants a key the way a later BackOffice might send one (the client reads it if sent).
+  ...(state.maps ? { maps: state.maps } : {}),
+})
 
 /** The server's order: score, then the last dispense, newest first. */
 const serverOrder = (a, b) => b.score - a.score || (a.lastDispenseAt < b.lastDispenseAt ? 1 : a.lastDispenseAt > b.lastDispenseAt ? -1 : 0)
 
 /**
- * The doors' state for one scenario. `maps`: the case's `maps` part (null: none, so the map cannot draw and no request
- * reaches Google). `markRefusal`: `{ code, message }` to refuse the next marks. `calls` records what the app sent.
+ * The doors' state for one scenario, cases keyed by their case NUMBER. `maps`: a `maps` part to plant on the case
+ * (BackOffice 4053 sends none; null — the default — is the real server, so the map cannot draw and no request reaches
+ * Google). `markRefusal`: `{ code, message }` to refuse the next marks. `calls` records what the app sent (`detail` holds
+ * the case numbers asked, as numbers).
  */
 export function patternsState(over = {}) {
-  const details = new Map([TRAVEL_CASE, CLEARED_CASE, ...Array.from({ length: 60 }, (_, i) => generatedCase(i + 1))].map((d) => [d.caseId, structuredClone(d)]))
+  const details = new Map([TRAVEL_CASE, CLEARED_CASE, ...Array.from({ length: 60 }, (_, i) => generatedCase(i + 1))].map((d) => [d.caseNumber, structuredClone(d)]))
   return {
     details,
     maps: null,
@@ -212,10 +269,10 @@ export function patternsState(over = {}) {
 
 const dayOf = (iso) => iso.slice(0, 10)
 
-/** The list's filters as the stub reads them (the server's own reading is 4053's; this is the guess). */
+/** The list's filters as the stub reads them (`store`, the period, `signal`, `status`, `severity`). */
 function listed(state, q) {
   const rows = [...state.details.values()].filter((d) => {
-    if (q.storeCode && !d.stores.some((s) => s.storeCode === q.storeCode)) return false
+    if (q.store && !d.stores.includes(q.store)) return false
     if (q.signal && !d.signals.includes(q.signal)) return false
     if (q.status && d.status !== q.status) return false
     if (q.severity && d.severity !== q.severity) return false
@@ -227,45 +284,54 @@ function listed(state, q) {
   return rows.sort(serverOrder)
 }
 
+/** A path segment the server's `{number:int}` route matches, as a number; null when it does not (a bare 404). */
+const caseNumberIn = (segment) => (/^\d+$/.test(segment) ? Number(segment) : null)
+
 /**
- * The pattern doors (BackOffice 4053, guessed): `GET Insurance/Patterns/Cases`, `GET …/Cases/{caseId}`,
- * `POST …/Cases/{caseId}/Marks`. Returns `(request) => fulfil argument | null`: null for a path it does not own.
+ * The pattern doors (BackOffice 4053 as built): `GET InsuranceRules/Patterns/Cases?store&from&to&signal&status&severity
+ * &page&pageSize` → `{ page, pageSize, total, rows }`, `GET …/Cases/{caseNumber}` → the detail,
+ * `POST …/Cases/{caseNumber}/Marks { status, note }` → the detail again. Returns `(request) => fulfil argument | null`:
+ * null for a path it does not own.
  */
 export function patternsDoors(state) {
   return (request) => {
     const url = new URL(request.url())
     const path = decodeURIComponent(url.pathname.split('/api/')[1] ?? '')
     const method = request.method()
-    if (path === 'Insurance/Patterns/Cases' && method === 'GET') {
+    if (path === 'InsuranceRules/Patterns/Cases' && method === 'GET') {
       const q = Object.fromEntries(url.searchParams)
       state.calls.list.push({ query: q, csrf: request.headers()['x-web-client'] ?? null })
       const all = listed(state, q)
-      const skip = Number(q.skip ?? 0)
-      const take = Number(q.take ?? 25)
-      return envelope({ items: all.slice(skip, skip + take).map(rowOf), totalMatches: all.length })
+      const page = Math.max(1, Number(q.page ?? 1))
+      const pageSize = Math.max(1, Number(q.pageSize ?? 25))
+      return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize).map(rowOf) })
     }
-    let m = path.match(/^Insurance\/Patterns\/Cases\/([^/]+)$/)
+    let m = path.match(/^InsuranceRules\/Patterns\/Cases\/([^/]+)$/)
     if (m && method === 'GET') {
-      state.calls.detail.push(m[1])
-      const d = state.details.get(m[1])
-      if (!d) return businessRefusal('CASE_NOT_FOUND', 'No case has this id.', 404)
-      return envelope({ ...d, ...(state.maps ? { maps: state.maps } : {}) })
+      const n = caseNumberIn(m[1])
+      if (n === null) return bareNotFound()
+      state.calls.detail.push(n)
+      const d = state.details.get(n)
+      if (!d) return caseNotFound(n)
+      return envelope(detailOf(state, d))
     }
-    m = path.match(/^Insurance\/Patterns\/Cases\/([^/]+)\/Marks$/)
+    m = path.match(/^InsuranceRules\/Patterns\/Cases\/([^/]+)\/Marks$/)
     if (m && method === 'POST') {
+      const n = caseNumberIn(m[1])
+      if (n === null) return bareNotFound()
       const body = JSON.parse(request.postData() || '{}')
-      state.calls.marks.push({ caseId: m[1], body, csrf: request.headers()['x-web-client'] ?? null })
+      state.calls.marks.push({ caseNumber: n, body, csrf: request.headers()['x-web-client'] ?? null })
       if (state.markRefusal) return businessRefusal(state.markRefusal.code, state.markRefusal.message)
-      const d = state.details.get(m[1])
-      if (!d) return businessRefusal('CASE_NOT_FOUND', 'No case has this id.', 404)
+      const d = state.details.get(n)
+      if (!d) return caseNotFound(n)
       if (!['watching', 'cleared', 'confirmed', 'closed'].includes(body.status) || !String(body.note ?? '').trim())
-        return businessRefusal('MARK_INVALID', 'A mark needs a status and a note.')
-      const at = `2026-11-19T11:${String(10 + state.clock++).padStart(2, '0')}:00`
-      const mark = { status: body.status, note: body.note, by: state.user, at }
-      d.marks.push(mark)
+        return businessRefusal('INSPATTERN_BAD_REQUEST', 'A mark needs a status and a note.')
+      const markedAt = `2026-11-19T11:${String(10 + state.clock++).padStart(2, '0')}:00`
+      d.marks.push({ status: body.status, note: String(body.note).slice(0, 1000), markedBy: state.user, markedAt })
       d.status = body.status
-      if (body.status === 'closed') d.closedAt = at
-      return envelope(mark)
+      if (body.status === 'closed') d.closedAt = markedAt
+      // 4053 answers the whole case again.
+      return envelope(detailOf(state, d))
     }
     return null
   }

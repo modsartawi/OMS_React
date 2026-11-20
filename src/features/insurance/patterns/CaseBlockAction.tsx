@@ -21,12 +21,12 @@ import { BLOCK_PAYER_MAX, BLOCK_REASON_KINDS, blockFailure, blockProblems, canOf
 import { managerApi, REVEALS_KEY } from './manager-api'
 
 /**
- * **"Add to blocked-patient list"** in a case's header (oms 924; BackOffice spec 4050 story 22, door 4056 — STUBBED, the
- * door is not built). Offered only on a CONFIRMED case to a user holding both the investigator grant and the
+ * **"Add to blocked-patient list"** in a case's header (oms 924; BackOffice spec 4050 story 22, door 4056, reconciled
+ * as built). Offered only on a CONFIRMED case to a user holding both the investigator grant and the
  * blocked-patient list's Change grant (`./block`'s `canOfferBlock`); otherwise it renders nothing at all.
  *
  * The dialog asks for the kind of finding (required: abuse or fraud), an optional reporting payer, and a start and an
- * end, and posts `…/Cases/{caseId}/Block`. The server adds the CASE's patient through the list's own change path, with
+ * end, and posts `…/Cases/{caseNumber}/Block`. The server adds the CASE's patient through the list's own change path, with
  * the case in the entry's reference, and writes a reveal-log row — the dialog says both before it is confirmed. It is
  * never automatic.
  *
@@ -71,12 +71,12 @@ function BlockDialog({ detail, onClose }: { detail: PatternCaseDetail; onClose: 
   const problems = blockProblems(form, today)
 
   const block = useMutation({
-    mutationFn: (sent: BlockForm) => managerApi.block(detail.caseId, sent, today),
+    mutationFn: (sent: BlockForm) => managerApi.block(detail.caseNumber, sent, today),
     onSuccess: () => {
       onClose()
       toast.success(t('block.added'), { description: fsi(detail.caseNumber) })
       // Whatever the server recorded on the case, and the reveal-log row the block wrote, are read again. The case reads
-      // by prefix: the screen's read is keyed by the id as the route spelled it (review 10).
+      // by prefix (review 10).
       void queryClient.invalidateQueries({ queryKey: CASE_READS_KEY })
       void queryClient.invalidateQueries({ queryKey: [...PATTERNS_KEY, 'cases'] })
       void queryClient.invalidateQueries({ queryKey: REVEALS_KEY })

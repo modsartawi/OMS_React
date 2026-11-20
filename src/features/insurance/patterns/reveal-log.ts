@@ -1,15 +1,16 @@
 /**
- * The reveal log's filters and page (oms 924; BackOffice 4055 `GET Insurance/Patterns/Reveals`, GUESSED): read from the
+ * The reveal log's filters and page (oms 924; BackOffice 4055 `GET InsuranceRules/Patterns/Reveals`): read from the
  * URL, written back to it, and turned into the query the door is asked. Pure; the page keeps them in the address
  * (`useUrlQuery`), so a filtered log can be shared and Back leaves the screen. The server orders the rows (newest
  * first), so no order is sent.
  *
  * BackOffice 4055 filters by period, user and case. The case is set from a row of the log (or a shared link), so the
- * address holds its id (`?case=`), as the door asks it (`caseId`).
+ * address holds its case number (`?case=`), as the door asks it (`case`, an INT): an address naming no case number
+ * filters by no case.
  */
 import type { PatternRevealsQuery } from '@/core/models/insurance-pattern-manager'
-import { skipForPage } from '@/core/ui/pager'
 import { windowProblem } from '@/core/util/date-window'
+import { caseNumberOf } from './paths'
 
 /** Rows a page. */
 export const REVEALS_PAGE_SIZE = 25
@@ -20,13 +21,13 @@ export interface RevealFilters {
   to: string
   /** The user who revealed; '' = anyone. */
   user: string
-  /** One case's reveals; '' = every case. */
-  caseId: string
+  /** One case's reveals, by its case number; '' = every case. */
+  caseNumber: string
   /** 1-based. */
   page: number
 }
 
-export const NO_REVEAL_FILTERS: RevealFilters = Object.freeze({ from: '', to: '', user: '', caseId: '', page: 1 })
+export const NO_REVEAL_FILTERS: RevealFilters = Object.freeze({ from: '', to: '', user: '', caseNumber: '', page: 1 })
 
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 /** A day the address names, kept only when the calendar has it (no 2026-02-30): it reads back as the same day. */
@@ -41,7 +42,7 @@ export function revealFiltersFromParams(params: URLSearchParams): RevealFilters 
     from: day(params.get('from')),
     to: day(params.get('to')),
     user: (params.get('user') ?? '').trim(),
-    caseId: (params.get('case') ?? '').trim(),
+    caseNumber: caseNumberOf(params.get('case') ?? '') ?? '',
     page: pageOf(params.get('page')),
   }
 }
@@ -51,13 +52,13 @@ export function revealFiltersToParams(f: RevealFilters): URLSearchParams {
   if (f.from) p.set('from', f.from)
   if (f.to) p.set('to', f.to)
   if (f.user) p.set('user', f.user)
-  if (f.caseId) p.set('case', f.caseId)
+  if (f.caseNumber) p.set('case', f.caseNumber)
   if (f.page > 1) p.set('page', String(f.page))
   return p
 }
 
 /**
- * The door's query: every filter under the door's own name, and the page as skip/take. A blank filter is passed
+ * The door's query: every filter under the door's own name (the case as `case`), and the 1-based page with its size. A blank filter is passed
  * through, not left out here: `@/core/api`'s `buildQuery` drops it (`.claude/rules/api-envelope.md`).
  */
 export function revealsQuery(f: RevealFilters): PatternRevealsQuery {
@@ -65,9 +66,9 @@ export function revealsQuery(f: RevealFilters): PatternRevealsQuery {
     from: f.from,
     to: f.to,
     user: f.user,
-    caseId: f.caseId,
-    skip: skipForPage(f.page, REVEALS_PAGE_SIZE),
-    take: REVEALS_PAGE_SIZE,
+    case: f.caseNumber,
+    page: f.page,
+    pageSize: REVEALS_PAGE_SIZE,
   }
 }
 

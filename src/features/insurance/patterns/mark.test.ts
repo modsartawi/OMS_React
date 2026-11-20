@@ -21,10 +21,10 @@ describe('what stops a mark', () => {
   })
 
   it(`a note past ${NOTE_MAX} characters, counted after trimming`, () => {
-    expect(NOTE_MAX).toBe(500)
-    expect(markProblem({ status: 'cleared', note: 'x'.repeat(500) })).toBeNull()
-    expect(markProblem({ status: 'cleared', note: `  ${'x'.repeat(500)}  ` })).toBeNull()
-    expect(markProblem({ status: 'cleared', note: 'x'.repeat(501) })).toBe('tooLong')
+    expect(NOTE_MAX).toBe(1000) // BackOffice 4053's clamp
+    expect(markProblem({ status: 'cleared', note: 'x'.repeat(1000) })).toBeNull()
+    expect(markProblem({ status: 'cleared', note: `  ${'x'.repeat(1000)}  ` })).toBeNull()
+    expect(markProblem({ status: 'cleared', note: 'x'.repeat(1001) })).toBe('tooLong')
   })
 
   it('a status and a note: nothing', () => {

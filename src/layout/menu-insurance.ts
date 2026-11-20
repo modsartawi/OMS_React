@@ -1,9 +1,9 @@
 import { Route, Waypoints } from 'lucide-react'
 // 924 · icons
 import { FileClock, SlidersHorizontal } from 'lucide-react'
-// 922 · the pattern screens' OWN grants (BackOffice 4053, guessed keys; the feature's `access` module is the one reading)
+// 922 · the pattern screens' OWN grants (BackOffice 4053's seed, `InsurancePattern:03`; the feature's `access` module is the one reading)
 import { canOpenPatternCases } from '@/features/insurance/patterns/access'
-// 924 · the manager's grant (BackOffice 4055, guessed key): the settings and the reveal log
+// 924 · the manager's grant (BackOffice 4055's seed, `InsurancePattern:01`): the settings and the reveal log
 import { canManagePatterns } from '@/features/insurance/patterns/access'
 // Type-only: `menu-model` imports this module, so a value import would be a cycle.
 import type { ShellMenuItem } from './menu-model'
@@ -22,7 +22,7 @@ export const INSURANCE_MENU: ShellMenuItem = {
   labelKey: 'insurance-patterns:menu.group',
   icon: Waypoints,
   items: [
-    // 922 · Pattern cases (`menu.cases`, `/insurance/patterns`; a case's screen `/insurance/patterns/:caseId` lights it)
+    // 922 · Pattern cases (`menu.cases`, `/insurance/patterns`; a case's screen `/insurance/patterns/:caseNumber` lights it)
     {
       labelKey: 'insurance-patterns:menu.cases',
       icon: Route,

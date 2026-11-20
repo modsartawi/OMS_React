@@ -1,7 +1,8 @@
 /**
- * Oms 924 — the manager's pattern doors at the `@/core/api` boundary (BackOffice 4055, 4056; GUESSED shapes): what is
- * sent, what is refused before any call, and what of each answer is kept. Every answer is read field by field, so a
- * field nobody agreed to — above all a patient's identity — never reaches the query cache or the screen.
+ * Oms 924 — the manager's pattern doors at the `@/core/api` boundary, reconciled with BackOffice 4055 and 4056 as built
+ * (`InsuranceRules/Patterns/...`): what is sent, what is refused before any call, and what of each answer is kept. Every
+ * answer is read field by field, so a field nobody agreed to — above all a patient's identity — never reaches the query
+ * cache or the screen.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PatternSetting } from '@/core/models/insurance-pattern-manager'
@@ -13,21 +14,32 @@ const { managerApi, SettingsNotSentError, BlockNotSentError } = await import('./
 const { draftsOf } = await import('./settings')
 const { EMPTY_BLOCK } = await import('./block')
 
-/** The settings answer as the server might send it: each value with its own min and max, and a field nobody agreed to. */
+const setting = (key: string, value: number, defaultValue: number, min: number, max: number, wholeNumber: boolean) => ({
+  key,
+  value,
+  defaultValue,
+  min,
+  max,
+  wholeNumber,
+  updatedBy: 'manager1',
+  updatedAt: '2026-11-02T09:30:00',
+})
+
+/** The settings answer as BackOffice 4055 sends it: each value with its default, its range and who last set it. */
 const SETTINGS_ANSWER = {
   settings: [
-    { name: 'WindowDays', value: 7, min: 1, max: 30 },
-    { name: 'MinStores', value: 3, min: 2, max: 10 },
-    { name: 'MaxKmPerHour', value: 120, min: 30, max: 500 },
-    { name: 'MinTravelKm', value: 50, min: 1, max: 500 },
-    { name: 'OverlapShare', value: 0.25, min: 0.05, max: 0.9 },
-    { name: 'CaseQuietDays', value: 30, min: 7, max: 90 },
-    { name: 'LookbackDays', value: 90, min: 30, max: 365, note: 'not agreed' },
+    setting('WindowDays', 7, 7, 1, 30, true),
+    setting('MinStores', 3, 3, 2, 10, true),
+    setting('MaxKmPerHour', 120, 120, 30, 500, false),
+    setting('MinTravelKm', 50, 50, 1, 500, false),
+    setting('OverlapShare', 0.25, 0.25, 0.05, 0.9, false),
+    setting('CaseQuietDays', 30, 30, 7, 90, true),
+    { ...setting('LookbackDays', 90, 90, 30, 365, true), note: 'not agreed' },
   ],
-  changes: [{ name: 'WindowDays', oldValue: 5, newValue: 7, by: 'manager1', at: '2026-11-18T09:30:00', host: 'not agreed' }],
+  changes: [{ key: 'WindowDays', oldValue: 5, newValue: 7, changedBy: 'manager1', changedAt: '2026-11-18T09:30:00', host: 'not agreed' }],
 }
 
-const SAVED: PatternSetting[] = SETTINGS_ANSWER.settings.map(({ name, value }) => ({ name, value }))
+const SAVED: PatternSetting[] = SETTINGS_ANSWER.settings.map(({ key, value }) => ({ name: key, value }))
 
 beforeEach(() => {
   api.get.mockReset().mockResolvedValue(SETTINGS_ANSWER)
@@ -36,18 +48,18 @@ beforeEach(() => {
 })
 
 describe('the thresholds', () => {
-  it('are GET Insurance/Patterns/Settings, read field by field: the server’s min and max are not kept', async () => {
+  it('are GET InsuranceRules/Patterns/Settings, read field by field: key → name, changedBy/At → by/at; the server’s range is not kept', async () => {
     const read = await managerApi.settings()
-    expect(api.get).toHaveBeenCalledWith('Insurance/Patterns/Settings')
+    expect(api.get).toHaveBeenCalledWith('InsuranceRules/Patterns/Settings')
     expect(read).toEqual({
       settings: SAVED,
       changes: [{ name: 'WindowDays', oldValue: 5, newValue: 7, by: 'manager1', at: '2026-11-18T09:30:00' }],
     })
   })
 
-  it('a save is PUT Insurance/Patterns/Settings with the changed thresholds, answered like the GET', async () => {
-    const read = await managerApi.saveSettings({ ...draftsOf(SAVED), WindowDays: '10' }, SAVED)
-    expect(api.put).toHaveBeenCalledWith('Insurance/Patterns/Settings', { settings: [{ name: 'WindowDays', value: 10 }] })
+  it('a save is PUT InsuranceRules/Patterns/Settings, FLAT with the changed thresholds only, answered like the GET', async () => {
+    const read = await managerApi.saveSettings({ ...draftsOf(SAVED), WindowDays: '10', OverlapShare: '0.3' }, SAVED)
+    expect(api.put).toHaveBeenCalledWith('InsuranceRules/Patterns/Settings', { windowDays: 10, overlapShare: 0.3 })
     expect(read.settings).toEqual(SAVED)
   })
 
@@ -74,78 +86,77 @@ describe('the thresholds', () => {
 
 /** A reveal-log answer as a careless server might send it: the revealed identity beside each row. */
 const REVEALS_WITH_IDENTITY = {
-  items: [
+  page: 1,
+  pageSize: 25,
+  total: 2,
+  rows: [
     {
-      caseId: '01JD3K7Q2WPC0123',
-      caseNumber: 'PC-000123',
-      by: 'investigator1',
-      at: '2026-11-19T10:12:00',
+      caseNumber: 123,
+      revealedBy: 'investigator1',
+      revealedAt: '2026-11-19T10:12:00',
       reason: 'Payer BUPA asked for the patient on this case.',
+      fieldsShown: 'patientKey,memberId',
       patientKey: 'NI:1012345678',
       memberId: 'M-998877',
-      fields: ['patientKey', 'memberId'],
     },
-    { caseId: '01JGEN0004', caseNumber: 'PC-000204', by: 'investigator2', at: '2026-11-18T08:00:00', reason: 'block', nationalId: '1012345678' },
+    { caseNumber: 204, revealedBy: 'investigator2', revealedAt: '2026-11-18T08:00:00', reason: 'block', fieldsShown: 'patientKey', nationalId: '1012345678' },
   ],
-  totalMatches: 2,
 }
 
 describe('the reveal log', () => {
-  it('is GET Insurance/Patterns/Reveals with the filters and the page as query parameters', async () => {
-    api.get.mockResolvedValue({ items: [], totalMatches: 0 })
-    await managerApi.reveals({ from: '2026-11-01', to: '2026-11-19', user: 'investigator1', caseId: '01JD3K7Q2WPC0123', skip: 25, take: 25 })
-    expect(api.get).toHaveBeenCalledWith('Insurance/Patterns/Reveals', {
+  it('is GET InsuranceRules/Patterns/Reveals with the filters, the case number as `case`, and the 1-based page', async () => {
+    api.get.mockResolvedValue({ page: 2, pageSize: 25, total: 0, rows: [] })
+    await managerApi.reveals({ from: '2026-11-01', to: '2026-11-19', user: 'investigator1', case: '123', page: 2, pageSize: 25 })
+    expect(api.get).toHaveBeenCalledWith('InsuranceRules/Patterns/Reveals', {
       from: '2026-11-01',
       to: '2026-11-19',
       user: 'investigator1',
-      caseId: '01JD3K7Q2WPC0123',
-      skip: 25,
-      take: 25,
+      case: '123',
+      page: 2,
+      pageSize: 25,
     })
   })
 
   it('keeps who revealed which case, when and why — and drops every identity field the server sent', async () => {
     api.get.mockResolvedValue(REVEALS_WITH_IDENTITY)
-    const page = await managerApi.reveals({ skip: 0, take: 25 })
+    const page = await managerApi.reveals({ page: 1, pageSize: 25 })
     expect(page).toEqual({
       items: [
-        { caseId: '01JD3K7Q2WPC0123', caseNumber: 'PC-000123', by: 'investigator1', at: '2026-11-19T10:12:00', reason: 'Payer BUPA asked for the patient on this case.' },
-        { caseId: '01JGEN0004', caseNumber: 'PC-000204', by: 'investigator2', at: '2026-11-18T08:00:00', reason: 'block' },
+        { caseNumber: '123', by: 'investigator1', at: '2026-11-19T10:12:00', reason: 'Payer BUPA asked for the patient on this case.' },
+        { caseNumber: '204', by: 'investigator2', at: '2026-11-18T08:00:00', reason: 'block' },
       ],
       totalMatches: 2,
     })
-    expect(JSON.stringify(page)).not.toMatch(/1012345678|M-998877/)
+    expect(JSON.stringify(page)).not.toMatch(/1012345678|M-998877|fieldsShown/)
   })
 
   it('an answer that is not the agreed shape reads as an empty log', async () => {
     api.get.mockResolvedValue('nonsense')
-    expect(await managerApi.reveals({ skip: 0, take: 25 })).toEqual({ items: [], totalMatches: 0 })
+    expect(await managerApi.reveals({ page: 1, pageSize: 25 })).toEqual({ items: [], totalMatches: 0 })
   })
 })
 
 describe('the block', () => {
   const TODAY = '2026-11-19'
 
-  it('is POST Insurance/Patterns/Cases/{caseId}/Block with the body the form makes', async () => {
-    await managerApi.block('01JD3K7Q2WPC0123', { reasonKind: 'fraud', payer: ' BUPA ', startsOn: '', endsOn: '2027-05-19' }, TODAY)
-    expect(api.post).toHaveBeenCalledWith('Insurance/Patterns/Cases/01JD3K7Q2WPC0123/Block', { reasonKind: 'fraud', payer: 'BUPA', endsOn: '2027-05-19' })
+  it('is POST InsuranceRules/Patterns/Cases/{caseNumber}/Block with the body the form makes — the end as `expiresOn`', async () => {
+    await managerApi.block('123', { reasonKind: 'fraud', payer: ' BUPA ', startsOn: '', endsOn: '2027-05-19' }, TODAY)
+    expect(api.post).toHaveBeenCalledWith('InsuranceRules/Patterns/Cases/123/Block', { reasonKind: 'fraud', payer: 'BUPA', expiresOn: '2027-05-19' })
   })
 
   it('a form without its kind of finding, or with its start after its end, is refused before the call', async () => {
-    await expect(managerApi.block('01JD3K7Q2WPC0123', EMPTY_BLOCK, TODAY)).rejects.toBeInstanceOf(BlockNotSentError)
-    await expect(
-      managerApi.block('01JD3K7Q2WPC0123', { reasonKind: 'abuse', payer: '', startsOn: '2026-12-02', endsOn: '2026-12-01' }, TODAY),
-    ).rejects.toBeInstanceOf(BlockNotSentError)
+    await expect(managerApi.block('123', EMPTY_BLOCK, TODAY)).rejects.toBeInstanceOf(BlockNotSentError)
+    await expect(managerApi.block('123', { reasonKind: 'abuse', payer: '', startsOn: '2026-12-02', endsOn: '2026-12-01' }, TODAY)).rejects.toBeInstanceOf(BlockNotSentError)
     expect(api.post).not.toHaveBeenCalled()
   })
 
   it('keeps nothing of the answer: the list entry it may echo carries the patient key', async () => {
-    api.post.mockResolvedValue({ key: 'NI:1012345678', reasonKind: 'fraud', reference: 'Case PC-000123' })
-    await expect(managerApi.block('01JD3K7Q2WPC0123', { ...EMPTY_BLOCK, reasonKind: 'fraud' }, TODAY)).resolves.toBeUndefined()
+    api.post.mockResolvedValue({ key: 'NI:1012345678', reasonKind: 'fraud', reference: 'Case 123' })
+    await expect(managerApi.block('123', { ...EMPTY_BLOCK, reasonKind: 'fraud' }, TODAY)).resolves.toBeUndefined()
   })
 
-  it('escapes the case id in the path', async () => {
-    await managerApi.block(' 01J/D3 ', { ...EMPTY_BLOCK, reasonKind: 'abuse' }, TODAY)
-    expect(api.post).toHaveBeenCalledWith('Insurance/Patterns/Cases/01J%2FD3/Block', { reasonKind: 'abuse' })
+  it('trims and escapes the case number in the path', async () => {
+    await managerApi.block(' 1/23 ', { ...EMPTY_BLOCK, reasonKind: 'abuse' }, TODAY)
+    expect(api.post).toHaveBeenCalledWith('InsuranceRules/Patterns/Cases/1%2F23/Block', { reasonKind: 'abuse' })
   })
 })

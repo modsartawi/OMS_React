@@ -1,7 +1,7 @@
 /**
- * Oms 924 (BackOffice 4056 `POST Insurance/Patterns/Cases/{id}/Block`, GUESSED body) — "Add to blocked-patient list" on a
+ * Oms 924 (BackOffice 4056 `POST InsuranceRules/Patterns/Cases/{caseNumber}/Block`, as built) — "Add to blocked-patient list" on a
  * case: offered only on a CONFIRMED case to a user holding BOTH the investigator grant (`INSURANCE_PATTERN_INVESTIGATOR`,
- * guessed `InsurancePattern:06`) and 3965's `INSURANCE_PATIENT_BLOCK` Change (`InsurancePatientBlock:02`); and the
+ * `InsurancePattern:06`) and 3965's `INSURANCE_PATIENT_BLOCK` Change (`InsurancePatientBlock:02`); and the
  * form that asks for the kind of finding (required), an optional reporting payer, and a start and an end.
  */
 import { describe, expect, it } from 'vitest'
@@ -26,8 +26,8 @@ describe('who is offered the block, on which case', () => {
     expect(canOfferBlock('confirmed', holding('InsurancePatientBlock:02'))).toBe(false)
   })
 
-  it('not on near misses: the analyst and the manager, or only READING the blocked-patient list', () => {
-    expect(canOfferBlock('confirmed', holding('InsurancePattern:03', 'InsurancePattern:02', 'InsurancePatientBlock:02'))).toBe(false)
+  it('not on near misses: the viewer, the marker and the manager, or only READING the blocked-patient list', () => {
+    expect(canOfferBlock('confirmed', holding('InsurancePattern:03', 'InsurancePattern:02', 'InsurancePattern:01', 'InsurancePatientBlock:02'))).toBe(false)
     expect(canOfferBlock('confirmed', holding('InsurancePattern:06', 'InsurancePatientBlock:03'))).toBe(false)
   })
 
@@ -94,12 +94,12 @@ describe('the body posted', () => {
     expect(blockBody(FRAUD, TODAY)).toEqual({ reasonKind: 'fraud' })
   })
 
-  it('the payer trimmed, the start and the end as typed', () => {
+  it('the payer trimmed, the start and the end as typed — the end under the wire’s name, expiresOn', () => {
     expect(blockBody({ reasonKind: 'abuse', payer: '  BUPA ', startsOn: '2026-11-19', endsOn: '2027-05-19' }, TODAY)).toEqual({
       reasonKind: 'abuse',
       payer: 'BUPA',
       startsOn: '2026-11-19',
-      endsOn: '2027-05-19',
+      expiresOn: '2027-05-19',
     })
   })
 
@@ -110,7 +110,7 @@ describe('the body posted', () => {
 
   it('names no patient and no actor: the server reads both (the patient off the confirmed case)', () => {
     const body = blockBody({ reasonKind: 'abuse', payer: 'BUPA', startsOn: '2026-11-19', endsOn: '2027-05-19' }, TODAY)
-    expect(Object.keys(body ?? {}).sort()).toEqual(['endsOn', 'payer', 'reasonKind', 'startsOn'])
+    expect(Object.keys(body ?? {}).sort()).toEqual(['expiresOn', 'payer', 'reasonKind', 'startsOn'])
   })
 })
 

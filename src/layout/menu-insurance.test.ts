@@ -1,6 +1,6 @@
 /**
  * Oms 922 (BackOffice spec 4050) — the Insurance group's Pattern cases leaf shows only with the analyst grant
- * (`INSURANCE_PATTERN_ANALYST`, guessed key `InsurancePattern:03`), off the ONE permissions answer — the same predicate
+ * (the view grant, BackOffice 4053's seed `InsurancePattern:03`), off the ONE permissions answer — the same predicate
  * the page's gate reads. Read out of the REAL `MENU` through the real `resolveMenu`.
  */
 import { describe, expect, it } from 'vitest'
@@ -23,15 +23,15 @@ describe('922 — the Pattern cases leaf', () => {
     expect(group).toBeDefined()
     expect(leaves([group!]).find((l) => l.labelKey === LEAF)).toMatchObject({ routerLink: '/insurance/patterns' })
     expect(markedLeaf(MENU, '/insurance/patterns')?.labelKey).toBe(LEAF)
-    expect(markedLeaf(MENU, '/insurance/patterns/01JD3K7Q2W')?.labelKey).toBe(LEAF)
+    expect(markedLeaf(MENU, '/insurance/patterns/123')?.labelKey).toBe(LEAF)
   })
 
   it('shows on InsurancePattern:03 alone — and nothing else in the whole menu does', () => {
     expect(visible(holding('InsurancePattern:03'))).toEqual([LEAF])
   })
 
-  it('the investigator and manager keys alone do not open it, nor do the insurance-rules grants', () => {
-    expect(visible(holding('InsurancePattern:06', 'InsurancePattern:02', 'InsurancePatientBlock:02'))).not.toContain(LEAF)
+  it('the mark, reveal and manage keys alone do not open it, nor do the insurance-rules grants', () => {
+    expect(visible(holding('InsurancePattern:02', 'InsurancePattern:06', 'InsurancePattern:01', 'InsurancePatientBlock:02'))).not.toContain(LEAF)
     expect(visible(holding('InsuranceRuleAuthoring:03', 'InsurancePatientBlock:03', 'InsurancePayerMonth:03'))).not.toContain(LEAF)
   })
 

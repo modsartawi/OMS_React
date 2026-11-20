@@ -1,6 +1,6 @@
-// Insurance pattern reveal drive (oms 923; BackOffice spec 4050, door 4053 `POST …/Cases/{caseId}/Reveal`) — drives the
-// REAL app in Chromium against MOCKED envelopes: the case doors of `./insurance-patterns-stubs.mjs` (922's) with this
-// drive's own reveal door chained after them. BackOffice 4053 is not built, so every shape is the guessed contract.
+// Insurance pattern reveal drive (oms 923; BackOffice spec 4050, door 4053 `POST …/Cases/{caseNumber}/Reveal`) — drives
+// the REAL app in Chromium against MOCKED envelopes: the case doors of `./insurance-patterns-stubs.mjs` (922's) with this
+// drive's own reveal door chained after them, all serving BackOffice 4053's shapes as built (`InsuranceRules/Patterns`).
 //
 // Proves, on the running app: "Show patient" shows with the investigator grant only; the send is held under 10
 // characters (counted trimmed), says why and sends nothing; a reveal posts the trimmed reason and shows the patient key
@@ -21,7 +21,7 @@ const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const SHOT_DIR = process.env.SHOT_DIR || '.'
-const CASE = `${BASE}/insurance/patterns/${TRAVEL_CASE.caseId}`
+const CASE = `${BASE}/insurance/patterns/${TRAVEL_CASE.caseNumber}`
 
 /** The patient the stub reveals: synthetic, from the reserved test ranges, never a real id. */
 const PATIENT = Object.freeze({ patientKey: 'NI:1000000019', memberId: 'TST-M-4471' })
@@ -55,20 +55,20 @@ const hold = (match) => {
 }
 
 /**
- * The reveal door (BackOffice 4053, guessed): `POST Insurance/Patterns/Cases/{caseId}/Reveal` `{ reason }` →
- * `{ patientKey, memberId }`, plus a policy number nobody agreed to. `state.revealAnswer` (a fulfil argument) answers
+ * The reveal door (BackOffice 4053 as built): `POST InsuranceRules/Patterns/Cases/{caseNumber}/Reveal` `{ reason }` →
+ * `{ caseNumber, patientKey, memberId, revealedAt }`, plus a policy number nobody agreed to. `state.revealAnswer` (a fulfil argument) answers
  * instead while set; `state.reveals` records what the app sent. Null for a path it does not own.
  */
 function revealDoor(state) {
   return (request) => {
     const path = decodeURIComponent(new URL(request.url()).pathname.split('/api/')[1] ?? '')
-    const m = path.match(/^Insurance\/Patterns\/Cases\/([^/]+)\/Reveal$/)
+    const m = path.match(/^InsuranceRules\/Patterns\/Cases\/(\d+)\/Reveal$/)
     if (!m || request.method() !== 'POST') return null
     const body = JSON.parse(request.postData() || '{}')
-    state.reveals.push({ caseId: m[1], body, csrf: request.headers()['x-web-client'] ?? null })
+    state.reveals.push({ caseNumber: Number(m[1]), body, csrf: request.headers()['x-web-client'] ?? null })
     if (state.revealAnswer) return state.revealAnswer
-    if (String(body.reason ?? '').trim().length < 10) return businessRefusal('REASON_TOO_SHORT', 'A reveal needs a reason of at least 10 characters.')
-    return envelope({ ...PATIENT, policyNumber: POLICY })
+    if (String(body.reason ?? '').trim().length < 10) return businessRefusal('INSPATTERN_BAD_REQUEST', 'A reveal needs a reason of at least 10 characters.')
+    return envelope({ caseNumber: Number(m[1]), ...PATIENT, revealedAt: '2026-11-19T11:30:00', policyNumber: POLICY })
   }
 }
 
@@ -177,7 +177,7 @@ async function run() {
   // ── 1. The grant: the button shows for an investigator only ─────────────────────────────────────────────────────
   for (const [label, keys] of [
     ['an analyst', [KEYS.analyst]],
-    ['an analyst who may also manage and block', [KEYS.analyst, KEYS.manager, KEYS.block]],
+    ['an analyst who may also mark, manage and block', [KEYS.analyst, KEYS.marker, KEYS.manager, KEYS.block]],
   ]) {
     const state = newState()
     const page = await open(state, { keys, reads: 0 })
@@ -205,7 +205,7 @@ async function run() {
 
   // ── 2. The reason: held under 10 characters, counted trimmed; nothing sent ──────────────────────────────────────
   await openDialog(page)
-  check('the dialog names the case', strip(await page.textContent('dialog[open] #modal-title')) === 'Show the patient of case PC-000123')
+  check('the dialog names the case', strip(await page.textContent('dialog[open] #modal-title')) === 'Show the patient of case 123')
   check('it says the reveal is logged before the reason is asked', strip(await page.textContent('[data-testid=pattern-reveal-logged]')) === 'Each reveal is logged: your name, the time, this case and your reason go to the reveal log, which the insurance manager reads.')
   check('the reason box has the focus', (await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))) === 'pattern-reveal-reason')
   check('empty: the send is held, its reason in its title, the count 0 / 250', (await sendHeld(page)) === 'true' && strip(await page.getAttribute('[data-testid=pattern-reveal-send]', 'title')) === 'Write at least 10 characters.' && (await count(page)) === '0 / 250')
@@ -224,7 +224,7 @@ async function run() {
 
   // ── 3. A reveal: the trimmed reason posted, the patient shown in the dialog only ───────────────────────────────
   await revealWith(page, `   ${REASON}   `)
-  check('the reveal posts the trimmed reason — and nothing else, no actor', same(state.reveals[0]?.body, { reason: REASON }) && state.reveals[0]?.caseId === TRAVEL_CASE.caseId, JSON.stringify(state.reveals[0]))
+  check('the reveal posts the trimmed reason — and nothing else, no actor', same(state.reveals[0]?.body, { reason: REASON }) && state.reveals[0]?.caseNumber === TRAVEL_CASE.caseNumber, JSON.stringify(state.reveals[0]))
   check('…once, with the X-Web-Client header', state.reveals.length === 1 && !!state.reveals[0].csrf)
   check('the dialog shows the patient', (await step(page)) === 'shown')
   check('…the patient key', strip(await page.textContent('[data-testid=pattern-reveal-patient-key]')) === PATIENT.patientKey)
@@ -241,7 +241,7 @@ async function run() {
   await page.click('[data-testid=pattern-reveal-close]')
   await page.waitForSelector(dialog, { state: 'detached' })
   let where = await lingering(page)
-  check('the app’s query client is found and read (the case and the permissions are in it)', where.found && where.queryKeys.includes(JSON.stringify(['insurance-patterns', 'case', TRAVEL_CASE.caseId])) && where.queryKeys.includes(JSON.stringify(['auth', 'permissions'])), JSON.stringify(where.queryKeys))
+  check('the app’s query client is found and read (the case and the permissions are in it)', where.found && where.queryKeys.includes(JSON.stringify(['insurance-patterns', 'case', String(TRAVEL_CASE.caseNumber)])) && where.queryKeys.includes(JSON.stringify(['auth', 'permissions'])), JSON.stringify(where.queryKeys))
   check('no query and no mutation was made for the reveal', !where.queryKeys.some((k) => /reveal/i.test(k)) && !where.mutationKeys.some((k) => /reveal/i.test(k)), JSON.stringify([where.queryKeys, where.mutationKeys]))
   check('after closing, the patient is nowhere: page, query and mutation caches, storage, address, history, cookies, title', leaked(where).length === 0, leaked(where).join(' | '))
   check('…nor in the console', consoleLines.every((l) => leaks(l).length === 0), consoleLines.filter((l) => leaks(l).length).join(' | '))
@@ -290,7 +290,7 @@ async function run() {
   await page.click('[data-testid=pattern-reveal-cancel]')
   await page.waitForSelector(dialog, { state: 'detached' })
   check('…closed, nothing is left of it', (await page.locator('[data-testid=pattern-reveal-open]').count()) === 0 && (await page.locator('[data-testid=pattern-case-actions] > *').count()) === 0)
-  check('every reveal went to the one case', state.reveals.every((r) => r.caseId === TRAVEL_CASE.caseId) && state.reveals.length === 6, String(state.reveals.length))
+  check('every reveal went to the one case', state.reveals.every((r) => r.caseNumber === TRAVEL_CASE.caseNumber) && state.reveals.length === 6, String(state.reveals.length))
   await page.close()
 
   // ── 6. Arabic, right to left ────────────────────────────────────────────────────────────────────────────────────
@@ -305,7 +305,7 @@ async function run() {
   await page.waitForSelector('[data-testid=pattern-reveal-open] >> text=إظهار المريض')
   check('RTL: the document is dir=rtl and the button reads "إظهار المريض"', (await page.getAttribute('html', 'dir')) === 'rtl')
   await openDialog(page)
-  check('RTL: the dialog names the case in Arabic, its number isolated', strip(await page.textContent('dialog[open] #modal-title')) === 'إظهار مريض الحالة PC-000123')
+  check('RTL: the dialog names the case in Arabic, its number isolated', strip(await page.textContent('dialog[open] #modal-title')) === 'إظهار مريض الحالة 123')
   check('RTL: it says the reveal is logged, in Arabic', strip(await page.textContent('[data-testid=pattern-reveal-logged]')) === 'يسجل كل كشف: يحفظ اسمك والوقت وهذه الحالة وسببك في سجل الكشف، ويطلع عليه مدير التأمين.')
   check('RTL: the send is held with its reason in Arabic', (await sendHeld(page)) === 'true' && strip(await page.getAttribute('[data-testid=pattern-reveal-send]', 'title')) === 'اكتب 10 أحرف على الأقل.')
   const arabicReason = 'طلبت الجهة الدافعة مراجعة هذه الحالة'
@@ -326,21 +326,21 @@ async function run() {
   await page.close()
 
   // ── 7. Review 1: a reveal dialog never follows the reader to another case ────────────────────────────────────────
-  // PC-000099 is read (and cached), then Back to PC-000123, the dialog opened with a reason, then Forward: the page is
+  // Case 99 is read (and cached), then Back to case 123, the dialog opened with a reason, then Forward: the page is
   // reused for the cached case. A dialog still open there would post the reason to the OTHER case's Reveal.
   state = newState()
   access = investigator()
   page = await open(state, access)
   await page.goto(CASE)
   await page.waitForSelector('[data-testid=pattern-reveal-open]')
-  await page.click(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseId}"]`)
-  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.click(`[data-testid=pattern-previous] a[href="/insurance/patterns/${CLEARED_CASE.caseNumber}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseNumber}"]`)
   await page.goBack()
-  await page.waitForSelector(`[data-testid=pattern-case][data-case="${TRAVEL_CASE.caseId}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${TRAVEL_CASE.caseNumber}"]`)
   await openDialog(page)
   await page.fill('[data-testid=pattern-reveal-reason]', REASON)
   await page.goForward()
-  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseId}"]`)
+  await page.waitForSelector(`[data-testid=pattern-case][data-case="${CLEARED_CASE.caseNumber}"]`)
   await page.waitForTimeout(300)
   check('another case starts afresh: the reveal dialog opened on the last case closes with it', (await page.locator(dialog).count()) === 0, strip(await page.evaluate(() => document.querySelector('dialog')?.textContent ?? '')).slice(0, 120))
   check('…and no reveal was sent, to either case', state.reveals.length === 0, JSON.stringify(state.reveals))

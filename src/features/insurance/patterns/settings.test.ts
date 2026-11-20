@@ -92,12 +92,8 @@ describe('what a save sends', () => {
   it('only the thresholds that changed, as numbers, in the table’s order', () => {
     const drafts = { ...draftsOf(SAVED), OverlapShare: '0.3', WindowDays: '10' }
     expect(changedSettings(drafts, SAVED)).toEqual(['WindowDays', 'OverlapShare'])
-    expect(settingsBody(drafts, SAVED)).toEqual({
-      settings: [
-        { name: 'WindowDays', value: 10 },
-        { name: 'OverlapShare', value: 0.3 },
-      ],
-    })
+    // FLAT, under the camelCased keys BackOffice 4055 binds (case-insensitively): only the two that changed.
+    expect(settingsBody(drafts, SAVED)).toStrictEqual({ windowDays: 10, overlapShare: 0.3 })
   })
 
   it('the same number typed another way is no change', () => {
@@ -117,7 +113,7 @@ describe('what a save sends', () => {
     const drafts = draftsOf(saved)
     expect(drafts.MinTravelKm).toBe('')
     expect(settingsBody(drafts, saved)).toBeNull()
-    expect(settingsBody({ ...drafts, MinTravelKm: '60' }, saved)).toEqual({ settings: [{ name: 'MinTravelKm', value: 60 }] })
+    expect(settingsBody({ ...drafts, MinTravelKm: '60' }, saved)).toStrictEqual({ minTravelKm: 60 })
   })
 })
 
@@ -126,7 +122,7 @@ const HELD: PatternSettings = {
   settings: SAVED.slice(0, 7),
   changes: [{ name: 'MinStores', oldValue: 4, newValue: 3, by: 'manager2', at: '2026-11-10T14:05:00' }],
 }
-const SENT = { settings: [{ name: 'WindowDays', value: 10 }] }
+const SENT = { windowDays: 10 }
 
 describe('what the page holds after a save (review 6)', () => {
   it('the PUT’s answer, when it names every threshold as the GET does', () => {
@@ -161,7 +157,7 @@ describe('what the page holds after a save (review 6)', () => {
 
   it('a value sent for a threshold the page held no row for is held from now on', () => {
     const held: PatternSettings = { settings: SAVED.slice(0, 3), changes: [] }
-    const sent = { settings: [{ name: 'MinTravelKm', value: 60 }] }
+    const sent = { minTravelKm: 60 }
     expect(settingsAfterSave(held, sent, { settings: [], changes: [] }).settings).toEqual([...SAVED.slice(0, 3), { name: 'MinTravelKm', value: 60 }])
   })
 })

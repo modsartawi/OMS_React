@@ -4,7 +4,8 @@
  *
  * - **One point per store visited**, in the order first visited, sized by its dispenses (`FULL_SIZE_DISPENSES` and up
  *   draw at full size), its card counting them. A delivery's store is a point like any other.
- * - **The legs are the server's** (4053: between consecutive counter dispenses); the client never invents one. Drawn in
+ * - **The legs are the server's** (4053: between consecutive counter dispenses, each marked `counter`); the client never
+ *   invents one, and draws none the server did not mark `counter`. Drawn in
  *   time order, each labelled with its number, its km (when known) and its time; a leg that fired the travel signal in
  *   the warning colour, drawn above the plain legs. The same two stores travelled more than once are ONE line (the
  *   legs would lie on each other), its words a line per leg in time order, warning-coloured when any of them fired.
@@ -40,7 +41,7 @@ export interface RouteLegRow {
   leg: PatternLeg
   from: PatternDispense | null
   to: PatternDispense | null
-  /** The map draws it: both ends counter dispenses, at two stores, both with coordinates. */
+  /** The map draws it: a `counter` leg whose both ends are counter dispenses, at two stores, both with coordinates. */
   drawn: boolean
 }
 
@@ -80,6 +81,7 @@ export function routeLegs(detail: RouteSource): RouteLegRow[] {
       ...row,
       n: i + 1,
       drawn:
+        row.leg.counter &&
         !!row.from &&
         !!row.to &&
         row.from.counter &&

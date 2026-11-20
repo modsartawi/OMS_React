@@ -22,11 +22,11 @@ describe('the manager’s models hold no identity', () => {
   const models = source('../../../core/models/insurance-pattern-manager.ts')
 
   it('the reveal log’s row is exactly which case, who, when and why', () => {
-    expect(fieldsOf(models, 'PatternReveal')).toEqual(['caseId', 'caseNumber', 'by', 'at', 'reason'])
+    expect(fieldsOf(models, 'PatternReveal')).toEqual(['caseNumber', 'by', 'at', 'reason'])
   })
 
   it('the scan sees every model’s fields', () => {
-    expect(declaredFields(models)).toEqual(expect.arrayContaining(['caseNumber', 'reason', 'oldValue', 'reasonKind', 'endsOn']))
+    expect(declaredFields(models)).toEqual(expect.arrayContaining(['caseNumber', 'reason', 'oldValue', 'reasonKind', 'expiresOn']))
   })
 
   it('no model declares a field naming a patient, a member, a policy or a national id', () => {

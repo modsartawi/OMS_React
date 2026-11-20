@@ -1,5 +1,5 @@
 /**
- * Oms 923 (BackOffice spec 4050 story 15; door 4053 `POST …/Cases/{caseId}/Reveal`) — the investigator's reason for a
+ * Oms 923 (BackOffice spec 4050 story 15; door 4053 `POST …/Cases/{caseNumber}/Reveal`) — the investigator's reason for a
  * reveal. At least 10 characters once trimmed (4053 refuses a shorter one), at most 250 (4053 keeps it in an
  * `NVARCHAR(250)` and would clamp a longer one). The dialog reads its problem from `revealProblem`; only a body
  * `revealBody` made is ever sent.

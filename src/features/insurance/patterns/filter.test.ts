@@ -1,6 +1,6 @@
 /**
  * Oms 922 — the case list's filters (store, period, signal, status, severity) and its page, kept in the URL, and the
- * query they ask `GET Insurance/Patterns/Cases` for. The server orders the rows (score, then the last dispense): the
+ * query they ask `GET InsuranceRules/Patterns/Cases` for (BackOffice 4053 as built: `store`, a 1-based `page`, `pageSize`). The server orders the rows (score, then the last dispense): the
  * query never names an order.
  */
 import { describe, expect, it } from 'vitest'
@@ -61,32 +61,32 @@ describe('the query sent', () => {
   it(`no filter: page 1 of ${PAGE_SIZE}, every filter passed through blank (core's \`buildQuery\` drops a blank, api-envelope)`, () => {
     expect(PAGE_SIZE).toBe(25)
     expect(casesQuery(NO_FILTERS)).toStrictEqual({
-      storeCode: '',
+      store: '',
       from: '',
       to: '',
       signal: undefined,
       status: undefined,
       severity: undefined,
-      skip: 0,
-      take: 25,
+      page: 1,
+      pageSize: 25,
     })
   })
 
-  it('every filter under the door’s own names, and the page as skip/take', () => {
+  it('every filter under the door’s own names, and the 1-based page with its size', () => {
     expect(casesQuery({ store: '1001', from: '2026-11-01', to: '2026-11-19', signal: 'travel', status: 'open', severity: 'action', page: 3 })).toEqual({
-      storeCode: '1001',
+      store: '1001',
       from: '2026-11-01',
       to: '2026-11-19',
       signal: 'travel',
       status: 'open',
       severity: 'action',
-      skip: 50,
-      take: 25,
+      page: 3,
+      pageSize: 25,
     })
   })
 
   it('one end of the period alone: the other passes through blank', () => {
-    const blank = { storeCode: '', signal: undefined, status: undefined, severity: undefined, skip: 0, take: 25 }
+    const blank = { store: '', signal: undefined, status: undefined, severity: undefined, page: 1, pageSize: 25 }
     expect(casesQuery({ ...NO_FILTERS, from: '2026-11-01' })).toStrictEqual({ ...blank, from: '2026-11-01', to: '' })
     expect(casesQuery({ ...NO_FILTERS, to: '2026-11-19' })).toStrictEqual({ ...blank, from: '', to: '2026-11-19' })
   })

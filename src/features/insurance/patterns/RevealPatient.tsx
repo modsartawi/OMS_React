@@ -17,8 +17,8 @@ import { patternsApi } from './api'
 import { REASON_MAX, REASON_MIN, revealFailure, revealProblem, type RevealedPatient } from './reveal'
 
 /**
- * **Show patient** on a case (oms 923; BackOffice spec 4050 story 15, door 4053 `POST …/Cases/{caseId}/Reveal` —
- * STUBBED, the door is not built): an investigator gives a reason, the server logs the reveal, and the patient key and
+ * **Show patient** on a case (oms 923; BackOffice spec 4050 story 15, door 4053 `POST …/Cases/{caseNumber}/Reveal`,
+ * reconciled as built): an investigator gives a reason, the server logs the reveal, and the patient key and
  * member id show in this dialog and nowhere else.
  *
  * 🔒 The answer lives in the dialog's own `useState` only. The door is called straight from the click: no `useQuery`,
@@ -30,7 +30,7 @@ import { REASON_MAX, REASON_MIN, revealFailure, revealProblem, type RevealedPati
  * The button shows with `canRevealPatient` only. An open dialog stays open if the grant is withdrawn under it (a 403
  * re-reads the permissions answer), so it can say why; the button is gone once it closes.
  */
-export default function RevealPatient({ caseId, caseNumber }: { caseId: string; caseNumber: string }) {
+export default function RevealPatient({ caseNumber }: { caseNumber: string }) {
   const { t } = useTranslation('insurance-patterns')
   const can = canRevealPatient(usePermissions())
   const [open, setOpen] = useState(false)
@@ -42,7 +42,7 @@ export default function RevealPatient({ caseId, caseNumber }: { caseId: string; 
           {t('reveal.open')}
         </Button>
       )}
-      {open && <RevealDialog caseId={caseId} caseNumber={caseNumber} onClose={() => setOpen(false)} />}
+      {open && <RevealDialog caseNumber={caseNumber} onClose={() => setOpen(false)} />}
     </>
   )
 }
@@ -54,7 +54,7 @@ type Step =
   | { step: 'failed'; error: unknown }
   | { step: 'shown'; patient: RevealedPatient; reason: string }
 
-function RevealDialog({ caseId, caseNumber, onClose }: { caseId: string; caseNumber: string; onClose: () => void }) {
+function RevealDialog({ caseNumber, onClose }: { caseNumber: string; onClose: () => void }) {
   const { t } = useTranslation('insurance-patterns')
   const [reason, setReason] = useState('')
   // A problem shows once the investigator tried to send, not while they are still typing.
@@ -72,7 +72,7 @@ function RevealDialog({ caseId, caseNumber, onClose }: { caseId: string; caseNum
     inFlight.current = true
     setAt({ step: 'sending' })
     try {
-      const patient = await patternsApi.reveal(caseId, sent)
+      const patient = await patternsApi.reveal(caseNumber, sent)
       setAt({ step: 'shown', patient, reason: sent })
     } catch (error) {
       setAt({ step: 'failed', error })

@@ -1,6 +1,7 @@
 // Insurance pattern manager drive (oms 924; BackOffice spec 4050, doors 4055 + 4056) — drives the REAL app in Chromium
 // against MOCKED envelopes: 922's shared pattern doors (`./insurance-patterns-stubs.mjs`) chained with this slice's own
-// (`./insurance-patterns-manager-stubs.mjs`). BackOffice 4055/4056 are not built, so every shape is the guessed contract.
+// (`./insurance-patterns-manager-stubs.mjs`), both serving BackOffice 4053/4055/4056's shapes as built
+// (`InsuranceRules/Patterns/...`, a case keyed by its INT case number; the manage grant is `InsurancePattern:01`).
 //
 // Proves, on the running app: the manager's two nav leaves show only with the manager grant, and both pages say "no
 // access" without it; the settings page reads the seven thresholds with their ranges, says a change applies from the
@@ -115,7 +116,7 @@ async function run() {
   // ── 1. The nav and the gates: the manager's two leaves and pages need the manager grant ────────────────────────────
   for (const [label, keys] of [
     ['the analyst alone', [KEYS.analyst]],
-    ['the investigator and the block grant', [KEYS.analyst, KEYS.investigator, KEYS.block]],
+    ['view, mark, reveal and the block grant', [KEYS.analyst, KEYS.marker, KEYS.investigator, KEYS.block]],
   ]) {
     const patterns = patternsState()
     const mine = managerState()
@@ -183,7 +184,7 @@ async function run() {
   check('the page counts what changed and shows each one’s saved value', strip(await fieldBox(page, 'WindowDays').textContent()).includes('Saved value: 7'))
   await page.click('[data-testid=pattern-settings-save]')
   await page.waitForSelector('[data-sonner-toast]:has-text("Settings saved")')
-  check('one PUT, carrying only the two changed thresholds as numbers — and no actor', mine.calls.settingsPut.length === 1 && same(mine.calls.settingsPut[0].body, { settings: [{ name: 'WindowDays', value: 10 }, { name: 'OverlapShare', value: 0.3 }] }), JSON.stringify(mine.calls.settingsPut))
+  check('one PUT, FLAT, carrying only the two changed thresholds as numbers under their camelCased keys — and no actor', mine.calls.settingsPut.length === 1 && same(mine.calls.settingsPut[0].body, { windowDays: 10, overlapShare: 0.3 }), JSON.stringify(mine.calls.settingsPut))
   check('…with the X-Web-Client header', !!mine.calls.settingsPut[0]?.csrf)
   check('the toast says they apply from the next run', strip(await page.textContent('[data-sonner-toast]')).includes('They apply from the next run.'))
   await page.waitForFunction(() => document.querySelector('[data-setting=WindowDays]')?.getAttribute('data-changed') === 'false')
@@ -209,7 +210,7 @@ async function run() {
   page = await open(patterns, mine, { keys: [KEYS.manager, KEYS.analyst] })
   await page.goto(REVEALS)
   await page.waitForSelector('[data-testid=reveals-table]')
-  check('the opening read asks page 1 of 25, no filter', same(lastReveals(mine), { skip: '0', take: '25' }), JSON.stringify(lastReveals(mine)))
+  check('the opening read asks page 1 of 25, no filter', same(lastReveals(mine), { page: '1', pageSize: '25' }), JSON.stringify(lastReveals(mine)))
   check('…with the X-Web-Client header', !!mine.calls.reveals[0]?.csrf)
   check('the caption counts every reveal', strip(await page.textContent('[data-testid=reveals-count]')) === '31 reveals')
   const heads = (await page.locator('[data-testid=reveals-table] th').allTextContents()).map(strip)
@@ -218,18 +219,18 @@ async function run() {
   const rows = page.locator('[data-testid=reveals-row]')
   check('25 rows on page 1', (await rows.count()) === 25)
   const first = strip(await rows.nth(0).textContent())
-  check('newest first: the first row reads its time, case, user and reason', ['2026-11-19 17:00', 'PC-000123', 'investigator1', 'Payer BUPA asked for the patient on this case.'].every((w) => first.includes(w)), first)
+  check('newest first: the first row reads its time, case, user and reason', ['2026-11-19 17:00', '123', 'investigator1', 'Payer BUPA asked for the patient on this case.'].every((w) => first.includes(w)), first)
   check('an Arabic reason reads as written', strip(await page.textContent('[data-testid=reveals-table]')).includes('المطالبة من الجهة الدافعة تتطلب التحقق من هوية المريض.'))
-  check('each case links to its screen', (await page.getAttribute('[data-testid=reveals-row-case] >> nth=0', 'href')) === `/insurance/patterns/${TRAVEL_CASE.caseId}`)
+  check('each case links to its screen', (await page.getAttribute('[data-testid=reveals-row-case] >> nth=0', 'href')) === `/insurance/patterns/${TRAVEL_CASE.caseNumber}`)
   await page.click('nav[aria-label="Result pages"] button:has-text("Next")')
-  await waitUntil(() => lastReveals(mine).skip === '25')
+  await waitUntil(() => lastReveals(mine).page === '2')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=reveals-row]').length === 6)
-  check('Next asks skip=25 and shows the last 6', lastReveals(mine).skip === '25')
+  check('Next asks page=2 and shows the last 6', lastReveals(mine).page === '2')
 
   // ── 7. The filters: user, period, case — each sent under the door's name, kept in the address ───────────────────────
   await page.fill('[data-testid=reveals-filter-user]', 'investigator2')
   await waitUntil(() => lastReveals(mine).user === 'investigator2')
-  check('a user typed is sent as user once typing stops, back on page 1', lastReveals(mine).user === 'investigator2' && lastReveals(mine).skip === '0', JSON.stringify(lastReveals(mine)))
+  check('a user typed is sent as user once typing stops, back on page 1', lastReveals(mine).user === 'investigator2' && lastReveals(mine).page === '1', JSON.stringify(lastReveals(mine)))
   await page.waitForFunction(() => new URL(location.href).search === '?user=investigator2')
   const byUser = await page.locator('[data-testid=reveals-row] td:nth-child(3)').allTextContents()
   check('…and every row is theirs', byUser.length > 0 && byUser.every((u) => strip(u) === 'investigator2'), JSON.stringify(byUser))
@@ -244,46 +245,46 @@ async function run() {
   await page.fill('[data-testid=reveals-filter-from]', '2026-11-10')
   await page.fill('[data-testid=reveals-filter-to]', '2026-11-18')
   await waitUntil(() => lastReveals(mine).from === '2026-11-10' && lastReveals(mine).to === '2026-11-18')
-  check('a period is sent as from and to', same(lastReveals(mine), { from: '2026-11-10', to: '2026-11-18', skip: '0', take: '25' }), JSON.stringify(lastReveals(mine)))
+  check('a period is sent as from and to', same(lastReveals(mine), { from: '2026-11-10', to: '2026-11-18', page: '1', pageSize: '25' }), JSON.stringify(lastReveals(mine)))
   await page.click('[data-testid=reveals-filter-clear]')
   await page.waitForFunction(() => new URL(location.href).search === '')
   await page.waitForSelector('[data-testid=reveals-row-only-case]')
-  await page.locator('[data-testid=reveals-row]', { hasText: 'PC-000123' }).first().locator('[data-testid=reveals-row-only-case]').click()
-  await waitUntil(() => lastReveals(mine).caseId === TRAVEL_CASE.caseId)
-  check('"Only this case" asks caseId and keeps it in the address', lastReveals(mine).caseId === TRAVEL_CASE.caseId && new URL(page.url()).searchParams.get('case') === TRAVEL_CASE.caseId)
-  await waitText(page, '[data-testid=reveals-filter-case]', 'Case PC-000123')
+  await page.locator('[data-testid=reveals-row]', { hasText: '123' }).first().locator('[data-testid=reveals-row-only-case]').click()
+  await waitUntil(() => lastReveals(mine).case === String(TRAVEL_CASE.caseNumber))
+  check('"Only this case" asks case (the case number) and keeps it in the address', lastReveals(mine).case === String(TRAVEL_CASE.caseNumber) && new URL(page.url()).searchParams.get('case') === String(TRAVEL_CASE.caseNumber))
+  await waitText(page, '[data-testid=reveals-filter-case]', 'Case 123')
   const caseCells = await page.locator('[data-testid=reveals-row-case]').allTextContents()
-  check('…the filter names the case by number, and every row is that case', caseCells.length > 0 && caseCells.every((c) => strip(c) === 'PC-000123'), JSON.stringify(caseCells))
+  check('…the filter names the case by number, and every row is that case', caseCells.length > 0 && caseCells.every((c) => strip(c) === '123'), JSON.stringify(caseCells))
   await page.click('[data-testid=reveals-filter-case]')
-  await waitUntil(() => lastReveals(mine).caseId === undefined && mine.calls.reveals.length > 0)
+  await waitUntil(() => lastReveals(mine).case === undefined && mine.calls.reveals.length > 0)
   check('the case filter clears with one press', (await page.locator('[data-testid=reveals-filter-case]').count()) === 0)
-  await page.goto(REVEALS + `?case=${CLEARED_CASE.caseId}&page=1`)
-  await waitUntil(() => lastReveals(mine).caseId === CLEARED_CASE.caseId)
-  check('a pasted address is read back as the case filter', lastReveals(mine).caseId === CLEARED_CASE.caseId)
+  await page.goto(REVEALS + `?case=${CLEARED_CASE.caseNumber}&page=1`)
+  await waitUntil(() => lastReveals(mine).case === String(CLEARED_CASE.caseNumber))
+  check('a pasted address is read back as the case filter', lastReveals(mine).case === String(CLEARED_CASE.caseNumber))
   await page.click('[data-testid=reveals-row-case] >> nth=0')
-  await page.waitForURL(`**/insurance/patterns/${CLEARED_CASE.caseId}`)
+  await page.waitForURL(`**/insurance/patterns/${CLEARED_CASE.caseNumber}`)
   await page.waitForSelector('[data-testid=pattern-case]')
-  check('a case number opens the case’s screen', strip(await page.textContent('[data-testid=pattern-case-number]')).includes('PC-000099'))
+  check('a case number opens the case’s screen', strip(await page.textContent('[data-testid=pattern-case-number]')).includes('Case 99'))
   await page.close()
 
   // ── 8. The block action: only on a confirmed case, only with BOTH grants ────────────────────────────────────────────
   const OPEN_CASE = generatedCase(1)
   const blockScenario = () => {
     const p = patternsState()
-    p.details.get(TRAVEL_CASE.caseId).status = 'confirmed'
+    p.details.get(TRAVEL_CASE.caseNumber).status = 'confirmed'
     return p
   }
-  for (const [label, keys, caseId, offered] of [
-    ['confirmed, investigator + block grant', [KEYS.analyst, KEYS.investigator, KEYS.block], TRAVEL_CASE.caseId, true],
-    ['confirmed, investigator without the block grant', [KEYS.analyst, KEYS.investigator], TRAVEL_CASE.caseId, false],
-    ['confirmed, block grant without the investigator', [KEYS.analyst, KEYS.block], TRAVEL_CASE.caseId, false],
-    ['confirmed, the manager and the block grant', [KEYS.analyst, KEYS.manager, KEYS.block], TRAVEL_CASE.caseId, false],
-    ['open, both grants', [KEYS.analyst, KEYS.investigator, KEYS.block], OPEN_CASE.caseId, false],
-    ['cleared, both grants', [KEYS.analyst, KEYS.investigator, KEYS.block], CLEARED_CASE.caseId, false],
+  for (const [label, keys, caseNumber, offered] of [
+    ['confirmed, investigator + block grant', [KEYS.analyst, KEYS.investigator, KEYS.block], TRAVEL_CASE.caseNumber, true],
+    ['confirmed, investigator without the block grant', [KEYS.analyst, KEYS.investigator], TRAVEL_CASE.caseNumber, false],
+    ['confirmed, block grant without the investigator', [KEYS.analyst, KEYS.block], TRAVEL_CASE.caseNumber, false],
+    ['confirmed, the manager and the block grant', [KEYS.analyst, KEYS.manager, KEYS.block], TRAVEL_CASE.caseNumber, false],
+    ['open, both grants', [KEYS.analyst, KEYS.investigator, KEYS.block], OPEN_CASE.caseNumber, false],
+    ['cleared, both grants', [KEYS.analyst, KEYS.investigator, KEYS.block], CLEARED_CASE.caseNumber, false],
   ]) {
     const p = blockScenario()
     const pg = await open(p, managerState(), { keys })
-    await pg.goto(CASE(caseId))
+    await pg.goto(CASE(caseNumber))
     // Attached, not visible: with nothing offered the actions' place is empty (no size). The case renders only once the
     // permissions answer is in (its gate), so by then the action is decided.
     await pg.waitForSelector('[data-testid=pattern-case-actions]', { state: 'attached' })
@@ -295,11 +296,11 @@ async function run() {
   patterns = blockScenario()
   mine = managerState()
   page = await open(patterns, mine, { keys: [KEYS.analyst, KEYS.investigator, KEYS.block, KEYS.manager] })
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.click('[data-testid=pattern-block-open]')
   await page.waitForSelector('[data-testid=pattern-block-dialog]')
   const said = strip(await page.textContent('[data-testid=pattern-block-dialog]'))
-  check('the dialog says what happens: the case’s patient, every store and payer, the reference and the reveal log', said.includes('The patient of case PC-000123 is added to the blocked-patient list.') && said.includes('under every payer') && said.includes('reference names case PC-000123') && said.includes('written to the reveal log'), said)
+  check('the dialog says what happens: the case’s patient, every store and payer, the reference and the reveal log', said.includes('The patient of case 123 is added to the blocked-patient list.') && said.includes('under every payer') && said.includes('reference names case 123') && said.includes('written to the reveal log'), said)
   check('Confirm is held until a kind of finding is chosen, saying why', (await page.getAttribute('[data-testid=pattern-block-confirm]', 'aria-disabled')) === 'true' && (await page.getAttribute('[data-testid=pattern-block-confirm]', 'title')) === 'Choose the kind of finding: abuse or fraud.')
   await page.click('[data-testid=pattern-block-confirm]', { force: true })
   await page.waitForSelector('[data-testid=pattern-block-dialog] >> text=Choose the kind of finding: abuse or fraud.')
@@ -320,16 +321,16 @@ async function run() {
   await page.fill('[data-testid=pattern-block-payer]', '  BUPA ')
   await page.click('[data-testid=pattern-block-confirm]')
   await page.waitForSelector('[data-sonner-toast]:has-text("Added to the blocked-patient list")')
-  check('the block posts the kind, the payer trimmed and the end — no start given, no patient, no actor', mine.calls.blocks.length === 1 && mine.calls.blocks[0].caseId === TRAVEL_CASE.caseId && same(mine.calls.blocks[0].body, { reasonKind: 'fraud', payer: 'BUPA', endsOn: '2027-05-19' }), JSON.stringify(mine.calls.blocks))
+  check('the block posts the kind, the payer trimmed and the end as expiresOn — no start given, no patient, no actor', mine.calls.blocks.length === 1 && mine.calls.blocks[0].caseNumber === TRAVEL_CASE.caseNumber && same(mine.calls.blocks[0].body, { reasonKind: 'fraud', payer: 'BUPA', expiresOn: '2027-05-19' }), JSON.stringify(mine.calls.blocks))
   check('…with the X-Web-Client header', !!mine.calls.blocks[0]?.csrf)
-  check('…the dialog closes, and the toast names the case', (await page.locator('[data-testid=pattern-block-dialog]').count()) === 0 && strip(await page.textContent('[data-sonner-toast]')).includes('PC-000123'))
+  check('…the dialog closes, and the toast names the case', (await page.locator('[data-testid=pattern-block-dialog]').count()) === 0 && strip(await page.textContent('[data-sonner-toast]')).includes('123'))
   check('the patient key the answer echoed is nowhere on the page', !planted(strip(await page.textContent('body'))))
   await page.goto(REVEALS)
   await page.waitForSelector('[data-testid=reveals-table]')
   const top = strip(await page.textContent('[data-testid=reveals-row] >> nth=0'))
-  check('the block’s own reveal-log row is at the top: the case, the session’s user, "block"', ['PC-000123', 'msartawi', 'block'].every((w) => top.includes(w)), top)
-  await page.goto(CASE(TRAVEL_CASE.caseId))
-  mine.blockRefusal = { code: 'CASE_NOT_CONFIRMED', message: 'Only a confirmed case can add its patient to the blocked-patient list.' }
+  check('the block’s own reveal-log row is at the top: the case, the session’s user, "block"', ['123', 'msartawi', 'block'].every((w) => top.includes(w)), top)
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
+  mine.blockRefusal = { code: 'INSPATTERN_BAD_REQUEST', message: 'Only a confirmed case can add its patient to the blocked-patient list.' }
   await page.click('[data-testid=pattern-block-open]')
   await page.selectOption('[data-testid=pattern-block-kind]', 'abuse')
   await page.click('[data-testid=pattern-block-confirm]')
@@ -381,14 +382,14 @@ async function run() {
   check('RTL: no planted identity in Arabic either', !planted(strip(await page.textContent('body'))))
   await page.screenshot({ path: join(SHOT_DIR, '924-reveal-log-rtl-ar.png'), fullPage: true })
 
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.waitForSelector('[data-testid=pattern-block-open]')
   await toArabic(page)
   await page.waitForSelector('text=إضافة إلى قائمة المرضى المحظورين')
   await page.click('[data-testid=pattern-block-open]')
   await page.waitForSelector('[data-testid=pattern-block-dialog]')
   const dialogText = strip(await page.textContent('dialog'))
-  check('RTL: the block dialog reads in Arabic, the case number kept whole', dialogText.includes('إضافة المريض إلى قائمة المرضى المحظورين') && dialogText.includes('يضاف مريض الحالة PC-000123') && !rawKey.test(dialogText), dialogText.slice(0, 300))
+  check('RTL: the block dialog reads in Arabic, the case number kept whole', dialogText.includes('إضافة المريض إلى قائمة المرضى المحظورين') && dialogText.includes('يضاف مريض الحالة 123') && !rawKey.test(dialogText), dialogText.slice(0, 300))
   const dateBoxes = await page.locator('[data-testid=pattern-block-dialog] input[type=date]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().x))
   check('RTL: the start stands right of the end', dateBoxes[0] > dateBoxes[1], JSON.stringify(dateBoxes))
   await page.screenshot({ path: join(SHOT_DIR, '924-block-dialog-rtl-ar.png') })
@@ -402,7 +403,7 @@ async function run() {
   mine = managerState()
   const blockKeys = [KEYS.analyst, KEYS.investigator, KEYS.block]
   page = await open(patterns, mine, { keys: blockKeys })
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.click('[data-testid=pattern-block-open]')
   await page.waitForSelector('[data-testid=pattern-block-dialog]')
   await page.selectOption('[data-testid=pattern-block-kind]', 'fraud')
@@ -435,7 +436,7 @@ async function run() {
   patterns = blockScenario()
   mine = managerState()
   page = await open(patterns, mine, { keys: [KEYS.analyst, KEYS.investigator, KEYS.block] })
-  await page.goto(CASE(TRAVEL_CASE.caseId))
+  await page.goto(CASE(TRAVEL_CASE.caseNumber))
   await page.click('[data-testid=pattern-block-open]')
   await page.waitForSelector('[data-testid=pattern-block-dialog]')
   await page.selectOption('[data-testid=pattern-block-kind]', 'abuse')
@@ -460,10 +461,10 @@ async function run() {
   await page.goto(REVEALS + '?user=investigator2&page=3')
   await waitUntil(() => lastReveals(mine).user === 'investigator2')
   const fellBack = await settles(page.waitForFunction(() => !new URL(location.href).searchParams.has('page'), null, { timeout: 8000 }))
-  await waitUntil(() => lastReveals(mine).skip === '0')
+  await waitUntil(() => lastReveals(mine).page === '1')
   check(
     'an emptied page past the first falls back to the last page (page 1): its 10 rows, no "no reveal matches"',
-    fellBack && same(lastReveals(mine), { user: 'investigator2', skip: '0', take: '25' }) && (await page.locator('[data-testid=reveals-row]').count()) === 10 && (await page.locator('[data-testid=reveals-empty]').count()) === 0,
+    fellBack && same(lastReveals(mine), { user: 'investigator2', page: '1', pageSize: '25' }) && (await page.locator('[data-testid=reveals-row]').count()) === 10 && (await page.locator('[data-testid=reveals-empty]').count()) === 0,
     JSON.stringify({ fellBack, last: lastReveals(mine), url: page.url() }),
   )
   await page.close()
@@ -496,7 +497,7 @@ async function run() {
   page = await open(patterns, mine)
   await page.goto(SETTINGS)
   await page.waitForSelector('[data-testid=pattern-settings-form]')
-  const slowPut = once((r) => r.method() === 'PUT' && apiPath(r) === 'Insurance/Patterns/Settings', { held: true })
+  const slowPut = once((r) => r.method() === 'PUT' && apiPath(r) === 'InsuranceRules/Patterns/Settings', { held: true })
   await page.fill(field('CaseQuietDays'), '45')
   await page.click('[data-testid=pattern-settings-save]')
   await slowPut.arrived
@@ -504,7 +505,7 @@ async function run() {
   slowPut.release()
   await settles(page.waitForFunction(() => document.querySelector('[data-setting=CaseQuietDays]')?.getAttribute('data-changed') === 'false', null, { timeout: 8000 }))
   await page.waitForTimeout(300)
-  check('the save sent only what was typed before it', same(mine.calls.settingsPut.at(-1)?.body, { settings: [{ name: 'CaseQuietDays', value: 45 }] }), JSON.stringify(mine.calls.settingsPut))
+  check('the save sent only what was typed before it', same(mine.calls.settingsPut.at(-1)?.body, { caseQuietDays: 45 }), JSON.stringify(mine.calls.settingsPut))
   check(
     'a value typed while a save was in flight is kept, still marked changed, not wiped by the save',
     (await page.inputValue(field('LookbackDays'))) === '120' && (await page.getAttribute(field('LookbackDays'), 'data-changed')) === 'true',
@@ -520,7 +521,7 @@ async function run() {
   page = await open(patterns, mine)
   await page.goto(SETTINGS)
   await page.waitForSelector('[data-testid=pattern-settings-form]')
-  once((r) => r.method() === 'GET' && apiPath(r) === 'Insurance/Patterns/Settings', {
+  once((r) => r.method() === 'GET' && apiPath(r) === 'InsuranceRules/Patterns/Settings', {
     answer: businessRefusal('SETTINGS_BUSY', 'The settings store is busy; try again in a minute.', 503),
   })
   await page.fill(field('MinTravelKm'), '60')

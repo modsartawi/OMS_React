@@ -1,12 +1,11 @@
 /**
- * The case list's filters and page (oms 922; BackOffice 4053 `GET Insurance/Patterns/Cases`): read from the URL, written
+ * The case list's filters and page (oms 922; BackOffice 4053 `GET InsuranceRules/Patterns/Cases`): read from the URL, written
  * back to it, and turned into the query the door is asked. Pure; the page keeps them in the address (`useUrlQuery`), so
  * a filtered list can be shared and Back leaves the screen.
  *
  * The server orders the rows — score, then the last dispense — so no order is ever sent (ticket 922: "ordered by score").
  */
 import type { PatternCasesQuery, PatternSeverity, PatternSignal, PatternStatus } from '@/core/models/insurance-patterns'
-import { skipForPage } from '@/core/ui/pager'
 import { windowProblem } from '@/core/util/date-window'
 
 /** Rows a page. */
@@ -65,19 +64,19 @@ export function filtersToParams(f: CaseFilters): URLSearchParams {
 }
 
 /**
- * The door's query: every filter under the door's own name, and the page as skip/take. A blank filter is passed
+ * The door's query: every filter under the door's own name (`store`), and the 1-based page with its size. A blank filter is passed
  * through, not left out here: `@/core/api`'s `buildQuery` drops it (`.claude/rules/api-envelope.md`).
  */
 export function casesQuery(f: CaseFilters): PatternCasesQuery {
   return {
-    storeCode: f.store,
+    store: f.store,
     from: f.from,
     to: f.to,
     signal: f.signal || undefined,
     status: f.status || undefined,
     severity: f.severity || undefined,
-    skip: skipForPage(f.page, PAGE_SIZE),
-    take: PAGE_SIZE,
+    page: f.page,
+    pageSize: PAGE_SIZE,
   }
 }
 

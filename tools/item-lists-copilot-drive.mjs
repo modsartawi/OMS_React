@@ -1,7 +1,9 @@
 // Item lists in the library and in Copilot's answer (oms 926, BackOffice spec 4057) — drives the REAL app in Chromium
 // against STUBBED doors (`tools/analytics-stubs.mjs`), shaped from BackOffice's REAL wire: the answer's `itemLists[]`
-// pointing at its server-written "Used:" line in `assumptions` (t4061 f374504d9), the library's `kind=itemlist` (4058),
-// a saved query's `itemList` id (4059) and "list not available" `ANALYTICS-437` (⚠ t4061, UNCOMMITTED when written).
+// pointing at its server-written "Used:" line in `assumptions` (4061, rechecked at spec4057 723cdb708: the Used lines are
+// never cut by the ten-line limit and keep the server's order), the library's `kind=itemlist` (4058), a saved query's
+// `itemList` id (4059) and "list not available" `ANALYTICS-437` `data { itemList, reason: deleted | not-shared }`
+// (committed in afc267a0e).
 // BO sends no `list_periods` part (4060 keeps its result to the model), so the answer here carries none.
 // 🚩 NOTHING here is driven against a live SIS.Api: the live walk on BO 4061 is what closes the live half.
 //

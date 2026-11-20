@@ -63,6 +63,12 @@ describe("readPreview: BackOffice 4058's preview (AnalyticsItemListPreview), rea
     ])
     expect(readPreview(wire).notices).toEqual([{ kind: 'notice', rows: [9], field: 'note', reason: 'clamped', message: 'Row 9: the note is cut to 200 characters.' }])
   })
+  it("an unknown column (BO 4057 review fix 12, reason `unknownColumn` on the header row) is a refusing problem in the server's words", () => {
+    const message = "The column 'Untill' is not one of Level, Key, From, To, Status and Note (or their Arabic names), so it would not be read: rename it, or remove it."
+    const p = readPreview({ ...wire, token: null, problems: [{ rows: [1], field: 'header', reason: 'unknownColumn', message }] })
+    expect(p.problems).toEqual([{ kind: 'refused', rows: [1], field: 'header', reason: 'unknownColumn', message }])
+    expect(p.token).toBe('')
+  })
   it('a preview with problems carries no token (null on the wire): it reads as none', () => {
     expect(readPreview({ ...wire, token: null, expiresAt: null }).token).toBe('')
   })

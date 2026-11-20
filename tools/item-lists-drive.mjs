@@ -1,5 +1,5 @@
 // Item lists drive (oms 925, BackOffice spec 4057) — drives the REAL upload page and list page in Chromium against
-// STUBBED `Analytics/ItemLists*` envelopes, shaped from BackOffice 4058's REAL wire (spec4057 d919921f5:
+// STUBBED `Analytics/ItemLists*` envelopes, shaped from BackOffice 4058's REAL wire (spec4057 723cdb708, merged to pricing2:
 // `AnalyticsItemListPreview`, `AnalyticsItemInfo` over the v1 `AnalyticsItemListDefinition`, refusal codes 434/435).
 // 🚩 NOTHING here is driven against a live SIS.Api: the walk on BO 4058's endpoints is what closes the live half.
 //
@@ -17,6 +17,8 @@
 //   9. the layout mirrors under Arabic (screenshots in tools/.item-lists-shots);
 //  10. (review) a refused file after a preview clears the preview and Save; a server clock hours away from this
 //      machine's keeps the 30-minute window; a save answering no list id lands on the library's item lists.
+//  11. (BO 4057 review fixes 12 + 14) an unknown header is a refusing problem on the header row, in the server's
+//      words; a save that fails hands its token back, so the same preview saves on the next press.
 //
 //   1. run the app:  npx vite --port 5231 --strictPort
 //   2. DRIVE_PORT=5231 node tools/item-lists-drive.mjs
@@ -86,6 +88,7 @@ const REFUSED = PREVIEW({
     { rows: [9], field: 'from', reason: 'from', message: "Row 9: '31/02/2026' is not a date." },
     { rows: [10, 2], field: 'from', reason: 'overlap', message: 'Rows 2 and 10 give 100234 periods that overlap.' },
     { rows: [11], field: 'note', reason: 'personalData', message: 'Row 11: a note cannot hold a phone number, an ID number or an email address.' },
+    { rows: [1], field: 'header', reason: 'unknownColumn', message: "The column 'Untill' is not one of Level, Key, From, To, Status and Note (or their Arabic names), so it would not be read: rename it, or remove it." },
   ],
   canSave: false,
 })
@@ -121,6 +124,7 @@ async function open(dir, grants, opts = {}) {
   const errors = []
   const calls = []
   let saveRefusals = opts.expireFirstSave ? 1 : 0
+  let saveFailures = opts.failSaveAfterExpiry ? 1 : 0
   const previews = [...(opts.previews ?? [])]
   if (opts.clock) await page.clock.install()
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -140,6 +144,8 @@ async function open(dir, grants, opts = {}) {
     if (p === 'Analytics/ItemLists' && req.method() === 'POST') {
       if (saveRefusals-- > 0)
         return route.fulfill(refusal('ANALYTICS-435', 'This preview is no longer available (previews are kept 30 minutes, for their uploader, and used once). Upload the file again.', 400))
+      // BO 5701dd7d0: a save that fails after claiming the token hands it back; the same token saves next time.
+      if (saveFailures-- > 0) return route.fulfill(envelope(null, { status: 500, success: false, message: 'The list could not be written.' }))
       return route.fulfill(envelope(opts.created ?? LIST))
     }
     if (p === 'Analytics/ItemLists/il-1/Export') return route.fulfill(workbook('Shortage Q3.xlsx'))
@@ -156,7 +162,7 @@ const attr = (loc, name) => loc.getAttribute(name)
 
 async function authorWalk(dir) {
   const L = dir.toUpperCase()
-  const { context, page, errors, calls } = await open(dir, AUTHOR, { expireFirstSave: true, previews: [REFUSED] })
+  const { context, page, errors, calls } = await open(dir, AUTHOR, { expireFirstSave: true, failSaveAfterExpiry: true, previews: [REFUSED] })
   await page.goto(`${BASE}/analytics/itemlist/new`)
   await page.locator('[data-item-list-upload="create"]').waitFor()
   check(`${L}: the page is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
@@ -182,8 +188,10 @@ async function authorWalk(dir) {
   check(`${L}: a duplicate names both rows`, (await rowsOf('duplicate')).join('|') === '6 8')
   check(`${L}: a bad date names its row`, (await rowsOf('badDate')).join('|') === '9')
   check(`${L}: an overlap names both rows`, (await rowsOf('overlap')).join('|') === '2 10')
-  check(`${L}: a refused row carries the server's words`, (await page.locator('[data-item-list-problem="refused"]').innerText()).includes('phone number'))
-  check(`${L}: the problem count leaves the notice out`, (await page.locator('[data-item-list-count="problems"]').innerText()).includes('4'))
+  const refusedText = (await page.locator('[data-item-list-problem="refused"]').allInnerTexts()).join(' | ')
+  check(`${L}: a refused row carries the server's words`, refusedText.includes('phone number'))
+  check(`${L}: an unknown header is a refused problem on the header row, in the server's words`, (await rowsOf('refused')).join('|') === '1|11' && refusedText.includes("'Untill'"), (await rowsOf('refused')).join('|'))
+  check(`${L}: the problem count leaves the notice out`, (await page.locator('[data-item-list-count="problems"]').innerText()).includes('5'))
   check(`${L}: a preview with problems (no token) holds Save`, (await page.locator('[data-item-list-save]').isDisabled()) && (await attr(page.locator('[data-item-list-save-hold]'), 'data-item-list-save-hold')) === 'problems')
   await page.screenshot({ path: `${SHOTS}/${dir}-problems.png`, fullPage: true })
   // The file fixed and chosen again: a clean preview, with a token.
@@ -219,9 +227,14 @@ async function authorWalk(dir) {
   check(`${L}: a fresh preview clears the expired note`, (await page.locator('[data-item-list-expired]').count()) === 0)
   check(`${L}: the name and audience are kept across the new preview`, (await page.locator('[data-item-list-name]').inputValue()) === 'Shortage Q3')
   await page.locator('[data-item-list-save]').click()
+  await page.locator('[data-item-list-save-error]').waitFor()
+  check(`${L}: a failed save keeps the preview and says so`, (await page.locator('[data-item-list-preview]').count()) === 1 && (await page.locator('[data-item-list-expired]').count()) === 0)
+  check(`${L}: …and Save stays pressable (the token was handed back)`, await page.locator('[data-item-list-save]').isEnabled())
+  await page.locator('[data-item-list-save]').click()
   await page.waitForURL(/\/analytics\/itemlist\/il-1$/)
   const posts = calls.filter((c) => c.p === 'Analytics/ItemLists' && c.method === 'POST')
   const body = JSON.parse(posts[posts.length - 1].body)
+  check(`${L}: the retry posts the same token the failed save sent`, posts.length === 3 && JSON.parse(posts[1].body).token === 'tok-1' && body.token === 'tok-1', String(posts.length))
   check(`${L}: Save posts the token, name, audience and folder`, body.token === 'tok-1' && body.name === 'Shortage Q3' && body.audience?.everyone === true && body.folderId === 'f-1', JSON.stringify(body))
 
   // 5. the list page

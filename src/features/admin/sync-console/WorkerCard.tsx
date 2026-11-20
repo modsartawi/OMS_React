@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -125,6 +126,10 @@ function MirrorRow({ item }: { item: MirrorCardItem }) {
       )}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
         <span className="font-semibold">{role}</span>
+        {/* oms 931: the drain page answers what this row only hints at - is the mirror winning, since when. */}
+        <Link to="/admin/sync/mirror" className="text-primary underline-offset-2 hover:underline" data-drain-link="">
+          {t('drain.link')}
+        </Link>
         <span className="font-mono">
           <Ltr>{w.instance}</Ltr>
         </span>

@@ -178,3 +178,4 @@ tools/.store-db-*-shots/
 # Item lists drive screenshots (tools/item-lists-drive.mjs, ticket 925)
 tools/.item-lists-shots/
 tools/.item-lists-copilot-shots/
+tools/.sync-console-drain-shots/

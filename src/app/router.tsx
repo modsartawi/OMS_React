@@ -588,6 +588,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/FleetPage')).default,
         }),
       },
+      // The mirror drain (oms 931, BackOffice 4091): is the mirror winning, and since when has it not been?
+      {
+        path: 'admin/sync/mirror',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/MirrorDrainPage')).default,
+        }),
+      },
       {
         path: 'admin/sync/store/:code',
         lazy: async () => ({

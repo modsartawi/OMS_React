@@ -4,7 +4,8 @@
  *
  * New store is the wizard, which is nothing but controls: a holder who may onboard nothing (`wizardStart` is `null`)
  * is not shown the link. Replay (spec 470) is shown only with `canReplay`. Store database (oms 915, BackOffice spec
- * 4016) only with its own View grant, which the console's leaf does not imply.
+ * 4016) only with its own View grant, which the console's leaf does not imply. Mirror drain (oms 931) is a read
+ * every console holder sees.
  */
 import type { Permissions } from '@/core/permissions'
 import { canReplayReceipts, canViewStoreDb } from './access'
@@ -13,6 +14,7 @@ import { REPLAY_PATH } from './replay-draft'
 
 export const CONSOLE_PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
+  { to: '/admin/sync/mirror', key: 'mirror', end: false },
   { to: '/admin/sync/passes', key: 'passes', end: false },
   { to: '/admin/sync/commands', key: 'commands', end: false },
   { to: '/admin/sync/audit', key: 'audit', end: false },

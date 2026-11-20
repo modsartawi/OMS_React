@@ -4,7 +4,7 @@ import { documentDirection } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { googleEngine } from './google-engine'
 import { placeCard } from './map-drawing'
-import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapPoint, type MapsAccess } from './map-panel'
+import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapLine, type MapPoint, type MapsAccess } from './map-panel'
 
 /**
  * The map panel (ticket 879, BackOffice spec 3630; ticket 908, ADR 0139): given points, it draws them on Google's road
@@ -26,6 +26,16 @@ export interface MapPanelProps {
   points: readonly MapPoint[]
   /** How a group of nearby stores reads (881): its count, and its sum when the size adds up. Stable, like `points`. */
   grouping?: MapGrouping | null
+  /**
+   * Whether nearby stores join into groups (881). Absent or true: they do, and the map is drawn exactly as before. False
+   * (spec 4050 review 4, a case's route): each store stays its own point at every zoom, so no group disc covers a leg.
+   */
+  groupNearby?: boolean
+  /**
+   * Lines between places (922): a case's legs, each in its colour with its words at its middle, beneath the points.
+   * Stable, like `points`. Absent: none, and the map is drawn exactly as before.
+   */
+  lines?: readonly MapLine[]
   /** The model's `maps` part (BackOffice 3986): Google's key, and the map ID when served. Absent: "cannot draw" (`no-key`). */
   maps?: MapsAccess | null
   /** The map's accessible name, in the caller's words. */
@@ -39,7 +49,17 @@ export interface MapPanelProps {
 /** A token's value on the page (Google takes a colour, not a CSS variable). */
 const tokenOf = (el: Element, name: string) => getComputedStyle(el).getPropertyValue(name).trim()
 
-export default function MapPanel({ points, grouping = null, maps = null, ariaLabel, onDrawn, onCannotDraw, className = 'h-80 w-full' }: MapPanelProps) {
+export default function MapPanel({
+  points,
+  grouping = null,
+  groupNearby = true,
+  lines,
+  maps = null,
+  ariaLabel,
+  onDrawn,
+  onCannotDraw,
+  className = 'h-80 w-full',
+}: MapPanelProps) {
   const { i18n } = useTranslation()
   const box = useRef<HTMLDivElement>(null)
   const frame = useRef<HTMLDivElement>(null)
@@ -64,6 +84,8 @@ export default function MapPanel({ points, grouping = null, maps = null, ariaLab
       maps: { key, ...(mapId ? { mapId } : {}) },
       points,
       grouping,
+      groupNearby,
+      lines,
       inkOf: (token) => tokenOf(container, token),
       onCard: setCard,
       lang,
@@ -78,7 +100,7 @@ export default function MapPanel({ points, grouping = null, maps = null, ariaLab
       },
     })
     return () => panel.close()
-  }, [points, grouping, lang, key, mapId])
+  }, [points, grouping, groupNearby, lines, lang, key, mapId])
   const shown = card ? points.find((p) => p.id === card.id) : undefined
 
   return (

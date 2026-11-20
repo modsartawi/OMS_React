@@ -273,9 +273,20 @@ export function groupSum(members: readonly MapPoint[]): number {
   return sum
 }
 
-/** The features the engine draws at a zoom, with each colour token resolved by `inkOf`. */
-export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: MapGrouping | null, inkOf: (token: string) => string): MapFeature[] {
-  return groupsAt(points, zoom, grouping).map((g): MapFeature => {
+/**
+ * The features the engine draws at a zoom, with each colour token resolved by `inkOf`. `groupNearby` false (spec 4050
+ * review 4, a case's route): no point joins a group at any zoom — an opaque group disc would lie over the short legs
+ * between them and their words. Absent or true: nearby points group as {@link groupsAt} says (881, 909).
+ */
+export function featuresAt(
+  points: readonly MapPoint[],
+  zoom: number,
+  grouping: MapGrouping | null,
+  inkOf: (token: string) => string,
+  groupNearby = true,
+): MapFeature[] {
+  const shown: MapGroupOrPoint[] = groupNearby ? groupsAt(points, zoom, grouping) : points.map((point) => ({ kind: 'point', point }))
+  return shown.map((g): MapFeature => {
     if (g.kind === 'group') {
       const label = groupLabel(g.members, grouping)
       return {
@@ -298,6 +309,47 @@ export function featuresAt(points: readonly MapPoint[], zoom: number, grouping: 
     if (p.hollow) return { ...base, radius: POINT_RADIUS.min, fillOpacity: 0, stroke: ink, strokeWidth: RING_WIDTH.hollow }
     return { ...base, radius: radiusOfPoint(p), fillOpacity: 1, stroke: inkOf(RING_INK), strokeWidth: RING_WIDTH.point }
   })
+}
+
+/**
+ * One line to draw between two places (oms 922, BackOffice spec 4050): a pattern case's leg between two pharmacies. Drawn
+ * from `from` to `to` beneath the points, with its words at its middle. A map given no lines draws none (every map
+ * before 922).
+ */
+export interface MapLine {
+  id: string
+  from: { lon: number; lat: number }
+  to: { lon: number; lat: number }
+  /** Its colour, as a token name (`--map-worse`). */
+  tone: string
+  /** Its words, drawn at its middle; a newline breaks them. Absent: no words. */
+  label?: string
+  /**
+   * A line that must read through the others (922: a leg that fired a warning): drawn above every line that is not
+   * strong, a little wider, its words above theirs. Absent: an ordinary line, stacked in the order given.
+   */
+  strong?: boolean
+}
+
+/** A line as the engine draws it: its colour resolved, its words given or empty. */
+export interface MapLineFeature {
+  id: string
+  from: { lon: number; lat: number }
+  to: { lon: number; lat: number }
+  stroke: string
+  label: string
+  strong: boolean
+}
+
+/** How wide a line is drawn, in pixels. */
+export const LINE_WIDTH = 3
+
+/** How wide a strong line is drawn, in pixels. */
+export const STRONG_LINE_WIDTH = 4
+
+/** The lines the engine draws, in the order given, each colour token resolved by `inkOf`. */
+export function lineFeatures(lines: readonly MapLine[], inkOf: (token: string) => string): MapLineFeature[] {
+  return lines.map((l) => ({ id: l.id, from: l.from, to: l.to, stroke: inkOf(l.tone), label: l.label ?? '', strong: l.strong === true }))
 }
 
 /** Where the engine reports a pointer or a tap: the feature under it, and the place on the panel in pixels. */

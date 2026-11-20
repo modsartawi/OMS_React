@@ -66,3 +66,17 @@ BackOffice 4097, 4098
   exactly the pair its document holds — none for a no-pair document (`BbyPromotionSave` pair optional again; a
   new promotion always sends it); off-list pairs read `key: null`; the off-list reason wins over Locked;
   `salesAreaEnglish`/`salesAreaArabic` dropped from the model. Drive 21/21 (new no-pair name-only save check).
+- 2026-11-20 reconciled to the SHIPPED contract, BackOffice pricing2 e35485209 (4097 9c4d77c7c, 4098 0ac324ed9,
+  4100 19f39a29c, review 1648fd2c3). Confirmed: `Promotion/List` rows and `Promotion/{number}` are
+  `BbyPromotionDocument` with `salesOrganization`/`distributionChannel`/`currency`/`salesAreaLocked` (always
+  sent); closed list KSA 1000/20/SAR, Bahrain 1000/21/BHD; the lock refusal code is `BBY-SALES-AREA-LOCKED`.
+  Drift fixed: (1) a change naming an off-list pair is refused `BBY-SALES-AREA`, and a change naming none keeps
+  the promotion's own, so `promotionSaveBody` now sends NO pair on any save that does not move the area (locked,
+  unchanged, off-list) — the 11-20 "send back what the document holds" would have failed an off-list
+  promotion's header save and could revert a move made since the read; (2) the document carries
+  `salesAreaEnglish`/`salesAreaArabic` — back on the model, unread (labels stay client-built for bidi);
+  (3) Arabic names aligned to the server's `التجزئة - السعودية` / `التجزئة - البحرين`, and "منطقة البيع" →
+  "منطقة المبيعات" as the server words it; (4) `Upload` takes optional `salesOrganization`/`distributionChannel`
+  form fields for a promotion the file creates — the dialog now sends the page promotion's own on-list pair
+  (`uploadSalesArea`, pure-tested), none for a no-pair or off-list document. Drive stubs use the shipped shapes
+  and refusal text. `bby-sales-area-drive.mjs` 23/23 (new upload step 6). Live walk owed after BO deploy.

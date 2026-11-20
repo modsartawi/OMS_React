@@ -710,8 +710,7 @@ function HeaderTab({
   const { t } = useTranslation('bonus-buy-maintenance')
   const currency = area.currency
   // A name the server did not send is worded from the client's own list; a code outside it shows none.
-  const orgName = (name: string | null, kind: 'salesOrg' | 'channel', code: string) => {
-    if (name) return <bdi>{name}</bdi>
+  const orgName = (kind: 'salesOrg' | 'channel', code: string) => {
     const key = orgNameKey(kind, code)
     return key ? t(key) : null
   }
@@ -796,13 +795,13 @@ function HeaderTab({
                 <Ltr>{area.salesOrganization}</Ltr>
               </td>
               <td className="pe-6" data-bby-sales-org-name="">
-                {orgName(area.salesOrganizationName, 'salesOrg', area.salesOrganization)}
+                {orgName('salesOrg', area.salesOrganization)}
               </td>
               <td className="pe-6 font-mono" data-bby-channel="">
                 <Ltr>{area.distributionChannel}</Ltr>
               </td>
               <td className="pe-6" data-bby-channel-name="">
-                {orgName(area.distributionChannelName, 'channel', area.distributionChannel)}
+                {orgName('channel', area.distributionChannel)}
               </td>
             </tr>
           </tbody>

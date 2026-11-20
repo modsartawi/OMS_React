@@ -50,18 +50,25 @@ export interface BbyPromotion {
   changedBy?: string | null
   changedAt?: string | null
   bonusBuys: BbyOverviewRow[]
-  // ── sales area (BackOffice spec 4096; GUESSED contract, reconcile on BO 4097/4098) ──
-  // Read through `readSalesArea` (`@/core/bonus-buy/sales-area`): absent on an old server → KSA.
+  // ── sales area (BackOffice spec 4096; reconciled to BO pricing2 e35485209, `BbyPromotionDocument`) ──
+  // `Promotion/List` rows and `Promotion/{number}` are both this document. Read through
+  // `readSalesArea` (`@/core/bonus-buy/sales-area`): absent on an old server → KSA.
   /** Sales organization, e.g. `1000`. */
   salesOrganization?: string | null
   /** Distribution channel, e.g. `20` (KSA) or `21` (Bahrain). */
   distributionChannel?: string | null
-  /** Looked up by the server from the pair, never stored: `SAR` or `BHD`. */
+  /** Looked up by the server from the pair, never stored: `SAR` or `BHD`; blank for a pair off the list. */
   currency?: string | null
-  /** Display names for the header's Organizational Data. */
-  salesOrganizationName?: string | null
-  distributionChannelName?: string | null
-  /** BO 4098: true once the promotion holds any bonus buy — the pair can no longer change. */
+  /**
+   * The server's whole label, e.g. `KSA retail — 1000 / 20 — SAR` (and its Arabic twin); blank for
+   * a pair off the list. Unused on purpose: the screen builds its label from the pair and its own
+   * locale names so the machine part is isolated whole (`.claude/rules/bidi.md`) — a server string
+   * gluing `1000 / 20` into prose would reverse under RTL.
+   */
+  salesAreaEnglish?: string | null
+  salesAreaArabic?: string | null
+  /** BO 4098: true once the promotion holds any bonus buy — the pair can no longer change. The
+   *  shipped server always sends it; optional only for a server from before 4098. */
   salesAreaLocked?: boolean | null
 }
 
@@ -71,9 +78,10 @@ export interface BbyPromotionSave {
   name: string
   salesFrom: string
   salesTo: string
-  /** BO 4097 (guessed): the promotion's sales area. The server reads a missing pair as KSA. A new
-   *  promotion always sends it; a saved one sends back what its document holds — nothing for a
-   *  document that holds none (`promotionSaveBody`, ticket 932). */
+  /** BO 4097/4098 (`BbyPromotionRequest`): the promotion's sales area. No pair is KSA on a create
+   *  and the promotion's own pair on a change; an off-list pair is refused `BBY-SALES-AREA`, and a
+   *  move once the promotion holds a bonus buy `BBY-SALES-AREA-LOCKED`. A new promotion always sends
+   *  it; a saved one only when the author moves it (`promotionSaveBody`, ticket 932). */
   salesOrganization?: string
   distributionChannel?: string
 }

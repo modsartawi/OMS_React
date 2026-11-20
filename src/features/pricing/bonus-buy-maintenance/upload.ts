@@ -12,6 +12,7 @@ import type {
   BbyUploadResult,
   BbyUploadStatus,
 } from '@/core/models/bonus-buy-upload'
+import { salesAreaOf, type SalesAreaFields } from '@/core/bonus-buy/sales-area'
 
 /** SIS.Api's per-route cap on the door (`BbyUploadRequest.MaxFileBytes`). */
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024
@@ -19,13 +20,35 @@ export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 /** What the picker offers: SAP's uploader writes `.txt`; a tab-separated `.tsv` is the same file. */
 export const UPLOAD_ACCEPT = '.txt,.tsv'
 
+/** The sales-area pair the upload sends (BackOffice spec 4096). */
+export interface UploadSalesArea {
+  salesOrganization: string
+  distributionChannel: string
+}
+
 export interface UploadOptions {
   /** Check only: every refusal and warning, nothing written. */
   validateOnly: boolean
+  /** The sales area of a promotion the file CREATES (`uploadSalesArea`); none sent is KSA. */
+  salesArea?: UploadSalesArea | null
 }
 
 /**
- * The door's two parts, named as `BbyMaintainWebEndpoints.Upload` binds them. There is no
+ * The pair the upload sends: the page promotion's own, when it holds one on the closed list.
+ * BackOffice spec 4096 review (1648fd2c3) reads it only when the file creates its promotion — an
+ * upload into an existing promotion ignores it — so a Bahrain author's upload-created promotion is
+ * Bahrain too. A document with no pair (an old server) or an off-list one sends none: the door
+ * reads none as KSA, and would refuse an off-list pair on a create.
+ */
+export function uploadSalesArea(promo: SalesAreaFields | null | undefined): UploadSalesArea | null {
+  if (!promo?.salesOrganization?.trim() || !promo.distributionChannel?.trim()) return null
+  const area = salesAreaOf(promo.salesOrganization, promo.distributionChannel)
+  return area ? { salesOrganization: area.salesOrganization, distributionChannel: area.distributionChannel } : null
+}
+
+/**
+ * The door's parts, named as `BbyMaintainWebEndpoints.Upload` binds them: the file,
+ * `validateOnly`, and the optional `salesOrganization` / `distributionChannel` pair. There is no
  * `activate` part (spec 2396, BackOffice 2398): an upload always lands Planned, and the door
  * answers 400 to a body still carrying it.
  */
@@ -33,6 +56,10 @@ export function uploadForm(file: File, options: UploadOptions): FormData {
   const form = new FormData()
   form.append('file', file, file.name)
   form.append('validateOnly', String(options.validateOnly))
+  if (options.salesArea) {
+    form.append('salesOrganization', options.salesArea.salesOrganization)
+    form.append('distributionChannel', options.salesArea.distributionChannel)
+  }
   return form
 }
 

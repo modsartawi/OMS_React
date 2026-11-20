@@ -1005,33 +1005,15 @@ describe('no hint for blank, non-numeric or Per ≤ 0 input, for % or under Tota
 // ── ticket 933 (BackOffice spec 4096): the editor reads the promotion's sales area ──────
 
 describe('editorSalesArea — the header and every money label follow the promotion', () => {
-  it('a Bahrain promotion → BHD and 1000 / 21 with its labels', () => {
+  it('a Bahrain promotion → BHD and 1000 / 21', () => {
     expect(
-      editorSalesArea({
-        salesOrganization: '1000',
-        distributionChannel: '21',
-        currency: 'BHD',
-        salesOrganizationName: 'Al-Dawaa Domestic',
-        distributionChannelName: 'Bahrain Retail',
-      }),
-    ).toEqual({
-      salesOrganization: '1000',
-      salesOrganizationName: 'Al-Dawaa Domestic',
-      distributionChannel: '21',
-      distributionChannelName: 'Bahrain Retail',
-      currency: 'BHD',
-    })
+      editorSalesArea({ salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' }),
+    ).toEqual({ salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' })
   })
 })
 
 describe('editorSalesArea — KSA unchanged', () => {
-  const ksa = {
-    salesOrganization: '1000',
-    salesOrganizationName: null,
-    distributionChannel: '20',
-    distributionChannelName: null,
-    currency: 'SAR',
-  }
+  const ksa = { salesOrganization: '1000', distributionChannel: '20', currency: 'SAR' }
   it('a KSA promotion → SAR and 1000 / 20', () => {
     expect(editorSalesArea({ salesOrganization: '1000', distributionChannel: '20', currency: 'SAR' })).toEqual(ksa)
   })
@@ -1041,7 +1023,7 @@ describe('editorSalesArea — KSA unchanged', () => {
   })
 })
 
-describe('orgNameKey — the header names a sales area the server did not name', () => {
+describe('orgNameKey — the header names the codes (the shipped document carries no org or channel name)', () => {
   it('the closed list has a key per code', () => {
     expect(orgNameKey('salesOrg', '1000')).toBe('editor.org.salesOrg1000')
     expect(orgNameKey('channel', '20')).toBe('editor.org.channel20')

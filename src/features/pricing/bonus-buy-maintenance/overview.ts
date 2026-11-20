@@ -193,7 +193,7 @@ export function editorPath(promoNumber: string, mode: EditorMode, bbyNumber?: st
   return mode === 'display' ? `${path}?mode=display` : path
 }
 
-// ── ticket 932: the promotion's sales area (BackOffice spec 4096; GUESSED contract, BO 4097/4098) ──
+// ── ticket 932: the promotion's sales area (BackOffice spec 4096; reconciled to BO pricing2 e35485209) ──
 
 /**
  * The sales-area select's state. `choice` is a key of the closed list, or `other` for a pair
@@ -219,9 +219,11 @@ export interface PromotionHeader {
 
 /**
  * The `Promotion/Save` body. A **new** promotion always carries the picked pair. A saved one
- * carries the picked pair only when the author moved it; a locked, unchanged or off-list (`other`)
- * save sends back exactly what the document holds — and nothing for a document that holds no pair
- * (an old server, a pre-4096 promotion), so a header-only save never invents `1000 / 20`.
+ * carries a pair only when the author moved it to another area of the closed list; a locked,
+ * unchanged or off-list (`other`) save sends **none**. BackOffice 4098 as shipped: a change with no
+ * pair keeps the promotion's own (never a move to KSA), while a change naming an off-list pair is
+ * refused `BBY-SALES-AREA` — so sending nothing is the one body that never invents `1000 / 20`,
+ * never fails an off-list promotion's header save, and never reverts a move made since the read.
  */
 export function promotionSaveBody(
   header: PromotionHeader,
@@ -236,20 +238,10 @@ export function promotionSaveBody(
   }
   if (doc) {
     const savedChoice = readSalesArea(doc).key ?? 'other'
-    if (form.locked || form.choice === 'other' || form.choice === savedChoice) return { ...base, ...heldPair(doc) }
+    if (form.locked || form.choice === 'other' || form.choice === savedChoice) return base
   }
   const area = form.choice === 'other' ? KSA : salesAreaByKey(form.choice)
   return { ...base, salesOrganization: area.salesOrganization, distributionChannel: area.distributionChannel }
-}
-
-/** The pair fields the document itself holds, as it holds them; a blank one is left out. */
-function heldPair(
-  doc: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel'>,
-): Pick<BbyPromotionSave, 'salesOrganization' | 'distributionChannel'> {
-  return {
-    ...(doc.salesOrganization?.trim() ? { salesOrganization: doc.salesOrganization } : {}),
-    ...(doc.distributionChannel?.trim() ? { distributionChannel: doc.distributionChannel } : {}),
-  }
 }
 
 /**

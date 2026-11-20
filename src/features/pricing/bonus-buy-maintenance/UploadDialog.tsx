@@ -19,6 +19,7 @@ import {
   UPLOAD_MAX_BYTES,
   uploadFileProblem,
   type UploadOptions,
+  type UploadSalesArea,
   type UploadView,
 } from './upload'
 
@@ -36,12 +37,18 @@ import {
 export default function UploadDialog({
   open,
   promoNumber,
+  salesArea,
   onClose,
   onLoaded,
 }: {
   open: boolean
   /** The promotion on screen. The file's `AKTNR` may name another one. */
   promoNumber: string
+  /**
+   * The promotion on screen's own sales area (`uploadSalesArea`), sent so a promotion the file
+   * CREATES is written for it (BackOffice spec 4096 review); an existing one keeps its own.
+   */
+  salesArea: UploadSalesArea | null
   onClose: () => void
   /** A load wrote: refresh the overview and the promotion the file loaded into. */
   onLoaded: (loadedPromoNumber: string) => void
@@ -114,7 +121,7 @@ export default function UploadDialog({
             <Button
               variant="primary"
               disabled={!canRun}
-              onClick={() => file && run.mutate({ file, options: { validateOnly } })}
+              onClick={() => file && run.mutate({ file, options: { validateOnly, salesArea } })}
             >
               {validateOnly ? t('upload.runCheck') : t('upload.run')}
             </Button>

@@ -113,11 +113,12 @@
 //      and saves. An unmarked read sends false.
 //      A Tested marked bonus buy shows it ticked and disabled.
 //
-// Ticket 933 — the editor reads its promotion's sales area (BackOffice spec 4096; BO 4097 NOT built: the
-// promotion's salesOrganization / distributionChannel / currency / …Name fields are stubbed in the GUESSED
-// shape committed at 9cbb5e4f). PROMO carries no pair, as an old server, so it stays KSA (13).
+// Ticket 933 — the editor reads its promotion's sales area (BackOffice spec 4096). The Bahrain promotion is
+// stubbed in the SHIPPED `BbyPromotionDocument` shape (reconciled to BackOffice pricing2 e35485209:
+// salesOrganization / distributionChannel / currency / salesAreaEnglish / salesAreaArabic / salesAreaLocked;
+// the document names no org or channel on its own). PROMO carries no pair, as an old server, so it stays KSA (13).
 //  51. a bonus buy under a Bahrain promotion: header currency BHD, Organizational Data 1000 / 21 with the
-//      server's names, Curr/Pe BHD (and BHD / 4 EA), the per-unit hint 1.250 BHD, the Total Discount panel
+//      client's own names, Curr/Pe BHD (and BHD / 4 EA), the per-unit hint 1.250 BHD, the Total Discount panel
 //      in BHD, NO "SAR" anywhere on the screen, and Save sends no sales-area field.
 //
 //   1. run the app:  npx vite --port 5199
@@ -159,11 +160,12 @@ const PROMO = {
       testedBy: 'ayed', testedAt: '2026-10-05T11:20:00', testNote: 'Two Vichy items and a coupon: 20 SR.' },
   ],
 }
-// Ticket 933: a Bahrain promotion (spec 4096, guessed BO 4097 fields) and its bonus buy.
+// Ticket 933: a Bahrain promotion (spec 4096, the shipped BbyPromotionDocument) and its bonus buy.
 const PROMO_BH = {
   status: 'found', promoNumber: 'P000000021', name: 'Bahrain flyer', salesFrom: '2026-12-01', salesTo: '2026-12-31',
+  createdBy: 'msartawi', createdAt: '2026-11-20T09:00:00', changedBy: 'msartawi', changedAt: '2026-11-20T09:00:00',
   salesOrganization: '1000', distributionChannel: '21', currency: 'BHD',
-  salesOrganizationName: 'Al-Dawaa Domestic', distributionChannelName: 'Bahrain Retail', salesAreaLocked: true,
+  salesAreaEnglish: 'Bahrain retail — 1000 / 21 — BHD', salesAreaArabic: 'التجزئة - البحرين — 1000 / 21 — BHD', salesAreaLocked: true,
   bonusBuys: [{ bbyNumber: 'OMS000000129', description: 'Bahrain 4 for 5', validFrom: '2026-12-01', validTo: '2026-12-31', bbyStatus: '1' }],
 }
 const BH_BBY = 'OMS000000129'
@@ -1499,7 +1501,7 @@ async function run() {
     await page.waitForSelector('table[data-grid="get"]')
     check('51. the header currency is BHD', (await cell('data-bby-currency')).trim() === 'BHD', await cell('data-bby-currency'))
     const org = [await cell('data-bby-sales-org'), await cell('data-bby-sales-org-name'), await cell('data-bby-channel'), await cell('data-bby-channel-name')].map((x) => x.trim())
-    check('51. Organizational Data is 1000 / 21 with its names', JSON.stringify(org) === '["1000","Al-Dawaa Domestic","21","Bahrain Retail"]', JSON.stringify(org))
+    check('51. Organizational Data is 1000 / 21 with the client’s names', JSON.stringify(org) === '["1000","Al-Dawaa Domestic","21","Bahrain Retail"]', JSON.stringify(org))
     const body = await text()
     check('51. Curr/Pe reads BHD per 4 EA, ex VAT', body.includes('BHD / 4 EA'))
     check('51. the per-unit hint is BHD to 3 decimals', body.includes('1.250 BHD'), (body.match(/=[^\n]*BHD[^\n]*/) || [''])[0])

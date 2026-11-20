@@ -1,20 +1,24 @@
 // Ticket 932 drive — a promotion is written for KSA or Bahrain (BackOffice spec 4096). Drives the REAL
 // app in Chromium against STUBBED `BbyMaintainWeb/*` envelopes.
 //
-// ⚠️ Stubbed on a GUESSED contract: BO 4097 (the pair on the promotion) and BO 4098 (the locked flag and
-// its refusal) are NOT built. The stubs answer in the reading of `src/core/models/bonus-buy-maintenance.ts`
-// (`salesOrganization`, `distributionChannel`, `currency`, `salesAreaLocked` on the promotion; the pair on
-// `Promotion/Save`). The refusal code `BBY-SALES-AREA-LOCKED` is invented here; the screen shows any code.
-// Reconcile when BO 4097/4098 ship; the live walk is owed then.
+// Stubs reconciled to the SHIPPED contract, BackOffice pricing2 e35485209 (4097 9c4d77c7c, 4098 0ac324ed9,
+// review 1648fd2c3): `Promotion/List` rows and `Promotion/{number}` are `BbyPromotionDocument` (the pair,
+// `currency`, `salesAreaEnglish` / `salesAreaArabic`, `salesAreaLocked`); `Promotion/Save` takes the pair
+// (none on a change = keep the promotion's own); the lock refusal is `BBY-SALES-AREA-LOCKED` in its shipped
+// text; `Upload` takes optional `salesOrganization` / `distributionChannel` form fields for a promotion the
+// file creates. Still stubbed: the live walk is owed after the BackOffice deploy.
 //
-//   1. the list's Sales area column: a promotion with no pair reads KSA; a 1000 / 21 one reads Bahrain.
+//   1. the list's Sales area column: a promotion with no pair (a pre-4096 server) reads KSA; a 1000 / 21
+//      one reads Bahrain.
 //   2. Create promotion: KSA preselected; picking Bahrain posts 1000 / 21 and opens the minted promotion,
 //      which reads Bahrain with the select open (empty promotion).
 //   3. a promotion holding bonus buys: the select is disabled with its one-line reason, and a name-only
-//      Save still sends the promotion's own pair.
-//   4. an old no-pair KSA promotion: a name-only Save sends no pair; moved to Bahrain: Save sends 1000 / 21; the server's refusal is shown as
-//      any other (code, EN + AR).
+//      Save sends no pair (the server keeps the promotion's own).
+//   4. an old no-pair KSA promotion: a name-only Save sends no pair; moved to Bahrain: Save sends 1000 / 21;
+//      the server's refusal is shown as any other (code, EN + AR).
 //   5. no raw i18n keys; no page errors.
+//   6. Upload from the Bahrain promotion sends salesOrganization 1000 / distributionChannel 21 (so a promotion
+//      the file creates is Bahrain); from the no-pair promotion it sends neither.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-sales-area-drive.mjs
@@ -41,20 +45,35 @@ const strip = (s) => s.replace(/[\u2066-\u2069]/g, '')
 
 const BAHRAIN = {
   salesOrganization: '1000', distributionChannel: '21', currency: 'BHD',
-  salesOrganizationName: 'Al-Dawaa Domestic', distributionChannelName: 'Bahrain Retail',
+  salesAreaEnglish: 'Bahrain retail — 1000 / 21 — BHD', salesAreaArabic: 'التجزئة - البحرين — 1000 / 21 — BHD',
 }
+const AUDIT = { createdBy: 'msartawi', createdAt: '2026-11-20T09:00:00', changedBy: 'msartawi', changedAt: '2026-11-20T09:00:00' }
 // An old-server KSA promotion: no pair at all → reads KSA.
 const KSA_OLD = { status: 'found', promoNumber: 'P000000001', name: 'Riyadh flyer', salesFrom: '2026-12-01', salesTo: '2026-12-31', bonusBuys: [] }
 // A Bahrain promotion holding a bonus buy: the server says locked (BO 4098).
 const BH_LOCKED = {
   status: 'found', promoNumber: 'P000000003', name: 'Manama flyer', salesFrom: '2026-12-01', salesTo: '2026-12-31',
-  ...BAHRAIN, salesAreaLocked: true,
+  ...AUDIT, ...BAHRAIN, salesAreaLocked: true,
   bonusBuys: [{ bbyNumber: 'OMS000000301', description: '1 + 1', validFrom: '2026-12-01', validTo: '2026-12-31', bbyStatus: '1' }],
 }
 // What Create mints: an empty Bahrain promotion.
-const BH_NEW = { status: 'found', promoNumber: 'P000000009', name: 'Bahrain launch', salesFrom: '2026-12-01', salesTo: '2026-12-31', ...BAHRAIN, salesAreaLocked: false, bonusBuys: [] }
+const BH_NEW = { status: 'found', promoNumber: 'P000000009', name: 'Bahrain launch', salesFrom: '2026-12-01', salesTo: '2026-12-31', ...AUDIT, ...BAHRAIN, salesAreaLocked: false, bonusBuys: [] }
 
 const posts = []
+const uploads = []
+// The shipped BbyUploadResult: the file's P number was unknown, so the upload created it.
+const UPLOADED = {
+  status: 'saved', promoNumber: 'P000000010', promotionCreated: true,
+  created: [{ row: 1, serial: '1', buyGroup: 'VICHY', getGroup: 'VICHY', bbyNumber: 'OMS000000401', bbyStatus: '1' }],
+  updated: [], refusals: [], warnings: [],
+}
+/** A multipart form field's value, or undefined when the part is absent. */
+const part = (body, name) => {
+  const at = body.indexOf(`name="${name}"`)
+  if (at < 0) return undefined
+  const start = body.indexOf('\r\n\r\n', at) + 4
+  return body.slice(start, body.indexOf('\r\n', start))
+}
 
 async function run() {
   const browser = await chromium.launch()
@@ -72,6 +91,10 @@ async function run() {
     if (path === `BbyMaintainWeb/Promotion/${KSA_OLD.promoNumber}`) return route.fulfill(envelope(KSA_OLD))
     if (path === `BbyMaintainWeb/Promotion/${BH_LOCKED.promoNumber}`) return route.fulfill(envelope(BH_LOCKED))
     if (path === `BbyMaintainWeb/Promotion/${BH_NEW.promoNumber}`) return route.fulfill(envelope(BH_NEW))
+    if (path === 'BbyMaintainWeb/Upload') {
+      uploads.push(req.postData() || '')
+      return route.fulfill(envelope(UPLOADED))
+    }
     if (path === 'BbyMaintainWeb/Promotion/Save') {
       const body = JSON.parse(req.postData() || '{}')
       posts.push(body)
@@ -79,7 +102,12 @@ async function run() {
       if (body.promoNumber === KSA_OLD.promoNumber && body.distributionChannel === '21')
         return route.fulfill(envelope({
           status: 'refused', number: body.promoNumber, warnings: [],
-          refusals: [{ code: 'BBY-SALES-AREA-LOCKED', english: 'Promotion P000000001 holds a bonus buy; its sales area cannot change.', arabic: 'العرض الترويجي P000000001 يضم عرض شراء؛ لا يمكن تغيير منطقة البيع.' }],
+          // BbyMaintainRefusals.SalesAreaLocked, as shipped (a bonus buy landed since the page was read).
+          refusals: [{
+            code: 'BBY-SALES-AREA-LOCKED',
+            english: "Promotion 'P000000001' holds 1 bonus buy(s), so its sales area stays 1000 / 20 and cannot become 1000 / 21: amounts already authored in one currency would be re-read in another.",
+            arabic: "العرض الترويجي 'P000000001' يحتوي على 1 من عروض الشراء، لذا تبقى منطقة مبيعاته 1000 / 20 ولا يمكن أن تصبح 1000 / 21: المبالغ المُدخلة بعملة ستُقرأ بعملة أخرى.",
+          }],
         }))
       return route.fulfill(envelope(saved(body.promoNumber)))
     }
@@ -132,8 +160,8 @@ async function run() {
   await page.locator('button:has-text("Save")').first().click()
   await page.waitForSelector('text=Promotion saved.')
   const nameSave = posts.at(-1)
-  check('3. a name-only Save still sends the promotion’s own pair',
-    nameSave.promoNumber === 'P000000003' && nameSave.name === 'Manama flyer 2' && nameSave.salesOrganization === '1000' && nameSave.distributionChannel === '21',
+  check('3. a name-only Save sends no pair (the server keeps the promotion’s own)',
+    nameSave.promoNumber === 'P000000003' && nameSave.name === 'Manama flyer 2' && !('salesOrganization' in nameSave) && !('distributionChannel' in nameSave),
     JSON.stringify(nameSave))
   await page.screenshot({ path: 'tools/.bby-sales-area-shots/locked.png', fullPage: true }).catch(() => {})
 
@@ -159,7 +187,27 @@ async function run() {
   check('4. Save sends 1000 / 21', moved.salesOrganization === '1000' && moved.distributionChannel === '21', JSON.stringify(moved))
   const body = await text()
   check('4. the refusal is shown with its code, EN and AR',
-    body.includes('BBY-SALES-AREA-LOCKED') && body.includes('its sales area cannot change') && body.includes('لا يمكن تغيير منطقة البيع'))
+    body.includes('BBY-SALES-AREA-LOCKED') && body.includes('cannot become 1000 / 21') && body.includes('ولا يمكن أن تصبح'))
+
+  // ── 6. the upload carries the page promotion's sales area ──
+  const FILE = { name: 'Bahrain launch 2.txt', mimeType: 'text/plain', buffer: Buffer.from('1\tP000000010\n') }
+  const upload = async (promoNumber) => {
+    await page.goto(`${ROOT}/${promoNumber}`)
+    await page.waitForSelector('button:has-text("Upload file")')
+    await page.click('button:has-text("Upload file")')
+    const udlg = page.locator('dialog')
+    await udlg.locator('[data-testid="bby-upload-file"]').setInputFiles(FILE)
+    await udlg.locator('button', { hasText: /^Upload$/ }).click()
+    await udlg.locator('[data-outcome]').waitFor()
+    return uploads.at(-1) || ''
+  }
+  const bh = await upload(BH_LOCKED.promoNumber)
+  check('6. an upload from a Bahrain promotion sends 1000 / 21',
+    part(bh, 'salesOrganization') === '1000' && part(bh, 'distributionChannel') === '21' && part(bh, 'validateOnly') === 'false',
+    JSON.stringify([part(bh, 'salesOrganization'), part(bh, 'distributionChannel')]))
+  const old = await upload(KSA_OLD.promoNumber)
+  check('6. an upload from a no-pair promotion sends no pair (the door reads none as KSA)',
+    !!old && part(old, 'salesOrganization') === undefined && part(old, 'distributionChannel') === undefined)
 
   // ── 5. hygiene ──
   const k = await rawKey()

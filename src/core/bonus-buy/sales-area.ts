@@ -9,8 +9,9 @@
  * own copy only to offer the select and to read an old document that carries no pair: a promotion
  * without one is KSA, which is what every promotion was before 4096.
  *
- * ⚠️ Contract GUESSED from spec 4096 / tickets 4097 + 4098 before they shipped (the wire fields on
- * `BbyPromotion` / `BbyPromotionSave`). Reconcile when BO 4097/4098 land.
+ * Reconciled to the SHIPPED contract, BackOffice pricing2 e35485209 (`BbySalesAreas`,
+ * `BbyPromotionDocument`, `BbyPromotionRequest`, `BbyUploadRequest`): the same two pairs and
+ * currencies, the document's `salesOrganization` / `distributionChannel` / `currency`.
  *
  * Dependency-free so it runs in the node vitest environment.
  */

@@ -56,7 +56,13 @@ BackOffice 4097
   take `area.currency`.
 - Proof: `editor.test.ts` (the KSA, BHD 3-decimal and no-sales-area-on-the-wire cases passed on first run:
   the contract's `readSalesArea`, `formatMoneyIn` and `toRequest` already held them).
-- Drive: `tools/bby-maintenance-drive.mjs` step 51, a Bahrain bonus buy on the GUESSED 4097 promotion fields.
+- Drive: `tools/bby-maintenance-drive.mjs` step 51, a Bahrain bonus buy (stub reconciled to the shipped 4097 document, see below).
 - 2026-11-20 code-review fix: an off-list sales area with no currency is never shown as a 2dp currency with a
   blank unit — the header, the minimum, Curr/Pe say "Currency not known" (`editor.currencyUnknown`, EN + AR) and
   the per-unit hint uses `formatMoneyOfUnknownCurrency`. `bby-maintenance-drive.mjs` 258/258.
+- 2026-11-20 reconciled to the SHIPPED contract, BackOffice pricing2 e35485209: `BbyPromotionDocument` has no
+  `salesOrganizationName`/`distributionChannelName` — removed from the model and `EditorSalesArea`; the
+  Organizational Data names come from the client's own keys (`editor.org.salesOrg1000`, `channel20`,
+  `channel21`). The pair and `currency` (SAR/BHD, blank off the list) match the guess; the bonus-buy request
+  still carries no sales area (the server stamps the promotion's pair). `bby-maintenance-drive.mjs` 258/258 on the
+  shipped stub shape. Live walk owed after BO deploy.

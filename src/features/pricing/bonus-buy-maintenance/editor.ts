@@ -43,31 +43,26 @@ export const DEFAULT_UOM = 'EA'
  * The bonus buy's Organizational Data and currency (story 16, SAP's `BBYCURH`) are its
  * promotion's **sales area** (BackOffice spec 4096): KSA `1000` / `20` in SAR, or Bahrain
  * `1000` / `21` in BHD. Read off the promotion document, never sent: the server takes the
- * sales area from the promotion. A document with no pair (an old server) is KSA. A name the
- * server does not send is `null`, for the page to word from its own keys.
+ * sales area from the promotion. A document with no pair (an old server) is KSA. The shipped
+ * document (BackOffice pricing2 e35485209) names no sales org or channel on its own, so the page
+ * words the codes from its own keys (`orgNameKey`).
  */
 export interface EditorSalesArea {
   salesOrganization: string
-  salesOrganizationName: string | null
   distributionChannel: string
-  distributionChannelName: string | null
   currency: string
 }
 
-export function editorSalesArea(
-  promo: (SalesAreaFields & { salesOrganizationName?: string | null; distributionChannelName?: string | null }) | null | undefined,
-): EditorSalesArea {
+export function editorSalesArea(promo: SalesAreaFields | null | undefined): EditorSalesArea {
   const area = readSalesArea(promo)
   return {
     salesOrganization: area.salesOrganization,
-    salesOrganizationName: promo?.salesOrganizationName?.trim() || null,
     distributionChannel: area.distributionChannel,
-    distributionChannelName: promo?.distributionChannelName?.trim() || null,
     currency: area.currency,
   }
 }
 
-/** The names the client keeps for the closed list's codes, for a server that sends none. */
+/** The names the client keeps for the closed list's codes (the server sends none). */
 const ORG_NAME_KEYS = {
   salesOrg: { '1000': 'editor.org.salesOrg1000' },
   channel: { '20': 'editor.org.channel20', '21': 'editor.org.channel21' },

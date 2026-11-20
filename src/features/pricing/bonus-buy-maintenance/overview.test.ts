@@ -307,12 +307,16 @@ describe('a promotion is written for KSA or Bahrain', () => {
     expect(promotionSalesArea(promo()).choice).toBe('ksa')
   })
 
-  it('a pair outside the list is "other", and a header save sends it back unchanged', () => {
+  // Reconciled to BackOffice pricing2 e35485209: a change naming an off-list pair is refused
+  // BBY-SALES-AREA (BbyMaintainValidator.ValidatePromotion), while a change naming none keeps the
+  // promotion's own. So an off-list promotion's header save sends no pair at all.
+  it('a pair outside the list is "other", and a header save sends no pair (the server keeps its own)', () => {
     const doc = promo({ salesOrganization: '2000', distributionChannel: '10', currency: 'XYZ' })
     const form = promotionSalesArea(doc)
     expect(form.choice).toBe('other')
     const body = promotionSaveBody(header, form, doc)
-    expect([body.salesOrganization, body.distributionChannel]).toEqual(['2000', '10'])
+    expect(body).not.toHaveProperty('salesOrganization')
+    expect(body).not.toHaveProperty('distributionChannel')
   })
 
   it('the select is locked when the document says so (BO 4098), and open when it says not', () => {
@@ -381,11 +385,21 @@ describe('promotionSaveBody — a document with no pair keeps none', () => {
     expect([body.salesOrganization, body.distributionChannel]).toEqual(['1000', '21'])
   })
 
-  it('a document that holds a pair, saved unchanged or locked, sends that pair back', () => {
+  // BackOffice 4098 as shipped: a change that sends no pair keeps the promotion's own, so a save
+  // that does not move the sales area sends none — and never reverts a move made since the read.
+  it('a document that holds a pair, saved unchanged or locked, sends no pair (the server keeps its own)', () => {
     const ksa = { salesOrganization: '1000', distributionChannel: '20', currency: 'SAR' }
-    expect(promotionSaveBody(header, { choice: 'ksa', locked: false }, ksa)).toMatchObject({ salesOrganization: '1000', distributionChannel: '20' })
     const bh = { salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' }
-    expect(promotionSaveBody(header, { choice: 'bahrain', locked: true }, bh)).toMatchObject({ salesOrganization: '1000', distributionChannel: '21' })
+    const base = { promoNumber: 'P000000001', name: 'Riyadh', salesFrom: '2026-12-01', salesTo: '2026-12-31' }
+    expect(promotionSaveBody(header, { choice: 'ksa', locked: false }, ksa)).toEqual(base)
+    expect(promotionSaveBody(header, { choice: 'bahrain', locked: true }, bh)).toEqual(base)
+    // Locked wins over a stale pick: nothing is sent, so nothing is refused BBY-SALES-AREA-LOCKED.
+    expect(promotionSaveBody(header, { choice: 'ksa', locked: true }, bh)).toEqual(base)
+  })
+
+  it('a saved KSA promotion moved to Bahrain sends 1000 / 21', () => {
+    const ksa = { salesOrganization: '1000', distributionChannel: '20', currency: 'SAR' }
+    expect(promotionSaveBody(header, { choice: 'bahrain', locked: false }, ksa)).toMatchObject({ salesOrganization: '1000', distributionChannel: '21' })
   })
 
   it('a new promotion always sends the pair', () => {

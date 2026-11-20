@@ -7,7 +7,7 @@ import type {
   BbyUploadRefusal,
   BbyUploadResult,
 } from '@/core/models/bonus-buy-upload'
-import { UPLOAD_MAX_BYTES, readUpload, uploadFileProblem, uploadForm } from './upload'
+import { UPLOAD_MAX_BYTES, readUpload, uploadFileProblem, uploadForm, uploadSalesArea } from './upload'
 
 const bby = (row: number, serial: string, bbyNumber: string | null, bbyStatus = '1'): BbyUploadBonusBuy => ({
   row,
@@ -164,6 +164,48 @@ describe('the multipart form', () => {
       expect(form.has('activate')).toBe(false)
       expect([...form.keys()].sort()).toEqual(['file', 'validateOnly'])
     }
+  })
+})
+
+/**
+ * BackOffice spec 4096 review (1648fd2c3, pricing2 e35485209): the Upload door takes optional
+ * `salesOrganization` / `distributionChannel` form fields, read only when the file CREATES its
+ * promotion (none sent = KSA, an off-list pair refused BBY-SALES-AREA); an upload into an existing
+ * promotion ignores them. The dialog is opened from a promotion, so it sends that promotion's own
+ * pair: a Bahrain author's upload-created promotion is Bahrain too.
+ */
+describe('the upload carries the page promotion’s sales area (ticket 932 reconcile)', () => {
+  const file = new File(['1\tP000000047\n'], 'a.txt', { type: 'text/plain' })
+
+  it('a Bahrain promotion sends 1000 / 21', () => {
+    const salesArea = uploadSalesArea({ salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' })
+    expect(salesArea).toEqual({ salesOrganization: '1000', distributionChannel: '21' })
+    const form = uploadForm(file, { validateOnly: false, salesArea })
+    expect(form.get('salesOrganization')).toBe('1000')
+    expect(form.get('distributionChannel')).toBe('21')
+    expect([...form.keys()].sort()).toEqual(['distributionChannel', 'file', 'salesOrganization', 'validateOnly'])
+  })
+
+  it('a KSA promotion sends 1000 / 20 (codes trimmed)', () => {
+    expect(uploadSalesArea({ salesOrganization: ' 1000 ', distributionChannel: '20 ' })).toEqual({
+      salesOrganization: '1000',
+      distributionChannel: '20',
+    })
+  })
+
+  it('a document with no pair (an old server) sends none — the door reads none as KSA', () => {
+    expect(uploadSalesArea({})).toBeNull()
+    expect(uploadSalesArea(null)).toBeNull()
+    expect(uploadSalesArea({ salesOrganization: '1000', distributionChannel: null })).toBeNull()
+  })
+
+  it('a pair off the list sends none: the door would refuse it on a create', () => {
+    expect(uploadSalesArea({ salesOrganization: '2000', distributionChannel: '10' })).toBeNull()
+  })
+
+  it('no sales area → the form carries only file and validateOnly', () => {
+    const form = uploadForm(file, { validateOnly: true, salesArea: null })
+    expect([...form.keys()].sort()).toEqual(['file', 'validateOnly'])
   })
 })
 

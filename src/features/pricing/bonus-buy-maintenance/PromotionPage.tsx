@@ -41,6 +41,7 @@ import { TEST_NOTE_MAX } from './editor'
 import { DateInput, TextInput } from './fields'
 import SalesAreaSelect, { useSalesAreaNames } from './SalesAreaSelect'
 import UploadDialog from './UploadDialog'
+import { uploadSalesArea } from './upload'
 import {
   BBY_MAINTAIN_ROOT,
   canActivateSelection,
@@ -769,6 +770,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
       <UploadDialog
         open={uploadOpen}
         promoNumber={promo.promoNumber}
+        salesArea={uploadSalesArea(promo)}
         onClose={() => setUploadOpen(false)}
         onLoaded={(loaded) => {
           void refresh()

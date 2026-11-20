@@ -15,14 +15,14 @@ export const STOCK_MATERIAL_CAP = 50
 export const STOCK_CAP_REFUSAL_KEY = 'materials-search:shared.stockCapRefused'
 
 /** The stock check's address, and the repeatable query parameter that carries each material. */
-export const STOCK_CHECK_PATH = '/materials/stock'
+export const STOCK_CHECK_PATH = '/stock/check'
 export const STOCK_MATERIAL_PARAM = 'material'
 
 /** True when `count` materials is more than one stock check may ask about. */
 export const overStockCap = (count: number): boolean => count > STOCK_MATERIAL_CAP
 
 /**
- * `/materials/stock?material=…&material=…` for the given materials, in order, each once. The
+ * `/stock/check?material=…&material=…` for the given materials, in order, each once. The
  * numbers travel as the strings they are (leading zeros kept). `null` when the list is empty or
  * over the cap — the caller refuses rather than sending a link the stock check would refuse.
  */

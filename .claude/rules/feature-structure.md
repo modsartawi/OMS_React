@@ -14,6 +14,10 @@ An **area** = a top-level nav group / URL prefix. It is a folder under `features
 
 - `features/oms/` — `deliveries`, `document` (URLs `/oms/*`).
 - `features/admin/` — `ua-admin`, `authz-admin` (URLs `/admin/*`).
+- `features/stock/` — `stock-health`, `store-stages`, `stock-check`, `held-stock-report`, `hold-daily-list`,
+  `hybris-stores`/`-materials`/`-pushes` (URLs `/stock/*`; owner 2026-11-20). Stock is its own subject, not a part of
+  orders: batch stock, held stock, ATP and accuracy screens go here. Old `/oms/...`, `/materials/stock` and
+  `/hybris-stock/...` addresses redirect (router `STOCK_MOVES`).
 - `features/auth/` — **top-level, NOT an area.** Login, session, `StoreSwitcher`, `ProtectedLayout`
   are cross-cutting platform, not a nav destination — they stay directly under `features/`.
 - `features/copilot/` — **top-level, NOT an area** (spec 734 D11, enforced in `tools/check-boundaries.mjs`).

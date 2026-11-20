@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { miniPosServiceWorker } from './tools/minipos-sw.mjs'
 
 // --- Build stamp (issue 435) -------------------------------------------------
 // Computed once so the `define` constants and the /version.json asset agree byte
@@ -58,7 +59,14 @@ function versionAsset(): Plugin {
 // Staging/production are same-origin under IIS — no proxy, no CORS anywhere; the
 // prod client uses base `/` (see src/core/api.ts, issue 435).
 export default defineConfig({
-  plugins: [react(), tailwindcss(), versionAsset()],
+  plugins: [react(), tailwindcss(), versionAsset(), miniPosServiceWorker()],
+  // Two apps, one build: the OMS portal, and the Mini POS phone app at /minipos/ (BackOffice spec 4063, oms 916) with
+  // its manifest (public/minipos/) and its service worker (tools/minipos-sw.mjs).
+  build: {
+    rolldownOptions: {
+      input: { index: path.resolve(__dirname, 'index.html'), minipos: path.resolve(__dirname, 'minipos/index.html') },
+    },
+  },
   define: {
     __APP_VERSION__: JSON.stringify(VERSION),
     __BUILD_SHA__: JSON.stringify(SHA),

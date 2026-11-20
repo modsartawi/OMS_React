@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "5.101.2",
+    "@zxing/library": "0.21.3",
     "ag-grid-community": "36.0.1",
     "ag-grid-react": "36.0.1",
     "i18next": "26.3.6",

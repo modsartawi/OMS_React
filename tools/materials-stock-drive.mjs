@@ -243,13 +243,13 @@ function sheetText(files) {
   const header = page.locator('nav button[aria-expanded]', { hasText: /^Materials$/ })
   await header.first().waitFor({ timeout: 20000 })
   await header.first().click()
-  const leaf = page.locator('nav a[href="/materials/stock"]').first()
+  const leaf = page.locator('nav a[href="/stock/check"]').first()
   await leaf.waitFor({ timeout: 5000 })
   check('1: the Stock check leaf is shown under Materials', (await leaf.textContent()).trim() === 'Stock check')
   await leaf.click()
   await page.locator('[data-stock-materials]').waitFor({ timeout: 20000 })
-  check('1: /materials/stock renders the stock check itself — the STATIC route, not the placeholder or :no', (await page.locator('[data-material-placeholder]').count()) === 0 && (await page.locator('h1', { hasText: 'Stock check' }).count()) === 1)
-  check('1: the leaf is marked on its own page', (await page.locator('nav a[href="/materials/stock"][aria-current="page"]').count()) === 1)
+  check('1: /stock/check renders the stock check itself — the STATIC route, not the placeholder or :no', (await page.locator('[data-material-placeholder]').count()) === 0 && (await page.locator('h1', { hasText: 'Stock check' }).count()) === 1)
+  check('1: the leaf is marked on its own page', (await page.locator('nav a[href="/stock/check"][aria-current="page"]').count()) === 1)
   check('1: landing asks for no stock, and says what to do', !calls.includes('MaterialWeb/Stock') && (await page.locator('[data-stock-not-checked]').count()) === 1)
   check('1: Check stock is disabled with nothing chosen', await page.locator('[data-stock-check]').isDisabled())
   check('1: both toggles start OFF', !(await page.locator('[data-stock-include-zero]').isChecked()) && !(await page.locator('[data-stock-include-closed]').isChecked()) && !(await page.locator('[data-stock-all-stores]').isChecked()))
@@ -258,10 +258,10 @@ function sheetText(files) {
 }
 {
   const { context, page, errors, calls } = await open({ access: { canSearchMaterials: true, canCheckStock: false, canCheckGs1: true } })
-  await page.goto(`${BASE}/materials/stock?material=101234`)
+  await page.goto(`${BASE}/stock/check?material=101234`)
   await page.locator('nav a[href="/materials"]').first().waitFor({ timeout: 20000 })
   await page.locator('[role="alert"]', { hasText: 'No access to the stock check' }).waitFor({ timeout: 10000 })
-  check('1: without canCheckStock the Stock check leaf is hidden (search and GS1 stay)', (await page.locator('nav a[href="/materials/stock"]').count()) === 0 && (await page.locator('nav a[href="/materials/gs1"]').count()) === 1)
+  check('1: without canCheckStock the Stock check leaf is hidden (search and GS1 stay)', (await page.locator('nav a[href="/stock/check"]').count()) === 0 && (await page.locator('nav a[href="/materials/gs1"]').count()) === 1)
   check('1: …and the typed URL shows the denied card, with no stock call', (await page.locator('[data-stock-materials]').count()) === 0 && !calls.includes('MaterialWeb/Stock'))
   check('1: no page errors (denied)', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -272,7 +272,7 @@ function sheetText(files) {
   const { context, page, errors, calls, stockBodies, setCalls } = await open()
 
   // 2: the prefill
-  await page.goto(`${BASE}/materials/stock?material=101234&material=0100777&material=101234`)
+  await page.goto(`${BASE}/stock/check?material=101234&material=0100777&material=101234`)
   await page.locator('[data-stock-materials]').waitFor({ timeout: 20000 })
   const box = await page.locator('[data-stock-materials]').inputValue()
   check('2: ?material= prefills the box, one per line, leading zeros kept', box === '101234\n0100777\n101234', JSON.stringify(box))

@@ -21,10 +21,10 @@ const visible = (p: Permissions) => labels(resolveMenu([hungerstation!], p).item
 const ALL = ['HungerStationStores:03', 'HungerStationCatalog:03', 'HungerStationOrders:03', 'HungerStationPromotions:03']
 
 describe('the HungerStation nav group', () => {
-  it('is ONE group of its own, right after Deliverect (847 put Hybris stock after it; 607 Insurance rules last)', () => {
+  it('is ONE group of its own, right after Deliverect, before Insurance rules and Insurance (607, 922; Hybris stock moved into Stock)', () => {
     expect(MENU.filter((g) => g.labelKey === 'hungerstation-stores:menu.hungerstation')).toHaveLength(1)
     expect(MENU.at(-3)).toBe(hungerstation)
-    expect(MENU.at(-2)?.labelKey).toBe('hybris-stock-stores:menu.hybrisStock')
+    expect(MENU.at(-2)?.labelKey).toBe('insurance-rules:menu.group')
     expect(MENU.at(-4)?.labelKey).toBe('deliverect-stores:menu.deliverect')
   })
 

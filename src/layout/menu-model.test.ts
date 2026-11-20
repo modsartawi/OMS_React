@@ -427,74 +427,64 @@ describe('the Expired approval picks leaf (BackOffice ticket 3874)', () => {
   })
 })
 
-describe('the held-stock report leaves (BackOffice tickets 3873, 3900)', () => {
-  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
-  const items = oms.items ?? []
+describe('the Stock group (owner, 2026-11-20)', () => {
+  const stock = MENU.find((g) => g.labelKey === 'stock-health:menu.stock')!
+  const items = stock.items ?? []
   const leaf = (key: string) => items.find((i) => i.labelKey === key)!
-  const LEAVES = ['held-stock-report:menu.refusals', 'held-stock-report:menu.held', 'held-stock-report:menu.gates']
+  const LEAVES = [
+    ['stock-health:menu.stockHealth', '/stock/health'],
+    ['store-stages:menu.storeStages', '/stock/store-stages'],
+    ['materials-search:menu.stockCheck', '/stock/check'],
+    ['held-stock-report:menu.refusals', '/stock/refusals'],
+    ['held-stock-report:menu.held', '/stock/held'],
+    ['held-stock-report:menu.gates', '/stock/gates'],
+    ['hold-daily-list:menu.holdDailyList', '/stock/stale-holds'],
+    ['hybris-stock-stores:menu.hybrisStores', '/stock/hybris/stores'],
+    ['hybris-stock-stores:menu.hybrisMaterials', '/stock/hybris/materials'],
+    ['hybris-stock-stores:menu.hybrisPushes', '/stock/hybris/pushes'],
+  ] as const
 
-  it('sit in the OMS group right after Expired approval picks, each lit alone on its own screen', () => {
-    const keys = items.map((i) => i.labelKey)
-    const after = keys.indexOf('expired-approval-picks:menu.expiredApprovalPicks')
-    expect(keys.slice(after + 1, after + 4)).toEqual(LEAVES)
-    for (const [key, path] of [
-      ['held-stock-report:menu.refusals', '/oms/held-stock-report/refusals'],
-      ['held-stock-report:menu.held', '/oms/held-stock-report/held'],
-      ['held-stock-report:menu.gates', '/oms/held-stock-report/gates'],
-    ] as const) {
-      expect(leaf(key).routerLink).toBe(path)
+  it('is ONE group of its own, right after OMS', () => {
+    expect(MENU.filter((g) => g.labelKey === 'stock-health:menu.stock')).toHaveLength(1)
+    expect(MENU[MENU.indexOf(stock) - 1]?.labelKey).toBe('deliveries:menu.oms')
+  })
+
+  it('holds every stock screen, in order, each gated and lit alone on its own screen', () => {
+    expect(items.map((i) => [i.labelKey, i.routerLink])).toEqual(LEAVES.map(([k, p]) => [k, p]))
+    for (const [key, path] of LEAVES) {
+      expect(isGated(leaf(key))).toBe(true)
       expect(items.filter((i) => isActive(i, path)).map((i) => i.labelKey)).toEqual([key])
     }
   })
 
-  it('🚩 all read the ONE key (HeldStockReport:03), and fail closed without it', () => {
-    for (const key of LEAVES) {
+  it('🚩 the screens left OMS, Materials and the old Hybris stock group, so no screen is listed twice', () => {
+    const elsewhere = MENU.filter((g) => g !== stock).flatMap((g) => (g.items ?? []).map((i) => i.labelKey))
+    for (const [key] of LEAVES) expect(elsewhere).not.toContain(key)
+    expect(MENU.some((g) => g.labelKey === 'hybris-stock-stores:menu.hybrisStock')).toBe(false)
+  })
+
+  it('🚩 the held-stock reports all read the ONE key (HeldStockReport:03), and fail closed without it', () => {
+    for (const key of ['held-stock-report:menu.refusals', 'held-stock-report:menu.held', 'held-stock-report:menu.gates']) {
       expect(shows(leaf(key), 'HeldStockReport:03')).toBe(true)
       expect(shows(leaf(key), 'HeldStockReport:06', 'HoldDailyList:03')).toBe(false)
       expect(hiddenWhileUnsettled(leaf(key))).toBe(true)
     }
   })
-})
 
-describe('the Holds that should have ended leaf (BackOffice ticket 3872)', () => {
-  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
-  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'hold-daily-list:menu.holdDailyList')!
-
-  it('sits in the OMS group right after the held-stock reports (Till-side gate figures, ticket 3900), lit alone on its own screen', () => {
-    const keys = (oms.items ?? []).map((i) => i.labelKey)
-    expect(keys.indexOf('hold-daily-list:menu.holdDailyList')).toBe(keys.indexOf('held-stock-report:menu.gates') + 1)
-    expect(leaf.routerLink).toBe('/oms/hold-daily-list')
-    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/hold-daily-list')).map((i) => i.labelKey)).toEqual([
-      'hold-daily-list:menu.holdDailyList',
-    ])
+  it('🚩 Holds that should have ended reads its OWN key (HoldDailyList:03), and fails closed without it', () => {
+    const l = leaf('hold-daily-list:menu.holdDailyList')
+    expect(shows(l, 'HoldDailyList:03')).toBe(true)
+    for (const miss of ['HoldDailyList:06', 'HeldStockReport:03']) expect(shows(l, miss)).toBe(false)
+    expect(shows(l)).toBe(false)
+    expect(hiddenWhileUnsettled(l)).toBe(true)
   })
 
-  it('🚩 reads its OWN key (HoldDailyList:03), and fails closed without it', () => {
-    expect(shows(leaf, 'HoldDailyList:03')).toBe(true)
-    for (const miss of ['HoldDailyList:06', 'HeldStockReport:03']) expect(shows(leaf, miss)).toBe(false)
-    expect(shows(leaf)).toBe(false)
-    expect(hiddenWhileUnsettled(leaf)).toBe(true)
-  })
-})
-
-describe('the Store stages leaf (BackOffice ticket 3899)', () => {
-  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
-  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'store-stages:menu.storeStages')!
-
-  it('sits in the OMS group right after Holds that should have ended, lit alone on its own screen', () => {
-    const keys = (oms.items ?? []).map((i) => i.labelKey)
-    expect(keys.indexOf('store-stages:menu.storeStages')).toBe(keys.indexOf('hold-daily-list:menu.holdDailyList') + 1)
-    expect(leaf.routerLink).toBe('/oms/store-stages')
-    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/store-stages')).map((i) => i.labelKey)).toEqual([
-      'store-stages:menu.storeStages',
-    ])
-  })
-
-  it('🚩 reads its OWN key (StoreStage:03), and fails closed without it (the move key alone does not show it)', () => {
-    expect(shows(leaf, 'StoreStage:03')).toBe(true)
-    for (const miss of ['StoreStage:02', 'StoreCountClose:02']) expect(shows(leaf, miss)).toBe(false)
-    expect(shows(leaf)).toBe(false)
-    expect(hiddenWhileUnsettled(leaf)).toBe(true)
+  it('🚩 Store stages reads its OWN key (StoreStage:03), and fails closed without it (the move key alone does not show it)', () => {
+    const l = leaf('store-stages:menu.storeStages')
+    expect(shows(l, 'StoreStage:03')).toBe(true)
+    for (const miss of ['StoreStage:02', 'StoreCountClose:02']) expect(shows(l, miss)).toBe(false)
+    expect(shows(l)).toBe(false)
+    expect(hiddenWhileUnsettled(l)).toBe(true)
   })
 })
 

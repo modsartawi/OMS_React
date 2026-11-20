@@ -13,7 +13,8 @@
  * mid-call.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, api, apiErrorAttemptId, apiErrorCode, apiErrorData } from './api'
+import { ApiError, api, apiErrorAttemptId, apiErrorCode, apiErrorData, setUnauthorizedHandler } from './api'
+import { setNavigator } from './nav'
 
 /** One `fetch` answer — the SIS.Api envelope verbatim, at whatever status. */
 const answer = (status: number, body: unknown) =>
@@ -578,5 +579,23 @@ describe('api.postEnvelope', () => {
     vi.stubGlobal('fetch', answer(409, envelope(409, 'DLV-00002', 'Already onboarded.')))
     const err = await api.postEnvelope('DeliverectWeb/Stores', {}).catch((e: unknown) => e as ApiError)
     expect([(err as ApiError).kind, apiErrorCode(err), (err as ApiError).message]).toEqual(['business', 'DLV-00002', 'Already onboarded.'])
+  })
+})
+
+// oms 928: the Mini POS phone app has no OMS cookie and no /login. Its own 401 answer replaces the redirect.
+describe('an installed 401 handler replaces the OMS redirect', () => {
+  afterEach(() => setUnauthorizedHandler(null))
+
+  it('hears the path, and the call still throws the auth error; nothing navigates', async () => {
+    const heard: string[] = []
+    const navigated: string[] = []
+    setNavigator((to) => navigated.push(to))
+    setUnauthorizedHandler((path) => heard.push(path))
+    vi.stubGlobal('fetch', answer(401, null))
+    const err = await api.post('MiniPos/Open', {}).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).kind).toBe('auth')
+    expect(heard).toEqual(['MiniPos/Open'])
+    expect(navigated).toEqual([])
   })
 })

@@ -111,11 +111,11 @@ if (run('menu')) {
   // uniqueness is checked here.
   check('1: the Hybris stock group is its own', groups.filter((g) => g === 'Hybris stock').length === 1, groups.join(' · '))
   await header.first().click()
-  await page.locator('nav a[href="/hybris-stock/stores"]').first().click()
+  await page.locator('nav a[href="/stock/hybris/stores"]').first().click()
   await waitRows(page, 6)
   check('1: the page title reads Hybris stock stores', (await page.locator('h1').innerText()) === 'Hybris stock stores')
   const leaves = await page.locator('nav a[href^="/hybris-stock"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
-  check('1: the leaves are Stores, Materials and Pushes', JSON.stringify(leaves) === JSON.stringify(['/hybris-stock/stores', '/hybris-stock/materials', '/hybris-stock/pushes']), leaves.join())
+  check('1: the leaves are Stores, Materials and Pushes', JSON.stringify(leaves) === JSON.stringify(['/stock/hybris/stores', '/stock/hybris/materials', '/stock/hybris/pushes']), leaves.join())
   check('1: the group, its leaves and the gate cost ONE permissions call', calls.filter((c) => c === 'Auth/Permissions').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -127,7 +127,7 @@ if (run('menu')) {
     await page.locator('nav button[aria-expanded]', { hasText: /^HungerStation$|^Deliverect$|^Materials$/ }).first().waitFor({ timeout: 20000 }).catch(() => {})
     await page.waitForTimeout(800)
     check(`1 (${JSON.stringify(access)}): the group is hidden (fail closed)`, !(await groupHeaders(page)).includes('Hybris stock'))
-    await page.goto(`${BASE}/hybris-stock/stores`)
+    await page.goto(`${BASE}/stock/hybris/stores`)
     await page.getByText(/No access to Hybris stock|This screen is unavailable/).first().waitFor({ timeout: 20000 })
     check(`1 (${JSON.stringify(access)}): the URL shows the denied card and no Stores call`, !calls.includes('HybrisStockWeb/Stores'))
     check(`1 (${JSON.stringify(access)}): no page errors`, errors.length === 0, errors.join(' | '))
@@ -145,7 +145,7 @@ if (run('mode')) {
     [{ status: 'fail' }, 'unknown', /mode unknown/],
   ]) {
     const { context, page, errors } = await open('ltr', opts)
-    await page.goto(`${BASE}/hybris-stock/stores`)
+    await page.goto(`${BASE}/stock/hybris/stores`)
     await waitRows(page, 6)
     await page.locator(`[data-mode-banner="${reading}"]`).waitFor({ timeout: 10000 })
     const text = await page.locator('[data-mode-banner]').innerText()
@@ -156,7 +156,7 @@ if (run('mode')) {
     await context.close()
   }
   const { context, page } = await open('ltr', { alerts: [{ kind: 'store-behind', title: 'Hybris stock stores are behind', raisedAt: '2026-11-07T09:30:00' }] })
-  await page.goto(`${BASE}/hybris-stock/stores`)
+  await page.goto(`${BASE}/stock/hybris/stores`)
   await page.locator('[data-mode-alert="store-behind"]').waitFor({ timeout: 10000 })
   check('2: a standing alert shows its title under the banner with when it was raised', /Hybris stock stores are behind.*since 2026-11-07 09:30/s.test(await page.locator('[data-mode-alert="store-behind"]').innerText()))
   check('2: the banner names the path the rail writes to', /master\/hotfolder-shadow\//.test(await page.locator('[data-mode-path]').innerText()))
@@ -171,7 +171,7 @@ async function stores(dir) {
   const rtl = dir === 'rtl'
   const tag = dir === 'rtl' ? 'RTL' : 'LTR'
   const { context, page, errors, reads, writes } = await open(dir)
-  await page.goto(`${BASE}/hybris-stock/stores`)
+  await page.goto(`${BASE}/stock/hybris/stores`)
   await waitRows(page, 6)
   const storeReads = () => reads.filter((r) => r.path === 'HybrisStockWeb/Stores')
 
@@ -275,7 +275,7 @@ if (run('stores')) {
 
 if (run('stores')) {
   const { context, page, errors } = await open('ltr')
-  await page.goto(`${BASE}/hybris-stock/stores?history=1234`)
+  await page.goto(`${BASE}/stock/hybris/stores?history=1234`)
   await page.locator('[data-history-drawer="1234"] [data-history-table]').waitFor({ timeout: 15000 })
   check('6: ?history=<code> opens the drawer from a link, titled code · name', /1234 · Riyadh Olaya/.test(await page.locator('[data-history-drawer="1234"] h2').innerText()))
   check('6 (link): no page errors', errors.length === 0, errors.join(' | '))
@@ -285,7 +285,7 @@ if (run('stores')) {
 // ── 7: view only ──────────────────────────────────────────────────────────────────────────────
 if (run('viewonly')) {
   const { context, page, errors } = await open('ltr', { access: { canView: true, canManage: false } })
-  await page.goto(`${BASE}/hybris-stock/stores`)
+  await page.goto(`${BASE}/stock/hybris/stores`)
   await waitRows(page, 6)
   check('7: view-only shows no Mark / Unmark', (await page.locator('[data-store-mark]').count()) === 0)
   check('7: view-only shows no push now', (await page.locator('[data-store-push], [data-push-materials]').count()) === 0)
@@ -303,7 +303,7 @@ async function pushNow(dir) {
   const { context, page, errors, reads, writes, gate } = await open(dir)
   const storeReads = () => reads.filter((r) => r.path === 'HybrisStockWeb/Stores').length
   const pushWrites = (p) => writes.filter((w) => w.path === p)
-  await page.goto(`${BASE}/hybris-stock/stores`)
+  await page.goto(`${BASE}/stock/hybris/stores`)
   await waitRows(page, 6)
   const dlg = dialog(page)
 

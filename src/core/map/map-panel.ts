@@ -1,6 +1,19 @@
-import { cardAfter, featuresAt, GROUP_LABEL_INK, openingZoom, type MapCardState, type MapFeature, type MapGrouping, type MapPoint, type MapTarget } from './map-drawing'
+import {
+  cardAfter,
+  featuresAt,
+  GROUP_LABEL_INK,
+  lineFeatures,
+  openingZoom,
+  type MapCardState,
+  type MapFeature,
+  type MapGrouping,
+  type MapLine,
+  type MapLineFeature,
+  type MapPoint,
+  type MapTarget,
+} from './map-drawing'
 
-export type { MapCard, MapCardState, MapFeature, MapGrouping, MapPoint, MapTarget } from './map-drawing'
+export type { MapCard, MapCardState, MapFeature, MapGrouping, MapLine, MapLineFeature, MapPoint, MapTarget } from './map-drawing'
 
 /**
  * The map panel's own logic (ticket 879, BackOffice spec 3630 M28, M29, M33-M35; ticket 908, ADR 0139): what it hands the
@@ -58,6 +71,11 @@ export interface MapEngineStart {
   labelInk: string
   /** The screen's language: Google's labels are in it. */
   lang: MapLang
+  /**
+   * The lines to draw beneath the points (922), in the order given, colours resolved. The panel always hands the
+   * list, empty when the caller gave none; absent is read as empty.
+   */
+  lines?: MapLineFeature[]
 }
 
 /** What the engine reports back. */
@@ -118,6 +136,8 @@ export interface OpenMapPanel {
   engine: MapEngine
   container: unknown
   points: readonly MapPoint[]
+  /** Lines between places (922): a case's legs. Absent: none. The view opens on the points and every line's ends. */
+  lines?: readonly MapLine[]
   lang: MapLang
   dir: 'ltr' | 'rtl'
   /** The model's `maps` part (BackOffice 3986), as the caller holds it. Absent, null or an empty key: `no-key`. */
@@ -128,12 +148,17 @@ export interface OpenMapPanel {
   inkOf?: (token: string) => string
   /** How groups read (881). Absent: a group shows its count only. */
   grouping?: MapGrouping | null
+  /**
+   * Whether nearby points join into groups (881, 909). Absent or true: they do, as on every map before. False (spec 4050
+   * review 4, a case's route): each point stays its own at every zoom, so no group disc lies over a short leg.
+   */
+  groupNearby?: boolean
   /** The card to show changed (881, M23): whose, where, pinned or not; null hides it. */
   onCard?(card: MapCardState): void
 }
 
-/** The view that holds every point. */
-export function fittedView(points: readonly MapPoint[]): MapView {
+/** The view that holds every point (and every line's two ends, 922: pass them as places). */
+export function fittedView(points: readonly { lon: number; lat: number }[]): MapView {
   if (points.length === 0) return KSA_BH_BOX
   let west = Infinity
   let south = Infinity
@@ -174,7 +199,8 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     open.onCannotDraw('no-key')
     return { close: () => {} }
   }
-  const view = fittedView(open.points)
+  const lines = open.lines ?? []
+  const view = fittedView([...open.points, ...lines.flatMap((l) => [l.from, l.to])])
   let tilesLoaded = false
   let idle = false
   const drawnWhenBoth = () => {
@@ -199,7 +225,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
   const featuresOf = (zoom: number) => {
     const z = Math.floor(zoom)
     let f = drawn.get(z)
-    if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf)))
+    if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf, open.groupNearby !== false)))
     return f
   }
   // A target is read against the features it was drawn from (review W8): the zoom may have moved on since.
@@ -223,6 +249,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
         featuresAt: featuresOf,
         labelInk: inkOf(GROUP_LABEL_INK),
         lang: open.lang,
+        lines: lineFeatures(lines, inkOf),
       },
       {
         tilesLoaded: () => {

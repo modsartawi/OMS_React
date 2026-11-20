@@ -53,14 +53,14 @@ const SEVEN = [
   sig('feeds', 'good', 'Every feed passed within its alarm limit.', [
     { label: 'SAP feed age (minutes)', value: 3.2 },
     { label: 'POS feed age (minutes)', value: 1.1 },
-  ], 'oms/held-stock-report/refusals'),
+  ], 'stock/refusals'),
   sig('batchWorker', 'watch', '12 row(s) wait to be applied, with no alert.', [
     { label: 'Unapplied rows', value: 12 },
     { label: 'Errored documents', value: 0 },
     { label: 'Alerts', value: 0 },
     { label: 'Lot copy lag (minutes)', value: 0.4 },
   ]),
-  sig('hourlyCount', 'noAnswer', "Stock Visibility's Stock/SapCountStatus did not answer: it timed out.", [], 'oms/held-stock-report/refusals', null),
+  sig('hourlyCount', 'noAnswer', "Stock Visibility's Stock/SapCountStatus did not answer: it timed out.", [], 'stock/refusals', null),
   sig('salePush', 'bad', "Last night's compare found 4 difference(s) between the pushes and the feed.", [
     { label: 'Yesterday within 10 s', value: '99.6%' },
     { label: 'Today within 10 s', value: null },
@@ -72,18 +72,18 @@ const SEVEN = [
     { label: 'Failed calls', value: 0 },
     { label: 'Failed calls per 100 takes', value: 0 },
     { label: 'Skipped at the time limit', value: 0 },
-  ], 'oms/held-stock-report/gates'),
+  ], 'stock/gates'),
   sig('holdSeamTills', null, '42 till(s) at 17 store(s) heard on the hold seam in the last hour.', [
     { label: 'Tills heard in the last hour', value: 42 },
     { label: 'Stores heard in the last hour', value: 17 },
-  ], 'oms/held-stock-report/gates'),
+  ], 'stock/gates'),
   sig('storeStages', null, '30 Shadow, 2 Seeding, 5 Seeded, 1 Blocking.', [
     { label: 'Shadow', value: 30 },
     { label: 'Seeding', value: 2 },
     { label: 'Seeded', value: 5 },
     { label: 'Blocking', value: 1 },
     { label: 'Seeding over 24 hours', value: 0 },
-  ], 'oms/store-stages'),
+  ], 'stock/store-stages'),
 ]
 const ALL_GOOD_EIGHT = [
   ...SEVEN.map((s) => (s.verdict === null ? s : { ...s, verdict: 'good', readAt: READ_AT })),
@@ -102,7 +102,7 @@ const S10_LABELS = ['Negative batches', 'In blocking stores', 'Would-be refusals
 const s9 = (verdict, reason, values, readAt = READ_AT) =>
   sig('batchBookVsSap', verdict, reason, values.map((value, i) => ({ label: S9_LABELS[i], value })), null, readAt)
 const s10 = (verdict, reason, values, readAt = READ_AT) =>
-  sig('negativeStock', verdict, reason, values.map((value, i) => ({ label: S10_LABELS[i], value })), 'oms/held-stock-report/refusals', readAt)
+  sig('negativeStock', verdict, reason, values.map((value, i) => ({ label: S10_LABELS[i], value })), 'stock/refusals', readAt)
 const noAnswer404 = (key, door, link) =>
   sig(key, 'noAnswer', `Stock Visibility's ${door} did not answer: Stock Visibility's ${door} answered HTTP 404 Not Found.`, [], link, null)
 const TEN = {
@@ -120,7 +120,7 @@ const TEN = {
   ],
   noAnswer: [
     noAnswer404('batchBookVsSap', 'Stock/BatchDrift/Status', null),
-    noAnswer404('negativeStock', 'Stock/BatchBook/Negatives', 'oms/held-stock-report/refusals'),
+    noAnswer404('negativeStock', 'Stock/BatchBook/Negatives', 'stock/refusals'),
   ],
 }
 
@@ -156,7 +156,7 @@ async function open(dir, { access = 'allowed', signals = SEVEN, dark = false, cl
   return { context, page, errors, calls }
 }
 
-const omsLinks = (page) => page.locator('nav a[href^="/oms/"]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('href')))])
+const omsLinks = (page) => page.locator('nav a[href^="/stock/"]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('href')))])
 const tiles = (page) => page.locator('[data-health-tile]')
 const tileAttr = (page, attr) => tiles(page).evaluateAll((els, a) => els.map((e) => e.getAttribute(a)), attr)
 
@@ -166,9 +166,9 @@ for (const dir of ['ltr', 'rtl']) {
   // 1. not allowed
   {
     const { context, page, errors, calls } = await open(dir, { access: 'denied' })
-    await page.goto(`${BASE}/oms/stock-health`)
+    await page.goto(`${BASE}/stock/health`)
     await page.waitForLoadState('networkidle')
-    check(`${dir} 1 denied: no leaf`, !(await omsLinks(page)).includes('/oms/stock-health'))
+    check(`${dir} 1 denied: no leaf`, !(await omsLinks(page)).includes('/stock/health'))
     check(`${dir} 1 denied: the denied card`, await page.getByText('No access to stock health').isVisible())
     check(`${dir} 1 denied: no StockHealth call`, calls.read === 0, String(calls.read))
     check(`${dir} 1 denied: no page errors`, errors.length === 0, errors.join(' | '))
@@ -178,13 +178,13 @@ for (const dir of ['ltr', 'rtl']) {
   for (const dark of [false, true]) {
     const theme = dark ? 'dark' : 'light'
     const { context, page, errors, calls } = await open(dir, { dark, clock: true })
-    await page.goto(`${BASE}/oms/stock-health`)
+    await page.goto(`${BASE}/stock/health`)
     await tiles(page).first().waitFor({ timeout: 15000 })
 
     // 2. leaf + order
     check(`${dir}/${theme} 2 page direction`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
     const links = await omsLinks(page)
-    check(`${dir}/${theme} 2 leaf right after Store stages`, links.indexOf('/oms/stock-health') === links.indexOf('/oms/store-stages') + 1, links.join(','))
+    check(`${dir}/${theme} 2 leaf first, Store stages right after`, links.indexOf('/stock/store-stages') === links.indexOf('/stock/health') + 1, links.join(','))
     const order = await tileAttr(page, 'data-health-tile')
     check(`${dir}/${theme} 2 tiles in the server's order`, order.join(',') === SEVEN.map((s) => s.key).join(','), order.join(','))
 
@@ -220,8 +220,8 @@ for (const dir of ['ltr', 'rtl']) {
     // 7. a tile opens its link
     if (!dark) {
       await page.locator('[data-health-tile="takeDoor"]').click()
-      await page.waitForURL('**/oms/held-stock-report/gates', { timeout: 5000 }).catch(() => {})
-      check(`${dir}/${theme} 7 a tile opens its link`, new URL(page.url()).pathname === '/oms/held-stock-report/gates', page.url())
+      await page.waitForURL('**/stock/gates', { timeout: 5000 }).catch(() => {})
+      check(`${dir}/${theme} 7 a tile opens its link`, new URL(page.url()).pathname === '/stock/gates', page.url())
     }
     check(`${dir}/${theme} 8 no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
@@ -230,7 +230,7 @@ for (const dir of ['ltr', 'rtl']) {
   // 6. S8 present, every judged signal good
   {
     const { context, page, errors } = await open(dir, { signals: ALL_GOOD_EIGHT })
-    await page.goto(`${BASE}/oms/stock-health`)
+    await page.goto(`${BASE}/stock/health`)
     await tiles(page).first().waitFor({ timeout: 15000 })
     const order = await tileAttr(page, 'data-health-tile')
     check(`${dir} 6 eight tiles with drsQueue last`, order.length === 8 && order[7] === 'drsQueue', order.join(','))
@@ -250,7 +250,7 @@ for (const dir of ['ltr', 'rtl']) {
       sig('drsQueue', null, 'DRS holds are off: DRSWEB01, DRSWEB02 said so in its last heartbeat.', ALL_GOOD_EIGHT[7].figures),
     ]
     const { context, page, errors } = await open(dir, { signals: off })
-    await page.goto(`${BASE}/oms/stock-health`)
+    await page.goto(`${BASE}/stock/health`)
     await tiles(page).first().waitFor({ timeout: 15000 })
     const s8 = page.locator('[data-health-tile="drsQueue"]')
     check(`${dir} 6b S8 holds off is neutral`, (await s8.getAttribute('data-tone')) === 'neutral')
@@ -274,7 +274,7 @@ for (const dir of ['ltr', 'rtl']) {
       ]),
     ]
     const { context, page, errors } = await open(dir, { signals: two })
-    await page.goto(`${BASE}/oms/stock-health`)
+    await page.goto(`${BASE}/stock/health`)
     await tiles(page).first().waitFor({ timeout: 15000 })
     const s8 = page.locator('[data-health-tile="drsQueue"]')
     check(`${dir} 6c S8 worst instance wins: watch`, (await s8.getAttribute('data-tone')) === 'watch')
@@ -290,7 +290,7 @@ for (const dir of ['ltr', 'rtl']) {
     const theme = dark ? 'dark' : 'light'
     for (const [name, pair] of Object.entries(TEN)) {
       const { context, page, errors } = await open(dir, { dark, signals: [...ALL_GOOD_EIGHT, ...pair] })
-      await page.goto(`${BASE}/oms/stock-health`)
+      await page.goto(`${BASE}/stock/health`)
       await tiles(page).first().waitFor({ timeout: 15000 })
       const at = `${dir}/${theme} 9 ${name}`
       const order = await tileAttr(page, 'data-health-tile')
@@ -305,7 +305,7 @@ for (const dir of ['ltr', 'rtl']) {
       const s9t = page.locator('[data-health-tile="batchBookVsSap"]')
       const s10t = page.locator('[data-health-tile="negativeStock"]')
       check(`${at}: S9 has no link, S10 is a link`, (await s9t.evaluate((e) => e.tagName)) === 'DIV' && (await s10t.evaluate((e) => e.tagName)) === 'A')
-      check(`${at}: S10 opens the refusals leaf`, (await s10t.getAttribute('href')) === '/oms/held-stock-report/refusals')
+      check(`${at}: S10 opens the refusals leaf`, (await s10t.getAttribute('href')) === '/stock/refusals')
       if (name === 'noAnswer') {
         check(`${at}: S9 says did not answer`, (await s9t.locator('[data-health-verdict]').innerText()).trim() === 'Did not answer')
         check(`${at}: S10 is outlined`, (await s10t.evaluate((e) => getComputedStyle(e).borderTopWidth)) === '2px')

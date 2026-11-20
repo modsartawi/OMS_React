@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { googleEngine } from './google-engine'
 import { createGoogleLoader, type LoaderPage } from './google-loader'
-import type { MapEngineEvents, MapEngineStart, MapFeature, MapTarget } from './map-panel'
+import type { MapEngineEvents, MapEngineStart, MapFeature, MapLineFeature, MapTarget } from './map-panel'
 
 const KEY = 'planted-test-key'
 
@@ -122,8 +122,20 @@ function stageGoogle() {
     }
     static preventMapHitsAndGesturesFrom() {}
   }
+  // 922: Google's polyline, as the adapter makes one for each line.
+  class StagedPolyline {
+    map: unknown
+    constructor(readonly options: Record<string, unknown>) {
+      this.map = options.map ?? null
+      polylines.push(this)
+    }
+    setMap(map: unknown) {
+      this.map = map
+    }
+  }
+  const polylines: StagedPolyline[] = []
   const ns = {
-    importLibrary: async () => ({ Map: StagedMap, RenderingType: { RASTER: 'RASTER' } }),
+    importLibrary: async () => ({ Map: StagedMap, RenderingType: { RASTER: 'RASTER' }, Polyline: StagedPolyline }),
     ControlPosition: { TOP_LEFT: 'TOP_LEFT', TOP_RIGHT: 'TOP_RIGHT' },
     OverlayView: StagedOverlay,
     event: { addListenerOnce: (target: StagedMap, event: string, handler: () => void) => {
@@ -147,6 +159,7 @@ function stageGoogle() {
     loader: createGoogleLoader(page),
     maps,
     overlays,
+    polylines,
     scripts,
     pane,
     setZoom: (z: number) => void (zoom = z),
@@ -305,5 +318,95 @@ describe('a marker taken away under the pointer lets its card go (review G5)', (
     google.setZoom(13)
     google.overlays[0].draw?.()
     expect(pointers.at(-1)).toBeNull()
+  })
+})
+
+describe('lines (922): each a Google polyline in its colour, its words at its middle', () => {
+  const FROM = { lon: 46.6, lat: 24.6 }
+  const TO = { lon: 43.9, lat: 26.3 }
+  const LEG: MapLineFeature = { id: 'leg-1', from: FROM, to: TO, stroke: 'ink(--map-worse)', label: '312 km · 1 h 40 min', strong: false }
+  const noop = { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap() {}, moved() {}, sized() {} }
+
+  function withLines(google: ReturnType<typeof stageGoogle>, lines: MapLineFeature[] | undefined) {
+    return googleEngine(google.loader).start(
+      { container: new El(), view: { kind: 'bounds', west: 43, south: 24, east: 47, north: 27 }, key: KEY, controlsCorner: 'top-right', featuresAt: () => [RIYADH], labelInk: '', lang: 'en', lines },
+      noop,
+    )
+  }
+  const wordsLayer = (google: ReturnType<typeof stageGoogle>) => google.pane.children.find((c) => c.attrs.has('data-map-lines'))
+
+  it('draws one polyline per line, from its start to its end, in its colour, on the map, never catching a tap', async () => {
+    const google = stageGoogle()
+    withLines(google, [LEG])
+    await google.answer()
+    expect(google.polylines).toHaveLength(1)
+    const p = google.polylines[0]
+    expect(p.options.path).toEqual([
+      { lat: 24.6, lng: 46.6 },
+      { lat: 26.3, lng: 43.9 },
+    ])
+    expect(p.options.strokeColor).toBe('ink(--map-worse)')
+    expect(p.options.clickable).toBe(false)
+    expect(p.map).toBe(google.maps[0])
+  })
+
+  it('puts its words at the middle of the line as drawn, in their own direction, passing the pointer through', async () => {
+    const google = stageGoogle()
+    withLines(google, [LEG])
+    await google.answer()
+    const words = wordsLayer(google)?.children[0]
+    expect(words?.textContent).toBe('312 km · 1 h 40 min')
+    expect(words?.dir).toBe('auto')
+    expect(words?.style.pointerEvents).toBe('none')
+    // The staged projection is ten pixels a degree: the middle of (466, 246) and (439, 263).
+    expect(parseFloat(words?.style.left ?? '')).toBeCloseTo(452.5)
+    expect(parseFloat(words?.style.top ?? '')).toBeCloseTo(254.5)
+  })
+
+  it('a line with no words draws its polyline and no label', async () => {
+    const google = stageGoogle()
+    withLines(google, [{ ...LEG, label: '' }])
+    await google.answer()
+    expect(google.polylines).toHaveLength(1)
+    expect(wordsLayer(google)?.children ?? []).toEqual([])
+  })
+
+  it('the points are still drawn, as before', async () => {
+    const google = stageGoogle()
+    withLines(google, [LEG])
+    await google.answer()
+    expect(google.pane.children[0].children.map((m) => m.attrs.get('data-feature'))).toEqual(['point'])
+  })
+
+  it('closing the map takes its lines and their words away', async () => {
+    const google = stageGoogle()
+    const running = withLines(google, [LEG])
+    await google.answer()
+    running.destroy()
+    expect(google.polylines[0].map).toBeNull()
+    expect(wordsLayer(google)).toBeUndefined()
+  })
+
+  it('a strong line is drawn above every plain one, wider, and its words above theirs — whatever the order given', async () => {
+    const google = stageGoogle()
+    withLines(google, [
+      { ...LEG, id: 'strong', strong: true },
+      { ...LEG, id: 'plain', stroke: 'ink(--map-ring)', label: 'later, plain' },
+    ])
+    await google.answer()
+    const [strong, plain] = google.polylines
+    expect(Number(strong.options.zIndex)).toBeGreaterThan(Number(plain.options.zIndex))
+    expect(Number(strong.options.strokeWeight)).toBeGreaterThan(Number(plain.options.strokeWeight))
+    const [strongWords, plainWords] = wordsLayer(google)?.children ?? []
+    expect(Number(strongWords.style.zIndex)).toBeGreaterThan(Number(plainWords.style.zIndex))
+  })
+
+  it('a map with no lines (every map before 922) makes no polyline', async () => {
+    for (const lines of [undefined, []]) {
+      const google = stageGoogle()
+      withLines(google, lines)
+      await google.answer()
+      expect(google.polylines).toEqual([])
+    }
   })
 })

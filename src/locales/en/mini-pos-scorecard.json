@@ -1,0 +1,189 @@
+{
+  "title": "Mini POS scorecard",
+  "subtitle": "The trial's money test against the control pharmacies, the supporting measures, and the weekly review.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the Mini POS scorecard",
+    "deniedHint": "Your account does not hold the Mini POS scorecard grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "loading": "Loading…",
+  "failed": "SIS.Api did not answer. Try again in a moment.",
+  "na": "—",
+  "notes": {
+    "money": "Money is SAR, net of VAT.",
+    "cost": "Cost (and so the margin) is today's item master cost, not the cost at the time of sale."
+  },
+  "form": {
+    "trialFrom": "Trial from",
+    "trialTo": "Trial to",
+    "settlingInEnd": "Settling-in ends",
+    "offset": "Last year, days earlier",
+    "cost": "Promoter cost (SAR)",
+    "run": "Show scorecard",
+    "configHint": "Leave a date or the offset blank to use the trial calendar SIS.Api is configured with.",
+    "costHint": "Enter the promoters' full cost over the whole trial. The payback ratio is judged on that cost prorated to the counted days (the trial less the settling-in week)."
+  },
+  "window": {
+    "trial": "Trial {{range}}",
+    "settlingIn": "Settling-in week {{range}}",
+    "excluded": "Excluded from the uplift",
+    "noSettlingIn": "No settling-in week: the uplift counts the whole trial.",
+    "counted": "Counted {{range}}",
+    "lastYear": "Compared with {{range}}, {{days}} days earlier",
+    "categories": "Non-pharmacy categories counted: {{list}}"
+  },
+  "money": {
+    "title": "The money test",
+    "trial": "Trial pharmacies",
+    "control": "Control pharmacies",
+    "sales": "Sales",
+    "lastYear": "Sales last year",
+    "growth": "Growth",
+    "uplift": "Uplift",
+    "pts": "percentage points",
+    "upliftHint": "Trial growth less control growth.",
+    "upliftSales": "Sales from the uplift",
+    "marginRate": "Trial margin rate",
+    "grossMargin": "Gross margin on the uplift",
+    "countedCost": "Cost for the counted days (prorated)",
+    "countedDays": "{{days}} days of the trial",
+    "countedCostNotSent": "Not sent by SIS.Api",
+    "fullCost": "Full cost entered",
+    "noCost": "Not entered",
+    "ratio": "Payback ratio",
+    "bars": "Go at {{go}} or above. No-go below {{noGo}}. In between, the panel weighs the supporting measures."
+  },
+  "band": {
+    "go": "Payback ratio {{ratio}}: at or above the go bar",
+    "panel": "Payback ratio {{ratio}}: between the two bars",
+    "no-go": "Payback ratio {{ratio}}: below the no-go bar"
+  },
+  "verdict": {
+    "go": "Go",
+    "panel": "For the panel",
+    "no-go": "No-go",
+    "no-cost": "No cost entered",
+    "no-base": "No base",
+    "unknown": "No verdict"
+  },
+  "verdictHint": {
+    "go": "The gross margin on the uplift covers the prorated promoter cost at least 1.2 times.",
+    "panel": "Between the bars: the panel weighs the supporting measures.",
+    "no-go": "The gross margin on the uplift covers less than the prorated promoter cost.",
+    "no-cost": "Enter the promoter cost to get a ratio.",
+    "no-base": "The trial or the control pharmacies sold nothing in last year's days, so there is no growth to compare.",
+    "unknown": "SIS.Api sent a verdict this screen does not know."
+  },
+  "pharmacies": {
+    "store": "Pharmacy",
+    "role": "Role",
+    "cost": "Cost",
+    "empty": "No trial or control pharmacy is set.",
+    "roles": {
+      "trial": "Trial",
+      "control": "Control",
+      "other": "Other"
+    }
+  },
+  "supporting": {
+    "title": "Supporting measures",
+    "perHour": {
+      "title": "Per planned promoter hour",
+      "promoter": "Promoter",
+      "hours": "Planned hours",
+      "items": "Items",
+      "salesPerHour": "Sales per hour",
+      "itemsPerHour": "Items per hour"
+    },
+    "paidShare": {
+      "title": "Orders paid at the till",
+      "paid": "Paid / orders",
+      "share": "Paid share"
+    },
+    "holdToBilled": {
+      "title": "Till time to complete an order",
+      "orders": "Orders",
+      "median": "Median",
+      "average": "Average"
+    },
+    "refusals": {
+      "title": "Refusals",
+      "none": "No refusals.",
+      "reasons": {
+        "category": "Category not allowed",
+        "list": "On the refusal list",
+        "serialised": "Serialised item"
+      },
+      "stages": {
+        "scan": "at scan",
+        "submit": "at submit"
+      }
+    },
+    "resubmits": {
+      "title": "Resubmits / orders"
+    },
+    "entry": {
+      "title": "Scanned and typed lines",
+      "lines": "Lines",
+      "typedShare": "Typed share",
+      "medianRead": "Median ms to read",
+      "mode": "Entry",
+      "trigger": "Scanner trigger",
+      "modes": {
+        "camera": "Camera",
+        "typed": "Typed",
+        "wedge": "Scanner",
+        "unknown": "Unknown"
+      }
+    },
+    "serial": {
+      "title": "Serial fallbacks to the till",
+      "refused": "Refused as serialised",
+      "scannedWithout": "Scanned without a serial"
+    },
+    "returns": {
+      "title": "Return rate",
+      "miniPos": "Mini POS sales",
+      "ordinary": "Ordinary sales",
+      "hint": "At the Mini POS pharmacies, over the trial."
+    }
+  },
+  "weekly": {
+    "title": "Weekly review",
+    "hint": "Operations and IT review this every week. Any off-list line stops Mini POS everywhere; a pharmacy under half paid two weeks running is paused.",
+    "offList": {
+      "title": "Off-list lines sold through Mini POS",
+      "clear": "No off-list line: nothing to stop.",
+      "stop": "Compliance stop: {{n}} off-list lines were sold through Mini POS. Stop Mini POS everywhere.",
+      "week": "Week",
+      "date": "Date",
+      "trx": "Transaction",
+      "order": "Order",
+      "item": "Item",
+      "aCode": "A-level",
+      "reason": "Why",
+      "reasons": {
+        "category": "Category not allowed",
+        "list": "On the refusal list"
+      }
+    },
+    "paid": {
+      "title": "Paid share per pharmacy per week",
+      "empty": "No Mini POS orders in the trial yet.",
+      "weekHead": "Week {{week}}",
+      "underHalf": "Under half",
+      "pause": "Pause",
+      "legend": "Under half: fewer than half the week's orders paid. Pause: under half two weeks running.",
+      "pauseList": "Pause and fix before resuming: {{stores}}. Under half paid two weeks running."
+    }
+  },
+  "failure": {
+    "invalidTitle": "The scorecard refused these inputs",
+    "invalidHint": "Check the trial dates, the settling-in end, the offset (1 to 400 days) and the cost.",
+    "deniedTitle": "No access to the Mini POS scorecard",
+    "deniedHint": "Your account does not hold the Mini POS scorecard grant.",
+    "failedTitle": "The scorecard could not be read"
+  }
+}

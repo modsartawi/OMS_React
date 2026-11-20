@@ -95,7 +95,7 @@ async function materials(dir) {
   const tag = dir.toUpperCase()
   const { context, page, errors, reads, writes } = await open(dir)
   const listReads = () => reads.filter((r) => r.path === 'HybrisStockWeb/Materials')
-  await page.goto(`${BASE}/hybris-stock/materials`)
+  await page.goto(`${BASE}/stock/hybris/materials`)
   await waitRows(page, 50)
 
   // 1: the list
@@ -255,7 +255,7 @@ await materials('rtl')
 
 {
   const { context, page, errors } = await open('ltr', { access: { canView: true, canManage: false } })
-  await page.goto(`${BASE}/hybris-stock/materials`)
+  await page.goto(`${BASE}/stock/hybris/materials`)
   await waitRows(page, 50)
   check('7: view-only: no add, upload or toggle', (await page.locator('[data-materials-add], [data-materials-upload], [data-material-toggle]').count()) === 0)
   check('7: view-only: download stays, the bar says view only', (await page.locator('[data-materials-download]').count()) === 1 && (await page.locator('[data-view-only]').count()) === 1)

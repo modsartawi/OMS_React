@@ -23,7 +23,7 @@ const CATALOG = 'DeliverectCatalog:03'
 const TERMS = 'DeliverectTerms:03'
 
 describe('the Deliverect nav group', () => {
-  it('comes right after Materials (551 put the HungerStation group after it, 847 Hybris stock after that; 607 Insurance rules last)', () => {
+  it('comes right after Materials (551 put the HungerStation group after it; 607 Insurance rules and 922 Insurance last; Hybris stock moved into Stock)', () => {
     expect(MENU.at(-4)).toBe(deliverect)
     expect(MENU.at(-5)?.labelKey).toBe('materials-search:menu.materials')
   })

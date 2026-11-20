@@ -1,0 +1,340 @@
+{
+  "menu": {
+    "group": "Insurance",
+    "cases": "Pattern cases",
+    "settings": "Pattern settings",
+    "reveals": "Reveal log"
+  },
+  "title": "Pattern cases",
+  "subtitle": "Patients who dispense across our pharmacies, scored on impossible travel, supply overlap and pharmacy hopping. A case shows a number, never a patient.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to pattern cases",
+    "deniedHint": "Pattern cases need the insurance pattern analyst grant. Ask your administrator.",
+    "unreachableTitle": "Your access could not be read",
+    "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+  },
+  "filters": {
+    "label": "Filter the cases",
+    "store": "Store",
+    "storeHint": "A store code",
+    "from": "From",
+    "to": "To",
+    "signal": "Signal",
+    "status": "Status",
+    "severity": "Severity",
+    "any": "Any",
+    "clear": "Clear filters",
+    "backwards": "The period ends before it starts."
+  },
+  "list": {
+    "count_one": "{{n}} case",
+    "count_other": "{{n}} cases",
+    "order": "Strongest first: by score, then the latest dispense.",
+    "reading": "Reading the cases…",
+    "failed": "The cases could not be read",
+    "empty": "No case matches these filters.",
+    "openCase": "Open case {{caseNumber}}"
+  },
+  "col": {
+    "case": "Case",
+    "stores": "Stores",
+    "dispenses": "Dispenses",
+    "span": "Span",
+    "longestLeg": "Longest leg",
+    "shortestGap": "Shortest gap",
+    "signals": "Signals",
+    "score": "Score",
+    "status": "Status"
+  },
+  "signal": {
+    "travel": "Impossible travel",
+    "overlap": "Supply overlap",
+    "hopping": "Pharmacy hopping",
+    "unknown": "Unknown signal"
+  },
+  "status": {
+    "open": "Open",
+    "watching": "Watching",
+    "cleared": "Cleared",
+    "confirmed": "Confirmed",
+    "closed": "Closed",
+    "unknown": "Unknown status"
+  },
+  "severity": {
+    "action": "Action",
+    "info": "Info",
+    "unknown": "Unknown severity"
+  },
+  "duration": {
+    "minutes": "{{m}} min",
+    "hours": "{{h}} h",
+    "hoursMinutes": "{{h}} h {{m}} min",
+    "days": "{{d}} d",
+    "daysHours": "{{d}} d {{h}} h"
+  },
+  "units": {
+    "km": "{{km}} km",
+    "kmPerHour": "{{speed}} km/h"
+  },
+  "settings": {
+    "title": "Pattern settings",
+    "subtitle": "The thresholds the nightly job finds and scores multi-pharmacy cases with.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to pattern settings",
+      "deniedHint": "Pattern settings need the insurance pattern manager grant. Ask your administrator.",
+      "unreachableTitle": "Your access could not be read",
+      "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+    },
+    "nextRun": "A change applies from the next run: the nightly job reads these thresholds each time it starts. Cases it has already closed are never re-scored.",
+    "reading": "Reading the settings…",
+    "failed": "The settings could not be read",
+    "stale": "The settings could not be read again. They are shown as last read.",
+    "readAgain": "Read again",
+    "formLabel": "The thresholds",
+    "name": {
+      "WindowDays": "Window (days)",
+      "MinStores": "Pharmacies for hopping",
+      "MaxKmPerHour": "Impossible speed (km/h)",
+      "MinTravelKm": "Shortest travel (km)",
+      "OverlapShare": "Supply still left (share)",
+      "CaseQuietDays": "Quiet days to close a case",
+      "LookbackDays": "History read (days)"
+    },
+    "help": {
+      "WindowDays": "The rolling window a patient's dispenses must fall in to make a pattern.",
+      "MinStores": "Distinct pharmacies in the window that count as pharmacy hopping.",
+      "MaxKmPerHour": "The speed between two counter dispenses above which the travel is impossible.",
+      "MinTravelKm": "The shortest distance a too-fast leg must cover to count as travel.",
+      "OverlapShare": "The share of the last supply still left when the same medicine is dispensed at another pharmacy (0.25 = 25%).",
+      "CaseQuietDays": "Days with no matching dispense after which a case closes.",
+      "LookbackDays": "Days of dispense history each run reads."
+    },
+    "range": "Allowed: {{range}}",
+    "was": "Saved value: {{value}}",
+    "problem": {
+      "missing": "Enter a value.",
+      "notNumber": "Enter a number.",
+      "notWhole": "Enter a whole number.",
+      "outOfRange": "Out of range: allowed {{range}}."
+    },
+    "changedCount_one": "{{n}} threshold changed",
+    "changedCount_other": "{{n}} thresholds changed",
+    "save": "Save settings",
+    "saving": "Saving…",
+    "saved": "Settings saved",
+    "savedDetail": "They apply from the next run.",
+    "discard": "Discard changes",
+    "nothingChanged": "Nothing has changed.",
+    "fixFirst": "Fix the values marked first.",
+    "notSaved": "The settings were not saved",
+    "log": {
+      "title": "Change log",
+      "none": "No threshold has been changed yet.",
+      "setting": "Threshold",
+      "old": "Old value",
+      "new": "New value",
+      "by": "Changed by",
+      "at": "When"
+    }
+  },
+  "revealLog": {
+    "title": "Reveal log",
+    "subtitle": "Who revealed which case's patient, when and why, including each block that used the patient's identity. The patients themselves are never shown here.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to the reveal log",
+      "deniedHint": "The reveal log needs the insurance pattern manager grant. Ask your administrator.",
+      "unreachableTitle": "Your access could not be read",
+      "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+    },
+    "filters": {
+      "label": "Filter the reveals",
+      "from": "From",
+      "to": "To",
+      "user": "User",
+      "userHint": "Who revealed",
+      "case": "Case",
+      "caseOn": "Case {{caseNumber}}",
+      "caseClear": "Show every case",
+      "clear": "Clear filters",
+      "backwards": "The period ends before it starts."
+    },
+    "count_one": "{{n}} reveal",
+    "count_other": "{{n}} reveals",
+    "order": "Newest first.",
+    "reading": "Reading the log…",
+    "failed": "The reveal log could not be read",
+    "empty": "No reveal matches these filters.",
+    "col": {
+      "at": "When",
+      "case": "Case",
+      "by": "Revealed by",
+      "reason": "Reason"
+    },
+    "openCase": "Open case {{caseNumber}}",
+    "onlyCase": "Only the reveals of case {{caseNumber}}"
+  },
+  "block": {
+    "action": "Add to blocked-patient list",
+    "title": "Add the patient to the blocked-patient list",
+    "body": "The patient of case {{caseNumber}} is added to the blocked-patient list. From its start day, the insurance guards refuse the patient's requests at every store, under every payer.",
+    "recorded": "The entry's reference names case {{caseNumber}}, and this use of the patient's identity is written to the reveal log.",
+    "reasonKind": "Kind of finding",
+    "choose": "Choose abuse or fraud",
+    "kind": {
+      "abuse": "Abuse",
+      "fraud": "Fraud"
+    },
+    "payer": "Reporting payer",
+    "payerHint": "Optional: who reported the finding. A note only: the block applies under every payer.",
+    "startsOn": "Starts on",
+    "startsHint": "Blank: from today.",
+    "endsOn": "Ends on",
+    "endsHint": "Blank: no end.",
+    "problem": {
+      "reasonKind": "Choose the kind of finding: abuse or fraud.",
+      "payerTooLong": "The payer is longer than {{max}} characters.",
+      "startInvalid": "Enter a real start day.",
+      "endInvalid": "Enter a real end day.",
+      "endPast": "The end cannot be before today.",
+      "startAfterEnd": "The start is after the end."
+    },
+    "cancel": "Cancel",
+    "confirm": "Add to the list",
+    "adding": "Adding…",
+    "added": "Added to the blocked-patient list",
+    "refused": "The patient was not added",
+    "failure": {
+      "denied": "The server refused: adding the patient to the blocked-patient list needs the insurance pattern investigator grant and the change grant of the blocked-patient list."
+    }
+  },
+  "reveal": {
+    "open": "Show patient",
+    "title": "Show the patient of case {{caseNumber}}",
+    "logged": "Each reveal is logged: your name, the time, this case and your reason go to the reveal log, which the insurance manager reads.",
+    "reason": "Reason",
+    "reasonHint": "Why you need the patient, in at least {{min}} characters. It is kept with the reveal.",
+    "problem": {
+      "short": "Write at least {{min}} characters.",
+      "tooLong": "The reason is longer than {{max}} characters."
+    },
+    "cancel": "Cancel",
+    "send": "Log and show",
+    "sending": "Logging…",
+    "failed": "The patient was not shown",
+    "failure": {
+      "denied": "The server refused: showing a patient needs the insurance pattern investigator grant.",
+      "empty": "The server answered without a patient key, so nobody is shown.",
+      "unexpected": "Try again. If it keeps happening, the server may be down."
+    },
+    "patient": "The patient",
+    "patientKey": "Patient key",
+    "memberId": "Member ID",
+    "notGiven": "Not given",
+    "loggedWith": "Logged with your reason:",
+    "onlyHere": "The patient shows in this window only. Closing it clears them; showing them again is another logged reveal.",
+    "close": "Close"
+  },
+  "case": {
+    "pageTitle": "Pattern case",
+    "pageSubtitle": "Its route between pharmacies, its dispenses and the team's marks. The patient is not shown here.",
+    "back": "All pattern cases",
+    "heading": "Case {{caseNumber}}",
+    "scoreLine": "Score {{score}}",
+    "reading": "Reading the case…",
+    "failed": "The case could not be read",
+    "notFound": "No case has this number.",
+    "stale": "The case could not be read again. It is shown as last read.",
+    "readAgain": "Read again",
+    "actions": "Case actions",
+    "facts": {
+      "label": "The case in figures",
+      "stores": "Stores",
+      "dispenses": "Dispenses",
+      "span": "Span",
+      "longestLeg": "Longest leg",
+      "shortestGap": "Shortest gap",
+      "opened": "Opened",
+      "lastDispense": "Last dispense",
+      "closed": "Closed",
+      "stillOpen": "Still open"
+    },
+    "clearance": {
+      "title": "This patient was cleared before",
+      "body": "Case {{caseNumber}} was cleared by {{by}} on {{at}}.",
+      "open": "Open case {{caseNumber}}"
+    },
+    "signals": {
+      "title": "Signals",
+      "none": "The server sent no words for this case's signals."
+    },
+    "route": {
+      "title": "Route",
+      "mapLabel": "The route of case {{caseNumber}} between pharmacies",
+      "cannotDraw": "The map could not be drawn here. The legs are listed below.",
+      "unplaced": "Not on the map (no coordinates):",
+      "noStores": "No store of this case has coordinates, so there is nothing to draw.",
+      "legendPoint": "A store, larger with more dispenses",
+      "legendLeg": "A leg between counter dispenses, numbered in time order",
+      "legendTravel": "A leg that fired the travel signal",
+      "legendDelivery": "A delivery dispense is a point with no leg",
+      "card": {
+        "dispenses": "Dispenses",
+        "deliveries": "Of which delivery"
+      },
+      "legs": {
+        "title": "Legs",
+        "n": "No.",
+        "from": "From",
+        "to": "To",
+        "km": "Distance",
+        "time": "Time",
+        "speed": "Speed",
+        "travel": "Travel signal",
+        "notOnMap": "Not on the map",
+        "offMap": "Legs the map cannot draw (a store without coordinates):",
+        "none": "No legs: fewer than two counter dispenses."
+      }
+    },
+    "timeline": {
+      "title": "Timeline",
+      "count_one": "{{n}} dispense",
+      "count_other": "{{n}} dispenses",
+      "store": "Store",
+      "at": "Time",
+      "item": "Item",
+      "quantity": "Quantity",
+      "daysSupply": "Days' supply",
+      "payer": "Payer",
+      "channel": "Channel",
+      "pharmacist": "Pharmacist",
+      "delivery": "Delivery: a point, not a leg",
+      "daysUnknown": "Not known"
+    },
+    "marks": {
+      "title": "Marks",
+      "none": "No mark yet.",
+      "status": "Set the status",
+      "choose": "Choose a status",
+      "note": "Note",
+      "noteHint": "Say why: the team reads it, and a cleared patient's next case shows it.",
+      "save": "Save mark",
+      "saving": "Saving…",
+      "saved": "Mark saved",
+      "failed": "The mark was not saved",
+      "byAt": "{{by}} on {{at}}",
+      "problem": {
+        "status": "Choose a status.",
+        "note": "Write a note that says why.",
+        "tooLong": "The note is longer than {{max}} characters."
+      }
+    },
+    "previous": {
+      "title": "Previous cases",
+      "none": "No earlier case for this patient.",
+      "open": "Open case {{caseNumber}}"
+    }
+  }
+}

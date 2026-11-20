@@ -1,5 +1,8 @@
 import { toast } from 'sonner'
-import i18n from '@/core/i18n'
+// The i18next instance itself, not `@/core/i18n`: each app's entry initialises it with its own namespaces (OMS with all of
+// them, the Mini POS phone with its own, `app/minipos-i18n.ts`), and the client only reads `common`'s error sentences.
+// Importing the OMS init here would put every OMS locale into the phone bundle.
+import i18n from 'i18next'
 import { navigateTo, currentPath } from '@/core/nav'
 import { useSession } from '@/core/session'
 import { filenameFromDisposition } from '@/core/util/content-disposition'
@@ -161,8 +164,24 @@ export function onForbidden(listener: () => void): () => void {
   }
 }
 
+/**
+ * A second app on this client (the Mini POS phone app, oms 928) signs in with a bearer token, not the OMS cookie,
+ * and has no `/login` to go back to: it installs its own answer to a 401 here, once at its boot. When one is
+ * installed it REPLACES the redirect below (no OMS session to clear, no OMS route to navigate to); the error thrown
+ * is the same `auth` `ApiError` either way. The OMS app installs none, so nothing changes for it.
+ */
+let unauthorizedHandler: ((requestPath: string) => void) | null = null
+
+export function setUnauthorizedHandler(handler: ((requestPath: string) => void) | null): void {
+  unauthorizedHandler = handler
+}
+
 function handle401(requestPath: string): ApiError {
   const message = i18n.t('common:errors.sessionEnded')
+  if (unauthorizedHandler) {
+    unauthorizedHandler(requestPath)
+    return new ApiError('auth', message, 401)
+  }
   // The anonymous auth endpoints must never trigger the expired-session redirect:
   // a rejected password/TOTP is a login failure, not an ended session. The Ua
   // two-step family (UaLogin/UaVerifyTotp/UaChangePassword) joins the legacy

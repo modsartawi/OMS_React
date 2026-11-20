@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+// The OMS words, initialised as the OMS entry does (`app/main.tsx`): `@/core/api` no longer imports the init itself.
+import '@/core/i18n'
 import type { AnalyticsModel } from '@/core/models/analytics'
 import en from '@/locales/en/boards.json'
 import ar from '@/locales/ar/boards.json'

@@ -253,7 +253,8 @@
       "channel": "Distr. Channel",
       "channelName": "Distribution Channel Name",
       "salesOrg1000": "Al-Dawaa Domestic",
-      "channel20": "Retail"
+      "channel20": "Retail",
+      "channel21": "Bahrain Retail"
     },
     "details": "Bonus Buy Details",
     "buy": {

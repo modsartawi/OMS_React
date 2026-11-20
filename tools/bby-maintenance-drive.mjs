@@ -113,6 +113,13 @@
 //      and saves. An unmarked read sends false.
 //      A Tested marked bonus buy shows it ticked and disabled.
 //
+// Ticket 933 — the editor reads its promotion's sales area (BackOffice spec 4096; BO 4097 NOT built: the
+// promotion's salesOrganization / distributionChannel / currency / …Name fields are stubbed in the GUESSED
+// shape committed at 9cbb5e4f). PROMO carries no pair, as an old server, so it stays KSA (13).
+//  51. a bonus buy under a Bahrain promotion: header currency BHD, Organizational Data 1000 / 21 with the
+//      server's names, Curr/Pe BHD (and BHD / 4 EA), the per-unit hint 1.250 BHD, the Total Discount panel
+//      in BHD, NO "SAR" anywhere on the screen, and Save sends no sales-area field.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -152,6 +159,14 @@ const PROMO = {
       testedBy: 'ayed', testedAt: '2026-10-05T11:20:00', testNote: 'Two Vichy items and a coupon: 20 SR.' },
   ],
 }
+// Ticket 933: a Bahrain promotion (spec 4096, guessed BO 4097 fields) and its bonus buy.
+const PROMO_BH = {
+  status: 'found', promoNumber: 'P000000021', name: 'Bahrain flyer', salesFrom: '2026-12-01', salesTo: '2026-12-31',
+  salesOrganization: '1000', distributionChannel: '21', currency: 'BHD',
+  salesOrganizationName: 'Al-Dawaa Domestic', distributionChannelName: 'Bahrain Retail', salesAreaLocked: true,
+  bonusBuys: [{ bbyNumber: 'OMS000000129', description: 'Bahrain 4 for 5', validFrom: '2026-12-01', validTo: '2026-12-31', bbyStatus: '1' }],
+}
+const BH_BBY = 'OMS000000129'
 const EMPTY = { status: 'found', promoNumber: 'P000000002', name: 'Empty flyer', salesFrom: '2026-11-01', salesTo: '2026-11-30', bonusBuys: [] }
 
 // Ticket 417: the editor's bonus buy — the owner's OR-price shape (2330 §6) with a grouping line.
@@ -230,6 +245,11 @@ async function run() {
       bonusBuyGets++
       if (n === '000100001124') return route.fulfill(envelope(bbyDoc(n, { readOnly: true, bbyStatus: '' })))
       // Ticket 640: "4 pcs @ 100 SAR" — the price line read back with its stored Per (spec 639 D1).
+      if (n === BH_BBY)
+        return route.fulfill(envelope({ ...bbyDoc(n), bonusBuy: { ...BBY, bbyNumber: n, promoNumber: PROMO_BH.promoNumber, minValue: 12.5, get: [
+          { ...BBY.get[0], quantity: 1, value: 5, pricingUnit: 4 },
+          BBY.get[1],
+        ] } }))
       if (n === PER_BBY)
         return route.fulfill(envelope({ ...bbyDoc(n), bonusBuy: { ...BBY, bbyNumber: n, get: [
           { ...BBY.get[0], quantity: 4, value: 100, pricingUnit: 4 },
@@ -303,6 +323,7 @@ async function run() {
           }),
         )
       if (op === 'BonusBuy/Save') {
+        if (body.bbyNumber === BH_BBY) return route.fulfill(envelope(saved(BH_BBY)))
         if (!body.bbyNumber) return route.fulfill(envelope(saved('OMS000000125')))
         if (body.bbyNumber === PER_BBY) return route.fulfill(envelope(saved(PER_BBY)))
         if (saveAnswer === 'stale')
@@ -366,6 +387,7 @@ async function run() {
       return route.fulfill(envelope(PROMO))
     }
     if (path === `BbyMaintainWeb/Promotion/${EMPTY.promoNumber}`) return route.fulfill(envelope(EMPTY))
+    if (path === `BbyMaintainWeb/Promotion/${PROMO_BH.promoNumber}`) return route.fulfill(envelope(PROMO_BH))
     // Ticket 420: the coupon template door, in its SHIPPED shape (517).
     if (path === 'CouponsAdminWeb/Templates' && req.method() === 'POST') {
       const body = JSON.parse(req.postData() || '{}')
@@ -1467,6 +1489,39 @@ async function run() {
     const k493 = await rawKey()
     check('47. no raw i18n keys', k493 === null, (k493 || [''])[0])
     flipMoves = false
+  }
+
+  // ════════ Ticket 933 — a Bahrain bonus buy reads BHD throughout (spec 4096, STUBBED) ════════
+  {
+    const EDIT = `${ROOT}/${PROMO_BH.promoNumber}/bonus-buy`
+    const cell = (attr) => page.locator(`[${attr}]`).first().innerText()
+    await page.goto(`${EDIT}/${BH_BBY}`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('51. the header currency is BHD', (await cell('data-bby-currency')).trim() === 'BHD', await cell('data-bby-currency'))
+    const org = [await cell('data-bby-sales-org'), await cell('data-bby-sales-org-name'), await cell('data-bby-channel'), await cell('data-bby-channel-name')].map((x) => x.trim())
+    check('51. Organizational Data is 1000 / 21 with its names', JSON.stringify(org) === '["1000","Al-Dawaa Domestic","21","Bahrain Retail"]', JSON.stringify(org))
+    const body = await text()
+    check('51. Curr/Pe reads BHD per 4 EA, ex VAT', body.includes('BHD / 4 EA'))
+    check('51. the per-unit hint is BHD to 3 decimals', body.includes('1.250 BHD'), (body.match(/=[^\n]*BHD[^\n]*/) || [''])[0])
+    check('51. the minimum is labelled BHD', (await page.locator('[data-bby-min-amount] ~ span').first().innerText()).trim() === 'BHD')
+    check('51. no SAR anywhere on the screen', !/\bSAR\b/.test(body), (body.match(/.{0,30}\bSAR\b.{0,30}/) || [''])[0])
+    // The Total Discount side panel's Curr/Pe follows the currency too.
+    await page.getByLabel('Total Discount').check()
+    // The panel opens on Discount Percent (Curr/Pe `%`): a Price reads the currency.
+    await page.locator('[data-panel="total-discount"] select').first().selectOption('P')
+    await page.waitForTimeout(200)
+    const td = await page.locator('[data-panel="total-discount"]').innerText()
+    check('51. the Total Discount panel reads BHD, still no SAR', td.includes('BHD') && !/\bSAR\b/.test(await text()), JSON.stringify(td))
+    await page.getByLabel('Total Discount').uncheck()
+    posts.length = 0
+    await page.locator('button', { hasText: /^Save$/ }).first().click()
+    await page.waitForTimeout(500)
+    const save = posts.find(([op]) => op === 'BonusBuy/Save')
+    check('51. Save sends no sales area (the server takes it from the promotion)',
+      !!save && !['salesOrganization', 'distributionChannel', 'currency'].some((k) => k in save[1]), JSON.stringify(save?.[1] && Object.keys(save[1])))
+    const k933 = await rawKey()
+    check('51. no raw i18n keys', k933 === null, (k933 || [''])[0])
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/bahrain-editor.png', fullPage: true }).catch(() => {})
   }
 
   // ── 11. hygiene ──

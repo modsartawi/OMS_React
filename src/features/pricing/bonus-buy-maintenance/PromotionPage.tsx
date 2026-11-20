@@ -39,6 +39,7 @@ import { usePermissions } from '@/core/permissions'
 import ActReport, { type Report, type ReportRow } from './ActReport'
 import { TEST_NOTE_MAX } from './editor'
 import { DateInput, TextInput } from './fields'
+import SalesAreaSelect, { useSalesAreaNames } from './SalesAreaSelect'
 import UploadDialog from './UploadDialog'
 import {
   BBY_MAINTAIN_ROOT,
@@ -55,7 +56,10 @@ import {
   overviewSeverity,
   overviewStatus,
   PROMOTION_NAME_MAX,
+  promotionSalesArea,
+  promotionSaveBody,
   readPromotionFlip,
+  salesAreaLabel,
   runEach,
   testableNumbers,
 } from './overview'
@@ -168,6 +172,10 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const [name, setName] = useState(promo.name)
   const [from, setFrom] = useState(formatDay(promo.salesFrom))
   const [to, setTo] = useState(formatDay(promo.salesTo))
+  // Ticket 932: the sales area as the document holds it, and locked as it says (BO 4098).
+  const savedArea = promotionSalesArea(promo)
+  const [area, setArea] = useState(savedArea)
+  const areaNames = useSalesAreaNames()
   const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -230,7 +238,10 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   })
 
   const dirty =
-    name.trim() !== promo.name || from !== formatDay(promo.salesFrom) || to !== formatDay(promo.salesTo)
+    name.trim() !== promo.name ||
+    from !== formatDay(promo.salesFrom) ||
+    to !== formatDay(promo.salesTo) ||
+    area.choice !== savedArea.choice
   const one = selected.length === 1 ? selected[0] : null
   // Only a Tested bonus buy goes live (spec 2396): Activate is not offered on a Planned one.
   const selectedRows = promo.bonusBuys
@@ -266,12 +277,10 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
 
   const saveHeader = () =>
     guarded(async () => {
-      const outcome = await bbyMaintainApi.savePromotion({
-        promoNumber: promo.promoNumber,
-        name: name.trim(),
-        salesFrom: from,
-        salesTo: to,
-      })
+      // Always the pair (ticket 932): a locked promotion sends its own back unchanged.
+      const outcome = await bbyMaintainApi.savePromotion(
+        promotionSaveBody({ promoNumber: promo.promoNumber, name, salesFrom: from, salesTo: to }, area, promo),
+      )
       if (outcome.status === 'notFound') {
         setReport(notFoundReport())
         return
@@ -506,6 +515,12 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
               {t('promotion.typeName')}
             </div>
           </div>
+          <SalesAreaSelect
+            form={area}
+            onChange={(key) => setArea({ ...area, choice: key })}
+            disabled={busy}
+            otherLabel={salesAreaLabel(promo, areaNames)}
+          />
         </div>
 
         <fieldset className="flex w-fit flex-col gap-2 rounded-md border border-border/60 p-3">

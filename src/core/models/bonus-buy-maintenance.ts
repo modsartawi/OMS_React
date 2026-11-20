@@ -74,9 +74,10 @@ export interface BbyPromotionSave {
   name: string
   salesFrom: string
   salesTo: string
-  /** BO 4097 (guessed): the promotion's sales area. Missing → the server writes KSA. */
-  salesOrganization?: string
-  distributionChannel?: string
+  /** BO 4097 (guessed): the promotion's sales area. The server reads a missing pair as KSA, but
+   *  this client always sends it (ticket 932). */
+  salesOrganization: string
+  distributionChannel: string
 }
 
 /**

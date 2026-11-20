@@ -12,6 +12,8 @@ import simulation from '@/locales/en/simulation.json'
 import bonusBuyDownload from '@/locales/en/bonus-buy-download.json'
 import bonusBuyInquiry from '@/locales/en/bonus-buy-inquiry.json'
 import bonusBuyMaintenance from '@/locales/en/bonus-buy-maintenance.json'
+// Ticket 932: only the sales-area words (spec 4096 story 3); the rest falls back to English.
+import bonusBuyMaintenanceAr from '@/locales/ar/bonus-buy-maintenance.json'
 import coupons from '@/locales/en/coupons.json'
 import notifications from '@/locales/en/notifications.json'
 import broadcast from '@/locales/en/broadcast.json'
@@ -385,6 +387,7 @@ i18n.use(initReactI18next).init({
     },
     ar: {
       'approval-release': approvalReleaseAr,
+      'bonus-buy-maintenance': bonusBuyMaintenanceAr,
       undispense: undispenseAr,
       deliveries: deliveriesAr,
       orders: ordersAr,

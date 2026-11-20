@@ -19,8 +19,16 @@
       "promoNumber": "Promotion",
       "name": "Name",
       "window": "Sales window",
-      "count": "Bonus buys"
+      "count": "Bonus buys",
+      "salesArea": "Sales area"
     }
+  },
+  "salesArea": {
+    "label": "Sales area",
+    "ksa": "KSA retail",
+    "bahrain": "Bahrain retail",
+    "locked": "Locked: this promotion holds bonus buys, and their amounts are already in its currency.",
+    "other": "This promotion is written for a sales area OMS does not offer. It is kept as it is."
   },
   "create": {
     "title": "Create promotion",

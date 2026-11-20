@@ -20,7 +20,14 @@ import { formatRange } from '@/core/util/bidi'
 import { bbyMaintainApi, canOpenBbyMaintain, promotionListKey } from './api'
 import { RefusalList } from './ActReport'
 import { DateInput, TextInput } from './fields'
-import { PROMOTION_NAME_MAX, promotionPath } from './overview'
+import {
+  newPromotionSalesArea,
+  PROMOTION_NAME_MAX,
+  promotionPath,
+  promotionSaveBody,
+  salesAreaLabel,
+} from './overview'
+import SalesAreaSelect, { useSalesAreaNames } from './SalesAreaSelect'
 
 /**
  * The promotion list — the screen's entry (ticket 416). Marketing creates a promotion
@@ -45,6 +52,7 @@ function PromotionList() {
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const list = useQuery({ queryKey: promotionListKey, queryFn: () => bbyMaintainApi.promotions() })
+  const areaNames = useSalesAreaNames()
 
   const columns = useMemo<ColDef<BbyPromotion>[]>(
     () => [
@@ -57,6 +65,13 @@ function PromotionList() {
         valueGetter: (p) =>
           p.data ? formatRange(formatDay(p.data.salesFrom), formatDay(p.data.salesTo)) : '',
       },
+      // Ticket 932: which market the promotion serves (spec 4096 story 4). No pair → KSA.
+      {
+        colId: 'salesArea',
+        headerName: t('list.col.salesArea'),
+        width: 260,
+        valueGetter: (p) => (p.data ? salesAreaLabel(p.data, areaNames) : ''),
+      },
       {
         colId: 'count',
         headerName: t('list.col.count'),
@@ -65,7 +80,7 @@ function PromotionList() {
         valueGetter: (p) => p.data?.bonusBuys?.length ?? 0,
       },
     ],
-    [t],
+    [t, areaNames],
   )
   const defaultColDef = useMemo<ColDef<BbyPromotion>>(
     () => ({ ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true }),
@@ -124,11 +139,15 @@ function CreatePromotionDialog({
   const [name, setName] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  // Ticket 932: KSA preselected (spec 4096 story 2); a new promotion is never locked.
+  const [area, setArea] = useState(newPromotionSalesArea)
   const [refusals, setRefusals] = useState<BbyRefusal[]>([])
 
   const save = useMutation({
     mutationFn: () =>
-      bbyMaintainApi.savePromotion({ promoNumber: null, name: name.trim(), salesFrom: from, salesTo: to }),
+      bbyMaintainApi.savePromotion(
+        promotionSaveBody({ promoNumber: null, name, salesFrom: from, salesTo: to }, area, null),
+      ),
     onSuccess: (outcome) => {
       if (outcome.status === 'saved' && outcome.number) {
         onCreated(outcome.number)
@@ -146,6 +165,7 @@ function CreatePromotionDialog({
     setName('')
     setFrom('')
     setTo('')
+    setArea(newPromotionSalesArea())
     setRefusals([])
     save.reset()
     onClose()
@@ -175,6 +195,7 @@ function CreatePromotionDialog({
           <DateInput label={t('promotion.onSaleFrom')} value={from} onChange={setFrom} />
           <DateInput label={t('promotion.to')} value={to} onChange={setTo} />
         </div>
+        <SalesAreaSelect form={area} onChange={(key) => setArea({ ...area, choice: key })} disabled={save.isPending} />
         {save.isError && (
           <ErrorBanner message={apiErrorMessage(save.error, t('create.failed'))} className="px-3 py-2" />
         )}

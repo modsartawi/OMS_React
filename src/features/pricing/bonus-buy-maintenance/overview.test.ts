@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/bonus-buy-maintenance.json'
-import type { BbyMaintainOutcome, BbyOverviewRow, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
+import type { BbyMaintainOutcome, BbyOverviewRow, BbyPromotion, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
 import {
   canActivateSelection,
   canDeletePromotion,
@@ -14,6 +14,11 @@ import {
   overviewDayComparator,
   overviewStatusCounts,
   overviewSeverity,
+  newPromotionSalesArea,
+  promotionSalesArea,
+  salesAreaLabel,
+  salesAreaOption,
+  promotionSaveBody,
   overviewStatus,
   readPromotionFlip,
   runEach,
@@ -266,5 +271,75 @@ describe('the overview filter (500+ bonus buys)', () => {
     expect(overviewDayComparator(day, '2026-10-04T23:59:00')).toBe(-1)
     expect(overviewDayComparator(day, null)).toBe(-1)
     expect(overviewDayComparator(day, 'not a date')).toBe(-1)
+  })
+})
+
+/**
+ * Ticket 932 (BackOffice spec 4096): a promotion's sales area — the select's default, its lock,
+ * the save body's pair and the list column.
+ */
+describe('a promotion is written for KSA or Bahrain', () => {
+  it('a new promotion defaults to KSA, and its save sends 1000 / 20', () => {
+    const form = newPromotionSalesArea()
+    expect(form).toEqual({ choice: 'ksa', locked: false })
+    expect(promotionSaveBody({ promoNumber: null, name: ' Flyer ', salesFrom: '2026-11-01', salesTo: '2026-11-30' }, form, null)).toEqual({
+      promoNumber: null,
+      name: 'Flyer',
+      salesFrom: '2026-11-01',
+      salesTo: '2026-11-30',
+      salesOrganization: '1000',
+      distributionChannel: '20',
+    })
+  })
+
+  const header = { promoNumber: 'P000000007', name: 'Manama', salesFrom: '2026-12-01', salesTo: '2026-12-31' }
+  const promo = (over: Partial<BbyPromotion> = {}): BbyPromotion =>
+    ({ status: 'found', promoNumber: 'P000000007', name: 'Manama', salesFrom: '2026-12-01', salesTo: '2026-12-31', bonusBuys: [], ...over }) as BbyPromotion
+
+  it('picking Bahrain sends 1000 / 21', () => {
+    const body = promotionSaveBody(header, { choice: 'bahrain', locked: false }, null)
+    expect([body.salesOrganization, body.distributionChannel]).toEqual(['1000', '21'])
+  })
+
+  it('a saved promotion opens on its own area; one with no pair (an old server) opens on KSA', () => {
+    expect(promotionSalesArea(promo({ salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' })).choice).toBe('bahrain')
+    expect(promotionSalesArea(promo()).choice).toBe('ksa')
+  })
+
+  it('a pair outside the list is "other", and a header save sends it back unchanged', () => {
+    const doc = promo({ salesOrganization: '2000', distributionChannel: '10', currency: 'XYZ' })
+    const form = promotionSalesArea(doc)
+    expect(form.choice).toBe('other')
+    const body = promotionSaveBody(header, form, doc)
+    expect([body.salesOrganization, body.distributionChannel]).toEqual(['2000', '10'])
+  })
+
+  it('the select is locked when the document says so (BO 4098), and open when it says not', () => {
+    const row = { bbyNumber: 'OMS000000001', description: 'x', validFrom: null, validTo: null, bbyStatus: '1' } as BbyOverviewRow
+    expect(promotionSalesArea(promo({ salesAreaLocked: true, bonusBuys: [row] })).locked).toBe(true)
+    expect(promotionSalesArea(promo({ salesAreaLocked: false })).locked).toBe(false)
+  })
+
+  it('a server that sends no locked flag: locked exactly while the promotion holds a bonus buy', () => {
+    const row = { bbyNumber: 'OMS000000001', description: 'x', validFrom: null, validTo: null, bbyStatus: '1' } as BbyOverviewRow
+    expect(promotionSalesArea(promo({ bonusBuys: [row] })).locked).toBe(true)
+    expect(promotionSalesArea(promo({ bonusBuys: [] })).locked).toBe(false)
+  })
+
+  const names = { ksa: 'KSA retail', bahrain: 'Bahrain retail' }
+
+  it('the overview row shows the sales area: its name, its pair and its currency', () => {
+    expect(salesAreaLabel(promo({ salesOrganization: '1000', distributionChannel: '21', currency: 'BHD' }), names)).toBe(
+      'Bahrain retail · 1000 / 21 · BHD',
+    )
+    expect(salesAreaLabel(promo(), names)).toBe('KSA retail · 1000 / 20 · SAR')
+  })
+
+  it('a pair outside the list shows its own codes and the server’s currency, never "KSA retail"', () => {
+    expect(salesAreaLabel(promo({ salesOrganization: '1000', distributionChannel: '30', currency: 'XYZ' }), names)).toBe('1000 / 30 · XYZ')
+  })
+
+  it('the option text isolates the codes and the currency, never the name', () => {
+    expect(salesAreaOption('bahrain', names)).toBe('Bahrain retail · ⁨1000 / 21⁩ · ⁨BHD⁩')
   })
 })

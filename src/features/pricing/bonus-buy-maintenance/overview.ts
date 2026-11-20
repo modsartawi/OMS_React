@@ -5,10 +5,13 @@
  */
 import { apiErrorMessage } from '@/core/api'
 import { bbyStatusSeverity, readBbyStatus, type BbyStatusReading } from '@/core/bonus-buy/status'
+import { formatCount, formatParts, fsi } from '@/core/util/bidi'
+import { KSA, readSalesArea, salesAreaByKey, salesAreaOf, type SalesAreaKey } from '@/core/bonus-buy/sales-area'
 import type {
   BbyMaintainOutcome,
   BbyOverviewRow,
   BbyPromotion,
+  BbyPromotionSave,
   BbyRefusal,
 } from '@/core/models/bonus-buy-maintenance'
 
@@ -188,4 +191,92 @@ export function editorPath(promoNumber: string, mode: EditorMode, bbyNumber?: st
   if (mode === 'create' || !bbyNumber) return `${base}/new`
   const path = `${base}/${encodeURIComponent(bbyNumber)}`
   return mode === 'display' ? `${path}?mode=display` : path
+}
+
+// ── ticket 932: the promotion's sales area (BackOffice spec 4096; GUESSED contract, BO 4097/4098) ──
+
+/**
+ * The sales-area select's state. `choice` is a key of the closed list, or `other` for a pair
+ * outside it (kept as the document has it and offered no change). `locked` disables the select.
+ */
+export interface SalesAreaForm {
+  choice: SalesAreaKey | 'other'
+  locked: boolean
+}
+
+/** A new promotion: KSA preselected, free to change (spec 4096 story 2). */
+export function newPromotionSalesArea(): SalesAreaForm {
+  return { choice: KSA.key, locked: false }
+}
+
+/** The promotion header's name and sales window, as typed. */
+export interface PromotionHeader {
+  promoNumber: string | null
+  name: string
+  salesFrom: string
+  salesTo: string
+}
+
+/**
+ * The `Promotion/Save` body. It **always** carries the pair: the picked area's, or — for a
+ * pair outside the list (`other`) — the document's own, so a header-only save never moves it.
+ */
+export function promotionSaveBody(
+  header: PromotionHeader,
+  form: SalesAreaForm,
+  doc: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency'> | null,
+): BbyPromotionSave {
+  const area = form.choice === 'other' ? readSalesArea(doc) : salesAreaByKey(form.choice)
+  return {
+    promoNumber: header.promoNumber,
+    name: header.name.trim(),
+    salesFrom: header.salesFrom,
+    salesTo: header.salesTo,
+    salesOrganization: area.salesOrganization,
+    distributionChannel: area.distributionChannel,
+  }
+}
+
+/**
+ * The select's state for a saved promotion: its own area (no pair → KSA, `readSalesArea`), and
+ * locked as the document says (BO 4098 `salesAreaLocked`). A server that sends no flag is read by
+ * the same rule the server enforces: locked once the promotion holds any bonus buy.
+ */
+export function promotionSalesArea(
+  promo: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency' | 'salesAreaLocked' | 'bonusBuys'>,
+): SalesAreaForm {
+  const area = readSalesArea(promo)
+  const known = salesAreaOf(area.salesOrganization, area.distributionChannel)
+  const locked = promo.salesAreaLocked ?? (promo.bonusBuys ?? []).length > 0
+  return { choice: known ? known.key : 'other', locked }
+}
+
+/** The closed list's names, as the Page resolves them through `t()`. */
+export type SalesAreaNames = Readonly<Record<SalesAreaKey, string>>
+
+/**
+ * The list column's text: `KSA retail · 1000 / 20 · SAR`. A pair outside the closed list shows its
+ * own codes and the server's currency with no name, never relabelled KSA. Plain text for a grid
+ * cell (the base column def isolates the whole cell; no `fsi` in a grid value).
+ */
+export function salesAreaLabel(
+  promo: Pick<BbyPromotion, 'salesOrganization' | 'distributionChannel' | 'currency'>,
+  names: SalesAreaNames,
+): string {
+  const area = readSalesArea(promo)
+  const known = salesAreaOf(area.salesOrganization, area.distributionChannel)
+  return formatParts([
+    known ? names[known.key] : '',
+    formatCount(area.salesOrganization, area.distributionChannel),
+    area.currency,
+  ])
+}
+
+/**
+ * A select option's text (a string-only sink): the name, then the pair and the currency each
+ * isolated whole with `fsi`, so `1000 / 21` never reads `21 / 1000` under RTL.
+ */
+export function salesAreaOption(key: SalesAreaKey, names: SalesAreaNames): string {
+  const area = salesAreaByKey(key)
+  return formatParts([names[key], fsi(formatCount(area.salesOrganization, area.distributionChannel)), fsi(area.currency)])
 }

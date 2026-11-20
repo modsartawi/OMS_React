@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 4096
 blocked-by: BO 4097, BO 4098
 ---
@@ -24,10 +24,10 @@ UI (promotion page, overview, wire models, api)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a new promotion defaults to KSA, and save sends 1000 / 20 · promotion page test / `overview.test.ts`
-- [ ] picking Bahrain sends 1000 / 21 · component test
-- [ ] the select is disabled with its explanation when the document says locked · component test
-- [ ] the overview row shows the sales area · `overview.test.ts`
+- [x] a new promotion defaults to KSA, and save sends 1000 / 20 · promotion page test / `overview.test.ts`
+- [x] picking Bahrain sends 1000 / 21 · component test (pure: `promotionSaveBody`, `overview.test.ts`)
+- [x] the select is disabled with its explanation when the document says locked · component test (pure: `promotionSalesArea`, `overview.test.ts`; the explanation shown by the drive)
+- [x] the overview row shows the sales area · `overview.test.ts`
 
 ## Boundaries
 
@@ -41,3 +41,22 @@ locked select. A live walk is owed after BO 4097/4098 deploy.
 ## Blocked by
 
 BackOffice 4097, 4098
+
+## Comments
+
+- 2026-11-20 (`/implement`): **done, stubbed; live walk owed after BO 4097/4098 deploy.** React Testing Library is
+  not installed, so the "component tests" are pure-module tests on the select's state, its default, its lock and the
+  save body (`newPromotionSalesArea`, `promotionSalesArea`, `promotionSaveBody`, `salesAreaLabel`, `salesAreaOption`
+  in `overview.ts`, 9 cases in `overview.test.ts`); the page renders them through `SalesAreaSelect.tsx`.
+  `tools/bby-sales-area-drive.mjs` (stubbed, 20/20) shows a Bahrain promotion created (posts 1000 / 21), the list's
+  Sales area column, the locked select with its reason, and a server refusal shown as any other.
+  - `BbyPromotionSave`'s pair tightened to **required**: both create and header save always send it (a locked or
+    off-list promotion sends its own pair back unchanged).
+  - With no `salesAreaLocked` on the document (an old server) the select is locked exactly while the promotion
+    holds a bonus buy, the same rule BO 4098 enforces.
+  - The labels join with the bidi pair dot (`KSA retail · 1000 / 20 · SAR`), not the ticket's em dashes
+    (`.claude/rules/bidi.md`: the dot is an allowed separator, an em dash between values is not).
+  - EN + AR names: a partial `src/locales/ar/bonus-buy-maintenance.json` (sales-area words only, the rest falls
+    back to English), registered in `core/i18n.ts`. The client names the two areas itself; the document's
+    `salesAreaEnglish`/`salesAreaArabic` are not read (the select needs both names before any document exists).
+  - The refusal code in the drive (`BBY-SALES-AREA-LOCKED`) is invented; the screen shows whatever code BO 4098 uses.

@@ -1,6 +1,9 @@
 {
   "menu": {
     "hybrisStock": "مخزون هايبرس",
+    "hybrisStores": "فروع هايبرس",
+    "hybrisMaterials": "مواد هايبرس",
+    "hybrisPushes": "إرسالات هايبرس",
     "stores": "الفروع",
     "materials": "المواد",
     "pushes": "الإرسالات"

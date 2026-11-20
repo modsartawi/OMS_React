@@ -123,8 +123,8 @@ function Stores() {
         onPush: canManage ? (row) => setPushing(row) : null,
         onHistory: (row) => openHistoryRef.current(row.storeCode),
         // The push log owns the pushes and a material's history; a store links into it by code.
-        onPushes: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode })}`),
-        onMaterial: (row) => navigate(`/hybris-stock/pushes?${new URLSearchParams({ store: row.storeCode, [HISTORY_PARAM]: row.storeCode })}`),
+        onPushes: (row) => navigate(`/stock/hybris/pushes?${new URLSearchParams({ store: row.storeCode })}`),
+        onMaterial: (row) => navigate(`/stock/hybris/pushes?${new URLSearchParams({ store: row.storeCode, [HISTORY_PARAM]: row.storeCode })}`),
       }),
     [t, i18n.language, canManage, navigate],
   )

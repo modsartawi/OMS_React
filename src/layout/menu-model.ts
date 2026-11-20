@@ -21,11 +21,11 @@ import { canOpenDispatchScorecard } from '@/features/oms/dispatch-scorecard/acce
 import { canOpenSerialRefusals } from '@/features/oms/serial-refusals/access'
 import { canViewBupaOutcomes } from '@/features/oms/bupa-line-outcomes/access'
 import { canOpenExpiredApprovalPicks } from '@/features/oms/expired-approval-picks/access'
-import { canOpenHeldStockReport } from '@/features/oms/held-stock-report/access'
-import { canOpenHoldDailyList } from '@/features/oms/hold-daily-list/access'
-import { canOpenStoreStages } from '@/features/oms/store-stages/access'
+import { canOpenHeldStockReport } from '@/features/stock/held-stock-report/access'
+import { canOpenHoldDailyList } from '@/features/stock/hold-daily-list/access'
+import { canOpenStoreStages } from '@/features/stock/store-stages/access'
 import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
-import { canOpenStockHealth } from '@/features/oms/stock-health/access'
+import { canOpenStockHealth } from '@/features/stock/stock-health/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 import { canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from '@/core/rules/access'
 import { canViewPrescriptionSessions } from '@/features/oms/prescription-sessions/access'
@@ -319,65 +319,6 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenExpiredApprovalPicks,
       },
       {
-        // Take refusals (BackOffice ticket 3873, spec 3849) — HQ's refusal report, read before a held-stock switch is moved.
-        // The two held-stock reports share one grant, `BackOfficeScreen[HeldStockReport, 03]` (role HELD_STOCK_REPORT_VIEWER),
-        // on one key; both leaves and both pages read the one predicate and fail closed. After Expired approval picks.
-        labelKey: 'held-stock-report:menu.refusals',
-        icon: Ban,
-        routerLink: '/oms/held-stock-report/refusals',
-        activePrefix: '/oms/held-stock-report/refusals',
-        requires: canOpenHeldStockReport,
-      },
-      {
-        // Held stock impact (BackOffice ticket 3873) — what held would take off the channels' figure; same grant.
-        labelKey: 'held-stock-report:menu.held',
-        icon: PackageMinus,
-        routerLink: '/oms/held-stock-report/held',
-        activePrefix: '/oms/held-stock-report/held',
-        requires: canOpenHeldStockReport,
-      },
-      {
-        // Till-side gate figures (BackOffice ticket 3900, spec 3849 A) — per store over 14 days, the gates the till and OMS
-        // own before a store blocks; read by the same people, so the same grant. After Held stock impact.
-        labelKey: 'held-stock-report:menu.gates',
-        icon: Gauge,
-        routerLink: '/oms/held-stock-report/gates',
-        activePrefix: '/oms/held-stock-report/gates',
-        requires: canOpenHeldStockReport,
-      },
-      {
-        // Holds that should have ended (BackOffice ticket 3872, spec 3849) — HQ's daily list of holds standing longer than
-        // they should, each traced to its document, unit and take. Its own grant, `BackOfficeScreen[HoldDailyList, 03]`
-        // (role HOLD_DAILY_LIST_VIEWER), on its own key; the leaf and the page's gate share the one predicate and fail
-        // closed. After Held stock impact.
-        labelKey: 'hold-daily-list:menu.holdDailyList',
-        icon: Hourglass,
-        routerLink: '/oms/hold-daily-list',
-        activePrefix: '/oms/hold-daily-list',
-        requires: canOpenHoldDailyList,
-      },
-      {
-        // Store stages (BackOffice ticket 3899, spec 3849 phase 2) — each store's stage at Stock Visibility and its last move;
-        // a named permission moves it through SIS.Stock 064. Its own grant, `BackOfficeScreen[StoreStage, 03]` to see and
-        // `02` to move (roles STORE_STAGE_VIEWER / STORE_STAGE_MOVER), on its own key; the leaf and the page's gate share
-        // the one predicate and fail closed. After Holds that should have ended.
-        labelKey: 'store-stages:menu.storeStages',
-        icon: Layers,
-        routerLink: '/oms/store-stages',
-        activePrefix: '/oms/store-stages',
-        requires: canOpenStoreStages,
-      },
-      {
-        // Stock health (oms 912, BackOffice spec 4011) - one page that says whether batch stock is in good shape, one tile
-        // per signal. Its own grant, `BackOfficeScreen[StockHealth, 03]` (role STOCK_HEALTH_VIEWER, seeded by BackOffice
-        // 3994), on its own key; the leaf and the page's gate share the one predicate and fail closed. Beside Store stages.
-        labelKey: 'stock-health:menu.stockHealth',
-        icon: HeartPulse,
-        routerLink: '/oms/stock-health',
-        activePrefix: '/oms/stock-health',
-        requires: canOpenStockHealth,
-      },
-      {
         // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,
         // on its own predicate in `@/core/` (Delivery details' "Why this store?" link reads it too); fails closed.
         // Before Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
@@ -408,7 +349,101 @@ export const MENU: ShellMenuItem[] = [
     ],
   },
   {
-    // Mini POS (oms 915, BackOffice spec 4032): `/mini-pos/*` is a new URL prefix and a new nav group, right after OMS
+    // Stock (owner, 2026-11-20): its own top-level group right after OMS, because stock is a subject of its own (batch
+    // stock, held stock, ATP, accuracy), not a part of orders. `/stock/*` is the area's URL prefix and `features/stock/`
+    // its folder; the old `/oms/...`, `/materials/stock` and `/hybris-stock/...` addresses redirect (router STOCK_MOVES).
+    // Every leaf keeps its own grant and its own namespace; only the group label and the Hybris leaf labels are new.
+    labelKey: 'stock-health:menu.stock',
+    icon: Warehouse,
+    items: [
+      {
+        // Stock health (oms 912, BackOffice specs 4011/4013): whether batch stock is in good shape, one tile per signal.
+        // `BackOfficeScreen[StockHealth, 03]` (role STOCK_HEALTH_VIEWER). First, as the page a reader opens first.
+        labelKey: 'stock-health:menu.stockHealth',
+        icon: HeartPulse,
+        routerLink: '/stock/health',
+        activePrefix: '/stock/health',
+        requires: canOpenStockHealth,
+      },
+      {
+        // Store stages (BackOffice ticket 3899, spec 3849 phase 2): each store's stage at Stock Visibility; a named
+        // permission moves it. `BackOfficeScreen[StoreStage, 03]` to see, `02` to move.
+        labelKey: 'store-stages:menu.storeStages',
+        icon: Layers,
+        routerLink: '/stock/store-stages',
+        activePrefix: '/stock/store-stages',
+        requires: canOpenStoreStages,
+      },
+      {
+        // Stock check (BackOffice spec 2544, ticket 453): ATP per material across stores. The same constant that
+        // "check stock for selected" on Materials search links to.
+        labelKey: 'materials-search:menu.stockCheck',
+        icon: PackageSearch,
+        routerLink: STOCK_CHECK_PATH,
+        activePrefix: STOCK_CHECK_PATH,
+        requires: canCheckStock,
+      },
+      {
+        // Take refusals (BackOffice ticket 3873, spec 3849), read before a store's stage is moved. The three held-stock
+        // reports share `BackOfficeScreen[HeldStockReport, 03]` (role HELD_STOCK_REPORT_VIEWER).
+        labelKey: 'held-stock-report:menu.refusals',
+        icon: Ban,
+        routerLink: '/stock/refusals',
+        activePrefix: '/stock/refusals',
+        requires: canOpenHeldStockReport,
+      },
+      {
+        // Held stock impact (BackOffice ticket 3873): what held would take off the channels' figure. Same grant.
+        labelKey: 'held-stock-report:menu.held',
+        icon: PackageMinus,
+        routerLink: '/stock/held',
+        activePrefix: '/stock/held',
+        requires: canOpenHeldStockReport,
+      },
+      {
+        // Till-side gate figures (BackOffice ticket 3900, spec 3849 A): per store over 14 days. Same grant.
+        labelKey: 'held-stock-report:menu.gates',
+        icon: Gauge,
+        routerLink: '/stock/gates',
+        activePrefix: '/stock/gates',
+        requires: canOpenHeldStockReport,
+      },
+      {
+        // Holds that should have ended (BackOffice ticket 3872, spec 3849): HQ's daily list.
+        // `BackOfficeScreen[HoldDailyList, 03]` (role HOLD_DAILY_LIST_VIEWER).
+        labelKey: 'hold-daily-list:menu.holdDailyList',
+        icon: Hourglass,
+        routerLink: '/stock/stale-holds',
+        activePrefix: '/stock/stale-holds',
+        requires: canOpenHoldDailyList,
+      },
+      {
+        // Hybris stock (BackOffice spec 3447, tickets 847-849): OMS sending ATP to the website's hot folder, last in the
+        // group. Its three leaves name Hybris themselves, since the group label no longer does.
+        labelKey: 'hybris-stock-stores:menu.hybrisStores',
+        icon: Store,
+        routerLink: '/stock/hybris/stores',
+        activePrefix: '/stock/hybris/stores',
+        requires: canViewHybrisStock,
+      },
+      {
+        labelKey: 'hybris-stock-stores:menu.hybrisMaterials',
+        icon: PackageSearch,
+        routerLink: '/stock/hybris/materials',
+        activePrefix: '/stock/hybris/materials',
+        requires: canViewHybrisStock,
+      },
+      {
+        labelKey: 'hybris-stock-stores:menu.hybrisPushes',
+        icon: ScrollText,
+        routerLink: '/stock/hybris/pushes',
+        activePrefix: '/stock/hybris/pushes',
+        requires: canViewHybrisStock,
+      },
+    ],
+  },
+  {
+    // Mini POS (oms 915, BackOffice spec 4032): `/mini-pos/*` is a new URL prefix and a new nav group, right after Stock
     // (the tail's order is pinned by the channel groups' tests) — the operations lead's assignments, pharmacies and item
     // lists. Leaf labels live in `mini-pos-assignments` (the area's first namespace). Every leaf on `MiniPosAdmin:03`
     // (role OMS_MINIPOS_ADMIN); the changes inside on `MiniPosAdmin:06`.
@@ -1037,14 +1072,6 @@ export const MENU: ShellMenuItem[] = [
         requires: canSearchMaterials,
       },
       {
-        labelKey: 'materials-search:menu.stockCheck',
-        icon: Warehouse,
-        // The same constant "check stock for selected" links to.
-        routerLink: STOCK_CHECK_PATH,
-        activePrefix: STOCK_CHECK_PATH,
-        requires: canCheckStock,
-      },
-      {
         labelKey: 'materials-search:menu.gs1Check',
         icon: ScanBarcode,
         routerLink: '/materials/gs1',
@@ -1128,36 +1155,6 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/hungerstation/promotions',
         activePrefix: '/hungerstation/promotions',
         requires: canManageHsPromotions,
-      },
-    ],
-  },
-  {
-    // Its own top-level group, right after HungerStation (BackOffice spec 3447, ticket 847):
-    // `/hybris-stock/*` is a new URL prefix — OMS sending ATP to the website's hot folder. Leaf labels
-    // live in `hybris-stock-stores` (the area's first namespace); Materials (848), Pushes (849).
-    labelKey: 'hybris-stock-stores:menu.hybrisStock',
-    icon: Warehouse,
-    items: [
-      {
-        labelKey: 'hybris-stock-stores:menu.stores',
-        icon: Store,
-        routerLink: '/hybris-stock/stores',
-        activePrefix: '/hybris-stock/stores',
-        requires: canViewHybrisStock,
-      },
-      {
-        labelKey: 'hybris-stock-stores:menu.materials',
-        icon: PackageSearch,
-        routerLink: '/hybris-stock/materials',
-        activePrefix: '/hybris-stock/materials',
-        requires: canViewHybrisStock,
-      },
-      {
-        labelKey: 'hybris-stock-stores:menu.pushes',
-        icon: ScrollText,
-        routerLink: '/hybris-stock/pushes',
-        activePrefix: '/hybris-stock/pushes',
-        requires: canViewHybrisStock,
       },
     ],
   },

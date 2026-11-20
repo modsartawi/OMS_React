@@ -39,12 +39,13 @@ import EngineRulesTab from './EngineRulesTab'
 import { DateInput, TextInput } from './fields'
 import GroupingDialog from './GroupingDialog'
 import {
-  BBY_ORG,
   BBY_TEXT_MAX,
   couponMaterialDefault,
   couponMaterialLands,
   couponMaterialOffered,
   editorAccess,
+  editorSalesArea,
+  type EditorSalesArea,
   type EditorAccess,
   type EditorState,
   fillCouponMaterial,
@@ -55,7 +56,7 @@ import {
   type LoyGroupFindings,
   NO_LOY_FINDINGS,
   newEditor,
-  orgCurrency,
+  orgNameKey,
   readEditorOutcome,
   readGenerateOutcome,
   TEST_NOTE_MAX,
@@ -218,7 +219,8 @@ function EditorBody({
   const [couponLineKey, setCouponLineKey] = useState<string | null>(null)
   // The one permissions answer the screen gate already read: the tester grant rides on it.
   const access: EditorAccess = editorAccess(mode, doc, canTestBbyMaintain(usePermissions()))
-  const currency = orgCurrency(BBY_ORG.salesOrg)
+  // The promotion's sales area (spec 4096): the header's Organizational Data and every money label.
+  const area = editorSalesArea(promo)
 
   const update = (patch: Partial<EditorState>) => setState((s) => ({ ...s, ...patch }))
 
@@ -502,7 +504,7 @@ function EditorBody({
               setState={setState}
               status={status}
               mark={doc}
-              currency={currency}
+              area={area}
               readOnly={access.readOnly}
               couponMaterial={couponMaterial}
             />
@@ -692,7 +694,7 @@ function HeaderTab({
   setState,
   status,
   mark,
-  currency,
+  area,
   readOnly,
   couponMaterial,
 }: {
@@ -701,11 +703,18 @@ function HeaderTab({
   setState: React.Dispatch<React.SetStateAction<EditorState>>
   status: ReturnType<typeof overviewStatus>
   mark: BbyTestMark | null
-  currency: string
+  area: EditorSalesArea
   readOnly: boolean
   couponMaterial: CouponMaterialAction
 }) {
   const { t } = useTranslation('bonus-buy-maintenance')
+  const currency = area.currency
+  // A name the server did not send is worded from the client's own list; a code outside it shows none.
+  const orgName = (name: string | null, kind: 'salesOrg' | 'channel', code: string) => {
+    if (name) return <bdi>{name}</bdi>
+    const key = orgNameKey(kind, code)
+    return key ? t(key) : null
+  }
   return (
     <>
       {/* ── the header block ── */}
@@ -741,7 +750,7 @@ function HeaderTab({
         <DateInput label={t('editor.header.validFrom')} value={state.validFrom} onChange={(validFrom) => update({ validFrom })} />
         <DateInput label={t('editor.header.validTo')} value={state.validTo} onChange={(validTo) => update({ validTo })} />
         <ReadField label={t('editor.header.currency')}>
-          <span className="font-mono">
+          <span className="font-mono" data-bby-currency="">
             <Ltr>{currency}</Ltr>
           </span>
         </ReadField>
@@ -757,7 +766,7 @@ function HeaderTab({
         </Field>
       </div>
 
-      {/* ── Organizational Data: the one scope the copy offers, read-only ── */}
+      {/* ── Organizational Data: the promotion's sales area, read-only ── */}
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">{t('editor.org.title')}</h2>
         <Field label={t('editor.org.type')} className="w-fit">
@@ -776,14 +785,18 @@ function HeaderTab({
           </thead>
           <tbody>
             <tr>
-              <td className="pe-6 font-mono">
-                <Ltr>{BBY_ORG.salesOrg}</Ltr>
+              <td className="pe-6 font-mono" data-bby-sales-org="">
+                <Ltr>{area.salesOrganization}</Ltr>
               </td>
-              <td className="pe-6">{t('editor.org.salesOrg1000')}</td>
-              <td className="pe-6 font-mono">
-                <Ltr>{BBY_ORG.channel}</Ltr>
+              <td className="pe-6" data-bby-sales-org-name="">
+                {orgName(area.salesOrganizationName, 'salesOrg', area.salesOrganization)}
               </td>
-              <td className="pe-6">{t('editor.org.channel20')}</td>
+              <td className="pe-6 font-mono" data-bby-channel="">
+                <Ltr>{area.distributionChannel}</Ltr>
+              </td>
+              <td className="pe-6" data-bby-channel-name="">
+                {orgName(area.distributionChannelName, 'channel', area.distributionChannel)}
+              </td>
             </tr>
           </tbody>
         </table>

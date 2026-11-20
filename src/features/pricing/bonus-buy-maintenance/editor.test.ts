@@ -22,6 +22,8 @@ import {
   couponMaterialOffered,
   currPe,
   editorAccess,
+  editorSalesArea,
+  orgNameKey,
   emptyBuyLine,
   emptyGetLine,
   getLineShowsPer,
@@ -997,5 +999,75 @@ describe('no hint for blank, non-numeric or Per ≤ 0 input, for % or under Tota
 
   it('under Total Discount → nothing', () => {
     expect(perHint(true, base, 'SAR')).toBeNull()
+  })
+})
+
+// ── ticket 933 (BackOffice spec 4096): the editor reads the promotion's sales area ──────
+
+describe('editorSalesArea — the header and every money label follow the promotion', () => {
+  it('a Bahrain promotion → BHD and 1000 / 21 with its labels', () => {
+    expect(
+      editorSalesArea({
+        salesOrganization: '1000',
+        distributionChannel: '21',
+        currency: 'BHD',
+        salesOrganizationName: 'Al-Dawaa Domestic',
+        distributionChannelName: 'Bahrain Retail',
+      }),
+    ).toEqual({
+      salesOrganization: '1000',
+      salesOrganizationName: 'Al-Dawaa Domestic',
+      distributionChannel: '21',
+      distributionChannelName: 'Bahrain Retail',
+      currency: 'BHD',
+    })
+  })
+})
+
+describe('editorSalesArea — KSA unchanged', () => {
+  const ksa = {
+    salesOrganization: '1000',
+    salesOrganizationName: null,
+    distributionChannel: '20',
+    distributionChannelName: null,
+    currency: 'SAR',
+  }
+  it('a KSA promotion → SAR and 1000 / 20', () => {
+    expect(editorSalesArea({ salesOrganization: '1000', distributionChannel: '20', currency: 'SAR' })).toEqual(ksa)
+  })
+  it('a promotion with no pair (an old server, a pre-4096 promotion) → KSA', () => {
+    expect(editorSalesArea({})).toEqual(ksa)
+    expect(editorSalesArea(null)).toEqual(ksa)
+  })
+})
+
+describe('orgNameKey — the header names a sales area the server did not name', () => {
+  it('the closed list has a key per code', () => {
+    expect(orgNameKey('salesOrg', '1000')).toBe('editor.org.salesOrg1000')
+    expect(orgNameKey('channel', '20')).toBe('editor.org.channel20')
+    expect(orgNameKey('channel', '21')).toBe('editor.org.channel21')
+  })
+  it('a code outside the list → no key (never a raw key on screen)', () => {
+    expect(orgNameKey('channel', '99')).toBeNull()
+    expect(orgNameKey('salesOrg', '2000')).toBeNull()
+  })
+})
+
+describe('Curr/Pe and the per-unit hint in BHD (ticket 933)', () => {
+  it('Curr/Pe reads BHD, and BHD per a whole Per above 1', () => {
+    expect(currPe('P', 'BHD')).toEqual({ unit: 'BHD', exVat: true })
+    expect(currPe('R', 'BHD', '4', 'EA')).toEqual({ unit: 'BHD / 4 EA', exVat: false })
+  })
+  it('the per-unit hint formats BHD to 3 decimals', () => {
+    const line = { discountType: 'P' as const, value: '5', per: '4', quantity: '1', uom: 'EA', scaleType: 'C' as const }
+    expect(perHint(false, line, 'BHD')?.values.total).toBe('1.250 BHD')
+    expect(perHint(false, { ...line, scaleType: 'A' }, 'BHD')?.values.rate).toBe('1.250 BHD')
+  })
+})
+
+describe('the request carries no sales area (ticket 933: the server takes it from the promotion)', () => {
+  it('neither a new nor a loaded Bahrain bonus buy sends a sales org, channel or currency', () => {
+    const req = toRequest(newEditor({ promoNumber: 'P000000021', salesFrom: '2026-12-01', salesTo: '2026-12-31' })) as unknown as Record<string, unknown>
+    for (const k of ['salesOrganization', 'distributionChannel', 'currency', 'salesOrg', 'channel']) expect(req).not.toHaveProperty(k)
   })
 })

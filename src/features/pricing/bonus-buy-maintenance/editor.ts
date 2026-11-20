@@ -13,6 +13,7 @@
 import { type CodeListMeter, codeListMeter, normaliseCodeList, pastedCodes } from '@/core/util/code-list'
 import { formatMoneyIn } from '@/core/money'
 import { minInclVat } from '@/core/bonus-buy/min-basis'
+import { type SalesAreaFields, readSalesArea } from '@/core/bonus-buy/sales-area'
 import { formatRate } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
 import type {
@@ -38,16 +39,44 @@ export const GROUPING_ID_MAX = 12
  */
 export const DEFAULT_UOM = 'EA'
 
-/** The one organizational scope the copy offers: sales org `1000`, channel `20` (story 17). */
-export const BBY_ORG = { salesOrg: '1000', channel: '20' } as const
-
 /**
- * The bonus buy's currency follows its organisation (story 16) — SAP's `BBYCURH`, inert on
- * the wire. The copy offers one organisation, so this is one row; Bahrain's `BHD` arrives
- * here as a line of its own when its sales org is offered.
+ * The bonus buy's Organizational Data and currency (story 16, SAP's `BBYCURH`) are its
+ * promotion's **sales area** (BackOffice spec 4096): KSA `1000` / `20` in SAR, or Bahrain
+ * `1000` / `21` in BHD. Read off the promotion document, never sent: the server takes the
+ * sales area from the promotion. A document with no pair (an old server) is KSA. A name the
+ * server does not send is `null`, for the page to word from its own keys.
  */
-export const ORG_CURRENCY: Record<string, string> = { '1000': 'SAR' }
-export const orgCurrency = (salesOrg: string): string => ORG_CURRENCY[salesOrg] ?? ''
+export interface EditorSalesArea {
+  salesOrganization: string
+  salesOrganizationName: string | null
+  distributionChannel: string
+  distributionChannelName: string | null
+  currency: string
+}
+
+export function editorSalesArea(
+  promo: (SalesAreaFields & { salesOrganizationName?: string | null; distributionChannelName?: string | null }) | null | undefined,
+): EditorSalesArea {
+  const area = readSalesArea(promo)
+  return {
+    salesOrganization: area.salesOrganization,
+    salesOrganizationName: promo?.salesOrganizationName?.trim() || null,
+    distributionChannel: area.distributionChannel,
+    distributionChannelName: promo?.distributionChannelName?.trim() || null,
+    currency: area.currency,
+  }
+}
+
+/** The names the client keeps for the closed list's codes, for a server that sends none. */
+const ORG_NAME_KEYS = {
+  salesOrg: { '1000': 'editor.org.salesOrg1000' },
+  channel: { '20': 'editor.org.channel20', '21': 'editor.org.channel21' },
+} as const satisfies Record<'salesOrg' | 'channel', Record<string, string>>
+
+/** The locale key naming a sales org or channel code, or `null` for a code outside the list. */
+export function orgNameKey(kind: 'salesOrg' | 'channel', code: string): string | null {
+  return (ORG_NAME_KEYS[kind] as Record<string, string>)[code] ?? null
+}
 
 /** SAP's Link Category: `A` AND (every line), `O` OR (any line). */
 export type LinkCategory = 'A' | 'O'

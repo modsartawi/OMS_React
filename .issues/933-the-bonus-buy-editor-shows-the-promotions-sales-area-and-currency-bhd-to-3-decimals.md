@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 4096
 blocked-by: BO 4097
 ---
@@ -28,10 +28,10 @@ UI (editor state, header, Buy/Get panels, locales)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a Bahrain promotion → the editor currency is BHD and the header shows 1000 / 21 with its labels · `editor.test.ts`
-- [ ] a KSA promotion → SAR and 1000 / 20, unchanged · `editor.test.ts`
-- [ ] `currPe` and the per-unit hint format BHD to 3 decimals (e.g. 1.250) · `editor.test.ts`
-- [ ] the request carries no sales-area field · `editor.test.ts`
+- [x] a Bahrain promotion → the editor currency is BHD and the header shows 1000 / 21 with its labels · `editor.test.ts`
+- [x] a KSA promotion → SAR and 1000 / 20, unchanged · `editor.test.ts`
+- [x] `currPe` and the per-unit hint format BHD to 3 decimals (e.g. 1.250) · `editor.test.ts`
+- [x] the request carries no sales-area field · `editor.test.ts`
 
 ## Boundaries
 
@@ -45,3 +45,15 @@ after BO 4097 deploys.
 ## Blocked by
 
 BackOffice 4097
+
+## Done — 2026-11-20 (stubbed; live walk owed after BO 4097 deploys)
+
+- `BBY_ORG`, `ORG_CURRENCY` and `orgCurrency` are gone from `editor.ts`. `editorSalesArea(promo)` reads the
+  pair, the currency and the server's names through `readSalesArea` (no pair → KSA); `orgNameKey` words a
+  name the server did not send (`editor.org.salesOrg1000` / `channel20` / new `channel21`), and a code outside
+  the closed list shows no name rather than a raw key. The page already read GET `Promotion/{n}`; the header,
+  the Organizational Data row, the minimum's label, Curr/Pe, the Total Discount panel and the per-unit hint all
+  take `area.currency`.
+- Proof: `editor.test.ts` (the KSA, BHD 3-decimal and no-sales-area-on-the-wire cases passed on first run:
+  the contract's `readSalesArea`, `formatMoneyIn` and `toRequest` already held them).
+- Drive: `tools/bby-maintenance-drive.mjs` step 51, a Bahrain bonus buy on the GUESSED 4097 promotion fields.

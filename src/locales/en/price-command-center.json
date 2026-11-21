@@ -110,5 +110,96 @@
     "confirm": "Dismiss",
     "cancel": "Cancel",
     "sending": "Sending…"
+  },
+  "drilldown": {
+    "eyebrow": "Material drill-down",
+    "title": "Material {{material}}",
+    "open": "Open the drill-down for material {{material}}",
+    "close": "Close the drill-down",
+    "loading": "Loading the material's prices…",
+    "failed": "The material's prices could not be read.",
+    "failedHint": "SIS.Api did not answer. Try again shortly.",
+    "ours": {
+      "heading": "Our price",
+      "basic": "Basic",
+      "effective": "Effective",
+      "store": "Store",
+      "pricedAt": "Priced",
+      "unpriced": "Not priced today"
+    },
+    "chart": {
+      "heading": "Price history",
+      "aria": "Price history of our price and each competitor price",
+      "key": "Series",
+      "empty": "No price history to draw yet: the history arrives with each competitor price's source (BackOffice 4128)."
+    },
+    "series": {
+      "ours": {
+        "basic": "Our basic price",
+        "effective": "Our effective price"
+      },
+      "competitor": "{{name}}: {{price}} from {{source}}"
+    },
+    "price": {
+      "regular": "regular price",
+      "offer": "offer price"
+    },
+    "source": {
+      "SCRAPER": "Scraper",
+      "MINDSITE": "Mindsite"
+    },
+    "authoritative": "{{source}} (authoritative)",
+    "currentSource": "Price source",
+    "matches": {
+      "heading": "Product matches",
+      "empty": "This material has no product match yet.",
+      "columns": {
+        "competitor": "Competitor",
+        "listing": "Listing",
+        "kind": "Product match",
+        "matched": "Matched",
+        "latest": "Latest competitor price",
+        "gap": "Gap",
+        "perUnit": "Per unit",
+        "actions": "Action"
+      },
+      "matchedUnknown": "Who and when not recorded",
+      "ours": "Ours",
+      "theirs": "Theirs"
+    },
+    "kind": {
+      "Exact": "Exact",
+      "Comparable": "Comparable"
+    },
+    "madeBy": {
+      "Barcode": "By barcode",
+      "Person": "By a person"
+    },
+    "gap": {
+      "competitorCheaper": "Competitor cheaper by {{gap}}",
+      "weCheaper": "We are cheaper by {{gap}}",
+      "level": "Same price",
+      "none": "No gap"
+    },
+    "basis": {
+      "g": "g",
+      "ml": "ml",
+      "piece": "piece"
+    },
+    "state": {
+      "stale": "Stale",
+      "gone": "Listing gone",
+      "outOfStock": "Out of stock",
+      "noPrice": "No price yet"
+    },
+    "break": {
+      "action": "Break",
+      "confirm": "Break this product match? Its live price alert closes and the material goes back to matching.",
+      "yes": "Break the product match",
+      "cancel": "Cancel",
+      "done": "Product match broken.",
+      "failed": "The product match could not be broken.",
+      "noMatchId": "Break needs the product match id, which arrives with BackOffice 4128."
+    }
   }
 }

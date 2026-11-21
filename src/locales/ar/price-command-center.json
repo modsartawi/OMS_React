@@ -110,5 +110,96 @@
     "confirm": "رفض",
     "cancel": "إلغاء",
     "sending": "جارٍ الإرسال…"
+  },
+  "drilldown": {
+    "eyebrow": "تفاصيل المادة",
+    "title": "المادة {{material}}",
+    "open": "افتح تفاصيل المادة {{material}}",
+    "close": "إغلاق التفاصيل",
+    "loading": "جارٍ تحميل أسعار المادة…",
+    "failed": "تعذّرت قراءة أسعار المادة.",
+    "failedHint": "لم يستجب SIS.Api. حاول مرة أخرى بعد قليل.",
+    "ours": {
+      "heading": "سعرنا",
+      "basic": "الأساسي",
+      "effective": "الفعلي",
+      "store": "الفرع",
+      "pricedAt": "وقت التسعير",
+      "unpriced": "غير مسعّرة اليوم"
+    },
+    "chart": {
+      "heading": "سجل الأسعار",
+      "aria": "سجل سعرنا وسعر كل منافس",
+      "key": "السلاسل",
+      "empty": "لا يوجد سجل أسعار لرسمه بعد: يصل السجل مع مصدر كل سعر منافس (BackOffice 4128)."
+    },
+    "series": {
+      "ours": {
+        "basic": "سعرنا الأساسي",
+        "effective": "سعرنا الفعلي"
+      },
+      "competitor": "{{name}}: {{price}} من {{source}}"
+    },
+    "price": {
+      "regular": "السعر العادي",
+      "offer": "سعر العرض"
+    },
+    "source": {
+      "SCRAPER": "الزاحف",
+      "MINDSITE": "Mindsite"
+    },
+    "authoritative": "{{source}} (المعتمد)",
+    "currentSource": "مصدر السعر",
+    "matches": {
+      "heading": "مطابقات المنتج",
+      "empty": "لا توجد مطابقة منتج لهذه المادة بعد.",
+      "columns": {
+        "competitor": "المنافس",
+        "listing": "صفحة المنتج",
+        "kind": "مطابقة المنتج",
+        "matched": "تمت المطابقة",
+        "latest": "آخر سعر منافس",
+        "gap": "الفرق",
+        "perUnit": "لكل وحدة",
+        "actions": "الإجراء"
+      },
+      "matchedUnknown": "لم يُسجَّل من ومتى",
+      "ours": "لدينا",
+      "theirs": "لديهم"
+    },
+    "kind": {
+      "Exact": "مطابقة تامة",
+      "Comparable": "مماثلة"
+    },
+    "madeBy": {
+      "Barcode": "بالباركود",
+      "Person": "بواسطة شخص"
+    },
+    "gap": {
+      "competitorCheaper": "المنافس أرخص بـ {{gap}}",
+      "weCheaper": "نحن أرخص بـ {{gap}}",
+      "level": "السعر نفسه",
+      "none": "لا فرق"
+    },
+    "basis": {
+      "g": "غ",
+      "ml": "مل",
+      "piece": "قطعة"
+    },
+    "state": {
+      "stale": "قديم",
+      "gone": "الصفحة محذوفة",
+      "outOfStock": "غير متوفر",
+      "noPrice": "لا سعر بعد"
+    },
+    "break": {
+      "action": "فكّ",
+      "confirm": "فكّ مطابقة المنتج هذه؟ يُغلق تنبيه السعر القائم وتعود المادة إلى المطابقة.",
+      "yes": "فكّ مطابقة المنتج",
+      "cancel": "إلغاء",
+      "done": "فُكّت مطابقة المنتج.",
+      "failed": "تعذّر فكّ مطابقة المنتج.",
+      "noMatchId": "يحتاج الفكّ إلى معرّف مطابقة المنتج، ويصل مع BackOffice 4128."
+    }
   }
 }

@@ -9,6 +9,7 @@ import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import i18next from 'i18next'
 import { I18nextProvider } from 'react-i18next'
+import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/core/api'
@@ -29,7 +30,8 @@ const NS = 'price-command-center'
 const draw = (element: ReactElement, lng: 'en' | 'ar' = 'en') => {
   const i18n = i18next.createInstance()
   i18n.init({ lng, resources: { [lng]: { [NS]: lng === 'en' ? en : ar } }, ns: [NS], defaultNS: NS, initAsync: false, interpolation: { escapeValue: false } })
-  return renderToStaticMarkup(createElement(I18nextProvider, { i18n }, element))
+  // 936: the material cell is a router link (it opens the drill-down by `?material=`), so the rows render in a router.
+  return renderToStaticMarkup(createElement(MemoryRouter, null, createElement(I18nextProvider, { i18n }, element)))
 }
 
 const alert = (over: Partial<PriceAlertView> = {}): PriceAlertView => ({

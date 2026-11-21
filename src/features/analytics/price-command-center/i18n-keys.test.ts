@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/price-command-center.json'
 import ar from '@/locales/ar/price-command-center.json'
 import { DISMISS_REASONS } from '@/core/models/price-watch'
+import { PRICE_SOURCES } from '@/core/models/price-watch' // 936
 import { hasLocaleKey } from '@/core/test/locale'
 import { ALERT_STATES } from './alerts'
 import { TAB_IDS } from './tabs'
@@ -29,6 +30,20 @@ describe('price-command-center — en and ar', () => {
       ...DISMISS_REASONS.map((r) => `dismiss.reason.${r}`),
       ...['reasonRequired', 'noteRequired', 'noteTooLong'].map((p) => `dismiss.problem.${p}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+
+  // 936: the drill-down's keys built from data.
+  it.each([en, ar])('hold every key the drill-down builds', (locale) => {
+    const keys = [
+      ...PRICE_SOURCES.map((s) => `drilldown.source.${s}`),
+      ...['Exact', 'Comparable'].map((k) => `drilldown.kind.${k}`),
+      ...['Barcode', 'Person'].map((m) => `drilldown.madeBy.${m}`),
+      ...['competitorCheaper', 'weCheaper', 'level', 'none'].map((g) => `drilldown.gap.${g}`),
+      ...['g', 'ml', 'piece'].map((b) => `drilldown.basis.${b}`),
+      ...['basic', 'effective'].map((p) => `drilldown.series.ours.${p}`),
+      ...['regular', 'offer'].map((p) => `drilldown.price.${p}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

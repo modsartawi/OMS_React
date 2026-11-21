@@ -138,7 +138,140 @@ export interface DismissAlertBody {
 // (lands with 935)
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 936)
+
+/** The `PWT-` refusal codes the material drill-down reads by name (`PriceWatchErrorCodes.cs`). */
+export const PRICE_DRILLDOWN_ERRORS = {
+  /** Comparison: blank material. */
+  materialRequired: 'PWT-00001',
+  /** Break: no such product match. */
+  matchUnknown: 'PWT-00025',
+  /** Break: the product match is already broken. */
+  matchAlreadyBroken: 'PWT-00026',
+} as const
+
+/** How a product match pairs our material with a listing (`PriceWatchMatchKinds`, ⚠ PascalCase). */
+export type PriceMatchKind = 'Exact' | 'Comparable'
+/** Who made a product match (`PriceWatchMatchMadeBy`). */
+export type PriceMatchMadeBy = 'Barcode' | 'Person'
+/** A comparable match's per-unit basis (`PriceWatchUnits`); '' on an exact match. */
+export type PerUnitBasis = '' | 'g' | 'ml' | 'piece'
+
+/** A competitor price's source (BO 4128, ⚠ GUESSED codes from the ticket text). */
+export const PRICE_SOURCES = ['SCRAPER', 'MINDSITE'] as const
+export type PriceSource = (typeof PRICE_SOURCES)[number]
+
+/**
+ * `GET PriceWatch/Materials/{material}/Comparison` (View) — our price today at the reference store, and one side per
+ * UNBROKEN product match. Shipped fields as read from `PriceWatchComparisonService.cs`; the optional ones are BO 4128's.
+ */
+export interface PriceWatchComparison {
+  material: string
+  /** Default '1001'. */
+  referenceStore: string
+  pricedAt: string
+  isPriced: boolean
+  unpricedReason: string
+  currency: string
+  /** Ours, one unit at the reference store, today (live engine). */
+  basicPrice: number
+  effectivePrice: number
+  /** One per unbroken product match, by competitor code then matched-at; [] when none. */
+  competitors: PriceWatchCompetitorSide[]
+  /** ⚠ GUESSED (BO 4128): our price per day, from `PwEffectivePrice`. Absent on a pre-4128 server. */
+  ourHistory?: OurPriceDay[]
+}
+
+/** One competitor's side of the comparison: its LATEST observation (authoritative source only) and the product match. */
+export interface PriceWatchCompetitorSide {
+  competitorCode: string
+  competitorName: string
+  matchKind: PriceMatchKind
+  madeBy: PriceMatchMadeBy
+  listingUrl: string
+  listingTitle: string
+  hasPrice: boolean
+  regularPrice: number | null
+  offerPrice: number | null
+  observedAt: string | null
+  sellerName: string
+  isPlatformSeller: boolean
+  inStock: boolean
+  /** No price within StaleAfterHours (36 by default). */
+  isStale: boolean
+  /** The listing page is gone (404/410). */
+  isGone: boolean
+  /**
+   * (theirs − ourEffective) ÷ ourEffective × 100, 1 dp, per unit on a comparable match.
+   * 🔑 NEGATIVE = the competitor is cheaper — the OPPOSITE sense to the price alert's `gapPercent`. Read it only through
+   * the drill-down's `comparisonGap`, which names the cheaper side.
+   */
+  gapPercent: number | null
+  /** Exact matches only. */
+  mayAlert: boolean
+  perUnitBasis: PerUnitBasis
+  /** 4 dp, comparable only. */
+  ourPricePerUnit: number | null
+  theirPricePerUnit: number | null
+  // ⚠ GUESSED (BO 4128) — not on the wire today (no history, no match id, no who/when). Optional so a pre-4128 server
+  // reads as "no history, no Break" rather than a crash. Reconcile against BO 4128 as shipped.
+  /** The product match's id, for Break. */
+  matchId?: string
+  matchedByUser?: string
+  /** Wall-clock stamp; a year-1 stamp means none. */
+  matchedAt?: string
+  /** The competitor's authoritative price source. */
+  authoritativeSource?: PriceSource
+  /** The source of the latest authoritative observation (the current price). */
+  source?: PriceSource
+  /** Every observation in the window, from both sources. */
+  history?: PriceObservation[]
+}
+
+/** ⚠ GUESSED (BO 4128): one competitor price observation, with its source. */
+export interface PriceObservation {
+  priceId: string
+  observedAt: string
+  source: PriceSource
+  isAuthoritative: boolean
+  regularPrice: number | null
+  offerPrice: number | null
+  sellerName: string
+  inStock: boolean
+}
+
+/** ⚠ GUESSED (BO 4128): our price on one day. */
+export interface OurPriceDay {
+  priceDay: string
+  isPriced: boolean
+  basicPrice: number | null
+  effectivePrice: number | null
+}
+
+/**
+ * `POST PriceWatch/Matches/{matchId}/Break` (Manage) answer — the `MatchWire` (`PriceWatchMatchService.cs`). Breaking
+ * closes the pair's live price alert (MATCH_BROKEN) and sends the material back to matching. Refusals PWT-00025/00026.
+ */
+export interface BrokenMatchWire {
+  matchId: string
+  materialNumber: string
+  listingId: string
+  competitorCode: string
+  matchKind: PriceMatchKind
+  madeBy: PriceMatchMadeBy
+  matchedByUser: string
+  matchedAt: string
+  /** '' for a barcode or URL match. */
+  candidateId: string
+  ourSizeValue: number
+  ourSizeUnit: string
+  theirSizeValue: number
+  theirSizeUnit: string
+  mayAlert: boolean
+  isBroken: boolean
+  brokenBy: string
+  /** Year-1 while unbroken. */
+  brokenAt: string
+}
 
 // ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 937)

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import { usePermissions } from '@/core/permissions'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { canViewPriceWatch } from './access'
+import MaterialDrillDown from './MaterialDrillDown'
 import TabStrip from './TabStrip'
 import { TAB_REGISTRY } from './tab-registry'
 import { defaultTab, visibleTabs, type TabId } from './tabs'
@@ -46,6 +47,8 @@ function CommandCenter() {
       <div className="pt-3">
         <Panel />
       </div>
+      {/* 936: the material drill-down, open while the URL names a material (`drillDownSearch`), over any tab. */}
+      <MaterialDrillDown />
     </TabStrip>
   )
 }

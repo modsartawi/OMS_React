@@ -8,6 +8,8 @@
 import { api } from '@/core/api'
 import type { DismissAlertBody, PriceAlertQuery, PriceAlertView, PriceWatchCoverage } from '@/core/models/price-watch'
 import type { AlertScope } from './alerts'
+// Drill-down (936)
+import type { BrokenMatchWire, PriceWatchComparison } from '@/core/models/price-watch'
 
 // ── Shared ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -39,7 +41,21 @@ export const priceAlertsApi = {
 // (lands with 935)
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 936)
+
+export const priceDrillDownApi = {
+  /**
+   * `GET PriceWatch/Materials/{material}/Comparison` (View) — our price and one side per unbroken product match.
+   * ⚠ GUESSED (BO 4128): the history, match id and who/when ride this door as optional fields; a pre-4128 server
+   * answers without them. PWT-00001 on a blank material.
+   */
+  comparison(material: string): Promise<PriceWatchComparison> {
+    return api.get<PriceWatchComparison>(`PriceWatch/Materials/${encodeURIComponent(material)}/Comparison`)
+  },
+  /** `POST PriceWatch/Matches/{matchId}/Break` (Manage), no body — closes the pair's live price alert. PWT-00025/00026. */
+  breakMatch(matchId: string): Promise<BrokenMatchWire> {
+    return api.post<BrokenMatchWire>(`PriceWatch/Matches/${encodeURIComponent(matchId)}/Break`, {})
+  },
+}
 
 // ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 937)

@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { CHART_LEGEND_STYLE, CHART_TICK, CHART_TOOLTIP_STYLE } from './chrome'
 import { CHART_BOX_DIR, chartMirror } from './direction'
 import { formatAs, formatTickAs, percentTicks } from './format'
-import { CHART_INK, seriesColour, seriesDash, seriesOpacity, seriesRowFill } from './slots'
+import { CHART_INK, seriesColour, seriesDash, seriesInkOpacity, seriesOpacity, seriesRowFill } from './slots'
 import type { AnalyticsLegendPosition, AnalyticsNumberFormat, MeasureUnit } from '@/core/models/analytics'
 
 /**
@@ -47,6 +47,10 @@ export interface ChartSeries {
   previous?: boolean
   /** The same weeks last year (877; a line or a bar): the darker ink, its own dash on a line, named by its `label`. */
   lastYear?: boolean
+  /** 936: drawn faint in its own colour (a cross-check source beside the authoritative one). Line and area. */
+  faint?: boolean
+  /** 936: dashed in its own colour (a shelf price beside the price paid). Line only. */
+  dashed?: boolean
 }
 
 export interface ChartSeriesRow {
@@ -182,7 +186,7 @@ export default function SeriesChart({
             dataKey={s.key}
             name={s.name}
             stroke={s.colour}
-            strokeOpacity={opacity(s.key)}
+            strokeOpacity={seriesInkOpacity(shown, s)}
             strokeWidth={2}
             strokeDasharray={seriesDash(s)}
             dot={false}
@@ -210,9 +214,9 @@ export default function SeriesChart({
             // 825: named series are never stacked (a stack's height is a total): they overlap.
             stackId={stacking === 'stacked' ? 'stack' : undefined}
             stroke={s.colour}
-            strokeOpacity={opacity(s.key)}
+            strokeOpacity={seriesInkOpacity(shown, s)}
             fill={s.colour}
-            fillOpacity={0.35 * opacity(s.key)}
+            fillOpacity={0.35 * seriesInkOpacity(shown, s)}
             isAnimationActive={false}
           />
         ))}

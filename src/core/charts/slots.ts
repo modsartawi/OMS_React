@@ -89,13 +89,24 @@ export const CHART_INK = {
  * A series' colour: its slot's token; "Other" and the previous period (no slot) in ink grey; last year (877) in the
  * darker ink — the two comparisons are never the same grey.
  */
-export function seriesColour(series: { slot: number | null; previous?: boolean; lastYear?: boolean }): string {
+export function seriesColour(series: { slot: number | null; previous?: boolean; lastYear?: boolean; faint?: boolean }): string {
   return series.lastYear ? CHART_INK.lastYear : slotColour(series.slot)
 }
 
-/** A line's dash: each comparison its own (the previous period long, last year short — 877), a plain series none. */
-export function seriesDash(series: { previous?: boolean; lastYear?: boolean }): string | undefined {
-  return series.lastYear ? '2 3' : series.previous ? '5 4' : undefined
+/**
+ * A line's dash: each comparison its own (the previous period long, last year short — 877), a `dashed` series (936: a
+ * shelf price beside the price paid) its own, a plain series none. Faint is opacity, never a dash.
+ */
+export function seriesDash(series: { previous?: boolean; lastYear?: boolean; dashed?: boolean; faint?: boolean }): string | undefined {
+  return series.lastYear ? '2 3' : series.previous ? '5 4' : series.dashed ? '6 3' : undefined
+}
+
+/** A faint series' opacity (936: the cross-check price source drawn beside the authoritative one). */
+export const FAINT_OPACITY = 0.4
+
+/** A series' stroke opacity: the highlight's (825), times {@link FAINT_OPACITY} for a faint series. */
+export function seriesInkOpacity(highlighted: string | null, series: { key: string; faint?: boolean }): number {
+  return seriesOpacity(highlighted, series.key) * (series.faint ? FAINT_OPACITY : 1)
 }
 
 /**

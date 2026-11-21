@@ -10,6 +10,8 @@ import type { DismissAlertBody, PriceAlertQuery, PriceAlertView, PriceWatchCover
 import type { AlertScope } from './alerts'
 // Drill-down (936)
 import type { BrokenMatchWire, PriceWatchComparison } from '@/core/models/price-watch'
+// Feed health (939)
+import type { PriceSource, PriceWatchCompetitorSetting, PriceWatchFeedHealth, SetAuthoritativeSourceBody } from '@/core/models/price-watch'
 import type { AnalyticsQueryResult, AnalyticsSemanticQuery } from '@/core/models/analytics' // Index (938)
 import type { PriceGridPage, PriceGridQuery } from '@/core/models/price-watch' // Grid (935)
 // Matching (937)
@@ -125,4 +127,15 @@ export const priceIndexApi = {
 }
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 939)
+
+export const priceFeedHealthApi = {
+  /** `GET PriceWatch/FeedHealth` (View) — shipped; BO 4131's per-source runs and cross-check ride it as optional fields. */
+  read(): Promise<PriceWatchFeedHealth> {
+    return api.get<PriceWatchFeedHealth>('PriceWatch/FeedHealth')
+  },
+  /** ⚠ GUESSED (BO 4128): `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource` (Manage) `{ source }`. */
+  setAuthority(competitorCode: string, source: PriceSource): Promise<PriceWatchCompetitorSetting> {
+    const body: SetAuthoritativeSourceBody = { source }
+    return api.put<PriceWatchCompetitorSetting>(`PriceWatch/Competitors/${encodeURIComponent(competitorCode)}/AuthoritativeSource`, body)
+  },
+}

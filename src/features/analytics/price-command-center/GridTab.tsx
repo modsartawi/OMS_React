@@ -18,6 +18,7 @@ import GridPager from '@/core/ui/GridPager'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
+import DrillDownLink from './DrillDownLink' // 936
 import { showsPager } from '@/core/ui/pager'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
@@ -44,7 +45,7 @@ const DEFAULT_COL_DEF: ColDef<PriceGridRow> = {
  * one column per competitor in the server's column order. Filters, sort and paging are the server's.
  *
  * ⚠ Reads the GUESSED BO 4129 door (`GET PriceWatch/Grid`, not built yet) — reconcile owed.
- * A row is not a link yet: the material drill-down is 936's.
+ * A row's material number opens its drill-down (936, `DrillDownLink`).
  */
 export default function GridTab() {
   const { t } = useTranslation(NS)
@@ -132,15 +133,13 @@ function gridColumns(competitors: readonly PriceGridCompetitor[], t: TFunction):
   ]
 }
 
-/** The material: number (machine value), title and brand (free text), A-level · B-level. Not a link until 936. */
+/** The material: number (machine value; the link to its drill-down, 936), title and brand (free text), A-level · B-level. */
 function MaterialCell({ data }: ICellRendererParams<PriceGridRow>) {
   if (!data) return null
   const levels = [data.aLevel, data.bLevel].filter(Boolean)
   return (
     <div className="flex flex-col py-1 leading-tight" data-grid-material={data.materialNumber}>
-      <span className="font-mono text-xs">
-        <Ltr>{data.materialNumber}</Ltr>
-      </span>
+      <DrillDownLink material={data.materialNumber} className="text-xs" />
       {data.title && (
         <span className="truncate text-sm">
           <bdi>{data.title}</bdi>

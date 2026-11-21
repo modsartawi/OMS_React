@@ -7,10 +7,12 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/price-command-center.json'
 import ar from '@/locales/ar/price-command-center.json'
 import { DISMISS_REASONS } from '@/core/models/price-watch'
-import { PRICE_SOURCES } from '@/core/models/price-watch' // 936
 import { hasLocaleKey } from '@/core/test/locale'
 import { ALERT_STATES } from './alerts'
 import { TAB_IDS } from './tabs'
+// Feed health (939)
+import { PRICE_SOURCES } from '@/core/models/price-watch'
+import { RUN_STATES } from './feed-health'
 import { INDEX_GRAINS, INDEX_PERIODS, INDEX_TONES, PRICE_BASES } from './index-tab' // Index (938)
 
 const leaves = (node: unknown, prefix = ''): string[] =>
@@ -31,6 +33,11 @@ describe('price-command-center — en and ar', () => {
       ...DISMISS_REASONS.map((r) => `dismiss.reason.${r}`),
       ...['reasonRequired', 'noteRequired', 'noteTooLong'].map((p) => `dismiss.problem.${p}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
+      // Feed health (939)
+      ...PRICE_SOURCES.flatMap((s) => [`feedHealth.source.${s}`, `feedHealth.change.whose.${s}`, `feedHealth.change.other.${s}`]),
+      ...RUN_STATES.map((s) => `feedHealth.runState.${s}`),
+      ...['DAILY', 'INTRADAY', 'MANUAL'].map((p) => `feedHealth.pass.${p}`),
+      ...['ok', 'running', 'failures', 'error'].map((s) => `feedHealth.job.state.${s}`),
       // Index (938)
       ...INDEX_TONES.map((tone) => `index.tone.${tone}`),
       ...PRICE_BASES.flatMap((b) => [`index.basis.${b}`, `index.basisHint.${b}`]),

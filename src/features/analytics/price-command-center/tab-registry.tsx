@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { canViewPriceIndex, canViewPriceWatch } from './access'
 import AlertsTab from './AlertsTab'
+import FeedHealthTab from './FeedHealthTab' // 939
 import IndexTab from './IndexTab'
 import GridTab from './GridTab'
 import MatchingTab from './MatchingTab'
@@ -26,5 +27,5 @@ export const TAB_REGISTRY: readonly TabRegistration[] = [
   { id: 'alerts', can: canViewPriceWatch, built: true, Panel: AlertsTab }, // 934
   { id: 'grid', can: canViewPriceWatch, built: true, Panel: GridTab }, // 935
   { id: 'matching', can: canViewPriceWatch, built: true, Panel: MatchingTab }, // 937
-  { id: 'feed-health', can: canViewPriceWatch, built: false, Panel: null }, // 939
+  { id: 'feed-health', can: canViewPriceWatch, built: true, Panel: FeedHealthTab }, // 939
 ]

@@ -70,3 +70,7 @@ Proofs green, and the grid walked on dev.
   RTL; no other grid pins). A row is not a link: 936 adds the drill-down.
 - Drive `tools/price-grid-drive.mjs` (stubbed `**/api/**`, GUESSED grid stub, shipped Coverage). Note: a cold vite on
   a busy box took minutes to optimise deps, so the drive sets a 180 s default timeout.
+
+**2026-11-22 — row wired to the drill-down (936 merge, branch `t936-drilldown`).** The grid's material cell
+(`GridTab.tsx` `MaterialCell`) now draws `DrillDownLink`: the material number opens the material drill-down by
+`?material=` (the open tab kept; `drillDownSearch` in `drilldown.ts`). "A row opens the material drill-down" holds.

@@ -60,8 +60,9 @@ on stubbed `**/api/**`. Status stays open: the dev walk on `PriceWatch_Dev` and 
   `drillDownMaterial(search)` in `src/features/analytics/price-command-center/drilldown.ts`. The page mounts
   `MaterialDrillDown` (a `SideSheet`) once, under the tab strip, so any tab opens it with
   `<Link to={{ search: drillDownSearch(location.search, material) }} replace>`. The alert row's material
-  (`AlertMaterialCell.tsx`) is that link now. **935's grid row is NOT wired** (935 not merged) — at merge, make the grid's
-  material cell the same link. Switching tab drops `?material=` (the tab strip writes `?tab=` alone) — the sheet closes.
+  (`AlertMaterialCell.tsx`) is that link now. At the merge with 935/939 all three entry points were moved onto one
+  component, `DrillDownLink.tsx`: the alert row, the grid's material cell (935) and the feed-health cross-check examples
+  (939, replacing its interim `materialHref`). Switching tab drops `?material=` (the tab strip writes `?tab=` alone) — the sheet closes.
 - **Gap sign:** the comparison `gapPercent` is negative when the competitor is cheaper (opposite to the alert's).
   `comparisonGap` reads the sign once and says it in words ("Competitor cheaper by 11.3%" / "We are cheaper by 3.0%"),
   the figure unsigned, so the two wires never meet in one number.

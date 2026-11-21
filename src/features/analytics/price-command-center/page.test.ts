@@ -12,7 +12,8 @@ import '@/core/i18n'
 import { PERMISSIONS_KEY, permissionsOf, type PermissionsAnswer } from '@/core/permissions'
 import { ANALYTICS_MENU } from '@/layout/menu-analytics'
 import PriceCommandCenterPage from './PriceCommandCenterPage'
-import { canManagePriceWatch, canViewPriceWatch } from './access'
+import { canManagePriceWatch, canViewPriceIndex, canViewPriceWatch } from './access'
+import { TAB_REGISTRY } from './tab-registry'
 import { defaultTab, visibleTabs, type TabEntry } from './tabs'
 
 const answer = (screens: string[]): PermissionsAnswer => ({
@@ -79,5 +80,29 @@ describe('the tab registry', () => {
     expect(defaultTab(['alerts', 'feed-health'], 'feed-health')).toBe('feed-health')
     expect(defaultTab(['alerts', 'feed-health'], 'grid')).toBe('alerts')
     expect(defaultTab(['feed-health'], null)).toBe('feed-health')
+  })
+
+  // 938: Index comes first; Alerts stays the default only for a user with open price alerts of their own.
+  it('opens on Index for a user with no open price alerts of their own, on Alerts for one with some', () => {
+    expect(defaultTab(['index', 'alerts'], null, false)).toBe('index')
+    expect(defaultTab(['index', 'alerts'], null, true)).toBe('alerts')
+    expect(defaultTab(['index', 'alerts'], 'alerts', false)).toBe('alerts')
+    expect(defaultTab(['index', 'alerts'], 'index', true)).toBe('index')
+    // Not known yet: Alerts, as before 938.
+    expect(defaultTab(['index', 'alerts'], null)).toBe('alerts')
+    expect(defaultTab(['index'], null, true)).toBe('index')
+  })
+})
+
+describe('the Index tab (938)', () => {
+  it('needs Analytics:03 beside the PriceWatch view grant — it reads Cube through Analytics/Query', () => {
+    expect(canViewPriceIndex(permissionsOf({ screens: ['PriceWatch:03', 'Analytics:03'] }))).toBe(true)
+    expect(canViewPriceIndex(permissionsOf({ screens: ['PriceWatch:03'] }))).toBe(false)
+    expect(canViewPriceIndex(permissionsOf({ screens: ['Analytics:03'] }))).toBe(false)
+  })
+
+  it('is first in the strip for a user who may open it', () => {
+    expect(visibleTabs(TAB_REGISTRY, permissionsOf({ screens: ['PriceWatch:03', 'Analytics:03'] }))[0]).toBe('index')
+    expect(visibleTabs(TAB_REGISTRY, permissionsOf({ screens: ['PriceWatch:03'] }))).not.toContain('index')
   })
 })

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
-import { canViewPriceWatch } from './access'
+import { canViewPriceIndex, canViewPriceWatch } from './access'
 import AlertsTab from './AlertsTab'
+import IndexTab from './IndexTab'
 import type { TabEntry } from './tabs'
 
 /**
@@ -19,7 +20,7 @@ export interface TabRegistration extends TabEntry {
 }
 
 export const TAB_REGISTRY: readonly TabRegistration[] = [
-  { id: 'index', can: canViewPriceWatch, built: false, Panel: null }, // 938
+  { id: 'index', can: canViewPriceIndex, built: true, Panel: IndexTab }, // 938
   { id: 'alerts', can: canViewPriceWatch, built: true, Panel: AlertsTab }, // 934
   { id: 'grid', can: canViewPriceWatch, built: false, Panel: null }, // 935
   { id: 'matching', can: canViewPriceWatch, built: false, Panel: null }, // 937

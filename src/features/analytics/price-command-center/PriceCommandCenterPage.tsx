@@ -6,6 +6,9 @@ import { canViewPriceWatch } from './access'
 import TabStrip from './TabStrip'
 import { TAB_REGISTRY } from './tab-registry'
 import { defaultTab, visibleTabs, type TabId } from './tabs'
+import { useQuery } from '@tanstack/react-query' // 938
+import { DEFAULT_ALERT_FILTER, alertsRequest } from './alerts' // 938
+import { priceAlertsApi } from './api' // 938
 
 const NS = 'price-command-center'
 
@@ -31,8 +34,10 @@ function CommandCenter() {
   const permissions = usePermissions()
   const [params, setParams] = useSearchParams()
   const visible = visibleTabs(TAB_REGISTRY, permissions)
-  const open = defaultTab(visible, params.get('tab'))
+  const ownOpenAlerts = useOwnOpenAlerts(visible, params.get('tab')) // 938
+  const open = defaultTab(visible, params.get('tab'), ownOpenAlerts.known ? ownOpenAlerts.any : undefined)
   const Panel = TAB_REGISTRY.find((tab) => tab.id === open)?.Panel ?? null
+  if (ownOpenAlerts.waiting) return <p className="text-sm text-muted-foreground">{t('index.opening')}</p>
   if (open === null || Panel === null) return <p className="text-sm text-muted-foreground">{t('tabs.none')}</p>
   return (
     <TabStrip<TabId>
@@ -48,4 +53,25 @@ function CommandCenter() {
       </div>
     </TabStrip>
   )
+}
+
+/**
+ * 938: whether the user has open price alerts of their own — Alerts opens for them, Index for everyone else. Asked only
+ * when it decides something (no tab in the URL, both Index and Alerts showing), on the Alerts tab's own default read
+ * (Mine, live), so opening Alerts afterwards reads it from the cache. A failed read is "not known": Alerts, as before.
+ */
+function useOwnOpenAlerts(visible: readonly TabId[], asked: string | null) {
+  const decides = asked === null && visible.includes('index') && visible.includes('alerts')
+  const { scope, query } = alertsRequest(DEFAULT_ALERT_FILTER)
+  const mine = useQuery({
+    queryKey: ['price-watch', 'alerts', scope, query],
+    queryFn: () => priceAlertsApi.list(scope, query),
+    retry: false,
+    enabled: decides,
+  })
+  return {
+    waiting: decides && mine.isPending && !mine.isError,
+    known: decides && mine.isSuccess,
+    any: (mine.data ?? []).some((a) => a.status === 'OPEN'),
+  }
 }

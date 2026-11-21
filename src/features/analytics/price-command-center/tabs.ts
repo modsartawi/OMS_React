@@ -23,10 +23,14 @@ export function visibleTabs(registry: readonly TabEntry[], p: Permissions): TabI
   return registry.filter((tab) => tab.built && tab.can(p)).map((tab) => tab.id)
 }
 
-/** The tab that opens: the one the URL names when it is visible, else Alerts, else the first visible. */
-export function defaultTab(visible: readonly TabId[], asked: string | null): TabId | null {
+/**
+ * The tab that opens: the one the URL names when it is visible; else Index when the user has no open price alerts of
+ * their own (938); else Alerts; else the first visible. `ownOpenAlerts` undefined = not known yet → Alerts, as before.
+ */
+export function defaultTab(visible: readonly TabId[], asked: string | null, ownOpenAlerts?: boolean): TabId | null {
   const named = visible.find((id) => id === asked)
   if (named) return named
+  if (ownOpenAlerts === false && visible.includes('index')) return 'index'
   if (visible.includes('alerts')) return 'alerts'
   return visible[0] ?? null
 }

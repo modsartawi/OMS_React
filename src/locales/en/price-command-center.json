@@ -20,6 +20,66 @@
     "matching": "Matching",
     "feed-health": "Feed health"
   },
+  "index": {
+    "intro": "Our prices against competitor prices, read from the analytics model: the price index with us at 100, and the lowest-price score.",
+    "basis": {
+      "label": "Price basis",
+      "shelf": "Shelf",
+      "paid": "Paid"
+    },
+    "basisHint": {
+      "shelf": "Shelf: the competitor's regular price against our basic price.",
+      "paid": "Paid: the competitor price a customer pays, offers included, against our effective price."
+    },
+    "period": {
+      "label": "Period",
+      "last-7-days": "Last 7 days",
+      "last-28-days": "Last 28 days",
+      "last-month": "Last month",
+      "year-to-date": "Year to date"
+    },
+    "tone": {
+      "dearer": "They are dearer",
+      "level": "Level with us",
+      "cheaper": "They are cheaper"
+    },
+    "noFigure": "No figure",
+    "byCompetitor": {
+      "title": "Price index by competitor",
+      "explain": "The price index puts our price at 100: a competitor at 110 is 10% dearer than us; below 100 they are cheaper than us, which is the warning.",
+      "competitor": "Competitor",
+      "index": "Price index",
+      "materials": "Materials compared"
+    },
+    "byCategory": {
+      "title": "Price index by A-level",
+      "explain": "The same price index for each A-level, one column per competitor.",
+      "category": "A-level"
+    },
+    "trend": {
+      "title": "Price index over time",
+      "explain": "The price index of each competitor by day or by week (Sunday weeks); 100 is our price.",
+      "grain": {
+        "label": "By",
+        "day": "Day",
+        "week": "Week"
+      }
+    },
+    "score": {
+      "title": "Lowest-price score",
+      "explain": "The share of our matched materials on which no competitor is cheaper than us (a tie counts as lowest): flagged ÷ counted, each material once.",
+      "overall": "All competitors",
+      "counted": "<f>{{flagged}}</f> of <c>{{counted}}</c> materials",
+      "trendTitle": "Lowest-price score over time",
+      "trendExplain": "The lowest-price score across all competitors, by day or by week."
+    },
+    "loading": "Reading the price index…",
+    "failed": "These figures could not be read.",
+    "failedHint": "The analytics model did not answer. Try again shortly.",
+    "empty": "No price index for this period.",
+    "notYet": "These figures are not in the analytics model on this server yet.",
+    "opening": "Opening the price command center…"
+  },
   "alerts": {
     "scope": {
       "label": "Whose price alerts",

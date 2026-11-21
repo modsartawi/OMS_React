@@ -144,7 +144,17 @@ export interface DismissAlertBody {
 // (lands with 937)
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 938)
+// No PriceWatch door: the Index tab reads Cube through `POST Analytics/Query` (gated `BackOfficeScreen[Analytics, 03]`),
+// so its wire types are `AnalyticsSemanticQuery` / `AnalyticsQueryResult` (`@/core/models/analytics`).
+// ⚠ GUESSED (BO 4132, not built): the member names — see `features/analytics/price-command-center/index-tab.ts`.
+
+/** The `ANALYTICS-` refusals the Index tab reads by name (the Analytics query door, not `PriceWatchErrorCodes.cs`). */
+export const PRICE_INDEX_ERRORS = {
+  /** A member the model does not hold (e.g. the lowest-price score before the 4132 image): the definition is refused. */
+  definitionInvalid: 'ANALYTICS-406',
+  /** The area is not loaded on this server yet. */
+  areaUnavailable: 'ANALYTICS-410',
+} as const
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 939)

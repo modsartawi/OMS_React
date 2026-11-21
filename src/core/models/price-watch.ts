@@ -147,4 +147,140 @@ export interface DismissAlertBody {
 // (lands with 938)
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 939)
+
+/**
+ * The `PWT-` refusal codes the Feed health tab reads by name. ⚠ `sourceUnknown` is GUESSED (BO 4128 not shipped):
+ * the authority door's "source is SCRAPER or MINDSITE" refusal.
+ */
+export const PRICE_FEED_HEALTH_ERRORS = {
+  /** Authority change: no such competitor. */
+  competitorUnknown: 'PWT-00003',
+  /** ⚠ GUESSED (BO 4128): the source is not SCRAPER or MINDSITE. */
+  sourceUnknown: 'PWT-00050',
+} as const
+
+/** A scrape run's pass (`PriceWatchPassKinds`). */
+export type ScrapePassKind = 'DAILY' | 'INTRADAY' | 'MANUAL'
+
+/** One scrape run, as `GET PriceWatch/FeedHealth` sends a competitor's `lastRun` (shipped). */
+export interface FeedRunSummary {
+  scrapeRunId: string
+  passKind: ScrapePassKind | string
+  passSlotAt: string | null
+  startedAt: string
+  /** null = still running. */
+  finishedAt: string | null
+  listingsRead: number
+  pricesWritten: number
+  failures: number
+  listingsGone: number
+  isBlocked: boolean
+  blockReason: string
+}
+
+/**
+ * One competitor on `GET PriceWatch/FeedHealth` (shipped: `PriceWatchFeedHealthService.cs`). ⚠ No door clears a block
+ * (the scraper / an operator clears it in the database) — the tab shows the block and its reason only.
+ */
+export interface FeedHealthCompetitor {
+  competitorCode: string
+  name: string
+  /** `pharmacy` | `marketplace` (free text in the DB). */
+  kind: string
+  isEnabled: boolean
+  isBlocked: boolean
+  blockedAt: string | null
+  blockReason: string
+  blockClearedAt: string | null
+  blockClearedBy: string
+  matchedListings: number
+  staleListings: number
+  goneListings: number
+  /** The latest run of any source. A pre-4131 server says nothing of its source. */
+  lastRun: FeedRunSummary | null
+  // ⚠ GUESSED (BO 4131) — optional, so today's FeedHealth still renders:
+  authoritativeSource?: PriceSource
+  runsBySource?: FeedSourceRuns[]
+  crossCheck?: FeedCrossCheck
+}
+
+/** `GET PriceWatch/FeedHealth` (View). */
+export interface PriceWatchFeedHealth {
+  at: string
+  staleAfterHours: number
+  competitors: FeedHealthCompetitor[]
+  // ⚠ GUESSED (BO 4131) — optional:
+  /** Two sources disagreeing above this many percent on one exact match and day count against the competitor. */
+  crossCheckMarginPercent?: number
+  /** The nightly effective-price job's last run (`PwPriceJobRun` of kind EFFECTIVEPRICE); null = never ran. */
+  effectivePriceJob?: EffectivePriceJobRun | null
+}
+
+// ⚠ GUESSED (BO 4128 / 4131) ───────────────────────────────────────────────────────────────────────────────────────
+// Read off the BO ticket text and the shipped DTO style (camelCase, string codes, null stamps); nothing live yet. A
+// reconcile ticket diffs this block against the shipped doors.
+
+/** A competitor price's source (BO 4128): our scraper or Mindsite. */
+export const PRICE_SOURCES = ['SCRAPER', 'MINDSITE'] as const
+export type PriceSource = (typeof PRICE_SOURCES)[number]
+
+/** A run as `runsBySource` sends it: the shipped summary plus its error and whether it was a quota or auth refusal. */
+export interface FeedSourceRun extends FeedRunSummary {
+  errorMessage: string
+  isQuotaOrAuthError: boolean
+}
+
+/** One source's latest run at one competitor; null = that source never ran there. */
+export interface FeedSourceRuns {
+  source: PriceSource
+  lastRun: FeedSourceRun | null
+}
+
+/** One material whose two sources disagreed above the margin. */
+export interface FeedCrossCheckExample {
+  materialNumber: string
+  day: string
+  scraperPaidPrice: number
+  mindsitePaidPrice: number
+  differencePercent: number
+}
+
+/** Where the two sources disagree at one competitor (≤ 20 examples). */
+export interface FeedCrossCheck {
+  disagreements: number
+  examples: FeedCrossCheckExample[]
+}
+
+/** The nightly effective-price job's last run. */
+export interface EffectivePriceJobRun {
+  runId: string
+  runDay: string
+  referenceStore: string
+  startedAt: string
+  finishedAt: string | null
+  isFinished: boolean
+  /** The watched count. */
+  materials: number
+  priced: number
+  unpriced: number
+  failures: number
+  durationSeconds: number
+  hasError: boolean
+  errorMessage: string
+}
+
+/** `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource` (Manage) body — ⚠ GUESSED route and body (BO 4128). */
+export interface SetAuthoritativeSourceBody {
+  source: PriceSource
+}
+
+/** The competitor setting the authority door answers with — ⚠ GUESSED (BO 4128). */
+export interface PriceWatchCompetitorSetting {
+  competitorCode: string
+  name: string
+  kind: string
+  isEnabled: boolean
+  authoritativeSource: PriceSource
+  authoritativeSourceChangedBy: string
+  authoritativeSourceChangedAt: string | null
+}

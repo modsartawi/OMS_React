@@ -110,5 +110,97 @@
     "confirm": "Dismiss",
     "cancel": "Cancel",
     "sending": "Sending…"
+  },
+  "feedHealth": {
+    "loading": "Loading feed health…",
+    "failed": "Feed health could not be read.",
+    "failedHint": "SIS.Api did not answer. Try again shortly.",
+    "empty": "No competitor is set up yet.",
+    "asOf": "As of {{at}}. A listing is stale after {{hours}} hours without a competitor price.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "authority": "Authoritative price source",
+    "authorityUnknown": "Not reported by this server",
+    "blocked": "Blocked since {{at}}",
+    "noReason": "No reason was recorded.",
+    "blockHint": "This screen does not lift a block; the scraper’s operator does, outside it.",
+    "sourceAny": "Latest run (source not reported)",
+    "source": {
+      "SCRAPER": "Our scraper",
+      "MINDSITE": "Mindsite"
+    },
+    "listings": {
+      "matched": "Matched listings",
+      "stale": "Stale",
+      "gone": "Gone"
+    },
+    "runs": {
+      "source": "Price source",
+      "state": "State",
+      "pass": "Pass",
+      "started": "Started",
+      "finished": "Finished",
+      "read": "Listings read",
+      "written": "Prices written",
+      "failures": "Failures",
+      "gone": "Gone",
+      "stillRunning": "Still running"
+    },
+    "runState": {
+      "never": "Never ran",
+      "running": "Running",
+      "blocked": "Blocked",
+      "quotaOrAuth": "Quota or auth refused",
+      "failures": "With failures",
+      "ok": "Healthy"
+    },
+    "pass": {
+      "DAILY": "Daily",
+      "INTRADAY": "Intraday",
+      "MANUAL": "Manual"
+    },
+    "job": {
+      "title": "Nightly effective-price job",
+      "never": "The job has not run yet.",
+      "watched": "Watched",
+      "priced": "Priced",
+      "unpriced": "Unpriced",
+      "failures": "Failures",
+      "store": "Reference store",
+      "state": {
+        "ok": "Finished",
+        "running": "Running",
+        "failures": "Finished with failures",
+        "error": "Failed"
+      }
+    },
+    "crossCheck": {
+      "title": "Cross-check",
+      "none": "The two price sources agree here.",
+      "flag": "{{n}} disagreements above {{margin}} between our scraper and Mindsite",
+      "flagNoMargin": "{{n}} disagreements between our scraper and Mindsite",
+      "material": "Material",
+      "day": "Day",
+      "scraper": "Our scraper",
+      "mindsite": "Mindsite",
+      "difference": "Difference",
+      "more": "Examples shown: {{count}}."
+    },
+    "change": {
+      "label": "Change the authoritative price source",
+      "send": "Change",
+      "header": "Change the authoritative price source",
+      "message": "{{to}}’s prices will count for {{competitor}}; {{from}}’s will not. Price alerts, the index and the grid follow from the next run.",
+      "done": "The authoritative price source for {{competitor}} is now {{to}}.",
+      "failed": "The authoritative price source was not changed.",
+      "whose": {
+        "SCRAPER": "Our scraper",
+        "MINDSITE": "Mindsite"
+      },
+      "other": {
+        "SCRAPER": "our scraper",
+        "MINDSITE": "Mindsite"
+      }
+    }
   }
 }

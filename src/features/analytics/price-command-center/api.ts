@@ -10,6 +10,17 @@ import type { DismissAlertBody, PriceAlertQuery, PriceAlertView, PriceWatchCover
 import type { AlertScope } from './alerts'
 // Feed health (939)
 import type { PriceSource, PriceWatchCompetitorSetting, PriceWatchFeedHealth, SetAuthoritativeSourceBody } from '@/core/models/price-watch'
+// Matching (937)
+import type {
+  ComparableMatchBody,
+  ConfirmByUrlBody,
+  ConfirmByUrlResult,
+  DiscoveryResult,
+  MatchingQueue,
+  NotCarriedResult,
+  NotTheSameResult,
+  PriceWatchMatch,
+} from '@/core/models/price-watch'
 
 // ── Shared ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -44,7 +55,40 @@ export const priceAlertsApi = {
 // (lands with 936)
 
 // ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 937)
+
+const candidatePath = (candidateId: string, verb: string) => `PriceWatch/Matching/Candidates/${encodeURIComponent(candidateId)}/${verb}`
+const competitorPath = (competitor: string, verb: string) => `PriceWatch/Matching/${encodeURIComponent(competitor)}/${verb}`
+
+export const priceMatchingApi = {
+  /** `GET PriceWatch/Matching/{competitor}/Queue?take=` (View) — our sales order, best candidate first. */
+  queue(competitor: string, take?: number): Promise<MatchingQueue> {
+    return api.get<MatchingQueue>(competitorPath(competitor, 'Queue'), { take })
+  },
+  /** `POST …/Candidates/{candidateId}/Exact` (Manage), no body. */
+  exact(candidateId: string): Promise<PriceWatchMatch> {
+    return api.post<PriceWatchMatch>(candidatePath(candidateId, 'Exact'), {})
+  },
+  /** `POST …/Candidates/{candidateId}/Comparable` (Manage) — an empty body lets the server read both sizes. */
+  comparable(candidateId: string, body: ComparableMatchBody = {}): Promise<PriceWatchMatch> {
+    return api.post<PriceWatchMatch>(candidatePath(candidateId, 'Comparable'), body)
+  },
+  /** `POST …/Candidates/{candidateId}/NotTheSame` (Manage), no body. */
+  notTheSame(candidateId: string): Promise<NotTheSameResult> {
+    return api.post<NotTheSameResult>(candidatePath(candidateId, 'NotTheSame'), {})
+  },
+  /** `POST PriceWatch/Matching/{competitor}/NotCarried` (Manage) `{ material }`. */
+  notCarried(competitor: string, material: string): Promise<NotCarriedResult> {
+    return api.post<NotCarriedResult>(competitorPath(competitor, 'NotCarried'), { material })
+  },
+  /** `POST PriceWatch/Matching/{competitor}/Discovery` (Manage) — per competitor; the server's default `take` (200). */
+  discovery(competitor: string): Promise<DiscoveryResult> {
+    return api.post<DiscoveryResult>(competitorPath(competitor, 'Discovery'), {})
+  },
+  /** `POST PriceWatch/Matches/ConfirmByUrl` (Manage) — an exact product match made by a person. */
+  confirmByUrl(body: ConfirmByUrlBody): Promise<ConfirmByUrlResult> {
+    return api.post<ConfirmByUrlResult>('PriceWatch/Matches/ConfirmByUrl', body)
+  },
+}
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 938)

@@ -171,6 +171,48 @@
     "cancel": "Cancel",
     "sending": "Sending…"
   },
+  "grid": {
+    "state": {
+      "OOS": "Out of stock",
+      "NOT_CARRIED": "Not carried",
+      "NO_MATCH": "No product match",
+      "COMPARABLE_ONLY": "Comparable only",
+      "unknown": "Unknown state"
+    },
+    "lastPrice": "Last price {{price}}",
+    "stale": "Stale",
+    "staleHint": "No competitor price was read within the stale window, so this price may be out of date.",
+    "cheapest": "Cheapest",
+    "cheapestHint": "The cheapest price in this row.",
+    "seller": "Seller",
+    "notPriced": "Not priced",
+    "basic": "Basic",
+    "columns": {
+      "material": "Material",
+      "ours": "Our price",
+      "units": "Units (30 days)"
+    },
+    "filters": {
+      "aLevel": "A-level",
+      "bLevel": "B-level",
+      "brand": "Brand",
+      "codeHint": "Exact code",
+      "competitor": "Competitor",
+      "anyCompetitor": "Any competitor",
+      "competitorCheaper": "A competitor is cheaper than us",
+      "sort": "Sort",
+      "apply": "Apply"
+    },
+    "sort": {
+      "units": "Our units (30 days)",
+      "gap": "Widest gap"
+    },
+    "count": "{{n}} watched materials",
+    "loading": "Loading the product grid…",
+    "failed": "The product grid could not be read.",
+    "failedHint": "SIS.Api did not answer. Try again shortly.",
+    "empty": "No watched material matches these filters."
+  },
   "matching": {
     "competitor": "Competitor",
     "noCompetitors": "No competitor is set up yet.",

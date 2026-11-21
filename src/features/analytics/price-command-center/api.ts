@@ -9,6 +9,7 @@ import { api } from '@/core/api'
 import type { DismissAlertBody, PriceAlertQuery, PriceAlertView, PriceWatchCoverage } from '@/core/models/price-watch'
 import type { AlertScope } from './alerts'
 import type { AnalyticsQueryResult, AnalyticsSemanticQuery } from '@/core/models/analytics' // Index (938)
+import type { PriceGridPage, PriceGridQuery } from '@/core/models/price-watch' // Grid (935)
 // Matching (937)
 import type {
   ComparableMatchBody,
@@ -48,7 +49,13 @@ export const priceAlertsApi = {
 }
 
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 935)
+
+export const priceGridApi = {
+  /** ⚠ GUESSED (BO 4129, not built): `GET PriceWatch/Grid` (View) — one server page of the product grid. */
+  page(query: PriceGridQuery): Promise<PriceGridPage> {
+    return api.get<PriceGridPage>('PriceWatch/Grid', { ...query })
+  },
+}
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 936)

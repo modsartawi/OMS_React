@@ -135,7 +135,104 @@ export interface DismissAlertBody {
 }
 
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 935)
+//
+// ⚠ GUESSED (BO 4129) — the product grid door is NOT built yet. Shape guessed from the BO 4129 ticket text and the
+// existing PriceWatch DTO style (camelCase, string code enums, `PWT-` codes, null stamps), per the 4127 contract notes.
+// Reconcile owed once 4129 ships: route, paging spelling (`page`/`pageSize` vs `skip`/`take`), cell keying, and field
+// names are all guesses. Nothing here has met a live server.
+
+/** The `PWT-` refusal codes the Grid tab reads by name. GUESSED: 4129 adds none we know of; the shared ones apply. */
+export const PRICE_GRID_ERRORS = {
+  /** Unknown competitor code in the `competitor` filter. */
+  competitorUnknown: 'PWT-00003',
+} as const
+
+/** A competitor cell's state (BO 4129 ticket text, exact codes). Stale is a flag beside it, not a state. */
+export const PRICE_GRID_CELL_STATES = ['PRICED', 'OOS', 'NOT_CARRIED', 'NO_MATCH', 'COMPARABLE_ONLY'] as const
+export type PriceGridCellState = (typeof PRICE_GRID_CELL_STATES)[number]
+
+/** A price's source (BO 4128): the scraper or Mindsite. */
+export type PriceWatchSource = 'SCRAPER' | 'MINDSITE'
+
+/** The grid's sort: our trailing-30-day units (default) or the widest gap first. */
+export const PRICE_GRID_SORTS = ['units', 'gap'] as const
+export type PriceGridSort = (typeof PRICE_GRID_SORTS)[number]
+
+/** One grid column: a competitor, in the server's column order. */
+export interface PriceGridCompetitor {
+  competitorCode: string
+  name: string
+  /** `pharmacy` | `marketplace` (free text in the DB). A marketplace cell names its seller. */
+  kind: string
+  authoritativeSource: PriceWatchSource
+}
+
+/** One competitor's cell in a row. Prices are the authoritative source's only. */
+export interface PriceGridCell {
+  competitorCode: string
+  state: PriceGridCellState
+  /** offer ?? regular. OOS keeps its LAST price here; NOT_CARRIED / NO_MATCH / COMPARABLE_ONLY carry null. */
+  paidPrice: number | null
+  regularPrice: number | null
+  offerPrice: number | null
+  /** (regular − offer) ÷ regular × 100. */
+  offerPercent: number | null
+  sellerName: string
+  isPlatformSeller: boolean
+  inStock: boolean
+  observedAt: string | null
+  /** No price within the stale window (36 h default). */
+  isStale: boolean
+  /** The (tied-)cheapest price of the row — ours takes part through `row.isCheapest`. */
+  isCheapest: boolean
+  /** Comparison sense: NEGATIVE = the competitor is cheaper. */
+  gapPercent: number | null
+  source: PriceWatchSource
+}
+
+/** One watched material. */
+export interface PriceGridRow {
+  materialNumber: string
+  title: string
+  brand: string
+  aLevel: string
+  bLevel: string
+  currency: string
+  basicPrice: number | null
+  effectivePrice: number | null
+  isPriced: boolean
+  dealText: string
+  appliedDealText: string
+  thirtyDayUnits: number
+  /** OUR price is the (tied-)cheapest of the row. */
+  isCheapest: boolean
+  widestGapPercent: number | null
+  /** One per `competitors[]` entry; read by `competitorCode`, never by position. */
+  cells: PriceGridCell[]
+}
+
+/** `GET PriceWatch/Grid` answer: one page of rows, the column order, and the total. */
+export interface PriceGridPage {
+  total: number
+  page: number
+  pageSize: number
+  competitors: PriceGridCompetitor[]
+  rows: PriceGridRow[]
+}
+
+/** `GET PriceWatch/Grid` query — blanks are dropped by `buildQuery`. */
+export interface PriceGridQuery {
+  aLevel?: string
+  bLevel?: string
+  brand?: string
+  competitor?: string
+  /** true = only rows where a competitor's authoritative paid price is below our effective price. */
+  competitorCheaper?: boolean
+  sort: PriceGridSort
+  /** 1-based. */
+  page: number
+  pageSize: number
+}
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 936)
@@ -305,7 +402,17 @@ export interface ConfirmByUrlResult {
 }
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 938)
+// No PriceWatch door: the Index tab reads Cube through `POST Analytics/Query` (gated `BackOfficeScreen[Analytics, 03]`),
+// so its wire types are `AnalyticsSemanticQuery` / `AnalyticsQueryResult` (`@/core/models/analytics`).
+// ⚠ GUESSED (BO 4132, not built): the member names — see `features/analytics/price-command-center/index-tab.ts`.
+
+/** The `ANALYTICS-` refusals the Index tab reads by name (the Analytics query door, not `PriceWatchErrorCodes.cs`). */
+export const PRICE_INDEX_ERRORS = {
+  /** A member the model does not hold (e.g. the lowest-price score before the 4132 image): the definition is refused. */
+  definitionInvalid: 'ANALYTICS-406',
+  /** The area is not loaded on this server yet. */
+  areaUnavailable: 'ANALYTICS-410',
+} as const
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 

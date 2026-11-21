@@ -10,6 +10,8 @@ import type { DismissAlertBody, PriceAlertQuery, PriceAlertView, PriceWatchCover
 import type { AlertScope } from './alerts'
 // Feed health (939)
 import type { PriceSource, PriceWatchCompetitorSetting, PriceWatchFeedHealth, SetAuthoritativeSourceBody } from '@/core/models/price-watch'
+import type { AnalyticsQueryResult, AnalyticsSemanticQuery } from '@/core/models/analytics' // Index (938)
+import type { PriceGridPage, PriceGridQuery } from '@/core/models/price-watch' // Grid (935)
 // Matching (937)
 import type {
   ComparableMatchBody,
@@ -49,7 +51,13 @@ export const priceAlertsApi = {
 }
 
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 935)
+
+export const priceGridApi = {
+  /** ⚠ GUESSED (BO 4129, not built): `GET PriceWatch/Grid` (View) — one server page of the product grid. */
+  page(query: PriceGridQuery): Promise<PriceGridPage> {
+    return api.get<PriceGridPage>('PriceWatch/Grid', { ...query })
+  },
+}
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 936)
@@ -91,7 +99,16 @@ export const priceMatchingApi = {
 }
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 938)
+
+export const priceIndexApi = {
+  /**
+   * `POST Analytics/Query` (gated `Analytics:03`, not PriceWatch) with an inline definition — the price index and the
+   * lowest-price score live in Cube (BO 4132). Called from this feature's own api, never through the boards feature's.
+   */
+  query(query: AnalyticsSemanticQuery): Promise<AnalyticsQueryResult> {
+    return api.post<AnalyticsQueryResult>('Analytics/Query', { definition: { chart: { type: 'table' }, query } })
+  },
+}
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 

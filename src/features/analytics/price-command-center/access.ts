@@ -12,3 +12,11 @@ export const canViewPriceWatch = (p: Permissions): boolean => p.has('PriceWatch:
 
 /** `PriceWatch:06` — the decision and matching buttons. */
 export const canManagePriceWatch = (p: Permissions): boolean => p.has('PriceWatch:06')
+
+/**
+ * The Index tab (938): `PriceWatch:03` AND `Analytics:03`. The price index lives in Cube, read through
+ * `POST Analytics/Query`, whose door is gated `BackOfficeScreen[Analytics, 03]` — a PriceWatch-only user would get a 403
+ * there, so the tab is hidden for them. 🚩 Orchestrator ruling, owner ruling owed (ticket 938 Comments): or a BO
+ * PriceWatch door that proxies the index.
+ */
+export const canViewPriceIndex = (p: Permissions): boolean => canViewPriceWatch(p) && p.has('Analytics:03')

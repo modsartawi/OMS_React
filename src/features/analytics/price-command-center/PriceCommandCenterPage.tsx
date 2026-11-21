@@ -6,9 +6,10 @@ import { canViewPriceWatch } from './access'
 import MaterialDrillDown from './MaterialDrillDown'
 import TabStrip from './TabStrip'
 import { TAB_REGISTRY } from './tab-registry'
-import { defaultTab, visibleTabs, type TabId } from './tabs'
+import { defaultTab, pinTab, visibleTabs, type TabId } from './tabs'
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query' // 938
-import { DEFAULT_ALERT_FILTER, alertsRequest } from './alerts' // 938
+import { ownOpenAlertsRequest } from './alerts' // 938
 import { priceAlertsApi } from './api' // 938
 
 const NS = 'price-command-center'
@@ -38,6 +39,13 @@ function CommandCenter() {
   const ownOpenAlerts = useOwnOpenAlerts(visible, params.get('tab')) // 938
   const open = defaultTab(visible, params.get('tab'), ownOpenAlerts.known ? ownOpenAlerts.any : undefined)
   const Panel = TAB_REGISTRY.find((tab) => tab.id === open)?.Panel ?? null
+  // The default is decided once: pinned into the URL as soon as it is known, so a later re-read of the user's alerts
+  // (an Accept, a Dismiss or a Break invalidating them) cannot move the user to another tab.
+  useEffect(() => {
+    if (ownOpenAlerts.waiting || open === null) return
+    const pinned = pinTab(params, open)
+    if (pinned) setParams(pinned, { replace: true })
+  }, [ownOpenAlerts.waiting, open, params, setParams])
   if (ownOpenAlerts.waiting) return <p className="text-sm text-muted-foreground">{t('index.opening')}</p>
   if (open === null || Panel === null) return <p className="text-sm text-muted-foreground">{t('tabs.none')}</p>
   return (
@@ -60,12 +68,13 @@ function CommandCenter() {
 
 /**
  * 938: whether the user has open price alerts of their own — Alerts opens for them, Index for everyone else. Asked only
- * when it decides something (no tab in the URL, both Index and Alerts showing), on the Alerts tab's own default read
- * (Mine, live), so opening Alerts afterwards reads it from the cache. A failed read is "not known": Alerts, as before.
+ * when it decides something (no tab in the URL, both Index and Alerts showing), on Mine, live, at the server's largest
+ * `take` (`ownOpenAlertsRequest`; no OPEN-only filter on the wire — BO ask in ticket 938). A failed read is "not
+ * known": Alerts, as before. Once decided the tab is pinned in the URL, so this read is not asked again.
  */
 function useOwnOpenAlerts(visible: readonly TabId[], asked: string | null) {
   const decides = asked === null && visible.includes('index') && visible.includes('alerts')
-  const { scope, query } = alertsRequest(DEFAULT_ALERT_FILTER)
+  const { scope, query } = ownOpenAlertsRequest()
   const mine = useQuery({
     queryKey: ['price-watch', 'alerts', scope, query],
     queryFn: () => priceAlertsApi.list(scope, query),

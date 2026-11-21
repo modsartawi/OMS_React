@@ -22,6 +22,7 @@ import {
   INDEX_PERIODS,
   INDEX_TONE_SEVERITY,
   PRICE_BASES,
+  answerBasis,
   categoryTable,
   competitorIndexes,
   formatIndex,
@@ -34,6 +35,7 @@ import {
   scoreFigures,
   scoreQuery,
   scoreTrend,
+  trendSlot,
   type IndexGrain,
   type IndexPeriod,
   type PriceBasis,
@@ -76,10 +78,12 @@ export default function IndexTab() {
   const scoreOverTime = useCube('score-trend', scoreQuery(basis, grain, period))
 
   const name = competitorNamer(coverage.data ?? [])
+  // Each answer is read on the basis it was asked on: while the switch's next answer runs, the kept one stays readable.
+  const askedOn = (data: AnalyticsQueryResult | undefined): PriceBasis => answerBasis(data) ?? basis
   const scoreSpark = scoreOverTime.data
-    ? scoreTrend(scoreOverTime.data, basis).map((p) => ({ x: p.day, label: formatDay(p.day, locale), value: p.score }))
+    ? scoreTrend(scoreOverTime.data, askedOn(scoreOverTime.data)).map((p) => ({ x: p.day, label: formatDay(p.day, locale), value: p.score }))
     : []
-  const overall = scoreAll.data ? scoreFigures(scoreAll.data, basis)[0] : undefined
+  const overall = scoreAll.data ? scoreFigures(scoreAll.data, askedOn(scoreAll.data))[0] : undefined
 
   return (
     <div className="flex flex-col gap-5" data-index-tab="" data-index-basis={basis}>
@@ -122,13 +126,19 @@ export default function IndexTab() {
 
       <Section title={t('index.score.title')} explain={t('index.score.explain')} id="score">
         <Answer read={scoreAll}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-index-score-overall="">
             <ScoreTile label={t('index.score.overall')} flagged={overall?.flagged ?? null} counted={overall?.counted ?? null} spark={scoreSpark} />
-            {scoreEach.data &&
-              scoreFigures(scoreEach.data, basis).map((f) => (
-                <ScoreTile key={f.competitor} label={name(f.competitor)} flagged={f.flagged} counted={f.counted} spark={[]} />
-              ))}
           </div>
+        </Answer>
+        {/* Per competitor: its own read, so its loading or failure shows on its own, not hidden behind the overall one. */}
+        <Answer read={scoreEach}>
+          {scoreEach.data && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-index-score-each="">
+              {scoreFigures(scoreEach.data, askedOn(scoreEach.data)).map((f) => (
+                <ScoreTile key={f.competitor} label={name(f.competitor)} pair flagged={f.flagged} counted={f.counted} spark={[]} />
+              ))}
+            </div>
+          )}
         </Answer>
         <h4 className="mt-3 text-sm font-medium">{t('index.score.trendTitle')}</h4>
         <p className="text-xs text-muted-foreground">{t('index.score.trendExplain')}</p>
@@ -160,7 +170,7 @@ export default function IndexTab() {
                 </tr>
               </thead>
               <tbody>
-                {competitorIndexes(byCompetitor.data, basis).map((row) => (
+                {competitorIndexes(byCompetitor.data, askedOn(byCompetitor.data)).map((row) => (
                   <tr key={row.competitor} className="border-b border-border/50" data-index-competitor={row.competitor}>
                     <td className="py-1.5">
                       <Ltr>{name(row.competitor)}</Ltr>
@@ -181,13 +191,13 @@ export default function IndexTab() {
 
       <Section title={t('index.byCategory.title')} explain={t('index.byCategory.explain')} id="by-category">
         <Answer read={byCategory}>
-          {byCategory.data && <CategoryTableView table={categoryTable(byCategory.data, basis)} name={name} />}
+          {byCategory.data && <CategoryTableView table={categoryTable(byCategory.data, askedOn(byCategory.data))} name={name} />}
         </Answer>
       </Section>
 
       <Section title={t('index.trend.title')} explain={t('index.trend.explain')} id="trend">
         <Answer read={trend}>
-          {trend.data && <TrendChart trend={trend.data} basis={basis} name={name} locale={locale} label={t('index.trend.title')} />}
+          {trend.data && <TrendChart trend={trend.data} basis={askedOn(trend.data)} name={name} locale={locale} label={t('index.trend.title')} />}
         </Answer>
       </Section>
     </div>
@@ -254,14 +264,19 @@ export function IndexFigure({ index }: { index: number | null }) {
   )
 }
 
-/** A lowest-price score tile: flagged ÷ counted as a percent, with the two counts under it. */
+/**
+ * A lowest-price score tile: flagged ÷ counted as a percent, with the two counts under it. A competitor's label is a
+ * `code · name` pair (`pair`), a machine value isolated LTR like the tables; the overall label is a sentence.
+ */
 export function ScoreTile({
   label,
+  pair = false,
   flagged,
   counted,
   spark,
 }: {
   label: string
+  pair?: boolean
   flagged: number | null
   counted: number | null
   spark: readonly { x: string; label: string; value: number | null }[]
@@ -269,9 +284,7 @@ export function ScoreTile({
   const { t, i18n } = useTranslation(NS)
   return (
     <div className="rounded-lg border border-border/60 bg-card p-3" data-index-score-tile="">
-      <div className="text-sm font-medium">
-        <bdi>{label}</bdi>
-      </div>
+      <div className="text-sm font-medium">{pair ? <Ltr>{label}</Ltr> : <bdi>{label}</bdi>}</div>
       <KpiTile
         measureLabel={label}
         value={lowestPriceScore(flagged, counted)}
@@ -349,7 +362,7 @@ function TrendChart({
       form="line"
       stacking="none"
       colourBy="member"
-      series={competitors.map((c, i) => ({ key: c, label: name(c), slot: i, other: false, unit: 'count' }))}
+      series={competitors.map((c, i) => ({ key: c, label: name(c), slot: trendSlot(i), other: false, unit: 'count' }))}
       rows={points.map((p) => ({ x: p.day, label: formatDay(p.day, locale), values: p.values, slot: null }))}
       unit="count"
       format="decimal"

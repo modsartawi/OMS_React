@@ -75,8 +75,9 @@ export function historyChart(
     })
 
   for (const p of c.ourHistory ?? []) {
-    put(p.priceDay, 'ours.effective', p.isPriced ? p.effectivePrice : null)
-    put(p.priceDay, 'ours.basic', p.isPriced ? p.basicPrice : null)
+    // Through `day()` like every observation, so a stamped priceDay lines up with the competitors' rows.
+    put(day(p.priceDay), 'ours.effective', p.isPriced ? p.effectivePrice : null)
+    put(day(p.priceDay), 'ours.basic', p.isPriced ? p.basicPrice : null)
   }
   const ours = (price: SeriesPrice): SeriesSpec => ({ owner: 'ours', name: '', price, source: 'OURS', authoritative: true })
   add(ours('effective'), 'ours.effective', 0)

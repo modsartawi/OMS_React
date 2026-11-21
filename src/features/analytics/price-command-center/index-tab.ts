@@ -8,6 +8,7 @@
  * `competitor`, `category` (A-level) and `date` (grain `day` | `week`). Reconcile against `GET Analytics/Model` once the
  * 4132 image is released.
  */
+import { CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type { AnalyticsQueryResult, AnalyticsSemanticQuery, MeasureUnit, PeriodToken } from '@/core/models/analytics'
 import type { Severity } from '@/core/ui/severity'
 
@@ -171,6 +172,22 @@ export type IndexPeriod = (typeof INDEX_PERIODS)[number]
 /** The trend's grain: daily or weekly (Sunday weeks). */
 export type IndexGrain = 'day' | 'week'
 export const INDEX_GRAINS: readonly IndexGrain[] = ['day', 'week']
+
+/**
+ * The basis an answer was ASKED on, read off its measure columns (`shelf_…` / `paid_…`); `null` when it carries neither.
+ * The switch keeps the previous answer on screen while the next one runs, so the readers take the answer's own basis,
+ * never the switch's — else the kept answer is read with the other basis' key and every figure is blank.
+ */
+export function answerBasis(result: AnalyticsQueryResult | undefined): PriceBasis | null {
+  for (const column of result?.columns ?? []) {
+    const basis = PRICE_BASES.find((b) => column.key.startsWith(`${b}_`))
+    if (basis) return basis
+  }
+  return null
+}
+
+/** A trend line's colour slot: one per palette slot, past the palette ink grey (`null`), as the drill-down does. */
+export const trendSlot = (i: number): number | null => (i < CHART_SLOT_COUNT ? i : null)
 
 /** The index measure the switch picks — the one thing shelf/paid changes on an index query. */
 export const indexMeasure = (basis: PriceBasis): string => `${basis}_price_index`

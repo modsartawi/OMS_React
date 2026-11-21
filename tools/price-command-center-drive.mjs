@@ -7,7 +7,8 @@
 // `{ reason, note }`, refusals HTTP 400 with `PWT-` codes. Nothing GUESSED. Still owed: the dev walk on PriceWatch_Dev.
 //
 //   1. a manager (PriceWatch:03 + :06): the page opens on the Alerts tab; Mine is read by default (`Alerts/Mine`,
-//      status=live); the rows are ranked by value at risk whatever order they arrive in; only built tabs show.
+//      status=live); the rows are ranked by value at risk whatever order they arrive in; every built tab it may open
+//      shows (Alerts, Grid, Matching, Feed health — no Index without Analytics:03).
 //   2. a NOT_SET floor reads "Awaiting cost" with the lowest competitor price as a fact; no profitability verdict.
 //   3. Dismiss: disabled without a reason; OTHER without a note stays disabled and says why; with a note it sends
 //      `{ reason: 'OTHER', note }` trimmed. WRONG_MATCH warns that the product match is broken too.
@@ -16,6 +17,8 @@
 //   6. a viewer (PriceWatch:03 only): the price alerts show, no Accept / Dismiss.
 //   7. no View grant (PriceWatch:06 only): the denial, no tab strip, no PriceWatch read.
 //   8. RTL (oms.locale = ar): renders, no raw keys. No page errors anywhere.
+//   9. 938 default tab (PriceWatch:03 + :06 + Analytics:03): own OPEN alerts → Alerts, pinned as ?tab=alerts, and it
+//      stays on Alerts after a Dismiss leaves no OPEN alert behind; no OPEN alert → Index, pinned as ?tab=index.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/price-command-center-drive.mjs
@@ -70,7 +73,7 @@ const COVERAGE = [
 
 const browser = await chromium.launch()
 
-async function open(keys, { dir = 'ltr' } = {}) {
+async function open(keys, { dir = 'ltr', mine = () => MINE } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
   const errors = []
@@ -88,7 +91,8 @@ async function open(keys, { dir = 'ltr' } = {}) {
     if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
     if (path === 'Auth/Permissions') return route.fulfill(permissions(keys))
     if (path === 'PriceWatch/Matching/Coverage') return route.fulfill(envelope(COVERAGE))
-    if (path === 'PriceWatch/Alerts/Mine') return route.fulfill(envelope(MINE))
+    if (path === 'PriceWatch/Alerts/Mine') return route.fulfill(envelope(mine()))
+    if (path === 'Analytics/Query') return route.fulfill(envelope({ columns: [], rows: [] }))
     if (path === 'PriceWatch/Alerts') {
       const c = url.searchParams.get('competitor')
       return route.fulfill(envelope(c ? ALL.filter((a) => a.competitorCode === c) : ALL))
@@ -116,9 +120,10 @@ try {
     check('1. the page opens titled "Price command center"', body.includes('Price command center'))
     check('1. the Alerts tab is open', (await page.locator('[data-tab-panel]').getAttribute('data-tab-panel')) === 'alerts')
     const tabs = await page.locator('[role="tablist"] [data-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tab')))
-    check('1. only built tabs show', JSON.stringify(tabs) === JSON.stringify(['alerts']), JSON.stringify(tabs))
+    check('1. every built tab it may open shows, in strip order', JSON.stringify(tabs) === JSON.stringify(['alerts', 'grid', 'matching', 'feed-health']), JSON.stringify(tabs))
     const mine = calls.find((c) => c.path === 'PriceWatch/Alerts/Mine')
     check('1. Mine is read by default, live', !!mine && mine.params.status === 'live' && !calls.some((c) => c.path === 'PriceWatch/Alerts'), JSON.stringify(mine?.params))
+    check('1. the open tab is pinned in the URL', new URL(page.url()).searchParams.get('tab') === 'alerts', page.url())
     check('1. the Mine chip is pressed', (await page.locator('[data-alert-scope="mine"]').getAttribute('aria-pressed')) === 'true')
     const order = await page.locator('[data-alert-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-alert-row')))
     check('1. ranked by value at risk', JSON.stringify(order) === JSON.stringify(['A-big', 'A-mid', 'A-taken', 'A-small']), JSON.stringify(order))
@@ -211,6 +216,41 @@ try {
     check('8. RTL: no raw i18n keys', !rawKey(text), String(rawKey(text)))
     check('8. RTL: no page errors', errors.length === 0, errors.join(' | '))
     await page.screenshot({ path: 'tools/.price-command-center-shots/rtl.png', fullPage: true }).catch(() => {})
+    await context.close()
+  }
+
+  // ── 9: 938's default tab, decided once ──
+  {
+    // One OPEN alert of the user's own; once dismissed, Mine answers with none OPEN.
+    let dismissed = false
+    const own = () => (dismissed ? [alert({ alertId: 'A-only', status: 'DISMISSED' })] : [alert({ alertId: 'A-only' })])
+    const { page, context, errors, calls } = await open(['PriceWatch:03', 'PriceWatch:06', 'Analytics:03'], { mine: own })
+    page.on('request', (r) => r.url().includes('/A-only/Dismiss') && (dismissed = true))
+    await page.goto(ROOT)
+    await page.waitForSelector('[data-alert-row="A-only"]')
+    const tabs = await page.locator('[role="tablist"] [data-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tab')))
+    check('9. with Analytics:03 every tab shows, Index first', JSON.stringify(tabs) === JSON.stringify(['index', 'alerts', 'grid', 'matching', 'feed-health']), JSON.stringify(tabs))
+    check('9. own OPEN alerts open Alerts', (await page.locator('[data-tab-panel]').getAttribute('data-tab-panel')) === 'alerts')
+    check('9. …asked at the server’s largest take', calls.some((c) => c.path === 'PriceWatch/Alerts/Mine' && c.params.take === '500'))
+    check('9. …and pinned as ?tab=alerts', new URL(page.url()).searchParams.get('tab') === 'alerts', page.url())
+    await page.click('[data-alert-dismiss="A-only"]')
+    await page.locator('dialog [data-dismiss-reason]').selectOption('FLASH_SALE')
+    await page.locator('dialog [data-dismiss-confirm]').click()
+    await page.waitForSelector('text=Price alert dismissed.')
+    await page.waitForTimeout(500)
+    check('9. after the Dismiss leaves no OPEN alert, the page stays on Alerts',
+      (await page.locator('[data-tab-panel]').getAttribute('data-tab-panel')) === 'alerts' && new URL(page.url()).searchParams.get('tab') === 'alerts')
+    check('9. no page errors (alerts)', errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { page, context, errors } = await open(['PriceWatch:03', 'Analytics:03'], { mine: () => [alert({ alertId: 'A-done', status: 'ACCEPTED' })] })
+    await page.goto(ROOT)
+    await page.waitForSelector('[data-tab-panel="index"]')
+    check('9. no own OPEN alert opens Index', true)
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('tab') === 'index').catch(() => {})
+    check('9. …pinned as ?tab=index', new URL(page.url()).searchParams.get('tab') === 'index', page.url())
+    check('9. no page errors (index)', errors.length === 0, errors.join(' | '))
     await context.close()
   }
 } catch (e) {

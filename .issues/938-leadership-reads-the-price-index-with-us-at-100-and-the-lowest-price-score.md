@@ -65,3 +65,11 @@ Proofs green, and the tab walked against the released image.
   failed read falls back to Alerts.
 - Competitor names come from `PriceWatch/Matching/Coverage` (Cube gives codes only).
 
+- Review fixes (branch `t4127-review-fixes`): the decided default tab is now **pinned** into the URL (`?tab=`, replace,
+  other params kept — `pinTab`) as soon as it is known, so an Accept / Dismiss / Break re-reading Mine no longer yanks
+  the user from Alerts to Index. The own-open-alerts read now asks Mine, live, at the server's largest `take` (500,
+  `ownOpenAlertsRequest`) — its own cache key, no longer shared with the Alerts tab's default read.
+- 🚩 **BO ask:** the alert lists have no OPEN-only filter (`status` is `live|resolved|all`) and no paging/total, so
+  "has own open alerts" is judged from the first 500 live alerts (ACCEPTED / DISMISSED included). A user with > 500
+  live alerts, none OPEN in the first 500, reads as having none (opens on Index). Ask: `status=open` on
+  `PriceWatch/Alerts/Mine` (or a `Alerts/Mine/OpenCount` door).

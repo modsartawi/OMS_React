@@ -10,7 +10,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import '@/core/i18n'
-import { asIndex, indexTone, lowestPriceScore } from './index-tab'
+import type { AnalyticsQueryResult } from '@/core/models/analytics'
+import { answerBasis, asIndex, competitorIndexes, indexTone, lowestPriceScore, trendSlot } from './index-tab'
 import { IndexFigure, ScoreTile } from './IndexTab'
 
 describe('the price index with us at 100', () => {
@@ -60,5 +61,27 @@ describe('the lowest-price score', () => {
     expect(words).toContain('75.0%')
     expect(words).toContain('45 of 60 materials')
     expect(html).toContain('All competitors')
+  })
+})
+
+describe('review fixes', () => {
+  it('gives the trend a colour slot only within the palette; past it, ink grey (null)', () => {
+    expect([0, 1, 4, 5, 9].map(trendSlot)).toEqual([0, 1, 4, null, null])
+  })
+
+  it('reads an answer by the basis it was asked on, not the switch’s new one', () => {
+    const answer = (key: string): AnalyticsQueryResult =>
+      ({ columns: [{ key: 'competitor' }, { key, unit: 'share' }], rows: [{ competitor: 'NAHDI', [key]: 1.1 }] }) as unknown as AnalyticsQueryResult
+    expect(answerBasis(answer('paid_price_index'))).toBe('paid')
+    expect(answerBasis(answer('shelf_lowest_price_flagged'))).toBe('shelf')
+    expect(answerBasis(undefined)).toBeNull()
+    // The kept-previous shelf answer, read while the switch already says paid, still has its figure.
+    const kept = answer('shelf_price_index')
+    expect(competitorIndexes(kept, answerBasis(kept) ?? 'paid')[0].index).toBeCloseTo(110)
+  })
+
+  it('isolates a competitor score tile’s code · name pair as a machine value', () => {
+    const html = renderToStaticMarkup(createElement(ScoreTile, { label: 'NAHDI · Nahdi', pair: true, flagged: 1, counted: 2, spark: [] }))
+    expect(html).toMatch(/<bdi dir="ltr">NAHDI · Nahdi<\/bdi>/)
   })
 })

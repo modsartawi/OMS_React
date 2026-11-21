@@ -238,3 +238,23 @@ describe('accept and dismiss need the Manage grant', () => {
     expect(html).not.toContain('data-alert-dismiss="taken"')
   })
 })
+
+describe('a decision refused on a stale list reloads it (review fix)', () => {
+  it('reloads on PWT-00040 (changed), PWT-00035 (no longer open) and PWT-00034 (unknown)', () => {
+    expect(al.refusalReloadsAlerts('PWT-00040')).toBe(true)
+    expect(al.refusalReloadsAlerts('PWT-00035')).toBe(true)
+    expect(al.refusalReloadsAlerts('PWT-00034')).toBe(true)
+  })
+
+  it('does not reload on a refusal about the request itself', () => {
+    expect(al.refusalReloadsAlerts('PWT-00036')).toBe(false)
+    expect(al.refusalReloadsAlerts('PWT-00037')).toBe(false)
+    expect(al.refusalReloadsAlerts(null)).toBe(false)
+  })
+})
+
+describe('the own-open-alerts question reads as far as the server allows (review fix)', () => {
+  it('asks Mine, live, at the server’s largest take (500)', () => {
+    expect(al.ownOpenAlertsRequest()).toEqual({ scope: 'mine', query: { status: 'live', take: 500 } })
+  })
+})

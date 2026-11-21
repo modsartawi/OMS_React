@@ -34,3 +34,15 @@ export function defaultTab(visible: readonly TabId[], asked: string | null, ownO
   if (visible.includes('alerts')) return 'alerts'
   return visible[0] ?? null
 }
+
+/**
+ * The search string that pins a decided default tab (`?tab=`, every other parameter kept), or `null` when the URL
+ * already names one. Written once the default is decided, so a later re-read of the user's alerts (an Accept, a Dismiss
+ * or a Break invalidating them) cannot move the user to another tab.
+ */
+export function pinTab(params: URLSearchParams, tab: TabId): URLSearchParams | null {
+  if (params.get('tab') !== null) return null
+  const next = new URLSearchParams(params)
+  next.set('tab', tab)
+  return next
+}

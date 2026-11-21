@@ -227,3 +227,17 @@ describe('the authoritative series is solid and the other source faint, both lab
     expect(html).toContain('Our effective price')
   })
 })
+
+describe('our history and the competitors line up by day (review fix)', () => {
+  it('reads our priceDay through the same day key as an observation, whatever its stamp', () => {
+    const c = comparison({
+      ourHistory: [
+        { priceDay: '2026-11-20T00:00:00', isPriced: true, basicPrice: 25, effectivePrice: 25 },
+        { priceDay: '2026-11-21T00:00:00', isPriced: true, basicPrice: 25, effectivePrice: 22.5 },
+      ],
+    })
+    const { rows } = dd.historyChart(c, { locale: 'en', label })
+    expect(rows.map((r) => r.x)).toEqual(['2026-11-20', '2026-11-21'])
+    expect(rows[0].values).toMatchObject({ 'ours.effective': 25, 'NAHDI.MINDSITE.regular': 21 })
+  })
+})

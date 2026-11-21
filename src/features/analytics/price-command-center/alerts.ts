@@ -9,6 +9,7 @@
 import {
   DISMISS_NOTE_MAX,
   DISMISS_REASONS,
+  PRICE_ALERT_ERRORS,
   type DismissAlertBody,
   type DismissReason,
   type PriceAlertListStatus,
@@ -49,6 +50,27 @@ export function alertsRequest(filter: AlertFilter): { scope: AlertScope; query: 
   if (category) query.category = category
   if (competitor) query.competitor = competitor
   return { scope: filter.scope, query }
+}
+
+/** The server's largest `take` on the alert lists (1..500, default 100) — it has no paging and no total. */
+export const ALERTS_MAX_TAKE = 500
+
+/**
+ * 938: the read that answers "does the user have open price alerts of their own" — Mine, live, as far as the server
+ * allows. ⚠ The server has no OPEN-only filter (BO ask, ticket 938 Comments): a user with more than 500 live alerts,
+ * none of them OPEN within the first 500, would be read as having none.
+ */
+export function ownOpenAlertsRequest(): { scope: AlertScope; query: PriceAlertQuery } {
+  const { scope, query } = alertsRequest(DEFAULT_ALERT_FILTER)
+  return { scope, query: { ...query, take: ALERTS_MAX_TAKE } }
+}
+
+/**
+ * A refused Accept / Dismiss that says the list is stale: the alert moved (PWT-00040), is no longer open (PWT-00035) or
+ * is gone (PWT-00034). The list is read again so the next decision is taken on what stands now.
+ */
+export function refusalReloadsAlerts(code: string | null | undefined): boolean {
+  return code === PRICE_ALERT_ERRORS.alertChanged || code === PRICE_ALERT_ERRORS.alertNotOpen || code === PRICE_ALERT_ERRORS.alertUnknown
 }
 
 /** The server's own order, kept on the client: value at risk, then gap, both widest first, then the alert id. */

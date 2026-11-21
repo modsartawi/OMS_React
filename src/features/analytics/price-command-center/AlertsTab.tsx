@@ -21,7 +21,17 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { canManagePriceWatch } from './access'
 import AlertMaterialCell from './AlertMaterialCell'
-import { ALERT_STATES, DEFAULT_ALERT_FILTER, alertsRequest, formatGapPercent, recommendedView, shownAlerts, type AlertFilter, type AlertScope } from './alerts'
+import {
+  ALERT_STATES,
+  DEFAULT_ALERT_FILTER,
+  alertsRequest,
+  formatGapPercent,
+  recommendedView,
+  refusalReloadsAlerts,
+  shownAlerts,
+  type AlertFilter,
+  type AlertScope,
+} from './alerts'
 import { priceAlertsApi, priceWatchSharedApi } from './api'
 import DismissDialog from './DismissDialog'
 
@@ -55,8 +65,8 @@ export default function AlertsTab() {
   }
   const refused = (err: unknown) => {
     setRefusal(err)
-    // The alert moved since it was read: the list is reloaded so the next decision is taken on what stands now.
-    if (apiErrorCode(err) === PRICE_ALERT_ERRORS.alertChanged) void client.invalidateQueries({ queryKey: ALERTS_KEY })
+    // The alert moved, is no longer open or is gone: the list is reloaded so the next decision is taken on what stands now.
+    if (refusalReloadsAlerts(apiErrorCode(err))) void client.invalidateQueries({ queryKey: ALERTS_KEY })
   }
   const accept = useMutation({
     mutationFn: (alert: PriceAlertView) => priceAlertsApi.accept(alert.alertId),
@@ -71,8 +81,8 @@ export default function AlertsTab() {
       decided(t('alerts.dismissed'))
     },
     onError: (err) => {
-      // Refused inside the dialog, which stays open; a moved alert also reloads the list behind it.
-      if (apiErrorCode(err) === PRICE_ALERT_ERRORS.alertChanged) void client.invalidateQueries({ queryKey: ALERTS_KEY })
+      // Refused inside the dialog, which stays open; a stale alert also reloads the list behind it.
+      if (refusalReloadsAlerts(apiErrorCode(err))) void client.invalidateQueries({ queryKey: ALERTS_KEY })
     },
   })
   const rows = list.data ? shownAlerts(list.data, filter.state) : []

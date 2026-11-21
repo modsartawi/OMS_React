@@ -163,7 +163,8 @@ try {
     const flag = strip(await page.locator('[data-cross-check="PANDA"]').innerText())
     check('3. the cross-check flag names its count and margin', flag.includes('3 disagreements above 10.0 %'), flag)
     const href = await page.locator('[data-cross-check-material="100012345"]').getAttribute('href')
-    check('3. each material links to the drill-down', href === '/analytics/price-command-center?material=100012345', String(href))
+    const linked = new URL(href ?? '', BASE)
+    check('3. each material links to the drill-down, the open tab kept', linked.pathname === '/analytics/price-command-center' && linked.searchParams.get('material') === '100012345' && linked.searchParams.get('tab') === 'feed-health', String(href))
     check('3. both example materials listed', (await page.locator('[data-cross-check-material]').count()) === 2)
     check('3. the agreeing competitor says so', strip(await page.locator('[data-cross-check="AMAZON_SA"]').innerText()).includes('agree'))
 

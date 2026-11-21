@@ -13,7 +13,7 @@
 //   4. the cheapest mark follows the flag — on a competitor cell, and on ours when we lead.
 //   5. filters + sort reach the endpoint: competitor, competitorCheaper, sort=gap, A-level/B-level/brand on Apply.
 //   6. server paging: Next reads page=2.
-//   7. a row is not a link (936 adds the drill-down).
+//   7. a row's material number opens its drill-down (936), the open tab kept.
 //   8. RTL: renders, no raw keys. No page errors anywhere.
 //
 //   1. run the app:  npx vite --port 5199
@@ -147,8 +147,10 @@ try {
     check('4. no other cell of that row is marked', (await r1.locator('[data-grid-cheapest]').count()) === 1)
     check('4. ours is marked when we lead', (await r2.locator('[data-grid-ours] [data-grid-cheapest]').count()) === 1)
 
-    // 7. not a link
-    check('7. a row is not a link (936)', (await page.locator('.ag-row a').count()) === 0)
+    // 7. the material opens its drill-down (936)
+    const link = await page.locator('.ag-row a[data-open-drilldown]').first().getAttribute('href')
+    const linked = new URL(link ?? '', BASE)
+    check('7. a row’s material opens its drill-down, the open tab kept (936)', linked.pathname === '/analytics/price-command-center' && /^\d+$/.test(linked.searchParams.get('material') ?? '') && linked.searchParams.get('tab') === 'grid', String(link))
 
     // 5. filters + sort
     await page.locator('[data-grid-competitor]').selectOption('AMAZON_SA')

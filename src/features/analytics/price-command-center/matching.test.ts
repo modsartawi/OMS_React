@@ -263,3 +263,12 @@ describe('the Matching tab’s words', () => {
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })
+
+describe('the sales rank sentence isolates its value, not the whole sentence (review fix)', () => {
+  it('wraps only the rank in an isolate; the sentence keeps its own direction', async () => {
+    const { OurSide } = await import('./MatchingTab')
+    const html = draw(createElement(OurSide, { item: item('100000001', [], { salesRank: 12 }) }))
+    expect(html).toContain('Sales rank ⁨12⁩')
+    expect(html).not.toMatch(/<bdi dir="ltr">Sales rank/)
+  })
+})

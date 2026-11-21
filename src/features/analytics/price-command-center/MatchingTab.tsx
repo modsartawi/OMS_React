@@ -375,7 +375,7 @@ export function OurSide({ item }: { item: MatchingQueueItem }) {
           </Labelled>
         )}
         <span className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-          <Ltr>{t('matching.queue.salesRank', { rank: formatFigure(item.salesRank) })}</Ltr>
+          <span>{t('matching.queue.salesRank', { rank: fsi(formatFigure(item.salesRank)) })}</span>
           {item.isAddition && <StatusBadge sev="mute">{t('matching.queue.addition')}</StatusBadge>}
         </span>
       </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -19,7 +19,7 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import DrillDownLink from './DrillDownLink' // 936
-import { showsPager } from '@/core/ui/pager'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { priceGridApi, priceWatchSharedApi } from './api'
@@ -60,6 +60,14 @@ export default function GridTab() {
     retry: false,
     placeholderData: keepPreviousData,
   })
+  // A refetch can shrink the total under the open page (no pager left to step back with): fall back to the new last page.
+  const landed =
+    grid.data && !grid.isPlaceholderData
+      ? clampToLastPageWhenCurrentPageEmpties({ page, rowCount: grid.data.rows.length, totalMatches: grid.data.total, pageSize: GRID_PAGE_SIZE })
+      : page
+  useEffect(() => {
+    if (landed !== page) setPage(landed)
+  }, [landed, page])
   const columns = useMemo(() => gridColumns(grid.data?.competitors ?? [], t), [grid.data?.competitors, t])
   const apply = (next: GridFilter) => {
     setFilter(next)

@@ -14,7 +14,7 @@ import { ANALYTICS_MENU } from '@/layout/menu-analytics'
 import PriceCommandCenterPage from './PriceCommandCenterPage'
 import { canManagePriceWatch, canViewPriceIndex, canViewPriceWatch } from './access'
 import { TAB_REGISTRY } from './tab-registry'
-import { defaultTab, visibleTabs, type TabEntry } from './tabs'
+import { defaultTab, pinTab, visibleTabs, type TabEntry } from './tabs'
 
 const answer = (screens: string[]): PermissionsAnswer => ({
   screens,
@@ -104,5 +104,19 @@ describe('the Index tab (938)', () => {
   it('is first in the strip for a user who may open it', () => {
     expect(visibleTabs(TAB_REGISTRY, permissionsOf({ screens: ['PriceWatch:03', 'Analytics:03'] }))[0]).toBe('index')
     expect(visibleTabs(TAB_REGISTRY, permissionsOf({ screens: ['PriceWatch:03'] }))).not.toContain('index')
+  })
+})
+
+// Review fix: the default is decided ONCE and written to the URL, so a later re-read of Mine (an Accept, a Dismiss or a
+// Break invalidating it) cannot move the user off the tab they are working on.
+describe('the decided default tab is pinned in the URL', () => {
+  it('writes ?tab= once the URL names none, keeping every other parameter', () => {
+    const pinned = pinTab(new URLSearchParams('material=100012345'), 'alerts')
+    expect(pinned?.get('tab')).toBe('alerts')
+    expect(pinned?.get('material')).toBe('100012345')
+  })
+
+  it('leaves a URL that already names a tab alone', () => {
+    expect(pinTab(new URLSearchParams('tab=grid'), 'alerts')).toBeNull()
   })
 })

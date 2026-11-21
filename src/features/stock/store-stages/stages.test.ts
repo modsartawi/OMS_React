@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { StoreCountRow, StoreStage } from '@/core/models/store-stage'
+import type { StoreCountRow, StoreSeedStatus, StoreStage } from '@/core/models/store-stage'
 import {
   STAGES_DEFAULTS,
   WHY_MAX,
@@ -9,6 +9,7 @@ import {
   moveCommit,
   personMovesFrom,
   releaseCommit,
+  seedView,
   stageRow,
   stagesFiltersFromParams,
   stagesFiltersToParams,
@@ -131,5 +132,58 @@ describe('the count closing (BackOffice 3898)', () => {
     expect(releaseCommit({ row: row(false), why: 'x', pending: false }).canCommit).toBe(false)
     expect(releaseCommit({ row: row(true), why: '  ', pending: false }).canCommit).toBe(false)
     expect(releaseCommit({ row: row(true), why: 'a'.repeat(501), pending: false })).toEqual({ canCommit: false, tooLong: true })
+  })
+})
+
+describe('seedView — what the Count section shows of the seed', () => {
+  const run = (over: Partial<StoreSeedStatus>): StoreSeedStatus => ({
+    store: 'P077',
+    state: 'None',
+    kind: '',
+    reason: '',
+    askedAt: null,
+    endedAt: null,
+    batchRows: 0,
+    ofThisClosing: true,
+    released: false,
+    reopened: false,
+    ...over,
+  })
+
+  it('nothing before the seed is read', () => {
+    expect(seedView(null)).toEqual({ running: false, refusal: null, failure: null })
+    expect(seedView(undefined)).toEqual({ running: false, refusal: null, failure: null })
+  })
+
+  it('a run an earlier closing asked says nothing about this one', () => {
+    expect(seedView(run({ state: 'Refused', reason: 'old', ofThisClosing: false }))).toEqual({
+      running: false,
+      refusal: null,
+      failure: null,
+    })
+  })
+
+  it('a running seed', () => {
+    expect(seedView(run({ state: 'Running' })).running).toBe(true)
+  })
+
+  it('a refusal that holds the store shows its reason', () => {
+    expect(seedView(run({ state: 'Refused', reason: 'The count against SAP found 2 documents.' }))).toEqual({
+      running: false,
+      refusal: 'The count against SAP found 2 documents.',
+      failure: null,
+    })
+  })
+
+  it('a refusal that opened the count again is not shown as holding the store', () => {
+    expect(seedView(run({ state: 'Refused', kind: 'SalesOnTheirWay', reason: 'on its way', reopened: true })).refusal).toBeNull()
+  })
+
+  it('a failed seed shows its reason apart from a refusal', () => {
+    expect(seedView(run({ state: 'Failed', reason: 'The seed was interrupted.' }))).toEqual({
+      running: false,
+      refusal: null,
+      failure: 'The seed was interrupted.',
+    })
   })
 })

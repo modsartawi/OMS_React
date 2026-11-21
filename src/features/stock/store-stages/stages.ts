@@ -5,7 +5,7 @@
  * offers only those (any stage back to Shadow, Seeded to Blocking, Blocking back to Seeded) so a person is not invited to a
  * refusal. Shadow to Seeding is the count's closing and Seeding to Seeded the seed's: never a person's.
  */
-import type { StoreCountRow, StoreStage } from '@/core/models/store-stage'
+import type { StoreCountRow, StoreSeedStatus, StoreStage } from '@/core/models/store-stage'
 
 export const STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking'] as const
 export type StageName = (typeof STAGES)[number]
@@ -116,6 +116,24 @@ export function countState(row: StoreCountRow | null): CountState {
 /** "Count closed" is offered on an open count, and again on a closed one (the seed is asked again). */
 export function canAskCountClosed(row: StoreCountRow | null, granted: boolean, pending: boolean): boolean {
   return granted && !pending && countState(row) !== 'none'
+}
+
+/**
+ * What the Count section shows of the store's seed. Only a run that answers the store's present closed count is shown: a
+ * run an earlier closing asked says nothing about this one. A refusal that opened the count again is not shown as a
+ * refusal that holds the store (the section says the count is open again instead).
+ */
+export function seedView(status: StoreSeedStatus | null | undefined): {
+  running: boolean
+  refusal: string | null
+  failure: string | null
+} {
+  if (!status || !status.ofThisClosing) return { running: false, refusal: null, failure: null }
+  return {
+    running: status.state === 'Running',
+    refusal: status.state === 'Refused' && !status.reopened ? status.reason || null : null,
+    failure: status.state === 'Failed' ? status.reason || null : null,
+  }
 }
 
 /** The hand release may be sent on a closed count, with a reason of at most 500 characters (the log's width). */

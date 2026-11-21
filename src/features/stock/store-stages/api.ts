@@ -9,6 +9,7 @@
 import { api } from '@/core/api'
 import type {
   StoreCountCloseResult,
+  StoreSeedStatus,
   StoreCountRelease,
   StoreCountReleaseRequest,
   StoreCountRow,
@@ -46,6 +47,15 @@ export const storeStageApi = {
   /** Ticket 3898: `POST StoreStage/{store}/CountClosed` → what "count closed" did (a refused seed is in the answer). */
   countClosed(store: string): Promise<StoreCountCloseResult> {
     return api.post<StoreCountCloseResult>(`StoreStage/${encodeURIComponent(store)}/CountClosed`, {})
+  },
+
+  /**
+   * `GET StoreStage/{store}/Seed` → the store's seed as Stock Visibility last ran it. The seed runs on its own there and
+   * may outlast "count closed"; the screen reads this while it runs. A read that finds this closing's seed ended settles
+   * the count on the server (released, or opened again), and says so.
+   */
+  seedStatus(store: string): Promise<StoreSeedStatus> {
+    return api.get<StoreSeedStatus>(`StoreStage/${encodeURIComponent(store)}/Seed`)
   },
 
   /** Ticket 3898: `POST StoreStage/{store}/Release` → a closed count released by hand. A refusal is a business `ApiError`. */

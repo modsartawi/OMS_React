@@ -77,6 +77,28 @@ export interface StoreCountCloseResult {
   released: boolean
   batchRows: number
   seedRefusal: string | null
+  /** The seed had not ended when Stock Visibility answered: it runs on there, and the count stays closed. */
+  seedRunning?: boolean
+  /** The seed was refused for a sale still on its way to SAP (`seedRefusal` says which), and the count was opened again. */
+  reopened?: boolean
+}
+
+/** `GET StoreStage/{store}/Seed`: the store's seed as Stock Visibility last ran it, and what this read settled. */
+export interface StoreSeedStatus {
+  store: string
+  /** `None` | `Running` | `Seeded` | `Refused` | `Failed`. */
+  state: string
+  kind: string
+  reason: string
+  askedAt: string | null
+  endedAt: string | null
+  batchRows: number
+  /** The run answers the store's present closed count; false for a run an earlier closing asked. */
+  ofThisClosing: boolean
+  /** This read found the seed Seeded and released the store's count. */
+  released: boolean
+  /** This read found the seed refused for a sale still on its way to SAP, and opened the count again. */
+  reopened: boolean
 }
 
 /** The hand release's body. */

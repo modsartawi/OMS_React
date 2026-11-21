@@ -40,6 +40,7 @@ import {
   moveCommit,
   personMovesFrom,
   releaseCommit,
+  seedView,
   stageRow,
   stagesFiltersFromParams,
   stagesFiltersToParams,
@@ -52,6 +53,9 @@ const LIST_KEY = ['oms', 'store-stages', 'list'] as const
 const movesKey = (store: string) => ['oms', 'store-stages', 'moves', store] as const
 const COUNTS_KEY = ['oms', 'store-stages', 'counts'] as const
 const releasesKey = (store: string) => ['oms', 'store-stages', 'releases', store] as const
+const seedKey = (store: string) => ['oms', 'store-stages', 'seed', store] as const
+/** How often the Count section reads a running seed. */
+const SEED_POLL_MS = 4000
 
 /**
  * Store stages (BackOffice ticket 3899, spec 3849 user stories 49 and 54): each store's stage at Stock Visibility and its
@@ -379,9 +383,21 @@ function CountSection({
   const { t } = useTranslation('store-stages')
   const queryClient = useQueryClient()
   const [refusal, setRefusal] = useState<string | null>(null)
+  // The count was opened again because its seed found sales still on their way to SAP: the seed's own words.
+  const [reopened, setReopened] = useState<string | null>(null)
   const [why, setWhy] = useState('')
   const inFlight = useRef(false)
   const state = countState(count)
+  // The seed runs on its own at Stock Visibility and may outlast "count closed": while the count is closed its run is
+  // read, every few seconds while it runs. The read that finds it ended settles the count on the server.
+  const seed = useQuery({
+    queryKey: seedKey(store),
+    queryFn: () => storeStageApi.seedStatus(store),
+    enabled: state === 'closed',
+    refetchInterval: (query) => (query.state.data?.ofThisClosing && query.state.data.state === 'Running' ? SEED_POLL_MS : false),
+    retry: false,
+  })
+  const seedShown = seedView(state === 'closed' ? seed.data : null)
   const releases = useQuery({ queryKey: releasesKey(store), queryFn: () => storeStageApi.releases(store), retry: false })
 
   const refresh = () => {
@@ -391,14 +407,34 @@ function CountSection({
     void queryClient.invalidateQueries({ queryKey: releasesKey(store) })
   }
 
+  // What a read of the seed's run settled: released (Seeded) or opened again (sales still on their way to SAP).
+  const settledAt = seed.data && (seed.data.released || seed.data.reopened) ? seed.dataUpdatedAt : 0
+  useEffect(() => {
+    if (!settledAt || !seed.data) return
+    if (seed.data.released) notify.success(t('count.released.title'), t('count.released.detail', { store: fsi(store) }))
+    if (seed.data.reopened) {
+      setReopened(seed.data.reason)
+      setRefusal(null)
+    }
+    refresh()
+    // Only when a read settles the count: `refresh` and `t` are stable enough for this one-shot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settledAt])
+
   const close = useMutation({
     mutationFn: () => storeStageApi.countClosed(store),
+    onMutate: () => {
+      setRefusal(null)
+      setReopened(null)
+    },
     onSettled: () => {
       inFlight.current = false
       refresh()
+      void queryClient.invalidateQueries({ queryKey: seedKey(store) })
     },
     onSuccess: (result) => {
-      setRefusal(result?.seedRefusal ?? null)
+      if (result?.reopened) setReopened(result.seedRefusal ?? '')
+      else setRefusal(result?.seedRefusal ?? null)
       if (result?.released) notify.success(t('count.released.title'), t('count.released.detail', { store: fsi(store) }))
     },
   })
@@ -438,7 +474,7 @@ function CountSection({
         </>
       )}
 
-      {canAskCountClosed(count, canClose, close.isPending) && (
+      {canAskCountClosed(count, canClose, close.isPending) && !seedShown.running && (
         <div className="flex flex-col gap-1.5">
           <p className="text-xs text-muted-foreground">{t('count.closeHint')}</p>
           <div className="flex justify-end">
@@ -461,7 +497,38 @@ function CountSection({
       {close.isError && (
         <ErrorBanner className="p-2.5" title={t('count.failedTitle')} message={apiErrorMessage(close.error, t('count.failed'))} />
       )}
-      {refusal && <ErrorBanner className="p-2.5" title={t('count.seedRefusedTitle')} message={refusal} />}
+      {seedShown.running && (
+        <div
+          role="status"
+          className="flex gap-2 rounded-lg border border-border/60 bg-card/40 p-2.5 text-[0.8125rem]"
+          data-stage-count-seed="running"
+        >
+          <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+          <div className="flex flex-col gap-0.5">
+            <span className="font-semibold">{t('count.seedRunningTitle')}</span>
+            <span className="text-muted-foreground">{t('count.seedRunning')}</span>
+          </div>
+        </div>
+      )}
+      {(refusal ?? seedShown.refusal) && (
+        <ErrorBanner className="p-2.5" title={t('count.seedRefusedTitle')} message={(refusal ?? seedShown.refusal)!} />
+      )}
+      {seedShown.failure && <ErrorBanner className="p-2.5" title={t('count.seedFailedTitle')} message={seedShown.failure} />}
+      {reopened !== null && state !== 'closed' && (
+        <div
+          role="status"
+          className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card/40 p-2.5 text-[0.8125rem]"
+          data-stage-count-seed="reopened"
+        >
+          <span className="font-semibold">{t('count.reopenedTitle')}</span>
+          <span className="text-muted-foreground">{t('count.reopened')}</span>
+          {reopened && (
+            <bdi dir="auto" className="whitespace-normal break-words">
+              {reopened}
+            </bdi>
+          )}
+        </div>
+      )}
 
       {state === 'closed' && canRelease && (
         <form

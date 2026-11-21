@@ -17,7 +17,7 @@ const CODE = 'font-mono text-[12px]'
 export const STAGE_COLUMN_IDS = ['store', 'stage', 'lastFrom', 'lastMover', 'lastWho', 'lastWhy', 'lastMovedAt'] as const
 
 /** The movers SIS.Stock logs, so each has its label in both locales. */
-export const MOVERS = ['Person', 'CountClosing', 'Seed'] as const
+export const MOVERS = ['Person', 'CountClosing', 'Seed', 'CountReopening'] as const
 
 /** The stage's colour: Shadow is quiet, Seeding in motion, Seeded ready, Blocking live. */
 export const STAGE_SEVERITY: Record<string, Severity> = { Shadow: 'mute', Seeding: 'warn', Seeded: 'go', Blocking: 'ok' }

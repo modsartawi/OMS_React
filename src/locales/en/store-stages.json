@@ -21,7 +21,8 @@
   "mover": {
     "Person": "A person",
     "CountClosing": "Count closing",
-    "Seed": "The seed"
+    "Seed": "The seed",
+    "CountReopening": "The count reopened"
   },
   "filters": {
     "store": "Store",
@@ -94,6 +95,11 @@
     "failed": "The count could not be closed. Try again in a moment.",
     "readFailed": "The store's count could not be read.",
     "seedRefusedTitle": "The seed was refused: the store stays held",
+    "seedRunningTitle": "The seed is running",
+    "seedRunning": "Stock Visibility is seeding this store: it counts the store against SAP and reads its batch stock, which can take several minutes. This page follows it. The store stays held until the seed ends.",
+    "seedFailedTitle": "The seed did not finish: the store stays held",
+    "reopenedTitle": "The count is open again",
+    "reopened": "The seed found sales of the count day or earlier that are not in SAP yet. A closed count holds those sales too, so the count was opened again: they now go on to SAP, and later sales stay held. Press Count closed again once they are posted.",
     "released": {
       "title": "Count released",
       "detail": "{{store}} is Seeded; its count row is deleted."
@@ -123,7 +129,8 @@
     },
     "kind": {
       "Seeded": "The seed wrote Seeded",
-      "ByHand": "By hand"
+      "ByHand": "By hand",
+      "Reopened": "Opened again: sales still on their way to SAP"
     }
   }
 }

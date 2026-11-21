@@ -1,6 +1,6 @@
 ---
 status: open
-spec: BackOffice 4110
+spec: BackOffice 4127
 blocked-by: —
 ---
 
@@ -8,7 +8,7 @@ blocked-by: —
 
 ## What to build
 
-**Tracer bullet for the page** (BackOffice spec 4110, decision 8). A new Analytics page, the **price command
+**Tracer bullet for the page** (BackOffice spec 4127, decision 8). A new Analytics page, the **price command
 center**, shown only to a user holding the PriceWatch View grant (`GET PriceWatch/Access`). Its tab strip is
 Index · Alerts · Grid · Matching · Feed health; tabs whose tickets are not built yet are hidden. This ticket ships
 the shell and **Alerts**:
@@ -23,7 +23,7 @@ the shell and **Alerts**:
   refusals are shown like any other refusal.
 - Glossary wording (EN/AR): price alert, product match, competitor price. Never "notification" or "mapping".
 
-Spec: `C:\Work\DMSCO\BackOffice\.issues\4110-price-command-center-release-1b-mindsite-as-a-second-source-the-page-and-the-product-grid-spec.md`.
+Spec: `C:\Work\DMSCO\BackOffice\.issues\4127-price-command-center-release-1b-mindsite-as-a-second-source-the-page-and-the-product-grid-spec.md`.
 
 ## Spine reach
 

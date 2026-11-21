@@ -1,14 +1,14 @@
 ---
 status: open
-spec: BackOffice 4110
-blocked-by: 934, BO 4115
+spec: BackOffice 4127
+blocked-by: 934, BO 4132
 ---
 
 # 938 — Leadership reads the price index with us at 100, and the lowest-price score
 
 ## What to build
 
-The **Index** tab (BackOffice spec 4110, decisions 5 and 8), read from Cube (BO 4115).
+The **Index** tab (BackOffice spec 4127, decisions 5 and 8), read from Cube (BO 4132).
 
 - **The price index per competitor**, shelf and paid. We are 100, and a competitor above 100 is dearer (the CMO's
   Mindsite sense). It is coloured so that "competitor cheaper than us" reads as the warning.
@@ -18,7 +18,7 @@ The **Index** tab (BackOffice spec 4110, decisions 5 and 8), read from Cube (BO 
 - This becomes the page's first tab once it ships. Alerts stays the default for a user with open alerts of their
   own **(default)**.
 
-Spec: `C:\Work\DMSCO\BackOffice\.issues\4110-price-command-center-release-1b-mindsite-as-a-second-source-the-page-and-the-product-grid-spec.md`.
+Spec: `C:\Work\DMSCO\BackOffice\.issues\4127-price-command-center-release-1b-mindsite-as-a-second-source-the-page-and-the-product-grid-spec.md`.
 
 ## Spine reach
 
@@ -32,7 +32,7 @@ UI (index tab, Cube queries)
 
 ## Boundaries
 
-Needs BO 4115 and its image released.
+Needs BO 4132 and its image released.
 
 ## Done when
 
@@ -40,4 +40,4 @@ Proofs green, and the tab walked against the released image.
 
 ## Blocked by
 
-[934](934-the-price-command-center-page-opens-on-the-price-alerts-with-accept-and-dismiss.md), BackOffice [4115](C:\Work\DMSCO\BackOffice\.issues\4115-the-price-index-reads-us-as-100-counts-only-authoritative-prices-and-the-lowest-price-score-is-added.md)
+[934](934-the-price-command-center-page-opens-on-the-price-alerts-with-accept-and-dismiss.md), BackOffice [4132](C:\Work\DMSCO\BackOffice\.issues\4132-the-price-index-reads-us-as-100-counts-only-authoritative-prices-and-the-lowest-price-score-is-added.md)

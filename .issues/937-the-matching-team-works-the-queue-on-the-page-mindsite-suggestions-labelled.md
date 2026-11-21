@@ -1,6 +1,6 @@
 ---
 status: open
-spec: BackOffice 4110
+spec: BackOffice 4127
 blocked-by: 934
 ---
 
@@ -8,16 +8,16 @@ blocked-by: 934
 
 ## What to build
 
-The **Matching** tab (BackOffice spec 4110, decision 8), on existing endpoints (BO 3501).
+The **Matching** tab (BackOffice spec 4127, decision 8), on existing endpoints (BO 3501).
 
 - Pick a competitor, then work its queue in our sales order: each candidate shows both images, titles, sizes and
   barcodes. The actions are **Exact**, **Comparable**, **Not the same**, and **Not carried** for the material.
 - **Request discovery** for a material, and **confirm by URL**.
 - **Coverage** per competitor: matched, not carried, still open.
-- A candidate whose origin is `MINDSITE` (BO 4118) carries a **"suggested by Mindsite"** label. Until 4118 ships,
+- A candidate whose origin is `MINDSITE` (BO 4135) carries a **"suggested by Mindsite"** label. Until 4135 ships,
   no candidate has that origin and the label never shows.
 
-Spec: `C:\Work\DMSCO\BackOffice\.issues\4110-price-command-center-release-1b-mindsite-as-a-second-source-the-page-and-the-product-grid-spec.md`.
+Spec: `C:\Work\DMSCO\BackOffice\.issues\4127-price-command-center-release-1b-mindsite-as-a-second-source-the-page-and-the-product-grid-spec.md`.
 
 ## Spine reach
 
@@ -32,7 +32,7 @@ UI (matching tab, wire types, api)
 
 ## Boundaries
 
-Endpoints exist now. The label lights up with BO 4118.
+Endpoints exist now. The label lights up with BO 4135.
 
 ## Done when
 

@@ -11,6 +11,7 @@ import { PRICE_SOURCES } from '@/core/models/price-watch' // 936
 import { hasLocaleKey } from '@/core/test/locale'
 import { ALERT_STATES } from './alerts'
 import { TAB_IDS } from './tabs'
+import { INDEX_GRAINS, INDEX_PERIODS, INDEX_TONES, PRICE_BASES } from './index-tab' // Index (938)
 
 const leaves = (node: unknown, prefix = ''): string[] =>
   typeof node !== 'object' || node === null ? [prefix] : Object.entries(node).flatMap(([k, v]) => leaves(v, prefix ? `${prefix}.${k}` : k))
@@ -30,6 +31,11 @@ describe('price-command-center — en and ar', () => {
       ...DISMISS_REASONS.map((r) => `dismiss.reason.${r}`),
       ...['reasonRequired', 'noteRequired', 'noteTooLong'].map((p) => `dismiss.problem.${p}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
+      // Index (938)
+      ...INDEX_TONES.map((tone) => `index.tone.${tone}`),
+      ...PRICE_BASES.flatMap((b) => [`index.basis.${b}`, `index.basisHint.${b}`]),
+      ...INDEX_PERIODS.map((p) => `index.period.${p}`),
+      ...INDEX_GRAINS.map((g) => `index.trend.grain.${g}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
@@ -53,5 +59,7 @@ describe('price-command-center — en and ar', () => {
     expect(JSON.stringify(en)).toMatch(/price alert/)
     expect(JSON.stringify(en)).toMatch(/product match/)
     expect(JSON.stringify(en)).toMatch(/competitor price/i)
+    expect(JSON.stringify(en)).toMatch(/price index/) // 938
+    expect(JSON.stringify(en)).toMatch(/lowest-price score/) // 938
   })
 })

@@ -135,7 +135,104 @@ export interface DismissAlertBody {
 }
 
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 935)
+//
+// ⚠ GUESSED (BO 4129) — the product grid door is NOT built yet. Shape guessed from the BO 4129 ticket text and the
+// existing PriceWatch DTO style (camelCase, string code enums, `PWT-` codes, null stamps), per the 4127 contract notes.
+// Reconcile owed once 4129 ships: route, paging spelling (`page`/`pageSize` vs `skip`/`take`), cell keying, and field
+// names are all guesses. Nothing here has met a live server.
+
+/** The `PWT-` refusal codes the Grid tab reads by name. GUESSED: 4129 adds none we know of; the shared ones apply. */
+export const PRICE_GRID_ERRORS = {
+  /** Unknown competitor code in the `competitor` filter. */
+  competitorUnknown: 'PWT-00003',
+} as const
+
+/** A competitor cell's state (BO 4129 ticket text, exact codes). Stale is a flag beside it, not a state. */
+export const PRICE_GRID_CELL_STATES = ['PRICED', 'OOS', 'NOT_CARRIED', 'NO_MATCH', 'COMPARABLE_ONLY'] as const
+export type PriceGridCellState = (typeof PRICE_GRID_CELL_STATES)[number]
+
+/** A price's source (BO 4128): the scraper or Mindsite. */
+export type PriceWatchSource = 'SCRAPER' | 'MINDSITE'
+
+/** The grid's sort: our trailing-30-day units (default) or the widest gap first. */
+export const PRICE_GRID_SORTS = ['units', 'gap'] as const
+export type PriceGridSort = (typeof PRICE_GRID_SORTS)[number]
+
+/** One grid column: a competitor, in the server's column order. */
+export interface PriceGridCompetitor {
+  competitorCode: string
+  name: string
+  /** `pharmacy` | `marketplace` (free text in the DB). A marketplace cell names its seller. */
+  kind: string
+  authoritativeSource: PriceWatchSource
+}
+
+/** One competitor's cell in a row. Prices are the authoritative source's only. */
+export interface PriceGridCell {
+  competitorCode: string
+  state: PriceGridCellState
+  /** offer ?? regular. OOS keeps its LAST price here; NOT_CARRIED / NO_MATCH / COMPARABLE_ONLY carry null. */
+  paidPrice: number | null
+  regularPrice: number | null
+  offerPrice: number | null
+  /** (regular − offer) ÷ regular × 100. */
+  offerPercent: number | null
+  sellerName: string
+  isPlatformSeller: boolean
+  inStock: boolean
+  observedAt: string | null
+  /** No price within the stale window (36 h default). */
+  isStale: boolean
+  /** The (tied-)cheapest price of the row — ours takes part through `row.isCheapest`. */
+  isCheapest: boolean
+  /** Comparison sense: NEGATIVE = the competitor is cheaper. */
+  gapPercent: number | null
+  source: PriceWatchSource
+}
+
+/** One watched material. */
+export interface PriceGridRow {
+  materialNumber: string
+  title: string
+  brand: string
+  aLevel: string
+  bLevel: string
+  currency: string
+  basicPrice: number | null
+  effectivePrice: number | null
+  isPriced: boolean
+  dealText: string
+  appliedDealText: string
+  thirtyDayUnits: number
+  /** OUR price is the (tied-)cheapest of the row. */
+  isCheapest: boolean
+  widestGapPercent: number | null
+  /** One per `competitors[]` entry; read by `competitorCode`, never by position. */
+  cells: PriceGridCell[]
+}
+
+/** `GET PriceWatch/Grid` answer: one page of rows, the column order, and the total. */
+export interface PriceGridPage {
+  total: number
+  page: number
+  pageSize: number
+  competitors: PriceGridCompetitor[]
+  rows: PriceGridRow[]
+}
+
+/** `GET PriceWatch/Grid` query — blanks are dropped by `buildQuery`. */
+export interface PriceGridQuery {
+  aLevel?: string
+  bLevel?: string
+  brand?: string
+  competitor?: string
+  /** true = only rows where a competitor's authoritative paid price is below our effective price. */
+  competitorCheaper?: boolean
+  sort: PriceGridSort
+  /** 1-based. */
+  page: number
+  pageSize: number
+}
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -250,17 +347,114 @@ export interface OurPriceDay {
 /**
  * `POST PriceWatch/Matches/{matchId}/Break` (Manage) answer — the `MatchWire` (`PriceWatchMatchService.cs`). Breaking
  * closes the pair's live price alert (MATCH_BROKEN) and sends the material back to matching. Refusals PWT-00025/00026.
+ * The wire is declared once, as the Matching section's `PriceWatchMatch` (937).
  */
-export interface BrokenMatchWire {
+export type BrokenMatchWire = PriceWatchMatch
+
+// ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
+// The product-matching doors (BO 3501, shipped): `Matching/{competitor}/Queue`, the candidate decisions, `NotCarried`,
+// `Discovery`, `Matches/ConfirmByUrl`. Coverage is the shared `PriceWatchCoverage` above.
+
+/** The `PWT-` refusal codes the Matching tab reads by name (`PriceWatchErrorCodes.cs`). */
+export const PRICE_MATCHING_ERRORS = {
+  /** Confirm by URL / Not carried: blank material. */
+  materialRequired: 'PWT-00001',
+  /** Confirm by URL: not an absolute https URL of at most 800 characters. */
+  urlInvalid: 'PWT-00002',
+  /** Unknown competitor code. */
+  competitorUnknown: 'PWT-00003',
+  /** The listing is already matched to another material (break that product match first). */
+  listingAlreadyMatched: 'PWT-00004',
+  /** No such candidate. */
+  candidateUnknown: 'PWT-00020',
+  /** The candidate was already decided — the queue moved since it was read. */
+  candidateClosed: 'PWT-00021',
+  /** The material already holds an unbroken product match at that competitor. */
+  materialAlreadyMatched: 'PWT-00022',
+  /** The material is marked not carried at that competitor. */
+  materialNotCarried: 'PWT-00023',
+  /** Comparable needs both sizes in comparable units (g / ml / piece). */
+  sizesNotComparable: 'PWT-00024',
+} as const
+
+/** Confirm by URL: the URL's ceiling (`PWT-00002`). */
+export const MATCH_URL_MAX = 800
+
+/** Our side of a queued material. `imageUrl` is always '' today (no product images on our side). */
+export interface MatchingOurSide {
+  title: string
+  brand: string
+  sizeValue: number
+  sizeUnit: string
+  imageUrl: string
+  barcodes: string[]
+  basicPrice: number | null
+  effectivePrice: number | null
+  currency: string
+  priceDay: string | null
+}
+
+/**
+ * ⚠ GUESSED (BO 4135) — a candidate's origin. Codes mirror the price-source codes; a pre-4135 server sends no origin at
+ * all, which reads as the scraper's. A less likely spelling is `candidateOrigin`; both are read.
+ */
+export type MatchingCandidateOrigin = 'SCRAPER' | 'MINDSITE'
+
+/** One competitor listing offered for a material, best rank first. */
+export interface MatchingCandidate {
+  candidateId: string
+  rank: number
+  listingId: string
+  url: string
+  title: string
+  brand: string
+  sizeText: string
+  sizeValue: number
+  sizeUnit: string
+  imageUrl: string
+  barcodes: string[]
+  regularPrice: number | null
+  offerPrice: number | null
+  currency: string
+  observedAt: string | null
+  sellerName: string
+  isPlatformSeller: boolean
+  inStock: boolean
+  foundAt: string
+  /** ⚠ GUESSED (BO 4135): absent until 4135 ships. */
+  origin?: string
+  /** ⚠ GUESSED (BO 4135): the less likely spelling of `origin`. */
+  candidateOrigin?: string
+}
+
+/** One material in the queue, in our sales order. `candidates: []` = discovery found none (confirm a URL instead). */
+export interface MatchingQueueItem {
+  materialNumber: string
+  salesRank: number
+  netSalesValue: number
+  isAddition: boolean
+  ours: MatchingOurSide
+  candidates: MatchingCandidate[]
+}
+
+/** `GET PriceWatch/Matching/{competitor}/Queue?take=` (View). `open` counts every open material, not just this page. */
+export interface MatchingQueue {
+  competitorCode: string
+  competitorName: string
+  open: number
+  items: MatchingQueueItem[]
+}
+
+/** A product match (`MatchWire`) — the answer to Exact, Comparable and Break. `brokenAt` is year-1 while unbroken. */
+export interface PriceWatchMatch {
   matchId: string
   materialNumber: string
   listingId: string
   competitorCode: string
-  matchKind: PriceMatchKind
-  madeBy: PriceMatchMadeBy
+  matchKind: 'Exact' | 'Comparable'
+  madeBy: 'Barcode' | 'Person'
   matchedByUser: string
   matchedAt: string
-  /** '' for a barcode or URL match. */
   candidateId: string
   ourSizeValue: number
   ourSizeUnit: string
@@ -269,15 +463,70 @@ export interface BrokenMatchWire {
   mayAlert: boolean
   isBroken: boolean
   brokenBy: string
-  /** Year-1 while unbroken. */
   brokenAt: string
 }
 
-// ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 937)
+/** `POST …/Candidates/{candidateId}/Comparable` optional body: omitted / ≤ 0 = the server reads the sizes itself. */
+export interface ComparableMatchBody {
+  ourSizeValue?: number
+  ourSizeUnit?: string
+  theirSizeValue?: number
+  theirSizeUnit?: string
+}
+
+/** `POST …/Candidates/{candidateId}/NotTheSame` answer. */
+export interface NotTheSameResult {
+  candidateId: string
+  materialNumber: string
+  competitorCode: string
+  listingId: string
+  outcome: 'NOT_SAME'
+  outcomeBy: string
+  outcomeAt: string
+}
+
+/** `POST PriceWatch/Matching/{competitor}/NotCarried` answer (idempotent: keeps the first mark). */
+export interface NotCarriedResult {
+  materialNumber: string
+  competitorCode: string
+  markedBy: string
+  markedAt: string
+}
+
+/** `POST PriceWatch/Matching/{competitor}/Discovery` answer — how many materials were asked of the scraper. */
+export interface DiscoveryResult {
+  requested: number
+}
+
+/** `POST PriceWatch/Matches/ConfirmByUrl` body. */
+export interface ConfirmByUrlBody {
+  material: string
+  competitorCode: string
+  url: string
+}
+
+/** `POST PriceWatch/Matches/ConfirmByUrl` answer (idempotent for the same material). */
+export interface ConfirmByUrlResult {
+  matchId: string
+  materialNumber: string
+  listingId: string
+  competitorCode: string
+  matchKind: 'Exact'
+  madeBy: 'Person'
+}
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 938)
+// No PriceWatch door: the Index tab reads Cube through `POST Analytics/Query` (gated `BackOfficeScreen[Analytics, 03]`),
+// so its wire types are `AnalyticsSemanticQuery` / `AnalyticsQueryResult` (`@/core/models/analytics`).
+// ⚠ GUESSED (BO 4132, not built): the member names — see `features/analytics/price-command-center/index-tab.ts`.
+
+/** The `ANALYTICS-` refusals the Index tab reads by name (the Analytics query door, not `PriceWatchErrorCodes.cs`). */
+export const PRICE_INDEX_ERRORS = {
+  /** A member the model does not hold (e.g. the lowest-price score before the 4132 image): the definition is refused. */
+  definitionInvalid: 'ANALYTICS-406',
+  /** The area is not loaded on this server yet. */
+  areaUnavailable: 'ANALYTICS-410',
+} as const
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 939)

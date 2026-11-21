@@ -10,6 +10,19 @@ import type { DismissAlertBody, PriceAlertQuery, PriceAlertView, PriceWatchCover
 import type { AlertScope } from './alerts'
 // Drill-down (936)
 import type { BrokenMatchWire, PriceWatchComparison } from '@/core/models/price-watch'
+import type { AnalyticsQueryResult, AnalyticsSemanticQuery } from '@/core/models/analytics' // Index (938)
+import type { PriceGridPage, PriceGridQuery } from '@/core/models/price-watch' // Grid (935)
+// Matching (937)
+import type {
+  ComparableMatchBody,
+  ConfirmByUrlBody,
+  ConfirmByUrlResult,
+  DiscoveryResult,
+  MatchingQueue,
+  NotCarriedResult,
+  NotTheSameResult,
+  PriceWatchMatch,
+} from '@/core/models/price-watch'
 
 // ── Shared ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -38,7 +51,13 @@ export const priceAlertsApi = {
 }
 
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 935)
+
+export const priceGridApi = {
+  /** ⚠ GUESSED (BO 4129, not built): `GET PriceWatch/Grid` (View) — one server page of the product grid. */
+  page(query: PriceGridQuery): Promise<PriceGridPage> {
+    return api.get<PriceGridPage>('PriceWatch/Grid', { ...query })
+  },
+}
 
 // ── Drill-down (936) ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -58,10 +77,52 @@ export const priceDrillDownApi = {
 }
 
 // ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 937)
+
+const candidatePath = (candidateId: string, verb: string) => `PriceWatch/Matching/Candidates/${encodeURIComponent(candidateId)}/${verb}`
+const competitorPath = (competitor: string, verb: string) => `PriceWatch/Matching/${encodeURIComponent(competitor)}/${verb}`
+
+export const priceMatchingApi = {
+  /** `GET PriceWatch/Matching/{competitor}/Queue?take=` (View) — our sales order, best candidate first. */
+  queue(competitor: string, take?: number): Promise<MatchingQueue> {
+    return api.get<MatchingQueue>(competitorPath(competitor, 'Queue'), { take })
+  },
+  /** `POST …/Candidates/{candidateId}/Exact` (Manage), no body. */
+  exact(candidateId: string): Promise<PriceWatchMatch> {
+    return api.post<PriceWatchMatch>(candidatePath(candidateId, 'Exact'), {})
+  },
+  /** `POST …/Candidates/{candidateId}/Comparable` (Manage) — an empty body lets the server read both sizes. */
+  comparable(candidateId: string, body: ComparableMatchBody = {}): Promise<PriceWatchMatch> {
+    return api.post<PriceWatchMatch>(candidatePath(candidateId, 'Comparable'), body)
+  },
+  /** `POST …/Candidates/{candidateId}/NotTheSame` (Manage), no body. */
+  notTheSame(candidateId: string): Promise<NotTheSameResult> {
+    return api.post<NotTheSameResult>(candidatePath(candidateId, 'NotTheSame'), {})
+  },
+  /** `POST PriceWatch/Matching/{competitor}/NotCarried` (Manage) `{ material }`. */
+  notCarried(competitor: string, material: string): Promise<NotCarriedResult> {
+    return api.post<NotCarriedResult>(competitorPath(competitor, 'NotCarried'), { material })
+  },
+  /** `POST PriceWatch/Matching/{competitor}/Discovery` (Manage) — per competitor; the server's default `take` (200). */
+  discovery(competitor: string): Promise<DiscoveryResult> {
+    return api.post<DiscoveryResult>(competitorPath(competitor, 'Discovery'), {})
+  },
+  /** `POST PriceWatch/Matches/ConfirmByUrl` (Manage) — an exact product match made by a person. */
+  confirmByUrl(body: ConfirmByUrlBody): Promise<ConfirmByUrlResult> {
+    return api.post<ConfirmByUrlResult>('PriceWatch/Matches/ConfirmByUrl', body)
+  },
+}
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 938)
+
+export const priceIndexApi = {
+  /**
+   * `POST Analytics/Query` (gated `Analytics:03`, not PriceWatch) with an inline definition — the price index and the
+   * lowest-price score live in Cube (BO 4132). Called from this feature's own api, never through the boards feature's.
+   */
+  query(query: AnalyticsSemanticQuery): Promise<AnalyticsQueryResult> {
+    return api.post<AnalyticsQueryResult>('Analytics/Query', { definition: { chart: { type: 'table' }, query } })
+  },
+}
 
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 939)

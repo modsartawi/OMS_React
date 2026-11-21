@@ -238,7 +238,168 @@ export interface PriceGridQuery {
 // (lands with 936)
 
 // ── Matching (937) ─────────────────────────────────────────────────────────────────────────────────────────────────
-// (lands with 937)
+// The product-matching doors (BO 3501, shipped): `Matching/{competitor}/Queue`, the candidate decisions, `NotCarried`,
+// `Discovery`, `Matches/ConfirmByUrl`. Coverage is the shared `PriceWatchCoverage` above.
+
+/** The `PWT-` refusal codes the Matching tab reads by name (`PriceWatchErrorCodes.cs`). */
+export const PRICE_MATCHING_ERRORS = {
+  /** Confirm by URL / Not carried: blank material. */
+  materialRequired: 'PWT-00001',
+  /** Confirm by URL: not an absolute https URL of at most 800 characters. */
+  urlInvalid: 'PWT-00002',
+  /** Unknown competitor code. */
+  competitorUnknown: 'PWT-00003',
+  /** The listing is already matched to another material (break that product match first). */
+  listingAlreadyMatched: 'PWT-00004',
+  /** No such candidate. */
+  candidateUnknown: 'PWT-00020',
+  /** The candidate was already decided — the queue moved since it was read. */
+  candidateClosed: 'PWT-00021',
+  /** The material already holds an unbroken product match at that competitor. */
+  materialAlreadyMatched: 'PWT-00022',
+  /** The material is marked not carried at that competitor. */
+  materialNotCarried: 'PWT-00023',
+  /** Comparable needs both sizes in comparable units (g / ml / piece). */
+  sizesNotComparable: 'PWT-00024',
+} as const
+
+/** Confirm by URL: the URL's ceiling (`PWT-00002`). */
+export const MATCH_URL_MAX = 800
+
+/** Our side of a queued material. `imageUrl` is always '' today (no product images on our side). */
+export interface MatchingOurSide {
+  title: string
+  brand: string
+  sizeValue: number
+  sizeUnit: string
+  imageUrl: string
+  barcodes: string[]
+  basicPrice: number | null
+  effectivePrice: number | null
+  currency: string
+  priceDay: string | null
+}
+
+/**
+ * ⚠ GUESSED (BO 4135) — a candidate's origin. Codes mirror the price-source codes; a pre-4135 server sends no origin at
+ * all, which reads as the scraper's. A less likely spelling is `candidateOrigin`; both are read.
+ */
+export type MatchingCandidateOrigin = 'SCRAPER' | 'MINDSITE'
+
+/** One competitor listing offered for a material, best rank first. */
+export interface MatchingCandidate {
+  candidateId: string
+  rank: number
+  listingId: string
+  url: string
+  title: string
+  brand: string
+  sizeText: string
+  sizeValue: number
+  sizeUnit: string
+  imageUrl: string
+  barcodes: string[]
+  regularPrice: number | null
+  offerPrice: number | null
+  currency: string
+  observedAt: string | null
+  sellerName: string
+  isPlatformSeller: boolean
+  inStock: boolean
+  foundAt: string
+  /** ⚠ GUESSED (BO 4135): absent until 4135 ships. */
+  origin?: string
+  /** ⚠ GUESSED (BO 4135): the less likely spelling of `origin`. */
+  candidateOrigin?: string
+}
+
+/** One material in the queue, in our sales order. `candidates: []` = discovery found none (confirm a URL instead). */
+export interface MatchingQueueItem {
+  materialNumber: string
+  salesRank: number
+  netSalesValue: number
+  isAddition: boolean
+  ours: MatchingOurSide
+  candidates: MatchingCandidate[]
+}
+
+/** `GET PriceWatch/Matching/{competitor}/Queue?take=` (View). `open` counts every open material, not just this page. */
+export interface MatchingQueue {
+  competitorCode: string
+  competitorName: string
+  open: number
+  items: MatchingQueueItem[]
+}
+
+/** A product match (`MatchWire`) — the answer to Exact, Comparable and Break. `brokenAt` is year-1 while unbroken. */
+export interface PriceWatchMatch {
+  matchId: string
+  materialNumber: string
+  listingId: string
+  competitorCode: string
+  matchKind: 'Exact' | 'Comparable'
+  madeBy: 'Barcode' | 'Person'
+  matchedByUser: string
+  matchedAt: string
+  candidateId: string
+  ourSizeValue: number
+  ourSizeUnit: string
+  theirSizeValue: number
+  theirSizeUnit: string
+  mayAlert: boolean
+  isBroken: boolean
+  brokenBy: string
+  brokenAt: string
+}
+
+/** `POST …/Candidates/{candidateId}/Comparable` optional body: omitted / ≤ 0 = the server reads the sizes itself. */
+export interface ComparableMatchBody {
+  ourSizeValue?: number
+  ourSizeUnit?: string
+  theirSizeValue?: number
+  theirSizeUnit?: string
+}
+
+/** `POST …/Candidates/{candidateId}/NotTheSame` answer. */
+export interface NotTheSameResult {
+  candidateId: string
+  materialNumber: string
+  competitorCode: string
+  listingId: string
+  outcome: 'NOT_SAME'
+  outcomeBy: string
+  outcomeAt: string
+}
+
+/** `POST PriceWatch/Matching/{competitor}/NotCarried` answer (idempotent: keeps the first mark). */
+export interface NotCarriedResult {
+  materialNumber: string
+  competitorCode: string
+  markedBy: string
+  markedAt: string
+}
+
+/** `POST PriceWatch/Matching/{competitor}/Discovery` answer — how many materials were asked of the scraper. */
+export interface DiscoveryResult {
+  requested: number
+}
+
+/** `POST PriceWatch/Matches/ConfirmByUrl` body. */
+export interface ConfirmByUrlBody {
+  material: string
+  competitorCode: string
+  url: string
+}
+
+/** `POST PriceWatch/Matches/ConfirmByUrl` answer (idempotent for the same material). */
+export interface ConfirmByUrlResult {
+  matchId: string
+  materialNumber: string
+  listingId: string
+  competitorCode: string
+  matchKind: 'Exact'
+  madeBy: 'Person'
+}
 
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
 // (lands with 938)

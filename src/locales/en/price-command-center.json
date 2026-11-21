@@ -152,5 +152,78 @@
     "failed": "The product grid could not be read.",
     "failedHint": "SIS.Api did not answer. Try again shortly.",
     "empty": "No watched material matches these filters."
+  },
+  "matching": {
+    "competitor": "Competitor",
+    "noCompetitors": "No competitor is set up yet.",
+    "coverage": {
+      "title": "Coverage",
+      "competitor": "Competitor",
+      "watched": "Watched",
+      "matched": "Matched",
+      "matchedHint": "Exact and comparable product matches",
+      "notCarried": "Not carried",
+      "open": "Still open",
+      "loading": "Reading coverage…",
+      "failed": "Coverage could not be read."
+    },
+    "queue": {
+      "title": "Matching queue",
+      "open": "{{n}} materials still open at {{competitor}}, in our sales order.",
+      "loading": "Reading the matching queue…",
+      "failed": "The matching queue could not be read.",
+      "failedHint": "SIS.Api did not answer. Try again shortly.",
+      "empty": "Nothing is left to match at this competitor.",
+      "pageDone": "This page of the queue is worked.",
+      "reload": "Read the queue again",
+      "salesRank": "Sales rank {{rank}}",
+      "addition": "Watch-list addition"
+    },
+    "ours": "Our product",
+    "theirs": "Competitor listing",
+    "noImage": "No image",
+    "imageAlt": "Product image",
+    "barcodes": "Barcodes",
+    "noBarcode": "No barcode",
+    "size": "Size",
+    "price": "Price",
+    "seller": "Seller",
+    "outOfStock": "Out of stock",
+    "openListing": "Open the listing",
+    "candidateOf": "Candidate {{n}} of {{of}}",
+    "noCandidate": "Discovery found no candidate for this material. Confirm a product match by URL, or mark it not carried.",
+    "mindsite": "Suggested by Mindsite",
+    "mindsiteHint": "Offered by Mindsite's product groupings — judge it yourself.",
+    "action": {
+      "label": "Decision",
+      "exact": "Exact",
+      "comparable": "Comparable",
+      "notTheSame": "Not the same",
+      "notCarried": "Not carried"
+    },
+    "done": {
+      "exact": "Exact product match made.",
+      "comparable": "Comparable product match made.",
+      "notTheSame": "Marked not the same.",
+      "notCarried": "Marked not carried at this competitor.",
+      "confirmed": "Product match confirmed by URL."
+    },
+    "discovery": {
+      "request": "Request discovery",
+      "hint": "Asks the scraper to search this competitor for the queue's next materials that have no candidate.",
+      "requested": "Discovery asked for {{n}} materials."
+    },
+    "url": {
+      "label": "Confirm by URL",
+      "hint": "The competitor listing's https address",
+      "confirm": "Confirm",
+      "problem": {
+        "required": "Enter the listing's URL.",
+        "notHttps": "The URL must be a full https address.",
+        "tooLong": "The URL is longer than {{max}} characters."
+      }
+    },
+    "refused": "The decision was refused.",
+    "stale": "The queue moved since it was read, so it was read again."
   }
 }

@@ -178,6 +178,9 @@ export const SCREEN_KEYS = [
   'MiniPosAdmin:06',
   // Mini POS scorecard (BackOffice 4075; role OMS_MINIPOS_SCORECARD, and the lead's OMS_MINIPOS_ADMIN): the report
   'MiniPosScorecard:03',
+  // Price command center (BackOffice spec 3495/4127; PriceWatchGrants.cs): 03 view, 06 manage (decisions, matching)
+  'PriceWatch:03',
+  'PriceWatch:06',
 ] as const
 
 /**

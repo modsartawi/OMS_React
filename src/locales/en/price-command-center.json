@@ -1,0 +1,114 @@
+{
+  "title": "Price command center",
+  "subtitle": "Our prices against competitor prices: price alerts to decide, and the product matches behind them.",
+  "menu": {
+    "priceCommandCenter": "Price command center"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the price command center",
+    "deniedHint": "Your account does not hold the PriceWatch view grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so the screen stays closed. Try again shortly."
+  },
+  "tabs": {
+    "label": "Price command center sections",
+    "none": "No section of the price command center is open to you yet.",
+    "index": "Index",
+    "alerts": "Alerts",
+    "grid": "Grid",
+    "matching": "Matching",
+    "feed-health": "Feed health"
+  },
+  "alerts": {
+    "scope": {
+      "label": "Whose price alerts",
+      "mine": "Mine",
+      "all": "All"
+    },
+    "filters": {
+      "category": "A-level",
+      "categoryHint": "Exact A-level code",
+      "competitor": "Competitor",
+      "anyCompetitor": "Any competitor",
+      "state": "State",
+      "apply": "Apply",
+      "clear": "Clear"
+    },
+    "state": {
+      "live": "Live (open, accepted, dismissed)",
+      "open": "Open",
+      "accepted": "Accepted",
+      "dismissed": "Dismissed",
+      "resolved": "Resolved",
+      "all": "All"
+    },
+    "status": {
+      "OPEN": "Open",
+      "ACCEPTED": "Accepted",
+      "DISMISSED": "Dismissed",
+      "RESOLVED": "Resolved",
+      "unknown": "Unknown"
+    },
+    "columns": {
+      "material": "Material",
+      "competitor": "Competitor price",
+      "ours": "Our price",
+      "basic": "Basic",
+      "effective": "Effective",
+      "regular": "Regular",
+      "offer": "Offer",
+      "seller": "Seller",
+      "gap": "Competitor cheaper by",
+      "valueAtRisk": "Value at risk",
+      "valueAtRiskHint": "The gap times our last 30 days' units",
+      "observed": "Observed",
+      "recommended": "Recommended price",
+      "status": "State",
+      "actions": "Decision"
+    },
+    "noOffer": "No offer",
+    "awaitingCost": "Awaiting cost",
+    "awaitingCostHint": "No cost floor is set yet, so no price is recommended.",
+    "lowestCompetitor": "Lowest competitor price {{price}} at {{competitor}}",
+    "units": "{{units}} units in 30 days",
+    "count": "{{n}} price alerts, ranked by value at risk",
+    "capped": "Showing the first {{take}} — narrow the filters to see the rest.",
+    "loading": "Loading price alerts…",
+    "failed": "The price alerts could not be read.",
+    "failedHint": "SIS.Api did not answer. Try again shortly.",
+    "empty": {
+      "mine": "No price alerts are yours here. Switch to All to see every price alert.",
+      "all": "No price alerts match these filters."
+    },
+    "accept": "Accept",
+    "dismiss": "Dismiss",
+    "accepted": "Price alert accepted.",
+    "dismissed": "Price alert dismissed.",
+    "decisionFailed": "The decision was refused.",
+    "changed": "This price alert changed since it was read. The list was reloaded — decide again."
+  },
+  "dismiss": {
+    "title": "Dismiss price alert",
+    "note": "Material {{material}} at {{competitor}}.",
+    "reasonLabel": "Reason",
+    "reasonPick": "Pick a reason",
+    "reason": {
+      "WRONG_MATCH": "Wrong product match",
+      "FLASH_SALE": "Flash sale",
+      "STRATEGIC": "Strategic — we keep our price",
+      "OTHER": "Other"
+    },
+    "wrongMatchHint": "Also breaks the product match: the product goes back to matching.",
+    "noteLabel": "Note",
+    "noteHint": "Required for Other.",
+    "problem": {
+      "reasonRequired": "Pick a reason.",
+      "noteRequired": "Other needs a note.",
+      "noteTooLong": "The note is longer than {{max}} characters."
+    },
+    "confirm": "Dismiss",
+    "cancel": "Cancel",
+    "sending": "Sending…"
+  }
+}

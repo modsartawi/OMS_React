@@ -1556,7 +1556,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Price command center page (BackOffice spec 4127, filed 2026-11-21)
 
-- [934](934-the-price-command-center-page-opens-on-the-price-alerts-with-accept-and-dismiss.md) — The price command center page opens on the price alerts, with accept and dismiss · *(ticket · BackOffice spec 4127 · tracer)* · **open** · blocked by: —
+- [934](934-the-price-command-center-page-opens-on-the-price-alerts-with-accept-and-dismiss.md) — The price command center page opens on the price alerts, with accept and dismiss · *(ticket · BackOffice spec 4127 · tracer)* · **open — built 2026-11-22 (branch t934-price-alerts), proofs green, drive 37/37; dev walk on PriceWatch_Dev owed** · blocked by: — · tab registry `tab-registry.tsx`; brand/B-level a BO ask
 - [935](935-a-category-manager-scans-the-product-grid-one-row-per-material-one-column-per-competitor.md) — A category manager scans the product grid: one row per material, one column per competitor · *(ticket · BackOffice spec 4127)* · **open** · blocked by: 934, BO 4129
 - [936](936-a-materials-drill-down-shows-our-price-and-every-competitors-history-with-its-source.md) — A material's drill-down shows our price and every competitor's history, with its source · *(ticket · BackOffice spec 4127)* · **open** · blocked by: 934, BO 4128
 - [937](937-the-matching-team-works-the-queue-on-the-page-mindsite-suggestions-labelled.md) — The matching team works the queue on the page, Mindsite suggestions labelled · *(ticket · BackOffice spec 4127)* · **open** · blocked by: 934

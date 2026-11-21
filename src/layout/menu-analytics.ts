@@ -1,17 +1,20 @@
-import { BadgeCheck, CalendarClock, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, BadgePercent, CalendarClock, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { MY_SCHEDULES_PATH } from '@/core/analytics-routes'
 import { canViewAnalytics } from '@/core/analytics-access'
 import { MY_SCHEDULES_OFFERED_KEY, mySchedulesOffered } from '@/features/analytics/boards/access'
 import { LIBRARY_PAGES, type LibraryMenuPage } from '@/features/analytics/boards/library-pages'
+import { canViewPriceWatch } from '@/features/analytics/price-command-center/access'
 import type { MenuOffer, ShellMenuItem } from './menu-model'
 
 /**
  * The Analytics nav group (spec 766 §F, ticket 767): `/analytics/*` is a new URL prefix and a new nav group,
  * so a new area folder (`features/analytics/`). `menu-model.ts` places it once; a later slice adds its leaf
- * HERE. Every label lives in `boards` (the area's first namespace, `menu.*`).
+ * HERE. Every library label lives in `boards` (the area's first namespace, `menu.*`); a feature with its own grant
+ * keeps its label in its own namespace (the price command center, 934).
  *
- * 🚩 FAILS CLOSED: every leaf reads `canViewAnalytics` (`Analytics:03`) off the one permissions answer (oms 914) — the
- * SAME predicate as the pages' own `ScreenGate` — so a pending, errored or malformed answer hides the group.
+ * 🚩 FAILS CLOSED: every library leaf reads `canViewAnalytics` (`Analytics:03`), the price command center
+ * `canViewPriceWatch` (`PriceWatch:03`), off the one permissions answer (oms 914) — the SAME predicate as each page's own
+ * `ScreenGate` — so a pending, errored or malformed answer hides the group.
  */
 
 /**
@@ -57,6 +60,15 @@ export const ANALYTICS_MENU: ShellMenuItem = {
       routerLink: MY_SCHEDULES_PATH,
       requires: canViewAnalytics,
       offered: mySchedulesOffer,
+    },
+    // 934 (BackOffice spec 4127): the price command center, on its OWN grant (`PriceWatch:03`), not the library's —
+    // a PriceWatch-only user sees the group with this one leaf (`filterMenu` keeps a group with any visible leaf).
+    {
+      labelKey: 'price-command-center:menu.priceCommandCenter',
+      icon: BadgePercent,
+      routerLink: '/analytics/price-command-center',
+      activePrefix: '/analytics/price-command-center',
+      requires: canViewPriceWatch,
     },
   ],
 }

@@ -284,6 +284,12 @@ export const router = createBrowserRouter([
         path: 'analytics/new',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
       },
+      // The price command center (oms 934, BackOffice spec 4127): price alerts, and the tabs 935–939 add. Gated in-page
+      // by `canViewPriceWatch` (`PriceWatch:03`); the server's grant filter is the boundary.
+      {
+        path: 'analytics/price-command-center',
+        lazy: async () => ({ Component: (await import('@/features/analytics/price-command-center/PriceCommandCenterPage')).default }),
+      },
       {
         path: 'oms/deliveries',
         handle: SINGLE_KEYS,

@@ -19,7 +19,7 @@ describe('the stores tiles', () => {
     row({ plant: 'P004', stage: 'Seeding', flags: [flag('BelowZero', 'Watch', 4, 0), flag('OldHold')] }),
   ]
 
-  it('each tile counts its stores: all, counted (Seeded or Blocking), old hold, SAP quiet, below zero at Problem', () => {
+  it('each tile counts its stores: all, counted (Seeded or Blocking), old hold, SAP quiet, over the below-zero limit', () => {
     expect(tileCounts(rows)).toEqual({ all: 4, counted: 2, oldHold: 2, sapQuiet: 1, belowZero: 1 })
   })
 
@@ -32,8 +32,18 @@ describe('the stores tiles', () => {
     expect(plants('belowZero')).toEqual(['P003'])
   })
 
-  it('a below-zero flag at Watch is not the Below zero tile’s: that tile is the Problem ones', () => {
+  it('a below-zero flag at Watch is not the Below zero tile’s: that tile is the stores over the limit', () => {
     expect(tileFilter([row({ flags: [flag('BelowZero', 'Watch', 12, 0)] })], 'belowZero')).toEqual([])
+  })
+
+  it('a Blocking store with a few items below zero is a Problem, but not over the limit, so not the tile’s (spec story 7)', () => {
+    const blocking = row({ stage: 'Blocking', flags: [flag('BelowZero', 'Problem', 3, 0)] })
+    expect(tileFilter([blocking], 'belowZero')).toEqual([])
+  })
+
+  it('the tile follows the limit the server sends, not a fixed 500', () => {
+    const over = row({ plant: 'P010', flags: [flag('BelowZero', 'Problem', 301, 300)] })
+    expect(tileFilter([over], 'belowZero').map((r) => r.plant)).toEqual(['P010'])
   })
 })
 

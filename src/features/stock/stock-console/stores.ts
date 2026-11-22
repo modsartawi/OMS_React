@@ -12,13 +12,21 @@ export type StoreTile = (typeof STORE_TILES)[number]
 const hasFlag = (row: StockConsoleStoreRow, code: string, level?: string) =>
   row.flags.some((f) => f.code === code && (level === undefined || f.level === level))
 
+/**
+ * Over the below-zero limit (spec 4157 story 7: "over 500 items below zero"). The server raises BelowZero at Problem
+ * two ways: over its `BelowZeroProblem` setting (limit = that setting, 500 by default), or any item below zero in a
+ * Blocking store (limit 0). Only the first is this tile's, read off the limit the server sent, not a fixed 500.
+ */
+const overBelowZeroLimit = (row: StockConsoleStoreRow) =>
+  row.flags.some((f) => f.code === 'BelowZero' && f.limit > 0 && f.value != null && f.value > f.limit)
+
 /** Whether a store is one its tile counts. Counted = a store whose stage counts (Seeded or Blocking). */
 const IN_TILE: Record<StoreTile, (row: StockConsoleStoreRow) => boolean> = {
   all: () => true,
   counted: (r) => r.stage === 'Seeded' || r.stage === 'Blocking',
   oldHold: (r) => hasFlag(r, 'OldHold'),
   sapQuiet: (r) => hasFlag(r, 'SapQuiet'),
-  belowZero: (r) => hasFlag(r, 'BelowZero', 'Problem'),
+  belowZero: overBelowZeroLimit,
 }
 
 export function tileCounts(rows: readonly StockConsoleStoreRow[]): Record<StoreTile, number> {

@@ -68,3 +68,6 @@ BackOffice [4158](C:\Work\DMSCO\BackOffice\.issues\4158-hqs-stock-console-lists-
   against it field by field (ed6e212a). [STOCK-CONSOLE-WIRE-CONTRACT.md](STOCK-CONSOLE-WIRE-CONTRACT.md) is now the
   reconciled contract. Merged to `main` in cf2374f6. **Still owed before `done`:** the "on dev" Done-when check, once
   SIS.Stock 075–080 and SIS.Api are deployed (BackOffice 4164's live walk).
+- 2026-11-22, owner's ruling: the Below zero tile follows spec story 7, "over 500 items below zero", not "Below zero
+  (Problem)". A Blocking store with a few items below zero is still a Problem on its pill, but not on this tile. The
+  tile reads the limit the server's flag carries (`BelowZeroProblem`, 500 by default).

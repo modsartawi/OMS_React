@@ -23,7 +23,7 @@
     "counted": "Counted",
     "oldHold": "Old hold",
     "sapQuiet": "SAP quiet",
-    "belowZero": "Below zero (Problem)"
+    "belowZero": "Over 500 below zero"
   },
   "stores": {
     "baseUnits": "Sums are in base units.",

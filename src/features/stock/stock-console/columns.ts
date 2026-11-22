@@ -1,5 +1,6 @@
-import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
+import type { ColDef, ColDefField, ValueFormatterParams } from 'ag-grid-community'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
+import LtrCell from '@/core/ui/LtrCell'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 
@@ -24,3 +25,13 @@ export const formatQuantity = (p: ValueFormatterParams) => formatFigure(p.value 
 
 /** A server time as drawn — local wall-clock, formatted, never shifted; `null` is blank. */
 export const formatTime = (p: ValueFormatterParams) => formatDateTime(p.value as string | null)
+
+/** A figure column of any console grid: a quantity in base units, isolated left to right, at the end of its cell. */
+export const figureColumn = <T>(headerName: string, field: ColDefField<T>, width = 100): ColDef<T> => ({
+  headerName,
+  field,
+  width,
+  type: 'numericColumn',
+  valueFormatter: formatQuantity,
+  cellRenderer: LtrCell,
+})

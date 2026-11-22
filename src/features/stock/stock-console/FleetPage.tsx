@@ -18,6 +18,7 @@ import HowRead from './HowRead'
 import { HOW_FLEET } from './how-sections'
 import Loading from './Loading'
 import RefusalBanner from './RefusalBanner'
+import WordOrRaw from './WordOrRaw'
 
 /**
  * Feeds and switches (oms 942, BackOffice spec 4157 story 71) — `/stock/console/fleet`. Read-only.
@@ -102,7 +103,7 @@ function When({ at }: { at: string | null }) {
   return <span className="font-mono">{at ? <Ltr>{formatDateTime(at)}</Ltr> : t('store.never')}</span>
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-3 text-sm">
       <dt className="text-muted-foreground">{label}</dt>
@@ -128,7 +129,7 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
           {(fleet.feeds ?? []).map((f) => {
             const name = feedLabel(f.feed)
             return (
-              <Row key={f.feed} label={'key' in name ? t(name.key) : f.feed}>
+              <Row key={f.feed} label={<WordOrRaw word={name} />}>
                 <span className="inline-flex flex-wrap items-center gap-2" data-feed={f.feed}>
                   {f.lastCompletePassAt ? <When at={f.lastCompletePassAt} /> : t('fleet.neverPassed')}
                   <span className="text-xs text-muted-foreground">

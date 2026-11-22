@@ -7,7 +7,7 @@ import { ArrowRightLeft, Loader2, Lock, RotateCcw, Unlock } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import type { StoreCountRow, StoreStage } from '@/core/models/store-stage'
+import { STAGES, type StoreCountRow, type StoreStage } from '@/core/models/store-stage'
 import { notify } from '@/core/services/notify'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
@@ -31,7 +31,6 @@ import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages } from './acc
 import { storeStageApi } from './api'
 import { STAGE_SEVERITY, moverLabel, stageColumns, stageLabel } from './columns'
 import {
-  STAGES,
   STAGES_DEFAULTS,
   WHY_MAX,
   canAskCountClosed,

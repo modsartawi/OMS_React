@@ -9,7 +9,7 @@ import { itemTabKey } from './api'
 import HowRead from './HowRead'
 import { HOW_ITEM_STORES } from './how-sections'
 import { ITEM_TABS, itemTabParams, resolveItemTab, type ItemTab } from './item-tabs'
-import { ItemBatchesTab, ItemHoldsTab, ItemTakesTab, type ItemTabProps } from './ItemListTabs'
+import { ItemBatchesTab, ItemHoldsTab, ItemTakesTab, type ItemTabProps } from './ItemTabPanels'
 import ItemStoresList from './ItemStoresList'
 import MovementsTab from './MovementsTab'
 
@@ -27,7 +27,7 @@ const PANELS: Record<ItemTab, (props: ItemTabProps) => ReactNode> = {
  * Each but Movements is one small read on opening. The open tab is the address's `?tab=`; only its panel is mounted, so only it reads.
  * Switching writes the tab alone. **Refresh** re-reads the open tab alone (`itemTabKey`).
  */
-export default function ItemTabs({ store, item }: ItemTabProps) {
+export default function ItemTabStrip({ store, item }: ItemTabProps) {
   const { t } = useTranslation('stock-console')
   const [searchParams, setSearchParams] = useSearchParams()
   const open = resolveItemTab(searchParams.get('tab'))

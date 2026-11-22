@@ -5,28 +5,19 @@ import { Link } from 'react-router'
 import type { StockConsoleStoreRow } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
-import { MONO, formatQuantity, formatTime } from './columns'
+import { MONO, formatTime, figureColumn } from './columns'
 import { storeHref } from './console-pages'
 import { FreeCell, ReservedCell } from './figure-cells'
+import { stageWord } from './figures'
 import StatusPill from './StatusPill'
+import { wordText } from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleStoreRow>
 
 /** The store's page (ticket 941) — built in `./console-pages` since 943. */
 export { storeHref }
 
-const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
-
-/** A figure column: a quantity in base units, isolated left-to-right, at the end of its cell. */
-const figure = (headerName: string, field: keyof StockConsoleStoreRow, width = 100): ColDef<StockConsoleStoreRow> => ({
-  headerName,
-  field,
-  width,
-  type: 'numericColumn',
-  valueFormatter: formatQuantity,
-  cellRenderer: LtrCell,
-})
-
+const figure = figureColumn<StockConsoleStoreRow>
 /**
  * The Stores grid's columns (oms 940), in the prototype's order: store, city, stage, status, stock (the till-side
  * counter) with SAP stock and the gap, held with its two parts, reserved, free, items below zero, last update.
@@ -56,8 +47,7 @@ export function buildStoresColumns(t: TFunction): ColDef<StockConsoleStoreRow>[]
       field: 'stage',
       width: 95,
       // A stage this bundle does not know shows as it came, never as a raw key.
-      valueFormatter: (p: ValueFormatterParams<StockConsoleStoreRow, string>) =>
-        p.value && KNOWN_STAGES.includes(p.value) ? t(`stage.${p.value}`) : (p.value ?? ''),
+      valueFormatter: (p: ValueFormatterParams<StockConsoleStoreRow, string>) => wordText(t, stageWord(p.value)),
     },
     {
       headerName: t('column.status'),

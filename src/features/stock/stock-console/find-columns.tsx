@@ -8,7 +8,7 @@ import LtrCell from '@/core/ui/LtrCell'
 import type { LocalDate } from '@/core/util/date-window'
 import { localizedName } from '@/core/util/localized-name'
 import { ExpiryCell, scanMarkColumn } from './batches-columns'
-import { MONO, formatQuantity } from './columns'
+import { MONO, figureColumn } from './columns'
 import { rowKey } from './row-ids'
 import { findRowHref, itemStoresParams } from './find'
 import { scanExpiry } from './scan'
@@ -24,15 +24,7 @@ export const findItemRowId = (row: StockConsoleFindItemRow) => row.item
 
 const LINK = 'font-medium text-primary underline-offset-2 hover:underline'
 
-const figure = (headerName: string, field: keyof StockConsoleFindBatchRow, width = 100): ColDef<StockConsoleFindBatchRow> => ({
-  headerName,
-  field,
-  width,
-  type: 'numericColumn',
-  valueFormatter: formatQuantity,
-  cellRenderer: LtrCell,
-})
-
+const figure = figureColumn<StockConsoleFindBatchRow>
 /**
  * Find's batch answer (oms 943, spec 4157 stories 63–65): store, city, item, name, our batch, vendor batch, expiry (with
  * its marks; after a scan with an expiry, whether each is the scan's), SAP stock, till-side, held. The store and the item

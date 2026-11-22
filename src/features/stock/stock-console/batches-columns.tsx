@@ -11,7 +11,7 @@ import { formatDay } from '@/core/util/date-format'
 import type { LocalDate } from '@/core/util/date-window'
 import { localizedName } from '@/core/util/localized-name'
 import { expiryCell } from './batches'
-import { MONO, formatQuantity } from './columns'
+import { MONO, figureColumn } from './columns'
 import { rowKey } from './row-ids'
 import { itemHref } from './items-columns'
 import { expiryMark, scanExpiry } from './scan'
@@ -21,15 +21,7 @@ type Cell = ICellRendererParams<StockConsoleBatchRow>
 /** One item and batch per row. Module-level, as AG Grid wants. */
 export const batchRowId = (row: StockConsoleBatchRow) => rowKey(row.item, row.batch)
 
-const figure = (headerName: string, field: keyof StockConsoleBatchRow, width = 100): ColDef<StockConsoleBatchRow> => ({
-  headerName,
-  field,
-  width,
-  type: 'numericColumn',
-  valueFormatter: formatQuantity,
-  cellRenderer: LtrCell,
-})
-
+const figure = figureColumn<StockConsoleBatchRow>
 const code = (headerName: string, field: 'batch' | 'vendorBatch', width: number): ColDef<StockConsoleBatchRow> => ({
   headerName,
   field,

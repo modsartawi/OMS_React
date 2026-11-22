@@ -12,16 +12,16 @@ import { formatFigure } from '@/core/util/number-format'
 import { stageQuery } from './api'
 import { MONO, formatTime } from './columns'
 import { rowKey } from './row-ids'
+import WordOrRaw, { wordText } from './WordOrRaw'
 import HowRead from './HowRead'
 import { HOW_STAGE } from './how-sections'
 import ListGrid from './ListGrid'
 import Loading from './Loading'
+import { stageWord } from './figures'
 import RefusalBanner from './RefusalBanner'
 
-const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
-
-/** A stage in words when the console knows it; otherwise as it came. */
-const stageWord = (t: TFunction, stage: string) => (KNOWN_STAGES.includes(stage) ? t(`stage.${stage}`) : stage)
+/** A stage in words when the console knows it; otherwise as it came (a string sink: the grid, a sentence). */
+const stageText = (t: TFunction, stage: string) => wordText(t, stageWord(stage))
 
 /** One move per row: newest first, as the server sends them. Module-level, as AG Grid wants. */
 const moveRowId = (m: StockConsoleStageMove) => rowKey(m.movedAt, m.from, m.to)
@@ -45,7 +45,9 @@ export default function StageTab({ store }: { store: string }) {
         <>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span data-stage={stage.stage}>
-              <StatusBadge sev="mute">{KNOWN_STAGES.includes(stage.stage) ? stageWord(t, stage.stage) : <bdi>{stage.stage}</bdi>}</StatusBadge>
+              <StatusBadge sev="mute">
+                <WordOrRaw word={stageWord(stage.stage)} />
+              </StatusBadge>
             </span>
             {stage.updatedAt && (
               <span className="text-xs text-muted-foreground">
@@ -95,8 +97,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function buildMoveColumns(t: TFunction): ColDef<StockConsoleStageMove>[] {
   return [
     { headerName: t('stageTab.column.movedAt'), field: 'movedAt', width: 140, cellClass: MONO, valueFormatter: formatTime, cellRenderer: LtrCell },
-    { headerName: t('stageTab.column.from'), field: 'from', width: 110, valueFormatter: (p) => stageWord(t, String(p.value ?? '')) },
-    { headerName: t('stageTab.column.to'), field: 'to', width: 110, valueFormatter: (p) => stageWord(t, String(p.value ?? '')) },
+    { headerName: t('stageTab.column.from'), field: 'from', width: 110, valueFormatter: (p) => stageText(t, String(p.value ?? '')) },
+    { headerName: t('stageTab.column.to'), field: 'to', width: 110, valueFormatter: (p) => stageText(t, String(p.value ?? '')) },
     // A person's name, or their login when the name is not known: free text, isolated by the base cell.
     { headerName: t('stageTab.column.by'), colId: 'by', width: 180, valueGetter: (p) => (p.data ? p.data.whoName || p.data.who : '') },
     { headerName: t('stageTab.column.mover'), field: 'mover', width: 110 },
@@ -150,7 +152,7 @@ function Gates({ gates }: { gates: StockConsoleGates }) {
         <Trans
           t={t}
           i18nKey="stageTab.gates.toward"
-          values={{ from: stageWord(t, gates.from), to: stageWord(t, gates.to) }}
+          values={{ from: stageText(t, gates.from), to: stageText(t, gates.to) }}
           components={{ s: <bdi /> }}
         />
         <StatusBadge sev={gates.hold ? 'ok' : 'warn'}>{t(gates.hold ? 'stageTab.gates.allHold' : 'stageTab.gates.notAllHold')}</StatusBadge>
@@ -161,6 +163,7 @@ function Gates({ gates }: { gates: StockConsoleGates }) {
             <li key={g.gate} className="flex flex-wrap items-center gap-2" data-gate={g.gate}>
               <StatusBadge sev={g.holds ? 'ok' : 'bad'}>{t(g.holds ? 'stageTab.gates.holds' : 'stageTab.gates.doesNotHold')}</StatusBadge>
               <bdi className="font-medium">{g.gate}</bdi>
+              {/* SV StoreGateModel.Figure is text ("what the gate asks, or each failing day and why"), not a number. */}
               {g.figure && (
                 <span className="text-muted-foreground">
                   <bdi>{g.figure}</bdi>

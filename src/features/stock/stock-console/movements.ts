@@ -46,7 +46,7 @@ export interface MovementsState {
 
 export const emptyMovements = (): MovementsState => ({ from: '', to: '', ran: false, page: 1, sapDay: '', sapType: '' })
 
-export interface DayWindow {
+export type DayWindow = {
   from: LocalDate
   to: LocalDate
 }

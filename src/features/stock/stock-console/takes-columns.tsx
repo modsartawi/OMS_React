@@ -13,6 +13,7 @@ import { MONO, formatTime } from './columns'
 import { rowKey } from './row-ids'
 import { itemHref } from './items-columns'
 import { takeCells } from './takes'
+import WordOrRaw from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleTakeRow>
 
@@ -36,7 +37,7 @@ export function buildTakesColumns(t: TFunction, language: string, store: string)
         const { kind } = takeCells(p.data)
         return (
           <span data-take-kind={String(p.data.kind)}>
-            <StatusBadge sev={kind.sev}>{'key' in kind ? t(kind.key) : <bdi>{kind.raw}</bdi>}</StatusBadge>
+            <StatusBadge sev={kind.sev}><WordOrRaw word={kind} /></StatusBadge>
           </span>
         )
       },

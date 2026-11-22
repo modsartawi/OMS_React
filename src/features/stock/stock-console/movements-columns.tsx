@@ -8,6 +8,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { MONO, formatQuantity, formatTime } from './columns'
 import { feedCell, ledgerDocument, ledgerEffects, type EffectCell } from './movements'
 import { rowKey } from './row-ids'
+import WordOrRaw from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleLedgerLine>
 
@@ -46,7 +47,7 @@ export function buildLedgerColumns(t: TFunction): ColDef<StockConsoleLedgerLine>
       cellRenderer: (p: Cell) => {
         if (!p.data) return null
         const cell = feedCell(p.data.feed)
-        return <span data-ledger-feed={p.data.feed}>{'key' in cell ? t(cell.key) : <bdi>{cell.raw}</bdi>}</span>
+        return <span data-ledger-feed={p.data.feed}><WordOrRaw word={cell} /></span>
       },
     },
     { headerName: t('movements.column.movementType'), field: 'movementType', width: 120, cellClass: MONO, cellRenderer: LtrCell },

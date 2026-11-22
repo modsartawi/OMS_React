@@ -8,7 +8,8 @@ import { buildHoldsColumns, holdRowId } from './holds-columns'
 import HowRead from './HowRead'
 import { HOW_ITEM_BATCHES, HOW_ITEM_HOLDS, HOW_ITEM_TAKES } from './how-sections'
 import { withoutItemColumns } from './item-tabs'
-import ItemTabList from './ItemTabList'
+import FailedLeftOut from './FailedLeftOut'
+import ItemTabListFrame from './ItemTabListFrame'
 import { buildTakesColumns, takeRowId } from './takes-columns'
 
 /** What every item tab is given: the store and the item of the page. */
@@ -32,7 +33,7 @@ export function ItemBatchesTab({ store, item }: ItemTabProps) {
   )
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ItemTabList name="item-batches" read={read} empty={t('itemTabs.empty.batches')} columns={columns} rowId={batchRowId} />
+      <ItemTabListFrame name="item-batches" read={read} empty={t('itemTabs.empty.batches')} columns={columns} rowId={batchRowId} />
       <HowRead section="itemBatches" paragraphs={HOW_ITEM_BATCHES} />
     </div>
   )
@@ -52,7 +53,7 @@ export function ItemHoldsTab({ store, item }: ItemTabProps) {
   )
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ItemTabList name="item-holds" read={read} empty={t('itemTabs.empty.holds')} columns={columns} rowId={holdRowId} />
+      <ItemTabListFrame name="item-holds" read={read} empty={t('itemTabs.empty.holds')} columns={columns} rowId={holdRowId} />
       <HowRead section="itemHolds" paragraphs={HOW_ITEM_HOLDS} />
     </div>
   )
@@ -68,19 +69,13 @@ export function ItemTakesTab({ store, item }: ItemTabProps) {
   )
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ItemTabList
+      <ItemTabListFrame
         name="item-takes"
         read={read}
         empty={t('itemTabs.empty.takes')}
         columns={columns}
         rowId={takeRowId}
-        above={
-          read.data?.failedLeftOut && (
-            <p className="text-xs text-muted-foreground" data-failed-left-out="">
-              {t('takes.failedLeftOut')}
-            </p>
-          )
-        }
+        above={read.data?.failedLeftOut && <FailedLeftOut />}
       />
       <HowRead section="itemTakes" paragraphs={HOW_ITEM_TAKES} />
     </div>

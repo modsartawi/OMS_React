@@ -7,7 +7,7 @@ import type { PlaceholderDataFunction } from '@tanstack/react-query'
 import { ApiError, api } from '@/core/api'
 import type { StockConsolePage, StockConsoleSapLine } from '@/core/models/stock-console'
 import type { MovementsState, WindowRead } from './movements'
-import { retryUnlessAnswered, sapLinesQuery, stockConsoleApi942, toPage } from './api'
+import { retryUnlessAnswered, sapLinesQuery, stockConsoleApi, toPage } from './api'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -52,6 +52,16 @@ describe('a page as drawn', () => {
     expect(toPage({ rows: ['a', 'b'] }, { page: 1, size: 25 })).toEqual({ total: 2, page: 1, size: 25, rows: ['a', 'b'] })
   })
 
+  it('reads its rows as `lines` (SV 079 as built), or a bare array as one page of it, each row read by the caller', () => {
+    expect(toPage({ total: 9, lines: [1, 2] }, { page: 2, size: 2 }, (n: number) => n * 10)).toEqual({
+      total: 9,
+      page: 2,
+      size: 2,
+      rows: [10, 20],
+    })
+    expect(toPage(['a', 'b', 'c'], { page: 1, size: 200 })).toEqual({ total: 3, page: 1, size: 3, rows: ['a', 'b', 'c'] })
+  })
+
   it('with nothing in it is empty, on the page asked', () => {
     expect(toPage(null, { page: 3, size: 25 })).toEqual({ total: 0, page: 3, size: 25, rows: [] })
   })
@@ -82,7 +92,7 @@ describe('Feeds and switches as read', () => {
       feeds: [{ feed: 'Sap', lastCompletePassAt: '2026-11-22T09:58:00' }],
       ledgerReader: { lastPassAt: '2026-11-22T09:59:30', readThroughAt: null },
     })
-    const fleet = await stockConsoleApi942.fleet()
+    const fleet = await stockConsoleApi.fleet()
     expect(fleet.feeds).toEqual([{ feed: 'Sap', lastCompletePassAt: '2026-11-22T09:58:00', ageSeconds: null }])
     expect(fleet.ledgerReader).toEqual({ lastPassAt: '2026-11-22T09:59:30', lagSeconds: null, readThroughAt: null })
   })

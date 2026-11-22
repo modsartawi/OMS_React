@@ -5,7 +5,14 @@
  */
 
 import { STOCK_CONSOLE_FLAGS, type StockConsoleFlag } from '@/core/models/stock-console'
+import { isStageName } from '@/core/models/store-stage'
 import type { Severity } from '@/core/ui/severity'
+
+// ── Stage ───────────────────────────────────────────────────────────────────────────────────────────
+
+/** A store's stage: one of the four in the console's words (`stage.<Stage>`); another as it came — never a raw key. */
+export const stageWord = (stage: string | null | undefined): { key: string } | { raw: string } =>
+  isStageName(stage) ? { key: `stage.${stage}` } : { raw: stage ?? '' }
 
 // ── Status and flags ────────────────────────────────────────────────────────────────────────────────
 

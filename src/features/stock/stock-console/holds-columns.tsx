@@ -11,6 +11,7 @@ import { MONO, formatQuantity, formatTime } from './columns'
 import { rowKey } from './row-ids'
 import { holdAge, holdColumns, holdDocument, holdStateCell, type HoldColumn } from './holds'
 import { itemHref } from './items-columns'
+import WordOrRaw from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleHoldRow>
 
@@ -97,7 +98,7 @@ export function buildHoldsColumns(
         const cell = holdStateCell(p.data.state)
         return (
           <span data-hold-state={p.data.state}>
-            <StatusBadge sev={cell.sev}>{'key' in cell ? t(cell.key) : <bdi>{cell.raw}</bdi>}</StatusBadge>
+            <StatusBadge sev={cell.sev}><WordOrRaw word={cell} /></StatusBadge>
           </span>
         )
       },

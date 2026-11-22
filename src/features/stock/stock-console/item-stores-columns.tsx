@@ -6,26 +6,18 @@ import type { StockConsoleItemStoreRow } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import { formatFigure } from '@/core/util/number-format'
-import { MONO, formatQuantity, formatTime } from './columns'
+import { MONO, formatTime, figureColumn } from './columns'
 import { FreeCell, ReservedCell } from './figure-cells'
+import { stageWord } from './figures'
 import { itemStoreFigures, itemStoreHref } from './item-stores'
+import { wordText } from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleItemStoreRow>
 
 /** One store per row. Module-level, as AG Grid wants. */
 export const itemStoreRowId = (row: StockConsoleItemStoreRow) => row.plant
 
-const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
-
-const figure = (headerName: string, field: keyof StockConsoleItemStoreRow, width = 100): ColDef<StockConsoleItemStoreRow> => ({
-  headerName,
-  field,
-  width,
-  type: 'numericColumn',
-  valueFormatter: formatQuantity,
-  cellRenderer: LtrCell,
-})
-
+const figure = figureColumn<StockConsoleItemStoreRow>
 /**
  * The item at every store (oms 943, spec 4157 story 59): the store (opens the same item there), its city and stage,
  * then the figures by the stores list's rules (`itemStoreFigures`) — till-side, SAP stock, gap, held, reserved, free —
@@ -55,7 +47,7 @@ export function buildItemStoresColumns(t: TFunction, item: string): ColDef<Stock
       headerName: t('column.stage'),
       field: 'stage',
       width: 110,
-      valueFormatter: (p) => (KNOWN_STAGES.includes(p.value as string) ? t(`stage.${p.value as string}`) : ((p.value as string) ?? '')),
+      valueFormatter: (p) => wordText(t, stageWord(p.value as string | null)),
     },
     figure(t('column.tillStock'), 'tillStock', 130),
     figure(t('column.sapStock'), 'sapStock'),

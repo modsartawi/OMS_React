@@ -12,7 +12,7 @@ import { itemHeaderQuery } from './api'
 import ConsoleNav from './ConsoleNav'
 import { FIND_PATH, storeHref } from './console-pages'
 import ItemSum from './ItemSum'
-import ItemTabs from './ItemTabs'
+import ItemTabStrip from './ItemTabStrip'
 import Loading from './Loading'
 import RefusalBanner from './RefusalBanner'
 
@@ -100,7 +100,7 @@ function Item() {
       {row && <ItemSum item={row} />}
       {/* Keyed on the store and the item, so a link to another starts every tab afresh. Drawn once the item is known, so
           an item with no row here asks no tab. */}
-      {!noRow && (row || header.isError) && <ItemTabs key={`${store}\u0000${item}`} store={store} item={item} />}
+      {!noRow && (row || header.isError) && <ItemTabStrip key={`${store}\u0000${item}`} store={store} item={item} />}
     </div>
   )
 }

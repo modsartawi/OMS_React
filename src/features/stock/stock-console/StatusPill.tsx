@@ -9,6 +9,7 @@ import { usePopoverDismiss } from '@/core/ui/use-popover-dismiss'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { flagLines, statusPill, type FlagLine } from './figures'
+import WordOrRaw from './WordOrRaw'
 
 /**
  * A store's status pill (oms 940, spec 4157 story 76): OK, Watch or Problem, and a press opens its flags, each with its
@@ -73,7 +74,7 @@ export default function StatusPill({ store, status, flags }: { store: string; st
         className="inline-flex items-center rounded-full"
         data-status-pill={status}
       >
-        <StatusBadge sev={pill.sev}>{'key' in pill ? label : <bdi>{label}</bdi>}</StatusBadge>
+        <StatusBadge sev={pill.sev}><WordOrRaw word={pill} /></StatusBadge>
       </button>
       {open &&
         createPortal(

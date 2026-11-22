@@ -21,7 +21,7 @@ export interface ItemTabRead<T> {
  * rows under it), the empty sentence, or the rows. When the answer holds more than the page asked, it says how many are
  * shown of how many.
  */
-export default function ItemTabList<T>({
+export default function ItemTabListFrame<T>({
   name,
   read,
   empty,

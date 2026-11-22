@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { flagLines, freeLabel, reservedView, statusPill } from './figures'
+import { flagLines, freeLabel, reservedView, stageWord, statusPill } from './figures'
 import { flag, storeRow as row } from './test-rows'
 
 describe('the status pill', () => {
@@ -93,5 +93,21 @@ describe('free’s label', () => {
 
   it('🚩 never claims reserved is in it while reserved shows "not computed"', () => {
     expect(freeLabel(row({ reservedIncluded: true, reservedState: 'NeverComputed', reserved: null }))).toBe('reservedNotIncluded')
+  })
+})
+
+describe('a store’s stage', () => {
+  it('the four stages in the console’s words', () => {
+    expect(['Shadow', 'Seeding', 'Seeded', 'Blocking'].map((s) => stageWord(s))).toEqual([
+      { key: 'stage.Shadow' },
+      { key: 'stage.Seeding' },
+      { key: 'stage.Seeded' },
+      { key: 'stage.Blocking' },
+    ])
+  })
+
+  it('a stage the console does not know as it came — never a raw key', () => {
+    expect(stageWord('Frozen')).toEqual({ raw: 'Frozen' })
+    expect(stageWord(null)).toEqual({ raw: '' })
   })
 })

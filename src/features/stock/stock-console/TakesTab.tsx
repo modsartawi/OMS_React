@@ -5,6 +5,7 @@ import { TAKE_OUTCOMES } from '@/core/models/stock-console'
 import Input from '@/core/ui/Input'
 import { localToday } from '@/core/util/date-window'
 import { takesQuery } from './api'
+import FailedLeftOut from './FailedLeftOut'
 import HowRead from './HowRead'
 import { HOW_TAKES } from './how-sections'
 import ListGrid from './ListGrid'
@@ -64,11 +65,7 @@ export default function TakesTab({ store }: { store: string }) {
           (frame.aboveRows || leftOut) && (
             <>
               {frame.aboveRows}
-              {leftOut && (
-                <p className="text-xs text-muted-foreground" data-failed-left-out="">
-                  {t('takes.failedLeftOut')}
-                </p>
-              )}
+              {leftOut && <FailedLeftOut />}
             </>
           )
         }

@@ -7,13 +7,12 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { FreeCell, ReservedCell } from './figure-cells'
-import { flagLines, type FlagLine } from './figures'
+import { flagLines, stageWord, type FlagLine } from './figures'
 import { flagHref } from './flags'
 import HowRead from './HowRead'
 import { HOW_STORE } from './how-sections'
 import StatusPill, { FlagSentence } from './StatusPill'
-
-const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
+import WordOrRaw from './WordOrRaw'
 
 /**
  * A store's header (oms 941, spec 4157 stories 12–13), from `StockConsole/Stores/{store}` read fresh on opening: the
@@ -24,7 +23,6 @@ const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
 export default function StoreHeader({ row }: { row: StockConsoleStoreRow }) {
   const { t } = useTranslation('stock-console')
   const lines = flagLines(row.flags)
-  const stage = KNOWN_STAGES.includes(row.stage) ? t(`stage.${row.stage}`) : row.stage
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-store-header={row.plant}>
@@ -38,7 +36,9 @@ export default function StoreHeader({ row }: { row: StockConsoleStoreRow }) {
           </span>
         )}
         <span data-store-stage={row.stage}>
-          <StatusBadge sev="mute">{KNOWN_STAGES.includes(row.stage) ? stage : <bdi>{stage}</bdi>}</StatusBadge>
+          <StatusBadge sev="mute">
+            <WordOrRaw word={stageWord(row.stage)} />
+          </StatusBadge>
         </span>
         <StatusPill store={row.plant} status={row.status} flags={row.flags} />
         <span className="ms-auto text-xs text-muted-foreground">{t('stores.baseUnits')}</span>

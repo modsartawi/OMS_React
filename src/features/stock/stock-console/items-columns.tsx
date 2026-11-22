@@ -6,7 +6,7 @@ import type { StockConsoleItemRow } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import { localizedName } from '@/core/util/localized-name'
-import { MONO, formatQuantity, formatTime } from './columns'
+import { MONO, formatTime, figureColumn } from './columns'
 import { itemHref } from './console-pages'
 import { FreeCell, ReservedCell } from './figure-cells'
 
@@ -18,15 +18,7 @@ export { itemHref }
 /** The Items grid's row id: the item is unique within one store's page. Module-level, as AG Grid wants. */
 export const itemRowId = (row: StockConsoleItemRow) => row.item
 
-const figure = (headerName: string, field: keyof StockConsoleItemRow, width = 100): ColDef<StockConsoleItemRow> => ({
-  headerName,
-  field,
-  width,
-  type: 'numericColumn',
-  valueFormatter: formatQuantity,
-  cellRenderer: LtrCell,
-})
-
+const figure = figureColumn<StockConsoleItemRow>
 /**
  * The Items grid's columns (oms 941), in the prototype's order: number (opens the item's page), name in the reader's
  * language, SAP stock, till-side, gap, held, reserved, free, last update. Paged by the server, so no header sorts.

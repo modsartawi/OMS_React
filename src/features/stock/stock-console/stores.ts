@@ -3,6 +3,7 @@
  * thousand rows), so all three run in the browser; the page draws what these return.
  */
 import type { StockConsoleStoreRow } from '@/core/models/stock-console'
+import { STAGES } from '@/core/models/store-stage'
 
 /** The tiles, in the prototype's order. Each counts the stores it filters to. */
 export const STORE_TILES = ['all', 'counted', 'oldHold', 'sapQuiet', 'belowZero'] as const
@@ -47,8 +48,6 @@ export const STORE_SORTS = [
 ] as const
 export type StoreSort = (typeof STORE_SORTS)[number]
 
-/** The stages in the order a store moves through them; a stage this list does not name sorts after them. */
-const STAGE_ORDER = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
 /** Trouble, least first: a descending sort puts Problem on top. An unknown status reads as Watch. */
 const STATUS_ORDER: Record<string, number> = { Ok: 0, Watch: 1, Problem: 2 }
 
@@ -63,7 +62,8 @@ const rank = (order: readonly string[], value: string) => {
 const SORT_KEY: Record<StoreSort, (r: StockConsoleStoreRow) => Key> = {
   plant: (r) => r.plant,
   city: (r) => r.city,
-  stage: (r) => rank(STAGE_ORDER, r.stage),
+  // The stages in the order a store moves through them; a stage the list does not name sorts after them.
+  stage: (r) => rank(STAGES, r.stage),
   status: (r) => STATUS_ORDER[r.status] ?? STATUS_ORDER.Watch,
   tillStock: (r) => r.tillStock,
   sapStock: (r) => r.sapStock,

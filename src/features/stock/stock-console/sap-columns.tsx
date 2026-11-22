@@ -10,10 +10,11 @@ import { formatPair } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localizedName } from '@/core/util/localized-name'
 import { formatFigure } from '@/core/util/number-format'
-import { MONO, formatQuantity } from './columns'
+import { MONO, figureColumn } from './columns'
 import { rowKey } from './row-ids'
 import { itemHref } from './console-pages'
 import { markCell } from './movements'
+import WordOrRaw from './WordOrRaw'
 
 type DayCell = ICellRendererParams<StockConsoleSapDay>
 type LineCell = ICellRendererParams<StockConsoleSapLine>
@@ -22,16 +23,6 @@ type LineCell = ICellRendererParams<StockConsoleSapLine>
 export const sapDayRowId = (row: StockConsoleSapDay) => rowKey(row.day, row.movementType)
 /** One SAP line per material document, year and line. */
 export const sapLineRowId = (row: StockConsoleSapLine) => rowKey(row.materialDocument, row.year, row.line)
-
-/** A figure column: grouped Latin digits, isolated as a machine value. */
-const figure = <T,>(headerName: string, field: string): ColDef<T> => ({
-  headerName,
-  field: field as ColDef<T>['field'],
-  width: 110,
-  type: 'numericColumn',
-  valueFormatter: formatQuantity,
-  cellRenderer: LtrCell,
-})
 
 /**
  * The SAP summary's columns (oms 945): entry day, movement type, documents, lines, quantity in and out. The movement type
@@ -72,10 +63,10 @@ export function buildSapDayColumns(
         )
       },
     },
-    figure(t('sap.column.documents'), 'documents'),
-    figure(t('sap.column.lines'), 'lines'),
-    figure(t('sap.column.quantityIn'), 'quantityIn'),
-    figure(t('sap.column.quantityOut'), 'quantityOut'),
+    figureColumn<StockConsoleSapDay>(t('sap.column.documents'), 'documents', 110),
+    figureColumn<StockConsoleSapDay>(t('sap.column.lines'), 'lines', 110),
+    figureColumn<StockConsoleSapDay>(t('sap.column.quantityIn'), 'quantityIn', 110),
+    figureColumn<StockConsoleSapDay>(t('sap.column.quantityOut'), 'quantityOut', 110),
   ]
 }
 
@@ -163,7 +154,7 @@ export function buildSapLineColumns(t: TFunction, language: string, store: strin
         const cell = markCell(p.data.mark)
         return (
           <span data-sap-mark={p.data.mark}>
-            <StatusBadge sev={cell.sev}>{'key' in cell ? t(cell.key) : <bdi>{cell.raw}</bdi>}</StatusBadge>
+            <StatusBadge sev={cell.sev}><WordOrRaw word={cell} /></StatusBadge>
           </span>
         )
       },

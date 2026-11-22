@@ -11,6 +11,16 @@
  * ⚠️ Timestamps are the estate's local wall-clock, `"yyyy-MM-ddTHH:mm:ss"` with no offset; they stay strings.
  */
 
+/**
+ * The four stages a store moves through at Stock Visibility, in order (SIS.Stock 064). Shared by the stage screen and the
+ * stock console; a stage on the wire is still read as a string, defensively (`isStageName`).
+ */
+export const STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking'] as const
+export type StageName = (typeof STAGES)[number]
+
+export const isStageName = (s: string | null | undefined): s is StageName =>
+  typeof s === 'string' && (STAGES as readonly string[]).includes(s)
+
 /** One row of a store's stage log. `mover` is `Person`, `CountClosing` or `Seed`. */
 export interface StoreStageMove {
   store: string

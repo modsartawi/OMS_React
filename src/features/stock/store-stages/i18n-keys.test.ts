@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/store-stages.json'
 import ar from '@/locales/ar/store-stages.json'
 import { MOVERS, STAGE_COLUMN_IDS } from './columns'
-import { STAGES } from './stages'
+import { STAGES } from '@/core/models/store-stage'
 
 /** Every leaf key, dotted. */
 function leaves(node: unknown, prefix = ''): string[] {

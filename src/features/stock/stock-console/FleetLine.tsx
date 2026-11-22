@@ -7,6 +7,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { FLEET_PATH } from './console-pages'
 import { fleetLine, type FleetLineItem } from './fleet'
+import { wordText } from './WordOrRaw'
 
 /**
  * The fleet line (oms 942, spec 4157 story 72): the fleet facts that are a problem now — a late feed, the recompute
@@ -37,7 +38,9 @@ export default function FleetLine({ problems }: { problems: readonly StockConsol
 
 function Problem({ item }: { item: FleetLineItem }) {
   const { t } = useTranslation('stock-console')
-  const subject = item.subject === null ? '' : 'key' in item.subject ? t(item.subject.key) : item.subject.raw
+  const subject = item.subject === null ? '' : wordText(t, item.subject)
+  // `<s>` holds a feed's name in our words (free text, `bdi`) — or a code: an unknown fact, a feed we have no word for.
+  const code = item.key === 'fleetLine.unknown' || item.subject === null || 'raw' in item.subject
   return (
     <span className="inline-flex flex-wrap gap-x-1.5" data-fleet-problem={item.fact}>
       <span>
@@ -45,7 +48,7 @@ function Problem({ item }: { item: FleetLineItem }) {
           t={t}
           i18nKey={item.key}
           values={{ fact: item.fact, subject, value: formatFigure(item.value), limit: formatFigure(item.limit) }}
-          components={{ s: <bdi />, v: <Ltr /> }}
+          components={{ s: code ? <Ltr /> : <bdi />, v: <Ltr /> }}
         />
       </span>
       {item.since && (

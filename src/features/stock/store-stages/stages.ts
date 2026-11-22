@@ -5,15 +5,10 @@
  * offers only those (any stage back to Shadow, Seeded to Blocking, Blocking back to Seeded) so a person is not invited to a
  * refusal. Shadow to Seeding is the count's closing and Seeding to Seeded the seed's: never a person's.
  */
-import type { StoreCountRow, StoreSeedStatus, StoreStage } from '@/core/models/store-stage'
-
-export const STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking'] as const
-export type StageName = (typeof STAGES)[number]
+import { isStageName, type StageName, type StoreCountRow, type StoreSeedStatus, type StoreStage } from '@/core/models/store-stage'
 
 /** SIS.Stock's log keeps a reason of at most 500 characters. */
 export const WHY_MAX = 500
-
-const isStage = (s: string): s is StageName => (STAGES as readonly string[]).includes(s)
 
 /** The stages a person may move a store to from `from`. */
 export function personMovesFrom(from: string): StageName[] {
@@ -53,7 +48,7 @@ const code = (s: string | null) => (s ?? '').trim().toUpperCase()
 
 export function stagesFiltersFromParams(params: URLSearchParams): StagesFilters {
   const stage = (params.get('stage') ?? '').trim()
-  return { store: code(params.get('store')), stage: isStage(stage) ? stage : '', open: code(params.get('open')) }
+  return { store: code(params.get('store')), stage: isStageName(stage) ? stage : '', open: code(params.get('open')) }
 }
 
 export function stagesFiltersToParams(filters: StagesFilters): URLSearchParams {

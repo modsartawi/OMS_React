@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { FileText, LayoutDashboard, Library, Plus } from 'lucide-react'
 import { itemHref } from '@/core/analytics-routes'
 import { formatClock, formatDay } from '@/core/charts/format'
+import HelpStartCard from '@/core/help/HelpStartCard'
 import i18n from '@/core/i18n'
 import type { AnalyticsItem } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
@@ -66,6 +67,8 @@ function HomeBody() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* oms 952: "New to Analytics? Start here", until this user hides it. */}
+      <HelpStartCard area="analytics" />
       <div className="flex flex-wrap items-center gap-3" data-analytics-home-header>
         <AskBox />
         {links.map((l) => {

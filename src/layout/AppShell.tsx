@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useMatches } from 'react-router'
 import Rail from './Rail'
 import TopBar from './TopBar'
+import PageHelpDrawer from './PageHelpDrawer'
 import { useRailMode } from './rail-mode'
 import { fillsContent, hidesShell } from './shell-route'
 import { lazy } from 'react'
@@ -32,6 +33,7 @@ export default function AppShell() {
     return (
       <main className="min-h-screen min-w-0" data-shell="hidden">
         <Outlet />
+        <PageHelpDrawer />
       </main>
     )
   }
@@ -45,6 +47,8 @@ export default function AppShell() {
         <main className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'min-w-0 flex-1 p-4'}>
           <Outlet />
         </main>
+        {/* oms 952: the page help drawer the "?" in an analytics page's header opens. */}
+        <PageHelpDrawer />
       </div>
     </div>
   )

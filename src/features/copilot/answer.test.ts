@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CopilotAnswer } from '@/core/models/copilot'
-import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, askView, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, lineDir, lineLanguage, namedSetCard, orderSegments, questionFits, suggestionButtons, viewHref } from './answer'
+import { COPILOT_MAX_QUESTION, answerBlocks, answerLayout, answerPlainText, askView, assumptionLines, assumptionRows, copilotAnswerModel, inlineMarks, lineDir, lineLanguage, namedSetCard, orderSegments, questionFits, suggestionButtons, viewHref, helpLinkButtons } from './answer'
 
 describe('the answer view model (spec 734 D10, D11)', () => {
   it('copilotAnswerModel_readsABareAnswerAsEmpty', () => {
@@ -669,5 +669,31 @@ describe("the server's own lines follow the question's language (BackOffice 3729
 
   it('anUnknownLanguage_isReadAsNone', () => {
     expect(copilotAnswerModel({ ...offer, language: 'fr' } as unknown as Partial<CopilotAnswer>).language).toBeNull()
+  })
+})
+
+describe('the answer links the help it answered from (oms 952, BackOffice 4184)', () => {
+  const share = { kind: 'help', area: 'analytics', slug: 'boards', anchor: 'share', title: 'Share a board', screen: '/analytics/library' }
+
+  it('answer_helpPart_rendersOpenTheHelpAndOpenThisScreen_onlyTheHelpWithoutAScreen', () => {
+    const model = copilotAnswerModel({ answer: 'Open the board, then Share.', helpLinks: [share, { ...share, slug: 'start', anchor: '', screen: undefined }] } as Partial<CopilotAnswer>)
+    expect(answerLayout(model).parts).toEqual(['text', 'help'])
+    expect(model.helpLinks.map(helpLinkButtons)).toEqual([
+      [
+        { kind: 'help', to: '/analytics/help/boards#share' },
+        { kind: 'screen', to: '/analytics/library' },
+      ],
+      [{ kind: 'help', to: '/analytics/help/start' }],
+    ])
+  })
+
+  it('answer_helpPart_besideTheViewsItTravelsWith_absentOrMalformedReadsAsNone', () => {
+    const model = copilotAnswerModel({ answer: 'x', viewRefs: [{ id: 'v-1', title: { en: 'a', ar: 'ب' } }], helpLinks: [share] } as Partial<CopilotAnswer>)
+    expect(answerLayout(model).parts).toEqual(['text', 'views', 'help'])
+    expect(copilotAnswerModel({ answer: 'x' }).helpLinks).toEqual([])
+    expect(copilotAnswerModel({ helpLinks: 'boards' } as unknown as Partial<CopilotAnswer>).helpLinks).toEqual([])
+    // A link with no slug cannot open anything; another kind is not a help link; a screen off the app is dropped.
+    const odd = [{ ...share, slug: ' ' }, { ...share, kind: 'view' }, { ...share, screen: 'https://evil.example/' }]
+    expect(copilotAnswerModel({ helpLinks: odd } as unknown as Partial<CopilotAnswer>).helpLinks).toEqual([{ ...share, screen: null }])
   })
 })

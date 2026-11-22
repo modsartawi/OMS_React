@@ -1,4 +1,5 @@
 import { itemHref } from '@/core/analytics-routes'
+import { helpHref } from '@/core/help/help-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import { listPeriodsOf, usedListsOf } from './answer-item-lists'
@@ -8,6 +9,7 @@ import type {
   CopilotAsk,
   CopilotAssumptionChoice,
   CopilotBoardEdit,
+  CopilotHelpLink,
   CopilotListPeriods,
   CopilotNamedSetKind,
   CopilotNamedSetProposal,
@@ -60,6 +62,8 @@ export interface CopilotAnswerModel {
   servedBy: string | null
   /** The views the answer created (spec 766 D), each an "Open view" link; absent reads as empty. */
   viewRefs: CopilotViewRef[]
+  /** The help it answered from (oms 952, BO 4184), each "Open the help" and maybe "Open this screen"; absent reads as empty. */
+  helpLinks: HelpLinkPart[]
   /** The reports the answer built or saved (spec 819 §D), each an "Open in designer" link; absent reads as empty. */
   reportRefs: CopilotReportRef[]
   /** The unsaved edit for the report open in the designer (832), handed to it through the core bridge; or none. */
@@ -262,6 +266,7 @@ export function copilotAnswerModel(reply: Partial<CopilotAnswer> | null | undefi
     stoppedEarly: r.stoppedEarly === true,
     servedBy: typeof r.servedBy === 'string' && r.servedBy.trim() !== '' ? r.servedBy : null,
     viewRefs: Array.isArray(r.viewRefs) ? r.viewRefs.flatMap(viewRef) : [],
+    helpLinks: Array.isArray(r.helpLinks) ? r.helpLinks.flatMap(helpLinkOf) : [],
     reportRefs: Array.isArray(r.reportRefs) ? r.reportRefs.flatMap(reportRef) : [],
     reportEdit: reportEditOf(r.reportEdit),
     boardEdit: boardEditOf(r.boardEdit),
@@ -357,6 +362,7 @@ export type AnswerPart =
   | 'tables'
   | 'listPeriods'
   | 'views'
+  | 'help'
   | 'assumptions'
   | 'usedLists'
   | 'readingOffer'
@@ -385,6 +391,8 @@ export function answerLayout(model: CopilotAnswerModel): AnswerLayout {
   // 926: the list_periods comparison beside the tables; the "Used" line right under the assumption lines (spec 4057).
   if (model.listPeriods) parts.push('listPeriods')
   if (model.viewRefs.length > 0) parts.push('views')
+  // oms 952: the help link after the data parts (BO 4184: a mixed answer gives the data first, then the help link).
+  if (model.helpLinks.length > 0) parts.push('help')
   if (model.assumptions.length > 0) parts.push('assumptions')
   if (model.usedLists.length > 0) parts.push('usedLists')
   if (model.readingOffer) parts.push('readingOffer')
@@ -465,6 +473,30 @@ function withMapPart(table: CopilotAnswerTable): CopilotAnswerTable {
 const mapPartRead = new WeakMap<CopilotAnswerTable, CopilotAnswerTable>()
 
 const text = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+/** A help link as the panel reads it: the screen is an in-app route or null. */
+export type HelpLinkPart = Required<Omit<CopilotHelpLink, 'screen'>> & { screen: string | null }
+
+/** One `helpLinks` entry (oms 952, BO 4184), or none: not a help link, or no slug to open. A screen off the app is dropped. */
+function helpLinkOf(v: unknown): HelpLinkPart[] {
+  if (!v || typeof v !== 'object') return []
+  const { kind, area, slug, anchor, title, screen } = v as Record<string, unknown>
+  if (kind !== 'help' || typeof slug !== 'string' || slug.trim() === '') return []
+  const route = typeof screen === 'string' && /^\/(?!\/)/.test(screen.trim()) ? screen.trim() : null
+  return [{ kind: 'help', area: typeof area === 'string' && area.trim() !== '' ? area : 'analytics', slug, anchor: text(anchor), title: text(title), screen: route }]
+}
+
+/** One button under a help link: "Open the help" to the article's heading, "Open this screen" to its route. */
+export interface HelpLinkButton {
+  kind: 'help' | 'screen'
+  to: string
+}
+
+/** A help link's buttons: always "Open the help"; "Open this screen" only when the section names a screen. */
+export function helpLinkButtons(link: HelpLinkPart): HelpLinkButton[] {
+  const help: HelpLinkButton = { kind: 'help', to: helpHref(link.area, link.slug, link.anchor || undefined) }
+  return link.screen ? [help, { kind: 'screen', to: link.screen }] : [help]
+}
 
 /** One `viewRefs` entry, or none when it carries no id. A missing title half reads as blank. */
 function viewRef(v: unknown): CopilotViewRef[] {

@@ -544,6 +544,24 @@ export interface CopilotViewRef {
 }
 
 /**
+ * A help link the answer was built from (oms 952, BackOffice 4184): the article and heading it read, and the screen the
+ * steps are on. The web draws "Open the help" and, with a `screen`, "Open this screen".
+ *
+ * 🚩 Stubbed contract: BO 4184 is not built. It names the part `{ kind: "help", area, slug, anchor, title, screen? }` but
+ * not the reply field carrying it; `helpLinks` (beside `viewRefs`) is assumed until it ships.
+ */
+export interface CopilotHelpLink {
+  kind: 'help'
+  area: string
+  slug: string
+  /** The heading's anchor inside the article; empty for the article's top. */
+  anchor: string
+  title: string
+  /** An oms-react route (`/analytics/library`), or null when the section names none. */
+  screen?: string | null
+}
+
+/**
  * The audit's outcome (D6), as the answer carries it. BackOffice spec 3586 adds two, each only with its server switch
  * on: `figures-only` (3590, `Copilot:Answers:NumberCheck`: `answer` is a fixed sentence holding none of the model's
  * words, `tables` every analytics result, `orderRefs` `[]`) and `asked` (3596, `Copilot:Answers:AskUnclearName`: `ask`
@@ -585,6 +603,8 @@ export interface CopilotAnswer {
    * Absent on an older server, and read as empty.
    */
   viewRefs?: CopilotViewRef[]
+  /** 🚩 oms 952 (BO 4184, field name assumed): the help sections a how-to answer used; absent reads as empty. */
+  helpLinks?: CopilotHelpLink[]
   /** The reports `create_report` / `edit_report` saved in this answer (spec 819 §D); absent reads as empty. */
   reportRefs?: CopilotReportRef[]
   /**

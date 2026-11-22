@@ -34,6 +34,8 @@ import {
   orderSegments,
   suggestionButtons,
   viewHref,
+  helpLinkButtons,
+  type HelpLinkPart,
   type AnswerBlock,
   type AnswerRules,
   type CopilotAnswerModel,
@@ -90,6 +92,33 @@ function OrderLinks({ text, orderRefs }: { text: string; orderRefs: readonly str
         ),
       )}
     </>
+  )
+}
+
+/**
+ * The help a how-to answer used (oms 952, BackOffice 4184): per section, its title, "Open the help" to the article's
+ * heading and, when the section names one, "Open this screen". Both by route string; the title is free text, a `<bdi>`.
+ */
+export function HelpLinks({ links }: { links: readonly HelpLinkPart[] }) {
+  const { t } = useTranslation('copilot')
+  if (links.length === 0) return null
+  return (
+    <ul aria-label={t('answer.help')} className="flex flex-col gap-2 text-sm" data-copilot-help-links>
+      {links.map((l, i) => (
+        <li key={`${i}-${l.slug}-${l.anchor}`} className="flex flex-wrap items-center gap-x-3 gap-y-1" data-copilot-help-link={l.slug}>
+          {l.title && (
+            <span className="font-medium">
+              <bdi>{l.title}</bdi>
+            </span>
+          )}
+          {helpLinkButtons(l).map((b) => (
+            <Link key={b.kind} to={b.to} className="text-xs font-medium text-primary underline underline-offset-2" data-copilot-help-open={b.kind}>
+              {b.kind === 'help' ? t('answer.openHelp') : t('answer.openScreen')}
+            </Link>
+          ))}
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -793,6 +822,8 @@ export function Answer({
         return model.listPeriods ? <ListPeriodsPart key={p} lp={model.listPeriods} lang={lang} /> : null
       case 'views':
         return <ViewLinks key={p} viewRefs={model.viewRefs} />
+      case 'help':
+        return <HelpLinks key={p} links={model.helpLinks} />
       case 'assumptions':
         return <Assumptions key={p} model={model} readings={readings} />
       case 'usedLists':

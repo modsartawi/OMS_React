@@ -2,7 +2,8 @@
   "areas": {
     "analytics": {
       "title": "Analytics help",
-      "subtitle": "How to use Analytics, step by step."
+      "subtitle": "How to use Analytics, step by step.",
+      "guide": "Analytics: user guide"
     }
   },
   "search": {
@@ -37,5 +38,18 @@
     "contentsFailed": "The help could not be loaded.",
     "articleFailed": "This article could not be loaded.",
     "notFound": "There is no article here. Pick one from the contents."
+  },
+  "print": {
+    "see": "see <t>{{title}}</t>",
+    "language": "Language:",
+    "languages": {
+      "en": "English",
+      "ar": "Arabic"
+    },
+    "checkedAgainst": "Checked against",
+    "printedOn": "Printed on <v>{{date}}</v>",
+    "open": "Print the guide",
+    "printNow": "Print",
+    "back": "Back to the help"
   }
 }

@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useParams } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Printer } from 'lucide-react'
 import { ApiError, apiErrorMessage } from '@/core/api'
 import { helpArticleQuery, useHelpContents } from '@/core/help/help-api'
 import { helpDir, useHelpLang } from '@/core/help/help-lang'
 import { HELP_START_SLUG, helpHref } from '@/core/help/help-routes'
 import { usePermissions } from '@/core/permissions'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import type { HelpArticleMeta, HelpLang } from '@/core/models/help'
@@ -16,6 +17,7 @@ import HelpContentsRail from './HelpContentsRail'
 import HelpDraftBanner from './HelpDraftBanner'
 import HelpMarkdown from './HelpMarkdown'
 import { neighbours } from './help-contents'
+import { helpPrintHref } from './help-print'
 import { searchArticles } from './help-search'
 
 /**
@@ -48,9 +50,16 @@ export default function HelpPage({ area }: { area: string }) {
 
   return (
     <section dir={helpDir(lang)} lang={lang} className="flex h-full w-full flex-col gap-4" data-help-page={area}>
-      <header>
-        <h1 className="text-lg font-semibold tracking-tight">{t(`areas.${area}.title`)}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t(`areas.${area}.subtitle`)}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">{t(`areas.${area}.title`)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t(`areas.${area}.subtitle`)}</p>
+        </div>
+        {/* The whole help on paper (oms 953), in the help language, in a new tab. */}
+        <Link to={helpPrintHref(area, lang)} target="_blank" rel="noopener" className={buttonClass('secondary', 'inline-flex items-center gap-1.5')} data-help-print-open>
+          <Printer className="size-3.5" aria-hidden />
+          {t('print.open')}
+        </Link>
       </header>
       {contents.data && <HelpDraftBanner draft={contents.data.draft} lang={lang} />}
       {contents.isError ? (

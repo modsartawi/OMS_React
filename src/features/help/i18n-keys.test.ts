@@ -21,7 +21,7 @@ describe('help — en and ar', () => {
   })
 
   it.each([en, ar])('hold every key the page builds', (locale) => {
-    const keys = [...HELP_ACCESS.map((a) => `access.${a}`), 'areas.analytics.title', 'areas.analytics.subtitle']
+    const keys = [...HELP_ACCESS.map((a) => `access.${a}`), 'areas.analytics.title', 'areas.analytics.subtitle', 'areas.analytics.guide', 'print.languages.en', 'print.languages.ar']
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 

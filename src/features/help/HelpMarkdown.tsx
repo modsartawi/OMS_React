@@ -1,7 +1,7 @@
-import { Fragment, type ReactNode } from 'react'
+import { Children, Fragment, isValidElement, type ReactNode } from 'react'
 import Markdown from 'markdown-to-jsx/react'
 import { Link, useNavigate } from 'react-router'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { ExternalLink, MonitorPlay } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
@@ -16,8 +16,11 @@ import { helpImageFile, helpLinkOf } from './help-links'
  * - `screen:/route` → an "Open this screen" button that navigates; `help:slug#anchor` → a link inside the help.
  * - `images/<name>.en.png` → the help image route's file in the help language; another host's image never loads.
  * - Headings get anchors (Arabic letters kept), so `help:slug#anchor` lands on them; code reads left to right.
+ *
+ * On paper (`print`, oms 953) nothing can be clicked: a `screen:` link prints as the screen's name (the link's words),
+ * a `help:` link as "see <article title>", any other link as its words; each picture reports when it has settled.
  */
-export default function HelpMarkdown({ area, markdown, lang }: { area: string; markdown: string; lang: HelpLang }) {
+export default function HelpMarkdown({ area, markdown, lang, print }: { area: string; markdown: string; lang: HelpLang; print?: HelpPrintMode }) {
   return (
     <div className={HELP_PROSE}>
       <Markdown
@@ -26,8 +29,8 @@ export default function HelpMarkdown({ area, markdown, lang }: { area: string; m
           slugify: headingAnchor,
           wrapper: Fragment,
           overrides: {
-            a: { component: HelpAnchor, props: { area, lang } },
-            img: { component: HelpPicture, props: { area, lang } },
+            a: print ? { component: PrintedAnchor, props: { lang, titles: print.titles } } : { component: HelpAnchor, props: { area, lang } },
+            img: { component: HelpPicture, props: { area, lang, onSettled: print?.onImageSettled } },
             code: InlineCode,
             pre: CodeBlock,
           },
@@ -55,6 +58,8 @@ const HELP_PROSE = [
   'flex flex-col gap-3 text-sm leading-relaxed text-foreground',
   '[&_h1]:text-xl [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:font-semibold',
   '[&_h2]:scroll-mt-4 [&_h3]:scroll-mt-4',
+  // On paper: no heading left alone at a page bottom, no code block or table row cut in two.
+  '[&_h1]:[break-after:avoid] [&_h2]:[break-after:avoid] [&_h3]:[break-after:avoid] [&_pre]:[break-inside:avoid] [&_tr]:[break-inside:avoid]',
   '[&_ul]:list-disc [&_ul]:ps-5 [&_ol]:list-decimal [&_ol]:ps-5 [&_li]:my-1',
   '[&_blockquote]:border-s-4 [&_blockquote]:border-border [&_blockquote]:ps-3 [&_blockquote]:text-muted-foreground',
   '[&_table]:w-full [&_table]:text-start [&_th]:border-b [&_th]:border-border [&_th]:p-1.5 [&_th]:text-start [&_td]:border-b [&_td]:border-border [&_td]:p-1.5',
@@ -94,9 +99,38 @@ function HelpAnchor({ href = '', children, area, lang }: { href?: string; childr
   }
 }
 
-function HelpPicture({ src = '', alt = '', area, lang }: { src?: string; alt?: string; area: string; lang: HelpLang }) {
+/** The print mode: the area's article titles by slug (for "see <title>"), and a picture's settled report. */
+export interface HelpPrintMode {
+  titles: Readonly<Record<string, string>>
+  onImageSettled?: (file: string) => void
+}
+
+const HELP = 'help:'
+
+/** A link on paper: its words, or "see <article title>" for another article of the help. */
+function PrintedAnchor({ href = '', children, lang, titles }: { href?: string; children?: ReactNode; lang: HelpLang; titles: Readonly<Record<string, string>> }) {
+  const { t } = useTranslation('help', { lng: lang })
+  const slug = href.startsWith(HELP) ? href.slice(HELP.length).split('#', 1)[0] : ''
+  if (!slug) return <span data-help-print-link>{children}</span>
+  const title = titles[slug] ?? textOf(children)
+  // The title is free text in either script: one `<bdi>` around the whole of it (bidi rule).
+  return (
+    <span data-help-print-link={slug}>
+      <Trans t={t} i18nKey="print.see" values={{ title }} components={{ t: <bdi /> }} />
+    </span>
+  )
+}
+
+/** The plain words of a link's children. */
+function textOf(node: ReactNode): string {
+  return Children.toArray(node)
+    .map((c) => (typeof c === 'string' || typeof c === 'number' ? String(c) : isValidElement<{ children?: ReactNode }>(c) ? textOf(c.props.children) : ''))
+    .join('')
+}
+
+function HelpPicture({ src = '', alt = '', area, lang, onSettled }: { src?: string; alt?: string; area: string; lang: HelpLang; onSettled?: (file: string) => void }) {
   const file = helpImageFile(src, lang)
-  return file ? <HelpImage area={area} file={file} alt={alt} lang={lang} /> : null
+  return file ? <HelpImage area={area} file={file} alt={alt} lang={lang} onSettled={onSettled} /> : null
 }
 
 function InlineCode({ children, className }: { children?: ReactNode; className?: string }) {

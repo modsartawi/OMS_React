@@ -133,6 +133,22 @@ export const router = createBrowserRouter([
     handle: PRINT_ROUTE,
     children: [{ index: true, lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsCatalogPrintPage')).default }) }],
   },
+  // The whole analytics help on paper (oms 953, BackOffice spec 4182 §D), `?lang=en|ar`: outside the shell like its
+  // siblings; a login only (the help holds no business data). The feature takes the area.
+  {
+    path: '/analytics/print/help',
+    element: <ProtectedLayout chromeless />,
+    handle: PRINT_ROUTE,
+    children: [
+      {
+        index: true,
+        lazy: async () => {
+          const { default: HelpPrintPage } = await import('@/features/help/HelpPrintPage')
+          return { Component: () => <HelpPrintPage area="analytics" /> }
+        },
+      },
+    ],
+  },
   // A pharmacy's Mini POS QR (oms 927, BackOffice 4043): outside the shell so the paper is the code alone; `chromeless`
   // keeps the session guard. The page reads `MiniPosAdmin:06` itself.
   {

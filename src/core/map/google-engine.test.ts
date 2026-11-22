@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { googleEngine } from './google-engine'
 import { createGoogleLoader, type LoaderPage } from './google-loader'
-import type { MapEngineEvents, MapEngineStart, MapFeature, MapLineFeature, MapTarget } from './map-panel'
+import type { MapEngineEvents, MapEngineStart, MapFeature, MapLineFeature, MapPolygonFeature, MapTarget } from './map-panel'
 
 const KEY = 'planted-test-key'
 
@@ -134,8 +134,28 @@ function stageGoogle() {
     }
   }
   const polylines: StagedPolyline[] = []
+  // 947: Google's polygon, as the adapter makes one for each shape; a test plays its click.
+  class StagedPolygon {
+    map: unknown
+    readonly handlers = new Map<string, (() => void)[]>()
+    constructor(readonly options: Record<string, unknown>) {
+      this.map = options.map ?? null
+      polygons.push(this)
+    }
+    setMap(map: unknown) {
+      this.map = map
+    }
+    addListener(event: string, handler: () => void) {
+      this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler])
+      return { remove: () => this.handlers.set(event, (this.handlers.get(event) ?? []).filter((h) => h !== handler)) }
+    }
+    fire(event: string) {
+      for (const h of this.handlers.get(event) ?? []) h()
+    }
+  }
+  const polygons: StagedPolygon[] = []
   const ns = {
-    importLibrary: async () => ({ Map: StagedMap, RenderingType: { RASTER: 'RASTER' }, Polyline: StagedPolyline }),
+    importLibrary: async () => ({ Map: StagedMap, RenderingType: { RASTER: 'RASTER' }, Polyline: StagedPolyline, Polygon: StagedPolygon }),
     ControlPosition: { TOP_LEFT: 'TOP_LEFT', TOP_RIGHT: 'TOP_RIGHT' },
     OverlayView: StagedOverlay,
     event: { addListenerOnce: (target: StagedMap, event: string, handler: () => void) => {
@@ -160,6 +180,7 @@ function stageGoogle() {
     maps,
     overlays,
     polylines,
+    polygons,
     scripts,
     pane,
     setZoom: (z: number) => void (zoom = z),
@@ -408,5 +429,77 @@ describe('lines (922): each a Google polyline in its colour, its words at its mi
       await google.answer()
       expect(google.polylines).toEqual([])
     }
+  })
+})
+
+describe('shapes (947): each a Google polygon in its fill, beneath the points, its tap reported by id', () => {
+  const CENTER: MapPolygonFeature = {
+    id: 'Center',
+    rings: [
+      [[44, 24], [47, 24], [47, 27], [44, 24]],
+      [[45, 20], [46, 20], [46, 21], [45, 20]],
+    ],
+    fill: 'ink(--map-scale-4)',
+    fillOpacity: 0.55,
+    stroke: 'ink(--card)',
+  }
+
+  function withShapes(google: ReturnType<typeof stageGoogle>, polygons: MapPolygonFeature[] | undefined, shapeTaps: string[] = []) {
+    return googleEngine(google.loader).start(
+      { container: new El(), view: { kind: 'bounds', west: 43, south: 19, east: 48, north: 28 }, key: KEY, controlsCorner: 'top-right', featuresAt: () => [RIYADH], labelInk: '', lang: 'en', polygons },
+      { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap() {}, moved() {}, sized() {}, shapeTap: (id) => void shapeTaps.push(id) },
+    )
+  }
+
+  it('draws one polygon per shape, every ring a path, in its fill and edge, on the map, beneath the lines', async () => {
+    const google = stageGoogle()
+    withShapes(google, [CENTER])
+    await google.answer()
+    expect(google.polygons).toHaveLength(1)
+    const p = google.polygons[0]
+    expect(p.options.paths).toEqual([
+      [{ lat: 24, lng: 44 }, { lat: 24, lng: 47 }, { lat: 27, lng: 47 }, { lat: 24, lng: 44 }],
+      [{ lat: 20, lng: 45 }, { lat: 20, lng: 46 }, { lat: 21, lng: 46 }, { lat: 20, lng: 45 }],
+    ])
+    expect(p.options).toMatchObject({ fillColor: 'ink(--map-scale-4)', fillOpacity: 0.55, strokeColor: 'ink(--card)', clickable: true, zIndex: 0 })
+    expect(p.map).toBe(google.maps[0])
+  })
+
+  it('a click on a shape is reported as its id', async () => {
+    const google = stageGoogle()
+    const taps: string[] = []
+    withShapes(google, [CENTER], taps)
+    await google.answer()
+    google.polygons[0].fire('click')
+    expect(taps).toEqual(['Center'])
+  })
+
+  it('closing the map takes its shapes away and reports no more taps', async () => {
+    const google = stageGoogle()
+    const taps: string[] = []
+    const running = withShapes(google, [CENTER], taps)
+    await google.answer()
+    running.destroy()
+    expect(google.polygons[0].map).toBeNull()
+    google.polygons[0].fire('click')
+    expect(taps).toEqual([])
+  })
+
+  it('a map with no shapes (every map before 947) makes no polygon', async () => {
+    for (const polygons of [undefined, []]) {
+      const google = stageGoogle()
+      withShapes(google, polygons)
+      await google.answer()
+      expect(google.polygons).toEqual([])
+    }
+  })
+
+  it('a view shown before Google has drawn the map is the view it opens on', async () => {
+    const google = stageGoogle()
+    const running = withShapes(google, [])
+    running.fit({ kind: 'centre', lon: 50.58, lat: 26.22, zoom: 9 })
+    await google.answer()
+    expect(google.maps[0].options).toMatchObject({ center: { lat: 26.22, lng: 50.58 }, zoom: 9 })
+    expect(google.maps[0].calls.filter((c) => c[0] === 'fitBounds')).toEqual([])
   })
 })

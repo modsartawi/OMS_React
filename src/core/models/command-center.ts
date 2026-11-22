@@ -208,3 +208,50 @@ export interface CcProfileSection {
   tables: CcTable[]
   sentences?: CcPart[][]
 }
+
+// ── 947: the scorecard panel (`GET CommandCenter/Scorecard?storeCode=&lang=`, spec 4165 "one pharmacy's scorecard") ──
+
+/** The six measures, in the spec's order (spec 4165 "The store scorecard"). The server sends them in its order. */
+export const CC_MEASURE_KEYS = ['salesGrowth', 'receiptsGrowth', 'basket', 'deadStock', 'loyalty', 'delivery'] as const
+export type CcMeasureKey = (typeof CC_MEASURE_KEYS)[number]
+
+/** A measure's state: scored, "new" (a new pharmacy's growth measures), or not scored (too few delivery orders). */
+export const CC_MEASURE_STATES = ['scored', 'new', 'not-scored'] as const
+export type CcMeasureState = (typeof CC_MEASURE_STATES)[number]
+
+/** One measure of a pharmacy's scorecard against its peer group, as stored. ⚠ proposed */
+export interface CcMeasure {
+  key: CcMeasureKey
+  /** In the asked language. ⚠ proposed */
+  label: string
+  state: CcMeasureState
+  /** The stored colour; null unless scored. */
+  colour: CcColour | null
+  /** The pharmacy's own figure and its peer group's, as formatted text (incl. VAT where money). */
+  own: string
+  peer: string
+  /** Growth measures: the plain year-on-year figure beside the relative one (spec 4165 story 34). ⚠ proposed */
+  plain?: string
+}
+
+/** `GET CommandCenter/Scorecard?storeCode=&lang=` — one pharmacy's scorecard, as stored last night. ⚠ proposed */
+export interface CcScorecard {
+  lang: CcLang
+  night: string
+  dataAsOf: string
+  storeCode: string
+  /** The pharmacy's code and city, in the asked language ("P166 · Riyadh"); no person's name. ⚠ proposed */
+  title: string
+  /** Its peer group in words ("Size B · Center"). ⚠ proposed */
+  peerGroup: string
+  /** Three or more red measures. */
+  flagged: boolean
+  /** No comparable 4 weeks last year: the growth measures read "new". */
+  isNew: boolean
+  /** The six measures, in the server's order. */
+  measures: CcMeasure[]
+  /** Context with no colour (insurance share, delivery and online share, days of cover). ⚠ proposed */
+  context: CcFigure[]
+  /** "Ask the copilot" about this pharmacy (950). Absent while `Copilot:Findings` is off. ⚠ proposed */
+  ask?: CcAsk
+}

@@ -55,5 +55,43 @@
     "lastGood": "Last good brief: {{date}}",
     "startsOn": "The list starts on {{date}}.",
     "empty": "Nothing to show tonight."
+  },
+  "map": {
+    "title": "Kingdom map",
+    "label": "Kingdom map: regions shaded by their share of flagged pharmacies, each pharmacy a point when zoomed in",
+    "filter": {
+      "label": "Show",
+      "all": "All issues",
+      "sales": "Sales",
+      "stock": "Stock",
+      "delivery": "Delivery"
+    },
+    "cannotDraw": "The map could not be drawn. The region table below still holds every region.",
+    "notOnMap": "Pharmacies not on the map (no coordinates):",
+    "zoomHint": "Zoom in to see each pharmacy.",
+    "boundaries": "Region borders: geoBoundaries, CC BY 4.0"
+  },
+  "regions": {
+    "title": "Regions",
+    "caption": "Pharmacies scored, flagged and their share, per region, under the map's filter",
+    "region": "Region",
+    "scored": "Scored",
+    "flagged": "Flagged",
+    "share": "Share",
+    "wholeKingdom": "Whole kingdom"
+  },
+  "scorecard": {
+    "eyebrow": "Pharmacy scorecard",
+    "close": "Close the scorecard",
+    "loading": "Loading the scorecard…",
+    "loadFailed": "The scorecard could not be loaded.",
+    "dataAsOf": "Data as of {{date}}",
+    "flagged": "Flagged",
+    "isNew": "New pharmacy",
+    "new": "New",
+    "notScored": "Not scored",
+    "peer": "Peers",
+    "plain": "Year on year",
+    "openProfile": "Open the store profile"
   }
 }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router'
 import { apiErrorMessage } from '@/core/api'
 import type { CcLang } from '@/core/models/command-center'
 import { usePermissions } from '@/core/permissions'
@@ -8,13 +9,16 @@ import { fsi } from '@/core/util/bidi'
 import { canOpenCommandCenter, commandCenterNotOffered } from './access'
 import { homeQuery } from './api'
 import Brief from './Brief'
+import { filterOf, withFilter, withStore } from './home-url'
+import KingdomMap from './KingdomMap'
 import LanguageSwitch from './LanguageSwitch'
+import ScorecardPanel from './ScorecardPanel'
 import StatusLine from './StatusLine'
 import { NS, pageDir, useCcLang, type CcT } from './lang'
 
 /**
  * The Retail Command Center home (oms 946, BackOffice spec 4165 "The home page"): the morning brief on the start side,
- * the kingdom map and the region table on the end side (947 fills the slot). Behind the analytics view grant while the
+ * the kingdom map and the region table on the end side (947, with the scorecard panel a pharmacy opens). Behind the analytics view grant while the
  * server offers it (`canOpenCommandCenter`, the menu leaf's own predicate), failing closed: with the switch off nothing
  * is asked of the server and the page says the command center is not switched on.
  *
@@ -36,6 +40,10 @@ export default function CommandCenterPage() {
 
 function Home({ lang, t, setLang }: { lang: CcLang; t: CcT; setLang: (lang: CcLang) => void }) {
   const home = useQuery(homeQuery(lang))
+  // 947: the map filter and the open scorecard live in the URL, so a brief link opens the same panel a map point does.
+  const [params, setParams] = useSearchParams()
+  const filter = filterOf(params)
+  const store = params.get('store')
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -57,11 +65,18 @@ function Home({ lang, t, setLang }: { lang: CcLang; t: CcT; setLang: (lang: CcLa
           )}
           <div className="grid gap-4 lg:grid-cols-2">
             <Brief brief={home.data.brief} lang={lang} t={t} />
-            {/* 947: the kingdom map and the region table. */}
-            <section className="min-w-0" data-cc-map-slot />
+            <KingdomMap
+              home={home.data}
+              filter={filter}
+              onFilter={(next) => setParams(withFilter(params, next), { replace: true })}
+              onPharmacy={(code) => setParams(withStore(params, code))}
+              lang={lang}
+              t={t}
+            />
           </div>
         </>
       )}
+      {store && <ScorecardPanel storeCode={store} lang={lang} t={t} onClose={() => setParams(withStore(params, null))} />}
     </div>
   )
 }

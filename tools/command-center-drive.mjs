@@ -10,9 +10,12 @@
 //      red dot; links; no raw keys.
 //   2. The language switch: Arabic asked of the server, the page right to left, the shell left to right.
 //   3. Switch off: no leaf, no home call, the not-switched-on sentence.
+//   4. (947) The map half: the region table, the filter changing it, the not-on-map count; a pharmacy code in the brief
+//      opens the scorecard panel with six measures and the store profile link; closing it. The stub sends no `maps`
+//      key, so the map says it cannot be drawn (the live Google walk is owed: BO 4176 unbuilt).
 import { createRequire } from 'node:module'
 import { permissions } from './permissions-stub.mjs'
-import { home } from './command-center-stubs.mjs'
+import { home, mapPart, scorecard } from './command-center-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -30,7 +33,7 @@ const envelope = (data) => ({
   body: JSON.stringify({ statusCode: 200, success: true, message: '', errors: [], data }),
 })
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '')
-const rawKey = (text) => text.match(/\b(?:command-center:)?(?:brief|status|access|offer|lang|menu)\.[a-zA-Z.-]+\b/)
+const rawKey = (text) => text.match(/\b(?:command-center:)?(?:brief|status|access|offer|lang|menu|map|regions|scorecard)\.[a-zA-Z.-]+\b/)
 
 const browser = await chromium.launch()
 
@@ -47,7 +50,8 @@ async function open(keys, extras) {
     calls.push({ path, params: Object.fromEntries(url.searchParams) })
     if (path === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'drive', currentStoreCode: '1001' }))
     if (path === 'Auth/Permissions') return route.fulfill(permissions(keys, extras))
-    if (path === 'CommandCenter/Home') return route.fulfill(envelope(home(url.searchParams.get('lang'))))
+    if (path === 'CommandCenter/Home') return route.fulfill(envelope(home(url.searchParams.get('lang'), mapPart(url.searchParams.get('lang')))))
+    if (path === 'CommandCenter/Scorecard') return route.fulfill(envelope(scorecard(url.searchParams.get('storeCode'), url.searchParams.get('lang'))))
     return route.fulfill(envelope({}))
   })
   return { page, context, errors, calls }
@@ -94,6 +98,31 @@ try {
     check('3. switch off: the page says so', true)
     check('3. switch off: the home is never asked', !calls.some((c) => c.path === 'CommandCenter/Home'))
     check('3. switch off: no menu leaf', (await page.locator('a[href="/analytics/command-center"]').count()) === 0)
+    await context.close()
+  }
+  {
+    const { page, context, errors, calls } = await open(['Analytics:03'], { commandCenterOn: true })
+    await page.goto(ROOT)
+    await page.waitForSelector('[data-cc-regions]')
+    const centre = () => page.locator('[data-cc-region="Center"]').innerText().then(strip)
+    check('4. the region table: all issues', (await centre()).includes('260') && (await centre()).includes('38%'))
+    check('4. the map cannot be drawn without a key, and says so', (await page.locator('[data-cc-map-cannot-draw]').count()) === 1)
+    check('4. a pharmacy without coordinates is counted under the map', strip(await page.locator('[data-cc-not-on-map]').innerText()).includes('1'))
+    await page.click('[data-cc-filter="stock"]')
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('filter') === 'stock')
+    check('4. the stock filter changes the table', (await centre()).includes('258') && (await centre()).includes('9%'))
+    await page.click('[data-cc-section="changed"] a[href*="store=P166"]')
+    await page.waitForSelector('[data-cc-scorecard="P166"] [data-cc-measures]')
+    check('4. a pharmacy code in the brief opens its scorecard', calls.some((c) => c.path === 'CommandCenter/Scorecard' && c.params.storeCode === 'P166'))
+    check('4. six measures', (await page.locator('[data-cc-scorecard="P166"] [data-cc-measure]').count()) === 6)
+    check('4. the store profile link', (await page.locator('[data-cc-open-profile]').getAttribute('href')) === '/analytics/command-center/store/P166?lang=en')
+    const panelText = strip(await page.locator('[data-cc-scorecard="P166"]').innerText())
+    check('4. no raw keys in the panel', !rawKey(panelText), String(rawKey(panelText)))
+    await page.screenshot({ path: process.env.DRIVE_SHOTS ? `${process.env.DRIVE_SHOTS}/cc-scorecard.png` : 'cc-scorecard.png', fullPage: true }).catch(() => {})
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !new URL(location.href).searchParams.has('store'))
+    check('4. closing the panel takes the pharmacy out of the URL', (await page.locator('[data-cc-scorecard]').count()) === 0)
+    check('4. no page errors', errors.length === 0, errors.join(' | '))
     await context.close()
   }
 } finally {

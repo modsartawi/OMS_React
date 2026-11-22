@@ -293,3 +293,22 @@ export interface CcCategoryProfile {
    *  margin, availability, the price index and private label as `not-available-yet` with their reasons. */
   sections: CcProfileSection[]
 }
+
+// ── 948: the store profile (`GET CommandCenter/StoreProfile`, `/Export`, BO 4177) ─────────────────────────────────────
+
+/**
+ * `GET CommandCenter/StoreProfile?storeCode=&period=&from=&to=&lang=` (BO 4177): one pharmacy for a period — the rolling
+ * 4 weeks with the same weeks last year by default, year-to-date, or dates. No staff section, no person's name or id.
+ */
+export interface CcStoreProfile {
+  lang: CcLang
+  storeCode: string
+  /** The pharmacy's code and city, in the asked language ("P166 · Jeddah"); no person's name. ⚠ proposed */
+  title: string
+  /** The period the answer is for, and the one beside it (last year). */
+  period: CcPeriod
+  /** In the server's order: headline and peers; mix by category, payer type and private label; by month, weekday and
+   *  hour; basket shape; customers; discounts; sales by insurer and credit customer; the product list; observations.
+   *  Private label is `not-available-yet` with its reason until the item dimension carries the flag. */
+  sections: CcProfileSection[]
+}

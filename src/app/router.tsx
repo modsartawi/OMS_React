@@ -297,6 +297,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/command-center/CategoryProfilePage')).default }),
       },
       {
+        // 948: a pharmacy's store profile (`STORE_PROFILE_PATTERN`), its period in the query string.
+        path: 'analytics/command-center/store/:storeCode',
+        lazy: async () => ({ Component: (await import('@/features/analytics/command-center/StoreProfilePage')).default }),
+      },
+      {
         path: 'analytics/price-command-center',
         lazy: async () => ({ Component: (await import('@/features/analytics/price-command-center/PriceCommandCenterPage')).default }),
       },

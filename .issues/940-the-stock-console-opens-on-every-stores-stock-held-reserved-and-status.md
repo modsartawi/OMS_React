@@ -1,0 +1,57 @@
+---
+status: open
+spec: BackOffice 4157
+blocked-by: BO 4158
+---
+
+# 940 — The stock console opens on every store's stock, held, reserved and status
+
+Spec: BackOffice `C:\Work\DMSCO\BackOffice\.issues\4157-the-stock-console-every-stores-stock-held-and-reserved-searched-down-to-the-batch-spec.md`.
+The tracer on the web: the feature, its gate, its menu leaf and the one list read on opening.
+
+## What to build
+
+A new feature `features/stock/stock-console` (namespace `stock-console`), route `/stock/console`, one menu leaf under
+Stock gated by the feature's own `canOpenStockConsole` (`StockConsole:03`), the page behind `ScreenGate`.
+Layout, wording and the order of things follow the accepted prototype, round 3:
+`C:\Work\DMSCO\BackOffice\.scratch\proto\store-stock-console\console.html` (it makes no live call). The sync console
+(`src/features/admin/sync-console`) is the model for the shape; nothing is imported from it (feature boundary).
+
+- **Top links**: Stores now; Find an item or a batch, and Feeds and switches arrive with their tickets.
+- **Stores** reads `StockConsole/Stores` once on opening:
+  - tiles that count and filter: All, Counted (Seeded or Blocking), Old hold, SAP quiet, Below zero (Problem);
+  - search by store code or city, sort by any figure, in the browser (the list comes whole);
+  - columns: store, city, stage, status, stock (till-side) with SAP stock and the gap, held with its two parts,
+    reserved, free, items below zero, last update;
+  - **reserved** shows "not computed" when it never was (no zero), and its time with a stale mark when stale;
+  - **free** says "reserved not included" when it is not;
+  - the status pill opens its flags, each with its value and its limit;
+  - sums are labelled as base units; the time the list was read is shown; Refresh re-reads it.
+- A row opens the store's page (ticket 941).
+- "How this is read": a short panel in both languages saying which rows the summary sums and by which rule.
+
+## Spine reach
+
+UI (feature, access, route, menu leaf, wire types in `src/core/models`, api, Stores page, locale files en + ar)
+
+## Proof (→ `tdd` red-green cycles)
+
+- [ ] each tile counts and filters its stores · vitest (pure module)
+- [ ] a status and its flags map to the pill and its lines, value and limit · vitest
+- [ ] reserved's three states give "not computed", a stale mark, or the figure; free's label follows · vitest
+- [ ] search by code or city, and sort by a figure · vitest
+- [ ] the locale key-mirror test passes for `stock-console` · vitest
+
+## Boundaries
+
+Calls only through `@/core/api`; no string literal on screen; logical Tailwind and the bidi rule; the grid on the base
+column definition. Read-only: no button changes anything.
+
+## Done when
+
+Proofs green, and on dev the page lists the stores for a person holding the grant and shows the gate to one who does
+not.
+
+## Blocked by
+
+BackOffice [4158](C:\Work\DMSCO\BackOffice\.issues\4158-hqs-stock-console-lists-every-store-through-the-stages-address-behind-its-own-grant.md)

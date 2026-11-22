@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
+import type { HrefOf } from '@/core/findings/finding-card'
 import Sentence from '@/core/findings/Sentence'
-import type { CcCell, CcProfileSection, CcTable, CcTarget } from '@/core/models/command-center'
+import type { CcCell, CcProfileSection, CcTable } from '@/core/models/command-center'
 import Ltr from '@/core/ui/Ltr'
 import type { CcT } from './lang'
 
@@ -48,10 +49,14 @@ export default function ProfileSection({ section, hrefOf, t }: { section: CcProf
   )
 }
 
-/** Where a cell's or a sentence's link goes: the page's choice (`targetHref` with `store: 'profile'` on a profile). */
-export type HrefOf = (target: CcTarget) => string
-
-/** A section the warehouse cannot fill yet: the page's words and the server's reason, no figure. */
+/**
+ * A section the warehouse cannot fill yet: the page's words and the server's reason, no figure.
+ *
+ * Why not the brief's `not-available` (4165 review B6): the two are different server states with different contracts
+ * (contract.md §2 vs §3/§4). The brief's `not-available` is a section that failed TONIGHT and carries its last good
+ * date; a profile's `not-available-yet` is a section the warehouse has never been able to fill, with its reason and no
+ * date. Merging them would change the server's wire values, so each keeps its own state and its own sentence.
+ */
 export function NotAvailableYet({ reason, t }: { reason?: string; t: CcT }) {
   return (
     <div className="flex flex-col gap-1 text-sm" data-cc-not-available-yet>

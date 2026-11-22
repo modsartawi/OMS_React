@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { mapHomeFixture } from './__fixtures__/map'
-import { kingdomView, REGION_SHAPES, regionView } from './map-view'
+import { kingdomView, mapSelectionAction, NO_REGION, REGION_SHAPES, regionView, selectRegion } from './map-view'
+import { mapViewKey } from '@/core/map/map-panel'
 
 const inkOf = (view: ReturnType<typeof kingdomView>, id: string) => view.points.find((p) => p.id === id)
 const fillOf = (view: ReturnType<typeof kingdomView>, id: string) => view.polygons.find((p) => p.id === id)?.fill
@@ -61,5 +62,24 @@ describe('selecting a region zooms to it', () => {
     expect(view.west < 46.68 && 46.68 < view.east && view.south < 24.71 && 24.71 < view.north).toBe(true)
     expect(view.west).toBeGreaterThan(39.17)
     expect(regionView('Atlantis')).toBeNull()
+  })
+})
+
+describe('choosing on the map (review A6, C4)', () => {
+  it('a point opens its pharmacy; a shape chooses its region', () => {
+    expect(mapSelectionAction({ kind: 'point', id: 'P166' })).toEqual({ kind: 'store', storeCode: 'P166' })
+    expect(mapSelectionAction({ kind: 'shape', id: 'WEST' })).toEqual({ kind: 'region', region: 'WEST' })
+  })
+
+  it('choosing the same region again moves the map back to it: each choice is a new view key', () => {
+    const once = selectRegion(NO_REGION, 'WEST')
+    const twice = selectRegion(once, 'WEST')
+    expect(once.region).toBe('WEST')
+    expect(twice.region).toBe('WEST')
+    const view = regionView(REGION_SHAPES[0].region)!
+    expect(mapViewKey(view, twice.nonce)).not.toBe(mapViewKey(view, once.nonce))
+    // The same view and the same choice: the same key, so a re-render alone never moves the map.
+    expect(mapViewKey(view, once.nonce)).toBe(mapViewKey({ ...view }, once.nonce))
+    expect(selectRegion(twice, null).region).toBeNull()
   })
 })

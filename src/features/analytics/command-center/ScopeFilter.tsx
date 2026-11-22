@@ -7,9 +7,9 @@ import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import type { CcT } from './lang'
 
-/** The dropdown's value for a narrowing: `chain`, `region:<key>` or `store`. */
-const valueOf = (scope: CcScope | 'store'): string =>
-  scope === 'store' || scope.kind === 'store' ? 'store' : scope.kind === 'region' ? `region:${scope.region}` : 'chain'
+/** The dropdown's option for a narrowing: `chain`, `region:<key>`, or `store` (also while a pharmacy code is being typed). */
+const optionOf = (scope: CcScope, pickingStore: boolean): string =>
+  pickingStore || scope.kind === 'store' ? 'store' : scope.kind === 'region' ? `region:${scope.region}` : 'chain'
 
 /**
  * The category profile's filter (oms 949): the chain, a region or one pharmacy. The regions are the ones the server's
@@ -42,7 +42,7 @@ export default function ScopeFilter({
   return (
     <form className="flex flex-wrap items-end gap-2" onSubmit={apply} data-cc-scope={scope.kind}>
       <Field label={t('categoryProfile.scope.label')} className="w-56">
-        <Select value={valueOf(pickingStore ? 'store' : scope)} onChange={(e) => choose(e.target.value)}>
+        <Select value={optionOf(scope, pickingStore)} onChange={(e) => choose(e.target.value)}>
           <option value="chain">{t('categoryProfile.scope.chain')}</option>
           {regions.map((r) => (
             <option key={r.region} value={`region:${r.region}`}>

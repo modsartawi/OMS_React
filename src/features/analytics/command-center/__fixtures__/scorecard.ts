@@ -1,6 +1,6 @@
 /**
  * Test-only (oms 947): one pharmacy's scorecard, in the shape `src/core/models/command-center.ts` proposes for the
- * scorecard route (BO, unbuilt). P166 is an established, flagged pharmacy; `newPharmacyScorecard` a pharmacy with no
+ * scorecard route (BO, unbuilt). P166 is an established, flagged pharmacy; `newStoreScorecard` a pharmacy with no
  * comparable weeks last year, whose growth measures read "new".
  */
 import type { CcLang, CcMeasure, CcScorecard } from '@/core/models/command-center'
@@ -42,7 +42,7 @@ export function scorecardFixture(lang: CcLang = 'en', storeCode = 'P166'): CcSco
   }
 }
 
-export function newPharmacyScorecard(lang: CcLang = 'en'): CcScorecard {
+export function newStoreScorecard(lang: CcLang = 'en'): CcScorecard {
   const card = scorecardFixture(lang, 'P977')
   return {
     ...card,

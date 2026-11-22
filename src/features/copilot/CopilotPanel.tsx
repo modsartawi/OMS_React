@@ -24,7 +24,7 @@ import { Answer, QuestionButtons, Refusal, WorkingStep, type AnswerReadings } fr
 import AskedFinding from './AskedFinding'
 import { ProposalCard, ScheduleLinks } from './ProposalCard'
 import { cardState, proposalCard, type CardState } from './proposal'
-import { useCopilotConversation, type PastConversation } from './conversation-store'
+import { takeHandedFinding, useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 import { copilotApi } from './api'
 import { emptyPanelOffer, type StarterTap } from './starters'
@@ -160,15 +160,15 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   }, [handedItem, openSqlItem])
 
   // 950: "Ask" on a brief line or a pharmacy's scorecard: a new conversation, its written question asked with the
-  // finding's id as context, the line drawn at the top by the brief's own card. Not sent, the question waits in the box.
+  // finding's id as context, the line drawn at the top by the brief's own card. Not sent (too long, review A7), the
+  // conversation and its card are set up all the same and the question waits in the box.
   const handedFinding = useCopilotPanel((s) => s.finding)
   const openFinding = useCopilotConversation((s) => s.openFinding)
   const finding = useCopilotConversation((s) => s.finding)
   useEffect(() => {
     if (handedFinding === null) return
-    const f = useCopilotPanel.getState().takeFinding()
-    if (f === null) return
-    if (!questionFits(f.question) || openFinding(f) === null) setQuestion(f.question)
+    const boxed = takeHandedFinding(useCopilotPanel.getState().takeFinding, openFinding)
+    if (boxed !== null) setQuestion(boxed)
   }, [handedFinding, openFinding])
 
   // 843: a prefill (the Catalog's "Ask about this area") lands in the box unsent, for the user to read and send.

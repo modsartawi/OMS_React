@@ -4,10 +4,11 @@
  */
 import { api } from '@/core/api'
 import type { CcLang, CcScorecard } from '@/core/models/command-center'
+import { CC_KEYS } from './api'
 
 /** Keyed by pharmacy and language: an answer in one language never stands for the other. */
 export const SCORECARD_KEYS = {
-  scorecard: (storeCode: string, lang: CcLang) => ['command-center', 'scorecard', storeCode, lang] as const,
+  scorecard: (storeCode: string, lang: CcLang) => [...CC_KEYS.all, 'scorecard', storeCode, lang] as const,
 }
 
 export const scorecardApi = {

@@ -70,3 +70,8 @@ is still owed and waits for 4179.
   client changes to whatever 4179 settles.
 - **The scorecard panel's "ask the copilot"** (947) uses the same `AskButton` with `ask={scorecard.ask}`, the label
   `ask.pharmacy` and no line. It is wired once 947 merges, because 947 owns that panel.
+
+**4165 review (2026-11-22):** `findingSent` (and `sqlItemSent`) is now set only after an answered reply, so a refused
+or dropped first question is retried with `findingContext`. A finding whose question is too long to send still opens
+its conversation and card, and the question waits in the box (`takeHandedFinding`). The scorecard Ask label key is
+`ask.store`.

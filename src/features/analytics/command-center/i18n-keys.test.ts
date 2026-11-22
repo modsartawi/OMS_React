@@ -1,7 +1,7 @@
 /**
  * oms 946 — `command-center` ships English and Arabic together (the page switches between them, spec 4165 story 7): the
  * Arabic mirrors the English keys exactly, and every key the page builds from data (a section, a run state, a language)
- * and both gate sentences exist in both.
+ * and the gate's sentences exist in both.
  */
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/command-center.json'
@@ -24,7 +24,6 @@ describe('command-center — en and ar', () => {
       ...CC_RUN_STATES.map((s) => `status.state.${s}`),
       ...CC_LANGS.map((l) => `lang.${l}`),
       ...gate.map((g) => `access.${g}`),
-      ...gate.map((g) => `offer.${g}`),
       'menu.commandCenter',
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])

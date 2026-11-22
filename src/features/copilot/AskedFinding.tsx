@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { targetHref } from '@/core/command-center-routes'
+import { dirOf, targetHref } from '@/core/command-center-routes'
 import type { CopilotFinding } from '@/core/copilot-panel'
 import FindingCard from '@/core/findings/FindingCard'
 
@@ -17,7 +17,7 @@ export default function AskedFinding({ finding }: { finding: CopilotFinding }) {
   return (
     <section className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-card p-3" data-copilot-finding={finding.findingId}>
       <div className="text-xs font-medium text-muted-foreground">{t('finding.askingAbout')}</div>
-      <div lang={lang} dir={lang === 'ar' ? 'rtl' : undefined}>
+      <div lang={lang} dir={lang ? dirOf(lang) : undefined}>
         <FindingCard line={finding.line} hrefOf={(target) => targetHref(target, { lang, store: 'scorecard' })} />
       </div>
     </section>

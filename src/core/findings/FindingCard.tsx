@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import type { CcLine, CcTarget } from '@/core/models/command-center'
+import type { CcLine } from '@/core/models/command-center'
 import Ltr from '@/core/ui/Ltr'
-import { TONE_DOT } from './finding-card'
+import { TONE_DOT, type HrefOf } from './finding-card'
 import Sentence from './Sentence'
 
 /**
@@ -20,7 +20,7 @@ export default function FindingCard({
 }: {
   line: CcLine
   /** Where a pharmacy code or a category name in the sentence goes (`targetHref` in `@/core/command-center-routes`). */
-  hrefOf: (target: CcTarget) => string
+  hrefOf: HrefOf
   /** The caller's action beside the figure (950: "Ask"). */
   action?: ReactNode
 }) {

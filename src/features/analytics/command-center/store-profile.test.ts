@@ -9,11 +9,11 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import '@/core/i18n'
-import { storeProfileHref } from '@/core/command-center-routes'
+import { STORE_PROFILE_PATTERN, storeProfileHref, withPeriod } from '@/core/command-center-routes'
 import { PERMISSIONS_KEY, type PermissionsAnswer } from '@/core/permissions'
 import type { CcStoreProfile } from '@/core/models/command-center'
 import StoreProfilePage from './StoreProfilePage'
-import { STORE_PROFILE_PATTERN, storeRequestOf, withPeriod, type StoreProfileRequest } from './store-profile'
+import { storeRequestOf, type StoreProfileRequest } from './store-profile'
 import { storeExportName, storeProfileApi, storeProfileQuery } from './store-profile-api'
 import { storeFixture } from './__fixtures__/store'
 
@@ -138,6 +138,12 @@ describe('the store profile', () => {
     // The link keeps the page language.
     const ar = drawPage('/analytics/command-center/store/P166?lang=ar', [[{ ...rolling4, lang: 'ar' }, storeFixture({ lang: 'ar' })]])
     expect(sectionOf(ar, 'mixCategory')).toContain('href="/analytics/command-center/category/top/C07?scope=store&amp;store=P166&amp;lang=ar"')
+  })
+
+  it('a category link keeps the period the page shows', () => {
+    const ytd: StoreProfileRequest = { ...rolling4, period: 'ytd' }
+    const html = drawPage('/analytics/command-center/store/P166?period=ytd', [[ytd, storeFixture({ period: 'ytd' })]])
+    expect(sectionOf(html, 'mixCategory')).toContain('href="/analytics/command-center/category/top/C07?scope=store&amp;store=P166&amp;period=ytd&amp;lang=en"')
   })
 
   it('Export asks for the same pharmacy and period', async () => {

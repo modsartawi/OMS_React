@@ -1,90 +1,34 @@
-import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { Download, Loader2 } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
-import { categoryProfileHref, homeHref, targetHref } from '@/core/command-center-routes'
+import { categoryProfileHref, homeHref, pickPeriod, targetHref, withPeriod, withScope } from '@/core/command-center-routes'
+import type { HrefOf } from '@/core/findings/finding-card'
 import type { CcCategoryProfile, CcScope } from '@/core/models/command-center'
-import { usePermissions } from '@/core/permissions'
-import { notify } from '@/core/services/notify'
-import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
-import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange } from '@/core/util/bidi'
-import { saveBlob } from '@/core/util/download-file'
-import { canOpenCommandCenter, commandCenterNotOffered } from './access'
-import { categoryRequestOf, withScope, type CategoryProfileRequest } from './category-profile'
+import { categoryRequestOf, type CategoryProfileRequest } from './category-profile'
 import { categoryExportName, categoryProfileApi, categoryProfileQuery } from './category-profile-api'
-import LanguageSwitch from './LanguageSwitch'
-import { NS, pageDir, useCcLang, type CcT } from './lang'
-import ProfileSection, { type HrefOf } from './ProfileSection'
+import ExportButton from './ExportButton'
+import type { CcT } from './lang'
+import PageFrame from './PageFrame'
+import PeriodPicker from './PeriodPicker'
+import { periodKey } from './period-picker'
+import ProfileSection from './ProfileSection'
+import QueryState from './QueryState'
 import ScopeFilter from './ScopeFilter'
 
 /**
- * A category profile (oms 949, BackOffice spec 4165 "The category profile"; BO 4178): one category at the top or the
- * second level, for the chain, a region or one pharmacy. Opened from a category name in the brief, from a store
- * profile's category mix, or from a top-level profile's list of its second-level categories (the same page one level
- * down). Behind the home's own gate (the analytics view grant while the server offers the command center), in the
- * home's language (`?lang=`, decisions §3). The sections are the server's, in its order; the page computes no figure.
+ * A category profile (oms 949, BackOffice spec 4165 "The category profile"; BO 4178 "a filter … and a period"): one
+ * category at the top or the second level, for the chain, a region or one pharmacy, over a period. Opened from a
+ * category name in the brief, from a store profile's category mix, or from a top-level profile's list of its
+ * second-level categories (the same page one level down). In the command center's frame (`./PageFrame`), in the home's
+ * language (`?lang=`, decisions §3). The sections are the server's, in its order; the page computes no figure.
  */
 export default function CategoryProfilePage() {
-  const { lang, t, setLang } = useCcLang()
-  const route = useParams()
-  const [params] = useSearchParams()
-  const request = categoryRequestOf(route, params)
-  const keyPrefix = commandCenterNotOffered(usePermissions()) ? 'offer' : 'access'
   return (
-    <div dir={pageDir(lang)} lang={lang} className="h-full" data-cc-page>
-      <ScreenGate
-        can={canOpenCommandCenter}
-        ns={NS}
-        keyPrefix={keyPrefix}
-        title={t('categoryProfile.title')}
-        subtitle={t('categoryProfile.subtitle')}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-end">
-            <LanguageSwitch lang={lang} onChange={setLang} t={t} />
-          </div>
-          <Profile request={request} t={t} />
-        </div>
-      </ScreenGate>
-    </div>
-  )
-}
-
-function Profile({ request, t }: { request: CategoryProfileRequest; t: CcT }) {
-  const profile = useQuery(categoryProfileQuery(request))
-  if (profile.isPending)
-    return (
-      <p className="text-sm text-muted-foreground" role="status">
-        {t('categoryProfile.loading')}
-      </p>
-    )
-  if (profile.isError) return <ErrorBanner message={apiErrorMessage(profile.error, t('categoryProfile.loadFailed'))} />
-  return <ProfileBody profile={profile.data} request={request} t={t} />
-}
-
-/** Downloads the server's workbook for the request the page shows (one sheet per section, BO 4178). */
-function ExportButton({ request, t }: { request: CategoryProfileRequest; t: CcT }) {
-  const [exporting, setExporting] = useState(false)
-  async function download() {
-    setExporting(true)
-    try {
-      const file = await categoryProfileApi.export(request)
-      saveBlob(file.filename || categoryExportName(request), file.blob)
-    } catch (err) {
-      notify.apiError(t('categoryProfile.exportFailed'), err, t('categoryProfile.exportFailed'))
-    } finally {
-      setExporting(false)
-    }
-  }
-  return (
-    <Button variant="secondary" onClick={download} disabled={exporting} data-cc-export>
-      {exporting ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Download aria-hidden className="size-3.5" />}
-      {t('categoryProfile.export')}
-    </Button>
+    <PageFrame titleKey="categoryProfile.title" subtitleKey="categoryProfile.subtitle">
+      {({ t }) => <Profile t={t} />}
+    </PageFrame>
   )
 }
 
@@ -92,12 +36,36 @@ function ExportButton({ request, t }: { request: CategoryProfileRequest; t: CcT 
 const scopeKey = (scope: CcScope): string =>
   scope.kind === 'region' ? `region:${scope.region}` : scope.kind === 'store' ? `store:${scope.storeCode}` : 'chain'
 
-function ProfileBody({ profile, request, t }: { profile: CcCategoryProfile; request: CategoryProfileRequest; t: CcT }) {
-  const { lang, scope } = request
+function Profile({ t }: { t: CcT }) {
+  const route = useParams()
   const [params, setParams] = useSearchParams()
-  const onScope = (next: CcScope) => setParams(withScope(params, next))
-  // On a profile a pharmacy opens its store profile (948); a category opens its own profile, in the page language.
-  const hrefOf: HrefOf = (target) => targetHref(target, { lang, store: 'profile' })
+  const request = categoryRequestOf(route, params)
+  const profile = useQuery(categoryProfileQuery(request))
+  const period = pickPeriod(request)
+  // No period named is the server's default, the last four weeks: the picker shows it as the rolling 4 weeks.
+  const shown = period.period ? period : ({ period: 'rolling4' } as const)
+  return (
+    <div className="flex flex-col gap-4">
+      <QueryState query={profile} loading={t('categoryProfile.loading')} failed={t('categoryProfile.loadFailed')}>
+        {(data) => (
+          <ProfileBody profile={data} request={request} t={t}>
+            <div className="flex flex-wrap items-end gap-2">
+              <ScopeFilter key={scopeKey(request.scope)} scope={request.scope} regions={data.regions} onChange={(next) => setParams(withScope(params, next))} t={t} />
+              <PeriodPicker key={periodKey(shown)} value={shown} onChange={(next) => setParams(withPeriod(params, next))} t={t} />
+            </div>
+          </ProfileBody>
+        )}
+      </QueryState>
+    </div>
+  )
+}
+
+function ProfileBody({ profile, request, t, children }: { profile: CcCategoryProfile; request: CategoryProfileRequest; t: CcT; children: ReactNode }) {
+  const { lang, scope } = request
+  const period = pickPeriod(request)
+  // On a profile a pharmacy opens its store profile (948); a category opens its own profile, narrowed as the server
+  // says or else as this page is; both over the period shown, in the page language.
+  const hrefOf: HrefOf = (target) => targetHref(target, { lang, store: 'profile', period, scope })
   return (
     <div className="flex flex-col gap-4" data-cc-category-level={profile.level}>
       <header className="flex flex-col gap-1">
@@ -107,7 +75,7 @@ function ProfileBody({ profile, request, t }: { profile: CcCategoryProfile; requ
           </Link>
           {profile.parent && (
             <Link
-              to={categoryProfileHref({ level: 'top', code: profile.parent.code, scope, lang })}
+              to={categoryProfileHref({ level: 'top', code: profile.parent.code, scope, ...period, lang })}
               className="text-primary underline-offset-2 hover:underline"
               data-cc-parent
             >
@@ -131,8 +99,13 @@ function ProfileBody({ profile, request, t }: { profile: CcCategoryProfile; requ
         </p>
       </header>
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <ScopeFilter key={scopeKey(scope)} scope={scope} regions={profile.regions} onChange={onScope} t={t} />
-        <ExportButton request={request} t={t} />
+        {children}
+        <ExportButton
+          download={() => categoryProfileApi.export(request)}
+          fallbackName={categoryExportName(request)}
+          label={t('categoryProfile.export')}
+          failed={t('categoryProfile.exportFailed')}
+        />
       </div>
       {profile.children && profile.children.length > 0 && (
         <section className="rounded-lg border border-border/60 bg-card p-4" data-cc-children>
@@ -141,7 +114,7 @@ function ProfileBody({ profile, request, t }: { profile: CcCategoryProfile; requ
             {profile.children.map((child) => (
               <li key={child.code}>
                 <Link
-                  to={categoryProfileHref({ level: 'second', code: child.code, scope, lang })}
+                  to={categoryProfileHref({ level: 'second', code: child.code, scope, ...period, lang })}
                   className="font-medium text-primary underline-offset-2 hover:underline"
                 >
                   <bdi>{child.name}</bdi>

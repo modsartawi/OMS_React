@@ -181,6 +181,12 @@ export interface OpenMapPanel {
 /** What a tap chose (947): a store's point, or a shape, by id. */
 export type MapSelection = { kind: 'point' | 'shape'; id: string }
 
+/**
+ * The panel's key for a view (947): by value, so a view built again does not move the map, plus the caller's choice
+ * count (`nonce`), so choosing the same view again moves the map back to it after the reader has panned away.
+ */
+export const mapViewKey = (view: MapView | null, nonce = 0): string => (view ? `${JSON.stringify(view)}#${nonce}` : '')
+
 /** An open panel: closed once, and told to show another view (947) without starting the map again. */
 export interface OpenedMapPanel {
   close(): void

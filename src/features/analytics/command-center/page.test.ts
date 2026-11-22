@@ -17,8 +17,11 @@ import type { CcLang, CommandCenterHome } from '@/core/models/command-center'
 import CommandCenterPage from './CommandCenterPage'
 import { canOpenCommandCenter } from './access'
 import { CC_KEYS, homeQuery } from './api'
-import { withLang } from './lang'
+import { langSwitchTarget, withLang } from './lang'
+import StoreProfilePage from './StoreProfilePage'
+import CategoryProfilePage from './CategoryProfilePage'
 import { homeFixture } from './__fixtures__/home'
+import ar from '@/locales/ar/command-center.json'
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/core/api')>()), api }))
@@ -34,12 +37,13 @@ const drawPage = ({
   screens = ['Analytics:03'],
   on = true,
   homes = { en: homeFixture('en') } as Partial<Record<CcLang, CommandCenterHome>>,
+  page = CommandCenterPage as () => ReturnType<typeof CommandCenterPage>,
 } = {}) => {
   const client = new QueryClient()
   client.setQueryData(PERMISSIONS_KEY, answer(screens, on))
   for (const [lang, home] of Object.entries(homes)) client.setQueryData(CC_KEYS.home(lang as CcLang), home)
   return renderToStaticMarkup(
-    createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [url] }, createElement(CommandCenterPage))),
+    createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [url] }, createElement(page))),
   )
 }
 
@@ -125,6 +129,10 @@ describe('the command center home', () => {
     expect(html).toMatch(/aria-pressed="true"[^>]*data-cc-lang="ar"/)
     expect(html).toMatch(/aria-pressed="false"[^>]*data-cc-lang="en"/)
 
+    // The switch's own handler: the other language moves the URL, everything else kept; the pressed one goes nowhere.
+    expect(langSwitchTarget(new URLSearchParams('store=P166&filter=sales'), 'en', 'ar')?.toString()).toBe('store=P166&filter=sales&lang=ar')
+    expect(langSwitchTarget(new URLSearchParams('lang=ar'), 'ar', 'ar')).toBeNull()
+
     // English by default: left to right, the switch the other way round.
     const en = drawPage()
     expect(en).toMatch(/^<div dir="ltr" lang="en"/)
@@ -151,12 +159,12 @@ describe('the command center home', () => {
   })
 
   it('the page is absent when the server does not offer it', () => {
-    // Switch off (`commandCenterOn` missing or false): no brief, no status line, the not-offered sentence.
-    const off = drawPage({ on: false })
-    expect(off).toContain('The command center is not switched on')
-    expect(off).not.toContain('data-cc-brief')
-    expect(off).not.toContain('data-cc-status')
-    expect(off).not.toContain('Headline')
+    // Switch off (`commandCenterOn` missing or false), grant held: the app's own not-found (the catch-all's redirect
+    // home), never a sentence of its own — nothing of the page is drawn, not even its title.
+    expect(drawPage({ on: false })).toBe('')
+    expect(drawPage({ on: false, url: '/analytics/command-center?lang=ar' })).toBe('')
+    // The two profiles stand in the same frame: absent too.
+    for (const page of [StoreProfilePage, CategoryProfilePage]) expect(drawPage({ on: false, page })).toBe('')
     // No analytics view grant, switch on or not: the denial.
     const denied = drawPage({ screens: ['PriceWatch:03'], on: true })
     expect(denied).toContain('No access to the command center')
@@ -171,5 +179,29 @@ describe('the command center home', () => {
     expect(offersLeaf(['Analytics:03'], true)).toBe(true)
     expect(offersLeaf(['Analytics:03'], false)).toBe(false)
     expect(offersLeaf([], true)).toBe(false)
+  })
+
+  it('the gate speaks the page language: without the grant, under ?lang=ar, the denial is in Arabic', () => {
+    for (const page of [CommandCenterPage, StoreProfilePage, CategoryProfilePage]) {
+      const html = drawPage({ screens: ['PriceWatch:03'], url: '/analytics/command-center?lang=ar', page })
+      expect(html).toMatch(/^<div dir="rtl" lang="ar"/)
+      expect(html).toContain(ar.access.deniedTitle)
+      expect(html).not.toContain('No access to the command center')
+    }
+  })
+
+  it('a pharmacy code in the brief keeps the map filter the reader is on', () => {
+    const html = drawPage({ url: '/analytics/command-center?filter=sales' })
+    expect(sectionOf(html, 'changed')).toContain('href="/analytics/command-center?filter=sales&amp;store=P166&amp;lang=en"')
+  })
+
+  it('a folded section states its own data-as-of day in its summary line, which stays when it is opened', () => {
+    const html = drawPage()
+    for (const key of ['slipped', 'categories', 'omni']) {
+      const section = sectionOf(html, key)
+      const summary = section.slice(section.indexOf('<summary'), section.indexOf('</summary>'))
+      expect(summary, key).toContain('data-cc-section-as-of')
+      expect(summary, key).toMatch(/Data as of ⁨\d{4}-\d{2}-\d{2}⁩/)
+    }
   })
 })

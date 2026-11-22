@@ -12,5 +12,5 @@ import type { Permissions } from '@/core/permissions'
 /** The leaf's and the page gate's one predicate. */
 export const canOpenCommandCenter = (p: Permissions): boolean => canViewAnalytics(p) && p.extras.commandCenterOn
 
-/** The grant is held but the server does not offer the command center: the page says so, in its own sentence. */
+/** The grant is held but the server does not offer the command center: the page is absent (the app's not-found, `./PageFrame`). */
 export const commandCenterNotOffered = (p: Permissions): boolean => canViewAnalytics(p) && !p.extras.commandCenterOn

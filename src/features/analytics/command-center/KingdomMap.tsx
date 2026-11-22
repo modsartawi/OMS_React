@@ -4,10 +4,10 @@ import { KSA_BH_BOX, type MapSelection } from '@/core/map/map-panel'
 import type { CcFilter, CcLang, CcRegionKey, CommandCenterHome } from '@/core/models/command-center'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
+import { dirOf } from '@/core/command-center-routes'
 import type { CcT } from './lang'
-import { kingdomView, POINTS_FROM_ZOOM, regionView } from './map-view'
+import { kingdomView, mapSelectionAction, NO_REGION, POINTS_FROM_ZOOM, regionView, selectRegion } from './map-view'
 import MapFilter from './MapFilter'
-import { pageDir } from './lang'
 import RegionTable from './RegionTable'
 
 /**
@@ -16,7 +16,8 @@ import RegionTable from './RegionTable'
  * ADR 0139); only pharmacy codes and coordinates reach Google. Zoomed out, the five regions and Bahrain shaded by the
  * server's step for their share of flagged pharmacies; zoomed in, each pharmacy a green, amber or red point. The filter
  * changes the points, the shading and the table together. Choosing a region zooms to it; choosing a pharmacy opens its
- * scorecard (`onPharmacy`, the page puts it in the URL). A pharmacy with no coordinates is counted under the map.
+ * scorecard (`onStore`, the page puts it in the URL). Choosing the same region again zooms back to it (a selection
+ * nonce in the map's view key). A pharmacy with no coordinates is counted under the map.
  *
  * A map that cannot be drawn (no key, Google refused or unreachable) says so; the region table beside it still stands.
  */
@@ -24,23 +25,29 @@ export default function KingdomMap({
   home,
   filter,
   onFilter,
-  onPharmacy,
+  onStore,
   lang,
   t,
 }: {
   home: Pick<CommandCenterHome, 'points' | 'regions' | 'notOnMap' | 'maps'>
   filter: CcFilter
   onFilter: (filter: CcFilter) => void
-  onPharmacy: (storeCode: string) => void
+  onStore: (storeCode: string) => void
   lang: CcLang
   t: CcT
 }) {
   // One stable drawing per answer and filter: a new identity draws the map again.
   const view = useMemo(() => kingdomView(home, filter), [home, filter])
-  const [region, setRegion] = useState<CcRegionKey | null>(null)
+  const [selected, setSelected] = useState(NO_REGION)
+  const region = selected.region
+  const setRegion = (next: CcRegionKey | null) => setSelected((s) => selectRegion(s, next))
   const [cannotDraw, setCannotDraw] = useState(false)
   const shown = useMemo(() => (region ? regionView(region) : null) ?? KSA_BH_BOX, [region])
-  const onSelect = (selection: MapSelection) => (selection.kind === 'point' ? onPharmacy(selection.id) : setRegion(selection.id))
+  const onSelect = (selection: MapSelection) => {
+    const action = mapSelectionAction(selection)
+    if (action.kind === 'store') onStore(action.storeCode)
+    else setRegion(action.region)
+  }
   return (
     <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-cc-map={filter}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -58,10 +65,11 @@ export default function KingdomMap({
           groupNearby={false}
           pointsFromZoom={POINTS_FROM_ZOOM}
           view={shown}
+          viewNonce={selected.nonce}
           onSelect={onSelect}
           maps={home.maps}
           lang={lang}
-          dir={pageDir(lang)}
+          dir={dirOf(lang)}
           ariaLabel={t('map.label')}
           className="h-96 w-full"
           onCannotDraw={() => setCannotDraw(true)}

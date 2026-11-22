@@ -7,6 +7,7 @@ import { placeCard } from './map-drawing'
 import {
   openMapPanel,
   type CannotDrawReason,
+  mapViewKey,
   type MapCardState,
   type MapGrouping,
   type MapLang,
@@ -68,6 +69,8 @@ export interface MapPanelProps {
    * again; compared by value. Absent: the view fitted to the points.
    */
   view?: MapView | null
+  /** Bumped by the caller on each choice of a view, so choosing the same one again moves the map back to it (947). */
+  viewNonce?: number
   /**
    * The language of Google's labels and the direction of its controls, for a page that sets its own (947: the command
    * center's `?lang=`). Absent: the screen's language (`i18n.language`) and the page's direction.
@@ -93,6 +96,7 @@ export default function MapPanel({
   onSelect,
   pointsFromZoom,
   view = null,
+  viewNonce = 0,
   lang: pageLang,
   dir: pageDir,
 }: MapPanelProps) {
@@ -107,7 +111,7 @@ export default function MapPanel({
   const lang = pageLang ?? (i18n.language?.split('-')[0] === 'ar' ? 'ar' : 'en')
   const dir = pageDir ?? documentDirection()
   // 947: the view by value. The map opens on the one set when it starts and is moved to each later one.
-  const viewKey = view ? JSON.stringify(view) : ''
+  const viewKey = mapViewKey(view, viewNonce)
   const viewNow = useRef(view)
   viewNow.current = view
   const panelRef = useRef<OpenedMapPanel | null>(null)

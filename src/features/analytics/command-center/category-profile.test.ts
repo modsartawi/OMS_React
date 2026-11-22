@@ -12,7 +12,8 @@ import '@/core/i18n'
 import { PERMISSIONS_KEY, type PermissionsAnswer } from '@/core/permissions'
 import type { CcCategoryProfile } from '@/core/models/command-center'
 import CategoryProfilePage from './CategoryProfilePage'
-import { CATEGORY_PROFILE_PATTERN, categoryRequestOf, withScope, type CategoryProfileRequest } from './category-profile'
+import { CATEGORY_PROFILE_PATTERN, withPeriod, withScope } from '@/core/command-center-routes'
+import { categoryRequestOf, type CategoryProfileRequest } from './category-profile'
 import { categoryProfileApi, categoryProfileQuery } from './category-profile-api'
 import { categoryFixture } from './__fixtures__/category'
 
@@ -120,6 +121,45 @@ describe('the category profile', () => {
     expect(sectionOf(one, 'share')).toContain('SAR 38,400')
     expect(sectionOf(one, 'health')).toContain('SAR 61,000')
     expect(sectionOf(one, 'promotion')).toContain('22%')
+  })
+
+  it('the period: dates carry both ends through the request, the server query and the links; dates missing an end name none', async () => {
+    // Dates without both ends are not a period: the server's default.
+    expect(categoryRequestOf({ level: 'top', code: 'C07' }, new URLSearchParams('period=dates&from=2026-10-01'))).toEqual(top)
+    const dates = categoryRequestOf({ level: 'top', code: 'C07' }, new URLSearchParams('period=dates&from=2026-10-01&to=2026-10-14'))
+    expect(dates).toEqual({ ...top, period: 'dates', from: '2026-10-01', to: '2026-10-14' })
+    api.get.mockClear()
+    api.get.mockResolvedValueOnce(categoryFixture())
+    await categoryProfileQuery(dates).queryFn()
+    expect(api.get).toHaveBeenCalledWith('CommandCenter/CategoryProfile', {
+      level: 'top',
+      category: 'C07',
+      scope: 'chain',
+      period: 'dates',
+      from: '2026-10-01',
+      to: '2026-10-14',
+      lang: 'en',
+    })
+    // The period picker moves the URL, the narrowing kept.
+    expect(withPeriod(new URLSearchParams('scope=region&region=WEST&lang=ar'), { period: 'ytd' }).toString()).toBe('scope=region&region=WEST&lang=ar&period=ytd')
+    // The page under a period: the picker shows it, and every link keeps it (its children, a pharmacy, a category).
+    const html = drawPage('/analytics/command-center/category/top/C07?period=dates&from=2026-10-01&to=2026-10-14', [[dates, categoryFixture()]])
+    expect(html).toMatch(/data-cc-period-picker="dates"/)
+    expect(html).toContain('href="/analytics/command-center/category/second/C0701?period=dates&amp;from=2026-10-01&amp;to=2026-10-14&amp;lang=en"')
+    expect(sectionOf(html, 'overUnderStores')).toContain('href="/analytics/command-center/store/P166?period=dates&amp;from=2026-10-01&amp;to=2026-10-14&amp;lang=en"')
+    expect(sectionOf(html, 'share')).toContain('href="/analytics/command-center/category/top/C09?period=dates&amp;from=2026-10-01&amp;to=2026-10-14&amp;lang=en"')
+  })
+
+  it('a category with no narrowing of its own keeps the narrowing of the page', () => {
+    const region: CategoryProfileRequest = { ...top, scope: { kind: 'region', region: 'WEST' } }
+    // The server names no narrowing on the hair care link.
+    const profile = categoryFixture({ scope: region.scope })
+    for (const row of profile.sections.find((s) => s.key === 'share')!.tables[0].rows) {
+      const target = row.category?.target
+      if (target?.kind === 'category') delete target.scope
+    }
+    const html = drawPage('/analytics/command-center/category/top/C07?scope=region&region=WEST', [[region, profile]])
+    expect(sectionOf(html, 'share')).toContain('href="/analytics/command-center/category/top/C09?scope=region&amp;region=WEST&amp;lang=en"')
   })
 
   it('the four missing sections show "not available yet" with their reason', () => {

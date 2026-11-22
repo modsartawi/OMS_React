@@ -7,9 +7,11 @@ import { api } from '@/core/api'
 import type { CcLang, CommandCenterHome } from '@/core/models/command-center'
 
 /** The feature's query keys. Every read is keyed by its language: an answer in one language never stands for the other. */
+const CC_KEYS_ALL = ['command-center'] as const
+
 export const CC_KEYS = {
-  all: ['command-center'] as const,
-  home: (lang: CcLang) => ['command-center', 'home', lang] as const,
+  all: CC_KEYS_ALL,
+  home: (lang: CcLang) => [...CC_KEYS_ALL, 'home', lang] as const,
 }
 
 export const commandCenterApi = {

@@ -42,7 +42,7 @@ export type CcScope = { kind: 'chain' } | { kind: 'region'; region: CcRegionKey 
 /** Where a link in a sentence or a cell goes. The client builds the href (`@/core/command-center-routes`). ⚠ proposed */
 export type CcTarget =
   | { kind: 'store'; storeCode: string }
-  | { kind: 'category'; level: 'top' | 'second'; code: string; scope?: CcScope }
+  | { kind: 'category'; level: CcCategoryLevel; code: string; scope?: CcScope }
 
 /** A server sentence in parts, so a pharmacy code or a category name can be a link without the client parsing words. ⚠ proposed */
 export interface CcPart {

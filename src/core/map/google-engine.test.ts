@@ -474,6 +474,18 @@ describe('shapes (947): each a Google polygon in its fill, beneath the points, i
     expect(taps).toEqual(['Center'])
   })
 
+  it('a click on a shape is also a tap on the map beside the stores: a pinned card closes (review A5)', async () => {
+    const google = stageGoogle()
+    const taps: (string | null)[] = []
+    googleEngine(google.loader).start(
+      { container: new El(), view: { kind: 'bounds', west: 43, south: 19, east: 48, north: 28 }, key: KEY, controlsCorner: 'top-right', featuresAt: () => [RIYADH], labelInk: '', lang: 'en', polygons: [CENTER] },
+      { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap: (hit) => void taps.push(hit === null ? null : 'hit'), moved() {}, sized() {}, shapeTap() {} },
+    )
+    await google.answer()
+    google.polygons[0].fire('click')
+    expect(taps).toEqual([null])
+  })
+
   it('closing the map takes its shapes away and reports no more taps', async () => {
     const google = stageGoogle()
     const taps: string[] = []

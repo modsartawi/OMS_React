@@ -191,7 +191,15 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
             zIndex: 0,
             clickable: true,
           })
-          listeners.push(polygon.addListener('click', () => !destroyed && events.shapeTap?.(shape.id)))
+          // A clickable polygon takes the map's own click, so the shape's click is also the tap on the map beside the
+          // stores: a pinned card closes (review A5), as a click on bare map closes it.
+          listeners.push(
+            polygon.addListener('click', () => {
+              if (destroyed) return
+              hits.mapClick()
+              events.shapeTap?.(shape.id)
+            }),
+          )
           polygons.push(polygon)
         }
         // 922: each line a polyline in its colour, in the order given. Google draws polylines beneath every overlay, so

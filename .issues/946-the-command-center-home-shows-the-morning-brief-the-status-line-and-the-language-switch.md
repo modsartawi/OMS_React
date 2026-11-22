@@ -76,3 +76,9 @@ the six lint gates green. The boundary gate is red only on the pre-existing `ins
   `isLatest`, and `maps`.
 - **Live walk owed:** on dev, last night's brief in both languages, once 4176 and the flag are deployed.
 
+**4165 review (2026-11-22):** with the grant held but `commandCenterOn` off, the page is now **absent**: the shared
+frame (`PageFrame.tsx`) renders the app's own not-found, the catch-all route's redirect home, instead of a "not switched
+on" sentence. The `offer.*` copy is gone. `page.test.ts` "the page is absent when the server does not offer it" proves
+the home and both profiles render nothing. The gate's denial now follows `?lang=` (ScreenGate takes the page's `t`). A
+folded brief section shows its own data-as-of day in its summary line (spec story 10), and a pharmacy code in the brief
+keeps the map filter.

@@ -76,3 +76,9 @@ pharmacy is typed by its code and applied, so the answer does not carry ~970 pha
   profile").
 - **Live walk owed:** on dev, each top-level category opens and narrows to one pharmacy, in both languages, once 4178
   and `commandCenterOn` are deployed. No period picker: the ticket asks for none; the page passes `?period=` through.
+
+**4165 review (2026-11-22):** the period picker is added, as BO 4178 asks ("a filter … and a period"). It is the store
+profile's `PeriodPicker`, and its copy is now shared as `period.*`. `?period=dates` needs both `from` and `to`; they
+travel through the request, the server query and every link. Store↔category links keep the period, and a category
+the server sends with no narrowing keeps the page's narrowing. The URL encoding of scope and period now lives only in
+`core/command-center-routes.ts`.

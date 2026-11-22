@@ -1,27 +1,27 @@
 import { targetHref } from '@/core/command-center-routes'
 import AskButton from '@/core/findings/AskButton'
+import type { HrefOf } from '@/core/findings/finding-card'
 import FindingCard from '@/core/findings/FindingCard'
 import Sentence from '@/core/findings/Sentence'
-import type { CcBrief, CcLang, CcSection, CcTarget } from '@/core/models/command-center'
+import type { CcBrief, CcFilter, CcLang, CcSection } from '@/core/models/command-center'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { briefLayout } from './brief-layout'
 import type { CcT } from './lang'
 
-type HrefOf = (target: CcTarget) => string
-
 /**
  * The morning brief (oms 946, BackOffice spec 4165 "The morning brief"): the headline with its four figures, what changed
  * overnight, the top risks and the top opportunities always open; the four other sections folded under "More in today's
  * brief", each showing its one-line summary. Every line is drawn through the shared finding card (`@/core/findings`),
- * its sentence and SAR figure as the server sent them. A pharmacy code opens its scorecard on this page (947, `?store=`);
+ * its sentence and SAR figure as the server sent them. A pharmacy code opens its scorecard on this page (947, `?store=`),
+ * under the map filter the reader is on (`filter`);
  * a category name opens its category profile (949). A line the server offers to the copilot (`line.ask`, 950) carries
  * "Ask", which opens the copilot with the server's question and the finding's id. Section titles are the page's own words; everything else is the
  * server's, in the asked language.
  */
-export default function Brief({ brief, lang, t }: { brief: CcBrief; lang: CcLang; t: CcT }) {
+export default function Brief({ brief, lang, filter, t }: { brief: CcBrief; lang: CcLang; filter?: CcFilter; t: CcT }) {
   const { open, folded } = briefLayout(brief)
-  const hrefOf: HrefOf = (target) => targetHref(target, { lang, store: 'scorecard' })
+  const hrefOf: HrefOf = (target) => targetHref(target, { lang, store: 'scorecard', filter })
   return (
     <div className="flex min-w-0 flex-col gap-3" data-cc-brief>
       {open.map((section) => (
@@ -50,6 +50,8 @@ export default function Brief({ brief, lang, t }: { brief: CcBrief; lang: CcLang
                 <span className="text-muted-foreground">
                   {section.state === 'not-available' ? t('brief.notAvailable') : <bdi>{section.summary}</bdi>}
                 </span>
+                {/* Spec story 10: a folded section states its own data-as-of day, closed and (the summary stays) opened. */}
+                <DataAsOf date={section.dataAsOf} t={t} />
               </summary>
               <div className="px-3 pb-3">
                 <SectionBody section={section} hrefOf={hrefOf} lang={lang} t={t} />
@@ -66,8 +68,18 @@ function SectionHeader({ section, t }: { section: CcSection; t: CcT }) {
   return (
     <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2">
       <h2 className="text-sm font-semibold tracking-tight">{t(`brief.section.${section.key}`)}</h2>
-      {section.dataAsOf && <span className="text-xs text-muted-foreground">{t('brief.dataAsOf', { date: fsi(section.dataAsOf) })}</span>}
+      <DataAsOf date={section.dataAsOf} t={t} />
     </div>
+  )
+}
+
+/** A section's own data-as-of day (spec 4165 story 10), when the server names one. */
+function DataAsOf({ date, t }: { date: string | null | undefined; t: CcT }) {
+  if (!date) return null
+  return (
+    <span className="text-xs text-muted-foreground" data-cc-section-as-of>
+      {t('brief.dataAsOf', { date: fsi(date) })}
+    </span>
   )
 }
 

@@ -22,7 +22,7 @@ import { withStore } from './home-url'
 import { kingdomView } from './map-view'
 import { SCORECARD_KEYS, scorecardQuery } from './scorecard-api'
 import { mapHomeFixture } from './__fixtures__/map'
-import { newPharmacyScorecard, scorecardFixture } from './__fixtures__/scorecard'
+import { newStoreScorecard, scorecardFixture } from './__fixtures__/scorecard'
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/core/api')>()), api }))
@@ -153,7 +153,7 @@ describe('the scorecard panel', () => {
 
   it('a new pharmacy shows "new" on the growth measures', () => {
     const url = '/analytics/command-center?store=P977'
-    const panel = panelOf(drawPage({ url, scorecards: [newPharmacyScorecard('en')] }))
+    const panel = panelOf(drawPage({ url, scorecards: [newStoreScorecard('en')] }))
     expect(panel).toContain('New pharmacy')
     for (const key of ['salesGrowth', 'receiptsGrowth']) {
       const measure = measureOf(panel, key)
@@ -167,7 +167,7 @@ describe('the scorecard panel', () => {
     expect(measureOf(panel, 'basket')).toContain('SAR 61.40')
     expect(measureOf(panel, 'delivery')).toContain('Not scored')
     // In Arabic, the page's own word for "new", right to left.
-    const ar = drawPage({ url: '/analytics/command-center?store=P977&lang=ar', lang: 'ar', scorecards: [newPharmacyScorecard('ar')] })
+    const ar = drawPage({ url: '/analytics/command-center?store=P977&lang=ar', lang: 'ar', scorecards: [newStoreScorecard('ar')] })
     expect(ar).toMatch(/^<div dir="rtl" lang="ar"/)
     expect(measureOf(panelOf(ar), 'salesGrowth')).toContain('>جديدة<')
   })

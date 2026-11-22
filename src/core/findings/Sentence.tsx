@@ -1,7 +1,8 @@
 import { Fragment } from 'react'
 import { Link } from 'react-router'
-import type { CcPart, CcTarget } from '@/core/models/command-center'
+import type { CcPart } from '@/core/models/command-center'
 import Ltr from '@/core/ui/Ltr'
+import type { HrefOf } from './finding-card'
 
 /**
  * A server sentence in parts (oms 946, BackOffice spec 4165): the words as the server wrote them, in the asked language;
@@ -13,7 +14,7 @@ import Ltr from '@/core/ui/Ltr'
  *
  * In core because the command center's brief and profiles (946-949) and the copilot (950) all draw server sentences.
  */
-export default function Sentence({ parts, hrefOf }: { parts: readonly CcPart[]; hrefOf: (target: CcTarget) => string }) {
+export default function Sentence({ parts, hrefOf }: { parts: readonly CcPart[]; hrefOf: HrefOf }) {
   return (
     <bdi>
       {parts.map((part, i) =>

@@ -6,7 +6,7 @@
  *
  * Only a pharmacy's code and coordinates reach Google (spec 4165, ADR 0139): the points carry nothing else.
  */
-import type { MapPoint, MapPolygon, MapView } from '@/core/map/map-panel'
+import type { MapPoint, MapPolygon, MapSelection, MapView } from '@/core/map/map-panel'
 import type { CcColour, CcFilter, CcMapPoint, CcRegionKey, CommandCenterHome } from '@/core/models/command-center'
 import boundaries from './regions/ksa-bh-regions.json'
 
@@ -74,3 +74,17 @@ export function regionView(region: CcRegionKey, shapes: readonly RegionShape[] =
   const lats = at.map(([, lat]) => lat)
   return { kind: 'bounds', west: Math.min(...lons), south: Math.min(...lats), east: Math.max(...lons), north: Math.max(...lats) }
 }
+
+/** What a tap on the map chooses: a point opens its pharmacy's scorecard (the page puts it in the URL), a shape its region. */
+export const mapSelectionAction = (selection: MapSelection): { kind: 'store'; storeCode: string } | { kind: 'region'; region: CcRegionKey } =>
+  selection.kind === 'point' ? { kind: 'store', storeCode: selection.id } : { kind: 'region', region: selection.id }
+
+/** The region chosen, and how many choices so far: the count goes into the map's view key, so choosing the same region again zooms back to it. */
+export interface RegionChoice {
+  region: CcRegionKey | null
+  nonce: number
+}
+
+export const NO_REGION: RegionChoice = { region: null, nonce: 0 }
+
+export const selectRegion = (prev: RegionChoice, region: CcRegionKey | null): RegionChoice => ({ region, nonce: prev.nonce + 1 })

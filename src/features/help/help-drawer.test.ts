@@ -10,14 +10,14 @@ import type { HelpArticle, HelpContents, HelpLang } from '@/core/models/help'
 import { HelpDrawerSheet } from './HelpDrawer'
 import { drawHelp } from './test-render'
 
-const meta = (slug: string, title: string, screens: string[]) => ({ slug, title, order: 0, access: 'viewer' as const, screens, questions: [], checkedAgainst: '' })
+const meta = (slug: string, title: string, screens: string[]) => ({ slug, title, order: 0, access: ['viewer' as const], screens, questions: [], checkedAgainst: '' })
 
 function seeded(lang: HelpLang, titles: { start: string; boards: string }): QueryClient {
   const client = new QueryClient()
-  const contents: HelpContents = { draft: false, articles: [meta('start', titles.start, ['/analytics']), meta('boards', titles.boards, ['/analytics/board/:id'])] }
+  const contents: HelpContents = { draft: false, tours: [], articles: [meta('start', titles.start, ['/analytics']), meta('boards', titles.boards, ['/analytics/board/:id'])] }
   client.setQueryData(helpContentsQuery('analytics', lang).queryKey, contents)
   for (const a of contents.articles) {
-    const article: HelpArticle = { ...a, markdown: `# ${a.title}\n\nBody of ${a.slug}.` }
+    const article: HelpArticle = { ...a, markdown: `# ${a.title}\n\nBody of ${a.slug}.`, sections: [] }
     client.setQueryData(helpArticleQuery('analytics', a.slug, lang).queryKey, article)
   }
   return client

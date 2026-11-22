@@ -692,9 +692,34 @@ describe('the answer links the help it answered from (oms 952, BackOffice 4184)'
     expect(answerLayout(model).parts).toEqual(['text', 'views', 'help'])
     expect(copilotAnswerModel({ answer: 'x' }).helpLinks).toEqual([])
     expect(copilotAnswerModel({ helpLinks: 'boards' } as unknown as Partial<CopilotAnswer>).helpLinks).toEqual([])
-    // A link with no slug cannot open anything; another kind is not a help link; a screen off the app is dropped.
-    const odd = [{ ...share, slug: ' ' }, { ...share, kind: 'view' }, { ...share, screen: 'https://evil.example/' }]
+    // Another kind is not a help link; a screen off the app is dropped.
+    const odd = [{ ...share, kind: 'view' }, { ...share, screen: 'https://evil.example/' }]
     expect(copilotAnswerModel({ helpLinks: odd } as unknown as Partial<CopilotAnswer>).helpLinks).toEqual([{ ...share, screen: null }])
+  })
+
+  it('answer_helpPart_anEmptySlugIsTheHelpCenter_itsTitleAsTheServerWroteIt', () => {
+    // BackOffice CopilotHelpAnswers: when the help covered nothing, one part for the help center — empty slug and anchor, no screen.
+    const center = { kind: 'help', area: 'analytics', slug: '', anchor: '', title: 'مركز المساعدة' }
+    const model = copilotAnswerModel({ answer: 'x', helpLinks: [center] } as unknown as Partial<CopilotAnswer>)
+    expect(model.helpLinks).toEqual([{ ...center, screen: null }])
+    expect(helpLinkButtons(model.helpLinks[0])).toEqual([{ kind: 'help', to: '/analytics/help' }])
+  })
+
+  it('answer_helpPart_aTourLinkOpensTheHelpCenterUntilToursShip_andKeepsItsScreen', () => {
+    // 4188: `kind: "tour"` — slug the tour id, anchor the step id. oms 955 will start the tour; until then, the help center.
+    const step = { kind: 'tour', area: 'analytics', slug: 'first-look', anchor: 'menu', title: 'The menu', screen: '/analytics' }
+    const model = copilotAnswerModel({ answer: 'x', helpLinks: [step] } as unknown as Partial<CopilotAnswer>)
+    expect(model.helpLinks).toEqual([step])
+    expect(helpLinkButtons(model.helpLinks[0])).toEqual([
+      { kind: 'help', to: '/analytics/help' },
+      { kind: 'screen', to: '/analytics' },
+    ])
+  })
+
+  it('answer_helpPart_aRoutePatternIsNeverAScreenToOpen', () => {
+    // The server never sends one (`IsOpenable`); should it, `/analytics/report/:id` opens nothing.
+    const model = copilotAnswerModel({ answer: 'x', helpLinks: [{ ...share, screen: '/analytics/report/:id' }] } as unknown as Partial<CopilotAnswer>)
+    expect(model.helpLinks[0].screen).toBeNull()
   })
 
   it('answer_helpPart_aBackslashScreenIsAnotherOrigin_andTheAreaIsEncoded', () => {

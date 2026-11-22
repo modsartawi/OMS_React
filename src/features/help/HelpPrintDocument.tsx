@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { formatDay } from '@/core/charts/format'
-import { isHelpAccess } from '@/core/help/help-access'
 import { helpDir } from '@/core/help/help-lang'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { HelpAccess, HelpArticle, HelpContents, HelpLang } from '@/core/models/help'
+import { helpAccessLabel } from './HelpAccessBadge'
 import HelpMarkdown, { type HelpPrintMode } from './HelpMarkdown'
 import { inReadingOrder } from './help-contents'
 import { checkedAgainstOf } from './help-print'
@@ -76,7 +76,7 @@ export default function HelpPrintDocument({
           {ordered.map((a, i) => (
             <li key={a.slug} className="flex items-baseline gap-2 [break-inside:avoid]" data-help-print-entry={a.slug}>
               <bdi className="font-medium">{a.title}</bdi>
-              <AccessBadge access={a.access} lang={lang} />
+              <AccessBadges access={a.access} lang={lang} />
               <span aria-hidden className="min-w-4 flex-1 border-b border-dotted border-border" />
               {pageNumbers?.[i] !== undefined && (
                 <span className="tabular-nums" data-help-print-page={pageNumbers[i]}>
@@ -96,9 +96,11 @@ export default function HelpPrintDocument({
               <h2 className="text-xl font-semibold tracking-tight">
                 <bdi>{meta.title}</bdi>
               </h2>
-              <AccessBadge access={meta.access} lang={lang} />
+              <span className="flex flex-wrap gap-2">
+                <AccessBadges access={meta.access} lang={lang} />
+              </span>
             </header>
-            {a && <HelpMarkdown area={area} markdown={a.markdown} lang={lang} print={print} />}
+            {a && <HelpMarkdown area={area} markdown={a.markdown} sections={a.sections} lang={lang} print={print} />}
           </section>
         )
       })}
@@ -106,12 +108,12 @@ export default function HelpPrintDocument({
   )
 }
 
-/** The level an article needs — on paper, for any reader, so no "you have / ask" sentence. */
-function AccessBadge({ access, lang }: { access: HelpAccess; lang: HelpLang }) {
+/** The levels an article needs, one badge each — on paper, for any reader, so no "you have / ask" sentence. */
+function AccessBadges({ access, lang }: { access: readonly HelpAccess[]; lang: HelpLang }) {
   const { t } = useTranslation('help', { lng: lang })
-  return (
-    <span data-help-access={access} className="contents">
-      <StatusBadge sev="mute">{isHelpAccess(access) ? t(`access.${access}`) : t('access.unknown')}</StatusBadge>
+  return access.map((level) => (
+    <span key={level} data-help-access={level} className="contents">
+      <StatusBadge sev="mute">{helpAccessLabel(t, level)}</StatusBadge>
     </span>
-  )
+  ))
 }

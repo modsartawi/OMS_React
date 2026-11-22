@@ -5,8 +5,9 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ExternalLink, MonitorPlay } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
-import type { HelpLang } from '@/core/models/help'
+import type { HelpLang, HelpSection } from '@/core/models/help'
 import HelpImage from './HelpImage'
+import { anchorSlugifier, withoutHeadingAnchors } from './help-anchors'
 import { helpImageFile, helpLinkOf } from './help-links'
 
 /**
@@ -15,18 +16,33 @@ import { helpImageFile, helpLinkOf } from './help-links'
  * - **No raw HTML**: `disableParsingRawHTML` leaves every tag in an article as inert text.
  * - `screen:/route` → an "Open this screen" button that navigates; `help:slug#anchor` → a link inside the help.
  * - `images/<name>.en.png` → the help image route's file in the help language; another host's image never loads.
- * - Headings get anchors (Arabic letters kept), so `help:slug#anchor` lands on them; code reads left to right.
+ * - Headings take the server's anchors (`./help-anchors`: an explicit `{#anchor}`, hidden from the reader, else the
+ *   server's slug), so `help:slug#anchor` and the Copilot's help links land on them; code reads left to right.
  *
  * On paper (`print`, oms 953) nothing can be clicked: a `screen:` link prints as the screen's name (the link's words),
  * a `help:` link as "see <article title>", any other link as its words; each picture reports when it has settled.
  */
-export default function HelpMarkdown({ area, markdown, lang, print }: { area: string; markdown: string; lang: HelpLang; print?: HelpPrintMode }) {
+export default function HelpMarkdown({
+  area,
+  markdown,
+  lang,
+  sections,
+  print,
+}: {
+  area: string
+  markdown: string
+  lang: HelpLang
+  /** The server's section outline (`GET Help/{area}/{slug}`), whose anchors the headings take; worked out alike when absent. */
+  sections?: readonly HelpSection[]
+  print?: HelpPrintMode
+}) {
   return (
     <div className={HELP_PROSE}>
       <Markdown
         options={{
           disableParsingRawHTML: true,
-          slugify: headingAnchor,
+          // A fresh slugifier per draw: it hands each heading its anchor in document order.
+          slugify: anchorSlugifier(markdown, sections),
           wrapper: Fragment,
           overrides: {
             a: print ? { component: PrintedAnchor, props: { lang, titles: print.titles } } : { component: HelpAnchor, props: { area, lang } },
@@ -36,22 +52,11 @@ export default function HelpMarkdown({ area, markdown, lang, print }: { area: st
           },
         }}
       >
-        {markdown}
+        {withoutHeadingAnchors(markdown)}
       </Markdown>
     </div>
   )
 }
-
-/**
- * A heading's anchor: lower case, punctuation dropped, spaces to hyphens — letters of any script kept (the default
- * would empty an Arabic heading's id). 🚩 Assumed to match BO 4183's "stable anchors"; reconcile with the reader.
- */
-export const headingAnchor = (text: string): string =>
-  text
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{M}\p{N}\s-]/gu, '')
-    .replace(/\s+/g, '-')
 
 // Article typography from tokens only (no colour literals), logical spacing only.
 const HELP_PROSE = [

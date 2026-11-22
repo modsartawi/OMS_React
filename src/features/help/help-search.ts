@@ -26,6 +26,7 @@ export function markdownWords(markdown: string): string {
   return markdown
     .replace(/^---[\s\S]*?\n---\s*\n/, ' ') // a front-matter block, should one ride along
     .replace(/\]\([^)]*\)/g, ' ') // `](target)` of a link or an image
+    .replace(/\s*\{#[^}\s]+\}[ \t]*$/gm, ' ') // a heading's `{#anchor}` — never shown to the reader
     .replace(/[#*_`>|[\]!~-]+/g, ' ')
 }
 

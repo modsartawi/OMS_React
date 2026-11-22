@@ -30,7 +30,7 @@ import { searchArticles } from './help-search'
  * when the app reads Arabic or boots right-to-left). The page — rail, search, article — takes that language's
  * direction, so an Arabic article reads right to left inside the English shell.
  *
- * 🚩 Stubbed contract (BO 4183 not built): the wire shapes are guessed in `@/core/models/help`.
+ * Reconciled with BackOffice pricing2 @ 98f9a5ad9 (4183/4184/4188): the wire shapes are in `@/core/models/help`.
  */
 export default function HelpPage({ area }: { area: string }) {
   const lang = useHelpLang()
@@ -132,7 +132,7 @@ function HelpArticleView({ area, slug, lang, articles }: { area: string; slug: s
         </h2>
         <HelpAccessBadge access={a.access} permissions={permissions} lang={lang} />
       </header>
-      <HelpMarkdown area={area} markdown={a.markdown} lang={lang} />
+      <HelpMarkdown area={area} markdown={a.markdown} sections={a.sections} lang={lang} />
       {a.checkedAgainst && (
         <p className="text-xs text-muted-foreground" data-help-checked-against>
           {/* The commit and versions are machine values: one isolate around the whole value (bidi rule). */}

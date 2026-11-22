@@ -11,7 +11,7 @@ const meta = (slug: string, title: string, questions: string[] = []): HelpArticl
   slug,
   title,
   order: 0,
-  access: 'viewer',
+  access: ['viewer'],
   screens: [],
   questions,
   checkedAgainst: '',
@@ -58,6 +58,13 @@ describe('searchArticles', () => {
     expect(slugs(searchArticles(english, englishBodies, 'share pdf'))).toEqual([])
     expect(slugs(searchArticles(english, englishBodies, 'screen'))).toEqual([])
     expect(slugs(searchArticles(english, englishBodies, '**'))).toEqual([])
+  })
+
+  it("a heading's {#anchor} is not body text: the reader never sees it", () => {
+    const bodies = { boards: '## Share a board {#cross-filter}\n\nPick the team.' }
+    const list = english.filter((a) => a.slug === 'boards')
+    expect(slugs(searchArticles(list, bodies, 'cross'))).toEqual([])
+    expect(slugs(searchArticles(list, bodies, 'team'))).toEqual(['boards'])
   })
 
   it('a body not fetched yet still searches by title and questions', () => {

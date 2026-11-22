@@ -23,7 +23,8 @@ const meta = (slug: string, title: string, order: number, access: HelpArticleMet
 // Out of order on purpose: the rail sorts by `order`.
 const contents: HelpContents = {
   draft: true,
-  articles: [meta('whats-new', 'What’s new', 99, 'viewer'), meta('sql', 'SQL', 10, 'sql'), meta('start', 'Start here', 0, 'viewer'), meta('sharing-certified', 'Sharing', 6, 'curator'), meta('schedules', 'Schedules', 5, 'author')],
+  articles: [meta('whats-new', 'What’s new', 99, ['viewer']), meta('sql', 'SQL', 10, ['sql']), meta('start', 'Start here', 0, ['viewer']), meta('sharing-certified', 'Sharing', 6, ['curator']), meta('schedules', 'Schedules', 5, ['author'])],
+  tours: [],
 }
 
 const draw = (screens: string[], lang: 'en' | 'ar' = 'en') =>
@@ -74,6 +75,24 @@ describe('the contents rail', () => {
     const ar = entries(draw(['Analytics:03'], 'ar'))
     expect(ar[0].slice(2)).toEqual(['مشاهد', 'لديك هذه الصلاحية.'])
     expect(ar[1].slice(2)).toEqual(['مُنشئ', 'اطلب من مسؤول النظام صلاحية مُنشئ.'])
+  })
+
+  it('an article needing several levels shows a badge each, and the sentence names only the levels the reader lacks', () => {
+    // The real 06-sharing-certified.md: `access: [author, curator]`; 01-home-library.md: `[viewer, author]`.
+    const several = [meta('sharing-certified', 'Sharing', 6, ['author', 'curator']), meta('home-library', 'Home', 1, ['viewer', 'author'])]
+    const drawSeveral = (screens: string[], lang: 'en' | 'ar' = 'en') =>
+      drawHelp(createElement(HelpContentsRail, { area: 'analytics', articles: several, activeSlug: null, permissions: permissionsOf({ screens }), lang }))
+    const viewer = drawSeveral(['Analytics:03'])
+    const badges = (html: string, slug: string) =>
+      [...(html.split(`data-help-entry="${slug}"`)[1] ?? '').split('data-help-entry=')[0].matchAll(/data-help-access="([^"]+)"/g)].map((m) => m[1])
+    expect(badges(viewer, 'home-library')).toEqual(['viewer', 'author'])
+    expect(badges(viewer, 'sharing-certified')).toEqual(['author', 'curator'])
+    const sentences = (html: string) => [...html.matchAll(/data-help-access-sentence[^>]*>([^<]+)</g)].map((m) => m[1])
+    // Reading order: home-library (1) then sharing-certified (6).
+    expect(sentences(viewer)).toEqual(['Ask your administrator for Author access.', 'Ask your administrator for Author and Curator access.'])
+    expect(sentences(drawSeveral(['Analytics:03', 'Analytics:02']))).toEqual(['You have this access.', 'Ask your administrator for Curator access.'])
+    expect(sentences(drawSeveral(['Analytics:03', 'Analytics:02', 'Analytics:06']))).toEqual(['You have this access.', 'You have this access.'])
+    expect(sentences(drawSeveral(['Analytics:03'], 'ar'))[1]).toBe('اطلب من مسؤول النظام صلاحية مُنشئ ومشرف.')
   })
 
   it('says nothing about access while the permissions answer is pending', () => {

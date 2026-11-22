@@ -1,5 +1,5 @@
 import { itemHref } from '@/core/analytics-routes'
-import { helpHref } from '@/core/help/help-routes'
+import { helpHref, helpPath } from '@/core/help/help-routes'
 import type { AnalyticsLabel } from '@/core/models/analytics'
 import { saysIn } from '@/core/rules/sentence'
 import { listPeriodsOf, usedListsOf } from './answer-item-lists'
@@ -477,13 +477,23 @@ const text = (v: unknown): string => (typeof v === 'string' ? v : '')
 /** A help link as the panel reads it: the screen is an in-app route or null. */
 export type HelpLinkPart = Required<Omit<CopilotHelpLink, 'screen'>> & { screen: string | null }
 
-/** One `helpLinks` entry (oms 952, BO 4184), or none: not a help link, or no slug to open. A screen off the app is dropped. */
+/** An in-app route that opens as it stands: one leading slash (not `//host`, not `/\host`) and no `:param` segment. */
+const openableRoute = (v: unknown): string | null => {
+  const route = typeof v === 'string' ? v.trim() : ''
+  return /^\/(?![/\\])/.test(route) && !route.split('/').some((s) => s.startsWith(':')) ? route : null
+}
+
+/**
+ * One `helpLinks` entry (oms 952, BO 4184/4188), or none when it is not a help link. `kind: "help"` is an article's
+ * section — an empty `slug` is the help center itself (the help covered nothing); `kind: "tour"` is a guided tour's step.
+ * A screen off the app, or a route pattern, is dropped.
+ */
 function helpLinkOf(v: unknown): HelpLinkPart[] {
   if (!v || typeof v !== 'object') return []
   const { kind, area, slug, anchor, title, screen } = v as Record<string, unknown>
-  if (kind !== 'help' || typeof slug !== 'string' || slug.trim() === '') return []
-  const route = typeof screen === 'string' && /^\/(?![/\\])/.test(screen.trim()) ? screen.trim() : null
-  return [{ kind: 'help', area: typeof area === 'string' && area.trim() !== '' ? area : 'analytics', slug, anchor: text(anchor), title: text(title), screen: route }]
+  if (kind !== 'help' && kind !== 'tour') return []
+  if (kind === 'tour' && text(slug).trim() === '') return []
+  return [{ kind, area: typeof area === 'string' && area.trim() !== '' ? area : 'analytics', slug: text(slug).trim(), anchor: text(anchor), title: text(title), screen: openableRoute(screen) }]
 }
 
 /** One button under a help link: "Open the help" to the article's heading, "Open this screen" to its route. */
@@ -492,9 +502,14 @@ export interface HelpLinkButton {
   to: string
 }
 
-/** A help link's buttons: always "Open the help"; "Open this screen" only when the section names a screen. */
+/**
+ * A help link's buttons: always "Open the help" — the article at its heading, or the help center for an empty slug and
+ * for a tour step (oms 955 will start the tour there; until it ships the help center is where tours are listed) — and
+ * "Open this screen" only when the section names one.
+ */
 export function helpLinkButtons(link: HelpLinkPart): HelpLinkButton[] {
-  const help: HelpLinkButton = { kind: 'help', to: helpHref(link.area, link.slug, link.anchor || undefined) }
+  const to = link.kind === 'tour' || link.slug === '' ? helpPath(link.area) : helpHref(link.area, link.slug, link.anchor || undefined)
+  const help: HelpLinkButton = { kind: 'help', to }
   return link.screen ? [help, { kind: 'screen', to: link.screen }] : [help]
 }
 

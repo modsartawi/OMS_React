@@ -9,7 +9,7 @@ import type { HelpArticle, HelpContents } from '@/core/models/help'
 import HelpPrintDocument from './HelpPrintDocument'
 import { drawHelp } from './test-render'
 
-const meta = (slug: string, title: string, order: number, access: HelpArticle['access'] = 'viewer') => ({
+const meta = (slug: string, title: string, order: number, access: HelpArticle['access'] = ['viewer']) => ({
   slug,
   title,
   order,
@@ -21,12 +21,13 @@ const meta = (slug: string, title: string, order: number, access: HelpArticle['a
 const contents = (draft: boolean): HelpContents => ({
   draft,
   // Sent out of order on purpose: the paper reads by `order`.
-  articles: [meta('whats-new', "What's new", 99), meta('start', 'Start here', 0), meta('reports', 'Reports', 30, 'author')],
+  tours: [],
+  articles: [meta('whats-new', "What's new", 99), meta('start', 'Start here', 0), meta('reports', 'Reports', 30, ['viewer', 'author'])],
 })
 const articles: HelpArticle[] = [
-  { ...meta('whats-new', "What's new", 99), markdown: '## Lately\n\nNew things.' },
-  { ...meta('start', 'Start here', 0), markdown: '## Welcome\n\nSee [reports](help:reports).' },
-  { ...meta('reports', 'Reports', 30, 'author'), markdown: '## Build one\n\nOpen [Reports](screen:/analytics/reports).' },
+  { ...meta('whats-new', "What's new", 99), markdown: '## Lately\n\nNew things.', sections: [] },
+  { ...meta('start', 'Start here', 0), markdown: '## Welcome\n\nSee [reports](help:reports).', sections: [] },
+  { ...meta('reports', 'Reports', 30, ['viewer', 'author']), markdown: '## Build one\n\nOpen [Reports](screen:/analytics/reports).', sections: [] },
 ]
 
 const draw = (draft: boolean, lang: 'en' | 'ar' = 'en', pageNumbers: number[] | null = [3, 4, 6]) =>
@@ -47,7 +48,7 @@ describe('HelpPrintDocument', () => {
   it('lists the contents in the same order with each access badge and page number', () => {
     const html = draw(false)
     expect(order(html, 'data-help-print-entry')).toEqual(['start', 'reports', 'whats-new'])
-    expect(html).toMatch(/data-help-print-entry="reports"[\s\S]*?data-help-access="author"[\s\S]*?<bdi dir="ltr">4<\/bdi>/)
+    expect(html).toMatch(/data-help-print-entry="reports"[\s\S]*?data-help-access="viewer"[\s\S]*?data-help-access="author"[\s\S]*?<bdi dir="ltr">4<\/bdi>/)
     expect(html).toMatch(/data-help-print-entry="whats-new"[\s\S]*?<bdi dir="ltr">6<\/bdi>/)
   })
 

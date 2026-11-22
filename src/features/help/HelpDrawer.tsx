@@ -69,7 +69,7 @@ export function HelpDrawerSheet({ area, pathname, lang, onClose, onKey }: { area
         {article.isError ? (
           <ErrorBanner title={t('state.articleFailed')} message={apiErrorMessage(article.error, t('state.articleFailed'))} className="px-3 py-2" />
         ) : article.data ? (
-          <HelpMarkdown area={area} markdown={article.data.markdown} lang={lang} />
+          <HelpMarkdown area={area} markdown={article.data.markdown} sections={article.data.sections} lang={lang} />
         ) : (
           <p className="text-sm text-muted-foreground" role="status">
             {t('state.loading')}

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { HelpArticleMeta } from '@/core/models/help'
 import { articleForRoute } from './article-for-route'
 
-const meta = (slug: string, screens: string[]): HelpArticleMeta => ({ slug, title: slug, order: 0, access: 'viewer', screens, questions: [], checkedAgainst: '' })
+const meta = (slug: string, screens: string[]): HelpArticleMeta => ({ slug, title: slug, order: 0, access: ['viewer'], screens, questions: [], checkedAgainst: '' })
 
 const ARTICLES = [
   meta('start', ['/analytics']),

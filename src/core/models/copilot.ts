@@ -547,17 +547,21 @@ export interface CopilotViewRef {
  * A help link the answer was built from (oms 952, BackOffice 4184): the article and heading it read, and the screen the
  * steps are on. The web draws "Open the help" and, with a `screen`, "Open this screen".
  *
- * 🚩 Stubbed contract: BO 4184 is not built. It names the part `{ kind: "help", area, slug, anchor, title, screen? }` but
- * not the reply field carrying it; `helpLinks` (beside `viewRefs`) is assumed until it ships.
+ * Reconciled with BackOffice pricing2 @ 98f9a5ad9 (4183/4184/4188): `CopilotAnswer.HelpLinks` /
+ * `CopilotHelpLink` in `SIS.Api/Copilot/Ask/CopilotAskModels.cs`, written by `CopilotHelpAnswers` from what
+ * `read_help` returned; absent on an answer that read no help.
  */
 export interface CopilotHelpLink {
-  kind: 'help'
+  /** `help`: an article's section (or, with an empty `slug`, the help center); `tour` (4188): a guided tour's step. */
+  kind: 'help' | 'tour'
   area: string
+  /** The article; for a tour, the tour id; empty = the help center itself (the help covered nothing). */
   slug: string
-  /** The heading's anchor inside the article; empty for the article's top. */
+  /** The heading's anchor inside the article (empty for its top); for a tour, the step id (empty = the start). */
   anchor: string
+  /** The section's heading (the article's title for its opening section), in the asker's language. */
   title: string
-  /** An oms-react route (`/analytics/library`), or null when the section names none. */
+  /** The first oms-react route the section links that opens as it stands (never a `:param` pattern); absent when none. */
   screen?: string | null
 }
 
@@ -603,7 +607,7 @@ export interface CopilotAnswer {
    * Absent on an older server, and read as empty.
    */
   viewRefs?: CopilotViewRef[]
-  /** 🚩 oms 952 (BO 4184, field name assumed): the help sections a how-to answer used; absent reads as empty. */
+  /** oms 952 (BO 4184, `helpLinks`): the help sections a how-to answer used, or the help center; absent reads as empty. */
   helpLinks?: CopilotHelpLink[]
   /** The reports `create_report` / `edit_report` saved in this answer (spec 819 §D); absent reads as empty. */
   reportRefs?: CopilotReportRef[]

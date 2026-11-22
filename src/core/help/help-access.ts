@@ -21,6 +21,12 @@ export const isHelpAccess = (access: unknown): access is HelpAccess => (HELP_ACC
 export const helpAccessHeld = (access: HelpAccess, p: Permissions): boolean => isHelpAccess(access) && HOLDS[access](p)
 
 /**
+ * The levels of an article's access list (BackOffice 4183: one or more, lowest first) that `p` does not grant, in the
+ * list's order — what the "Ask your administrator for …" sentence names. None lacking: "You have this access".
+ */
+export const helpAccessLacking = (access: readonly HelpAccess[], p: Permissions): HelpAccess[] => access.filter((a) => !helpAccessHeld(a, p))
+
+/**
  * Who reads the analytics help at all: "wherever the Analytics menu shows" — an Analytics viewer, or a PriceWatch viewer
  * (`PriceWatch:03`, the price command center's view grant). The Help menu leaf and the copilot's "How do I…?" row
  * (review 4182 #8) read this one predicate.

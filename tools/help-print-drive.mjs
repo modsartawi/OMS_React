@@ -1,5 +1,5 @@
-// oms 953 (BackOffice spec 4182 §D): drive the whole help's print page against a stubbed help endpoint (BO 4183 is
-// not built — the shapes are the guessed ones in src/core/models/help.ts).
+// oms 953 (BackOffice spec 4182 §D): drive the whole help's print page against a stubbed help endpoint, in the wire
+// shapes of BackOffice pricing2 @ 98f9a5ad9 (4183/4188; src/core/models/help.ts).
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/help-print-drive.mjs
@@ -26,11 +26,14 @@ const envelope = (data, status = 200) => ({
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
 const SLOW_MS = 1500
 
-const meta = (slug, title, order, access = 'viewer') => ({ slug, title, order, access, screens: [], questions: [], checkedAgainst: 'oms 9f07388 · SIS.Api 4.12' })
+const meta = (slug, title, order, access = ['viewer']) => ({ slug, title, order, access, screens: [], questions: [], checkedAgainst: 'oms 9f07388 · SIS.Api 4.12' })
 const TITLES = { en: ['Start here', 'Boards', "What's new"], ar: ['ابدأ هنا', 'اللوحات', 'ما الجديد'] }
 const contentsOf = (lang) => ({
+  area: 'analytics',
+  language: lang,
   draft: true,
-  articles: [meta('whats-new', TITLES[lang][2], 99), meta('start', TITLES[lang][0], 0), meta('boards', TITLES[lang][1], 10, 'author')],
+  tours: [],
+  articles: [meta('whats-new', TITLES[lang][2], 99), meta('start', TITLES[lang][0], 0), meta('boards', TITLES[lang][1], 10, ['viewer', 'author'])],
 })
 const long = Array.from({ length: 60 }, (_, i) => `Paragraph ${i + 1}: a long line of words so the article runs past one page of paper.`).join('\n\n')
 const bodies = {
@@ -54,17 +57,17 @@ async function open(lang) {
     const l = url.searchParams.get('lang') === 'ar' ? 'ar' : 'en'
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'drive', currentStoreCode: 'P001' }))
     if (p === 'Auth/Permissions') return route.fulfill(permissions(['Analytics:03']))
-    if (p === 'help/analytics') return route.fulfill(envelope(contentsOf(l)))
-    const img = p.match(/^help\/analytics\/images\/(.+)$/)
+    if (p === 'Help/analytics') return route.fulfill(envelope(contentsOf(l)))
+    const img = p.match(/^Help\/analytics\/images\/(.+)$/)
     if (img) {
       if (img[1].startsWith('missing')) return route.fulfill(envelope(null, 404))
       if (img[1].startsWith('editor')) await new Promise((r) => setTimeout(r, SLOW_MS))
       return route.fulfill({ status: 200, contentType: 'image/png', body: PNG })
     }
-    const art = p.match(/^help\/analytics\/([^/]+)$/)
+    const art = p.match(/^Help\/analytics\/([^/]+)$/)
     if (art) {
       const m = contentsOf(l).articles.find((a) => a.slug === art[1])
-      return m ? route.fulfill(envelope({ ...m, markdown: bodies[m.slug] })) : route.fulfill(envelope(null, 404))
+      return m ? route.fulfill(envelope({ area: 'analytics', language: l, draft: true, article: m, markdown: bodies[m.slug], sections: [] })) : route.fulfill(envelope(null, 404))
     }
     return route.fulfill(envelope({}))
   })

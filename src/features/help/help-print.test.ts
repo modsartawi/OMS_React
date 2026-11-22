@@ -12,11 +12,12 @@ const article = (slug: string, markdown: string): HelpArticle => ({
   slug,
   title: slug,
   order: 0,
-  access: 'viewer',
+  access: ['viewer'],
   screens: [],
   questions: [],
   checkedAgainst: '',
   markdown,
+  sections: [],
 })
 
 describe('articleImages', () => {

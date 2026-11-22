@@ -48,8 +48,8 @@ try {
 
   // ── The screens snapshot, from the table of contents ──
   const toc = await browser.newContext({ storageState: session })
-  const answer = await toc.request.get(`${base}/api/help/${AREA}?lang=en`, { headers: WEB })
-  if (answer.status() !== 200) throw new Error(`GET help/${AREA} answered ${answer.status()}: is SIS.Api's help endpoint (BO 4183) running?`)
+  const answer = await toc.request.get(`${base}/api/Help/${AREA}?lang=en`, { headers: WEB })
+  if (answer.status() !== 200) throw new Error(`GET Help/${AREA} answered ${answer.status()}: is SIS.Api's help endpoint (BO 4183) running?`)
   const snapshot = screensSnapshot(AREA, (await answer.json()).data)
   writeFileSync(SNAPSHOT, `${JSON.stringify(snapshot, null, 2)}\n`)
   console.log(`wrote ${path.relative(process.cwd(), SNAPSHOT)} (${snapshot.screens.length} screens)`)

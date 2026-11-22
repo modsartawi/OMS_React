@@ -39,7 +39,7 @@ const PAGE_RULE = [
  * contents' page numbers are laid out (`help-print.ts`), so a headless renderer can print it later. It never opens the
  * print dialog itself: the launch PDFs are the browser's Save as PDF (BO 4187).
  *
- * 🚩 Stubbed contract (BO 4183 not built): the wire shapes are guessed in `@/core/models/help`.
+ * Reconciled with BackOffice pricing2 @ 98f9a5ad9 (4183/4184/4188): the wire shapes are in `@/core/models/help`.
  */
 export default function HelpPrintPage({ area }: { area: string }) {
   const [search] = useSearchParams()

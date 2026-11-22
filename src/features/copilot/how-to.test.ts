@@ -7,10 +7,11 @@ import { howToQuestions } from '@/core/help/how-to'
 import type { HelpContents } from '@/core/models/help'
 import { howToButtons } from './starters'
 
-const article = (slug: string, questions: string[]) => ({ slug, title: slug, order: 0, access: 'viewer' as const, screens: [], questions, checkedAgainst: '' })
+const article = (slug: string, questions: string[]) => ({ slug, title: slug, order: 0, access: ['viewer' as const], screens: [], questions, checkedAgainst: '' })
 
 const EN: HelpContents = {
   draft: true,
+  tours: [],
   articles: [
     article('start', ['How do I find a board?']),
     article('boards', ['How do I share a board?', 'How do I pin a board?']),
@@ -19,6 +20,7 @@ const EN: HelpContents = {
 }
 const AR: HelpContents = {
   draft: true,
+  tours: [],
   articles: [article('start', ['كيف أجد لوحة؟']), article('boards', ['كيف أشارك لوحة؟', 'كيف أثبّت لوحة؟'])],
 }
 
@@ -41,7 +43,7 @@ describe('the "How do I…?" row', () => {
   })
 
   it('offers fewer when the contents hold fewer, and none without contents', () => {
-    expect(howToQuestions({ draft: false, articles: [article('start', ['How do I start?'])] }, Math.random)).toEqual(['How do I start?'])
+    expect(howToQuestions({ draft: false, tours: [], articles: [article('start', ['How do I start?'])] }, Math.random)).toEqual(['How do I start?'])
     expect(howToQuestions(undefined, Math.random)).toEqual([])
   })
 

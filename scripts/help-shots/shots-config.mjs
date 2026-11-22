@@ -122,7 +122,7 @@ export function screensSnapshot(area, contents) {
   const screens = [...new Set((contents?.articles ?? []).flatMap((a) => (Array.isArray(a.screens) ? a.screens : [])))]
   if (screens.length === 0) throw new Error(`The ${area} table of contents names no screens; the snapshot is left as it was.`)
   return {
-    note: `Every \`screens\` route of the ${area} help's table of contents. Written by the capture script (oms 954, scripts/help-shots) from GET help/${area}; do not edit by hand.`,
+    note: `Every \`screens\` route of the ${area} help's table of contents. Written by the capture script (oms 954, scripts/help-shots) from GET Help/${area}; do not edit by hand.`,
     area,
     screens,
   }

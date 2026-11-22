@@ -5,6 +5,7 @@ import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { AnalyticsLabel } from '@/core/models/analytics'
+import type { CopilotFinding } from '@/core/copilot-panel'
 import type { CopilotAnswer, CopilotAskRequest, CopilotQuestionOrigin, CopilotSqlItemRef, CopilotSqlOffer, CopilotStatedReading } from '@/core/models/copilot'
 import { copilotApi, copilotNamedSetApi, copilotReadingApi, type CopilotNamedSetDoors, type CopilotReadingDoors } from './api'
 import { copilotAnswerModel } from './answer'
@@ -127,6 +128,18 @@ export interface CopilotConversationState {
   /** Opens a SQL item: a new conversation (the current one filed), the toggle on, the item held for the first question. */
   openSqlItem: (item: CopilotSqlItemRef) => void
   /**
+   * oms 950 (BackOffice spec 4165, 4179): the finding "Ask" opened this conversation on, or null. Its id rides as
+   * `findingContext` on the first question only (`findingSent` then); the panel draws its line as the shared finding card
+   * at the top. Dropped by a new conversation, a resumed one and a user change.
+   */
+  finding: CopilotFinding | null
+  findingSent: boolean
+  /**
+   * Opens a finding: a new conversation (the current one filed), SQL mode off (the findings tool is a plain question),
+   * and the finding's written question asked with its id. `null` as `ask` (nothing sent: the panel puts it in the box).
+   */
+  openFinding: (finding: CopilotFinding) => Promise<void> | null
+  /**
    * "Try in SQL mode" tapped (888, BackOffice 3674, Q28): the toggle goes on and the offer's question is asked again in
    * SQL mode, in the offer's conversation, or (its id null: that was the conversation's last question) in a new one,
    * the old one filed in the history. `null` as `ask`.
@@ -227,7 +240,10 @@ export function createCopilotConversation(
       const { sqlItem, sqlItemSent } = get()
       const sqlItemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
       if (sqlItemContext) set({ sqlItemSent: true })
-      const from: AskFrom = { ...said, sqlMode: sql, sqlItemContext, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
+      const { finding, findingSent } = get()
+      const findingContext = finding !== null && !findingSent ? { findingId: finding.findingId } : null
+      if (findingContext) set({ findingSent: true })
+      const from: AskFrom = { ...said, sqlMode: sql, sqlItemContext, findingContext, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
       return run(askBody(conv, question, from), question, undefined, sql).then(() => undefined)
     }
     /** A confirmation needs the conversation the proposal was made in, still open, and nothing in flight. */
@@ -289,6 +305,13 @@ export function createCopilotConversation(
         get().startNew()
         set({ sqlMode: true, sqlItem: { itemId: item.itemId, revision: item.revision }, sqlItemSent: false })
       },
+      finding: null,
+      findingSent: false,
+      openFinding: (finding) => {
+        get().startNew()
+        set({ sqlMode: false, finding, findingSent: false })
+        return put(finding.question, {})
+      },
       trySqlOffer: (offer) => {
         if (get().inFlight !== null) return null
         if (offer.conversationId === null) get().startNew()
@@ -297,7 +320,7 @@ export function createCopilotConversation(
       },
       startNew: () => {
         abandon()
-        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()), sqlItem: null, sqlItemSent: false }))
+        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()), sqlItem: null, sqlItemSent: false, finding: null, findingSent: false }))
       },
       resume: (index) =>
         set((s) => {
@@ -305,7 +328,7 @@ export function createCopilotConversation(
           if (!past) return {}
           abandon()
           const rest = s.history.filter((_, i) => i !== index)
-          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()), sqlItem: null, sqlItemSent: false }
+          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()), sqlItem: null, sqlItemSent: false, finding: null, findingSent: false }
         }),
       forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
     }
@@ -330,7 +353,7 @@ export function createCopilotConversation(
   }
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false, offers: {} }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false, finding: null, findingSent: false, offers: {} }))
   })
   return store
 }

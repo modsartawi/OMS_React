@@ -1,4 +1,5 @@
 import { targetHref } from '@/core/command-center-routes'
+import AskButton from '@/core/findings/AskButton'
 import FindingCard from '@/core/findings/FindingCard'
 import Sentence from '@/core/findings/Sentence'
 import type { CcBrief, CcLang, CcSection, CcTarget } from '@/core/models/command-center'
@@ -14,7 +15,8 @@ type HrefOf = (target: CcTarget) => string
  * overnight, the top risks and the top opportunities always open; the four other sections folded under "More in today's
  * brief", each showing its one-line summary. Every line is drawn through the shared finding card (`@/core/findings`),
  * its sentence and SAR figure as the server sent them. A pharmacy code opens its scorecard on this page (947, `?store=`);
- * a category name opens its category profile (949). Section titles are the page's own words; everything else is the
+ * a category name opens its category profile (949). A line the server offers to the copilot (`line.ask`, 950) carries
+ * "Ask", which opens the copilot with the server's question and the finding's id. Section titles are the page's own words; everything else is the
  * server's, in the asked language.
  */
 export default function Brief({ brief, lang, t }: { brief: CcBrief; lang: CcLang; t: CcT }) {
@@ -30,7 +32,7 @@ export default function Brief({ brief, lang, t }: { brief: CcBrief; lang: CcLang
           data-cc-folded="false"
         >
           <SectionHeader section={section} t={t} />
-          <SectionBody section={section} hrefOf={hrefOf} t={t} />
+          <SectionBody section={section} hrefOf={hrefOf} lang={lang} t={t} />
         </section>
       ))}
       {folded.length > 0 && (
@@ -50,7 +52,7 @@ export default function Brief({ brief, lang, t }: { brief: CcBrief; lang: CcLang
                 </span>
               </summary>
               <div className="px-3 pb-3">
-                <SectionBody section={section} hrefOf={hrefOf} t={t} />
+                <SectionBody section={section} hrefOf={hrefOf} lang={lang} t={t} />
               </div>
             </details>
           ))}
@@ -70,7 +72,7 @@ function SectionHeader({ section, t }: { section: CcSection; t: CcT }) {
 }
 
 /** A section's content: its lines, the headline and its figures, or — not available — its last good date and no figure. */
-function SectionBody({ section, hrefOf, t }: { section: CcSection; hrefOf: HrefOf; t: CcT }) {
+function SectionBody({ section, hrefOf, lang, t }: { section: CcSection; hrefOf: HrefOf; lang: CcLang; t: CcT }) {
   if (section.state === 'not-available') {
     return (
       <div className="flex flex-col gap-1 text-sm" data-cc-not-available>
@@ -109,7 +111,11 @@ function SectionBody({ section, hrefOf, t }: { section: CcSection; hrefOf: HrefO
         <ol className="flex flex-col gap-2">
           {section.lines.map((line) => (
             <li key={line.findingId}>
-              <FindingCard line={line} hrefOf={hrefOf} />
+              <FindingCard
+                line={line}
+                hrefOf={hrefOf}
+                action={<AskButton ask={line.ask} line={line} lang={lang} label={t('ask.button')} hint={t('ask.hint')} />}
+              />
             </li>
           ))}
         </ol>

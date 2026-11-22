@@ -78,5 +78,11 @@
     "notAvailableYet": "Not available yet",
     "inclVat": "Money figures include VAT.",
     "cut80": "The products above the line make 80% of sales."
+  },
+  "ask": {
+    "button": "Ask",
+    "hint": "Ask the copilot about this finding",
+    "pharmacy": "Ask the copilot",
+    "pharmacyHint": "Ask the copilot about this pharmacy"
   }
 }

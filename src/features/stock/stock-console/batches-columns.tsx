@@ -1,0 +1,122 @@
+import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
+import type { TFunction } from 'i18next'
+import { Link } from 'react-router'
+
+import type { StockConsoleBatchRow } from '@/core/models/stock-console'
+import Ltr from '@/core/ui/Ltr'
+import LtrCell from '@/core/ui/LtrCell'
+import StatusBadge from '@/core/ui/StatusBadge'
+import { formatDay } from '@/core/util/date-format'
+import type { LocalDate } from '@/core/util/date-window'
+import { localizedName } from '@/core/util/localized-name'
+import { batchMarks } from './batches'
+import { MONO, formatQuantity } from './columns'
+import { itemHref } from './items-columns'
+
+type Cell = ICellRendererParams<StockConsoleBatchRow>
+
+/** One item and batch per row. Module-level, as AG Grid wants. */
+export const batchRowId = (row: StockConsoleBatchRow) => `${row.item}\u0000${row.batch}`
+
+const figure = (headerName: string, field: keyof StockConsoleBatchRow, width = 100): ColDef<StockConsoleBatchRow> => ({
+  headerName,
+  field,
+  width,
+  type: 'numericColumn',
+  valueFormatter: formatQuantity,
+  cellRenderer: LtrCell,
+})
+
+const code = (headerName: string, field: 'batch' | 'vendorBatch', width: number): ColDef<StockConsoleBatchRow> => ({
+  headerName,
+  field,
+  width,
+  cellClass: MONO,
+  cellRenderer: LtrCell,
+})
+
+/**
+ * The Batches grid's columns (oms 941), in the prototype's order: item, name, our batch, vendor batch, expiry (with its
+ * "expired" / "within 90 days" mark), SAP stock, till-side, held, free for the take door, first received, and the
+ * placeholder mark. `today` is the reader's local day, for the expiry mark.
+ */
+export function buildBatchesColumns(
+  t: TFunction,
+  language: string,
+  store: string,
+  today: LocalDate,
+): ColDef<StockConsoleBatchRow>[] {
+  return [
+    {
+      headerName: t('batches.column.item'),
+      field: 'item',
+      width: 100,
+      cellClass: MONO,
+      cellRenderer: (p: Cell) =>
+        p.data ? (
+          <Link
+            to={itemHref(store, p.data.item)}
+            className="font-medium text-primary underline-offset-2 hover:underline"
+            data-item-link={p.data.item}
+          >
+            <Ltr>{p.data.item}</Ltr>
+          </Link>
+        ) : null,
+    },
+    {
+      headerName: t('batches.column.name'),
+      colId: 'name',
+      width: 200,
+      valueGetter: (p) => (p.data ? localizedName(p.data, language) : ''),
+    },
+    code(t('batches.column.batch'), 'batch', 120),
+    code(t('batches.column.vendorBatch'), 'vendorBatch', 130),
+    {
+      headerName: t('batches.column.expiry'),
+      field: 'expiry',
+      width: 190,
+      cellRenderer: (p: Cell) => (p.data ? <ExpiryCell row={p.data} today={today} t={t} /> : null),
+    },
+    figure(t('column.sapStock'), 'sapStock'),
+    figure(t('column.tillStock'), 'tillStock', 110),
+    figure(t('column.held'), 'held', 90),
+    figure(t('batches.column.freeForTheDoor'), 'freeForTheDoor', 160),
+    {
+      headerName: t('batches.column.firstReceived'),
+      field: 'firstReceivedOn',
+      width: 120,
+      cellClass: MONO,
+      valueFormatter: (p: ValueFormatterParams<StockConsoleBatchRow, string | null>) => formatDay(p.value),
+      cellRenderer: LtrCell,
+    },
+    {
+      headerName: t('batches.column.placeholder'),
+      colId: 'placeholder',
+      width: 110,
+      cellRenderer: (p: Cell) =>
+        p.data?.placeholder ? (
+          <span data-placeholder="">
+            <StatusBadge sev="mute">{t('batches.placeholder')}</StatusBadge>
+          </span>
+        ) : null,
+    },
+  ]
+}
+
+const EXPIRY_SEV = { expired: 'bad', within90: 'warn' } as const
+
+/** The expiry day, and its mark when the batch is expired or expires within 90 days. */
+function ExpiryCell({ row, today, t }: { row: StockConsoleBatchRow; today: LocalDate; t: TFunction }) {
+  const { expiry } = batchMarks(row, today)
+  if (!expiry.day) return null
+  return (
+    <span className="inline-flex items-center gap-1.5" data-expiry={expiry.mark}>
+      <span className={MONO}>
+        <Ltr>{expiry.day}</Ltr>
+      </span>
+      {(expiry.mark === 'expired' || expiry.mark === 'within90') && (
+        <StatusBadge sev={EXPIRY_SEV[expiry.mark]}>{t(`batches.expiry.${expiry.mark}`)}</StatusBadge>
+      )}
+    </span>
+  )
+}

@@ -131,6 +131,136 @@
       "p3": "Reserved is the reserved recompute's total for the store. If the recompute has never run it says \"not computed\", never zero. If its last success is older than 15 minutes it is marked stale, with its time.",
       "p4": "Free is till-side stock less held less reserved, not floored at zero. While reserved is not computed, free is till-side stock less held and says \"reserved not included\". Every figure is a sum across items, in base units.",
       "p5": "The status is the worst of the store's flags: no SAP document for over 24 hours, a standing hold older than 2 days, a sale not applied for over 2 hours, items below zero, a differing nightly comparison, stock on placeholder batches. Each is a Watch, except over 500 items below zero, or any item below zero or a differing comparison in a store in Blocking, which are a Problem. The list is a copy at most a minute old; Refresh reads it again."
+    },
+    "store": {
+      "title": "How this is read",
+      "p1": "The header is read fresh from Stock Visibility each time this page opens, never the stores list's minute-old copy. Its figures are the same sums as the store's row on the list: stock rows at storage location 0001, in base units.",
+      "p2": "The last SAP document applied is where the SAP feed stands for this store; the last till read is where the till feed stands. Each shows its last attempt beside it, so a feed that tries and fails shows.",
+      "p3": "The lists below read nothing until you search. Search with empty boxes lists the whole view, 25 rows a page. Refresh reads the open tab again, and only it."
+    },
+    "items": {
+      "title": "How this is read",
+      "p1": "One row per item with a stock row at this store, from Stock Visibility, at storage location 0001. The item box takes an item number, or two characters or more of a name: a name is looked up in HQ's item master, and the numbers found are searched. Over 200 items for one name is refused; type more of it.",
+      "p2": "A batch in the batch box narrows the items to those holding that batch here — our batch exactly, or the vendor batch; a prefix of three characters or more ending in * is allowed.",
+      "p3": "SAP stock, till-side stock, the gap, held, reserved and free are read as on the store's header, for this item. Names come from HQ's item master, in your language; an item the master does not know has no name."
+    },
+    "batches": {
+      "title": "How this is read",
+      "p1": "One row per item and batch at this store, from Stock Visibility, sorted by item and then expiry. The vendor batch is matched by its key, upper case and trimmed.",
+      "p2": "Free for the take door is the batch's till-side stock less the holds on that batch; reserved is not taken off, because the take door works batch by batch. A batch has no last-update time, so the day it was first received is shown instead.",
+      "p3": "A placeholder batch is marked by Stock Visibility's own placeholder rule. Expired means the expiry day is before today; within 90 days means today or one of the next 90 days."
     }
+  },
+  "store": {
+    "back": "All stores",
+    "loading": "Reading the store…",
+    "failed": "The store could not be read.",
+    "noStoreTitle": "No such store",
+    "noStoreHint": "Stock Visibility has no store with this code. Check the code, or open it from the stores list.",
+    "figures": {
+      "label": "The store's figures",
+      "sapStock": "SAP stock",
+      "tillStock": "Till-side stock",
+      "held": "Held",
+      "reserved": "Reserved",
+      "free": "Free",
+      "lastUpdate": "Last update"
+    },
+    "heldParts": "standing <v>{{standing}}</v>, sold not applied <v>{{sold}}</v>",
+    "sapPlace": "Last SAP document applied: <at>{{at}}</at>",
+    "tillPlace": "Last till read: <at>{{at}}</at>",
+    "lastAttempt": "last attempt <at>{{at}}</at>",
+    "never": "never",
+    "flags": "Flags",
+    "noFlags": "No flag is raised."
+  },
+  "tabs": {
+    "label": "The store's lists",
+    "refresh": "Refresh",
+    "notYet": "This tab arrives with a later release of the console.",
+    "items": "Items",
+    "holds": "Holds",
+    "batches": "Batches",
+    "takes": "Takes",
+    "sap": "SAP movements",
+    "feeds": "Feeds",
+    "stage": "Stage and count"
+  },
+  "search": {
+    "label": "Search the list",
+    "item": "Item number or name",
+    "batch": "Batch or vendor batch (optional)",
+    "gs1": "Scan or paste a GS1 code",
+    "filter": "Filter",
+    "sort": "Sort",
+    "search": "Search",
+    "clear": "Clear",
+    "nothingYet": "Nothing is read yet. Search, or press Search with empty boxes to list everything.",
+    "loading": "Searching…",
+    "count_one": "<n>{{n}}</n> row found",
+    "count_other": "<n>{{n}}</n> rows found"
+  },
+  "items": {
+    "filter": {
+      "all": "All items",
+      "withStock": "With stock",
+      "belowZero": "Below zero",
+      "held": "Held",
+      "differ": "SAP and till differ"
+    },
+    "sort": {
+      "item": "Item number",
+      "held": "Held, largest first",
+      "till": "Till-side stock, lowest first",
+      "gap": "Gap, largest first"
+    },
+    "column": {
+      "item": "Item",
+      "name": "Name"
+    },
+    "empty": "No item matches this search."
+  },
+  "batches": {
+    "filter": {
+      "all": "All batches",
+      "withStock": "With stock",
+      "belowZero": "Below zero",
+      "held": "Held",
+      "placeholder": "Placeholder",
+      "expired": "Expired",
+      "expiring": "Expires within 90 days"
+    },
+    "column": {
+      "item": "Item",
+      "name": "Name",
+      "batch": "Our batch",
+      "vendorBatch": "Vendor batch",
+      "expiry": "Expiry",
+      "freeForTheDoor": "Free for the take door",
+      "firstReceived": "First received",
+      "placeholder": "Placeholder"
+    },
+    "expiry": {
+      "expired": "expired",
+      "within90": "within 90 days"
+    },
+    "placeholder": "placeholder",
+    "empty": "No batch matches this search."
+  },
+  "refusal": {
+    "ConsoleBusy": "The console is busy. Try again in a moment.",
+    "ConsoleTimeout": "The read took too long. Narrow the search or try again.",
+    "NarrowTheName": "Over 200 items match this name. Type more of it, or the item number.",
+    "BatchTooShort": "A batch prefix needs three characters or more before *.",
+    "PrefixNeedsItem": "A batch prefix across the fleet needs an item.",
+    "NothingToFind": "Fill the item or the batch box.",
+    "WindowTooLong": "The days asked are too many. Shorten the window.",
+    "SapNotConfigured": "SAP is not connected on this host.",
+    "SapUnreachable": "SAP could not be reached.",
+    "NoStore": "Stock Visibility has no such store.",
+    "NoRow": "This item has no stock row at this store.",
+    "unreachable": "Stock Visibility could not be reached. Try again in a moment — it is not your search.",
+    "denied": "Your account no longer holds the stock console grant.",
+    "failed": "The read failed."
   }
 }

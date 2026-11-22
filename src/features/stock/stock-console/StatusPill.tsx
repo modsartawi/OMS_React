@@ -105,6 +105,27 @@ export default function StatusPill({ store, status, flags }: { store: string; st
   )
 }
 
+/** A flag's sentence with its measured value ("41 items below zero"); also the store header's flag chips (941). */
+export function FlagSentence({ line }: { line: FlagLine }) {
+  const { t } = useTranslation('stock-console')
+  return line.key === 'flag.unknown' ? (
+    <Trans
+      t={t}
+      i18nKey="flag.unknown"
+      values={{ code: line.code, value: formatFigure(line.value) }}
+      components={{ c: <Ltr />, v: <Ltr /> }}
+    />
+  ) : (
+    <Trans
+      t={t}
+      i18nKey={line.key}
+      count={line.value ?? undefined}
+      values={{ value: formatFigure(line.value) }}
+      components={{ v: <Ltr /> }}
+    />
+  )
+}
+
 function FlagItem({ line }: { line: FlagLine }) {
   const { t } = useTranslation('stock-console')
   return (
@@ -112,22 +133,7 @@ function FlagItem({ line }: { line: FlagLine }) {
       <StatusBadge sev={line.sev}>{t(line.sev === 'bad' ? 'level.Problem' : 'level.Watch')}</StatusBadge>
       <span className="flex flex-col">
         <span>
-          {line.key === 'flag.unknown' ? (
-            <Trans
-              t={t}
-              i18nKey="flag.unknown"
-              values={{ code: line.code, value: formatFigure(line.value) }}
-              components={{ c: <Ltr />, v: <Ltr /> }}
-            />
-          ) : (
-            <Trans
-              t={t}
-              i18nKey={line.key}
-              count={line.value ?? undefined}
-              values={{ value: formatFigure(line.value) }}
-              components={{ v: <Ltr /> }}
-            />
-          )}
+          <FlagSentence line={line} />
         </span>
         <span className="text-xs text-muted-foreground">
           {line.limit.key === 'flag.limit' ? (

@@ -5,13 +5,9 @@ import { Link } from 'react-router'
 import type { StockConsoleStoreRow } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
-import StatusBadge from '@/core/ui/StatusBadge'
-import { fsi } from '@/core/util/bidi'
-import { formatDateTime } from '@/core/util/date-format'
-import { formatFigure } from '@/core/util/number-format'
 import { MONO, formatQuantity, formatTime } from './columns'
 import { STOCK_CONSOLE_PATH } from './console-pages'
-import { freeLabel, reservedView } from './figures'
+import { FreeCell, ReservedCell } from './figure-cells'
 import StatusPill from './StatusPill'
 
 type Cell = ICellRendererParams<StockConsoleStoreRow>
@@ -98,46 +94,4 @@ export function buildStoresColumns(t: TFunction): ColDef<StockConsoleStoreRow>[]
       cellRenderer: LtrCell,
     },
   ]
-}
-
-/** Reserved: "not computed" (never a zero), the figure with a stale mark and its time, or the figure. */
-function ReservedCell({ row, t }: { row: StockConsoleStoreRow; t: TFunction }) {
-  const view = reservedView(row)
-  if (view.kind === 'notComputed')
-    return (
-      <span className="italic text-muted-foreground" data-reserved="notComputed">
-        {t('reserved.notComputed')}
-      </span>
-    )
-  const at = formatDateTime(view.at)
-  return (
-    <span
-      className="inline-flex items-center gap-1.5"
-      data-reserved={view.kind}
-      title={at ? t('reserved.at', { at: fsi(at) }) : undefined}
-    >
-      <Ltr>{formatFigure(view.value)}</Ltr>
-      {view.kind === 'stale' && (
-        <>
-          <StatusBadge sev="warn">{t('reserved.stale')}</StatusBadge>
-          {at && (
-            <span className="font-mono text-[11px] text-muted-foreground">
-              <Ltr>{at}</Ltr>
-            </span>
-          )}
-        </>
-      )}
-    </span>
-  )
-}
-
-/** Free: the figure, and "reserved not included" whenever reserved is not in it. */
-function FreeCell({ row, t }: { row: StockConsoleStoreRow; t: TFunction }) {
-  const label = freeLabel(row)
-  return (
-    <span className="inline-flex items-center gap-1.5" data-free-label={label ?? ''}>
-      <Ltr>{formatFigure(row.free)}</Ltr>
-      {label && <span className="text-xs text-muted-foreground">{t(`free.${label}`)}</span>}
-    </span>
-  )
 }

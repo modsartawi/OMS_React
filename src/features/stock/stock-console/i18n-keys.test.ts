@@ -10,6 +10,11 @@ import { hasLocaleKey as has } from '@/core/test/locale'
 import { STOCK_CONSOLE_FLAGS } from '@/core/models/stock-console'
 import { CONSOLE_PAGES } from './console-pages'
 import { STORE_SORTS, STORE_TILES } from './stores'
+import { BATCH_FILTERS, ITEM_FILTERS, ITEM_SORTS } from '@/core/models/stock-console'
+import { EXPIRY_MARKS } from './batches'
+import { HOW_BATCHES, HOW_ITEMS, HOW_STORE } from './how-sections'
+import { REFUSAL_KEYS } from './refusals'
+import { STORE_TABS } from './store-tabs'
 
 const PLURAL = /_(zero|one|two|few|many|other)$/
 
@@ -56,6 +61,19 @@ describe('stock-console — the keys the code builds exist', () => {
       'menu.stockConsole',
       'title',
       'subtitle',
+      // 941
+      ...STORE_TABS.map((k) => `tabs.${k}`),
+      ...ITEM_FILTERS.map((k) => `items.filter.${k}`),
+      ...ITEM_SORTS.map((k) => `items.sort.${k}`),
+      ...BATCH_FILTERS.map((k) => `batches.filter.${k}`),
+      ...REFUSAL_KEYS,
+      ...EXPIRY_MARKS.map((k) => `batches.expiry.${k}`),
+      'batches.placeholder',
+      'search.count_other',
+      'search.nothingYet',
+      ...['title', ...HOW_STORE].map((k) => `how.store.${k}`),
+      ...['title', ...HOW_ITEMS].map((k) => `how.items.${k}`),
+      ...['title', ...HOW_BATCHES].map((k) => `how.batches.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

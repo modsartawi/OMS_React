@@ -132,3 +132,70 @@ export interface StockConsoleStores {
   /** Added by BO 4160 (ticket 942); an absent list reads as none. */
   fleet: StockConsoleFleetProblem[]
 }
+
+// ── 941 ─────────────────────────────────────────────────────────────────────────────────────────────
+// `GET StockConsole/Stores/{store}` answers a `StockConsoleStoreRow`, read fresh (never the 60 s copy); `NoStore` on
+// an unknown store. `…/Items` and `…/Batches` answer a `StockConsolePage` of the rows below (BO 4159, SV 076).
+
+/** The Items list's filters, as the wire names them; `all` is the default. */
+export const ITEM_FILTERS = ['all', 'withStock', 'belowZero', 'held', 'differ'] as const
+/** The Items list's sorts; `item` is the default. Held and gap largest first, till-side lowest first (server). */
+export const ITEM_SORTS = ['item', 'held', 'till', 'gap'] as const
+
+/** The seven stock types other than unrestricted (SV 076/078); the item page shows them when not zero (943). */
+export interface StockConsoleOtherStock {
+  quality: number
+  blocked: number
+  returnsBlocked: number
+  restricted: number
+  inTransit: number
+  inTransferPlant: number
+  inTransferLocation: number
+}
+
+/** One item at the store: Stock Visibility's row, with HQ's names and SIS.Api's gap, held and free added. */
+export interface StockConsoleItemRow extends StockConsoleOtherStock {
+  /** As Stock Visibility stores it (no leading zeros). Never a number. */
+  item: string
+  /** From HQ's item master; '' when it does not know the number. */
+  nameEn: string
+  nameAr: string
+  sapStock: number
+  tillStock: number
+  gap: number
+  heldStanding: number
+  heldSold: number
+  held: number
+  /** null = never computed — NEVER 0. */
+  reserved: number | null
+  /** A `ReservedState`, read defensively. */
+  reservedState: string
+  free: number
+  reservedIncluded: boolean
+  lastUpdate: string | null
+}
+
+/** The Batches list's filters; `all` is the default; `expiring` = expires within 90 days. Sorted item, expiry (server). */
+export const BATCH_FILTERS = ['all', 'withStock', 'belowZero', 'held', 'placeholder', 'expired', 'expiring'] as const
+
+/** One batch of one item at the store (SV 076). A batch has no last-update time: the day first received instead. */
+export interface StockConsoleBatchRow {
+  item: string
+  nameEn: string
+  nameAr: string
+  /** Our batch. */
+  batch: string
+  /** The vendor's batch (lot) [guess: nullable]. */
+  vendorBatch: string | null
+  /** A day — `yyyy-MM-dd`, or with a midnight time [guess: form]; compared on its first ten characters. */
+  expiry: string | null
+  sapStock: number
+  tillStock: number
+  /** Holds on this batch not released. */
+  held: number
+  /** tillStock − held: what the take door may give from it (reserved is not taken off). */
+  freeForTheDoor: number
+  firstReceivedOn: string | null
+  /** Stock Visibility's own placeholder-batch rule, not re-derived. */
+  placeholder: boolean
+}

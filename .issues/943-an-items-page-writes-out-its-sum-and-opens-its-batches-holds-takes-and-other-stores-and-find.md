@@ -59,7 +59,7 @@ BackOffice [4161](C:\Work\DMSCO\BackOffice\.issues\4161-an-item-is-explained-at-
 
 - 2026-11-22, web built first on `spec/4157-stock-console`, ahead of the server (owner's choice). The Proof cases are
   green under vitest, and typecheck plus the lint gates pass. The wire types follow a drafted contract (spec 4157 and
-  BO 4158–4163; the "as built" deviations are recorded in the merge commits). There was no prototype on this machine,
+  BO 4158–4163; the "as built" deviations are in [STOCK-CONSOLE-WIRE-CONTRACT.md](STOCK-CONSOLE-WIRE-CONTRACT.md)). There was no prototype on this machine,
   so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
   routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
   `open` until then.

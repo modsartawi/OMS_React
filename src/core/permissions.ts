@@ -87,6 +87,8 @@ export const SCREEN_KEYS = [
   'StoreStage:03',
   'StoreCountClose:02',
   'StockHealth:03',
+  // Stock console (BackOffice spec 4157 / 4158): `BackOfficeScreen[StockConsole, 03]`, role STOCK_CONSOLE_VIEWER.
+  'StockConsole:03',
   'BupaLineOutcomes:03',
   'ExpiredApprovalPick:03',
   'HeldStockReport:03',

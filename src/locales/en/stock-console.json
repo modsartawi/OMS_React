@@ -1,0 +1,136 @@
+{
+  "menu": {
+    "stockConsole": "Stock console"
+  },
+  "title": "Stock console",
+  "subtitle": "Every store's stock, held and reserved, and why its status is what it is. Read-only.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the stock console",
+    "deniedHint": "Your account does not hold the stock console grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "nav": {
+    "label": "Stock console pages",
+    "stores": "Stores"
+  },
+  "tiles": {
+    "label": "Filter the stores",
+    "all": "All stores",
+    "counted": "Counted",
+    "oldHold": "Old hold",
+    "sapQuiet": "SAP quiet",
+    "belowZero": "Below zero (Problem)"
+  },
+  "stores": {
+    "baseUnits": "Sums are in base units.",
+    "readAt": "Read at <at>{{at}}</at>",
+    "refreshing": "Reading…",
+    "refresh": "Refresh",
+    "search": "Store code or city",
+    "sort": "Sort by",
+    "direction": "Order",
+    "ascending": "Lowest first",
+    "descending": "Highest first",
+    "sorts": {
+      "plant": "Store",
+      "city": "City",
+      "stage": "Stage",
+      "status": "Status",
+      "tillStock": "Stock (till-side)",
+      "sapStock": "SAP stock",
+      "gap": "Gap",
+      "held": "Held",
+      "reserved": "Reserved",
+      "free": "Free",
+      "belowZero": "Items below zero",
+      "lastUpdate": "Last update"
+    },
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "loading": "Reading every store…",
+    "failed": "The stores could not be read.",
+    "empty": "No store matches."
+  },
+  "column": {
+    "store": "Store",
+    "city": "City",
+    "stage": "Stage",
+    "status": "Status",
+    "tillStock": "Stock (till-side)",
+    "sapStock": "SAP stock",
+    "gap": "Gap",
+    "held": "Held",
+    "heldStanding": "Standing",
+    "heldSold": "Sold not applied",
+    "reserved": "Reserved",
+    "free": "Free",
+    "belowZero": "Below zero",
+    "lastUpdate": "Last update"
+  },
+  "stage": {
+    "Shadow": "Shadow",
+    "Seeding": "Seeding",
+    "Seeded": "Seeded",
+    "Blocking": "Blocking"
+  },
+  "status": {
+    "Ok": "OK",
+    "Watch": "Watch",
+    "Problem": "Problem"
+  },
+  "level": {
+    "Watch": "Watch",
+    "Problem": "Problem"
+  },
+  "pill": {
+    "open": "{{status}} — show its flags",
+    "title": "Flags of store {{store}}",
+    "heading": "Flags of store <s>{{store}}</s>",
+    "none": "No flag is raised."
+  },
+  "flag": {
+    "SapQuiet_one": "No SAP document for <v>{{value}}</v> hour",
+    "SapQuiet_other": "No SAP document for <v>{{value}}</v> hours",
+    "BelowZero_one": "<v>{{value}}</v> item below zero",
+    "BelowZero_other": "<v>{{value}}</v> items below zero",
+    "OldHold_one": "A standing hold <v>{{value}}</v> day old",
+    "OldHold_other": "A standing hold <v>{{value}}</v> days old",
+    "SalesNotApplied_one": "A sale not applied for <v>{{value}}</v> hour",
+    "SalesNotApplied_other": "A sale not applied for <v>{{value}}</v> hours",
+    "ComparisonDiffers_one": "<v>{{value}}</v> batch differs in the nightly comparison",
+    "ComparisonDiffers_other": "<v>{{value}}</v> batches differ in the nightly comparison",
+    "PlaceholderStock_one": "<v>{{value}}</v> base unit on placeholder batches",
+    "PlaceholderStock_other": "<v>{{value}}</v> base units on placeholder batches",
+    "unknown": "Flag <c>{{code}}</c>, measured <v>{{value}}</v>",
+    "limit": "limit <v>{{limit}}</v>",
+    "limitAny": "limit: any"
+  },
+  "flagName": {
+    "SapQuiet": "SAP quiet",
+    "BelowZero": "Items below zero",
+    "OldHold": "Old hold",
+    "SalesNotApplied": "Sales not applied",
+    "ComparisonDiffers": "Comparison differs",
+    "PlaceholderStock": "Placeholder stock"
+  },
+  "reserved": {
+    "notComputed": "not computed",
+    "stale": "stale",
+    "at": "Computed at {{at}}"
+  },
+  "free": {
+    "reservedNotIncluded": "reserved not included"
+  },
+  "how": {
+    "stores": {
+      "title": "How this is read",
+      "p1": "One row per store, summed from Stock Visibility's stock rows at storage location 0001. Stock is the till-side counter: SAP's counter less the till sales SAP has not posted yet. SAP stock is SAP's own counter, and the gap is SAP stock less till-side stock — sold at the till, not in SAP yet.",
+      "p2": "Held is every hold not released, in two parts: standing holds, and holds sold at the till whose sale is not applied to the counter yet (sold not applied).",
+      "p3": "Reserved is the reserved recompute's total for the store. If the recompute has never run it says \"not computed\", never zero. If its last success is older than 15 minutes it is marked stale, with its time.",
+      "p4": "Free is till-side stock less held less reserved, not floored at zero. While reserved is not computed, free is till-side stock less held and says \"reserved not included\". Every figure is a sum across items, in base units.",
+      "p5": "The status is the worst of the store's flags: no SAP document for over 24 hours, a standing hold older than 2 days, a sale not applied for over 2 hours, items below zero, a differing nightly comparison, stock on placeholder batches. Each is a Watch, except over 500 items below zero, or any item below zero or a differing comparison in a store in Blocking, which are a Problem. The list is a copy at most a minute old; Refresh reads it again."
+    }
+  }
+}

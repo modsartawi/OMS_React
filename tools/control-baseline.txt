@@ -301,6 +301,10 @@ stock/held-stock-report 1
 
 stock/hold-daily-list 0
 
+stock/stock-console 2
+  src/features/stock/stock-console/StoreTiles.tsx button: store tile picker (aria-pressed, severity top border; copied from admin/sync-console FleetPage, spec 590: tile pickers restyle in place)
+  src/features/stock/stock-console/StatusPill.tsx button: the status pill that opens its flags (a StatusBadge inside a grid cell, aria-expanded; the one pill shape must not become an h-7 control)
+
 oms/orders 5
   src/features/oms/orders/QueryBar.tsx button: query bar Add trigger, dashed and sized to the h-6 query tokens, copied from oms/deliveries (ticket 786)
   src/features/oms/orders/QueryBar.tsx button: query field menu entry (menu-item recipe), copied from oms/deliveries (ticket 786)

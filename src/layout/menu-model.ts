@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, Unlock, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Boxes, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, Unlock, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import type { Permissions, ScreenKey } from '@/core/permissions'
 // oms 914 (BackOffice spec 4002): every leaf reads the ONE permissions answer. Each predicate below is named beside its
 // area (its feature's or core's `access`/`api` module) so the leaf and that screen's `ScreenGate` read the same one;
@@ -26,6 +26,7 @@ import { canOpenHoldDailyList } from '@/features/stock/hold-daily-list/access'
 import { canOpenStoreStages } from '@/features/stock/store-stages/access'
 import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { canOpenStockHealth } from '@/features/stock/stock-health/access'
+import { canOpenStockConsole } from '@/features/stock/stock-console/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 import { INSURANCE_MENU } from './menu-insurance'
 import { canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from '@/core/rules/access'
@@ -365,6 +366,15 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/stock/health',
         activePrefix: '/stock/health',
         requires: canOpenStockHealth,
+      },
+      {
+        // Stock console (oms 940, BackOffice spec 4157): every store's stock, held and reserved, searched down to the batch.
+        // `BackOfficeScreen[StockConsole, 03]` (role STOCK_CONSOLE_VIEWER). Read-only; one leaf for the whole console.
+        labelKey: 'stock-console:menu.stockConsole',
+        icon: Boxes,
+        routerLink: '/stock/console',
+        activePrefix: '/stock/console',
+        requires: canOpenStockConsole,
       },
       {
         // Store stages (BackOffice ticket 3899, spec 3849 phase 2): each store's stage at Stock Visibility; a named

@@ -465,6 +465,12 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/stock/stock-health/StockHealthPage')).default,
         }),
       },
+      // The stock console (oms 940-945, BackOffice spec 4157) - every store's stock, held and reserved, searched down to
+      // the batch. Read-only, behind its own key, `StockConsole:03`. Each console ticket adds its page here.
+      {
+        path: 'stock/console',
+        lazy: async () => ({ Component: (await import('@/features/stock/stock-console/StockConsolePage')).default }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on the one permissions answer. Filters
       // `?channel=&city=&store=` live in the URL.

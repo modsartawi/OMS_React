@@ -433,6 +433,7 @@ describe('the Stock group (owner, 2026-11-20)', () => {
   const leaf = (key: string) => items.find((i) => i.labelKey === key)!
   const LEAVES = [
     ['stock-health:menu.stockHealth', '/stock/health'],
+    ['stock-console:menu.stockConsole', '/stock/console'],
     ['store-stages:menu.storeStages', '/stock/store-stages'],
     ['materials-search:menu.stockCheck', '/stock/check'],
     ['held-stock-report:menu.refusals', '/stock/refusals'],
@@ -469,6 +470,14 @@ describe('the Stock group (owner, 2026-11-20)', () => {
       expect(shows(leaf(key), 'HeldStockReport:06', 'HoldDailyList:03')).toBe(false)
       expect(hiddenWhileUnsettled(leaf(key))).toBe(true)
     }
+  })
+
+  it('🚩 the Stock console reads its OWN key (StockConsole:03), and fails closed without it', () => {
+    const l = leaf('stock-console:menu.stockConsole')
+    expect(shows(l, 'StockConsole:03')).toBe(true)
+    for (const miss of ['StockHealth:03', 'StoreStage:03']) expect(shows(l, miss)).toBe(false)
+    expect(shows(l)).toBe(false)
+    expect(hiddenWhileUnsettled(l)).toBe(true)
   })
 
   it('🚩 Holds that should have ended reads its OWN key (HoldDailyList:03), and fails closed without it', () => {

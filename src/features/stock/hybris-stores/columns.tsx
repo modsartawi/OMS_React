@@ -1,7 +1,7 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import { useIsMutating } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
-import { BookmarkMinus, BookmarkPlus, History, Loader2, PackageSearch, ScrollText, Send } from 'lucide-react'
+import { BookmarkMinus, BookmarkPlus, CircleCheck, CircleSlash, History, Loader2, PackageSearch, ScrollText, Send } from 'lucide-react'
 import type { HybrisStockStoreHealth, HybrisStockStoreRow } from '@/core/models/hybris-stock'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -18,6 +18,8 @@ type Row = HybrisStockStoreRow
 export interface StoreActions {
   /** `null` when the user may only view: Mark / Unmark is not drawn at all. */
   onMark: ((row: Row) => void) | null
+  /** Disable / Enable (BackOffice 4181); `null` for a view-only user. */
+  onDisable: ((row: Row) => void) | null
   /** Push the store's full now (850); `null` for a view-only user. Drawn on a marked store only. */
   onPush: ((row: Row) => void) | null
   onHistory: (row: Row) => void
@@ -79,8 +81,9 @@ export function storeColumns(t: TFunction, lang: string, act: StoreActions): Col
       valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? t(data.marked ? 'marked.yes' : 'marked.no') : ''),
       cellRenderer: ({ data, value }: ICellRendererParams<Row>) =>
         data ? (
-          <span className="flex items-center gap-1" data-marked={String(data.marked)} data-closed={data.closed ? '' : undefined}>
+          <span className="flex items-center gap-1" data-marked={String(data.marked)} data-disabled={data.disabled ? '' : undefined} data-closed={data.closed ? '' : undefined}>
             <StatusBadge sev={data.marked ? 'go' : 'mute'}>{value}</StatusBadge>
+            {data.disabled && <StatusBadge sev="bad">{t('marked.disabled')}</StatusBadge>}
             {data.closed && <StatusBadge sev="warn">{t('marked.closed')}</StatusBadge>}
           </span>
         ) : null,
@@ -140,6 +143,17 @@ export function storeColumns(t: TFunction, lang: string, act: StoreActions): Col
               >
                 {data.marked ? <BookmarkMinus className="h-3.5 w-3.5" aria-hidden /> : <BookmarkPlus className="h-3.5 w-3.5" aria-hidden />}
                 {t(data.marked ? 'unmark.button' : 'mark.button')}
+              </Button>
+            )}
+            {act.onDisable && (data.disabled || !data.closed) && (
+              <Button
+                variant={data.disabled ? 'ghost' : 'danger-outlined'}
+                onClick={() => act.onDisable?.(data)}
+                data-store-disable={data.storeCode}
+                data-to={data.disabled ? 'enable' : 'disable'}
+              >
+                {data.disabled ? <CircleCheck className="h-3.5 w-3.5" aria-hidden /> : <CircleSlash className="h-3.5 w-3.5" aria-hidden />}
+                {t(data.disabled ? 'enable.button' : 'disable.button')}
               </Button>
             )}
             <Button variant="ghost" onClick={() => act.onHistory(data)} data-store-history={data.storeCode}>

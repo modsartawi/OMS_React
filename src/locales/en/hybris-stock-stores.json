@@ -93,7 +93,8 @@
   "marked": {
     "yes": "Special",
     "no": "Not special",
-    "closed": "Closed"
+    "closed": "Closed",
+    "disabled": "Disabled"
   },
   "health": {
     "unmarked": "—",
@@ -196,6 +197,24 @@
     "door": "From",
     "marked": "Made special",
     "unmarked": "Special removed",
-    "unknownAction": "Unknown"
+    "unknownAction": "Unknown",
+    "disabled": "Disabled",
+    "enabled": "Enabled"
+  },
+  "disable": {
+    "button": "Disable",
+    "title": "Disable this store",
+    "note": "OMS stops sending the stock of <store>{{store}}</store>, special or not. Nothing is sent to Hybris: it keeps the stock it was last sent.",
+    "confirm": "Disable store",
+    "done": "Store disabled",
+    "doneDetail": "Store {{store}} is no longer synced to Hybris."
+  },
+  "enable": {
+    "button": "Enable",
+    "title": "Enable this store",
+    "note": "<store>{{store}}</store> is synced again: its next delta carries what changed while it was disabled.",
+    "confirm": "Enable store",
+    "done": "Store enabled",
+    "doneDetail": "Store {{store}} is synced to Hybris again."
   }
 }

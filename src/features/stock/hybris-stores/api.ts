@@ -42,6 +42,19 @@ export const storesApi = {
     return api.post<HybrisStockStoreRow>(`${storePath(storeCode)}/Unmark`, body)
   },
 
+  /**
+   * POST HybrisStockWeb/Stores/{storeCode}/Disable `{ reason }` (BackOffice 4181) — the store is never pushed, special
+   * or not; nothing is sent. Returns the row. Refusals: HYS-00001, 00002, 00006 (409 already disabled).
+   */
+  disable(storeCode: string, body: HybrisStockReasonBody): Promise<HybrisStockStoreRow> {
+    return api.post<HybrisStockStoreRow>(`${storePath(storeCode)}/Disable`, body)
+  },
+
+  /** POST HybrisStockWeb/Stores/{storeCode}/Enable `{ reason }` (4181) — pushed again. Refusals: HYS-00001, 00002, 00007. */
+  enable(storeCode: string, body: HybrisStockReasonBody): Promise<HybrisStockStoreRow> {
+    return api.post<HybrisStockStoreRow>(`${storePath(storeCode)}/Enable`, body)
+  },
+
   /** GET HybrisStockWeb/Stores/{storeCode}/History — every mark and unmark, newest first (the door's default take, 50). */
   async history(storeCode: string): Promise<HybrisStockStoreChange[]> {
     return (await api.get<HybrisStockStoreChange[] | null>(`${storePath(storeCode)}/History`)) ?? []

@@ -18,6 +18,10 @@ export const HYBRIS_STOCK_ERRORS = {
   alreadyMarked: 'HYS-00004',
   /** 409 — Unmark: the store is not a Hybris stock store. */
   notMarked: 'HYS-00005',
+  /** 409 — store Disable: the store is already disabled (BackOffice 4181). */
+  storeAlreadyDisabled: 'HYS-00006',
+  /** 409 — store Enable: the store is not disabled (BackOffice 4181). */
+  storeNotDisabled: 'HYS-00007',
   /** 404 — Add: no such material in the material master. */
   unknownMaterial: 'HYS-00010',
   /** 409 — Add: the material is already on the list. */
@@ -115,7 +119,10 @@ export interface HybrisStockStoreRow {
   /** `""` when the store master has no row for the code. */
   storeName: string
   closed: boolean
+  /** A SPECIAL store (BackOffice 4181): a full on marking, and in the nightly full cycle. */
   marked: boolean
+  /** Never pushed, special or not, while true (BackOffice 4181). */
+  disabled: boolean
   /** `null` while unmarked. */
   markedAt: string | null
   markedBy: string | null
@@ -142,7 +149,7 @@ export interface HybrisStockReasonBody {
 /** One row of `GET HybrisStockWeb/Stores/{storeCode}/History?take=`, newest first. */
 export interface HybrisStockStoreChange {
   changeId: string
-  /** `M` mark, `U` unmark. */
+  /** `M` mark, `U` unmark, `D` disable, `E` enable (4181). */
   action: 'M' | 'U' | string
   /** `oms-react`; `api` is reserved for the deferred Hybris API. */
   door: string

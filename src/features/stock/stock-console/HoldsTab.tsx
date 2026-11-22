@@ -10,6 +10,7 @@ import ListGrid from './ListGrid'
 import type { ListSpec } from './search'
 import SearchFrame from './SearchFrame'
 import { useListSearch } from './use-list-search'
+import { useScan } from './use-scan'
 
 /** What the Holds list owns in the address: its state filter (standing and sold not applied by default), no sort. */
 const HOLDS_LIST: ListSpec = { filters: HOLD_STATES, keep: ['tab'] }
@@ -17,12 +18,13 @@ const HOLDS_LIST: ListSpec = { filters: HOLD_STATES, keep: ['tab'] }
 /**
  * A store's Holds tab (oms 942, spec 4157 stories 36–39): the search-first frame over
  * `StockConsole/Stores/{store}/Holds`, oldest first. Released in the last 7 days adds when and why. A hold's age is
- * measured when the page was read.
+ * measured when the page was read. The GS1 box (944) searches the item and vendor batch a scanned code gives.
  */
 export default function HoldsTab({ store }: { store: string }) {
   const { t, i18n } = useTranslation('stock-console')
   const search = useListSearch(HOLDS_LIST)
-  const read = useQuery(holdsQuery(store, search.state))
+  const scan = useScan(search)
+  const read = useQuery(holdsQuery(store, scan.state))
   const filter = search.state.filter
   const now = read.dataUpdatedAt
   const columns = useMemo(
@@ -35,9 +37,9 @@ export default function HoldsTab({ store }: { store: string }) {
       <SearchFrame
         name="holds"
         search={search}
-        read={read}
         filterLabel={(f) => t(`holds.filter.${f}`)}
         empty={t('holds.empty')}
+        {...scan.frame(read)}
       >
         <ListGrid rows={read.data?.rows ?? []} columns={columns} rowId={holdRowId} name="holds" />
       </SearchFrame>

@@ -13,6 +13,7 @@ import SearchFrame from './SearchFrame'
 import { failedNotSearchable, takesDay } from './takes'
 import { buildTakesColumns, takeRowId } from './takes-columns'
 import { useListSearch } from './use-list-search'
+import { useScan } from './use-scan'
 
 /** What the Takes list owns in the address: its outcome filter and its day; no sort. */
 const TAKES_LIST: ListSpec = { filters: TAKE_OUTCOMES, extras: ['day'], keep: ['tab'] }
@@ -21,14 +22,15 @@ const TAKES_LIST: ListSpec = { filters: TAKE_OUTCOMES, extras: ['day'], keep: ['
  * A store's Takes tab (oms 942, spec 4157 stories 40–42): the search-first frame over
  * `StockConsole/Stores/{store}/Takes`, for one day — today by default, and written to the address with every search,
  * so a shared link reads the same day. With an item or a batch searched, a line says failed calls are left out: they
- * carry no item.
+ * carry no item. The GS1 box (944) searches the item and vendor batch a scanned code gives.
  */
 export default function TakesTab({ store }: { store: string }) {
   const { t, i18n } = useTranslation('stock-console')
   const search = useListSearch(TAKES_LIST)
   // The reader's local day, taken once while the tab is open.
   const today = useMemo(() => localToday(), [])
-  const read = useQuery(takesQuery(store, search.state, today))
+  const scan = useScan(search)
+  const read = useQuery(takesQuery(store, scan.state, today))
   const columns = useMemo(() => buildTakesColumns(t, i18n.language, store), [t, i18n.language, store])
 
   // The day box is never empty: the address's day, or today — so Search always writes one.
@@ -37,14 +39,16 @@ export default function TakesTab({ store }: { store: string }) {
     if (!extras.day) setExtra('day', takesDay(state, today))
   }, [extras.day, setExtra, state, today])
 
-  const leftOut = failedNotSearchable(search.state, read.isError ? undefined : read.data)
+  // What was searched — a scanned code's item and lot count as an item and a batch.
+  const leftOut = failedNotSearchable(scan.state, read.isError ? undefined : read.data)
+  const frame = scan.frame(read)
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <SearchFrame
         name="takes"
         search={search}
-        read={read}
+        {...frame}
         filterLabel={(f) => t(`takes.filter.${f}`)}
         extraBoxes={
           <Input
@@ -58,10 +62,15 @@ export default function TakesTab({ store }: { store: string }) {
           />
         }
         aboveRows={
-          leftOut && (
-            <p className="text-xs text-muted-foreground" data-failed-left-out="">
-              {t('takes.failedLeftOut')}
-            </p>
+          (frame.aboveRows || leftOut) && (
+            <>
+              {frame.aboveRows}
+              {leftOut && (
+                <p className="text-xs text-muted-foreground" data-failed-left-out="">
+                  {t('takes.failedLeftOut')}
+                </p>
+              )}
+            </>
           )
         }
         empty={t('takes.empty')}

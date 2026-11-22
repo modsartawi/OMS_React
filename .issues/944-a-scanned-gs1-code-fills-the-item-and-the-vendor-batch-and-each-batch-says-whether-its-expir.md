@@ -29,11 +29,11 @@ UI (the frame's third box, the chips, the expiry mark, wire types, api, locale f
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a scan answer fills the item and batch boxes and builds the chips · vitest (pure module)
-- [ ] an unknown GTIN searches the lot alone and says the item was not found · vitest
-- [ ] a plain barcode fills the item only; an unknown code searches nothing · vitest
-- [ ] the expiry mark: same day, different day, and by month when the day is not known · vitest
-- [ ] the locale key-mirror test passes · vitest
+- [x] a scan answer fills the item and batch boxes and builds the chips · vitest (pure module)
+- [x] an unknown GTIN searches the lot alone and says the item was not found · vitest
+- [x] a plain barcode fills the item only; an unknown code searches nothing · vitest
+- [x] the expiry mark: same day, different day, and by month when the day is not known · vitest
+- [x] the locale key-mirror test passes · vitest
 
 ## Boundaries
 
@@ -47,3 +47,12 @@ Proofs green, and on dev the prototype's example code finds its item and vendor 
 
 [941](941-a-stores-page-reads-its-header-fresh-and-searches-its-items-and-batches-only-when-asked.md),
 BackOffice [4162](C:\Work\DMSCO\BackOffice\.issues\4162-a-gs1-code-gives-the-stock-console-its-item-and-its-vendor-batch.md)
+
+## Comments
+
+- 2026-11-22, web built first on `spec/4157-stock-console`, ahead of the server (owner's choice). The Proof cases are
+  green under vitest, and typecheck plus the lint gates pass. The wire types follow a drafted contract (spec 4157 and
+  BO 4158–4163; the "as built" deviations are recorded in the merge commits). There was no prototype on this machine,
+  so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
+  routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
+  `open` until then.

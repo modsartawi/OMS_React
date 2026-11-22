@@ -35,11 +35,11 @@ UI (two tabs, wire types, api, locale files)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] neither tab asks before its button, and a window over the limit asks nothing · vitest (pure module)
-- [ ] the three marks map to their labels · vitest
-- [ ] SAP not configured and SAP unreachable render their sentences, not an empty list · vitest
-- [ ] a ledger line's effect cells for a SAP sale, a till sale and a receipt · vitest
-- [ ] the locale key-mirror test passes · vitest
+- [x] neither tab asks before its button, and a window over the limit asks nothing · vitest (pure module)
+- [x] the three marks map to their labels · vitest
+- [x] SAP not configured and SAP unreachable render their sentences, not an empty list · vitest
+- [x] a ledger line's effect cells for a SAP sale, a till sale and a receipt · vitest
+- [x] the locale key-mirror test passes · vitest
 
 ## Boundaries
 
@@ -54,3 +54,12 @@ after Read.
 
 [943](943-an-items-page-writes-out-its-sum-and-opens-its-batches-holds-takes-and-other-stores-and-find.md),
 BackOffice [4163](C:\Work\DMSCO\BackOffice\.issues\4163-an-items-ledger-lines-and-a-stores-sap-movements-reach-the-stock-console-within-their-day-li.md)
+
+## Comments
+
+- 2026-11-22, web built first on `spec/4157-stock-console`, ahead of the server (owner's choice). The Proof cases are
+  green under vitest, and typecheck plus the lint gates pass. The wire types follow a drafted contract (spec 4157 and
+  BO 4158–4163; the "as built" deviations are recorded in the merge commits). There was no prototype on this machine,
+  so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
+  routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
+  `open` until then.

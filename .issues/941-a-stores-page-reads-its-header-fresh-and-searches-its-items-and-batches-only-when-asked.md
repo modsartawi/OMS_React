@@ -43,12 +43,12 @@ UI (store page, tab frame, search-first frame, two tabs, wire types, api, locale
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a list tab asks nothing until a search ran, and asks on Search with empty boxes · vitest (the frame's decision as a pure module)
-- [ ] the boxes, filter, sort, page and "ran" go to the address and come back the same · vitest
-- [ ] Clear returns to "nothing is read yet" · vitest
-- [ ] each refusal code maps to its sentence · vitest
-- [ ] a batch row's placeholder mark and expiry cell · vitest
-- [ ] the locale key-mirror test passes · vitest
+- [x] a list tab asks nothing until a search ran, and asks on Search with empty boxes · vitest (the frame's decision as a pure module)
+- [x] the boxes, filter, sort, page and "ran" go to the address and come back the same · vitest
+- [x] Clear returns to "nothing is read yet" · vitest
+- [x] each refusal code maps to its sentence · vitest
+- [x] a batch row's placeholder mark and expiry cell · vitest
+- [x] the locale key-mirror test passes · vitest
 
 ## Boundaries
 
@@ -62,3 +62,12 @@ Proofs green, and on dev opening a store reads the header only, and its items an
 
 [940](940-the-stock-console-opens-on-every-stores-stock-held-reserved-and-status.md),
 BackOffice [4159](C:\Work\DMSCO\BackOffice\.issues\4159-a-store-opens-fresh-on-the-stock-console-and-its-items-and-batches-are-searched-by-number-na.md)
+
+## Comments
+
+- 2026-11-22, web built first on `spec/4157-stock-console`, ahead of the server (owner's choice). The Proof cases are
+  green under vitest, and typecheck plus the lint gates pass. The wire types follow a drafted contract (spec 4157 and
+  BO 4158–4163; the "as built" deviations are recorded in the merge commits). There was no prototype on this machine,
+  so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
+  routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
+  `open` until then.

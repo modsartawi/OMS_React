@@ -38,11 +38,11 @@ UI (four tabs, the fleet page, the fleet line, flag links, wire types, api, loca
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] each flag maps to its tab, filter and a search that ran · vitest
-- [ ] a hold's age and state cell, and the released columns · vitest
-- [ ] a take row's cells per kind, and the "failed calls not searchable" line · vitest
-- [ ] a fleet fact with no answer renders as no answer, not as healthy · vitest
-- [ ] the locale key-mirror test passes · vitest
+- [x] each flag maps to its tab, filter and a search that ran · vitest
+- [x] a hold's age and state cell, and the released columns · vitest
+- [x] a take row's cells per kind, and the "failed calls not searchable" line · vitest
+- [x] a fleet fact with no answer renders as no answer, not as healthy · vitest
+- [x] the locale key-mirror test passes · vitest
 
 ## Boundaries
 
@@ -57,3 +57,12 @@ Proofs green, and on dev a click on "items below zero" on a store's header lists
 
 [941](941-a-stores-page-reads-its-header-fresh-and-searches-its-items-and-batches-only-when-asked.md),
 BackOffice [4160](C:\Work\DMSCO\BackOffice\.issues\4160-a-stores-holds-takes-feeds-and-stage-reach-the-stock-console-and-the-fleets-feeds-and-switch.md)
+
+## Comments
+
+- 2026-11-22, web built first on `spec/4157-stock-console`, ahead of the server (owner's choice). The Proof cases are
+  green under vitest, and typecheck plus the lint gates pass. The wire types follow a drafted contract (spec 4157 and
+  BO 4158–4163; the "as built" deviations are recorded in the merge commits). There was no prototype on this machine,
+  so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
+  routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
+  `open` until then.

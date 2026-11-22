@@ -36,11 +36,11 @@ UI (feature, access, route, menu leaf, wire types in `src/core/models`, api, Sto
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] each tile counts and filters its stores · vitest (pure module)
-- [ ] a status and its flags map to the pill and its lines, value and limit · vitest
-- [ ] reserved's three states give "not computed", a stale mark, or the figure; free's label follows · vitest
-- [ ] search by code or city, and sort by a figure · vitest
-- [ ] the locale key-mirror test passes for `stock-console` · vitest
+- [x] each tile counts and filters its stores · vitest (pure module)
+- [x] a status and its flags map to the pill and its lines, value and limit · vitest
+- [x] reserved's three states give "not computed", a stale mark, or the figure; free's label follows · vitest
+- [x] search by code or city, and sort by a figure · vitest
+- [x] the locale key-mirror test passes for `stock-console` · vitest
 
 ## Boundaries
 
@@ -55,3 +55,12 @@ not.
 ## Blocked by
 
 BackOffice [4158](C:\Work\DMSCO\BackOffice\.issues\4158-hqs-stock-console-lists-every-store-through-the-stages-address-behind-its-own-grant.md)
+
+## Comments
+
+- 2026-11-22, web built first on `spec/4157-stock-console`, ahead of the server (owner's choice). The Proof cases are
+  green under vitest, and typecheck plus the lint gates pass. The wire types follow a drafted contract (spec 4157 and
+  BO 4158–4163; the "as built" deviations are recorded in the merge commits). There was no prototype on this machine,
+  so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
+  routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
+  `open` until then.

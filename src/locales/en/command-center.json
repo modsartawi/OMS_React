@@ -1,0 +1,59 @@
+{
+  "title": "Command center",
+  "subtitle": "Last night's picture of the chain: the morning brief, and the pharmacies and regions behind it.",
+  "menu": {
+    "commandCenter": "Command center"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the command center",
+    "deniedHint": "Your account does not hold the analytics view grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so the screen stays closed. Try again shortly."
+  },
+  "offer": {
+    "checking": "Checking your access…",
+    "deniedTitle": "The command center is not switched on",
+    "deniedHint": "The server does not offer the command center yet. It appears here once it is switched on.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so the screen stays closed. Try again shortly."
+  },
+  "loading": "Loading the morning brief…",
+  "loadFailed": "The morning brief could not be loaded.",
+  "previousNight": "Tonight's brief is not published yet. This is the brief of {{night}}.",
+  "lang": {
+    "label": "Language",
+    "en": "English",
+    "ar": "العربية"
+  },
+  "status": {
+    "label": "Overnight runs",
+    "dataAsOf": "Data as of {{date}}",
+    "notFinished": "not finished",
+    "state": {
+      "waiting": "Waiting",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "missed": "Missed"
+    }
+  },
+  "brief": {
+    "more": "More in today's brief",
+    "section": {
+      "headline": "Headline",
+      "changed": "What changed overnight",
+      "risks": "Top risks",
+      "opportunities": "Top opportunities",
+      "slipped": "Slipped and improved",
+      "products": "Products and stock",
+      "categories": "Categories",
+      "omni": "Omni-channel pulse"
+    },
+    "dataAsOf": "Data as of {{date}}",
+    "notAvailable": "Not available this morning",
+    "lastGood": "Last good brief: {{date}}",
+    "startsOn": "The list starts on {{date}}.",
+    "empty": "Nothing to show tonight."
+  }
+}

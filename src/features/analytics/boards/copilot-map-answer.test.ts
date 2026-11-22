@@ -93,7 +93,7 @@ const unmapped: CopilotAnswerTable = (() => {
 /** The one permissions answer (oms 914), seeded under its key as the gate's cached read would be. */
 const answerOf = (...screens: string[]): PermissionsAnswer => ({
   screens,
-  extras: { fileServerReady: false, notificationCenterOn: false, nphiesContractVersion: '', canManageRoles: false, canManageUsers: false },
+  extras: { fileServerReady: false, notificationCenterOn: false, commandCenterOn: false, nphiesContractVersion: '', canManageRoles: false, canManageUsers: false },
   version: 'test',
 })
 const AUTHOR = answerOf('Analytics:03', 'Analytics:02')

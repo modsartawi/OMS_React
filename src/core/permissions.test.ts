@@ -19,6 +19,7 @@ const answer = (over: Partial<Record<string, unknown>> = {}) => ({
   extras: {
     fileServerReady: true,
     notificationCenterOn: false,
+    commandCenterOn: false,
     nphiesContractVersion: '1.3',
     canManageRoles: true,
     canManageUsers: false,
@@ -82,6 +83,15 @@ describe('fails closed', () => {
     expect(p.extras.notificationCenterOn).toBe(false)
     expect(p.extras.canManageRoles).toBe(false)
     expect(p.extras.nphiesContractVersion).toBe('')
+  })
+
+  // oms 946 (BackOffice spec 4165, decisions §2): `CommandCenter:Home` rides the one answer as `commandCenterOn`.
+  it('946: the command center switch is on only when the answer says an explicit true; a missing flag is off', () => {
+    expect(ready(parsePermissionsAnswer(answer())).extras.commandCenterOn).toBe(false)
+    const on = answer({ extras: { ...answer().extras, commandCenterOn: true } })
+    expect(ready(parsePermissionsAnswer(on)).extras.commandCenterOn).toBe(true)
+    const odd = answer({ extras: { ...answer().extras, commandCenterOn: 'true' } })
+    expect(ready(parsePermissionsAnswer(odd)).extras.commandCenterOn).toBe(false)
   })
 
   it('pending: nothing granted and not settled', () => {

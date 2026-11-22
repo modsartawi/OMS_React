@@ -287,6 +287,11 @@ export const router = createBrowserRouter([
       // The price command center (oms 934, BackOffice spec 4127): price alerts, and the tabs 935–939 add. Gated in-page
       // by `canViewPriceWatch` (`PriceWatch:03`); the server's grant filter is the boundary.
       {
+        // 946 (BackOffice spec 4165): the Retail Command Center home. Gated in the page (grant + `CommandCenter:Home`).
+        path: 'analytics/command-center',
+        lazy: async () => ({ Component: (await import('@/features/analytics/command-center/CommandCenterPage')).default }),
+      },
+      {
         path: 'analytics/price-command-center',
         lazy: async () => ({ Component: (await import('@/features/analytics/price-command-center/PriceCommandCenterPage')).default }),
       },

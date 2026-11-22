@@ -16,9 +16,9 @@ const holding = (...screens: string[]) => permissionsOf({ screens })
 const shown = (p: Permissions, offered = true) => resolveMenu([group!], p, () => offered).items.length > 0
 
 describe('the Analytics nav group', () => {
-  it('menu lists eight library leaves behind the view grant, then My schedules behind its door', () => {
+  it('menu lists eight library leaves behind the view grant, then My schedules behind its door, then the command center', () => {
     expect(MENU.filter((g) => g.labelKey === 'boards:menu.analytics')).toHaveLength(1)
-    const library = leaves([group!]).slice(0, -2)
+    const library = leaves([group!]).slice(0, -3)
     expect(library.map((l) => l.routerLink)).toEqual([
       '/analytics',
       '/analytics/boards',
@@ -31,13 +31,17 @@ describe('the Analytics nav group', () => {
     ])
     expect(new Set(library.map((l) => l.labelKey)).size).toBe(8)
     for (const leaf of library) expect(isGated(leaf)).toBe(true)
-    const mine = leaves([group!]).at(-2)!
+    const mine = leaves([group!]).at(-3)!
     expect([mine.labelKey, mine.routerLink, mine.offered?.queryKey]).toEqual([
       'boards:menu.mySchedules',
       MY_SCHEDULES_PATH,
       MY_SCHEDULES_OFFERED_KEY,
     ])
     expect(isGated(mine)).toBe(true)
+    // 946: the Retail Command Center, before the price command center (which stays last).
+    const cc = leaves([group!]).at(-2)!
+    expect([cc.labelKey, cc.routerLink]).toEqual(['command-center:menu.commandCenter', '/analytics/command-center'])
+    expect(isGated(cc)).toBe(true)
   })
 
   it('934: the price command center comes last, on its own PriceWatch grant — a PriceWatch-only user sees the group', () => {

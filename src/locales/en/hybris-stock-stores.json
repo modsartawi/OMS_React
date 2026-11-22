@@ -31,7 +31,7 @@
   "mode": {
     "off": {
       "title": "The Hybris stock sync is off",
-      "body": "Nothing is sent to Hybris. Marking stores and editing materials still takes effect once it is switched on."
+      "body": "Nothing is sent to Hybris. Special stores and material edits still take effect once it is switched on."
     },
     "shadow": {
       "title": "Shadow mode",
@@ -52,8 +52,8 @@
   "filters": {
     "marked": "Hybris stock",
     "markedAny": "All stores",
-    "markedOnly": "Marked stores",
-    "unmarkedOnly": "Not marked",
+    "markedOnly": "Special stores",
+    "unmarkedOnly": "Not special",
     "q": "Search",
     "qPlaceholder": "Store code or name",
     "search": "Search",
@@ -70,8 +70,8 @@
     "empty": "No store matches.",
     "count_one": "<n>{{n}}</n> store",
     "count_other": "<n>{{n}}</n> stores",
-    "marked_one": "<n>{{n}}</n> marked",
-    "marked_other": "<n>{{n}}</n> marked",
+    "marked_one": "<n>{{n}}</n> special",
+    "marked_other": "<n>{{n}}</n> special",
     "unhealthy_one": "<n>{{n}}</n> unhealthy",
     "unhealthy_other": "<n>{{n}}</n> unhealthy",
     "viewOnly": "View only: marking stores and push now need the Hybris stock manage grant."
@@ -86,13 +86,13 @@
     "lastFull": "Last full",
     "nextFull": "Next full due",
     "lastError": "Last error",
-    "markedAt": "Marked at",
-    "markedBy": "Marked by",
+    "markedAt": "Special since",
+    "markedBy": "Made special by",
     "actions": "Actions"
   },
   "marked": {
-    "yes": "Marked",
-    "no": "Not marked",
+    "yes": "Special",
+    "no": "Not special",
     "closed": "Closed"
   },
   "health": {
@@ -112,20 +112,20 @@
     }
   },
   "mark": {
-    "button": "Mark",
-    "title": "Mark as a Hybris stock store",
-    "note": "<store>{{store}}</store> starts sending its stock to Hybris. Its first push is a full of every enabled material, before any delta.",
-    "confirm": "Mark store",
-    "done": "Store marked",
-    "doneDetail": "Store {{store}} is a Hybris stock store. A full is on its way."
+    "button": "Make special",
+    "title": "Make a special store (full sync)",
+    "note": "<store>{{store}}</store> becomes a special store: it gets a full of every enabled material now, and joins the nightly full cycle.",
+    "confirm": "Make special",
+    "done": "Store made special",
+    "doneDetail": "Store {{store}} is a special store. A full is on its way."
   },
   "unmark": {
-    "button": "Unmark",
-    "title": "Unmark this Hybris stock store",
-    "note": "OMS stops sending the stock of <store>{{store}}</store>. Nothing is sent to Hybris: it keeps the stock it was last sent, and taking the store off the website is Hybris's own decision.",
-    "confirm": "Unmark store",
-    "done": "Store unmarked",
-    "doneDetail": "Store {{store}} no longer sends its stock to Hybris."
+    "button": "Remove special",
+    "title": "Remove this special store",
+    "note": "<store>{{store}}</store> leaves the nightly full cycle. If all open stores are synced, its deltas continue; otherwise OMS stops sending its stock, and Hybris keeps what it was last sent.",
+    "confirm": "Remove special",
+    "done": "Special removed",
+    "doneDetail": "Store {{store}} is no longer a special store."
   },
   "pushNow": {
     "button": "Push now",
@@ -152,7 +152,7 @@
       "busy": "A push of this store is already running; try again shortly.",
       "busyHint": "Nothing was pushed or recorded. Try again shortly.",
       "notMarked": "A chosen store is not a Hybris stock store.",
-      "notMarkedHint": "Mark it first; the list is read again.",
+      "notMarkedHint": "Make it special first (or have all open stores synced); the list is read again.",
       "railOff": "The Hybris stock sync is off.",
       "railOffHint": "Nothing can be pushed until it is switched on.",
       "materialNotEnabled": "A chosen material is not an enabled Hybris stock material.",
@@ -184,7 +184,7 @@
   },
   "history": {
     "button": "History",
-    "eyebrow": "Mark and unmark history",
+    "eyebrow": "Special history",
     "close": "Close history",
     "loading": "Loading history…",
     "failed": "The history could not be loaded",
@@ -194,8 +194,8 @@
     "action": "Change",
     "reason": "Why",
     "door": "From",
-    "marked": "Marked",
-    "unmarked": "Unmarked",
+    "marked": "Made special",
+    "unmarked": "Special removed",
     "unknownAction": "Unknown"
   }
 }

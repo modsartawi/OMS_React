@@ -1,0 +1,34 @@
+{
+  "shots": [
+    {
+      "name": "help-center",
+      "route": "/analytics/help/start",
+      "crop": "[data-help-page]",
+      "steps": [{ "waitFor": "[data-help-article=\"start\"]" }]
+    },
+    {
+      "name": "help-whats-new",
+      "route": "/analytics/help/whats-new",
+      "crop": "[data-help-page]",
+      "steps": [{ "waitFor": "[data-help-article=\"whats-new\"]" }]
+    },
+    {
+      "name": "analytics-home",
+      "route": "/analytics",
+      "fullPage": true,
+      "steps": [{ "waitFor": "[data-analytics-home-header]" }]
+    },
+    {
+      "name": "analytics-menu",
+      "route": "/analytics",
+      "crop": "nav:has(a[href=\"/analytics/help\"])",
+      "steps": [{ "waitFor": "a[href=\"/analytics/help\"]" }]
+    },
+    {
+      "name": "analytics-status",
+      "route": "/analytics",
+      "crop": "[data-analytics-status]",
+      "steps": [{ "waitFor": "[data-analytics-status-tone]" }]
+    }
+  ]
+}

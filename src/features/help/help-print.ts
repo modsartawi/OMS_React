@@ -18,9 +18,44 @@ export const helpPrintLang = (search: URLSearchParams): HelpLang => (search.get(
 
 const PICTURE = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g
 
+/**
+ * The Markdown with what the renderer draws as text, not pictures, blanked: fenced blocks (``` and ~~~), indented code
+ * blocks, inline code spans and an escaped `\![`. Image syntax in there is shown, never loaded — waiting on it would
+ * hold the print forever (review 4182 #4).
+ */
+function withoutCode(markdown: string): string {
+  const kept: string[] = []
+  let fence: string | null = null // the opening run (``` or ~~~) while inside a fenced block
+  let inIndented = false
+  let previousBlank = true
+  for (const row of markdown.split(/\r?\n/)) {
+    const opener = /^ {0,3}(`{3,}|~{3,})/.exec(row)?.[1]
+    if (fence !== null) {
+      // A fence closes on a run of the same character, at least as long, with nothing after it.
+      if (opener && opener[0] === fence[0] && opener.length >= fence.length && row.trim() === opener) fence = null
+      kept.push('')
+      continue
+    }
+    if (opener) {
+      fence = opener
+      kept.push('')
+      continue
+    }
+    const blank = row.trim() === ''
+    // An indented code block starts after a blank line (it cannot interrupt a paragraph) and runs while indented.
+    inIndented = !blank && /^(?: {4}|\t)/.test(row) && (inIndented || previousBlank)
+    kept.push(inIndented ? '' : row)
+    previousBlank = blank
+  }
+  return kept
+    .join('\n')
+    .replace(/(`+)[\s\S]*?\1/g, ' ') // inline code spans
+    .replace(/\\!/g, ' ') // an escaped `\![`
+}
+
 /** The help pictures an article's Markdown names, as the print language's files, once each, in order. */
 export function articleImages(markdown: string, lang: HelpLang): string[] {
-  const files = [...markdown.matchAll(PICTURE)].flatMap((m) => {
+  const files = [...withoutCode(markdown).matchAll(PICTURE)].flatMap((m) => {
     const file = helpImageFile(m[1], lang)
     return file ? [file] : []
   })

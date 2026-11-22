@@ -15,14 +15,19 @@ export type HelpLink =
   | { kind: 'external'; to: string }
 
 const SCREEN = 'screen:'
+
+/**
+ * An app route only: one leading slash. `//host` is another origin, and so is `/\host` — browsers read a backslash as a
+ * slash (review 4182 #6).
+ */
+const isAppRoute = (to: string): boolean => /^\/(?![/\\])/.test(to)
 const HELP = 'help:'
 
 /** The link an article's `href` makes, inside `area`'s help. */
 export function helpLinkOf(href: string, area: string): HelpLink {
   if (href.startsWith(SCREEN)) {
     const to = href.slice(SCREEN.length)
-    // An app route only: one leading slash (`//host` would be another origin).
-    return to.startsWith('/') && !to.startsWith('//') ? { kind: 'screen', to } : { kind: 'external', to: href }
+    return isAppRoute(to) ? { kind: 'screen', to } : { kind: 'external', to: href }
   }
   if (href.startsWith(HELP)) {
     const [slug, anchor] = href.slice(HELP.length).split('#', 2)
@@ -45,4 +50,17 @@ export function helpImageFile(src: string, lang: HelpLang): string | null {
   const file = IMAGE.exec(src)?.[1]
   if (!file || file.includes('..')) return null
   return file.replace(/\.(en|ar)(\.[A-Za-z0-9]+)$/, `.${lang}$2`)
+}
+
+/**
+ * The heading id a location hash names (`#share` → `share`), percent-decoded. A hash that is not valid percent-encoding
+ * (`#50%`) is read as written rather than thrown (review 4182 #7).
+ */
+export function anchorOfHash(hash: string): string {
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
 }

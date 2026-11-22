@@ -308,15 +308,10 @@ export const router = createBrowserRouter([
       },
       // The analytics help center (oms 951, BackOffice spec 4182 §D): a login only, no grant — the help holds no
       // business data. `/analytics/help` opens `start`. The feature takes the area, so a later area reuses it.
+      // ONE route for the start and every article (review 4182 #3): two sibling routes would remount the page on
+      // opening a search result and clear its search box.
       {
-        path: 'analytics/help',
-        lazy: async () => {
-          const { default: HelpPage } = await import('@/features/help/HelpPage')
-          return { Component: () => <HelpPage area="analytics" /> }
-        },
-      },
-      {
-        path: 'analytics/help/:slug',
+        path: 'analytics/help/:slug?',
         lazy: async () => {
           const { default: HelpPage } = await import('@/features/help/HelpPage')
           return { Component: () => <HelpPage area="analytics" /> }

@@ -5,7 +5,7 @@
  */
 import { canAuthorAnalytics, canCurateAnalytics, canSqlAnalytics, canViewAnalytics } from '@/core/analytics-access'
 import type { Permissions } from '@/core/permissions'
-import type { HelpAccess } from '@/core/models/help'
+import { HELP_ACCESS, type HelpAccess } from '@/core/models/help'
 
 const HOLDS: Record<HelpAccess, (p: Permissions) => boolean> = {
   viewer: canViewAnalytics,
@@ -14,5 +14,15 @@ const HOLDS: Record<HelpAccess, (p: Permissions) => boolean> = {
   sql: canSqlAnalytics,
 }
 
-/** True when `p` grants `access`. Fails closed: a pending or failed answer holds nothing. */
-export const helpAccessHeld = (access: HelpAccess, p: Permissions): boolean => HOLDS[access](p)
+/** One of the four levels the app knows — the server may send another (review 4182 #1). */
+export const isHelpAccess = (access: unknown): access is HelpAccess => (HELP_ACCESS as readonly unknown[]).includes(access)
+
+/** True when `p` grants `access`. Fails closed: a pending or failed answer, or a level the app does not know, holds nothing. */
+export const helpAccessHeld = (access: HelpAccess, p: Permissions): boolean => isHelpAccess(access) && HOLDS[access](p)
+
+/**
+ * Who reads the analytics help at all: "wherever the Analytics menu shows" — an Analytics viewer, or a PriceWatch viewer
+ * (`PriceWatch:03`, the price command center's view grant). The Help menu leaf and the copilot's "How do I…?" row
+ * (review 4182 #8) read this one predicate.
+ */
+export const canReadHelp = (p: Permissions): boolean => canViewAnalytics(p) || p.has('PriceWatch:03')

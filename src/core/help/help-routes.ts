@@ -7,7 +7,7 @@
  */
 
 /** The area's help center: `/analytics/help` (it opens `start`). */
-export const helpPath = (area: string): string => `/${area}/help`
+export const helpPath = (area: string): string => `/${encodeURIComponent(area)}/help`
 
 /** The article every help center opens on, and the drawer's fallback. */
 export const HELP_START_SLUG = 'start'

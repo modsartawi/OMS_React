@@ -20,7 +20,9 @@
     "curator": "Curator",
     "sql": "SQL",
     "held": "You have this access.",
-    "ask": "Ask your administrator for {{access}} access."
+    "ask": "Ask your administrator for {{access}} access.",
+    "unknown": "Other",
+    "askUnknown": "Ask your administrator for the access this article needs."
   },
   "article": {
     "openScreen": "Open this screen",
@@ -41,7 +43,7 @@
   },
   "print": {
     "see": "see <t>{{title}}</t>",
-    "language": "Language:",
+    "language": "Language: {{name}}",
     "languages": {
       "en": "English",
       "ar": "Arabic"
@@ -56,7 +58,8 @@
     "open": "Help for this page",
     "eyebrow": "Help",
     "close": "Close the help",
-    "openFull": "Open full article"
+    "openFull": "Open full article",
+    "failed": "Help unavailable"
   },
   "startCard": {
     "title": "New to Analytics? Start here",

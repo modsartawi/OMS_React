@@ -60,7 +60,7 @@ export function HelpDrawerSheet({ area, pathname, lang, onClose, onKey }: { area
       <SideSheetHeader
         titleId={titleId}
         eyebrow={t('drawer.eyebrow')}
-        title={title ? <bdi>{title}</bdi> : t('state.loading')}
+        title={title ? <bdi>{title}</bdi> : article.isError ? t('drawer.failed') : t('state.loading')}
         closeLabel={t('drawer.close')}
         onClose={onClose}
       />

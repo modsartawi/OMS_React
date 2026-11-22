@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { formatDay } from '@/core/charts/format'
+import { isHelpAccess } from '@/core/help/help-access'
 import { helpDir } from '@/core/help/help-lang'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -53,7 +54,7 @@ export default function HelpPrintDocument({
         )}
         <h1 className="text-3xl font-semibold tracking-tight">{t(`areas.${area}.guide`)}</h1>
         <p className="text-base" data-help-print-language>
-          {t('print.language')} {t(`print.languages.${lang}`)}
+          {t('print.language', { name: t(`print.languages.${lang}`) })}
         </p>
         {checked.length > 0 && (
           <div className="flex flex-col gap-1 text-muted-foreground" data-help-print-checked>
@@ -110,7 +111,7 @@ function AccessBadge({ access, lang }: { access: HelpAccess; lang: HelpLang }) {
   const { t } = useTranslation('help', { lng: lang })
   return (
     <span data-help-access={access} className="contents">
-      <StatusBadge sev="mute">{t(`access.${access}`)}</StatusBadge>
+      <StatusBadge sev="mute">{isHelpAccess(access) ? t(`access.${access}`) : t('access.unknown')}</StatusBadge>
     </span>
   )
 }

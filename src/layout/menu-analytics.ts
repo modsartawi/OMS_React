@@ -1,10 +1,10 @@
 import { BadgeCheck, BadgePercent, CalendarClock, ChartColumn, ChartColumnBig, CircleHelp, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { MY_SCHEDULES_PATH } from '@/core/analytics-routes'
 import { canViewAnalytics } from '@/core/analytics-access'
+import { canReadHelp } from '@/core/help/help-access'
 import { MY_SCHEDULES_OFFERED_KEY, mySchedulesOffered } from '@/features/analytics/boards/access'
 import { LIBRARY_PAGES, type LibraryMenuPage } from '@/features/analytics/boards/library-pages'
 import { canViewPriceWatch } from '@/features/analytics/price-command-center/access'
-import type { Permissions } from '@/core/permissions'
 import type { MenuOffer, ShellMenuItem } from './menu-model'
 
 /**
@@ -29,9 +29,10 @@ const mySchedulesOffer: MenuOffer = {
 
 /**
  * oms 951 (BackOffice spec 4182 §D): the help leaf shows "wherever the Analytics menu shows" — to a library reader and
- * to a PriceWatch-only reader alike. The route itself needs a login only. 🚩 Orchestrator default, open to the owner's veto.
+ * to a PriceWatch-only reader alike (`canReadHelp`, the same predicate as the copilot's "How do I…?" row). The route
+ * itself needs a login only. 🚩 Orchestrator default, open to the owner's veto.
  */
-const canReadAnalyticsHelp = (p: Permissions): boolean => canViewAnalytics(p) || canViewPriceWatch(p)
+const canReadAnalyticsHelp = canReadHelp
 
 const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
   home: Home,

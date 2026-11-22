@@ -21,7 +21,7 @@ describe('help — en and ar', () => {
   })
 
   it.each([en, ar])('hold every key the page builds', (locale) => {
-    const keys = [...HELP_ACCESS.map((a) => `access.${a}`),'areas.analytics.title', 'areas.analytics.subtitle', 'areas.analytics.guide', 'print.languages.en', 'print.languages.ar',
+    const keys = [...HELP_ACCESS.map((a) => `access.${a}`), 'access.unknown', 'access.askUnknown', 'print.language', 'drawer.failed','areas.analytics.title', 'areas.analytics.subtitle', 'areas.analytics.guide', 'print.languages.en', 'print.languages.ar',
       // oms 952: the page drawer, the Home card and the copilot's "How do I…?" heading.
       'drawer.open', 'drawer.eyebrow', 'drawer.close', 'drawer.openFull', 'startCard.title', 'startCard.body', 'startCard.open', 'startCard.dismiss', 'howTo.heading']
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])

@@ -482,7 +482,7 @@ function helpLinkOf(v: unknown): HelpLinkPart[] {
   if (!v || typeof v !== 'object') return []
   const { kind, area, slug, anchor, title, screen } = v as Record<string, unknown>
   if (kind !== 'help' || typeof slug !== 'string' || slug.trim() === '') return []
-  const route = typeof screen === 'string' && /^\/(?!\/)/.test(screen.trim()) ? screen.trim() : null
+  const route = typeof screen === 'string' && /^\/(?![/\\])/.test(screen.trim()) ? screen.trim() : null
   return [{ kind: 'help', area: typeof area === 'string' && area.trim() !== '' ? area : 'analytics', slug, anchor: text(anchor), title: text(title), screen: route }]
 }
 

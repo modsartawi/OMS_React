@@ -83,4 +83,12 @@ describe('searchArticles', () => {
     // آ (alef madda) folds too.
     expect(slugs(searchArticles([meta('x', 'آخر التحديثات')], {}, 'اخر'))).toEqual(['x'])
   })
+
+  it('a query with a hyphen or underscore finds the body that wrote it (both sides read the marks as spaces)', () => {
+    const bodies = { boards: 'Use the drill-down to open the rows; set page_size first.' }
+    const list = [meta('boards', 'Boards')]
+    expect(slugs(searchArticles(list, bodies, 'drill-down'))).toEqual(['boards'])
+    expect(slugs(searchArticles(list, bodies, 'page_size'))).toEqual(['boards'])
+    expect(slugs(searchArticles(list, bodies, 'drill-up'))).toEqual([])
+  })
 })

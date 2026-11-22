@@ -34,8 +34,11 @@ export function markdownWords(markdown: string): string {
  * whose body is not fetched yet is searched by its title and questions alone.
  */
 export function searchArticles(articles: readonly HelpArticleMeta[], bodies: Readonly<Record<string, string | undefined>>, query: string): HelpArticleMeta[] {
-  const words = foldForSearch(query).split(/\s+/).filter(Boolean)
-  if (words.length === 0) return [...articles]
+  // The query drops the same marks the body does, so `drill-down` finds a body's `drill-down` (review 4182 #5).
+  const words = foldForSearch(markdownWords(query)).split(/\s+/).filter(Boolean)
+  if (query.trim() === '') return [...articles]
+  // A query of marks alone (`**`) names no word a reader sees: nothing matches it.
+  if (words.length === 0) return []
   return articles.filter((a) => {
     const body = bodies[a.slug]
     const hay = foldForSearch([a.title, ...a.questions, body ? markdownWords(body) : ''].join('\n'))

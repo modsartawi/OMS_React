@@ -19,6 +19,7 @@ import { canSqlAnalytics } from '@/core/analytics-access'
 import { usePermissions } from '@/core/permissions'
 import { helpContentsQuery } from '@/core/help/help-api'
 import { helpDir, useHelpLang } from '@/core/help/help-lang'
+import { canReadHelp } from '@/core/help/help-access'
 import { howToQuestions } from '@/core/help/how-to'
 import { COPILOT_STARTERS_KEY } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
@@ -131,7 +132,8 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   const stop = useCopilotConversation((s) => s.stop)
   const resume = useCopilotConversation((s) => s.resume)
   // 888 (spec 3632 Q27): the SQL mode toggle, only for a holder of the SQL grant (`canSqlAnalytics`).
-  const canSql = canSqlAnalytics(usePermissions())
+  const permissions = usePermissions()
+  const canSql = canSqlAnalytics(permissions)
   const sqlOn = useCopilotConversation((s) => s.sqlMode) && canSql
   const setSqlMode = useCopilotConversation((s) => s.setSqlMode)
   const box = useRef<HTMLTextAreaElement>(null)
@@ -297,8 +299,10 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
   // a row apart from the curator's starters above. A failed or pending read is no row.
   const helpLang = useHelpLang()
   const { t: th } = useTranslation('help', { lng: helpLang })
-  const helpContents = useQuery({ ...helpContentsQuery('analytics', helpLang), enabled: empty, retry: false })
-  const howTo = useMemo(() => howToButtons(howToQuestions(helpContents.data, Math.random)), [helpContents.data])
+  // Only for a reader the Help menu leaf shows to (`canReadHelp`, review 4182 #8): no fetch, no row, for anyone else.
+  const canHelp = canReadHelp(permissions)
+  const helpContents = useQuery({ ...helpContentsQuery('analytics', helpLang), enabled: empty && canHelp, retry: false })
+  const howTo = useMemo(() => (canHelp ? howToButtons(howToQuestions(helpContents.data, Math.random)) : []), [canHelp, helpContents.data])
   // An ask pending keeps the box (872): the reply, typed, is the same question, even the tenth's.
   const canAsk = boxOpen(conv)
   const late = lateExample(DEMO_ORDER_NO, t('examples.latePlaceholder'))

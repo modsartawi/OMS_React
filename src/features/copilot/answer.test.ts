@@ -696,4 +696,10 @@ describe('the answer links the help it answered from (oms 952, BackOffice 4184)'
     const odd = [{ ...share, slug: ' ' }, { ...share, kind: 'view' }, { ...share, screen: 'https://evil.example/' }]
     expect(copilotAnswerModel({ helpLinks: odd } as unknown as Partial<CopilotAnswer>).helpLinks).toEqual([{ ...share, screen: null }])
   })
+
+  it('answer_helpPart_aBackslashScreenIsAnotherOrigin_andTheAreaIsEncoded', () => {
+    const model = copilotAnswerModel({ answer: 'x', helpLinks: [{ ...share, screen: '/\\evil.example/' }, { ...share, area: '/evil.example', screen: undefined }] } as unknown as Partial<CopilotAnswer>)
+    expect(model.helpLinks[0].screen).toBeNull()
+    expect(helpLinkButtons(model.helpLinks[1])).toEqual([{ kind: 'help', to: '/%2Fevil.example/help/boards#share' }])
+  })
 })

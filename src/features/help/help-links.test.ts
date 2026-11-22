@@ -4,7 +4,20 @@
  * the app's language picks.
  */
 import { describe, expect, it } from 'vitest'
-import { helpImageFile, helpLinkOf } from './help-links'
+import { anchorOfHash, helpImageFile, helpLinkOf } from './help-links'
+
+describe('anchorOfHash', () => {
+  it('the heading id a location hash names, decoded', () => {
+    expect(anchorOfHash('#share')).toBe('share')
+    expect(anchorOfHash('#%D9%85%D8%B4%D8%A7%D8%B1%D9%83%D8%A9')).toBe('مشاركة')
+    expect(anchorOfHash('')).toBe('')
+  })
+
+  it('a hash that is not valid percent-encoding is read as written, not thrown', () => {
+    expect(anchorOfHash('#50%')).toBe('50%')
+    expect(anchorOfHash('#%E0%A4%A')).toBe('%E0%A4%A')
+  })
+})
 
 describe('helpLinkOf', () => {
   it('a screen: link is a route in this app', () => {
@@ -25,6 +38,8 @@ describe('helpLinkOf', () => {
   it('a screen: link that is not an app route (no leading slash, or another origin) is not a screen', () => {
     expect(helpLinkOf('screen:analytics', 'analytics').kind).toBe('external')
     expect(helpLinkOf('screen://evil.example/x', 'analytics').kind).toBe('external')
+    // Browsers read a backslash as a slash: `/\evil.example` is another origin too.
+    expect(helpLinkOf('screen:/\\evil.example/x', 'analytics').kind).toBe('external')
   })
 })
 

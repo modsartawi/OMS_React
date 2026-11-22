@@ -25,6 +25,25 @@ describe('articleImages', () => {
     expect(articleImages(md, 'ar')).toEqual(['boards-editor.ar.png', 'shared.png'])
     expect(articleImages('No pictures here.', 'en')).toEqual([])
   })
+
+  it('image syntax inside code (a fence, a span, an indented block) or escaped is text, not a picture the print waits for', () => {
+    const md = [
+      '```md',
+      '![in a fence](images/fenced.en.png)',
+      '```',
+      '',
+      '~~~',
+      '![tilde fence](images/tilde.png)',
+      '~~~',
+      '',
+      'Write `![alt](images/span.png)` to add one. \\![escaped](images/escaped.png)',
+      '',
+      '    ![indented code](images/indented.png)',
+      '',
+      '![real](images/real.en.png)',
+    ].join('\n')
+    expect(articleImages(md, 'en')).toEqual(['real.en.png'])
+  })
 })
 
 describe('printReady', () => {

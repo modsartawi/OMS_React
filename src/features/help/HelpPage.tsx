@@ -17,6 +17,7 @@ import HelpContentsRail from './HelpContentsRail'
 import HelpDraftBanner from './HelpDraftBanner'
 import HelpMarkdown from './HelpMarkdown'
 import { neighbours } from './help-contents'
+import { anchorOfHash } from './help-links'
 import { helpPrintHref } from './help-print'
 import { searchArticles } from './help-search'
 
@@ -103,7 +104,7 @@ function HelpArticleView({ area, slug, lang, articles }: { area: string; slug: s
   // A `help:slug#anchor` link lands on its heading once the article has drawn.
   useEffect(() => {
     if (!article.data || !hash) return
-    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' })
+    document.getElementById(anchorOfHash(hash))?.scrollIntoView({ block: 'start' })
   }, [article.data, hash])
 
   if (article.isPending) return <p className="flex-1 text-sm text-muted-foreground">{t('state.loading')}</p>

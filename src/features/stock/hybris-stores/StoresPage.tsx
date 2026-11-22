@@ -28,7 +28,7 @@ import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
 import { storeHealth } from './health'
 import HistoryDrawer from './HistoryDrawer'
-import { MarkDialog } from './StoreDialogs'
+import { DisableDialog, MarkDialog } from './StoreDialogs'
 import { PushMaterialsDialog, PushStoreDialog } from './PushDialogs'
 import { pushResult } from './push-now'
 import { FLAG_FILTERS, HEALTH_FILTERS, historyFromParams, storesFromParams, storesToParams, withHistory } from './stores-query'
@@ -94,6 +94,7 @@ function Stores() {
   const unhealthyCount = rows.filter((r) => storeHealth(r).reading === 'unhealthy').length
 
   const [marking, setMarking] = useState<Row | null>(null)
+  const [disabling, setDisabling] = useState<Row | null>(null)
   // Push now (850): the store dialog, the materials dialog, and the last push's answer above the grid.
   const [pushing, setPushing] = useState<Row | null>(null)
   const [pushingMaterials, setPushingMaterials] = useState(false)
@@ -120,6 +121,7 @@ function Stores() {
     () =>
       storeColumns(t, i18n.language, {
         onMark: canManage ? (row) => setMarking(row) : null,
+        onDisable: canManage ? (row) => setDisabling(row) : null,
         onPush: canManage ? (row) => setPushing(row) : null,
         onHistory: (row) => openHistoryRef.current(row.storeCode),
         // The push log owns the pushes and a material's history; a store links into it by code.
@@ -244,6 +246,7 @@ function Stores() {
 
       {historyCode && <HistoryDrawer key={historyCode} storeCode={historyCode} storeName={historyName} onClose={() => openHistory(null)} />}
       {marking && canManage && <MarkDialog row={marking} onClose={() => setMarking(null)} />}
+      {disabling && canManage && <DisableDialog row={disabling} onClose={() => setDisabling(null)} />}
       {pushing && canManage && (
         <PushStoreDialog
           row={pushing}

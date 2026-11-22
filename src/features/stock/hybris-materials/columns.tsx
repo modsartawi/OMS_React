@@ -13,7 +13,7 @@ type Row = HybrisStockMaterialRow
 const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDateTime(value)
 
 /**
- * The Hybris stock materials grid (ticket 848): number, the master's English and Arabic names, enabled,
+ * The Hybris stock materials grid (ticket 848): number, the master's English and Arabic names, enabled, Hybris's approval (BackOffice 4180),
  * added at / by, updated at / by, last enabled (the next delta sends it everywhere), and — for a manager — Enable or Disable. `onToggle` is `null` for a view-only user, and the
  * actions column is then left out.
  */
@@ -32,6 +32,20 @@ export function materialColumns(t: TFunction, onToggle: ((row: Row) => void) | n
         data ? (
           <span data-enabled={String(data.enabled)}>
             <StatusBadge sev={data.enabled ? 'go' : 'mute'}>{value}</StatusBadge>
+          </span>
+        ) : null,
+    },
+    {
+      // BackOffice 4180: what Hybris's product approvals said. Display only — both get stock.
+      colId: 'hybrisApproval',
+      headerName: t('columns.hybrisApproval'),
+      width: 140,
+      headerTooltip: t('approval.tooltip'),
+      valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? t(`approval.${data.hybrisApproval ?? 'none'}`) : ''),
+      cellRenderer: ({ data, value }: ICellRendererParams<Row>) =>
+        data ? (
+          <span data-approval={data.hybrisApproval ?? 'none'}>
+            <StatusBadge sev={data.hybrisApproval === 'approved' ? 'go' : data.hybrisApproval === 'unapproved' ? 'warn' : 'mute'}>{value}</StatusBadge>
           </span>
         ) : null,
     },

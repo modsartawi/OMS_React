@@ -18,6 +18,10 @@ export const HYBRIS_STOCK_ERRORS = {
   alreadyMarked: 'HYS-00004',
   /** 409 — Unmark: the store is not a Hybris stock store. */
   notMarked: 'HYS-00005',
+  /** 409 — store Disable: the store is already disabled (BackOffice 4181). */
+  storeAlreadyDisabled: 'HYS-00006',
+  /** 409 — store Enable: the store is not disabled (BackOffice 4181). */
+  storeNotDisabled: 'HYS-00007',
   /** 404 — Add: no such material in the material master. */
   unknownMaterial: 'HYS-00010',
   /** 409 — Add: the material is already on the list. */
@@ -86,6 +90,36 @@ export interface HybrisStockStatus {
   minutesBetweenParts: number
   lineRetentionDays: number
   alerts: HybrisStockAlert[]
+  /** The material list's pull from Hybris's product approvals (BackOffice 4180); absent on an older SIS.Api. */
+  materialPull?: HybrisStockMaterialPullStatus
+}
+
+/** One recorded pull of Hybris's product approvals. `S` applied | `E` failed or refused. */
+export interface HybrisStockMaterialPullRow {
+  pullId: string
+  status: 'S' | 'E' | string
+  startedAt: string | null
+  finishedAt: string | null
+  /** Hybris's own stamp of the export, as sent. */
+  generatedAt: string
+  /** Products in the export; `approved` of them approved (the rest unapproved). Both get stock. */
+  products: number
+  approved: number
+  added: number
+  enabled: number
+  disabled: number
+  /** Codes our material master does not know (skipped). */
+  unknown: number
+  error: string
+}
+
+/** `materialPull` on the status: the switch as this host read it, the latest pull and the latest applied one. */
+export interface HybrisStockMaterialPullStatus {
+  enabled: boolean
+  intervalMinutes: number
+  /** `null` before any pull was recorded. An unchanged export records nothing. */
+  lastPull: HybrisStockMaterialPullRow | null
+  lastApplied: HybrisStockMaterialPullRow | null
 }
 
 // ── Stores (847) ─────────────────────────────────────────────────────────────────────────────────
@@ -115,7 +149,10 @@ export interface HybrisStockStoreRow {
   /** `""` when the store master has no row for the code. */
   storeName: string
   closed: boolean
+  /** A SPECIAL store (BackOffice 4181): a full on marking, and in the nightly full cycle. */
   marked: boolean
+  /** Never pushed, special or not, while true (BackOffice 4181). */
+  disabled: boolean
   /** `null` while unmarked. */
   markedAt: string | null
   markedBy: string | null
@@ -142,7 +179,7 @@ export interface HybrisStockReasonBody {
 /** One row of `GET HybrisStockWeb/Stores/{storeCode}/History?take=`, newest first. */
 export interface HybrisStockStoreChange {
   changeId: string
-  /** `M` mark, `U` unmark. */
+  /** `M` mark, `U` unmark, `D` disable, `E` enable (4181). */
   action: 'M' | 'U' | string
   /** `oms-react`; `api` is reserved for the deferred Hybris API. */
   door: string
@@ -166,13 +203,20 @@ export interface HybrisStockMaterialRow {
   updatedBy: string | null
   /** Stamped on add-enabled and re-enable: the next delta sends it everywhere. `null` if never enabled. */
   lastEnabledAt: string | null
+  /** What the latest applied pull of Hybris's product approvals said (BackOffice 4180); `null` when the material
+   *  was not in that export, or never pulled. Display only: approved and unapproved both get stock. */
+  hybrisApproval?: 'approved' | 'unapproved' | null
 }
 
 export type HybrisStockEnabledFilter = 'any' | 'enabled' | 'disabled'
 
+/** `approval` on the materials list (BackOffice 4180) — `none` matches `hybrisApproval: null`. */
+export type HybrisStockApprovalFilter = 'any' | 'approved' | 'unapproved' | 'none'
+
 export interface HybrisStockMaterialsQuery {
   q: string | null
   enabled: HybrisStockEnabledFilter
+  approval: HybrisStockApprovalFilter
   page: number
 }
 

@@ -21,7 +21,56 @@ import { STORES_KEY, historyKey, storesApi } from './api'
  * inline under the reason (the area binding).
  */
 /** The refusals after which the row on screen is out of date: re-read, and do not let Confirm try again. */
-const STALE: string[] = [E.noSuchStore, E.storeClosed, E.alreadyMarked, E.notMarked]
+const STALE: string[] = [E.noSuchStore, E.storeClosed, E.alreadyMarked, E.notMarked, E.storeAlreadyDisabled, E.storeNotDisabled]
+
+/**
+ * Disable a store, or enable a disabled one, with a mandatory reason (BackOffice 4181). A disabled store is never
+ * pushed, special or not; nothing is sent to Hybris, which keeps what it was last sent. Same row patch and stale
+ * handling as Mark.
+ */
+export function DisableDialog({ row, onClose }: { row: HybrisStockStoreRow; onClose: () => void }) {
+  const { t } = useTranslation('hybris-stock-stores')
+  const qc = useQueryClient()
+  const verb = row.disabled ? 'enable' : 'disable'
+  const send = useMutation({
+    mutationFn: (reason: string) => (row.disabled ? storesApi.enable(row.storeCode, { reason }) : storesApi.disable(row.storeCode, { reason })),
+    onSuccess: (next) => {
+      qc.setQueriesData<HybrisStockStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceByKey(rows, next, 'storeCode'))
+      void qc.invalidateQueries({ queryKey: STORES_KEY, predicate: (q) => /flag=|health=/.test(String(q.queryKey[2] ?? '')) })
+      void qc.invalidateQueries({ queryKey: historyKey(row.storeCode) })
+      notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { store: fsi(row.storeCode) }))
+      onClose()
+    },
+    onError: (err) => {
+      if (STALE.includes(apiErrorCode(err) ?? '')) void qc.invalidateQueries({ queryKey: STORES_KEY })
+    },
+  })
+  const stale = STALE.includes(apiErrorCode(send.error) ?? '')
+
+  return (
+    <ReasonDialog
+      open
+      title={t(`${verb}.title`)}
+      note={
+        <Trans
+          t={t}
+          i18nKey={`${verb}.note`}
+          values={{ store: row.storeName ? formatPair(row.storeCode, row.storeName) : row.storeCode }}
+          components={{ store: <Ltr /> }}
+        />
+      }
+      busy={send.isPending}
+      error={send.error}
+      confirmLabel={t(`${verb}.confirm`)}
+      confirmDisabled={stale}
+      onEdit={() => send.reset()}
+      onConfirm={(reason) => send.mutate(reason)}
+      onClose={onClose}
+    >
+      <div data-disable-dialog={verb} />
+    </ReasonDialog>
+  )
+}
 
 export function MarkDialog({ row, onClose }: { row: HybrisStockStoreRow; onClose: () => void }) {
   const { t } = useTranslation('hybris-stock-stores')

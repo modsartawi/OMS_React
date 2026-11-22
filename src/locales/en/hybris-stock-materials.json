@@ -17,7 +17,9 @@
     "q": "Search",
     "qPlaceholder": "Material number or name",
     "search": "Search",
-    "clear": "Clear"
+    "clear": "Clear",
+    "approval": "Hybris approval",
+    "approvalAny": "Any approval"
   },
   "results": {
     "loading": "Loading materials…",
@@ -38,7 +40,8 @@
     "updatedAt": "Updated at",
     "updatedBy": "Updated by",
     "lastEnabledAt": "Last enabled",
-    "actions": "Actions"
+    "actions": "Actions",
+    "hybrisApproval": "Hybris approval"
   },
   "state": {
     "enabled": "Enabled",
@@ -125,5 +128,33 @@
     "previewAgain": "Preview again",
     "done": "Material list updated",
     "doneDetail": "{{added}} added, {{changed}} changed."
+  },
+  "approval": {
+    "approved": "Approved",
+    "unapproved": "Not approved",
+    "none": "Not in Hybris",
+    "tooltip": "What the latest pull of Hybris’s product approvals said. Approved and not approved materials both get stock."
+  },
+  "pull": {
+    "title": "Pull from Hybris",
+    "on": "On",
+    "off": "Off",
+    "interval": "every <n>{{n}}</n> min",
+    "applied": "Applied",
+    "failed": "Failed",
+    "none": "No pull recorded yet.",
+    "lastApplied": "The list was last applied at <at>{{at}}</at>:",
+    "neverApplied": "No pull has been applied yet: the list is as it was entered by hand.",
+    "generatedAt": "Export <at>{{at}}</at>",
+    "count": {
+      "products": "Products",
+      "approved": "Approved",
+      "unapproved": "Not approved",
+      "added": "Added",
+      "enabled": "Re-enabled",
+      "disabled": "Disabled",
+      "unknown": "Unknown to OMS"
+    },
+    "note": "Approved and not approved products both get stock; a product that leaves Hybris’s export is disabled. An unchanged export is not recorded again."
   }
 }

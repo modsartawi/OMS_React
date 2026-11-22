@@ -73,6 +73,10 @@ export default function HistoryDrawer({ storeCode, storeName, onClose }: { store
                       <StatusBadge sev="go">{t('history.marked')}</StatusBadge>
                     ) : r.action === 'U' ? (
                       <StatusBadge sev="mute">{t('history.unmarked')}</StatusBadge>
+                    ) : r.action === 'D' ? (
+                      <StatusBadge sev="bad">{t('history.disabled')}</StatusBadge>
+                    ) : r.action === 'E' ? (
+                      <StatusBadge sev="go">{t('history.enabled')}</StatusBadge>
                     ) : !r.action?.trim() ? (
                       <StatusBadge sev="mute">{t('history.unknownAction')}</StatusBadge>
                     ) : (

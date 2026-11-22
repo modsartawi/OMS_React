@@ -292,6 +292,28 @@
     "denied": "Your account no longer holds the stock console grant.",
     "failed": "The read failed."
   },
+  "gs1": {
+    "read": "Read from the code:",
+    "chip": {
+      "item": "Item",
+      "gtin": "GTIN",
+      "lot": "Lot",
+      "expiry": "Expiry",
+      "serial": "Serial"
+    },
+    "note": {
+      "itemNotFound": "The item of this code was not found; its lot is searched as a vendor batch.",
+      "itemNotFoundNoLot": "The item of this code was not found, and the code has no lot; nothing was searched.",
+      "unknownCode": "Not a code we know; nothing was searched."
+    },
+    "column": {
+      "mark": "Against the scan"
+    },
+    "mark": {
+      "matches": "matches the scan",
+      "differs": "scan says <d>{{expiry}}</d>"
+    }
+  },
   "age": {
     "justNow": "just now",
     "minutes": "{{m}} min",

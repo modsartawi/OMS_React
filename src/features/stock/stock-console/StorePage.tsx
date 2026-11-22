@@ -33,9 +33,10 @@ function Store() {
   const { t } = useTranslation('stock-console')
   const { store = '' } = useParams()
   const header = useQuery(storeHeaderQuery(store))
-  const noStore = header.isError && apiErrorCode(header.error) === 'NoStore'
+  // Stock Visibility refuses an unknown store `NoStore`; an answer with no row says the same.
+  const noStore = (header.isError && apiErrorCode(header.error) === 'NoStore') || (!header.isError && header.data?.store === null)
   // A failed read draws no kept header: an old one beside the error would pass for the store now.
-  const row = header.isError ? undefined : header.data
+  const row = header.isError ? undefined : (header.data?.store ?? undefined)
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-console-store={store}>

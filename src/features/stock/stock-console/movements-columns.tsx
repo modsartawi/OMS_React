@@ -34,7 +34,7 @@ export function buildLedgerColumns(t: TFunction): ColDef<StockConsoleLedgerLine>
   return [
     {
       headerName: t('movements.column.at'),
-      field: 'at',
+      field: 'time',
       width: 140,
       cellClass: MONO,
       valueFormatter: formatTime,

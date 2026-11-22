@@ -70,7 +70,7 @@ function Fleet() {
       {fleet && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {FLEET_FACTS.map((fact) => (
-            <FactCard key={fact} fact={fact} view={factView(fleet, fact)}>
+            <FactCard key={fact} fact={fact} view={factView(fleet, fact)} reason={fleet[fact].noAnswer}>
               <FactBody fact={fact} fleet={fleet} />
             </FactCard>
           ))}
@@ -84,7 +84,18 @@ function Fleet() {
 
 const VIEW_SEV = { noAnswer: 'bad', problem: 'warn' } as const
 
-function FactCard({ fact, view, children }: { fact: FleetFact; view: FactView; children: ReactNode }) {
+function FactCard({
+  fact,
+  view,
+  reason,
+  children,
+}: {
+  fact: FleetFact
+  view: FactView
+  /** Why its route gave no answer, in the server's words. */
+  reason: string | null
+  children: ReactNode
+}) {
   const { t } = useTranslation('stock-console')
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-4" data-fleet-fact={fact} data-fact-view={view}>
@@ -92,7 +103,18 @@ function FactCard({ fact, view, children }: { fact: FleetFact; view: FactView; c
         <h2 className="text-sm font-semibold">{t(`fleet.fact.${fact}`)}</h2>
         {view !== 'answered' && <StatusBadge sev={VIEW_SEV[view]}>{t(`fleet.view.${view}`)}</StatusBadge>}
       </div>
-      {view === 'noAnswer' ? <p className="text-sm text-muted-foreground">{t('fleet.noAnswer')}</p> : children}
+      {view === 'noAnswer' ? (
+        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+          <p>{t('fleet.noAnswer')}</p>
+          {reason && (
+            <p className="text-xs">
+              <bdi>{reason}</bdi>
+            </p>
+          )}
+        </div>
+      ) : (
+        children
+      )}
     </section>
   )
 }
@@ -112,9 +134,16 @@ function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
   )
 }
 
-function Age({ seconds }: { seconds: number | null | undefined }) {
+const RESERVED_STATES = ['Computed', 'Stale', 'NeverComputed']
+
+/** The recompute's state as the server judged it, in our words; another as it came. */
+const reservedStateWord = (state: string): { key: string } | { raw: string } =>
+  RESERVED_STATES.includes(state) ? { key: `fleet.reserved.states.${state}` } : { raw: state }
+
+/** An age the server measured in minutes ("3 min"); none when it measured none. */
+function Age({ minutes }: { minutes: number | null }) {
   const { t } = useTranslation('stock-console')
-  const age = ageView(seconds)
+  const age = minutes === null ? null : ageView(minutes * 60)
   if (!age) return null
   // Words around the numbers ("3 min", "٣ د"): the words carry the order, so it takes its own direction, not Ltr.
   return <bdi>{t(age.key, age.values)}</bdi>
@@ -126,25 +155,36 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
     case 'feeds':
       return (
         <dl className="flex flex-col gap-1">
-          {(fleet.feeds ?? []).map((f) => {
+          {fleet.feeds.rows.map((f) => {
             const name = feedLabel(f.feed)
             return (
               <Row key={f.feed} label={<WordOrRaw word={name} />}>
-                <span className="inline-flex flex-wrap items-center gap-2" data-feed={f.feed}>
+                <span className="inline-flex flex-wrap items-center gap-2" data-feed={f.feed} data-feed-late={f.late || undefined}>
+                  {f.late && <StatusBadge sev="warn">{t('fleet.late')}</StatusBadge>}
                   {f.lastCompletePassAt ? <When at={f.lastCompletePassAt} /> : t('fleet.neverPassed')}
                   <span className="text-xs text-muted-foreground">
-                    <Age seconds={f.ageSeconds} />
+                    <Age minutes={f.ageMinutes} />
                   </span>
+                  {f.limitMinutes !== null && (
+                    <span className="text-xs text-muted-foreground">
+                      <Trans t={t} i18nKey="fleet.limitMinutes" values={{ n: formatFigure(f.limitMinutes) }} components={{ n: <Ltr /> }} />
+                    </span>
+                  )}
                 </span>
               </Row>
             )
           })}
         </dl>
       )
-    case 'reservedRun': {
-      const run = fleet.reservedRun!
+    case 'reserved': {
+      const run = fleet.reserved
       return (
         <dl className="flex flex-col gap-1">
+          <Row label={t('fleet.reserved.state')}>
+            <span data-reserved-state={run.state}>
+              <WordOrRaw word={reservedStateWord(run.state)} />
+            </span>
+          </Row>
           <Row label={t('fleet.reserved.lastSuccess')}>
             {run.lastSuccessAt ? <When at={run.lastSuccessAt} /> : t('fleet.reserved.neverSucceeded')}
           </Row>
@@ -166,7 +206,7 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
       )
     }
     case 'heldServed': {
-      const sw = fleet.heldServed!
+      const sw = fleet.heldServed
       return (
         <dl className="flex flex-col gap-1">
           <Row label={t('fleet.held.served')}>{t(sw.served ? 'fleet.held.on' : 'fleet.held.off')}</Row>
@@ -185,15 +225,18 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
         </dl>
       )
     }
-    case 'ledgerReader': {
-      const reader = fleet.ledgerReader!
+    case 'reader': {
+      const reader = fleet.reader
       return (
         <dl className="flex flex-col gap-1">
           <Row label={t('fleet.reader.lastPass')}>
             <When at={reader.lastPassAt} />
           </Row>
           <Row label={t('fleet.reader.lag')}>
-            {reader.lagSeconds == null ? t('fleet.unknown') : <Age seconds={reader.lagSeconds} />}
+            {reader.lagMinutes === null ? t('fleet.unknown') : <Age minutes={reader.lagMinutes} />}
+          </Row>
+          <Row label={t('fleet.reader.limit')}>
+            <Trans t={t} i18nKey="fleet.limitMinutes" values={{ n: formatFigure(reader.limitMinutes) }} components={{ n: <Ltr /> }} />
           </Row>
           <Row label={t('fleet.reader.readThrough')}>
             <When at={reader.readThroughAt} />
@@ -201,13 +244,14 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
         </dl>
       )
     }
-    case 'takesToday': {
-      const today = fleet.takesToday!
+    case 'takes': {
+      const today = fleet.takes
       return (
         <dl className="flex flex-col gap-1">
           <Row label={t('fleet.takes.day')}>
             <span className="font-mono">
-              <Ltr>{today.day}</Ltr>
+              {/* The day alone: SIS.Api sends it with its offset (see the wire contract). */}
+              <Ltr>{today.day.slice(0, 10)}</Ltr>
             </span>
           </Row>
           <Row label={t('fleet.takes.takes')}>
@@ -216,8 +260,8 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
           <Row label={t('fleet.takes.failed')}>
             <Ltr>{formatFigure(today.failed)}</Ltr>
           </Row>
-          <Row label={t('fleet.takes.skipped')}>
-            {today.skipped == null ? t('fleet.unknown') : <Ltr>{formatFigure(today.skipped)}</Ltr>}
+          <Row label={t('fleet.takes.rejected')}>
+            <Ltr>{formatFigure(today.rejected)}</Ltr>
           </Row>
         </dl>
       )

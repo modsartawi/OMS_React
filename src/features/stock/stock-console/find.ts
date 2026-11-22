@@ -6,12 +6,7 @@
  *
  * The opened item and its page are in the address (`stores`, `storesPage`) beside the search, so a link reopens both.
  */
-import type {
-  StockConsoleFind,
-  StockConsoleFindBatchRow,
-  StockConsoleFindItemRow,
-  StockConsolePage,
-} from '@/core/models/stock-console'
+import type { FindKind, StockConsoleFind, StockConsoleFindBatchRow } from '@/core/models/stock-console'
 import { itemHref } from './console-pages'
 import { STOCK_CONSOLE_PAGE_SIZE, searchToParams, shouldRead, type ListSpec, type SearchState } from './search'
 
@@ -44,32 +39,16 @@ export const findWire = (state: SearchState): FindWire => ({
   size: STOCK_CONSOLE_PAGE_SIZE,
 })
 
-type FindReply = Partial<StockConsolePage<unknown>> & { kind?: string; stores?: number }
-
-/**
- * Find's answer as drawn, picked by what was sent — the server's `kind` [guess] is not trusted over it. A batch answer
- * without its store count has none (null): the stores on one page would undercount a longer match. Absent rows read as none.
- */
-export function findAnswer(
-  sent: 'batch' | 'item',
-  d: FindReply | null | undefined,
-  asked: { page: number; size: number },
-): StockConsoleFind {
-  const page = { total: d?.total ?? 0, page: d?.page ?? asked.page, size: d?.size ?? asked.size }
-  if (sent === 'item') return { kind: 'Item', ...page, rows: (d?.rows ?? []) as StockConsoleFindItemRow[] }
-  const rows = (d?.rows ?? []) as StockConsoleFindBatchRow[]
-  return { kind: 'Batch', ...page, stores: typeof d?.stores === 'number' ? d.stores : null, rows }
-}
+/** The answer's kind for what Find asked (`StockConsoleFindKinds`): a batch sent answers batches; an item alone, items. */
+const KIND_ASKED: Partial<Record<FindDecision, FindKind>> = { batch: 'batches', item: 'items' }
 
 /**
  * The answer to draw for what is asked now. The last page is kept on screen while the next reads; an answer of the
  * other kind (the last search had a batch, this one has none) would be drawn under the wrong columns, so it is not.
  */
 export function answerShown(decision: FindDecision, data: StockConsoleFind | undefined): StockConsoleFind | undefined {
-  if (!data) return undefined
-  if (decision === 'batch') return data.kind === 'Batch' ? data : undefined
-  if (decision === 'item') return data.kind === 'Item' ? data : undefined
-  return undefined
+  const kind = KIND_ASKED[decision]
+  return data && kind && data.kind === kind ? data : undefined
 }
 
 /** A batch row opens its item at its store. */

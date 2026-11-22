@@ -1,6 +1,6 @@
 /**
  * The console's refusals (oms 941, BackOffice spec 4157 story 83) — pure: which sentence a failed read says. One table
- * for every page of the console, so a code the server renames is a one-line change here (wire.md "Refusal codes").
+ * for every page of the console, so a code the server renames is a one-line change here (`.issues/STOCK-CONSOLE-WIRE-CONTRACT.md`, "Refusals").
  *
  * A refusal is an answer, not a crash: busy, timed out, a name too wide, a batch prefix too short each say what to do.
  * Stock Visibility not reached — named by SIS.Api, or an outage with no code at all — is one sentence that says it is
@@ -21,9 +21,10 @@ const OWN_SENTENCE = {
   SapUnreachable: 'SapUnreachable',
   NoStore: 'NoStore',
   NoRow: 'NoRow',
-  // [guess] SIS.Api's names for Stock Visibility not reachable / over its time limit — one sentence for both.
-  StockVisibilityUnreachable: 'unreachable',
-  StockVisibilityTimeout: 'unreachable',
+  // Find with a batch and a name that matches more than one item: a batch is found within one item.
+  PickOneItem: 'PickOneItem',
+  // SIS.Api's one name for Stock Visibility not reached, or not answering within the client's limit.
+  StockVisibilityNoAnswer: 'unreachable',
 } as const satisfies Record<string, string>
 
 export const REFUSAL_CODES = Object.keys(OWN_SENTENCE) as readonly (keyof typeof OWN_SENTENCE)[]

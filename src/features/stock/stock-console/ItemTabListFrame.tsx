@@ -1,19 +1,21 @@
 import type { ReactNode } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { Trans, useTranslation } from 'react-i18next'
-import type { StockConsolePage } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import { formatFigure } from '@/core/util/number-format'
 import ListGrid from './ListGrid'
 import Loading from './Loading'
 import RefusalBanner from './RefusalBanner'
 
-/** An item tab's read as the list draws it (a TanStack Query result fits). */
+/**
+ * An item tab's read as the list draws it (a TanStack Query result fits): its rows and the whole match's count — a page
+ * (Batches, Takes) or the item's holds (open plus released, `total` = both counts).
+ */
 export interface ItemTabRead<T> {
   isPending: boolean
   isError: boolean
   error: unknown
-  data: StockConsolePage<T> | undefined
+  data: { rows: T[]; total: number } | undefined
 }
 
 /**

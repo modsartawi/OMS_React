@@ -21,10 +21,11 @@ describe('the pill’s flag lines', () => {
     ])
   })
 
-  it('a flag whose limit is "any" says so', () => {
-    expect(flagLines([flag('ComparisonDiffers', 'Problem', 3, null)])).toEqual([
+  it('a flag raised over a limit of 0 — any at all — says "any", not "limit 0"', () => {
+    expect(flagLines([flag('ComparisonDiffers', 'Problem', 3, 0)])).toEqual([
       { code: 'ComparisonDiffers', sev: 'bad', key: 'flag.ComparisonDiffers', value: 3, limit: { key: 'flag.limitAny' } },
     ])
+    expect(flagLines([flag('BelowZero', 'Watch', 41, 0)])[0].limit).toEqual({ key: 'flag.limitAny' })
   })
 
   it('Problem flags come first, the rest in the order the server sent them', () => {
@@ -37,12 +38,13 @@ describe('the pill’s flag lines', () => {
   })
 
   it('a flag with no measured value is named without a figure', () => {
-    expect(flagLines([flag('PlaceholderStock', 'Watch', null, null)])[0]).toEqual({
-      code: 'PlaceholderStock',
+    // SAP quiet with no SAP document ever applied: nothing to measure from.
+    expect(flagLines([flag('SapQuiet', 'Watch', null, 24)])[0]).toEqual({
+      code: 'SapQuiet',
       sev: 'warn',
-      key: 'flagName.PlaceholderStock',
+      key: 'flagName.SapQuiet',
       value: null,
-      limit: { key: 'flag.limitAny' },
+      limit: { key: 'flag.limit', value: 24 },
     })
   })
 

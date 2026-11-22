@@ -79,7 +79,7 @@ function Find() {
           }
           empty={t(decision === 'batch' ? 'find.empty.batch' : 'find.empty.item')}
           count={
-            shown?.kind === 'Batch' ? (
+            shown?.kind === 'batches' ? (
               <span className="inline-flex gap-1" data-find-stores={shown.stores ?? ''}>
                 <Trans t={t} i18nKey="find.rows" count={shown.total} values={{ n: formatFigure(shown.total) }} components={{ n: <Ltr /> }} />
                 {/* The store count only as the server sends it: the page's own stores would undercount a longer match. */}
@@ -96,10 +96,18 @@ function Find() {
             ) : undefined
           }
         >
-          {shown?.kind === 'Batch' ? (
-            <ListGrid rows={shown.rows} columns={batchColumns} rowId={findBatchRowId} name="find-batches" />
-          ) : shown?.kind === 'Item' ? (
-            <ListGrid rows={shown.rows} columns={itemColumns} rowId={findItemRowId} name="find-items" />
+          {shown?.kind === 'batches' ? (
+            <ListGrid rows={shown.batches} columns={batchColumns} rowId={findBatchRowId} name="find-batches" />
+          ) : shown?.kind === 'items' ? (
+            <div className="flex min-w-0 flex-col gap-2">
+              {/* The name matched more items than HQ's item master lists (200): say so, never pass the list as whole. */}
+              {shown.more && (
+                <p className="text-xs text-muted-foreground" data-find-more="">
+                  {t('find.more')}
+                </p>
+              )}
+              <ListGrid rows={shown.items} columns={itemColumns} rowId={findItemRowId} name="find-items" />
+            </div>
           ) : null}
         </SearchFrame>
       </div>

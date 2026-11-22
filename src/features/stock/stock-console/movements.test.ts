@@ -16,7 +16,6 @@ import {
   openLines,
   pressRead,
   sapPlaceShown,
-  toLedgerLine,
   windowRead,
   type MovementsState,
 } from './movements'
@@ -137,26 +136,26 @@ describe('what the tab draws', () => {
   })
 })
 
+/** A ledger line as SIS.Api passes SIS.Stock 079's through (BO 4163, `StockConsoleMovementLine`): a SAP line. */
 const ledgerLine = (over: Partial<StockConsoleLedgerLine> = {}): StockConsoleLedgerLine => ({
   id: '01JD0000000000000000000000',
-  at: '2026-11-22T10:15:00',
+  time: '2026-11-22T10:15:00',
   feed: 'Sap',
   movementType: '251',
   quantity: -3,
   batch: 'B1',
   storageLocation: '0001',
-  materialDocument: '4900012345',
-  materialYear: 2026,
-  materialLine: 2,
-  tillStore: null,
-  tillTrx: null,
-  tillLine: null,
-  postingDay: '2026-11-22',
+  sapDocument: { materialDocument: '4900012345', year: '2026', item: '2' },
+  tillDocument: null,
+  postingDay: '2026-11-22T00:00:00',
   applied: true,
   onSap: 0,
   onTill: 0,
+  complementaryOnSap: 0,
+  complementaryOnTill: 0,
   ...over,
 })
+const tillDocument = { store: 'P077', transaction: '000123', line: '1' }
 
 describe('a ledger line’s effect on each counter', () => {
   it('a SAP sale moves the SAP counter only', () => {
@@ -171,12 +170,8 @@ describe('a ledger line’s effect on each counter', () => {
       feed: 'Pos',
       movementType: 'SALE',
       quantity: -1,
-      materialDocument: null,
-      materialYear: null,
-      materialLine: null,
-      tillStore: 'P077',
-      tillTrx: '000123',
-      tillLine: 1,
+      sapDocument: null,
+      tillDocument,
       onSap: 0,
       onTill: -1,
     })
@@ -195,55 +190,8 @@ describe('a ledger line’s effect on each counter', () => {
     expect(feedCell('Pos')).toEqual({ key: 'movements.feed.Pos' })
     expect(feedCell('Hybris')).toEqual({ raw: 'Hybris' })
     expect(ledgerDocument(ledgerLine())).toBe('4900012345 · 2026 · 2')
-    expect(ledgerDocument(ledgerLine({ materialDocument: null, tillStore: 'P077', tillTrx: '000123', tillLine: 1 }))).toBe(
-      'P077 · 000123 · 1',
-    )
-    expect(ledgerDocument(ledgerLine({ materialDocument: null }))).toBe('')
-  })
-})
-
-describe('a ledger line as read', () => {
-  it('the contract’s names are kept as sent', () => {
-    expect(toLedgerLine(ledgerLine())).toEqual(ledgerLine())
-  })
-
-  it('whether it was applied, when the answer does not say, is not known (null) — not "not applied"', () => {
-    expect(toLedgerLine({ id: 'Z', feed: 'Sap' }).applied).toBeNull()
-    expect(toLedgerLine({ id: 'Z', feed: 'Sap', applied: false }).applied).toBe(false)
-  })
-
-  it('Stock Visibility’s built names read the same: time, a nested SAP or till document', () => {
-    const sap = toLedgerLine({
-      id: 'X',
-      time: '2026-11-22T10:15:00',
-      feed: 'Sap',
-      movementType: '101',
-      quantity: 5,
-      batch: null,
-      storageLocation: '0001',
-      sapDocument: { materialDocument: '4900012345', year: 2026, item: 3 },
-      tillDocument: null,
-      postingDay: '2026-11-22',
-      applied: false,
-      onSap: 5,
-      onTill: 5,
-    })
-    expect([sap.at, sap.materialDocument, sap.materialYear, sap.materialLine, sap.tillStore]).toEqual([
-      '2026-11-22T10:15:00',
-      '4900012345',
-      2026,
-      3,
-      null,
-    ])
-    const till = toLedgerLine({ id: 'Y', feed: 'Pos', tillDocument: { store: 'P077', transaction: '000123', line: 1 } })
-    expect([till.tillStore, till.tillTrx, till.tillLine, till.materialDocument, till.onSap, till.onTill]).toEqual([
-      'P077',
-      '000123',
-      1,
-      null,
-      0,
-      0,
-    ])
+    expect(ledgerDocument(ledgerLine({ sapDocument: null, tillDocument }))).toBe('P077 · 000123 · 1')
+    expect(ledgerDocument(ledgerLine({ sapDocument: null }))).toBe('')
   })
 })
 
@@ -268,7 +216,8 @@ describe('the window lives in the address', () => {
 
   it('a SAP row opens its lines at page 1, and pages them as sapPage; the ledger pages as page', () => {
     const read = state({ ran: true, from: '2026-11-21', to: '2026-11-22' })
-    const opened = openLines({ ...read, page: 4 }, { day: '2026-11-21', movementType: '101' })
+    // SIS.Api sends the SAP entry day as a midnight DateTime; the address carries the day alone.
+    const opened = openLines({ ...read, page: 4 }, { day: '2026-11-21T00:00:00', movementType: '101' })
     expect(opened.page).toBe(1)
     expect(SAP_URL.toParams({ ...opened, page: 2 }).toString()).toBe(
       'tab=sap&from=2026-11-21&to=2026-11-22&ran=1&sapDay=2026-11-21&sapType=101&sapPage=2',

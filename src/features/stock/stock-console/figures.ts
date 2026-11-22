@@ -50,7 +50,8 @@ export function flagLines(flags: readonly StockConsoleFlag[]): FlagLine[] {
       sev: f.level === 'Problem' ? 'bad' : 'warn',
       key: !known ? 'flag.unknown' : value === null ? `flagName.${f.code}` : `flag.${f.code}`,
       value,
-      limit: typeof f.limit === 'number' ? { key: 'flag.limit', value: f.limit } : { key: 'flag.limitAny' },
+      // Raised strictly over its limit: over 0 is "any".
+      limit: f.limit === 0 ? { key: 'flag.limitAny' } : { key: 'flag.limit', value: f.limit },
     }
   })
   return [...lines.filter((l) => l.sev === 'bad'), ...lines.filter((l) => l.sev !== 'bad')]

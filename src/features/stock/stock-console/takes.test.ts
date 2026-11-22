@@ -6,7 +6,34 @@ import { failedNotSearchable, takeCells, takesDay } from './takes'
 const TAKES: ListSpec = { filters: TAKE_OUTCOMES, extras: ['day'], keep: ['tab'] }
 const state = (qs: string) => searchFromParams(new URLSearchParams(qs), TAKES)
 
-const granted: StockConsoleTakeRow = {
+/** SIS.Api's take row is one flat shape (BO 4160, `StockConsoleTakeRow`): a kind fills its fields, the rest are null. */
+const take = (over: Partial<StockConsoleTakeRow>): StockConsoleTakeRow => ({
+  kind: '',
+  at: '2026-11-22T09:00:00',
+  takeId: null,
+  item: null,
+  nameEn: '',
+  nameAr: '',
+  code: null,
+  stage: null,
+  available: null,
+  quantity: null,
+  scannedVendorBatch: null,
+  scannedExpiry: null,
+  enteredBatch: null,
+  batches: null,
+  batch: null,
+  batchWithStock: null,
+  reason: null,
+  asked: null,
+  shadow: null,
+  durationMs: null,
+  statusCode: null,
+  instance: null,
+  ...over,
+})
+
+const granted = take({
   kind: 'granted',
   takeId: 'T1',
   at: '2026-11-22T09:14:03',
@@ -14,42 +41,38 @@ const granted: StockConsoleTakeRow = {
   nameEn: 'Panadol',
   nameAr: 'بانادول',
   quantity: 3,
-  code: null,
   available: 40,
   stage: 'Blocking',
-  scannedVendorBatch: null,
-  scannedExpiry: null,
-  enteredBatch: null,
   batches: [
-    { batch: 'B1', quantity: 2 },
-    { batch: 'B2', quantity: 1 },
+    { batch: 'B1', quantity: 2, state: 'Held' },
+    { batch: 'B2', quantity: 1, state: 'Sold' },
   ],
-}
+})
 
-const refused: StockConsoleTakeRow = {
+const refused = take({
   kind: 'refused',
   takeId: 'T2',
   at: '2026-11-22T09:20:00',
   item: '1002',
   nameEn: 'Brufen',
   nameAr: 'بروفين',
-  namedBatch: 'L77',
+  batch: 'L70',
+  batchWithStock: 'L77',
   asked: 5,
   available: 1,
   code: 'NotEnough',
   reason: 'Only 1 free on batch L77',
-  isShadow: false,
+  shadow: false,
   stage: 'Blocking',
-}
+})
 
-const failed: StockConsoleTakeRow = {
+const failed = take({
   kind: 'failed',
-  takeId: 'T3',
   at: '2026-11-22T09:30:00',
   durationMs: 8012,
   statusCode: 504,
   instance: 'sv-2',
-}
+})
 
 describe('a take row’s cells, per kind', () => {
   it('a granted take shows its item, quantity and each batch it took with its quantity', () => {
@@ -80,6 +103,11 @@ describe('a take row’s cells, per kind', () => {
     expect(takeCells({ ...refused, reason: null }).reason).toBe('NotEnough')
   })
 
+  it('a refusal that named no batch, and a granted take Stock Visibility sent without its holds, list no batch', () => {
+    expect(takeCells({ ...refused, batchWithStock: null }).batches).toEqual([])
+    expect(takeCells({ ...granted, batches: null }).batches).toEqual([])
+  })
+
   it('a failed call has no item, no quantity and no batch — only its status and how long it took', () => {
     expect(takeCells(failed)).toEqual({
       kind: { key: 'takes.kind.failed', sev: 'bad' },
@@ -93,7 +121,7 @@ describe('a take row’s cells, per kind', () => {
   })
 
   it('a kind the console does not know is drawn as it came, with nothing else guessed', () => {
-    const odd = { kind: 'skipped', takeId: 'T4', at: '2026-11-22T09:40:00' } as unknown as StockConsoleTakeRow
+    const odd = take({ kind: 'skipped', takeId: 'T4', at: '2026-11-22T09:40:00', item: '1003', quantity: 2 })
     expect(takeCells(odd)).toEqual({
       kind: { raw: 'skipped', sev: 'mute' },
       item: null,

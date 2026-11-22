@@ -68,7 +68,6 @@ function Time({ label, at }: { label: string; at: string | null }) {
 function Comparison({ view }: { view: ReturnType<typeof comparisonView> }) {
   const { t } = useTranslation('stock-console')
   if (view.kind === 'notCounted') return <span className="text-muted-foreground">{t('feeds.comparison.notCounted')}</span>
-  if (view.kind === 'notYet') return <span className="text-muted-foreground">{t('feeds.comparison.notYet')}</span>
   const ran = view.at ? (
     <span className="text-xs text-muted-foreground">
       <Trans t={t} i18nKey="feeds.comparison.ranAt" values={{ at: formatDateTime(view.at) }} components={{ at: <Ltr /> }} />

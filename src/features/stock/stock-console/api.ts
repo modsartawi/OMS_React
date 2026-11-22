@@ -1,10 +1,10 @@
 /**
- * The stock console's server calls (oms 940–945, BackOffice spec 4157): SIS.Api's `StockConsole/*` reads, cookie-only,
- * behind `BackOfficeScreen[StockConsole, 03]`. The gate lives in `./access`.
+ * The stock console's server calls (oms 940–945, BackOffice spec 4157): SIS.Api's `StockConsole/*` reads
+ * (`StockConsoleWebEndpoints`), cookie-only, behind `BackOfficeScreen[StockConsole, 03]`. The gate lives in `./access`.
  *
- * Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its. Each answer is normalised
- * here — an absent list reads as none, an absent figure as no answer — so a shape the server has not settled yet is
- * reconciled in one place. Every query key starts with `STOCK_CONSOLE_KEY`.
+ * Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its. Each answer is SIS.Api's own
+ * shape (`@/core/models/stock-console`, reconciled against the built server), returned as sent. Every query key starts
+ * with `STOCK_CONSOLE_KEY`.
  *
  * `stockConsoleApi` is grouped by resource: stores, a store's tabs, an item, the fleet, Find, the GS1 scan, movements.
  * The query options follow in the same order.
@@ -15,35 +15,31 @@ import type {
   StockConsoleBatchRow,
   StockConsoleFind,
   StockConsoleFleet,
-  StockConsoleGates,
   StockConsoleHoldRow,
   StockConsoleItem,
+  StockConsoleItemHolds,
   StockConsoleItemRow,
-  StockConsoleItemStoreRow,
-  StockConsoleLedgerLine,
+  StockConsoleItemStores,
+  StockConsoleLedger,
   StockConsolePage,
-  StockConsoleSapLine,
+  StockConsoleSapLines,
   StockConsoleSapMovements,
   StockConsoleScan,
+  StockConsoleStoreAnswer,
   StockConsoleStoreFeeds,
-  StockConsoleStoreRow,
   StockConsoleStores,
   StockConsoleStoreStage,
-  StockConsoleTakeRow,
   StockConsoleTakes,
 } from '@/core/models/stock-console'
 import type { LocalDate } from '@/core/util/date-window'
-import { findAnswer, findDecision, findWire, type FindWire } from './find'
-import { toItem, type ItemWire } from './item-sum'
+import { findDecision, findWire, type FindWire } from './find'
 import type { ItemTab } from './item-tabs'
-import { toLedgerLine, type DayWindow, type LedgerLineWire, type MovementsState, type WindowRead } from './movements'
+import type { DayWindow, MovementsState, WindowRead } from './movements'
 import { STOCK_CONSOLE_PAGE_SIZE, shouldRead, wireParams, type SearchState, type WireSearch } from './search'
 import type { StoreTab } from './store-tabs'
 import { takesDay } from './takes'
 
 export const STOCK_CONSOLE_KEY = ['stock', 'stock-console'] as const
-
-// ── Normalisers ─────────────────────────────────────────────────────────────────────────────────────
 
 /** The page a read asks for (1-based). A type, not an interface: it goes to `api.get` as query params as it is. */
 export type PageAsk = {
@@ -51,225 +47,108 @@ export type PageAsk = {
   size: number
 }
 
-/**
- * A page as it may arrive: the contract's `{ total, page, size, rows }`, its rows as `lines` (SV 079 as built), or a bare
- * array (an item tab [guess]) read as one page of it.
- */
-type PageWire<W> = (Partial<StockConsolePage<W>> & { lines?: W[] }) | W[] | null | undefined
-
-/**
- * Stock Visibility's page as drawn: absent rows read as none, an absent total as the rows it carries (never 0 over rows:
- * the frame would say "nothing found" above them), an absent page as the one asked. `row` reads each row.
- */
-export function toPage<T>(d: PageWire<T>, asked: PageAsk): StockConsolePage<T>
-export function toPage<W, T>(d: PageWire<W>, asked: PageAsk, row: (w: W) => T): StockConsolePage<T>
-export function toPage<W, T>(d: PageWire<W>, asked: PageAsk, row?: (w: W) => T): StockConsolePage<T> {
-  const read = row ?? ((w: W) => w as unknown as T)
-  if (Array.isArray(d)) return { total: d.length, page: 1, size: d.length, rows: d.map(read) }
-  const rows = (d?.rows ?? d?.lines ?? []).map(read)
-  return { total: d?.total ?? rows.length, page: d?.page ?? asked.page, size: d?.size ?? asked.size, rows }
-}
-
-/** A row as drawn: an absent flag list reads as none. */
-const storeRow = (r: StockConsoleStoreRow): StockConsoleStoreRow => ({ ...r, flags: r.flags ?? [] })
-
 /** The frame's wire params with its `filter` sent under the list's own name (Holds `state`, Takes `outcome`). */
 const renameFilter = (q: WireSearch, as: 'state' | 'outcome') => {
   const { filter, ...rest } = q
   return { ...rest, [as]: filter }
 }
 
-const normaliseTake = (r: StockConsoleTakeRow): StockConsoleTakeRow =>
-  r.kind === 'granted' ? { ...r, batches: r.batches ?? [] } : r
-
-const normaliseGates = (g: Partial<StockConsoleGates> | null | undefined): StockConsoleGates | null =>
-  g
-    ? {
-        from: g.from ?? '',
-        to: g.to ?? '',
-        hold: g.hold ?? false,
-        measured: g.measured ?? [],
-        confirmed: g.confirmed ?? [],
-        notConfirmed: g.notConfirmed ?? [],
-      }
-    : null
-
-/** A SAP line as drawn: absent names read as '', absent optional fields as null. */
-const toSapLine = (r: Partial<StockConsoleSapLine>): StockConsoleSapLine => ({
-  materialDocument: r.materialDocument ?? '',
-  year: r.year ?? '',
-  line: r.line ?? '',
-  item: r.item ?? '',
-  nameEn: r.nameEn ?? '',
-  nameAr: r.nameAr ?? '',
-  batch: r.batch ?? null,
-  quantity: r.quantity ?? 0,
-  unit: r.unit ?? null,
-  postingDay: r.postingDay ?? null,
-  entryTime: r.entryTime ?? null,
-  mark: r.mark ?? '',
-})
-
-// ── The calls ───────────────────────────────────────────────────────────────────────────────────────
-
 const storePath = (store: string) => `StockConsole/Stores/${encodeURIComponent(store)}`
 const itemPath = (store: string, item: string) => `${storePath(store)}/Items/${encodeURIComponent(item)}`
 
-/** Rows an item tab asks for at once (Stock Visibility's clamp) [guess]: an item's batches, holds and takes are few. */
+/** Rows an item tab asks for at once (Stock Visibility's clamp): an item's batches and takes are few. */
 export const ITEM_TAB_SIZE = 200
 const ITEM_TAB_PAGE: PageAsk = { page: 1, size: ITEM_TAB_SIZE }
 
 export const stockConsoleApi = {
   // ── Stores (940, 941) ──
-  /** `GET StockConsole/Stores` → every store's row (SIS.Api's copy, at most 60 s old), whole. */
-  async stores(): Promise<StockConsoleStores> {
-    const d = await api.get<Partial<StockConsoleStores> | null>('StockConsole/Stores')
-    return { readAt: d?.readAt ?? '', stores: (d?.stores ?? []).map(storeRow), fleet: d?.fleet ?? [] }
+  /** `GET StockConsole/Stores` → every store's row (SIS.Api's copy, at most 60 s old), whole, and the fleet line. */
+  stores(): Promise<StockConsoleStores> {
+    return api.get<StockConsoleStores>('StockConsole/Stores')
   },
-  /** `GET StockConsole/Stores/{store}` → the store's row, read fresh (never the 60 s copy). `NoStore` when unknown. */
-  async store(store: string): Promise<StockConsoleStoreRow> {
-    return storeRow(await api.get<StockConsoleStoreRow>(storePath(store)))
+  /** `GET StockConsole/Stores/{store}` → the store's row under `store`, read fresh (never the 60 s copy). `NoStore`. */
+  store(store: string): Promise<StockConsoleStoreAnswer> {
+    return api.get<StockConsoleStoreAnswer>(storePath(store))
   },
 
   // ── A store's tabs (941, 942) ──
   /** `…/Items` → a page of the store's items. The item box goes raw (SIS.Api decides number or name). */
-  async items(store: string, q: WireSearch): Promise<StockConsolePage<StockConsoleItemRow>> {
-    return toPage(await api.get<PageWire<StockConsoleItemRow>>(`${storePath(store)}/Items`, q), q)
+  items(store: string, q: WireSearch): Promise<StockConsolePage<StockConsoleItemRow>> {
+    return api.get<StockConsolePage<StockConsoleItemRow>>(`${storePath(store)}/Items`, q)
   },
   /** `…/Batches` → a page of the store's batches, sorted item then expiry (server). */
-  async batches(store: string, q: WireSearch): Promise<StockConsolePage<StockConsoleBatchRow>> {
-    return toPage(await api.get<PageWire<StockConsoleBatchRow>>(`${storePath(store)}/Batches`, q), q)
+  batches(store: string, q: WireSearch): Promise<StockConsolePage<StockConsoleBatchRow>> {
+    return api.get<StockConsolePage<StockConsoleBatchRow>>(`${storePath(store)}/Batches`, q)
   },
   /** `…/Holds` → a page of the store's holds, oldest first (released: newest first). */
-  async holds(store: string, q: WireSearch): Promise<StockConsolePage<StockConsoleHoldRow>> {
-    return toPage(await api.get<PageWire<StockConsoleHoldRow>>(`${storePath(store)}/Holds`, renameFilter(q, 'state')), q)
+  holds(store: string, q: WireSearch): Promise<StockConsolePage<StockConsoleHoldRow>> {
+    return api.get<StockConsolePage<StockConsoleHoldRow>>(`${storePath(store)}/Holds`, renameFilter(q, 'state'))
   },
-  /** `…/Takes` → a page of the take door's calls for one day. */
-  async takes(store: string, q: WireSearch): Promise<StockConsoleTakes> {
-    const d = await api.get<Partial<StockConsoleTakes> | null>(`${storePath(store)}/Takes`, renameFilter(q, 'outcome'))
-    return { ...toPage(d, q, normaliseTake), failedLeftOut: d?.failedLeftOut ?? false }
+  /** `…/Takes` → a page of the take door's calls for one day (today when none is sent). */
+  takes(store: string, q: WireSearch): Promise<StockConsoleTakes> {
+    return api.get<StockConsoleTakes>(`${storePath(store)}/Takes`, renameFilter(q, 'outcome'))
   },
   /** `…/Feeds` → the store's SAP and till places and its nightly comparison. */
-  async feeds(store: string): Promise<StockConsoleStoreFeeds> {
-    const d = await api.get<Partial<StockConsoleStoreFeeds> | null>(`${storePath(store)}/Feeds`)
-    return {
-      plant: d?.plant ?? store,
-      sapPlace: d?.sapPlace ?? null,
-      sapLastAttempt: d?.sapLastAttempt ?? null,
-      tillPlace: d?.tillPlace ?? null,
-      tillLastAttempt: d?.tillLastAttempt ?? null,
-      stage: d?.stage ?? '',
-      driftBatches: d?.driftBatches ?? null,
-      driftRanAt: d?.driftRanAt ?? null,
-    }
+  feeds(store: string): Promise<StockConsoleStoreFeeds> {
+    return api.get<StockConsoleStoreFeeds>(`${storePath(store)}/Feeds`)
   },
   /** `…/Stage` → the stage, its log, the last seed run and the gates toward Blocking. */
-  async stage(store: string): Promise<StockConsoleStoreStage> {
-    const d = await api.get<Partial<StockConsoleStoreStage> | null>(`${storePath(store)}/Stage`)
-    return {
-      store: d?.store ?? store,
-      stage: d?.stage ?? '',
-      updatedAt: d?.updatedAt ?? null,
-      moves: d?.moves ?? [],
-      lastSeed: d?.lastSeed ?? null,
-      gates: normaliseGates(d?.gates),
-    }
+  stage(store: string): Promise<StockConsoleStoreStage> {
+    return api.get<StockConsoleStoreStage>(`${storePath(store)}/Stage`)
   },
 
   // ── An item (943) ──
-  /** `…/Items/{item}` → the item's figures and its four sums, each its operands and result (`toItem`). `NoRow` when absent. */
-  async item(store: string, item: string): Promise<StockConsoleItem> {
-    return toItem(await api.get<ItemWire | null>(itemPath(store, item)), store, item)
+  /** `…/Items/{item}` → the item's figures and its four sums, each its operands and result. `NoRow` when absent. */
+  item(store: string, item: string): Promise<StockConsoleItem> {
+    return api.get<StockConsoleItem>(itemPath(store, item))
   },
   /** `…/Items/{item}/Batches` → the store's Batches read for that item. */
-  async itemBatches(store: string, item: string): Promise<StockConsolePage<StockConsoleBatchRow>> {
-    return toPage(await api.get<PageWire<StockConsoleBatchRow>>(`${itemPath(store, item)}/Batches`, ITEM_TAB_PAGE), ITEM_TAB_PAGE)
+  itemBatches(store: string, item: string): Promise<StockConsolePage<StockConsoleBatchRow>> {
+    return api.get<StockConsolePage<StockConsoleBatchRow>>(`${itemPath(store, item)}/Batches`, ITEM_TAB_PAGE)
   },
-  /** `…/Items/{item}/Holds` → its open holds and those released in the last 7 days, one list. */
-  async itemHolds(store: string, item: string): Promise<StockConsolePage<StockConsoleHoldRow>> {
-    return toPage(await api.get<PageWire<StockConsoleHoldRow>>(`${itemPath(store, item)}/Holds`, ITEM_TAB_PAGE), ITEM_TAB_PAGE)
+  /** `…/Items/{item}/Holds` → its open holds and those released in the last 7 days, one list (not paged). */
+  itemHolds(store: string, item: string): Promise<StockConsoleItemHolds> {
+    return api.get<StockConsoleItemHolds>(`${itemPath(store, item)}/Holds`)
   },
   /** `…/Items/{item}/Takes` → its takes of today and the two days before; failed calls carry no item, so none. */
-  async itemTakes(store: string, item: string): Promise<StockConsoleTakes> {
-    const d = await api.get<(Partial<StockConsoleTakes> & { lines?: StockConsoleTakeRow[] }) | StockConsoleTakeRow[] | null>(
-      `${itemPath(store, item)}/Takes`,
-      ITEM_TAB_PAGE,
-    )
-    const leftOut = Array.isArray(d) ? true : (d?.failedLeftOut ?? true)
-    return { ...toPage(d, ITEM_TAB_PAGE, normaliseTake), failedLeftOut: leftOut }
+  itemTakes(store: string, item: string): Promise<StockConsoleTakes> {
+    return api.get<StockConsoleTakes>(`${itemPath(store, item)}/Takes`, ITEM_TAB_PAGE)
   },
-  /** `GET StockConsole/Items/{item}/Stores` → a page of the item at every store. */
-  async itemStores(item: string, q: PageAsk): Promise<StockConsolePage<StockConsoleItemStoreRow>> {
-    return toPage(await api.get<PageWire<StockConsoleItemStoreRow>>(`StockConsole/Items/${encodeURIComponent(item)}/Stores`, q), q)
+  /** `GET StockConsole/Items/{item}/Stores` → the item, its names, and a page of it at every store. */
+  itemStores(item: string, q: PageAsk): Promise<StockConsoleItemStores> {
+    return api.get<StockConsoleItemStores>(`StockConsole/Items/${encodeURIComponent(item)}/Stores`, q)
   },
 
   // ── The fleet (942) ──
-  /** `GET StockConsole/Fleet` → the facts that belong to no store. An absent fact is no answer (null), never healthy. */
-  async fleet(): Promise<StockConsoleFleet> {
-    const d = await api.get<Partial<StockConsoleFleet> | null>('StockConsole/Fleet')
-    const reader = d?.ledgerReader
-    return {
-      readAt: d?.readAt ?? '',
-      // A figure left out of an answered fact is no answer for that figure: null, never 0 ("just now").
-      feeds: d?.feeds
-        ? d.feeds.map((f) => ({ ...f, lastCompletePassAt: f.lastCompletePassAt ?? null, ageSeconds: f.ageSeconds ?? null }))
-        : null,
-      reservedRun: d?.reservedRun ?? null,
-      heldServed: d?.heldServed ?? null,
-      ledgerReader: reader
-        ? { lastPassAt: reader.lastPassAt ?? null, lagSeconds: reader.lagSeconds ?? null, readThroughAt: reader.readThroughAt ?? null }
-        : null,
-      takesToday: d?.takesToday ?? null,
-      problems: d?.problems ?? [],
-    }
+  /** `GET StockConsole/Fleet` → the facts that belong to no store, each answered or not on its own. */
+  fleet(): Promise<StockConsoleFleet> {
+    return api.get<StockConsoleFleet>('StockConsole/Fleet')
   },
 
   // ── Find (943) ──
-  /** `GET StockConsole/Find` → with a batch, one row per store, item and batch; without, items. Read by what was sent. */
-  async find(sent: 'batch' | 'item', q: FindWire): Promise<StockConsoleFind> {
-    return findAnswer(sent, await api.get<Parameters<typeof findAnswer>[1]>('StockConsole/Find', q), q)
+  /** `GET StockConsole/Find` → with a batch, one row per store, item and batch; without, items (`kind` says which). */
+  find(q: FindWire): Promise<StockConsoleFind> {
+    return api.get<StockConsoleFind>('StockConsole/Find', q)
   },
 
   // ── The GS1 scan (944) ──
-  /**
-   * `GET StockConsole/Scan?code=` → what HQ's barcode master reads in the GS1 box's code (BO 4162). An absent kind reads
-   * as `Unknown`; an absent `expiryDayKnown` as known.
-   */
-  async scan(code: string): Promise<StockConsoleScan> {
-    const d = await api.get<Partial<StockConsoleScan> | null>('StockConsole/Scan', { code })
-    return {
-      kind: d?.kind ?? 'Unknown',
-      itemFound: d?.itemFound === true,
-      item: d?.item ?? null,
-      nameEn: d?.nameEn ?? null,
-      nameAr: d?.nameAr ?? null,
-      gtin: d?.gtin ?? null,
-      lot: d?.lot ?? null,
-      expiry: d?.expiry ?? null,
-      expiryDayKnown: d?.expiryDayKnown !== false,
-      serial: d?.serial ?? null,
-    }
+  /** `GET StockConsole/Scan?code=` → what HQ's barcode master reads in the GS1 box's code (BO 4162). */
+  scan(code: string): Promise<StockConsoleScan> {
+    return api.get<StockConsoleScan>('StockConsole/Scan', { code })
   },
 
   // ── Movements (945) ──
   /** `…/SapMovements` → SAP's documents by entry day and movement type, and our place. */
-  async sapMovements(store: string, q: DayWindow): Promise<StockConsoleSapMovements> {
-    const d = await api.get<Partial<StockConsoleSapMovements> | null>(`${storePath(store)}/SapMovements`, q)
-    return {
-      readAt: d?.readAt ?? '',
-      place: { sapPlace: d?.place?.sapPlace ?? null, lastAttempt: d?.place?.lastAttempt ?? null },
-      days: d?.days ?? [],
-    }
+  sapMovements(store: string, q: DayWindow): Promise<StockConsoleSapMovements> {
+    return api.get<StockConsoleSapMovements>(`${storePath(store)}/SapMovements`, q)
   },
   /** `…/SapMovements/Lines` → a page of one entry day and movement type's lines, each with our mark. */
-  async sapLines(store: string, q: { day: string; type: string } & PageAsk): Promise<StockConsolePage<StockConsoleSapLine>> {
-    const d = await api.get<PageWire<Partial<StockConsoleSapLine>>>(`${storePath(store)}/SapMovements/Lines`, q)
-    return toPage(d, q, toSapLine)
+  sapLines(store: string, q: { day: string; type: string } & PageAsk): Promise<StockConsoleSapLines> {
+    return api.get<StockConsoleSapLines>(`${storePath(store)}/SapMovements/Lines`, q)
   },
   /** `…/Items/{item}/Movements` → a page of our ledger's lines for the item at the store, newest first. */
-  async itemMovements(store: string, item: string, q: DayWindow & PageAsk): Promise<StockConsolePage<StockConsoleLedgerLine>> {
-    const d = await api.get<PageWire<LedgerLineWire>>(`${itemPath(store, item)}/Movements`, q)
-    return toPage(d, q, toLedgerLine)
+  itemMovements(store: string, item: string, q: DayWindow & PageAsk): Promise<StockConsoleLedger> {
+    return api.get<StockConsoleLedger>(`${itemPath(store, item)}/Movements`, q)
   },
 }
 
@@ -439,11 +318,10 @@ export const fleetQuery = () =>
  */
 export function findQuery(state: SearchState) {
   const decision = findDecision(state)
-  const sent = decision === 'batch' ? 'batch' : 'item'
   const wire = findWire(state)
   return queryOptions({
     queryKey: [...STOCK_CONSOLE_KEY, 'find', wire] as const,
-    queryFn: () => stockConsoleApi.find(sent, wire),
+    queryFn: () => stockConsoleApi.find(wire),
     enabled: decision === 'batch' || decision === 'item',
     placeholderData: keepPreviousData,
     retry: retryUnlessAnswered,

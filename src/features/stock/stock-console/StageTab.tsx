@@ -7,7 +7,8 @@ import type { StockConsoleGates, StockConsoleSeedRun, StockConsoleStageMove } fr
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { formatDateTime } from '@/core/util/date-format'
+import { formatRange } from '@/core/util/bidi'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { stageQuery } from './api'
 import { MONO, formatTime } from './columns'
@@ -44,14 +45,28 @@ export default function StageTab({ store }: { store: string }) {
       {stage && (
         <>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span data-stage={stage.stage}>
-              <StatusBadge sev="mute">
-                <WordOrRaw word={stageWord(stage.stage)} />
-              </StatusBadge>
-            </span>
-            {stage.updatedAt && (
-              <span className="text-xs text-muted-foreground">
-                <Trans t={t} i18nKey="stageTab.since" values={{ at: formatDateTime(stage.updatedAt) }} components={{ at: <Ltr /> }} />
+            {/* null when Stock Visibility's stage list does not hold the store. */}
+            {stage.stage ? (
+              <>
+                <span data-stage={stage.stage.stage}>
+                  <StatusBadge sev="mute">
+                    <WordOrRaw word={stageWord(stage.stage.stage)} />
+                  </StatusBadge>
+                </span>
+                {stage.stage.updatedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    <Trans
+                      t={t}
+                      i18nKey="stageTab.since"
+                      values={{ at: formatDateTime(stage.stage.updatedAt) }}
+                      components={{ at: <Ltr /> }}
+                    />
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-muted-foreground" data-stage="">
+                {t('stageTab.noStage')}
               </span>
             )}
             <span className="ms-auto text-xs text-muted-foreground">{t('stageTab.readOnly')}</span>
@@ -66,15 +81,27 @@ export default function StageTab({ store }: { store: string }) {
           </Section>
 
           <Section title={t('stageTab.seed.title')}>
-            {stage.lastSeed ? <SeedRun run={stage.lastSeed} /> : <p className="text-sm text-muted-foreground">{t('stageTab.seed.none')}</p>}
+            {/* A store never seeded: state `None`. */}
+            {stage.seed.state !== 'None' ? (
+              <SeedRun run={stage.seed} />
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('stageTab.seed.none')}</p>
+            )}
           </Section>
 
           <Section title={t('stageTab.gates.title')}>
-            {stage.gates ? (
+            {stage.gatesAnswered && stage.gates ? (
               <Gates gates={stage.gates} />
             ) : (
-              <span data-gates="noAnswer">
-                <StatusBadge sev="bad">{t('stageTab.gates.noAnswer')}</StatusBadge>
+              <span className="flex flex-col gap-1" data-gates="noAnswer">
+                <span>
+                  <StatusBadge sev="bad">{t('stageTab.gates.noAnswer')}</StatusBadge>
+                </span>
+                {stage.gatesNoAnswer && (
+                  <span className="text-xs text-muted-foreground">
+                    <bdi>{stage.gatesNoAnswer}</bdi>
+                  </span>
+                )}
               </span>
             )}
           </Section>
@@ -149,11 +176,12 @@ function Gates({ gates }: { gates: StockConsoleGates }) {
   return (
     <div className="flex flex-col gap-2 text-sm" data-gates={gates.hold ? 'hold' : 'notYet'}>
       <span className="inline-flex flex-wrap items-center gap-2">
+        {/* The days measured, both in: one range, isolated once. */}
         <Trans
           t={t}
-          i18nKey="stageTab.gates.toward"
-          values={{ from: stageText(t, gates.from), to: stageText(t, gates.to) }}
-          components={{ s: <bdi /> }}
+          i18nKey="stageTab.gates.over"
+          values={{ window: formatRange(formatDay(gates.from), formatDay(gates.to)) }}
+          components={{ w: <Ltr /> }}
         />
         <StatusBadge sev={gates.hold ? 'ok' : 'warn'}>{t(gates.hold ? 'stageTab.gates.allHold' : 'stageTab.gates.notAllHold')}</StatusBadge>
       </span>

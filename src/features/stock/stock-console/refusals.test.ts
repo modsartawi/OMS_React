@@ -19,6 +19,7 @@ describe('each refusal says its own sentence', () => {
     ['SapNotConfigured', 'refusal.SapNotConfigured'],
     ['NoStore', 'refusal.NoStore'],
     ['NoRow', 'refusal.NoRow'],
+    ['PickOneItem', 'refusal.PickOneItem'],
   ])('%s → %s, with no server sentence beside it', (code, key) => {
     expect(refusalOf(coded(code))).toEqual({ code, key, reason: null })
   })
@@ -31,9 +32,17 @@ describe('each refusal says its own sentence', () => {
     })
   })
 
-  it('Stock Visibility not reached, or over its time limit, is the one "not reached" sentence', () => {
-    expect(refusalOf(coded('StockVisibilityUnreachable')).key).toBe('refusal.unreachable')
-    expect(refusalOf(coded('StockVisibilityTimeout')).key).toBe('refusal.unreachable')
+  it('Stock Visibility not reached, or over its time limit (SIS.Api’s `StockVisibilityNoAnswer`), is the "not reached" sentence', () => {
+    expect(refusalOf(coded('StockVisibilityNoAnswer'))).toEqual({
+      code: 'StockVisibilityNoAnswer',
+      key: 'refusal.unreachable',
+      reason: null,
+    })
+  })
+
+  it('a window or a lines read the web never sends malformed falls to the generic sentence, with the server’s', () => {
+    for (const code of ['WindowRequired', 'WindowBackwards', 'DayAndTypeRequired', 'BatchNeeded'])
+      expect(refusalOf(coded(code, 'why'))).toEqual({ code, key: 'refusal.failed', reason: 'why' })
   })
 
   it('an outage with no code — the network, or a server crash — is "not reached" too', () => {

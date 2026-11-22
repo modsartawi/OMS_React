@@ -81,8 +81,8 @@ describe('stock-console — the keys the code builds exist', () => {
 })
 
 // ── 942 ── (imported here so parallel tickets append their blocks without touching each other's lines)
-import { HOLD_STATES, TAKE_OUTCOMES } from '@/core/models/stock-console'
-import { FLEET_FACTS, KNOWN_PROBLEMS } from './fleet'
+import { FLEET_FEEDS, FLEET_PROBLEM_CODES, HOLD_STATES, TAKE_OUTCOMES } from '@/core/models/stock-console'
+import { FLEET_FACTS } from './fleet'
 import { HOLD_COLUMNS } from './holds'
 import { HOW_FEEDS, HOW_FLEET, HOW_HOLDS, HOW_STAGE, HOW_TAKES } from './how-sections'
 
@@ -105,23 +105,24 @@ describe('stock-console — the keys 942 builds exist', () => {
       'takes.failedLeftOut',
       'takes.empty',
       ...['loading', 'sap', 'till', 'place', 'lastAttempt'].map((k) => `feeds.${k}`),
-      ...['title', 'notCounted', 'notYet', 'differs_other', 'matches', 'ranAt'].map((k) => `feeds.comparison.${k}`),
-      ...['loading', 'since', 'readOnly', 'log', 'noMoves'].map((k) => `stageTab.${k}`),
+      ...['title', 'notCounted', 'differs_other', 'matches', 'ranAt'].map((k) => `feeds.comparison.${k}`),
+      ...['loading', 'since', 'noStage', 'readOnly', 'log', 'noMoves'].map((k) => `stageTab.${k}`),
       ...['movedAt', 'from', 'to', 'by', 'mover', 'why'].map((k) => `stageTab.column.${k}`),
       ...['title', 'none', 'state', 'kind', 'batchRows', 'askedAt', 'endedAt', 'reason'].map((k) => `stageTab.seed.${k}`),
-      ...['title', 'noAnswer', 'toward', 'allHold', 'notAllHold', 'holds', 'doesNotHold', 'confirmed', 'notConfirmed'].map(
+      ...['title', 'noAnswer', 'over', 'allHold', 'notAllHold', 'holds', 'doesNotHold', 'confirmed', 'notConfirmed'].map(
         (k) => `stageTab.gates.${k}`,
       ),
       ...FLEET_FACTS.map((k) => `fleet.fact.${k}`),
       ...['noAnswer', 'problem'].map((k) => `fleet.view.${k}`),
-      ...['Sap', 'Pos'].map((k) => `fleet.feed.${k}`),
-      ...['lead', 'loading', 'noAnswer', 'neverPassed', 'unknown', 'yes', 'no'].map((k) => `fleet.${k}`),
-      ...['lastSuccess', 'neverSucceeded', 'lastStarted', 'lastFailure', 'failures', 'lastError'].map((k) => `fleet.reserved.${k}`),
+      ...FLEET_FEEDS.map((k) => `fleet.feed.${k}`),
+      ...['lead', 'loading', 'noAnswer', 'neverPassed', 'late', 'limitMinutes', 'unknown', 'yes', 'no'].map((k) => `fleet.${k}`),
+      ...['state', 'lastSuccess', 'neverSucceeded', 'lastStarted', 'lastFailure', 'failures', 'lastError'].map((k) => `fleet.reserved.${k}`),
+      ...['Computed', 'Stale', 'NeverComputed'].map((k) => `fleet.reserved.states.${k}`),
       ...['served', 'on', 'off', 'changedAt', 'subtractsHeld', 'netting', 'fellBackAt'].map((k) => `fleet.held.${k}`),
-      ...['lastPass', 'lag', 'readThrough'].map((k) => `fleet.reader.${k}`),
-      ...['day', 'takes', 'failed', 'skipped'].map((k) => `fleet.takes.${k}`),
-      ...[...KNOWN_PROBLEMS, 'unknown'].map((k) => `fleetLine.${k}`),
-      ...['lead', 'link', 'since'].map((k) => `fleetLine.${k}`),
+      ...['lastPass', 'lag', 'limit', 'readThrough'].map((k) => `fleet.reader.${k}`),
+      ...['day', 'takes', 'failed', 'rejected'].map((k) => `fleet.takes.${k}`),
+      ...[...FLEET_PROBLEM_CODES, 'unknown'].map((k) => `fleetLine.${k}`),
+      ...['lead', 'link', 'minutes'].map((k) => `fleetLine.${k}`),
       'flagLink.open',
       ...['title', ...HOW_HOLDS].map((k) => `how.holds.${k}`),
       ...['title', ...HOW_TAKES].map((k) => `how.takes.${k}`),
@@ -176,7 +177,7 @@ describe('stock-console — the keys 943 builds exist', () => {
       ...ITEM_TABS.map((k) => `itemTabs.${k}`),
       ...ITEM_TABS.map((k) => `itemTabs.empty.${k}`),
       ...['label', 'loading', 'showing'].map((k) => `itemTabs.${k}`),
-      ...['lead', 'fill', 'empty.batch', 'empty.item', 'rows_other', 'atStores_other', 'openStores'].map((k) => `find.${k}`),
+      ...['lead', 'fill', 'more', 'empty.batch', 'empty.item', 'rows_other', 'atStores_other', 'openStores'].map((k) => `find.${k}`),
       ...['title', 'close'].map((k) => `find.stores.${k}`),
       ...['title', ...HOW_ITEM].map((k) => `how.item.${k}`),
       ...['title', ...HOW_ITEM_BATCHES].map((k) => `how.itemBatches.${k}`),

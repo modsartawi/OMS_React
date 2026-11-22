@@ -333,6 +333,7 @@
     "SapUnreachable": "SAP could not be reached.",
     "NoStore": "Stock Visibility has no such store.",
     "NoRow": "This item has no stock row at this store.",
+    "PickOneItem": "This name matches more than one item, and a batch is found within one item. Type its number or more of its name.",
     "unreachable": "Stock Visibility could not be reached. Try again in a moment — it is not your search.",
     "denied": "Your account no longer holds the stock console grant.",
     "failed": "The read failed."
@@ -434,7 +435,6 @@
     "comparison": {
       "title": "Nightly comparison with SAP",
       "notCounted": "Not a counted store: no nightly comparison.",
-      "notYet": "No comparison has run yet.",
       "differs_one": "<n>{{n}}</n> batch differs",
       "differs_other": "<n>{{n}}</n> batches differ",
       "matches": "No batch differs.",
@@ -444,6 +444,7 @@
   "stageTab": {
     "loading": "Reading the store's stage…",
     "since": "since <at>{{at}}</at>",
+    "noStage": "Stock Visibility's stage list does not hold this store.",
     "readOnly": "Read-only. Moves are made on Store stages.",
     "log": "Stage log",
     "noMoves": "The store has never been moved.",
@@ -468,7 +469,7 @@
     "gates": {
       "title": "Gates toward Blocking",
       "noAnswer": "No answer: the gates could not be read.",
-      "toward": "From <s>{{from}}</s> to <s>{{to}}</s>",
+      "over": "Measured over <w>{{window}}</w>",
       "allHold": "every gate holds",
       "notAllHold": "not every gate holds",
       "holds": "holds",
@@ -482,31 +483,41 @@
     "loading": "Reading the feeds and switches…",
     "noAnswer": "Stock Visibility gave no answer for this fact. It is not known to be healthy.",
     "neverPassed": "never passed",
+    "late": "late",
+    "limitMinutes": "limit <n>{{n}}</n> min",
     "unknown": "not known",
     "yes": "yes",
     "no": "no",
     "fact": {
       "feeds": "Feeds",
-      "reservedRun": "Reserved recompute",
+      "reserved": "Reserved recompute",
       "heldServed": "Held-served switch",
-      "ledgerReader": "Hold ledger reader",
-      "takesToday": "Today's take door"
+      "reader": "Hold ledger reader",
+      "takes": "Today's take door"
     },
     "view": {
       "noAnswer": "No answer",
       "problem": "Look at this"
     },
     "feed": {
-      "Sap": "SAP",
-      "Pos": "Till"
+      "SapFeed": "SAP feed",
+      "PosFeed": "Till feed",
+      "HoldLedgerReader": "Hold ledger reader",
+      "SapCount": "Hourly count against SAP"
     },
     "reserved": {
+      "state": "State",
       "lastSuccess": "Last success",
       "neverSucceeded": "never succeeded",
       "lastStarted": "Last started",
       "lastFailure": "Last failure",
       "failures": "Failures in a row",
-      "lastError": "Last error"
+      "lastError": "Last error",
+      "states": {
+        "Computed": "computed",
+        "Stale": "stale",
+        "NeverComputed": "never computed"
+      }
     },
     "held": {
       "served": "Held stock served",
@@ -520,26 +531,26 @@
     "reader": {
       "lastPass": "Last pass",
       "lag": "Lag",
+      "limit": "Limit",
       "readThrough": "Read through"
     },
     "takes": {
       "day": "Day",
       "takes": "Takes",
       "failed": "Failed",
-      "skipped": "Skipped"
+      "rejected": "Refused before the door answered"
     }
   },
   "fleetLine": {
     "lead": "Fleet:",
     "link": "See Feeds and switches",
-    "since": "(<at>{{at}}</at>)",
-    "FeedLate": "the <s>{{subject}}</s> feed is late",
+    "minutes": "(<v>{{value}}</v> min, limit <v>{{limit}}</v>)",
+    "FeedLate": "<s>{{subject}}</s> is late",
     "ReservedNeverRun": "the reserved recompute has never run",
     "ReservedStale": "the reserved recompute is stale",
-    "HeldServedFellBack": "the held-served switch fell back: held is not subtracted",
     "ReaderBehind": "the hold ledger reader is behind",
-    "TakesFailing": "the take door is failing: <v>{{value}}</v> failed today",
-    "unknown": "fleet fact <s>{{fact}}</s>"
+    "NoAnswer": "no answer from <s>{{subject}}</s>",
+    "unknown": "fleet problem <s>{{code}}</s>"
   },
   "flagLink": {
     "open": "Open the list behind this flag"
@@ -614,6 +625,7 @@
   "find": {
     "lead": "Search the fleet: an item by number or name, or a batch — ours or the vendor's — with or without an item.",
     "fill": "Fill the item or the batch box.",
+    "more": "More items match this name than are listed. Type more of it to narrow the list.",
     "empty": {
       "batch": "No store holds this batch.",
       "item": "No item matches."

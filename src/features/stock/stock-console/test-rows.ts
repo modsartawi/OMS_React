@@ -4,7 +4,7 @@
  */
 import type { StockConsoleFlag, StockConsoleStoreRow } from '@/core/models/stock-console'
 
-export const flag = (code: string, level = 'Watch', value: number | null = 1, limit: number | null = 0): StockConsoleFlag => ({
+export const flag = (code: string, level = 'Watch', value: number | null = 1, limit = 0): StockConsoleFlag => ({
   code,
   level,
   value,

@@ -27,7 +27,8 @@ const LINK = 'font-medium text-primary underline-offset-2 hover:underline'
 const figure = figureColumn<StockConsoleFindBatchRow>
 /**
  * Find's batch answer (oms 943, spec 4157 stories 63–65): store, city, item, name, our batch, vendor batch, expiry (with
- * its marks; after a scan with an expiry, whether each is the scan's), SAP stock, till-side, held. The store and the item
+ * its marks; after a scan with an expiry, whether each is the scan's), SAP stock, till-side, held, free for the take
+ * door (BO 4161: till-side less the batch's holds). The store and the item
  * each open the item at that store.
  */
 export function buildFindBatchColumns(
@@ -64,6 +65,7 @@ export function buildFindBatchColumns(
     figure(t('column.sapStock'), 'sapStock'),
     figure(t('column.tillStock'), 'tillStock', 130),
     figure(t('column.held'), 'held', 90),
+    figure(t('batches.column.freeForTheDoor'), 'freeForTheDoor', 160),
   ]
   if (!scan || !scanExpiry(scan)) return columns
   const at = columns.findIndex((c) => c.field === 'expiry') + 1

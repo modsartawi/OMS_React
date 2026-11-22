@@ -97,9 +97,12 @@ export const pressRead = (state: MovementsState, boxes: DayWindow): MovementsSta
 })
 
 /** A SAP summary row opens its lines, from their first page. */
+/** A SAP entry day as the address and the lines read carry it: SIS.Api sends a midnight (`…T00:00:00`); the day alone. */
+export const sapDayOf = (day: string): string => day.slice(0, 10)
+
 export const openLines = (state: MovementsState, row: { day: string; movementType: string }): MovementsState => ({
   ...state,
-  sapDay: row.day,
+  sapDay: sapDayOf(row.day),
   sapType: row.movementType,
   page: 1,
 })
@@ -252,47 +255,16 @@ export const LEDGER_FEEDS = ['Sap', 'Pos'] as const
 export const feedCell = (feed: string): { key: string } | { raw: string } =>
   (LEDGER_FEEDS as readonly string[]).includes(feed) ? { key: `movements.feed.${feed}` } : { raw: feed }
 
-/** The document a line came from, one value: SAP's document · year · line, or the till's store · transaction · line. */
-export function ledgerDocument(line: StockConsoleLedgerLine): string {
-  if (line.materialDocument) return formatParts([line.materialDocument, line.materialYear ?? '', line.materialLine ?? ''])
-  if (line.tillStore || line.tillTrx) return formatParts([line.tillStore ?? '', line.tillTrx ?? '', line.tillLine ?? ''])
-  return ''
-}
-
-/** A ledger line as it may arrive: the contract's names, or Stock Visibility's as built (SV 079 Comments). */
-export type LedgerLineWire = Partial<StockConsoleLedgerLine> & {
-  time?: string
-  sapDocument?: { materialDocument?: string | null; year?: string | number | null; item?: string | number | null } | null
-  tillDocument?: { store?: string | null; transaction?: string | null; line?: string | number | null } | null
-}
-
 /**
- * A ledger line as drawn. SIS.Api passes Stock Visibility's line through [guess: unrenamed], and SV 079 was built with
- * `time` and a nested `sapDocument`/`tillDocument`; the contract (wire.md) names them flat. Both read the same here —
- * the one place the reconcile happens. An absent effect reads as 0 (no effect), never a guess.
+ * The document a line came from, one value: SAP's document · year · line (`sapDocument.item` is SAP's line in the
+ * document), or the till's store · transaction · line.
  */
-export function toLedgerLine(d: LedgerLineWire): StockConsoleLedgerLine {
-  const sap = d.sapDocument ?? null
-  const till = d.tillDocument ?? null
-  return {
-    id: d.id ?? '',
-    at: d.at ?? d.time ?? '',
-    feed: d.feed ?? '',
-    movementType: d.movementType ?? '',
-    quantity: d.quantity ?? 0,
-    batch: d.batch ?? null,
-    storageLocation: d.storageLocation ?? null,
-    materialDocument: d.materialDocument ?? sap?.materialDocument ?? null,
-    materialYear: d.materialYear ?? sap?.year ?? null,
-    materialLine: d.materialLine ?? sap?.item ?? null,
-    tillStore: d.tillStore ?? till?.store ?? null,
-    tillTrx: d.tillTrx ?? till?.transaction ?? null,
-    tillLine: d.tillLine ?? till?.line ?? null,
-    postingDay: d.postingDay ?? null,
-    applied: typeof d.applied === 'boolean' ? d.applied : null,
-    onSap: d.onSap ?? 0,
-    onTill: d.onTill ?? 0,
-  }
+export function ledgerDocument(line: Pick<StockConsoleLedgerLine, 'sapDocument' | 'tillDocument'>): string {
+  const sap = line.sapDocument
+  if (sap) return formatParts([sap.materialDocument, sap.year, sap.item])
+  const till = line.tillDocument
+  if (till) return formatParts([till.store, till.transaction, till.line])
+  return ''
 }
 
 /** A store's SAP movements tab in the address (module-level: `useUrlQuery` reads it once). */

@@ -1,33 +1,31 @@
 /**
- * The stock console (BackOffice spec 4157; oms 940–945) — wire shapes, camelCase, as SIS.Api's `StockConsole/*` routes
- * answer them (BackOffice 4158–4163; Stock Visibility's rows are passed through and SIS.Api adds what it owns: the
- * status flags, the reserved state, the item names and the GS1 scan).
+ * The stock console (BackOffice spec 4157; oms 940–945) — wire shapes, as SIS.Api's `StockConsole/*` routes answer them
+ * (BackOffice 4158–4163, `Sartawi.Retail.Data/Modules/Stock_v2/StockConsole/*.cs`). Reconciled against the built server:
+ * see `.issues/STOCK-CONSOLE-WIRE-CONTRACT.md`.
  *
- * ⚠️ Built ahead of the server (BO 4158 not landed): every shape here follows the spec's contract, and the names it does
- * not state are guesses kept in ONE place — this file and the feature's `api.ts` normalisers — so the reconcile is one
- * change, not one per tab.
+ * Every route is behind `BackOfficeScreen[StockConsole, 03]` (role `STOCK_CONSOLE_VIEWER`); there is no `Access` probe
+ * (oms 914). A refusal is HTTP 400 with the envelope's `errors[0].errorCode` (`refusals.ts`).
  *
- * - `GET StockConsole/Stores` → `StockConsoleStores`, behind `BackOfficeScreen[StockConsole, 03]` (role
- *   `STOCK_CONSOLE_VIEWER`). Every route of the console is behind the same grant; there is no `Access` probe (oms 914).
- *
- * The server judges; the page draws. Enums are strings typed as their union but read defensively: an unknown value
- * draws, it never throws.
+ * The wire is SIS.Api's minimal-API System.Text.Json (web defaults): camelCase, nulls sent as `null` (never left out),
+ * enums are C# strings. The server judges; the page draws: a string typed as a union is read defensively — an unknown
+ * value draws, it never throws.
  *
  * ⚠️ Times are the estate's local wall-clock, `"yyyy-MM-ddTHH:mm:ss"` with no offset; they stay strings and are never
- * shifted. Quantities are base units; a figure that may be absent is `number | null`, and null is never drawn as 0.
+ * shifted. A day is a C# `DateTime` at midnight, `"yyyy-MM-ddT00:00:00"`: read its first ten characters. Quantities are
+ * base units (C# `decimal`); a figure that may be absent is `number | null`, and null is never drawn as 0.
  */
 
-// ── 940 ─────────────────────────────────────────────────────────────────────────────────────────────
+// ── Shared ──────────────────────────────────────────────────────────────────────────────────────────
 
-/** Reserved's three states, judged by SIS.Api (spec 4157 "Reserved has three states"). */
+/** Reserved's three states, judged by SIS.Api (`StockConsoleReservedStates`). */
 export type ReservedState = 'Computed' | 'Stale' | 'NeverComputed'
 
-/** A store's status: the worst of its flags. */
+/** A store's status: the worst of its flags (`StockConsoleStatuses`). */
 export type StoreStatus = 'Ok' | 'Watch' | 'Problem'
 
 export type FlagLevel = 'Watch' | 'Problem'
 
-/** The six flags (spec 4157 "A store's summary row and its status"). Codes are PascalCase of the spec's names [guess]. */
+/** The six flags (`StockConsoleFlagCodes`), in the spec's order. */
 export const STOCK_CONSOLE_FLAGS = [
   'SapQuiet',
   'BelowZero',
@@ -38,73 +36,81 @@ export const STOCK_CONSOLE_FLAGS = [
 ] as const
 export type StockConsoleFlagCode = (typeof STOCK_CONSOLE_FLAGS)[number]
 
-/** One flag, with its measured value and its limit (BO 4158 `{ code, level, value, limit }`). */
+/** One raised flag: what was measured against which limit ("no SAP document for 31 hours, limit 24"). */
 export interface StockConsoleFlag {
   /** A `StockConsoleFlagCode`, read defensively. */
   code: string
   /** A `FlagLevel`, read defensively. */
   level: string
-  /** The measured value in the flag's own unit [guess]: SapQuiet hours, BelowZero items, OldHold days,
-   *  SalesNotApplied hours, ComparisonDiffers batches, PlaceholderStock base units. */
+  /** In the limit's unit — SapQuiet hours, BelowZero items, OldHold days, SalesNotApplied hours, ComparisonDiffers
+   *  batches, PlaceholderStock base units. Null when there was nothing to measure from (no SAP document ever applied). */
   value: number | null
-  /** The limit in the same unit; null for "any" (ComparisonDiffers, PlaceholderStock) [guess]. */
-  limit: number | null
+  /** The limit the value is strictly over. 0 for "any" (ComparisonDiffers, PlaceholderStock, BelowZero's Watch). */
+  limit: number
 }
 
-/** Stock Visibility's page, passed through by SIS.Api [guess: SIS.Api keeps SV's names]. */
+/** A page of a list (`StockConsolePage<T>`): `total` is the whole match, `page` 1-based, `size` at most 200. */
 export interface StockConsolePage<T> {
-  /** The whole match, not this page. */
   total: number
-  /** 1-based. */
   page: number
   size: number
   rows: T[]
 }
 
-/** A fleet fact that is a problem now (BO 4160) — the one line above the stores list. Ticket 942 draws it [guess shape]. */
-export interface StockConsoleFleetProblem {
-  /** 'FeedLate' | 'ReservedNeverRun' | 'ReservedStale' | 'HeldServedFellBack' | 'ReaderBehind' | 'TakesFailing' [guess]. */
-  fact: string
-  /** e.g. the feed name [guess]. */
-  subject: string | null
-  value: number | null
-  limit: number | null
-  since: string | null
+/** The reserved recompute's last success, as Stock Visibility keeps it (`StockConsoleReservedRun`). */
+export interface StockConsoleReservedRunBrief {
+  lastSuccessAt: string | null
+  lastNetting: string | null
 }
 
-/** One store's summary row: Stock Visibility's row with SIS.Api's gap, held, reserved state, free and flags added. */
+// ── Stores ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** `StockConsoleFleetCodes`: a fleet fact that is a problem now. `NoAnswer` = a status route gave no answer. */
+export const FLEET_PROBLEM_CODES = ['FeedLate', 'ReservedNeverRun', 'ReservedStale', 'ReaderBehind', 'NoAnswer'] as const
+
+/** One fleet fact that is a problem now (`StockConsoleFleetProblem`): what, which, the measured value and its limit. */
+export interface StockConsoleFleetProblem {
+  /** One of `FLEET_PROBLEM_CODES`, read defensively. */
+  code: string
+  /** The feed's name (`SapFeed`, …), `ReservedRecompute`, `HoldLedgerReader`, or the status route that gave no answer. */
+  subject: string
+  /** Minutes; null when there is nothing to measure from (never passed, never run, no answer). */
+  value: number | null
+  limit: number | null
+}
+
+/** One store's summary row (`StockConsoleStoreRow`): Stock Visibility's facts and what SIS.Api owns. */
 export interface StockConsoleStoreRow {
-  /** The store code (Stock Visibility's name; route params still say `{store}`) [guess: not renamed]. */
+  /** The store code. Route params say `{store}`. */
   plant: string
   city: string
-  /** 'Shadow' | 'Seeding' | 'Seeded' | 'Blocking', as Stock/StoreStages answers. */
+  /** 'Shadow' | 'Seeding' | 'Seeded' | 'Blocking', read defensively. */
   stage: string
   /** Rows with either counter not zero. */
   itemsWithStock: number
-  /** SUM of the SAP counter. */
+  /** The SAP counter. */
   sapStock: number
-  /** SUM of the till-side counter — the store's "stock". */
+  /** The till-side counter — the store's stock figure. */
   tillStock: number
   /** sapStock − tillStock: sold at the till, not in SAP yet. */
   gap: number
+  /** heldStanding + heldSold. */
+  held: number
   heldStanding: number
   /** "Sold not applied". */
   heldSold: number
-  /** heldStanding + heldSold. */
-  held: number
-  /** null = never computed / no row — NEVER 0. */
+  /** null in NeverComputed — NEVER 0. */
   reserved: number | null
   /** A `ReservedState`, read defensively. */
   reservedState: string
-  /** The recompute's last success, for "stale since" [guess name]. */
+  /** The recompute's last success, beside a computed or stale figure; null when never computed. */
   reservedAt: string | null
-  /** till − held − reserved, not floored (reserved taken as 0 when never computed). */
+  /** till − held − reserved, never floored; reserved left out when it is not computed. */
   free: number
-  /** false when reserved is not in `free` → "reserved not included". */
+  /** false in NeverComputed → "reserved not included". */
   reservedIncluded: boolean
   /** Items below zero on the till-side counter. */
   belowZero: number
-  /** The newest change of the store's rows. */
   lastUpdate: string | null
   oldestStandingAt: string | null
   oldestSoldAt: string | null
@@ -114,35 +120,43 @@ export interface StockConsoleStoreRow {
   /** The till feed's place = "last till read". */
   tillPlace: string | null
   tillLastAttempt: string | null
-  /** The nightly comparison's differing batches — counted stores only (null otherwise). */
+  /** Counted stores only: the nightly comparison's differing batches (null otherwise) and when it ran. */
   driftBatches: number | null
   driftRanAt: string | null
-  /** Stock on placeholder batches — counted stores only. */
+  /** Counted stores only: till-side stock on placeholder batches. */
   placeholderStock: number | null
   flags: StockConsoleFlag[]
   /** A `StoreStatus`, read defensively. */
   status: string
 }
 
-/** `GET StockConsole/Stores` — the whole list (under a thousand rows); tiles, search and sort run in the browser. */
+/** `GET StockConsole/Stores` (`StockConsoleStoresAnswer`): every store, whole (under a thousand rows). */
 export interface StockConsoleStores {
-  /** When SIS.Api read it (its copy is at most 60 s old). */
+  /** When SIS.Api read Stock Visibility (its copy is at most 60 s old). */
   readAt: string
+  reservedRun: StockConsoleReservedRunBrief
   stores: StockConsoleStoreRow[]
-  /** Added by BO 4160 (ticket 942); an absent list reads as none. */
+  /** The fleet line: the fleet facts that are a problem now; empty when all is well. */
   fleet: StockConsoleFleetProblem[]
 }
 
-// ── 941 ─────────────────────────────────────────────────────────────────────────────────────────────
-// `GET StockConsole/Stores/{store}` answers a `StockConsoleStoreRow`, read fresh (never the 60 s copy); `NoStore` on
-// an unknown store. `…/Items` and `…/Batches` answer a `StockConsolePage` of the rows below (BO 4159, SV 076).
+/** `GET StockConsole/Stores/{store}` (`StockConsoleStoreAnswer`): one store's row, read fresh. `NoStore` when unknown. */
+export interface StockConsoleStoreAnswer {
+  readAt: string
+  reservedRun: StockConsoleReservedRunBrief
+  /** null only when Stock Visibility answered without a row (it refuses an unknown store `NoStore`). */
+  store: StockConsoleStoreRow | null
+}
 
-/** The Items list's filters, as the wire names them; `all` is the default. */
+// ── A store's lists ─────────────────────────────────────────────────────────────────────────────────
+// `…/Items` (item, batch, filter, sort, page, size) and `…/Batches` (item, batch, filter, page, size) answer a page.
+
+/** The Items list's filters (SIS.Stock 076); `all` is the default. */
 export const ITEM_FILTERS = ['all', 'withStock', 'belowZero', 'held', 'differ'] as const
-/** The Items list's sorts; `item` is the default. Held and gap largest first, till-side lowest first (server). */
+/** The Items list's sorts; `item` is the default. */
 export const ITEM_SORTS = ['item', 'held', 'till', 'gap'] as const
 
-/** The seven stock types other than unrestricted (SV 076/078); the item page shows them when not zero (943). */
+/** The seven stock types other than unrestricted; the item page shows them when not zero. */
 export interface StockConsoleOtherStock {
   quality: number
   blocked: number
@@ -153,74 +167,69 @@ export interface StockConsoleOtherStock {
   inTransferLocation: number
 }
 
-/** One item at the store: Stock Visibility's row, with HQ's names and SIS.Api's gap, held and free added. */
+/** One item at the store (`StockConsoleItemRow`). */
 export interface StockConsoleItemRow extends StockConsoleOtherStock {
   /** As Stock Visibility stores it (no leading zeros). Never a number. */
   item: string
-  /** From HQ's item master; '' when it does not know the number. */
+  /** HQ's item master; '' when it does not know the number. */
   nameEn: string
   nameAr: string
   sapStock: number
   tillStock: number
   gap: number
+  held: number
   heldStanding: number
   heldSold: number
-  held: number
-  /** null = never computed — NEVER 0. */
+  /** null in NeverComputed — NEVER 0. */
   reserved: number | null
-  /** A `ReservedState`, read defensively. */
   reservedState: string
+  reservedAt: string | null
   free: number
   reservedIncluded: boolean
   lastUpdate: string | null
 }
 
-/** The Batches list's filters; `all` is the default; `expiring` = expires within 90 days. Sorted item, expiry (server). */
+/** The Batches list's filters; `all` is the default; `expiring` = within 90 days. Sorted item, expiry (server). */
 export const BATCH_FILTERS = ['all', 'withStock', 'belowZero', 'held', 'placeholder', 'expired', 'expiring'] as const
 
-/** One batch of one item at the store (SV 076). A batch has no last-update time: the day first received instead. */
+/** One batch of one item at the store (`StockConsoleBatchRow`). */
 export interface StockConsoleBatchRow {
   item: string
   nameEn: string
   nameAr: string
   /** Our batch. */
   batch: string
-  /** The vendor's batch (lot) [guess: nullable]. */
-  vendorBatch: string | null
-  /** A day — `yyyy-MM-dd`, or with a midnight time [guess: form]; compared on its first ten characters. */
+  /** The vendor's batch (lot); '' when none. */
+  vendorBatch: string
+  /** A day, `yyyy-MM-ddT00:00:00`; compared on its first ten characters. */
   expiry: string | null
   sapStock: number
   tillStock: number
   /** Holds on this batch not released. */
   held: number
-  /** tillStock − held: what the take door may give from it (reserved is not taken off). */
+  /** tillStock − held: what the take door may give from it (reserved never enters a batch). */
   freeForTheDoor: number
   firstReceivedOn: string | null
-  /** Stock Visibility's own placeholder-batch rule, not re-derived. */
+  /** Stock Visibility's own placeholder-batch rule. */
   placeholder: boolean
 }
 
-// ── 942 ─────────────────────────────────────────────────────────────────────────────────────────────
-// `…/Holds` and `…/Takes` answer a page (searched); `…/Feeds` and `…/Stage` are read on opening their tab;
-// `StockConsole/Fleet` on opening Feeds and switches (BO 4160, SV 077). Every name not stated by the tickets is a guess.
-
-/** The Holds list's state filter, as the wire names it; `open` (standing and sold not applied) is the default;
- *  `released` = released in the last 7 local days. The web's `filter` goes out as `state`. */
+/** The Holds list's `state` (SIS.Stock 077); `open` (standing and sold not applied) is the default; `released` = 7 days. */
 export const HOLD_STATES = ['open', 'standing', 'sold', 'released'] as const
 
-/** One hold at the store (SV 077). Nothing is joined from OMS: no customer order, no customer, no patient. */
+/** One hold at the store (`StockConsoleHoldRow`). Nothing is joined from OMS. */
 export interface StockConsoleHoldRow {
   takeId: string
   item: string
   nameEn: string
   nameAr: string
-  /** May be blank: a hold on no batch. */
+  /** '' for a hold on no batch. */
   batch: string
   quantity: number
   takenAt: string
-  /** 'Held' (standing) | 'Sold' (sold not applied) | 'Released' — Stock Visibility's StockHold.State [guess values]. */
+  /** 'Held' (standing) | 'Sold' (sold not applied) | 'Released', read defensively. */
   state: string
-  /** The picking source, the till, DRS — drawn as it came. */
+  /** 'Door' | 'Ledger' | 'Check', drawn as it came. */
   source: string
   /** A picking hold's document and line. */
   documentNo: string | null
@@ -228,202 +237,257 @@ export interface StockConsoleHoldRow {
   /** A till sale's store and transaction. */
   soldStore: string | null
   soldTrx: string | null
-  updatedAt: string | null
-  /** Only on a released hold. */
+  /** Moved on every change of state: for a hold still sold, when it became sold. */
+  updatedAt: string
   releasedAt: string | null
   releaseReason: string | null
 }
 
-/** The Takes list's outcome filter; `all` is the default. The web's `filter` goes out as `outcome`. */
+/** The Takes list's `outcome`; `all` is the default. */
 export const TAKE_OUTCOMES = ['all', 'granted', 'refused', 'failed'] as const
 
-interface StockConsoleTakeRowBase {
-  takeId: string
-  /** The row's time [guess name]. */
-  at: string
+/** A batch a granted take took: one of its holds, as it stands. */
+export interface StockConsoleTakeBatch {
+  batch: string
+  quantity: number
+  state: string
 }
 
-/** A granted take: the batches it took, from its holds [guess shape]. */
-export interface StockConsoleTakeGranted extends StockConsoleTakeRowBase {
-  kind: 'granted'
-  item: string
+/**
+ * One call of the take door (`StockConsoleTakeRow`): one flat row whose `kind` says which fields it fills; the others are
+ * null. `granted`: quantity, code, available, stage, the scanned vendor batch and expiry, the entered batch, `batches`.
+ * `refused`: `batch` (the batch refused), `batchWithStock` (the batch the door named instead), reason, asked, available,
+ * code, shadow, stage. `failed`: duration, status code, instance — never an item.
+ */
+export interface StockConsoleTakeRow {
+  /** 'granted' | 'refused' | 'failed', read defensively. */
+  kind: string
+  at: string
+  takeId: string | null
+  item: string | null
+  /** '' when the row names no item, or the master does not know it. */
   nameEn: string
   nameAr: string
-  quantity: number
   code: string | null
-  available: number | null
   stage: string | null
+  available: number | null
+  quantity: number | null
   scannedVendorBatch: string | null
   scannedExpiry: string | null
   enteredBatch: string | null
-  batches: { batch: string; quantity: number }[]
-}
-
-/** A refused take: its reason, and the batch the door named instead [guess name]. */
-export interface StockConsoleTakeRefused extends StockConsoleTakeRowBase {
-  kind: 'refused'
-  item: string
-  nameEn: string
-  nameAr: string
-  namedBatch: string | null
-  asked: number
-  available: number | null
-  code: string | null
+  batches: StockConsoleTakeBatch[] | null
+  batch: string | null
+  batchWithStock: string | null
   reason: string | null
-  isShadow: boolean
-  stage: string | null
-}
-
-/** A failed call: the request log has no item, only its status (SV 077). */
-export interface StockConsoleTakeFailed extends StockConsoleTakeRowBase {
-  kind: 'failed'
+  asked: number | null
+  shadow: boolean | null
   durationMs: number | null
   statusCode: number | null
   instance: string | null
 }
 
-export type StockConsoleTakeRow = StockConsoleTakeGranted | StockConsoleTakeRefused | StockConsoleTakeFailed
-
+/** `…/Takes` (item, batch, day, outcome, page, size) and `…/Items/{item}/Takes` (outcome, page, size). */
 export interface StockConsoleTakes extends StockConsolePage<StockConsoleTakeRow> {
-  /** True when an item or a batch was searched: failed calls carry no item, so they were left out. */
+  /** An item or a batch was searched: failed calls carry no item, so they are not in the list. */
   failedLeftOut: boolean
 }
 
-/** A store's feeds, from its own console row (BO 4160) [guess: the summary row's names]. */
+/** `…/Feeds` (`StockConsoleFeedsAnswer`): the store's two feed places and the nightly comparison. */
 export interface StockConsoleStoreFeeds {
-  plant: string
+  readAt: string
+  store: string
   sapPlace: string | null
   sapLastAttempt: string | null
   tillPlace: string | null
   tillLastAttempt: string | null
-  /** To say "not a counted store" when there is no comparison. */
-  stage: string
-  /** The nightly comparison's differing batches; null = none (not counted, or not run yet). */
+  /** Whether the nightly comparison covers the store; false: the two below are null. */
+  counted: boolean
   driftBatches: number | null
   driftRanAt: string | null
 }
 
-/** One stage move (mirrors SV 064 / BO StoreStageMove, with the mover's name). Declared fresh: no store-stage import. */
+/** One row of a store's stage log (`StoreStageMove`). */
 export interface StockConsoleStageMove {
   store: string
   from: string
   to: string
+  /** 'Person' | 'CountClosing' | 'Seed'. */
   mover: string
+  /** HQ's user id, or a system mover's name. */
   who: string
-  whoName?: string | null
+  /** The person's name from HQ's user directory; the raw `who` when it does not know it. */
+  whoName: string
   why: string
   movedAt: string
 }
 
-/** The store's last seed run (a subset of BO StoreSeedStatus). */
+/** A store's stage and its last move (`StoreStage`). */
+export interface StockConsoleStageNow {
+  store: string
+  stage: string
+  updatedAt: string | null
+  lastMove: StockConsoleStageMove | null
+}
+
+/** A store's last seed run (`StoreSeedRun`); `state` 'None' for a store never seeded. */
 export interface StockConsoleSeedRun {
+  store: string
+  /** 'None' | 'Running' | 'Seeded' | 'Refused' | 'Failed', read defensively. */
   state: string
   kind: string
   reason: string
+  ask: string
+  countDay: string
+  who: string
   askedAt: string | null
   endedAt: string | null
   batchRows: number
 }
 
-/** One measured gate (SV StoreGateModel). */
+/** One measured gate (`StoreGate`). */
 export interface StockConsoleGate {
   gate: string
   holds: boolean
+  /** Text: what the gate asks when it holds; else each failing day or feed and why. */
   figure: string
 }
 
-/** The gates toward the next stage (SV StoreGatesModel). */
+/** A store's gates toward Blocking over the days `from`–`to`, both in (`StoreGates`). */
 export interface StockConsoleGates {
+  store: string
+  /** Days, `yyyy-MM-ddT00:00:00`. */
   from: string
   to: string
+  /** Every measured gate holds and every gate owned elsewhere is confirmed. */
   hold: boolean
   measured: StockConsoleGate[]
   confirmed: string[]
   notConfirmed: string[]
 }
 
-/** A store's stage and count (BO 4160), under the console grant. Read-only. */
+/** `…/Stage` (`StockConsoleStageAnswer`): the stage, its log (newest first), the last seed run and the gates. */
 export interface StockConsoleStoreStage {
   store: string
-  stage: string
-  updatedAt: string | null
-  /** Newest first. */
+  /** null when Stock Visibility's stage list does not hold the store. */
+  stage: StockConsoleStageNow | null
   moves: StockConsoleStageMove[]
-  lastSeed: StockConsoleSeedRun | null
-  /** null when the gates read did not answer [guess]. */
+  seed: StockConsoleSeedRun
+  /** null when the gates' read alone gave no answer (`gatesAnswered` false). */
   gates: StockConsoleGates | null
+  gatesAnswered: boolean
+  gatesNoAnswer: string | null
 }
 
-/** A feed's last full pass (SV FeedAgeModel). */
-export interface StockConsoleFeedPass {
+// ── The fleet ───────────────────────────────────────────────────────────────────────────────────────
+
+/** A fleet fact from one status route: `answered` false = no answer (its other fields are defaults), never healthy. */
+export interface StockConsoleFleetFact {
+  answered: boolean
+  noAnswer: string | null
+}
+
+/** Stock Visibility's feed names (`StockFeedNames`). */
+export const FLEET_FEEDS = ['SapFeed', 'PosFeed', 'HoldLedgerReader', 'SapCount'] as const
+
+/** One feed: its last complete pass and its age, late against the feed watch's own limit (`StockConsoleFeedRow`). */
+export interface StockConsoleFeedRow {
   feed: string
+  /** SIS.Api's English name ("SAP feed"); the page uses its own words for a known feed. */
+  name: string
   lastCompletePassAt: string | null
-  ageSeconds: number | null
+  /** Minutes since the last complete pass; null: never passed. */
+  ageMinutes: number | null
+  /** The feed watch's alarm limit; null for a feed not watched. */
+  limitMinutes: number | null
+  /** A watched feed at or over its limit, never passed, or not listed by Stock Visibility. */
+  late: boolean
 }
 
-/** The reserved recompute's run (a subset of SV ReservedRunState). */
-export interface StockConsoleReservedRun {
+export interface StockConsoleFleetFeeds extends StockConsoleFleetFact {
+  rows: StockConsoleFeedRow[]
+}
+
+export interface StockConsoleFleetReserved extends StockConsoleFleetFact {
+  /** A `ReservedState`: never run, stale (older than `limitMinutes` outside the quiet window) or computed. */
+  state: string
+  limitMinutes: number
   lastStartedAt: string | null
   lastSuccessAt: string | null
-  lastFailureAt: string | null
+  lastComputedAt: string | null
+  lastDurationMs: number
+  lastDocuments: number
+  lastPairs: number
+  lastChangedPairs: number
   consecutiveFailures: number
+  lastFailureAt: string | null
   lastError: string | null
   lastNetting: string | null
-}
-
-/** The held-served switch (SV HeldServingModel). */
-export interface StockConsoleHeldServed {
-  served: boolean
-  changedAt: string | null
-  netting: string
-  subtractsHeld: boolean
   fellBackAt: string | null
 }
 
-/** The hold ledger reader (a subset of SV HoldLedgerStatusModel). */
-export interface StockConsoleLedgerReader {
+export interface StockConsoleFleetHeldServed extends StockConsoleFleetFact {
+  served: boolean
+  changedAt: string | null
+  /** 'None' | 'Sold' | 'All'. */
+  netting: string
+  fellBackAt: string | null
+  lastNetting: string | null
+  subtractsHeld: boolean
+}
+
+export interface StockConsoleFleetReader extends StockConsoleFleetFact {
   lastPassAt: string | null
-  lagSeconds: number | null
+  /** Minutes since the reader's last complete pass; null: never passed. */
+  lagMinutes: number | null
+  limitMinutes: number
+  /** Lag over `limitMinutes`, or never passed. */
+  behind: boolean
   readThroughAt: string | null
+  rowsApplied: number
+  unmatchedRows: number
 }
 
-/** Today's take door figures (BO TakeDoorToday) [guess: + day]. */
-export interface StockConsoleTakesToday {
+export interface StockConsoleTakeOutage {
+  from: string
+  to: string
+  minutes: number
+}
+
+/** Today's take door figures, fleet-wide. */
+export interface StockConsoleFleetTakes extends StockConsoleFleetFact {
+  /** Today. ⚠️ Sent with the server's offset (`…T00:00:00+03:00`, see the contract): read its first ten characters. */
   day: string
+  /** Every call, whatever its outcome. */
   takes: number
+  withinLimit: number
+  shareWithinLimit: number | null
+  /** Calls the door could not answer. */
   failed: number
-  skipped: number | null
+  failedPerThousand: number | null
+  /** Calls refused before the door answered (counted in takes, not in failed). */
+  rejected: number
+  limitMilliseconds: number
+  outages: StockConsoleTakeOutage[]
 }
 
-/**
- * The facts that belong to no store (BO 4160). Each null = **no answer** (a route an older Stock Visibility does not
- * have, or one that did not answer) — drawn as no answer, never as healthy. All names [guess].
- */
+/** `GET StockConsole/Fleet` (`StockConsoleFleetAnswer`): each fleet fact on its own, and the ones that are a problem. */
 export interface StockConsoleFleet {
   readAt: string
-  feeds: StockConsoleFeedPass[] | null
-  reservedRun: StockConsoleReservedRun | null
-  heldServed: StockConsoleHeldServed | null
-  ledgerReader: StockConsoleLedgerReader | null
-  takesToday: StockConsoleTakesToday | null
-  /**
-   * The fleet facts that are a problem now, as the server judges them — the same list `StockConsoleStores.fleet` carries
-   * (a late feed, the recompute never run or stale, the held-served switch fallen back, the reader behind, the take door
-   * failing). "Stale" and "behind" are SIS.Api's settings, not the page's. Absent reads as none [guess].
-   */
+  feeds: StockConsoleFleetFeeds
+  reserved: StockConsoleFleetReserved
+  heldServed: StockConsoleFleetHeldServed
+  reader: StockConsoleFleetReader
+  takes: StockConsoleFleetTakes
+  /** The same list the stores summary carries as its fleet line. */
   problems: StockConsoleFleetProblem[]
 }
 
-// ── 944 ──
+// ── The GS1 scan ────────────────────────────────────────────────────────────────────────────────────
 
-/** What `StockConsole/Scan` took the code for (BO 4162). Read defensively: an unknown kind is "not a code we know". */
+/** What `StockConsole/Scan` took the code for. Read defensively: an unknown kind is "not a code we know". */
 export type ScanKind = 'Gs1' | 'Barcode' | 'Unknown'
 
-/**
- * `GET StockConsole/Scan?code=` (BO 4162, shape verbatim): the GS1 box's code read by HQ's barcode master. A GS1 code
- * gives the item (from its GTIN), the lot to search as the vendor batch, the expiry and the serial; a plain barcode the
- * item alone. The code is not stored anywhere.
- */
+/** `GET StockConsole/Scan?code=` (`StockConsoleScanAnswer`, shape verbatim in BO 4162). The code is not stored. */
 export interface StockConsoleScan {
   /** A `ScanKind`, read defensively. */
   kind: string
@@ -434,112 +498,123 @@ export interface StockConsoleScan {
   gtin: string | null
   /** AI 10: the vendor batch to search. */
   lot: string | null
-  /** AI 17 as a day (`yyyy-MM-dd`), or the month's first day when the code's day is 00. */
+  /** AI 17 as `yyyy-MM-dd`, or the month's first day when the code's day is 00. */
   expiry: string | null
-  /** False when the code's day is 00: the expiry compares by month. */
+  /** False when the code's day is 00 (compare by month), or there is no expiry. */
   expiryDayKnown: boolean
   /** AI 21. */
   serial: string | null
 }
 
-// ── 943 ──
-// `GET StockConsole/Stores/{store}/Items/{item}` answers the item's figures with its names and "the sums ready to be
-// written out, each as its operands and its result" (BO 4161) — `sums`; the web writes the lines out (`item-sum.ts`) and
-// redoes no arithmetic. Its four tabs: `…/Items/{item}/Batches|Holds|Takes` answer the store lists' shapes (a page) and
-// `StockConsole/Items/{item}/Stores` a page of the item at every store.
-// `GET StockConsole/Find` answers a batch page or an items page, by what was sent. `NoRow`: no stock row at the store.
+// ── An item ─────────────────────────────────────────────────────────────────────────────────────────
 
-/** What the channels are answered for this store and item now, and which rule made it (SV 078). */
-export interface StockConsoleAnsweredNow {
-  /** NOT floored. */
-  quantity: number
-  /** `'HeldServed' | 'LiveOrders'`, read defensively. */
-  rule: string
-  /** The open orders subtracted — only under the live-orders rule. */
-  liveOrders: number | null
-}
-
-/** Sum 1 (BO 4161): the SAP counter, less sold at the till and not in SAP (the gap), equals the till-side counter. */
+/** Sum 1: SAP stock − sold at the till and not in SAP = till-side stock. */
 export interface StockConsoleTillSideSum {
   sapStock: number
-  gap: number
-  /** The till-side counter. */
-  result: number
+  soldNotInSap: number
+  tillStock: number
+}
+
+/** Sum 2: till-side − held standing − held sold not applied − reserved = free, never floored. */
+export interface StockConsoleFreeSum {
+  tillStock: number
+  heldStanding: number
+  heldSold: number
+  held: number
+  /** null in NeverComputed — NEVER 0. */
+  reserved: number | null
+  reservedState: string
+  /** The recompute's last success, beside a computed or stale figure. */
+  reservedAt: string | null
+  reservedIncluded: boolean
+  free: number
 }
 
 /**
- * Sum 2: till-side, less held (standing, sold not applied), less reserved (with its state), equals free — never floored;
- * reserved left out when never computed, and then free says so.
+ * Sum 3: what `Stock/CurrentStock` answers now (`quantity`, Stock Visibility's, not floored) and the rule that made it.
+ * Under `LiveOrders`: till-side − `liveOrders`. Under `HeldServed`: till-side − `held` − `reserved`. The other rule's
+ * operands are null. `rule` '' = the answer did not carry it.
  */
-export interface StockConsoleFreeSum {
+export interface StockConsoleAnsweredNowSum {
+  /** 'HeldServed' | 'LiveOrders' | '', read defensively. */
+  rule: string
   tillStock: number
-  held: number
-  heldStanding: number
-  heldSold: number
-  /** null = never computed — NEVER 0. */
+  liveOrders: number | null
+  held: number | null
   reserved: number | null
-  /** A `ReservedState`, read defensively. */
-  reservedState: string
-  /** The recompute's time for this figure [guess: SV `reservedComputedAt` renamed]. */
-  reservedAt: string | null
-  /** false when reserved is not in the result → "reserved not included". */
-  reservedIncluded: boolean
-  /** Free. */
-  result: number
+  quantity: number
 }
 
-/** Sum 4: till-side less held less reserved, floored at zero — what the change feed sends (SV 078). */
+/** Sum 4: till-side − held − reserved (0 without a row) = `unfloored`; `quantity` is what the change feed sends (≥ 0). */
 export interface StockConsoleChangeFeedSum {
   tillStock: number
   held: number
-  reserved: number | null
-  /** MAX(0, …). */
-  result: number
+  reserved: number
+  unfloored: number
+  quantity: number
 }
 
-/** The item's four sums, in BO 4161's order [guess names]; each its operands and its result. */
-export interface StockConsoleItemSums {
-  tillSide: StockConsoleTillSideSum
-  free: StockConsoleFreeSum
-  /** Sum 3. null = the answer did not carry it; drawn as no answer, never 0. */
-  answeredNow: StockConsoleAnsweredNow | null
-  changeFeed: StockConsoleChangeFeedSum
-}
-
-/**
- * One item at one store, with HQ's names and its sums (BO 4161). Read through `toItem` (`item-sum.ts`), which also takes
- * SV 078's flat operands should SIS.Api pass them through unsummed — the one place that reconcile happens.
- */
+/** `GET …/Items/{item}` (`StockConsoleItemAnswer`): the item's figures, names and four sums. `NoRow` when absent. */
 export interface StockConsoleItem extends StockConsoleOtherStock {
-  plant: string
+  readAt: string
+  store: string
   item: string
   nameEn: string
   nameAr: string
-  /** Holds on a blank or unknown batch (SV 078): they reduce the item's free stock and no batch's. */
-  heldOnNoBatch: number
   lastUpdate: string | null
-  sums: StockConsoleItemSums
+  tillSide: StockConsoleTillSideSum
+  free: StockConsoleFreeSum
+  answeredNow: StockConsoleAnsweredNowSum
+  changeFeed: StockConsoleChangeFeedSum
+  /** Held on a blank batch or one the store's book has no row for: it reduces free and no batch's figure. */
+  heldOnNoBatch: number
+  /** The reserved row's own computed time (Stock Visibility's). */
+  reservedComputedAt: string | null
 }
 
-/** The item at one store of the fleet (SV 078). SIS.Api may add the store list's figures [guess]; read `?? derived`. */
+/**
+ * `…/Items/{item}/Holds` (`StockConsoleItemHoldsAnswer`): open holds (oldest first) then those released in the last 7
+ * days (newest first), one list, each part at most 200 rows. Not paged.
+ */
+export interface StockConsoleItemHolds {
+  open: number
+  released: number
+  /** open + released. */
+  total: number
+  /** False when either part had more than the 200 rows read. */
+  allShown: boolean
+  rows: StockConsoleHoldRow[]
+}
+
+/** The item at one store of the fleet (`StockConsoleItemStoreRow`). */
 export interface StockConsoleItemStoreRow {
   plant: string
+  /** '' for a store with no `StockPlant` row. */
   city: string
   stage: string
   sapStock: number
   tillStock: number
+  gap: number
+  held: number
   heldStanding: number
   heldSold: number
+  /** null in NeverComputed — NEVER 0. */
   reserved: number | null
+  reservedState: string
+  reservedAt: string | null
+  reservedIncluded: boolean
+  free: number
   lastUpdate: string | null
-  gap?: number
-  held?: number
-  free?: number
-  reservedState?: string
-  reservedIncluded?: boolean
 }
 
-/** Find with a batch: one row per store, item and batch (SV 078), names added. */
+/** `GET StockConsole/Items/{item}/Stores` (`StockConsoleItemStoresAnswer`): the item, its names, a page of its stores. */
+export interface StockConsoleItemStores extends StockConsolePage<StockConsoleItemStoreRow> {
+  item: string
+  nameEn: string
+  nameAr: string
+}
+
+/** One store, item and batch found (`StockConsoleFindBatchRow`). */
 export interface StockConsoleFindBatchRow {
   plant: string
   city: string
@@ -547,103 +622,147 @@ export interface StockConsoleFindBatchRow {
   nameEn: string
   nameAr: string
   batch: string
+  /** null without a batch master row. */
   vendorBatch: string | null
   expiry: string | null
   sapStock: number
   tillStock: number
   held: number
+  freeForTheDoor: number
 }
 
-/** Find without a batch: items from HQ's item master (BO 4161). */
+/** One item HQ's item master has for the item box (`StockConsoleFindItemRow`). */
 export interface StockConsoleFindItemRow {
   item: string
   nameEn: string
   nameAr: string
 }
 
-/** Find's answer. `kind` [guess] is only a cross-check: the web picks the answer by what it sent. */
-export type StockConsoleFind =
-  | ({ kind: 'Batch'; stores: number | null } & StockConsolePage<StockConsoleFindBatchRow>)
-  | ({ kind: 'Item' } & StockConsolePage<StockConsoleFindItemRow>)
-
-// ── 945 ──
+/** `StockConsoleFindKinds`. */
+export type FindKind = 'batches' | 'items'
 
 /**
- * `GET StockConsole/Stores/{store}/SapMovements?from=&to=` — SAP's material documents of one store, read live, summed by
- * entry day and movement type (SV 080, BO 4163). `from`/`to` are SAP entry days, at most 5. `SapNotConfigured` and
- * `SapUnreachable` are refusals by name, never an empty answer.
+ * `GET StockConsole/Find` (`StockConsoleFindAnswer`). With a batch (`kind` 'batches'): `batches`, the whole match's
+ * `total` and its distinct `stores`. Without (`items`): `items` from HQ's item master, `stores` null, `more` when the
+ * name matched more than the 200 listed. The other kind's list is empty.
  */
+export interface StockConsoleFind {
+  kind: string
+  total: number
+  page: number
+  size: number
+  stores: number | null
+  more: boolean
+  batches: StockConsoleFindBatchRow[]
+  items: StockConsoleFindItemRow[]
+}
+
+// ── Movements ───────────────────────────────────────────────────────────────────────────────────────
+
+/** One SAP entry day and movement type (`StockConsoleSapMovementDay`): quantities in and out, both positive. */
 export interface StockConsoleSapDay {
-  /** The SAP entry day, `yyyy-MM-dd`. */
+  /** The SAP entry day, `yyyy-MM-ddT00:00:00`. */
   day: string
   movementType: string
   documents: number
   lines: number
-  /** Both positive, base units. */
   quantityIn: number
   quantityOut: number
 }
 
+/** `GET …/SapMovements?from=&to=` (`StockConsoleSapMovementsRead`): SAP read live; at most 5 entry days. */
 export interface StockConsoleSapMovements {
   readAt: string
-  /** Where our SAP feed stands for the store (its last document applied) and its last attempt. */
+  /** Our SAP feed's place for the store (its last document applied) and its last attempt. */
   place: { sapPlace: string | null; lastAttempt: string | null }
   days: StockConsoleSapDay[]
 }
 
-/** Each SAP line's mark, by key against our copy of SAP's documents (SV 080). */
+/** Each SAP line's mark against our copy of SAP's documents (`StockConsoleSapMarks`). */
 export const SAP_LINE_MARKS = ['Applied', 'ReceivedNotApplied', 'NotReceived'] as const
 export type SapLineMark = (typeof SAP_LINE_MARKS)[number]
 
-/** `GET …/SapMovements/Lines?day=&type=&page=&size=` → a page of these (SV 080; item names added by BO 4163). */
+/** One SAP line (`StockConsoleSapLineRow`), with the item's names. */
 export interface StockConsoleSapLine {
-  /** [guess types] drawn as text. */
   materialDocument: string
-  year: string | number
-  line: string | number
+  year: string
+  line: string
   item: string
   nameEn: string
   nameAr: string
-  batch: string | null
-  /** Signed as the feed signs it: debit +, credit −. */
+  storageLocation: string
+  batch: string
+  /** Signed: debit in, credit out, in `unit`. */
   quantity: number
-  unit: string | null
+  unit: string
   postingDay: string | null
+  /** SAP's entry time of day, `HH:mm:ss`. */
   entryTime: string | null
   /** A `SapLineMark`, read defensively. */
   mark: string
 }
 
-/**
- * `GET StockConsole/Stores/{store}/Items/{item}/Movements?from=&to=&page=&size=` → a page of our ledger's lines for the
- * item at the store, newest first (SV 079). `from`/`to` are local days, at most 7. Names follow the contract (wire.md);
- * `api.ts` also reads SV 079's built names (`time`, `sapDocument {…}`, `tillDocument {…}`, `lines`).
- */
+/** `GET …/SapMovements/Lines?day=&type=&page=&size=` (`StockConsoleSapLinesAnswer`). */
+export interface StockConsoleSapLines {
+  readAt: string
+  day: string
+  movementType: string
+  page: number
+  size: number
+  total: number
+  lines: StockConsoleSapLine[]
+}
+
+/** SAP's material document on a SAP ledger line. `item` is SAP's line number in the document. */
+export interface StockConsoleSapDocument {
+  materialDocument: string
+  year: string
+  item: string
+}
+
+/** The till's store, transaction and line on a till ledger line. */
+export interface StockConsoleTillDocument {
+  store: string
+  transaction: string
+  line: string
+}
+
+/** One line of our ledger (`StockConsoleMovementLine`, SIS.Stock 079 passed through). */
 export interface StockConsoleLedgerLine {
   /** The ledger id (a ULID). */
   id: string
   /** The time in the id, local. */
-  at: string
-  /** `'Sap' | 'Pos'` (Pos = till), read defensively. */
+  time: string
+  /** 'Sap' | 'Pos' (Pos = till), read defensively. */
   feed: string
   movementType: string
   /** Signed. */
   quantity: number
-  batch: string | null
-  storageLocation: string | null
-  /** SAP's material document, year and line — null on a till line. */
-  materialDocument: string | null
-  materialYear: string | number | null
-  materialLine: string | number | null
-  /** The till's store, transaction and line — null on a SAP line. */
-  tillStore: string | null
-  tillTrx: string | null
-  tillLine: string | number | null
-  postingDay: string | null
-  /** null = the answer did not say (normalised in `movements.ts`); only `false` is drawn "not applied". */
-  applied: boolean | null
-  /** Its effect on the SAP counter, by the ledger writer's own rule. */
+  batch: string
+  storageLocation: string
+  /** null on a till line. */
+  sapDocument: StockConsoleSapDocument | null
+  /** null on a SAP line. */
+  tillDocument: StockConsoleTillDocument | null
+  postingDay: string
+  /** Whether the ledger's writer has applied the line to the counters. */
+  applied: boolean
+  /** Its effect on the SAP counter and on the till-side counter, at its own storage location. */
   onSap: number
-  /** Its effect on the till-side counter. */
   onTill: number
+  /** The writer's complementary leg at storage location "" (zero on a line without one). Not drawn. */
+  complementaryOnSap: number
+  complementaryOnTill: number
+}
+
+/** `GET …/Items/{item}/Movements?from=&to=&page=&size=` (`StockConsoleMovementsRead`): newest first; at most 7 days. */
+export interface StockConsoleLedger {
+  store: string
+  item: string
+  from: string
+  to: string
+  page: number
+  size: number
+  total: number
+  lines: StockConsoleLedgerLine[]
 }

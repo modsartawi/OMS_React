@@ -140,7 +140,7 @@ function SapLines({ store, movements }: { store: string; movements: Movements })
       {view.kind === 'rows' && page && (
         <PagedList
           name="sap-lines"
-          rows={page.rows}
+          rows={page.lines}
           total={page.total}
           page={state.page}
           busy={read.isFetching || read.isPlaceholderData}

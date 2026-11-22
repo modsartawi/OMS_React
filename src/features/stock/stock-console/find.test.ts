@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import type { StockConsoleFind } from '@/core/models/stock-console'
 import {
   FIND_LIST,
   answerShown,
-  findAnswer,
   findDecision,
   findRowHref,
   findWire,
@@ -44,27 +44,11 @@ describe('Find asks only when there is something to find', () => {
   })
 })
 
-describe('Find’s answer is picked by what was sent', () => {
-  it('a batch sent reads the batch answer, with its count of rows and of stores', () => {
-    const answer = findAnswer('batch', { kind: 'Batch', total: 3, stores: 2, page: 1, size: 25, rows: [] }, { page: 1, size: 25 })
-    expect(answer).toEqual({ kind: 'Batch', total: 3, stores: 2, page: 1, size: 25, rows: [] })
-  })
-
-  it('an item sent reads the items answer, whatever kind the server names', () => {
-    const answer = findAnswer('item', { kind: 'Batch', total: 1, rows: [{ item: '1001', nameEn: 'A', nameAr: 'أ' }] }, { page: 1, size: 25 })
-    expect(answer).toEqual({ kind: 'Item', total: 1, page: 1, size: 25, rows: [{ item: '1001', nameEn: 'A', nameAr: 'أ' }] })
-  })
-
-  it('a batch answer without its store count says no count — the page’s stores would undercount a longer match', () => {
-    const rows = [{ plant: 'P077' }, { plant: 'P078' }, { plant: 'P077' }]
-    expect(findAnswer('batch', { total: 60, rows } as never, { page: 1, size: 25 })).toMatchObject({ kind: 'Batch', stores: null })
-    expect(findAnswer('batch', null, { page: 2, size: 25 })).toEqual({ kind: 'Batch', total: 0, stores: null, page: 2, size: 25, rows: [] })
-  })
-})
-
 describe('the answer shown is the one asked for', () => {
-  const batch = { kind: 'Batch' as const, total: 1, stores: 1, page: 1, size: 25, rows: [] }
-  const items = { kind: 'Item' as const, total: 1, page: 1, size: 25, rows: [] }
+  // `GET StockConsole/Find` as SIS.Api answers it (BO 4161, `StockConsoleFindAnswer`): the kind names its list.
+  const answer = { total: 1, page: 1, size: 25, more: false, batches: [], items: [] }
+  const batch: StockConsoleFind = { ...answer, kind: 'batches', stores: 1 }
+  const items: StockConsoleFind = { ...answer, kind: 'items', stores: null }
 
   it('an answer of the other kind kept from the last search is not drawn under this one’s columns', () => {
     expect(answerShown('item', batch)).toBeUndefined()

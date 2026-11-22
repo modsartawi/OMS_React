@@ -29,9 +29,12 @@ export interface TakeCells {
 
 const NONE = { item: null, names: null, quantity: null, reason: null, status: null } as const
 
-/** A take row's cells by its kind. An unknown kind is drawn as it came, and nothing else is guessed. */
+/**
+ * A take row's cells by its kind (SIS.Api's row is flat: the kind says which fields it fills). An unknown kind is drawn
+ * as it came, and nothing else is guessed.
+ */
 export function takeCells(row: StockConsoleTakeRow): TakeCells {
-  const kind = String(row.kind)
+  const kind = row.kind
   const kindCell = Object.hasOwn(KIND_SEV, kind) ? { key: `takes.kind.${kind}`, sev: KIND_SEV[kind] } : { raw: kind, sev: 'mute' as const }
   switch (row.kind) {
     case 'granted':
@@ -41,6 +44,7 @@ export function takeCells(row: StockConsoleTakeRow): TakeCells {
         item: row.item,
         names: { nameEn: row.nameEn, nameAr: row.nameAr },
         quantity: row.quantity,
+        // The take's holds; Stock Visibility may send a granted row without them.
         batches: (row.batches ?? []).map((b) => formatPair(b.batch, formatFigure(b.quantity))),
       }
     case 'refused':
@@ -50,11 +54,11 @@ export function takeCells(row: StockConsoleTakeRow): TakeCells {
         item: row.item,
         names: { nameEn: row.nameEn, nameAr: row.nameAr },
         quantity: row.asked,
-        batches: row.namedBatch ? [row.namedBatch] : [],
+        batches: row.batchWithStock ? [row.batchWithStock] : [],
         reason: row.reason || row.code || null,
       }
     case 'failed':
-      return { ...NONE, kind: kindCell, batches: [], status: { code: row.statusCode ?? null, ms: row.durationMs ?? null } }
+      return { ...NONE, kind: kindCell, batches: [], status: { code: row.statusCode, ms: row.durationMs } }
     default:
       return { ...NONE, kind: kindCell, batches: [] }
   }

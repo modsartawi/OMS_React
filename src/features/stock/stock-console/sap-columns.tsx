@@ -7,13 +7,13 @@ import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
-import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { formatDay } from '@/core/util/date-format'
 import { localizedName } from '@/core/util/localized-name'
 import { formatFigure } from '@/core/util/number-format'
 import { MONO, figureColumn } from './columns'
 import { rowKey } from './row-ids'
 import { itemHref } from './console-pages'
-import { markCell } from './movements'
+import { markCell, sapDayOf } from './movements'
 import WordOrRaw from './WordOrRaw'
 
 type DayCell = ICellRendererParams<StockConsoleSapDay>
@@ -48,7 +48,7 @@ export function buildSapDayColumns(
       width: 150,
       cellRenderer: (p: DayCell) => {
         if (!p.data) return null
-        const isOpen = p.data.day === opened.day && p.data.movementType === opened.type
+        const isOpen = sapDayOf(p.data.day) === opened.day && p.data.movementType === opened.type
         return (
           <Link
             to={openHref(p.data)}
@@ -70,9 +70,6 @@ export function buildSapDayColumns(
   ]
 }
 
-/** A SAP entry time as drawn: a date and time formatted; a bare time of day as sent [guess: either may come]. */
-const entryTime = (value: string | null): string => (value && value.includes('T') ? formatDateTime(value) : (value ?? ''))
-
 /**
  * An opened row's lines (oms 945): document, line, item and name, batch, quantity, posting day, entry time, and our mark
  * — applied, received not applied, not received by us.
@@ -93,7 +90,7 @@ export function buildSapLineColumns(t: TFunction, language: string, store: strin
       colId: 'line',
       width: 70,
       cellClass: MONO,
-      valueGetter: (p) => (p.data ? String(p.data.line) : ''),
+      field: 'line',
       cellRenderer: LtrCell,
     },
     {
@@ -126,7 +123,7 @@ export function buildSapLineColumns(t: TFunction, language: string, store: strin
       width: 110,
       type: 'numericColumn',
       // The signed quantity and its unit are one machine value, isolated once.
-      valueGetter: (p) => (p.data ? [formatFigure(p.data.quantity), p.data.unit ?? ''].filter((s) => s !== '').join(' ') : ''),
+      valueGetter: (p) => (p.data ? [formatFigure(p.data.quantity), p.data.unit].filter((s) => s !== '').join(' ') : ''),
       cellRenderer: LtrCell,
     },
     {
@@ -138,11 +135,11 @@ export function buildSapLineColumns(t: TFunction, language: string, store: strin
       cellRenderer: LtrCell,
     },
     {
+      // SAP's entry time of day, `HH:mm:ss`, drawn as sent.
       headerName: t('sap.lines.column.entryTime'),
       field: 'entryTime',
-      width: 140,
+      width: 110,
       cellClass: MONO,
-      valueFormatter: (p) => entryTime(p.value as string | null),
       cellRenderer: LtrCell,
     },
     {

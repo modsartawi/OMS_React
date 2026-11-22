@@ -40,7 +40,7 @@ export default function MovementsTab({ store, item }: ItemTabProps) {
       {view.kind === 'rows' && page && (
         <PagedList
           name="movements"
-          rows={page.rows}
+          rows={page.lines}
           total={page.total}
           page={state.page}
           busy={read.isFetching || read.isPlaceholderData}

@@ -27,7 +27,7 @@ page → copilot panel
   (`askAbout` hands the finding over once), `src/core/findings/ask.test.ts` (the pharmacy case: the button's tap opens
   the panel with the question and id), `src/features/copilot/finding.test.ts` (the first `Copilot/Ask` body is
   `{ question, findingId }` in a new conversation). The scorecard panel's button is the same `AskButton`; its
-  wiring into 947's panel is pending until 947 merges.
+  wiring into 947's panel landed with 947 (`ScorecardPanel` `action` slot, commit 837326ae).
 - [x] a further question continues in the same panel · vitest — `finding.test.ts` (the next question carries the
   `conversationId` and no `findingContext`)
 - [x] the button is absent when the tool is not offered · vitest — `ask.test.ts` (no `ask`, or no copilot grant → no

@@ -21,6 +21,7 @@ import { COPILOT_STARTERS_KEY } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, boxOpen, canAskMore, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
 import { Answer, QuestionButtons, Refusal, WorkingStep, type AnswerReadings } from './AnswerParts'
+import AskedFinding from './AskedFinding'
 import { ProposalCard, ScheduleLinks } from './ProposalCard'
 import { cardState, proposalCard, type CardState } from './proposal'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
@@ -157,6 +158,18 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     openSqlItem(item)
     box.current?.focus()
   }, [handedItem, openSqlItem])
+
+  // 950: "Ask" on a brief line or a pharmacy's scorecard: a new conversation, its written question asked with the
+  // finding's id as context, the line drawn at the top by the brief's own card. Not sent, the question waits in the box.
+  const handedFinding = useCopilotPanel((s) => s.finding)
+  const openFinding = useCopilotConversation((s) => s.openFinding)
+  const finding = useCopilotConversation((s) => s.finding)
+  useEffect(() => {
+    if (handedFinding === null) return
+    const f = useCopilotPanel.getState().takeFinding()
+    if (f === null) return
+    if (!questionFits(f.question) || openFinding(f) === null) setQuestion(f.question)
+  }, [handedFinding, openFinding])
 
   // 843: a prefill (the Catalog's "Ask about this area") lands in the box unsent, for the user to read and send.
   const drafted = useCopilotPanel((s) => s.draft)
@@ -341,6 +354,7 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
             data-copilot-scroller
           >
             <div ref={content} className="flex flex-col gap-4">
+              {finding !== null && <AskedFinding finding={finding} />}
               {empty && offer?.kind === 'starters' && (
                 <div data-copilot-starters className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">{t('examples.heading')}</div>

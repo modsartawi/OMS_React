@@ -45,11 +45,13 @@ export default function HelpPrintDocument({
 
   return (
     <div dir={helpDir(lang)} lang={lang} className="flex flex-col text-sm" data-help-print={area}>
-      <section className="relative flex h-[240mm] flex-col justify-center gap-4 overflow-hidden" data-help-print-cover>
+      <section className="@container relative flex h-[240mm] flex-col justify-center gap-4 overflow-hidden" data-help-print-cover>
         {contents.draft && (
-          // A watermark is a picture, not reading order: one fixed slant whatever the direction.
-          <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center" data-help-print-draft>
-            <span className="-rotate-30 text-[8rem] font-bold uppercase text-muted-foreground/20">{t('draft.title')}</span>
+          // A watermark is a picture, not reading order: one fixed slant whatever the direction. It is sized to the
+          // cover's width (`cqi`), on one line, and centred on a grid, so the slanted word stays inside the page in
+          // either language and whatever the font.
+          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center" data-help-print-draft>
+            <span className="-rotate-30 whitespace-nowrap text-[length:min(8rem,16cqi)] font-bold leading-none uppercase text-muted-foreground/20">{t('draft.title')}</span>
           </div>
         )}
         <h1 className="text-3xl font-semibold tracking-tight">{t(`areas.${area}.guide`)}</h1>

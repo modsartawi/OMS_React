@@ -12,7 +12,7 @@ import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import HelpPrintDocument from './HelpPrintDocument'
 import { inReadingOrder } from './help-contents'
-import { contentsPageNumbers, helpPrintLang, printReady } from './help-print'
+import { contentsPageNumbers, helpPrintLang, printReady, type PrintBlock } from './help-print'
 
 // A4 (210 × 297 mm) less the page margins below: the paper is exactly this wide on screen too, so what the page
 // measures on screen is what prints (CSS millimetres are the same length on both).
@@ -29,6 +29,36 @@ const PAGE_RULE = [
   '@page :first { @bottom-center { content: none; } }',
   '@media print { html, body { background: var(--card) !important; } }',
 ].join('\n')
+
+// Walked into, not measured whole: a block of the paper made of smaller blocks the printer can break between.
+const CONTAINERS = new Set(['DIV', 'SECTION', 'UL', 'OL', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'BLOCKQUOTE'])
+
+/**
+ * A run of the paper (an article, the contents) as the blocks Chromium fragments it into on paper (`pagesOfBlocks`),
+ * in px from its top: a list's items, a table's rows, each paragraph, heading, picture and code block. A block that
+ * must not split is one with `break-inside: avoid` or one holding such a block (a paragraph with a picture); a heading
+ * (`break-after: avoid`) and a table's header row keep with their next; anything else is text breaking between its lines.
+ */
+function printBlocks(run: Element | null): PrintBlock[] {
+  if (!run) return []
+  const origin = run.getBoundingClientRect().top
+  const avoids = (el: Element) => getComputedStyle(el).breakInside === 'avoid'
+  const walk = (el: Element): PrintBlock[] =>
+    [...el.children].flatMap((child) => {
+      const style = getComputedStyle(child)
+      if (style.display === 'none' || style.position === 'absolute' || style.position === 'fixed') return []
+      // A table's header row: Chromium never leaves it at a page bottom without a body row.
+      const keepWithNext = style.breakAfter === 'avoid' || child.parentElement?.tagName === 'THEAD'
+      const whole = style.breakInside === 'avoid'
+      if (!whole && !keepWithNext && CONTAINERS.has(child.tagName) && child.children.length > 0) return walk(child)
+      const box = child.getBoundingClientRect()
+      const block: PrintBlock = { top: box.top - origin, height: box.height, keepWithNext }
+      if (whole || [...child.querySelectorAll('*')].some(avoids)) return [block]
+      const line = parseFloat(style.lineHeight)
+      return [{ ...block, line: Number.isFinite(line) ? line : parseFloat(style.fontSize) * 1.2 }]
+    })
+  return walk(run)
+}
 
 /**
  * The whole help on paper (oms 953, BackOffice spec 4182 §D) at `/<area>/print/help?lang=en|ar`, a sibling of the
@@ -79,7 +109,7 @@ export default function HelpPrintPage({ area }: { area: string }) {
     return () => style.remove()
   }, [])
 
-  // Once everything has drawn, measure the blocks at the paper's width for the contents' page numbers.
+  // Once everything has drawn, measure the blocks at the paper's width and paginate them for the contents' page numbers.
   const paperRef = useRef<HTMLDivElement>(null)
   const drawn = contents.isSuccess && printReady({ articles: reads, settled, lang, paged: true })
   const [pageNumbers, setPageNumbers] = useState<number[] | null>(null)
@@ -88,12 +118,11 @@ export default function HelpPrintPage({ area }: { area: string }) {
     const frame = window.requestAnimationFrame(() => {
       const paper = paperRef.current
       if (!paper) return
-      const height = (el: Element | null) => el?.getBoundingClientRect().height ?? 0
       setPageNumbers(
         contentsPageNumbers({
           pageHeight: PAGE_HEIGHT_MM * PX_PER_MM,
-          contentsHeight: height(paper.querySelector('[data-help-print-contents]')),
-          articleHeights: [...paper.querySelectorAll('[data-help-print-article]')].map(height),
+          contents: printBlocks(paper.querySelector('[data-help-print-contents]')),
+          articles: [...paper.querySelectorAll('[data-help-print-article]')].map(printBlocks),
         }),
       )
     })

@@ -3,9 +3,11 @@
  *
  * The contents' page numbers: Chromium has no `target-counter()`, so a CSS counter cannot print the page an article
  * lands on. The footer's number IS a CSS counter (`@page { @bottom-center { content: counter(page) } }`); the
- * contents' numbers are worked out here from the blocks' heights, measured on screen at the paper's exact width
- * (every article starts a new page, so each one's first page is the pages before it, plus one). A picture or a heading
- * pushed to the next page can still move an article by a page — checked by reading the saved PDF (953's manual proof).
+ * contents' numbers are worked out here by paginating each article's blocks, measured on screen at the paper's exact
+ * width, the way Chromium fragments them on paper (`pagesOfBlocks`): a block that must not split (a picture, a code
+ * block, a table row) moves whole to the next page, a heading moves with the start of what follows it, and text breaks
+ * between its lines. Every article starts a new page, so each one's first page is the pages before it, plus one.
+ * Checked by reading the saved PDF (953's manual proof).
  */
 import type { HelpArticle, HelpLang } from '@/core/models/help'
 import { helpImageFile } from './help-links'
@@ -76,18 +78,63 @@ export function printReady({ articles, settled, lang, paged }: { articles: reado
   return true
 }
 
-/** The pages a block of `height` takes, never fewer than one. */
-const pagesOf = (height: number, pageHeight: number): number => Math.max(1, Math.ceil(height / pageHeight))
+/**
+ * One block of the paper as measured on screen, in px from the top of the run it belongs to (an article, the contents).
+ * `line`: text that may break between its lines, each this tall; absent, the block must not be split (`break-inside:
+ * avoid`). `keepWithNext`: never left alone at a page bottom (`break-after: avoid`, a heading; a table's header row, which
+ * Chromium will not leave behind without a body row).
+ */
+export interface PrintBlock {
+  top: number
+  height: number
+  line?: number
+  keepWithNext?: boolean
+}
+
+/** Chromium's default `orphans`: a paragraph that cannot keep two lines at a page bottom starts the next page. */
+const ORPHANS = 2
+
+/** What of `b` must sit on the page it starts on: two lines of text, or all of a block that must not split. */
+const firstPiece = (b: PrintBlock, pageHeight: number): number => Math.min(b.height, b.line === undefined ? pageHeight : ORPHANS * b.line)
+
+/**
+ * The pages a run of blocks takes from the top of a new page, never fewer than one — fragmented as Chromium prints it.
+ * A block that does not fit what is left of a page starts the next one when it must not split (or its first two lines
+ * do not fit, or it is a heading whose next block's start does not fit with it); the space left behind is lost. Text
+ * runs on across pages, breaking at its last whole line; a block taller than a page is cut anyway.
+ */
+export function pagesOfBlocks(blocks: readonly PrintBlock[], pageHeight: number): number {
+  let pageTop = 0
+  let pages = 1
+  const end = () => pageTop + pageHeight
+  blocks.forEach((b, i) => {
+    const bottom = b.top + b.height
+    // A heading (or a table's header row) takes the start of the next block with it — through a chain of them.
+    let last = i
+    while (blocks[last].keepWithNext && last + 1 < blocks.length) last++
+    const need = Math.max(last > i ? bottom : 0, blocks[last].top + firstPiece(blocks[last], pageHeight))
+    if (need > end() && b.top > pageTop) {
+      pageTop = b.top
+      pages++
+    }
+    while (bottom > end()) {
+      const cut = b.line ? b.top + Math.floor((end() - b.top) / b.line) * b.line : end()
+      pageTop = cut > pageTop ? cut : end()
+      pages++
+    }
+  })
+  return pages
+}
 
 /**
  * The page each article starts on: the cover is page 1, the contents follows on its own page(s), and every article
  * starts a new page.
  */
-export function contentsPageNumbers({ pageHeight, contentsHeight, articleHeights }: { pageHeight: number; contentsHeight: number; articleHeights: readonly number[] }): number[] {
-  let next = 1 + 1 + pagesOf(contentsHeight, pageHeight)
-  return articleHeights.map((h) => {
+export function contentsPageNumbers({ pageHeight, contents, articles }: { pageHeight: number; contents: readonly PrintBlock[]; articles: readonly (readonly PrintBlock[])[] }): number[] {
+  let next = 1 + 1 + pagesOfBlocks(contents, pageHeight)
+  return articles.map((blocks) => {
     const at = next
-    next += pagesOf(h, pageHeight)
+    next += pagesOfBlocks(blocks, pageHeight)
     return at
   })
 }

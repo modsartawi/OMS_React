@@ -213,6 +213,18 @@
       "p1": "With a batch, Find asks every store for it — our batch or the vendor batch, with or without an item — and answers one row per store, item and batch, with the count of rows and of stores. A row opens the item at that store.",
       "p2": "Without a batch, Find answers items from HQ's item master, by number or by name. An item opens its stores on this page.",
       "p3": "With both boxes empty, Find asks nothing. A GS1 code is read first, and its item and its lot are searched."
+    },
+    "sap": {
+      "title": "How this is read",
+      "p1": "Read live from SAP when you press Read SAP — never on opening the tab — for this store and at most 5 SAP entry days. SAP's material documents are summed by entry day and movement type: documents, lines, and the quantity in and out. SAP user names are not read.",
+      "p2": "Opening a row reads its lines from SAP, 25 a page, and marks each against our copy of SAP's documents: applied (in our book), received but not applied yet, or not received by us — so a missing document shows here.",
+      "p3": "Above the list stands where our SAP feed is for this store: the last SAP document applied, and its last attempt. When SAP is not connected on this host, or could not be reached, that is said in its own sentence — an empty list always means SAP has no movement."
+    },
+    "movements": {
+      "title": "How this is read",
+      "p1": "Read from our own ledger when you press Read — never on opening the tab — for this item at this store and at most 7 local days, newest first, 25 a page.",
+      "p2": "Each line shows the feed it came by (SAP or the till), its movement type and signed quantity, its batch, the document it came from, and what it did to each counter: a SAP sale moves the SAP counter only, a till sale the till-side counter only, a receipt both.",
+      "p3": "It is not put side by side with SAP's movements: our ledger's times are ours, not SAP's entry days, and the ledger has no index by store. The store's SAP movements tab marks each SAP line against our copy instead."
     }
   },
   "store": {
@@ -241,7 +253,6 @@
   "tabs": {
     "label": "The store's lists",
     "refresh": "Refresh",
-    "notYet": "This tab arrives with a later release of the console.",
     "items": "Items",
     "holds": "Holds",
     "batches": "Batches",
@@ -589,13 +600,15 @@
     "holds": "Holds",
     "takes": "Takes",
     "stores": "Other stores",
+    "movements": "Movements",
     "loading": "Reading…",
     "showing": "Showing the first <n>{{shown}}</n> of <n>{{total}}</n>",
     "empty": {
       "batches": "This item has no batch at this store.",
       "holds": "No hold on this item is open, or was released in the last 7 days.",
       "takes": "No take of this item today or the two days before.",
-      "stores": "No store has a stock row for this item."
+      "stores": "No store has a stock row for this item.",
+      "movements": "Our ledger has no line for this item at this store in these days."
     }
   },
   "find": {
@@ -614,5 +627,77 @@
       "title": "Item <i>{{item}}</i> at every store",
       "close": "Close"
     }
+  },
+  "sap": {
+    "from": "From entry day",
+    "to": "To entry day",
+    "read": "Read SAP",
+    "nothingYet": "Nothing is read yet. SAP is asked only when you press Read SAP — up to 5 entry days, yesterday and today to begin with.",
+    "loading": "Reading SAP…",
+    "readAt": "Read from SAP at <t>{{at}}</t>",
+    "window": "Entry days <w>{{window}}</w>",
+    "place": "Our SAP feed stands at",
+    "lastAttempt": "Its last attempt",
+    "empty": "SAP has no movement for this store on these entry days.",
+    "open": "Open its lines",
+    "column": {
+      "day": "Entry day",
+      "movementType": "Movement type",
+      "documents": "Documents",
+      "lines": "Lines",
+      "quantityIn": "Quantity in",
+      "quantityOut": "Quantity out"
+    },
+    "mark": {
+      "Applied": "Applied",
+      "ReceivedNotApplied": "Received, not applied",
+      "NotReceived": "Not received by us"
+    },
+    "lines": {
+      "title": "Lines of entry day <v>{{day}}</v>, movement type <v>{{type}}</v>",
+      "close": "Close",
+      "loading": "Reading the lines from SAP…",
+      "empty": "SAP has no line for this entry day and movement type.",
+      "column": {
+        "document": "Document",
+        "line": "Line",
+        "item": "Item",
+        "name": "Name",
+        "batch": "Batch",
+        "quantity": "Quantity",
+        "postingDay": "Posting day",
+        "entryTime": "Entry time",
+        "mark": "In our book"
+      }
+    }
+  },
+  "movements": {
+    "from": "From",
+    "to": "To",
+    "read": "Read",
+    "nothingYet": "Nothing is read yet. Our ledger is read only when you press Read — up to 7 days, the last 7 to begin with.",
+    "loading": "Reading our ledger…",
+    "window": "Days <w>{{window}}</w>",
+    "noEffect": "—",
+    "notApplied": "not applied",
+    "feed": {
+      "Sap": "SAP",
+      "Pos": "Till"
+    },
+    "column": {
+      "at": "Time",
+      "feed": "Feed",
+      "movementType": "Movement type",
+      "quantity": "Quantity",
+      "batch": "Batch",
+      "document": "Document",
+      "onSap": "On the SAP counter",
+      "onTill": "On the till-side counter"
+    }
+  },
+  "window": {
+    "invalid": "Choose a first and a last day.",
+    "reversed": "The first day is after the last day.",
+    "tooLong": "At most <n>{{max}}</n> days are read at once. Shorten the window."
   }
 }

@@ -1,11 +1,10 @@
 /**
- * An item page's tabs (oms 943, BackOffice spec 4157 stories 56–60) — pure. The open tab is the address's `tab`; only
- * it is mounted, so only it reads (each is one small read on opening). Switching writes the tab alone.
- *
- * Ticket 945 adds Movements by appending `'movements'` here and its panel to `ItemTabs`' `PANELS` (the type asks for it).
+ * An item page's tabs (oms 943, BackOffice spec 4157 stories 56–61) — pure. The open tab is the address's `tab`; only
+ * it is mounted, so only it reads (each is one small read on opening — Movements, 945, only by its Read button).
+ * Switching writes the tab alone.
  */
 
-export const ITEM_TABS = ['batches', 'holds', 'takes', 'stores'] as const
+export const ITEM_TABS = ['batches', 'holds', 'takes', 'stores', 'movements'] as const
 export type ItemTab = (typeof ITEM_TABS)[number]
 
 /** The open tab: the address's, or Batches when it names none or one this page does not have. */

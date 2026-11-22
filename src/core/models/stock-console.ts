@@ -529,3 +529,84 @@ export interface StockConsoleFindItemRow {
 export type StockConsoleFind =
   | ({ kind: 'Batch'; stores: number } & StockConsolePage<StockConsoleFindBatchRow>)
   | ({ kind: 'Item' } & StockConsolePage<StockConsoleFindItemRow>)
+
+// ── 945 ──
+
+/**
+ * `GET StockConsole/Stores/{store}/SapMovements?from=&to=` — SAP's material documents of one store, read live, summed by
+ * entry day and movement type (SV 080, BO 4163). `from`/`to` are SAP entry days, at most 5. `SapNotConfigured` and
+ * `SapUnreachable` are refusals by name, never an empty answer.
+ */
+export interface StockConsoleSapDay {
+  /** The SAP entry day, `yyyy-MM-dd`. */
+  day: string
+  movementType: string
+  documents: number
+  lines: number
+  /** Both positive, base units. */
+  quantityIn: number
+  quantityOut: number
+}
+
+export interface StockConsoleSapMovements {
+  readAt: string
+  /** Where our SAP feed stands for the store (its last document applied) and its last attempt. */
+  place: { sapPlace: string | null; lastAttempt: string | null }
+  days: StockConsoleSapDay[]
+}
+
+/** Each SAP line's mark, by key against our copy of SAP's documents (SV 080). */
+export const SAP_LINE_MARKS = ['Applied', 'ReceivedNotApplied', 'NotReceived'] as const
+export type SapLineMark = (typeof SAP_LINE_MARKS)[number]
+
+/** `GET …/SapMovements/Lines?day=&type=&page=&size=` → a page of these (SV 080; item names added by BO 4163). */
+export interface StockConsoleSapLine {
+  /** [guess types] drawn as text. */
+  materialDocument: string
+  year: string | number
+  line: string | number
+  item: string
+  nameEn: string
+  nameAr: string
+  batch: string | null
+  /** Signed as the feed signs it: debit +, credit −. */
+  quantity: number
+  unit: string | null
+  postingDay: string | null
+  entryTime: string | null
+  /** A `SapLineMark`, read defensively. */
+  mark: string
+}
+
+/**
+ * `GET StockConsole/Stores/{store}/Items/{item}/Movements?from=&to=&page=&size=` → a page of our ledger's lines for the
+ * item at the store, newest first (SV 079). `from`/`to` are local days, at most 7. Names follow the contract (wire.md);
+ * `api.ts` also reads SV 079's built names (`time`, `sapDocument {…}`, `tillDocument {…}`, `lines`).
+ */
+export interface StockConsoleLedgerLine {
+  /** The ledger id (a ULID). */
+  id: string
+  /** The time in the id, local. */
+  at: string
+  /** `'Sap' | 'Pos'` (Pos = till), read defensively. */
+  feed: string
+  movementType: string
+  /** Signed. */
+  quantity: number
+  batch: string | null
+  storageLocation: string | null
+  /** SAP's material document, year and line — null on a till line. */
+  materialDocument: string | null
+  materialYear: string | number | null
+  materialLine: string | number | null
+  /** The till's store, transaction and line — null on a SAP line. */
+  tillStore: string | null
+  tillTrx: string | null
+  tillLine: string | number | null
+  postingDay: string | null
+  applied: boolean
+  /** Its effect on the SAP counter, by the ledger writer's own rule. */
+  onSap: number
+  /** Its effect on the till-side counter. */
+  onTill: number
+}

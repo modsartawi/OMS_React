@@ -11,21 +11,20 @@ import { HOW_ITEM_STORES } from './how-sections'
 import { ITEM_TABS, itemTabParams, resolveItemTab, type ItemTab } from './item-tabs'
 import { ItemBatchesTab, ItemHoldsTab, ItemTakesTab, type ItemTabProps } from './ItemListTabs'
 import ItemStoresList from './ItemStoresList'
+import MovementsTab from './MovementsTab'
 
-/**
- * Each tab's panel. Ticket 945 adds Movements here — one entry, which the type asks for once `'movements'` joins
- * `ITEM_TABS` — and nothing else in the frame changes.
- */
+/** Each tab's panel. Movements (945) reads only by its own Read button, never on opening. */
 const PANELS: Record<ItemTab, (props: ItemTabProps) => ReactNode> = {
   batches: (p) => <ItemBatchesTab {...p} />,
   holds: (p) => <ItemHoldsTab {...p} />,
   takes: (p) => <ItemTakesTab {...p} />,
   stores: (p) => <ItemStoresTab {...p} />,
+  movements: (p) => <MovementsTab {...p} />,
 }
 
 /**
- * An item page's tabs (oms 943, spec 4157 stories 56–60): Batches, Holds, Takes, Other stores — Movements with 945.
- * Each is one small read on opening. The open tab is the address's `?tab=`; only its panel is mounted, so only it reads.
+ * An item page's tabs (oms 943, spec 4157 stories 56–61): Batches, Holds, Takes, Other stores, and Movements (945).
+ * Each but Movements is one small read on opening. The open tab is the address's `?tab=`; only its panel is mounted, so only it reads.
  * Switching writes the tab alone. **Refresh** re-reads the open tab alone (`itemTabKey`).
  */
 export default function ItemTabs({ store, item }: ItemTabProps) {

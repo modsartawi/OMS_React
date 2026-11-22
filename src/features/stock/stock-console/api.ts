@@ -429,3 +429,113 @@ export function findQuery(state: SearchState) {
     retry: retryUnlessAnswered,
   })
 }
+
+// ── 945 ──
+// A store's SAP movements (SAP read live, by its own button) and an item's ledger lines (our ledger, by its own button).
+// Neither reads before its button nor for a window stopped in the browser (`windowRead`): `enabled` is that decision.
+// (Imported here, not at the top, so parallel tickets append their blocks untouched.)
+import type { StockConsoleLedgerLine, StockConsoleSapLine, StockConsoleSapMovements } from '@/core/models/stock-console'
+import { toLedgerLine, type DayWindow, type LedgerLineWire, type MovementsState, type WindowRead } from './movements'
+
+/** A page whose rows may come as `rows` (the contract) or `lines` (SV 079 as built) [guess: SIS.Api passes it through]. */
+type PageWire<W> = (Partial<StockConsolePage<W>> & { lines?: W[] }) | null
+
+function pageOf<W, T>(d: PageWire<W>, asked: { page: number; size: number }, row: (w: W) => T): StockConsolePage<T> {
+  const page = toPage<W>(d, asked)
+  return { ...page, rows: (d?.rows ?? d?.lines ?? []).map(row) }
+}
+
+/** A SAP line as drawn: absent names read as '', absent optional fields as null. */
+const toSapLine = (r: Partial<StockConsoleSapLine>): StockConsoleSapLine => ({
+  materialDocument: r.materialDocument ?? '',
+  year: r.year ?? '',
+  line: r.line ?? '',
+  item: r.item ?? '',
+  nameEn: r.nameEn ?? '',
+  nameAr: r.nameAr ?? '',
+  batch: r.batch ?? null,
+  quantity: r.quantity ?? 0,
+  unit: r.unit ?? null,
+  postingDay: r.postingDay ?? null,
+  entryTime: r.entryTime ?? null,
+  mark: r.mark ?? '',
+})
+
+export const stockConsoleApi945 = {
+  /** `GET StockConsole/Stores/{store}/SapMovements` → SAP's documents by entry day and movement type, and our place. */
+  async sapMovements(store: string, q: DayWindow): Promise<StockConsoleSapMovements> {
+    const d = await api.get<Partial<StockConsoleSapMovements> | null>(`${storePath(store)}/SapMovements`, { ...q })
+    return {
+      readAt: d?.readAt ?? '',
+      place: { sapPlace: d?.place?.sapPlace ?? null, lastAttempt: d?.place?.lastAttempt ?? null },
+      days: d?.days ?? [],
+    }
+  },
+  /** `…/SapMovements/Lines` → a page of one entry day and movement type's lines, each with our mark. */
+  async sapLines(
+    store: string,
+    q: { day: string; type: string; page: number; size: number },
+  ): Promise<StockConsolePage<StockConsoleSapLine>> {
+    const d = await api.get<PageWire<Partial<StockConsoleSapLine>>>(`${storePath(store)}/SapMovements/Lines`, q)
+    return pageOf(d, q, toSapLine)
+  },
+  /** `…/Items/{item}/Movements` → a page of our ledger's lines for the item at the store, newest first. */
+  async itemMovements(
+    store: string,
+    item: string,
+    q: DayWindow & { page: number; size: number },
+  ): Promise<StockConsolePage<StockConsoleLedgerLine>> {
+    const d = await api.get<PageWire<LedgerLineWire>>(`${itemPath(store, item)}/Movements`, { ...q })
+    return pageOf(d, q, toLedgerLine)
+  },
+}
+
+/** The window a decision reads ('' before the button or when stopped: the key of a query that never runs). */
+const windowKey = (decision: WindowRead): DayWindow =>
+  decision.kind === 'read' ? { from: decision.from, to: decision.to } : { from: '', to: '' }
+
+/**
+ * The last page kept on screen while the next one reads — only within the same window (key positions `at`, `at + 1`):
+ * a new window's read shows its loading line, never the old window's rows under the new days.
+ */
+const keepWithinWindow =
+  (at: number, window: DayWindow) =>
+  <T>(previous: T | undefined, query: { queryKey: readonly unknown[] } | undefined): T | undefined =>
+    query && query.queryKey[at] === window.from && query.queryKey[at + 1] === window.to ? previous : undefined
+
+/** The store's SAP movements for the window, read by Read SAP. Under the SAP tab's key: Refresh re-reads it (once read). */
+export function sapMovementsQuery(store: string, decision: WindowRead) {
+  const window = windowKey(decision)
+  return queryOptions({
+    queryKey: [...storeTabKey(store, 'sap'), window.from, window.to] as const,
+    queryFn: () => stockConsoleApi945.sapMovements(store, window),
+    enabled: decision.kind === 'read',
+    retry: retryUnlessAnswered,
+  })
+}
+
+/** An opened SAP row's lines, a page at a time; read only while its window is read and a row is open. */
+export function sapLinesQuery(store: string, decision: WindowRead, state: MovementsState) {
+  const q = { day: state.sapDay, type: state.sapType, page: state.page, size: STOCK_CONSOLE_PAGE_SIZE }
+  return queryOptions({
+    queryKey: [...storeTabKey(store, 'sap'), 'lines', q.day, q.type, q.page] as const,
+    queryFn: () => stockConsoleApi945.sapLines(store, q),
+    enabled: decision.kind === 'read' && q.day !== '' && q.type !== '',
+    placeholderData: (previous, query) =>
+      query && query.queryKey[4] === q.day && query.queryKey[5] === q.type ? previous : undefined,
+    retry: retryUnlessAnswered,
+  })
+}
+
+/** The item's ledger lines for the window, read by Read, 25 a page. Under the Movements tab's key: Refresh re-reads it. */
+export function itemMovementsQuery(store: string, item: string, decision: WindowRead, page: number) {
+  const window = windowKey(decision)
+  const tabKey = itemTabKey(store, item, 'movements')
+  return queryOptions({
+    queryKey: [...tabKey, window.from, window.to, page] as const,
+    queryFn: () => stockConsoleApi945.itemMovements(store, item, { ...window, page, size: STOCK_CONSOLE_PAGE_SIZE }),
+    enabled: decision.kind === 'read',
+    placeholderData: keepWithinWindow(tabKey.length, window),
+    retry: retryUnlessAnswered,
+  })
+}

@@ -188,3 +188,37 @@ describe('stock-console — the keys 943 builds exist', () => {
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 })
+
+// ── 945 ──
+import { SAP_LINE_MARKS } from '@/core/models/stock-console'
+import { HOW_MOVEMENTS, HOW_SAP } from './how-sections'
+import { LEDGER_COLUMNS, LEDGER_FEEDS, SAP_DAY_COLUMNS, SAP_LINE_COLUMNS, WINDOW_PROBLEMS } from './movements'
+
+describe('stock-console — the keys 945 builds exist', () => {
+  it.each([en, ar])('the SAP movements tab, its lines and marks, the item’s Movements tab and the window sentences', (locale) => {
+    const keys = [
+      ...['from', 'to', 'read', 'nothingYet', 'loading', 'readAt', 'window', 'place', 'lastAttempt', 'empty', 'open'].map(
+        (k) => `sap.${k}`,
+      ),
+      ...SAP_DAY_COLUMNS.map((k) => `sap.column.${k}`),
+      ...SAP_LINE_MARKS.map((k) => `sap.mark.${k}`),
+      ...['title', 'close', 'loading', 'empty'].map((k) => `sap.lines.${k}`),
+      ...SAP_LINE_COLUMNS.map((k) => `sap.lines.column.${k}`),
+      ...['from', 'to', 'read', 'nothingYet', 'loading', 'window', 'noEffect', 'notApplied'].map(
+        (k) => `movements.${k}`,
+      ),
+      ...LEDGER_FEEDS.map((k) => `movements.feed.${k}`),
+      ...LEDGER_COLUMNS.map((k) => `movements.column.${k}`),
+      ...WINDOW_PROBLEMS.map((k) => `window.${k}`),
+      'itemTabs.movements',
+      'itemTabs.empty.movements',
+      ...['title', ...HOW_SAP].map((k) => `how.sap.${k}`),
+      ...['title', ...HOW_MOVEMENTS].map((k) => `how.movements.${k}`),
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it('every store tab is built: the "not yet" sentence is gone', () => {
+    expect(has(en, 'tabs.notYet')).toBe(false)
+  })
+})

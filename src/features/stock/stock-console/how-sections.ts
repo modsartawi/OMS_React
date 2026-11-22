@@ -28,3 +28,6 @@ export const HOW_ITEM_HOLDS = ['p1'] as const
 export const HOW_ITEM_TAKES = ['p1'] as const
 export const HOW_ITEM_STORES = ['p1'] as const
 export const HOW_FIND = ['p1', 'p2', 'p3'] as const
+// 945 — the SAP movements tab (SAP read live) and the item's Movements tab (our own ledger).
+export const HOW_SAP = ['p1', 'p2', 'p3'] as const
+export const HOW_MOVEMENTS = ['p1', 'p2', 'p3'] as const

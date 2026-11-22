@@ -9,13 +9,15 @@ import BatchesTab from './BatchesTab'
 import FeedsTab from './FeedsTab'
 import HoldsTab from './HoldsTab'
 import ItemsTab from './ItemsTab'
+import SapTab from './SapTab'
 import StageTab from './StageTab'
 import { STORE_TABS, resolveStoreTab, tabParams, type StoreTab } from './store-tabs'
 import TakesTab from './TakesTab'
 
 /**
  * A store page's tabs (oms 941): the frame for all seven — Items, Holds, Batches, Takes, SAP movements, Feeds, Stage and
- * count — with Items and Batches built here (942 builds Holds, Takes, Feeds and Stage; 945 SAP movements).
+ * count — with Items and Batches built here (942 builds Holds, Takes, Feeds and Stage; 945 SAP movements, read only by
+ * its own Read SAP button).
  *
  * The open tab is the address's `?tab=`; only its panel is mounted, so only it reads. Switching writes the tab alone
  * (`tabParams`), so the new tab opens on "Nothing is read yet". **Refresh**, at the strip's end, re-reads the open tab
@@ -81,9 +83,7 @@ export default function StoreTabs({ store }: { store: string }) {
         ) : open === 'stage' ? (
           <StageTab store={store} />
         ) : (
-          <p className="py-6 text-center text-sm text-muted-foreground" data-tab-not-yet={open}>
-            {t('tabs.notYet')}
-          </p>
+          <SapTab store={store} />
         )}
       </div>
     </div>

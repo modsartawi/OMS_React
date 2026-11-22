@@ -8,6 +8,7 @@ import { helpArticleQuery, useHelpContents } from '@/core/help/help-api'
 import { helpDir, useHelpLang } from '@/core/help/help-lang'
 import { HELP_START_SLUG, helpHref } from '@/core/help/help-routes'
 import { usePermissions } from '@/core/permissions'
+import { useRecordName } from '@/core/record-name'
 import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
@@ -100,6 +101,8 @@ function HelpArticleView({ area, slug, lang, articles }: { area: string; slug: s
   const article = useQuery({ ...helpArticleQuery(area, slug, lang), retry: (n, err) => !(err instanceof ApiError && err.statusCode === 404) && n < 2 })
   const { hash } = useLocation()
   const { previous, next } = neighbours(articles, slug)
+  // The crumb names the article by its title in the help's language, never by its slug.
+  useRecordName(articles.find((m) => m.slug === slug)?.title ?? article.data?.title)
 
   // A `help:slug#anchor` link lands on its heading once the article has drawn.
   useEffect(() => {

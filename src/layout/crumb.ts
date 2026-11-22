@@ -1,5 +1,6 @@
 import { campaignPath } from '@/core/rules/campaign-state'
 import { listContextFromUrl } from '@/core/rules/promotion-query'
+import { recordNameFor, type RecordName } from '@/core/record-name'
 import { matchLength, type ShellMenuItem } from './menu-model'
 
 // The top bar's breadcrumb (spec 380 F11, ticket 386; 363 "Top bar"): group /
@@ -14,9 +15,15 @@ export interface Crumb {
    * opened from (ticket 537) — its code, or a label key for "No promotion".
    */
   scope: CrumbScope | null
-  /** The record the route is open on (its dynamic segment), or null. */
-  record: string | null
+  /**
+   * The record the route is open on, or null: the name its page gave it (`useRecordName`, free text), else the route's
+   * dynamic segment (a machine value).
+   */
+  record: CrumbRecord | null
 }
+
+/** A record's number off the route (a machine value), or the name its page gave it (free text, either script). */
+export type CrumbRecord = { code: string } | { name: string }
 
 /** A promotion's code (a machine value), or the label of a segment that has no code. */
 export type CrumbScope = { code: string } | { labelKey: string }
@@ -37,7 +44,9 @@ export const NO_PROMOTION_CRUMB = 'campaign-promotions:list.noPromotion'
  * the highlighted leaf never disagree about where the user is.
  *
  * The record comes from the route's **params**, never from the path's last segment:
- * `/nphies/authorizations/new` is a screen, not record `new`. A splat is not a record.
+ * `/nphies/authorizations/new` is a screen, not record `new`. A splat is not a record. A page that knows its record's
+ * name gives it (`named`, `@/core/record-name`) and the crumb reads that instead: a help article is its title, not its
+ * slug (spec 4182). A name given for another address is ignored.
  *
  * A campaign's workspace (`/campaigns/:id/…`) opened from a promotion's page carries that list in its
  * `search` (`?promotion=<code>&…`, brief 2848): the crumb reads Promotions › `<promotion>` ›
@@ -48,6 +57,7 @@ export function deriveCrumb(
   pathname: string,
   params: Readonly<Record<string, string | undefined>> = {},
   search = '',
+  named: RecordName | null = null,
 ): Crumb {
   let best: { path: ShellMenuItem[]; score: number } | null = null
   for (const path of pathsOf(menu, [])) {
@@ -57,11 +67,12 @@ export function deriveCrumb(
   }
   if (!best) return { trail: [], scope: null, record: null }
 
-  const record =
-    Object.entries(params)
-      .filter(([key, value]) => key !== '*' && !!value)
-      .map(([, value]) => value!)
-      .at(-1) ?? null
+  const code = Object.entries(params)
+    .filter(([key, value]) => key !== '*' && !!value)
+    .map(([, value]) => value!)
+    .at(-1)
+  const name = recordNameFor(named, pathname)
+  const record: CrumbRecord | null = name !== null ? { name } : code !== undefined ? { code } : null
 
   return { trail: best.path.map((i) => i.labelKey), scope: workspaceScope(pathname, params, search), record }
 }

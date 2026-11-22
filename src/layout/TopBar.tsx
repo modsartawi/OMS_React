@@ -6,6 +6,7 @@ import { ChevronDown, MapPin, Search } from 'lucide-react'
 import { PALETTE_KEY_CODE, keyLegend } from '@/core/commands/chord'
 import { takesEscape } from '@/core/commands/key-layer'
 import { openPalette, usePalette } from '@/core/commands/palette-store'
+import { useRecordNameStore } from '@/core/record-name'
 import { useSession } from '@/core/session'
 import { lookupQueries } from '@/core/services/lookups'
 import Kbd from '@/core/ui/Kbd'
@@ -40,13 +41,15 @@ function Separator() {
 /**
  * Group / [sub-group] / screen / [promotion] / record number, derived from the menu (`crumb.ts`).
  * Read off the FULL menu rather than the permission-filtered one, so it names the screen
- * while the permissions answer is still settling. The record is a machine value: `Ltr`, mono.
+ * while the permissions answer is still settling. A record number is a machine value (`Ltr`, mono); a record's name
+ * its page gave (`useRecordName`) is free text (`<bdi>`).
  */
 function Crumb() {
   const { t } = useTranslation()
   const { pathname, search } = useLocation()
   const matches = useMatches()
-  const { trail, scope, record } = deriveCrumb(MENU, pathname, matches[matches.length - 1]?.params, search)
+  const named = useRecordNameStore((s) => s.named)
+  const { trail, scope, record } = deriveCrumb(MENU, pathname, matches[matches.length - 1]?.params, search, named)
   // An address no item claims (the home page) still says where the user is.
   const labels = trail.length > 0 ? trail.map((key) => t(key)) : [t('brandName')]
   return (
@@ -79,14 +82,23 @@ function Crumb() {
             )}
           </li>
         )}
-        {record && (
-          <li className="flex shrink-0 items-center gap-1.5">
-            <Separator />
-            <span aria-current="page" data-crumb-record className="font-mono font-semibold text-foreground">
-              <Ltr>{record}</Ltr>
-            </span>
-          </li>
-        )}
+        {record &&
+          ('code' in record ? (
+            <li className="flex shrink-0 items-center gap-1.5">
+              <Separator />
+              <span aria-current="page" data-crumb-record className="font-mono font-semibold text-foreground">
+                <Ltr>{record.code}</Ltr>
+              </span>
+            </li>
+          ) : (
+            // A name the page gave its record (a help article's title): free text in either script, so `<bdi>`.
+            <li className="flex min-w-0 items-center gap-1.5">
+              <Separator />
+              <span aria-current="page" data-crumb-record className="truncate font-semibold text-foreground">
+                <bdi>{record.name}</bdi>
+              </span>
+            </li>
+          ))}
       </ol>
     </nav>
   )

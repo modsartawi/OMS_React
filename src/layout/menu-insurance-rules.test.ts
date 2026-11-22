@@ -28,7 +28,7 @@ describe('the Insurance rules nav group', () => {
     expect(deriveCrumb(MENU, '/insurance-rules/guards/G-007', { ruleId: 'G-007' })).toEqual({
       trail: ['insurance-rules:menu.group', 'insurance-rules:menu.guards'],
       scope: null,
-      record: 'G-007',
+      record: { code: 'G-007' },
     })
   })
 

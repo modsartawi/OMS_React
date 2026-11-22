@@ -31,7 +31,7 @@ describe('the Campaigns nav group', () => {
     expect(deriveCrumb(MENU, '/campaigns/promotions/WKND', { promotionCode: 'WKND' })).toEqual({
       trail: ['campaigns:menu.group', 'campaigns:menu.promotions'],
       scope: null,
-      record: 'WKND',
+      record: { code: 'WKND' },
     })
   })
 
@@ -56,7 +56,7 @@ describe('the Campaigns nav group', () => {
     expect(deriveCrumb(MENU, '/campaigns/WKND20', { id: 'WKND20' })).toEqual({
       trail: ['campaigns:menu.group', 'campaigns:menu.promotions'],
       scope: null,
-      record: 'WKND20',
+      record: { code: 'WKND20' },
     })
   })
 
@@ -77,7 +77,7 @@ describe('the Campaigns nav group', () => {
     expect(deriveCrumb(MENU, '/campaigns/sessions/R101-0042', { saleId: 'R101-0042' })).toEqual({
       trail: ['campaigns:menu.group', 'campaigns:menu.sessions'],
       scope: null,
-      record: 'R101-0042',
+      record: { code: 'R101-0042' },
     })
   })
 
@@ -101,6 +101,6 @@ describe('the Campaigns nav group', () => {
   })
 
   it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {
-    expect(deriveCrumb(MENU, '/campaigns/WKND20/settings/schedule', { id: 'WKND20', '*': 'schedule' }).record).toBe('WKND20')
+    expect(deriveCrumb(MENU, '/campaigns/WKND20/settings/schedule', { id: 'WKND20', '*': 'schedule' }).record).toEqual({ code: 'WKND20' })
   })
 })

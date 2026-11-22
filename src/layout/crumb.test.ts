@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { deriveCrumb } from './crumb'
+import { recordNameFor } from '@/core/record-name'
 import { MENU } from './menu-model'
 
 describe('crumb derives group, sub-group and screen from the menu for a route', () => {
@@ -45,13 +46,13 @@ describe('crumb derives group, sub-group and screen from the menu for a route', 
     expect(deriveCrumb(MENU, '/oms/document/1000000393', { documentNo: '1000000393' })).toEqual({
       trail: ['deliveries:menu.oms', 'deliveries:menu.deliveries'],
       scope: null,
-      record: '1000000393',
+      record: { code: '1000000393' },
     })
-    expect(deriveCrumb(MENU, '/oms/delivery/80001238', { deliveryNo: '80001238' }).record).toBe('80001238')
+    expect(deriveCrumb(MENU, '/oms/delivery/80001238', { deliveryNo: '80001238' }).record).toEqual({ code: '80001238' })
     expect(deriveCrumb(MENU, '/loy/members/77001', { loyId: '77001' })).toEqual({
       trail: ['loy:menu.loyalty', 'loy:menu.members'],
       scope: null,
-      record: '77001',
+      record: { code: '77001' },
     })
   })
 
@@ -65,7 +66,7 @@ describe('crumb derives group, sub-group and screen from the menu for a route', 
     expect(deriveCrumb(MENU, '/nphies/eligibility/42', { id: '42' })).toEqual({
       trail: ['eligibility:menu.nphies', 'eligibility:menu.list'],
       scope: null,
-      record: '42',
+      record: { code: '42' },
     })
   })
 
@@ -105,7 +106,7 @@ describe('a campaign opened from a promotion names the promotion between the lis
     expect(deriveCrumb(MENU, '/campaigns/FLYER-1-SUN', { id: 'FLYER-1-SUN' }, '?promotion=FLYER-1&q=sun&page=2')).toEqual({
       trail: PROMOTIONS,
       scope: { code: 'FLYER-1' },
-      record: 'FLYER-1-SUN',
+      record: { code: 'FLYER-1-SUN' },
     })
     expect(deriveCrumb(MENU, '/campaigns/FLYER-1-SUN/settings/budgets', { id: 'FLYER-1-SUN' }, '?promotion=FLYER-1').scope).toEqual({ code: 'FLYER-1' })
   })
@@ -117,7 +118,7 @@ describe('a campaign opened from a promotion names the promotion between the lis
   })
 
   it('a direct link has no promotion segment: Promotions › <campaign>', () => {
-    expect(deriveCrumb(MENU, '/campaigns/WKND20', { id: 'WKND20' }, '')).toEqual({ trail: PROMOTIONS, scope: null, record: 'WKND20' })
+    expect(deriveCrumb(MENU, '/campaigns/WKND20', { id: 'WKND20' }, '')).toEqual({ trail: PROMOTIONS, scope: null, record: { code: 'WKND20' } })
     expect(deriveCrumb(MENU, '/campaigns/WKND20/coupons', { id: 'WKND20' }, '?batch=B1').scope).toBeNull()
   })
 
@@ -125,5 +126,38 @@ describe('a campaign opened from a promotion names the promotion between the lis
     expect(deriveCrumb(MENU, '/campaigns/promotions/FLYER-1', { promotionCode: 'FLYER-1' }, '?promotion=X').scope).toBeNull()
     expect(deriveCrumb(MENU, '/campaigns/sessions/S1', { saleId: 'S1' }, '?promotion=X').scope).toBeNull()
     expect(deriveCrumb(MENU, '/oms/document/1', { documentNo: '1' }, '?promotion=X').scope).toBeNull()
+  })
+})
+
+describe('a page that names its record is shown by that name, not its route param (spec 4182)', () => {
+  const START = { pathname: '/analytics/help/start', name: 'Start here' }
+
+  it('a help article reads by its title, as free text, never as the slug', () => {
+    expect(deriveCrumb(MENU, '/analytics/help/start', { slug: 'start' }, '', START).record).toEqual({ name: 'Start here' })
+    // `/analytics/help` opens `start` with no param: the name is still the record.
+    expect(deriveCrumb(MENU, '/analytics/help', {}, '', { pathname: '/analytics/help', name: 'ابدأ من هنا' }).record).toEqual({ name: 'ابدأ من هنا' })
+  })
+
+  it('a name given for another address is not this page’s: the route param stands', () => {
+    expect(deriveCrumb(MENU, '/analytics/help/views', { slug: 'views' }, '', START).record).toEqual({ code: 'views' })
+    expect(deriveCrumb(MENU, '/oms/document/1', { documentNo: '1' }, '', START).record).toEqual({ code: '1' })
+  })
+
+  it('with no name, every other screen is as it was', () => {
+    expect(deriveCrumb(MENU, '/oms/document/1', { documentNo: '1' }, '', null).record).toEqual({ code: '1' })
+    expect(deriveCrumb(MENU, '/oms/deliveries', {}, '', null).record).toBeNull()
+  })
+})
+
+describe('recordNameFor', () => {
+  it('is the name for its own address, a trailing slash aside', () => {
+    expect(recordNameFor({ pathname: '/analytics/help/start', name: 'Start here' }, '/analytics/help/start/')).toBe('Start here')
+    expect(recordNameFor({ pathname: '/analytics/help/start/', name: 'Start here' }, '/analytics/help/start')).toBe('Start here')
+  })
+
+  it('is null for none, a blank name, or another address', () => {
+    expect(recordNameFor(null, '/analytics/help/start')).toBeNull()
+    expect(recordNameFor({ pathname: '/analytics/help/start', name: '  ' }, '/analytics/help/start')).toBeNull()
+    expect(recordNameFor({ pathname: '/analytics/help/start', name: 'Start here' }, '/analytics/help/views')).toBeNull()
   })
 })

@@ -476,6 +476,11 @@ export const router = createBrowserRouter([
         path: 'stock/console/store/:store',
         lazy: async () => ({ Component: (await import('@/features/stock/stock-console/StorePage')).default }),
       },
+      {
+        // oms 942: Feeds and switches — the facts that belong to no store, read once.
+        path: 'stock/console/fleet',
+        lazy: async () => ({ Component: (await import('@/features/stock/stock-console/FleetPage')).default }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on the one permissions answer. Filters
       // `?channel=&city=&store=` live in the URL.

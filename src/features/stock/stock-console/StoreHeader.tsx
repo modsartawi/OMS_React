@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import type { StockConsoleStoreRow } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { FreeCell, ReservedCell } from './figure-cells'
-import { flagLines } from './figures'
+import { flagLines, type FlagLine } from './figures'
+import { flagHref } from './flags'
 import HowRead from './HowRead'
 import { HOW_STORE } from './how-sections'
 import StatusPill, { FlagSentence } from './StatusPill'
@@ -17,7 +19,7 @@ const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
  * A store's header (oms 941, spec 4157 stories 12–13), from `StockConsole/Stores/{store}` read fresh on opening: the
  * store, its city, stage, status and flags; six figures — SAP stock, till-side stock, held with its two parts, reserved,
  * free, last update; then where the SAP feed stands (the last SAP document applied) and the last till read, each with
- * its last attempt. Ticket 942 makes each flag open its list.
+ * its last attempt. Each flag opens its list: the right tab, its filter set and the search run (942, `./flags`).
  */
 export default function StoreHeader({ row }: { row: StockConsoleStoreRow }) {
   const { t } = useTranslation('stock-console')
@@ -47,16 +49,7 @@ export default function StoreHeader({ row }: { row: StockConsoleStoreRow }) {
         {lines.length === 0 ? (
           <span className="text-xs text-muted-foreground">{t('store.noFlags')}</span>
         ) : (
-          lines.map((line, i) => (
-            <span
-              key={`${line.code}-${i}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2 py-0.5 text-xs"
-              data-store-flag={line.code}
-            >
-              <StatusBadge sev={line.sev}>{t(line.sev === 'bad' ? 'level.Problem' : 'level.Watch')}</StatusBadge>
-              <FlagSentence line={line} />
-            </span>
-          ))
+          lines.map((line, i) => <FlagChip key={`${line.code}-${i}`} store={row.plant} line={line} />)
         )}
       </div>
 
@@ -101,6 +94,38 @@ export default function StoreHeader({ row }: { row: StockConsoleStoreRow }) {
 
       <HowRead section="store" paragraphs={HOW_STORE} />
     </section>
+  )
+}
+
+const CHIP = 'inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2 py-0.5 text-xs'
+
+/**
+ * A flag on the header: its level and its sentence. A flag the console knows is a link to its list — a click counts as
+ * asking, so the list opens searched; an unknown one stays a plain chip.
+ */
+function FlagChip({ store, line }: { store: string; line: FlagLine }) {
+  const { t } = useTranslation('stock-console')
+  const href = flagHref(store, line.code)
+  const body = (
+    <>
+      <StatusBadge sev={line.sev}>{t(line.sev === 'bad' ? 'level.Problem' : 'level.Watch')}</StatusBadge>
+      <FlagSentence line={line} />
+    </>
+  )
+  return href ? (
+    <Link
+      to={href}
+      title={t('flagLink.open')}
+      className={`${CHIP} text-foreground underline-offset-2 hover:border-primary hover:underline`}
+      data-store-flag={line.code}
+      data-flag-link={href}
+    >
+      {body}
+    </Link>
+  ) : (
+    <span className={CHIP} data-store-flag={line.code}>
+      {body}
+    </span>
   )
 }
 

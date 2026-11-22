@@ -7,6 +7,7 @@ import {
   DRAIN_KEYS,
   chartRows,
   etaView,
+  lagTile,
   pieView,
   reasonLine,
   sinceMarker,
@@ -53,6 +54,10 @@ const drain = (over: Partial<MirrorDrain>): MirrorDrain => ({
   waitingForRetry: 0,
   oldestPendingPulledAt: null,
   lagMinutes: null,
+  businessFirst: false,
+  businessPending: 0,
+  businessOldestPendingPulledAt: null,
+  businessLagMinutes: null,
   lastAppliedAt: '2026-11-20T12:04:40',
   lastPulledAt: '2026-11-20T12:04:30',
   parkedOpen: 0,
@@ -120,8 +125,18 @@ describe('the verdict sentence', () => {
     expect(verdictLine({ ...paused, pullPaused: false }).key).toBe('verdict.behind')
   })
 
-  it('says down since the trouble run, today in clock time alone', () => {
-    expect(plain(say(en, verdictLine(DOWN)))).toBe('Not applying since 11:50')
+  it('says down since the last row applied, never since the trouble run, today in clock time alone', () => {
+    expect(plain(say(en, verdictLine(DOWN)))).toBe('Not applying since 11:51')
+  })
+
+  it('says the apply worker is silent when that is what made it down', () => {
+    const silent = drain({
+      verdict: 'down',
+      troubleSince: '2026-11-20T10:00:00',
+      reasons: [reason({ code: 'applyWorkerStale', level: 'down', since: '2026-11-20T11:58:00' })],
+    })
+    expect(plain(say(en, verdictLine(silent)))).toBe('The apply worker is silent since 11:58')
+    expect(verdictLine({ ...silent, reasons: [{ ...silent.reasons[0], since: null }] }).key).toBe('verdict.downWorker')
   })
 
   it('isolates every machine value', () => {
@@ -147,6 +162,35 @@ describe('the reasons', () => {
     expect(plain(say(en, reasonLine(DOWN.reasons[0], AS_OF)))).toBe('Nothing applied for 14 min')
     expect(reasonLine(reason({ code: 'applyStopped', level: 'down' }), AS_OF).key).toBe('reasons.applyStoppedNever')
     expect(reasonLine(reason({ code: 'trouble', kind: null }), AS_OF).key).toBe('reasons.trouble.other')
+  })
+
+  it('word the lag as the sales’ when business rows go first, and the events’ apart', () => {
+    expect(plain(say(en, reasonLine(reason({ code: 'lagging', level: 'behind', value: 61 }), AS_OF, true))))
+      .toBe('The oldest sale or shift row has waited 1 h 1 min')
+    expect(plain(say(en, reasonLine(reason({ code: 'eventsLagging', level: 'warning', value: 1_575 }), AS_OF, true))))
+      .toBe('Event rows wait behind the sales: the oldest has waited 26 h 15 min')
+    expect(reasonLine(reason({ code: 'eventsLagging', value: 30 }), AS_OF).key).toBe('reasons.eventsLaggingMinutes')
+  })
+})
+
+describe('the oldest-waiting tile', () => {
+  // 2026-11-20 20:11: the sales 10 min behind, the events 26 h 15 min behind them.
+  const firstSales = drain({ businessFirst: true, businessLagMinutes: 10, lagMinutes: 1_575 })
+
+  it('shows the oldest sale, the events under it, with business rows first', () => {
+    const tile = lagTile(firstSales)
+    expect(tile.label).toBe('tiles.businessLag')
+    expect(plain(say(en, tile.value!))).toBe('10 min')
+    expect(plain(say(en, tile.note!))).toBe('Events: 26 h 15 min')
+    for (const line of [tile.value!, tile.note!]) expect(say(ar, line)).not.toMatch(/\{\{/)
+    expect(lagTile({ ...firstSales, businessLagMinutes: null }).value).toBeNull()
+  })
+
+  it('shows the whole inbox’s lag otherwise, as before', () => {
+    const tile = lagTile(drain({ lagMinutes: 1_023 }))
+    expect(tile.label).toBe('tiles.lag')
+    expect(plain(say(en, tile.value!))).toBe('17 h 3 min')
+    expect(tile.note).toBeNull()
   })
 })
 

@@ -60,7 +60,10 @@ const at = (value: string | null | undefined, asOf: string) => fsi(when(value, a
 /**
  * The sentence on top, in the verdict's colour:
  * - `healthy`: "Draining, empty by 14:20" — or "Keeping up: nothing waiting" when nothing waits;
- * - `behind` / `down` / `warning`: "since" the door's `troubleSince`, else the pull's pause, else bare;
+ * - `down`: worded by the reason that made it — "Not applying since" the last row applied, or "The apply worker is
+ *   silent since" its last tick. Never `troubleSince`: that is when the queue began losing ground, and on
+ *   2026-11-20 it read "Not applying since 18:00" while 470 rows a minute were being applied;
+ * - `behind` / `warning`: "since" the door's `troubleSince`, else the pull's pause, else bare;
  * - `noData`: the sink has no inbox to read.
  */
 export function verdictLine(d: MirrorDrain): DrainLine {
@@ -71,6 +74,13 @@ export function verdictLine(d: MirrorDrain): DrainLine {
         : { key: 'verdict.healthy', values: {} }
     case 'noData':
       return { key: 'verdict.noData', values: {} }
+    case 'down': {
+      const top = d.reasons[0]
+      const base = top?.code === 'applyWorkerStale' ? 'verdict.downWorker' : 'verdict.down'
+      return top?.since && (top.code === 'applyWorkerStale' || top.code === 'applyStopped')
+        ? { key: `${base}Since`, values: { since: at(top.since, d.asOf) } }
+        : { key: base, values: {} }
+    }
     default: {
       const since = d.troubleSince ?? (d.pullPaused ? d.pullPausedSince : null)
       return since
@@ -80,8 +90,11 @@ export function verdictLine(d: MirrorDrain): DrainLine {
   }
 }
 
-/** One of the door's reasons in the page's words; `trouble` by its run's kind. */
-export function reasonLine(r: MirrorReason, asOf: string): DrainLine {
+/**
+ * One of the door's reasons in the page's words; `trouble` by its run's kind. With `businessFirst` the door judges
+ * `lagging` on the business rows, so it says "the oldest sale or shift row".
+ */
+export function reasonLine(r: MirrorReason, asOf: string, businessFirst = false): DrainLine {
   const values: Record<string, string> = {
     since: at(r.since, asOf),
     value: r.value == null ? '' : fsi(figure(r.value)),
@@ -93,7 +106,12 @@ export function reasonLine(r: MirrorReason, asOf: string): DrainLine {
         ? { key: 'reasons.applyStoppedNever', values }
         : { key: `reasons.applyStopped${unit(r.value)}`, values: { ...values, ...duration(r.value) } }
     case 'lagging':
-      return { key: `reasons.lagging${unit(r.value ?? 0)}`, values: { ...values, ...duration(r.value ?? 0) } }
+      return {
+        key: `reasons.${businessFirst ? 'businessLagging' : 'lagging'}${unit(r.value ?? 0)}`,
+        values: { ...values, ...duration(r.value ?? 0) },
+      }
+    case 'eventsLagging':
+      return { key: `reasons.eventsLagging${unit(r.value ?? 0)}`, values: { ...values, ...duration(r.value ?? 0) } }
     case 'trouble':
       return { key: `reasons.trouble.${r.kind ?? 'other'}`, values }
     case 'applyWorkerStale':
@@ -112,6 +130,18 @@ export function duration(minutes: number): { hours: string; minutes: string } {
 
 // Under an hour the line says minutes alone: its own key, "Minutes".
 const unit = (minutes: number) => (minutes >= 60 ? '' : 'Minutes')
+
+/**
+ * The "oldest waiting" tile: with business rows first, the oldest sale's wait, the events' under it — so a day-old
+ * event backlog does not read as sales a day late. Otherwise the whole inbox's, as before.
+ */
+export function lagTile(d: MirrorDrain): { label: string; value: DrainLine | null; note: DrainLine | null } {
+  const say = (prefix: string, minutes: number | null): DrainLine | null =>
+    minutes == null ? null : { key: `${prefix}${minutes >= 60 ? 'Hm' : 'M'}`, values: duration(minutes) }
+  return d.businessFirst
+    ? { label: 'tiles.businessLag', value: say('tiles.lag', d.businessLagMinutes), note: say('tiles.eventsLag', d.lagMinutes) }
+    : { label: 'tiles.lag', value: say('tiles.lag', d.lagMinutes), note: null }
+}
 
 /** The pie's slices, in the ring's order, each with its status ink. */
 export const PIE_PARTS = [
@@ -192,7 +222,7 @@ export const DRAIN_KEYS = [
   'verdict.healthy',
   'verdict.healthyEmptyBy',
   'verdict.noData',
-  ...(['down', 'behind', 'warning'] as const).flatMap((v) => [`verdict.${v}`, `verdict.${v}Since`]),
+  ...(['down', 'downWorker', 'behind', 'warning'] as const).flatMap((v) => [`verdict.${v}`, `verdict.${v}Since`]),
   'reasons.applyStopped',
   'reasons.applyStoppedMinutes',
   'reasons.applyStoppedNever',
@@ -202,6 +232,13 @@ export const DRAIN_KEYS = [
   'reasons.pullPausedSince',
   'reasons.lagging',
   'reasons.laggingMinutes',
+  'reasons.businessLagging',
+  'reasons.businessLaggingMinutes',
+  'reasons.eventsLagging',
+  'reasons.eventsLaggingMinutes',
+  'tiles.businessLag',
+  'tiles.eventsLagHm',
+  'tiles.eventsLagM',
   'reasons.recentParks',
   'reasons.nearThreshold',
   ...(['noApply', 'pullPaused', 'losingGround', 'slowApply', 'other'] as const).map((k) => `reasons.trouble.${k}`),

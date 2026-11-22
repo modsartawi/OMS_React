@@ -22,7 +22,7 @@ import {
   SEVERITY_INK,
   VERDICT_SEVERITY,
   chartRows,
-  duration,
+  lagTile,
   etaView,
   pieView,
   reasonLine,
@@ -122,7 +122,7 @@ function Verdict({ d }: { d: MirrorDrain }) {
         <ul className="flex list-disc flex-col gap-0.5 ps-5 text-sm" data-reasons="">
           {d.reasons.map((r, i) => (
             <li key={`${r.code}-${i}`} data-reason={r.code} data-level={r.level} className={SEVERITY_INK[VERDICT_SEVERITY[r.level]]}>
-              <bdi>{say(reasonLine(r, d.asOf))}</bdi>
+              <bdi>{say(reasonLine(r, d.asOf, d.businessFirst))}</bdi>
             </li>
           ))}
         </ul>
@@ -239,7 +239,8 @@ function BarsCard({ d, span, onSpan }: { d: MirrorDrain; span: MirrorDrainWindow
 /** 4. The tiles: a null ETA reads "not draining" in the danger ink. */
 function Tiles({ d }: { d: MirrorDrain }) {
   const { t } = useTranslation('sync-console')
-  const lag = d.lagMinutes == null ? null : duration(d.lagMinutes)
+  const say = useLine()
+  const lag = lagTile(d)
   const eta = (v: EtaView) =>
     v.kind === 'at' ? (
       <Ltr>{v.at}</Ltr>
@@ -255,10 +256,10 @@ function Tiles({ d }: { d: MirrorDrain }) {
         note={d.waitingForRetry > 0 ? t('drain.tiles.waitingRetry', { n: fsi(figure(d.waitingForRetry)) }) : null}>
         <Ltr>{figure(d.pending)}</Ltr>
       </Tile>
-      <Tile label={t('drain.tiles.lag')} data="lag">
-        {lag == null
+      <Tile label={t(`drain.${lag.label}`)} data="lag" note={lag.note ? say(lag.note) : null}>
+        {lag.value == null
           ? <span className="text-muted-foreground">{t('drain.tiles.lagNone')}</span>
-          : t(d.lagMinutes! >= 60 ? 'drain.tiles.lagHm' : 'drain.tiles.lagM', lag)}
+          : say(lag.value)}
       </Tile>
       <Tile label={t('drain.tiles.rates')} data="rates">
         <Ltr>{`${figure(d.applyPerMinute)} / ${figure(d.arrivePerMinute)}`}</Ltr>

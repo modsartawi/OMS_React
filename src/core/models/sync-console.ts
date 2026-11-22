@@ -1288,6 +1288,8 @@ export type MirrorReasonCode =
   | 'trouble'
   | 'recentParks'
   | 'nearThreshold'
+  /** Business rows go first; the event rows' lag is past the behind threshold — a warning by design. */
+  | 'eventsLagging'
 
 /** One reason: a code the console words, its own level, time and figures; `text` is the door's English. */
 export interface MirrorReason {
@@ -1351,6 +1353,12 @@ export interface MirrorDrain {
   waitingForRetry: number
   oldestPendingPulledAt: string | null
   lagMinutes: number | null
+  /** The apply takes sales, shifts, collections, receipts and drawer movements first (`ApplyBusinessRowsFirst`). */
+  businessFirst: boolean
+  businessPending: number
+  businessOldestPendingPulledAt: string | null
+  /** The oldest pending business row's age; `null` when none waits. With `businessFirst`, the lag that matters. */
+  businessLagMinutes: number | null
   lastAppliedAt: string | null
   lastPulledAt: string | null
   parkedOpen: number

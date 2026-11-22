@@ -90,6 +90,36 @@ export interface HybrisStockStatus {
   minutesBetweenParts: number
   lineRetentionDays: number
   alerts: HybrisStockAlert[]
+  /** The material list's pull from Hybris's product approvals (BackOffice 4180); absent on an older SIS.Api. */
+  materialPull?: HybrisStockMaterialPullStatus
+}
+
+/** One recorded pull of Hybris's product approvals. `S` applied | `E` failed or refused. */
+export interface HybrisStockMaterialPullRow {
+  pullId: string
+  status: 'S' | 'E' | string
+  startedAt: string | null
+  finishedAt: string | null
+  /** Hybris's own stamp of the export, as sent. */
+  generatedAt: string
+  /** Products in the export; `approved` of them approved (the rest unapproved). Both get stock. */
+  products: number
+  approved: number
+  added: number
+  enabled: number
+  disabled: number
+  /** Codes our material master does not know (skipped). */
+  unknown: number
+  error: string
+}
+
+/** `materialPull` on the status: the switch as this host read it, the latest pull and the latest applied one. */
+export interface HybrisStockMaterialPullStatus {
+  enabled: boolean
+  intervalMinutes: number
+  /** `null` before any pull was recorded. An unchanged export records nothing. */
+  lastPull: HybrisStockMaterialPullRow | null
+  lastApplied: HybrisStockMaterialPullRow | null
 }
 
 // ── Stores (847) ─────────────────────────────────────────────────────────────────────────────────
@@ -173,13 +203,20 @@ export interface HybrisStockMaterialRow {
   updatedBy: string | null
   /** Stamped on add-enabled and re-enable: the next delta sends it everywhere. `null` if never enabled. */
   lastEnabledAt: string | null
+  /** What the latest applied pull of Hybris's product approvals said (BackOffice 4180); `null` when the material
+   *  was not in that export, or never pulled. Display only: approved and unapproved both get stock. */
+  hybrisApproval?: 'approved' | 'unapproved' | null
 }
 
 export type HybrisStockEnabledFilter = 'any' | 'enabled' | 'disabled'
 
+/** `approval` on the materials list (BackOffice 4180) — `none` matches `hybrisApproval: null`. */
+export type HybrisStockApprovalFilter = 'any' | 'approved' | 'unapproved' | 'none'
+
 export interface HybrisStockMaterialsQuery {
   q: string | null
   enabled: HybrisStockEnabledFilter
+  approval: HybrisStockApprovalFilter
   page: number
 }
 

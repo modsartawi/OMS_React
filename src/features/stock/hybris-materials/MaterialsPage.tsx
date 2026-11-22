@@ -12,7 +12,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { canManageHybrisStock, canViewHybrisStock } from '@/core/hybris-stock/access'
 import ModeBanner from '@/core/hybris-stock/ModeBanner'
-import type { HybrisStockEnabledFilter, HybrisStockMaterialRow, HybrisStockMaterialsQuery } from '@/core/models/hybris-stock'
+import type { HybrisStockApprovalFilter, HybrisStockEnabledFilter, HybrisStockMaterialRow, HybrisStockMaterialsQuery } from '@/core/models/hybris-stock'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Field from '@/core/ui/Field'
@@ -27,7 +27,8 @@ import { formatFigure as figure } from '@/core/util/number-format'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { materialColumns } from './columns'
 import { AddDialog, EnabledDialog, UploadDialog } from './MaterialDialogs'
-import { ENABLED_FILTERS, MATERIALS_PAGE_SIZE, materialsFromParams, materialsToParams } from './materials-query'
+import MaterialPullPanel from './MaterialPullPanel'
+import { APPROVAL_FILTERS, ENABLED_FILTERS, MATERIALS_PAGE_SIZE, materialsFromParams, materialsToParams } from './materials-query'
 
 /**
  * Hybris stock materials (ticket 848, BackOffice spec 3447): the list of materials whose stock OMS
@@ -58,6 +59,7 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
 }
 
 const ENABLED_KEY: Record<HybrisStockEnabledFilter, string> = { any: 'filters.enabledAny', enabled: 'filters.enabledOnly', disabled: 'filters.disabledOnly' }
+const APPROVAL_KEY: Record<HybrisStockApprovalFilter, string> = { any: 'filters.approvalAny', approved: 'approval.approved', unapproved: 'approval.unapproved', none: 'approval.none' }
 
 type Dialog = { kind: 'add' } | { kind: 'upload' } | { kind: 'toggle'; row: Row } | null
 
@@ -97,6 +99,7 @@ function Materials() {
   return (
     <div className="flex flex-col gap-3">
       <ModeBanner />
+      <MaterialPullPanel />
 
       <form
         className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card/40 p-3"
@@ -112,6 +115,15 @@ function Materials() {
             {ENABLED_FILTERS.map((s) => (
               <option key={s} value={s}>
                 {t(ENABLED_KEY[s])}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('filters.approval')}>
+          <Select value={query.approval} onChange={(e) => update({ approval: e.target.value as HybrisStockApprovalFilter })} data-filter-approval="">
+            {APPROVAL_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {t(APPROVAL_KEY[s])}
               </option>
             ))}
           </Select>

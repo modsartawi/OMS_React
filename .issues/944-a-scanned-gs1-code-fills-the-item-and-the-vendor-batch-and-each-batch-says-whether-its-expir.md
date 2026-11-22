@@ -56,3 +56,7 @@ BackOffice [4162](C:\Work\DMSCO\BackOffice\.issues\4162-a-gs1-code-gives-the-sto
   so the layout follows the ticket text. **Still owed before `done`:** the "on dev" Done-when check, once the BackOffice
   routes (and SIS.Stock 075–080) are deployed, and reconciling the web types with the C# DTOs as built. Status is left
   `open` until then.
+- 2026-11-22, the BackOffice side (4158–4163) is built on `pricing2` (9970de845), and the web's contract was reconciled
+  against it field by field (ed6e212a). [STOCK-CONSOLE-WIRE-CONTRACT.md](STOCK-CONSOLE-WIRE-CONTRACT.md) is now the
+  reconciled contract. Merged to `main` in cf2374f6. **Still owed before `done`:** the "on dev" Done-when check, once
+  SIS.Stock 075–080 and SIS.Api are deployed (BackOffice 4164's live walk).

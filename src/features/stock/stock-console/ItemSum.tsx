@@ -59,9 +59,10 @@ export default function ItemSum({ item }: { item: StockConsoleItem }) {
 function SumRow({ line, item }: { line: SumLine; item: StockConsoleItem }) {
   const { t } = useTranslation('stock-console')
   const total = line.op === 'equals'
+  const { free } = item.sums
   let value: ReactNode
-  if (line.name === 'reserved') value = <ReservedCell row={item} t={t} />
-  else if (line.name === 'free') value = <FreeCell row={item} t={t} />
+  if (line.name === 'reserved') value = <ReservedCell row={free} t={t} />
+  else if (line.name === 'free') value = <FreeCell row={{ ...free, free: free.result }} t={t} />
   else value = <Ltr>{formatFigure(line.value)}</Ltr>
 
   return (

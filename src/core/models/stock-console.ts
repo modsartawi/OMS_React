@@ -63,7 +63,7 @@ export interface StockConsolePage<T> {
 
 /** A fleet fact that is a problem now (BO 4160) — the one line above the stores list. Ticket 942 draws it [guess shape]. */
 export interface StockConsoleFleetProblem {
-  /** 'FeedLate' | 'ReservedNeverRun' | 'ReservedStale' | 'ReaderBehind' | 'TakesFailing' [guess]. */
+  /** 'FeedLate' | 'ReservedNeverRun' | 'ReservedStale' | 'HeldServedFellBack' | 'ReaderBehind' | 'TakesFailing' [guess]. */
   fact: string
   /** e.g. the feed name [guess]. */
   subject: string | null
@@ -406,6 +406,12 @@ export interface StockConsoleFleet {
   heldServed: StockConsoleHeldServed | null
   ledgerReader: StockConsoleLedgerReader | null
   takesToday: StockConsoleTakesToday | null
+  /**
+   * The fleet facts that are a problem now, as the server judges them — the same list `StockConsoleStores.fleet` carries
+   * (a late feed, the recompute never run or stale, the held-served switch fallen back, the reader behind, the take door
+   * failing). "Stale" and "behind" are SIS.Api's settings, not the page's. Absent reads as none [guess].
+   */
+  problems: StockConsoleFleetProblem[]
 }
 
 // ── 944 ──
@@ -437,9 +443,10 @@ export interface StockConsoleScan {
 }
 
 // ── 943 ──
-// `GET StockConsole/Stores/{store}/Items/{item}` answers the item's figures (BO 4161, SV 078) — the operands of its sums,
-// flat; the web writes the lines out (`item-sum.ts`). Its four tabs: `…/Items/{item}/Batches|Holds|Takes` answer the
-// store lists' shapes (a page) and `StockConsole/Items/{item}/Stores` a page of the item at every store.
+// `GET StockConsole/Stores/{store}/Items/{item}` answers the item's figures with its names and "the sums ready to be
+// written out, each as its operands and its result" (BO 4161) — `sums`; the web writes the lines out (`item-sum.ts`) and
+// redoes no arithmetic. Its four tabs: `…/Items/{item}/Batches|Holds|Takes` answer the store lists' shapes (a page) and
+// `StockConsole/Items/{item}/Stores` a page of the item at every store.
 // `GET StockConsole/Find` answers a batch page or an items page, by what was sent. `NoRow`: no stock row at the store.
 
 /** What the channels are answered for this store and item now, and which rule made it (SV 078). */
@@ -452,37 +459,66 @@ export interface StockConsoleAnsweredNow {
   liveOrders: number | null
 }
 
-/** One item at one store, with HQ's names and SIS.Api's gap, held and free added (BO 4161). */
-export interface StockConsoleItem extends StockConsoleOtherStock {
-  plant: string
-  item: string
-  nameEn: string
-  nameAr: string
-  /** The SAP counter. */
+/** Sum 1 (BO 4161): the SAP counter, less sold at the till and not in SAP (the gap), equals the till-side counter. */
+export interface StockConsoleTillSideSum {
   sapStock: number
-  /** The till-side counter. */
-  tillStock: number
-  /** sapStock − tillStock: sold at the till, not in SAP yet. */
   gap: number
+  /** The till-side counter. */
+  result: number
+}
+
+/**
+ * Sum 2: till-side, less held (standing, sold not applied), less reserved (with its state), equals free — never floored;
+ * reserved left out when never computed, and then free says so.
+ */
+export interface StockConsoleFreeSum {
+  tillStock: number
+  held: number
   heldStanding: number
   heldSold: number
-  held: number
-  /** Holds on a blank or unknown batch (SV 078). */
-  heldOnNoBatch: number
   /** null = never computed — NEVER 0. */
   reserved: number | null
   /** A `ReservedState`, read defensively. */
   reservedState: string
   /** The recompute's time for this figure [guess: SV `reservedComputedAt` renamed]. */
   reservedAt: string | null
-  /** till − held − reserved, never floored (reserved left out when never computed). */
-  free: number
+  /** false when reserved is not in the result → "reserved not included". */
   reservedIncluded: boolean
-  lastUpdate: string | null
-  /** null = the answer did not carry it (normalised in `api.ts`); drawn as no answer. */
+  /** Free. */
+  result: number
+}
+
+/** Sum 4: till-side less held less reserved, floored at zero — what the change feed sends (SV 078). */
+export interface StockConsoleChangeFeedSum {
+  tillStock: number
+  held: number
+  reserved: number | null
+  /** MAX(0, …). */
+  result: number
+}
+
+/** The item's four sums, in BO 4161's order [guess names]; each its operands and its result. */
+export interface StockConsoleItemSums {
+  tillSide: StockConsoleTillSideSum
+  free: StockConsoleFreeSum
+  /** Sum 3. null = the answer did not carry it; drawn as no answer, never 0. */
   answeredNow: StockConsoleAnsweredNow | null
-  /** MAX(0, till − held − reserved): the change feed's figure. */
-  changeFeed: number
+  changeFeed: StockConsoleChangeFeedSum
+}
+
+/**
+ * One item at one store, with HQ's names and its sums (BO 4161). Read through `toItem` (`item-sum.ts`), which also takes
+ * SV 078's flat operands should SIS.Api pass them through unsummed — the one place that reconcile happens.
+ */
+export interface StockConsoleItem extends StockConsoleOtherStock {
+  plant: string
+  item: string
+  nameEn: string
+  nameAr: string
+  /** Holds on a blank or unknown batch (SV 078): they reduce the item's free stock and no batch's. */
+  heldOnNoBatch: number
+  lastUpdate: string | null
+  sums: StockConsoleItemSums
 }
 
 /** The item at one store of the fleet (SV 078). SIS.Api may add the store list's figures [guess]; read `?? derived`. */
@@ -527,7 +563,7 @@ export interface StockConsoleFindItemRow {
 
 /** Find's answer. `kind` [guess] is only a cross-check: the web picks the answer by what it sent. */
 export type StockConsoleFind =
-  | ({ kind: 'Batch'; stores: number } & StockConsolePage<StockConsoleFindBatchRow>)
+  | ({ kind: 'Batch'; stores: number | null } & StockConsolePage<StockConsoleFindBatchRow>)
   | ({ kind: 'Item' } & StockConsolePage<StockConsoleFindItemRow>)
 
 // ── 945 ──

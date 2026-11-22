@@ -55,10 +55,10 @@ describe('Find’s answer is picked by what was sent', () => {
     expect(answer).toEqual({ kind: 'Item', total: 1, page: 1, size: 25, rows: [{ item: '1001', nameEn: 'A', nameAr: 'أ' }] })
   })
 
-  it('a batch answer without its store count counts the stores on the page; an empty answer reads as none', () => {
+  it('a batch answer without its store count says no count — the page’s stores would undercount a longer match', () => {
     const rows = [{ plant: 'P077' }, { plant: 'P078' }, { plant: 'P077' }]
-    expect(findAnswer('batch', { total: 3, rows } as never, { page: 1, size: 25 })).toMatchObject({ kind: 'Batch', stores: 2 })
-    expect(findAnswer('batch', null, { page: 2, size: 25 })).toEqual({ kind: 'Batch', total: 0, stores: 0, page: 2, size: 25, rows: [] })
+    expect(findAnswer('batch', { total: 60, rows } as never, { page: 1, size: 25 })).toMatchObject({ kind: 'Batch', stores: null })
+    expect(findAnswer('batch', null, { page: 2, size: 25 })).toEqual({ kind: 'Batch', total: 0, stores: null, page: 2, size: 25, rows: [] })
   })
 })
 

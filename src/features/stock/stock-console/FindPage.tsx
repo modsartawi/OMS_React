@@ -80,15 +80,18 @@ function Find() {
           empty={t(decision === 'batch' ? 'find.empty.batch' : 'find.empty.item')}
           count={
             shown?.kind === 'Batch' ? (
-              <span className="inline-flex gap-1" data-find-stores={shown.stores}>
+              <span className="inline-flex gap-1" data-find-stores={shown.stores ?? ''}>
                 <Trans t={t} i18nKey="find.rows" count={shown.total} values={{ n: formatFigure(shown.total) }} components={{ n: <Ltr /> }} />
-                <Trans
-                  t={t}
-                  i18nKey="find.atStores"
-                  count={shown.stores}
-                  values={{ n: formatFigure(shown.stores) }}
-                  components={{ n: <Ltr /> }}
-                />
+                {/* The store count only as the server sends it: the page's own stores would undercount a longer match. */}
+                {shown.stores !== null && (
+                  <Trans
+                    t={t}
+                    i18nKey="find.atStores"
+                    count={shown.stores}
+                    values={{ n: formatFigure(shown.stores) }}
+                    components={{ n: <Ltr /> }}
+                  />
+                )}
               </span>
             ) : undefined
           }

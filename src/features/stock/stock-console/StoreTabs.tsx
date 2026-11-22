@@ -2,6 +2,7 @@ import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { RefreshCw } from 'lucide-react'
+import type { StockConsoleStoreRow } from '@/core/models/stock-console'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import { storeTabKey } from './api'
@@ -23,7 +24,7 @@ import TakesTab from './TakesTab'
  * (`tabParams`), so the new tab opens on "Nothing is read yet". **Refresh**, at the strip's end, re-reads the open tab
  * alone (`storeTabKey`) — and a list not yet searched stays unread.
  */
-export default function StoreTabs({ store }: { store: string }) {
+export default function StoreTabs({ store, header }: { store: string; header?: StockConsoleStoreRow }) {
   const { t } = useTranslation('stock-console')
   const [searchParams, setSearchParams] = useSearchParams()
   const open = resolveStoreTab(searchParams.get('tab'))
@@ -83,7 +84,7 @@ export default function StoreTabs({ store }: { store: string }) {
         ) : open === 'stage' ? (
           <StageTab store={store} />
         ) : (
-          <SapTab store={store} />
+          <SapTab store={store} header={header} />
         )}
       </div>
     </div>

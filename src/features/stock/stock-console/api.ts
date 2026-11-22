@@ -34,6 +34,7 @@ import type {
 } from '@/core/models/stock-console'
 import type { LocalDate } from '@/core/util/date-window'
 import { findAnswer, findDecision, findWire, type FindWire } from './find'
+import { toItem, type ItemWire } from './item-sum'
 import type { ItemTab } from './item-tabs'
 import { toLedgerLine, type DayWindow, type LedgerLineWire, type MovementsState, type WindowRead } from './movements'
 import { STOCK_CONSOLE_PAGE_SIZE, shouldRead, wireParams, type SearchState, type WireSearch } from './search'
@@ -92,30 +93,6 @@ const normaliseGates = (g: Partial<StockConsoleGates> | null | undefined): Stock
         notConfirmed: g.notConfirmed ?? [],
       }
     : null
-
-/** The item as drawn: absent names read as '', absent other stock types as 0 (not shown), no answer-now as null. */
-function toItem(d: Partial<StockConsoleItem> | null | undefined, store: string, item: string): StockConsoleItem {
-  const n = (v: number | null | undefined) => v ?? 0
-  return {
-    ...(d as StockConsoleItem),
-    plant: d?.plant ?? store,
-    item: d?.item ?? item,
-    nameEn: d?.nameEn ?? '',
-    nameAr: d?.nameAr ?? '',
-    heldOnNoBatch: n(d?.heldOnNoBatch),
-    reserved: d?.reserved ?? null,
-    reservedAt: d?.reservedAt ?? null,
-    lastUpdate: d?.lastUpdate ?? null,
-    answeredNow: d?.answeredNow ?? null,
-    quality: n(d?.quality),
-    blocked: n(d?.blocked),
-    returnsBlocked: n(d?.returnsBlocked),
-    restricted: n(d?.restricted),
-    inTransit: n(d?.inTransit),
-    inTransferPlant: n(d?.inTransferPlant),
-    inTransferLocation: n(d?.inTransferLocation),
-  }
-}
 
 /** A SAP line as drawn: absent names read as '', absent optional fields as null. */
 const toSapLine = (r: Partial<StockConsoleSapLine>): StockConsoleSapLine => ({
@@ -200,9 +177,9 @@ export const stockConsoleApi = {
   },
 
   // ── An item (943) ──
-  /** `…/Items/{item}` → the item's figures, its sums' operands. `NoRow` when absent. */
+  /** `…/Items/{item}` → the item's figures and its four sums, each its operands and result (`toItem`). `NoRow` when absent. */
   async item(store: string, item: string): Promise<StockConsoleItem> {
-    return toItem(await api.get<Partial<StockConsoleItem> | null>(itemPath(store, item)), store, item)
+    return toItem(await api.get<ItemWire | null>(itemPath(store, item)), store, item)
   },
   /** `…/Items/{item}/Batches` → the store's Batches read for that item. */
   async itemBatches(store: string, item: string): Promise<StockConsolePage<StockConsoleBatchRow>> {
@@ -243,6 +220,7 @@ export const stockConsoleApi = {
         ? { lastPassAt: reader.lastPassAt ?? null, lagSeconds: reader.lagSeconds ?? null, readThroughAt: reader.readThroughAt ?? null }
         : null,
       takesToday: d?.takesToday ?? null,
+      problems: d?.problems ?? [],
     }
   },
 

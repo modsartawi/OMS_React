@@ -6,11 +6,9 @@ import { Loader2, RefreshCw } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
-import { apiErrorMessage } from '@/core/api'
 import type { StockConsoleStoreRow } from '@/core/models/stock-console'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -25,6 +23,7 @@ import ConsoleNav from './ConsoleNav'
 import FleetLine from './FleetLine'
 import HowRead from './HowRead'
 import Loading from './Loading'
+import RefusalBanner from './RefusalBanner'
 import StoreTiles from './StoreTiles'
 import { buildStoresColumns } from './stores-columns'
 import { STORE_SORTS, storesFromParams, storesToParams, tileCounts, visibleStores, type StoreSort } from './stores'
@@ -141,7 +140,7 @@ function Stores() {
           )}
         </div>
 
-        {read.isError && <ErrorBanner className="p-3" message={apiErrorMessage(read.error, t('stores.failed'))} />}
+        {read.isError && <RefusalBanner error={read.error} />}
 
         {read.isPending ? (
           <Loading label={t('stores.loading')} />

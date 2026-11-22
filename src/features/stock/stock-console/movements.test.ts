@@ -15,6 +15,7 @@ import {
   movementsView,
   openLines,
   pressRead,
+  sapPlaceShown,
   toLedgerLine,
   windowRead,
   type MovementsState,
@@ -83,6 +84,26 @@ describe('what the tab draws', () => {
       { errorCode: code, internalErrorCode: '', errorMessage: message },
     ]),
     rows: undefined,
+  })
+
+  it('where our SAP feed stands stays shown when SAP is not configured or cannot be reached — from the store header', () => {
+    const header = { sapPlace: '2026-11-22T09:40:00', sapLastAttempt: '2026-11-22T09:59:00' }
+    const answer = { readAt: '2026-11-22T10:00:00', place: { sapPlace: '2026-11-22T09:41:00', lastAttempt: null }, days: [] }
+    const view = movementsView(READ, refused('SapUnreachable', 'SAP did not answer'))
+    expect(sapPlaceShown(view, undefined, header)).toEqual({
+      sapPlace: '2026-11-22T09:40:00',
+      lastAttempt: '2026-11-22T09:59:00',
+      readAt: null,
+    })
+    expect(sapPlaceShown({ kind: 'empty' }, answer, header)).toEqual({
+      sapPlace: '2026-11-22T09:41:00',
+      lastAttempt: null,
+      readAt: '2026-11-22T10:00:00',
+    })
+    // Before Read SAP, or while it reads, nothing is drawn above.
+    expect(sapPlaceShown({ kind: 'nothing' }, undefined, header)).toBeNull()
+    expect(sapPlaceShown({ kind: 'loading' }, undefined, header)).toBeNull()
+    expect(sapPlaceShown(view, undefined, undefined)).toBeNull()
   })
 
   it('SAP not configured says its sentence, not an empty list', () => {

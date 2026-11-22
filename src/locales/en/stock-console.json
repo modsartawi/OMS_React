@@ -52,7 +52,6 @@
     "count_one": "<n>{{n}}</n> store",
     "count_other": "<n>{{n}}</n> stores",
     "loading": "Reading every store…",
-    "failed": "The stores could not be read.",
     "empty": "No store matches."
   },
   "column": {
@@ -537,6 +536,7 @@
     "FeedLate": "the <s>{{subject}}</s> feed is late",
     "ReservedNeverRun": "the reserved recompute has never run",
     "ReservedStale": "the reserved recompute is stale",
+    "HeldServedFellBack": "the held-served switch fell back: held is not subtracted",
     "ReaderBehind": "the hold ledger reader is behind",
     "TakesFailing": "the take door is failing: <v>{{value}}</v> failed today",
     "unknown": "fleet fact <s>{{fact}}</s>"

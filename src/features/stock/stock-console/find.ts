@@ -48,7 +48,7 @@ type FindReply = Partial<StockConsolePage<unknown>> & { kind?: string; stores?: 
 
 /**
  * Find's answer as drawn, picked by what was sent — the server's `kind` [guess] is not trusted over it. A batch answer
- * without its store count counts the stores on the page; absent rows read as none.
+ * without its store count has none (null): the stores on one page would undercount a longer match. Absent rows read as none.
  */
 export function findAnswer(
   sent: 'batch' | 'item',
@@ -58,7 +58,7 @@ export function findAnswer(
   const page = { total: d?.total ?? 0, page: d?.page ?? asked.page, size: d?.size ?? asked.size }
   if (sent === 'item') return { kind: 'Item', ...page, rows: (d?.rows ?? []) as StockConsoleFindItemRow[] }
   const rows = (d?.rows ?? []) as StockConsoleFindBatchRow[]
-  return { kind: 'Batch', ...page, stores: d?.stores ?? new Set(rows.map((r) => r.plant)).size, rows }
+  return { kind: 'Batch', ...page, stores: typeof d?.stores === 'number' ? d.stores : null, rows }
 }
 
 /**

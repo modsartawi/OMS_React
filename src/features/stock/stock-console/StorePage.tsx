@@ -67,7 +67,7 @@ function Store() {
       {row && <StoreHeader row={row} />}
       {/* Keyed on the store, so a link to another store starts every tab afresh. Drawn once the store is known, so an
           unknown store asks no list. */}
-      {!noStore && (row || header.isError) && <StoreTabs key={store} store={store} />}
+      {!noStore && (row || header.isError) && <StoreTabs key={store} store={store} header={row} />}
     </div>
   )
 }

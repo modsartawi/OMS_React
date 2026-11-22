@@ -9,7 +9,13 @@
  * The state is the address's (`from`, `to`, `ran=1`, a page; the SAP tab adds the opened row `sapDay`/`sapType`), so a
  * shared link reads the same window. Boxes left at their defaults stay out of the address and read as the default.
  */
-import { SAP_LINE_MARKS, type SapLineMark, type StockConsoleLedgerLine } from '@/core/models/stock-console'
+import {
+  SAP_LINE_MARKS,
+  type SapLineMark,
+  type StockConsoleLedgerLine,
+  type StockConsoleSapMovements,
+  type StockConsoleStoreRow,
+} from '@/core/models/stock-console'
 import type { Severity } from '@/core/ui/severity'
 import { formatParts } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
@@ -166,6 +172,29 @@ export function movementsView(decision: WindowRead, read: MovementsRead): Moveme
   if (read.isError) return { kind: 'refused', refusal: refusalOf(read.error) }
   if (read.rows === undefined) return { kind: 'loading' }
   return read.rows === 0 ? { kind: 'empty' } : { kind: 'rows' }
+}
+
+/** Where our SAP feed stands for the store, as the SAP tab draws it above the answer; `readAt` only from SAP's answer. */
+export interface SapPlace {
+  sapPlace: string | null
+  lastAttempt: string | null
+  readAt: string | null
+}
+
+/**
+ * Where our SAP feed stands, drawn above the SAP tab's answer — so "SAP has nothing new" reads apart from "we are behind".
+ * From SAP's answer; under a refusal (SAP not configured, not reached) from the store header already read, so the place
+ * never disappears with SAP (spec 4157 story 46). Nothing before Read SAP or while it reads.
+ */
+export function sapPlaceShown(
+  view: MovementsView,
+  answer: Pick<StockConsoleSapMovements, 'readAt' | 'place'> | undefined,
+  header: Pick<StockConsoleStoreRow, 'sapPlace' | 'sapLastAttempt'> | undefined,
+): SapPlace | null {
+  if ((view.kind === 'empty' || view.kind === 'rows') && answer)
+    return { sapPlace: answer.place.sapPlace, lastAttempt: answer.place.lastAttempt, readAt: answer.readAt || null }
+  if (view.kind === 'refused' && header) return { sapPlace: header.sapPlace, lastAttempt: header.sapLastAttempt, readAt: null }
+  return null
 }
 
 /** The sentence key of a window stopped in the browser (`window.<problem>`). */

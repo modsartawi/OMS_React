@@ -82,7 +82,7 @@ describe('stock-console — the keys the code builds exist', () => {
 
 // ── 942 ── (imported here so parallel tickets append their blocks without touching each other's lines)
 import { HOLD_STATES, TAKE_OUTCOMES } from '@/core/models/stock-console'
-import { FLEET_FACTS } from './fleet'
+import { FLEET_FACTS, KNOWN_PROBLEMS } from './fleet'
 import { HOLD_COLUMNS } from './holds'
 import { HOW_FEEDS, HOW_FLEET, HOW_HOLDS, HOW_STAGE, HOW_TAKES } from './how-sections'
 
@@ -120,7 +120,7 @@ describe('stock-console — the keys 942 builds exist', () => {
       ...['served', 'on', 'off', 'changedAt', 'subtractsHeld', 'netting', 'fellBackAt'].map((k) => `fleet.held.${k}`),
       ...['lastPass', 'lag', 'readThrough'].map((k) => `fleet.reader.${k}`),
       ...['day', 'takes', 'failed', 'skipped'].map((k) => `fleet.takes.${k}`),
-      ...['FeedLate', 'ReservedNeverRun', 'ReservedStale', 'ReaderBehind', 'TakesFailing', 'unknown'].map((k) => `fleetLine.${k}`),
+      ...[...KNOWN_PROBLEMS, 'unknown'].map((k) => `fleetLine.${k}`),
       ...['lead', 'link', 'since'].map((k) => `fleetLine.${k}`),
       'flagLink.open',
       ...['title', ...HOW_HOLDS].map((k) => `how.holds.${k}`),

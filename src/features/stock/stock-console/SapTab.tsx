@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import type { StockConsoleSapDay, StockConsoleSapMovements } from '@/core/models/stock-console'
+import type { StockConsoleSapDay, StockConsoleStoreRow } from '@/core/models/stock-console'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
@@ -10,7 +10,16 @@ import HowRead from './HowRead'
 import { HOW_SAP } from './how-sections'
 import ListGrid from './ListGrid'
 import Loading from './Loading'
-import { SAP_URL, SAP_WINDOW, closeLines, goToMovementsPage, movementsView, openLines } from './movements'
+import {
+  SAP_URL,
+  SAP_WINDOW,
+  closeLines,
+  goToMovementsPage,
+  movementsView,
+  openLines,
+  sapPlaceShown,
+  type SapPlace,
+} from './movements'
 import PagedList from './PagedList'
 import RefusalBanner from './RefusalBanner'
 import { buildSapDayColumns, buildSapLineColumns, sapDayRowId, sapLineRowId } from './sap-columns'
@@ -24,7 +33,7 @@ import WindowBar from './WindowBar'
  * against our copy. "SAP is not connected on this host" and "SAP could not be reached" are their own sentences
  * (`./refusals`), never an empty list.
  */
-export default function SapTab({ store }: { store: string }) {
+export default function SapTab({ store, header }: { store: string; header?: StockConsoleStoreRow }) {
   const { t } = useTranslation('stock-console')
   const movements = useMovements(SAP_URL, SAP_WINDOW)
   const { state, decision } = movements
@@ -46,13 +55,14 @@ export default function SapTab({ store }: { store: string }) {
     [t, openHref, state.sapDay, state.sapType],
   )
   const opened = state.sapDay !== '' && state.sapType !== ''
+  const place = sapPlaceShown(view, answer, header)
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-sap-tab={store} data-sap-view={view.kind}>
       <WindowBar ns="sap" movements={movements} read={read} />
       {view.kind === 'loading' && <Loading label={t('sap.loading')} />}
+      {place && <SapPlaceLine place={place} />}
       {view.kind === 'refused' && <RefusalBanner error={read.error} />}
-      {answer && (view.kind === 'empty' || view.kind === 'rows') && <SapPlace answer={answer} />}
       {view.kind === 'empty' && (
         <p className="py-6 text-center text-sm text-muted-foreground" data-list-empty="sap">
           {t('sap.empty')}
@@ -67,23 +77,29 @@ export default function SapTab({ store }: { store: string }) {
   )
 }
 
-/** Where our SAP feed stands for the store — so "SAP has nothing new" reads apart from "we are behind" — and the read's time. */
-function SapPlace({ answer }: { answer: StockConsoleSapMovements }) {
+/**
+ * Where our SAP feed stands for the store — so "SAP has nothing new" reads apart from "we are behind" — and the read's
+ * time. From the store header when SAP refused (`sapPlaceShown`).
+ */
+function SapPlaceLine({ place }: { place: SapPlace }) {
   const { t } = useTranslation('stock-console')
   const time = (at: string | null) => (at ? <Ltr>{formatDateTime(at)}</Ltr> : t('store.never'))
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border/60 px-3 py-2 text-sm" data-sap-place="">
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border/60 px-3 py-2 text-sm"
+      data-sap-place={place.readAt ? 'answer' : 'header'}
+    >
       <span className="flex flex-wrap gap-x-2">
         <span className="text-muted-foreground">{t('sap.place')}</span>
-        <span className="font-mono">{time(answer.place.sapPlace)}</span>
+        <span className="font-mono">{time(place.sapPlace)}</span>
       </span>
       <span className="flex flex-wrap gap-x-2">
         <span className="text-muted-foreground">{t('sap.lastAttempt')}</span>
-        <span className="font-mono">{time(answer.place.lastAttempt)}</span>
+        <span className="font-mono">{time(place.lastAttempt)}</span>
       </span>
-      {answer.readAt && (
+      {place.readAt && (
         <span className="ms-auto text-xs text-muted-foreground">
-          <Trans t={t} i18nKey="sap.readAt" values={{ at: formatDateTime(answer.readAt) }} components={{ t: <Ltr /> }} />
+          <Trans t={t} i18nKey="sap.readAt" values={{ at: formatDateTime(place.readAt) }} components={{ t: <Ltr /> }} />
         </span>
       )}
     </div>

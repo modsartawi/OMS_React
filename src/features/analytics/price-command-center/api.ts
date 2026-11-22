@@ -11,7 +11,7 @@ import type { AlertScope } from './alerts'
 // Drill-down (936)
 import type { BrokenMatchWire, PriceWatchComparison } from '@/core/models/price-watch'
 // Feed health (939)
-import type { PriceSource, PriceWatchCompetitorSetting, PriceWatchFeedHealth, SetAuthoritativeSourceBody } from '@/core/models/price-watch'
+import type { PriceSource, PriceWatchCompetitorAuthority, PriceWatchFeedHealth, SetAuthoritativeSourceBody } from '@/core/models/price-watch'
 import type { AnalyticsQueryResult, AnalyticsSemanticQuery } from '@/core/models/analytics' // Index (938)
 import type { PriceGridPage, PriceGridQuery } from '@/core/models/price-watch' // Grid (935)
 // Matching (937)
@@ -55,7 +55,7 @@ export const priceAlertsApi = {
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const priceGridApi = {
-  /** ⚠ GUESSED (BO 4129, not built): `GET PriceWatch/Grid` (View) — one server page of the product grid. */
+  /** `GET PriceWatch/Grid` (View, BO 4129) — one server page of the product grid. PWT-00070 (sort), PWT-00003 (competitor). */
   page(query: PriceGridQuery): Promise<PriceGridPage> {
     return api.get<PriceGridPage>('PriceWatch/Grid', { ...query })
   },
@@ -66,8 +66,8 @@ export const priceGridApi = {
 export const priceDrillDownApi = {
   /**
    * `GET PriceWatch/Materials/{material}/Comparison` (View) — our price and one side per unbroken product match.
-   * ⚠ GUESSED (BO 4128): the history, match id and who/when ride this door as optional fields; a pre-4128 server
-   * answers without them. PWT-00001 on a blank material.
+   * BO 4128: each side carries its authoritative source and 30 days of history from every source. ⚠ No match id,
+   * who/when or history of our price ride it (not provided at BO d099aac36). PWT-00001 on a blank material.
    */
   comparison(material: string): Promise<PriceWatchComparison> {
     return api.get<PriceWatchComparison>(`PriceWatch/Materials/${encodeURIComponent(material)}/Comparison`)
@@ -129,13 +129,13 @@ export const priceIndexApi = {
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 
 export const priceFeedHealthApi = {
-  /** `GET PriceWatch/FeedHealth` (View) — shipped; BO 4131's per-source runs and cross-check ride it as optional fields. */
+  /** `GET PriceWatch/FeedHealth` (View) — with BO 4131's per-source runs, cross-check and effective-price job. */
   read(): Promise<PriceWatchFeedHealth> {
     return api.get<PriceWatchFeedHealth>('PriceWatch/FeedHealth')
   },
-  /** ⚠ GUESSED (BO 4128): `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource` (Manage) `{ source }`. */
-  setAuthority(competitorCode: string, source: PriceSource): Promise<PriceWatchCompetitorSetting> {
+  /** `PUT PriceWatch/Competitors/{competitor}/Authority` (Manage, BO 4128) `{ source }`. PWT-00050 (source), PWT-00003 (competitor). */
+  setAuthority(competitorCode: string, source: PriceSource): Promise<PriceWatchCompetitorAuthority> {
     const body: SetAuthoritativeSourceBody = { source }
-    return api.put<PriceWatchCompetitorSetting>(`PriceWatch/Competitors/${encodeURIComponent(competitorCode)}/AuthoritativeSource`, body)
+    return api.put<PriceWatchCompetitorAuthority>(`PriceWatch/Competitors/${encodeURIComponent(competitorCode)}/Authority`, body)
   },
 }

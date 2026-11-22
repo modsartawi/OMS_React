@@ -2,11 +2,14 @@
  * The Index tab's pure rules (oms 938, BackOffice spec 4127 decisions 5 and 8): the price index with us at 100, its
  * tone, the lowest-price score, and the Cube queries the tab sends through `Analytics/Query`. No React, no `t`.
  *
- * ⚠ GUESSED (BO 4132, not built): the index members keep their names (`shelf_price_index`, `paid_price_index`) with the
- * SQL flipped to theirs ÷ ours and unit `share` (1.10 → index 110); the lowest-price score is a new view
- * `lowest_price_score` with `shelf_lowest_price_flagged`, `paid_lowest_price_flagged` and `lowest_price_counted`. Dims
- * `competitor`, `category` (A-level) and `date` (grain `day` | `week`). Reconcile against `GET Analytics/Model` once the
- * 4132 image is released.
+ * Cube members as shipped by BO 4132 (pricing2 d099aac36; the image build + release is still the owner's):
+ *  - view `price_index`: `shelf_price_index` / `paid_price_index` (same names, SQL flipped to Σ theirs ÷ Σ ours weighted
+ *    by our units, unit `share`: 1.10 → index 110), `price_indexed_materials` (count).
+ *  - view `price_lowest_score`: `shelf_lowest_price_score` / `paid_lowest_price_score` — a MEASURE, unit `share`
+ *    (1 − beaten ÷ scored day|item; a tie counts as lowest; unweighted), and `lowest_price_scored_items` (count of
+ *    day|item). The flagged / beaten counts are private: no "n of m" is published.
+ *  - dims (both views): `competitor` (leave it out for "all competitors"), `category` (A-level), `class_b`, `brand`,
+ *    `date` (day + `sunday_week`).
  */
 import { CHART_SLOT_COUNT } from '@/core/charts/slots'
 import type { AnalyticsQueryResult, AnalyticsSemanticQuery, MeasureUnit, PeriodToken } from '@/core/models/analytics'
@@ -41,13 +44,12 @@ export function indexTone(index: number | null): IndexTone | null {
 export const INDEX_TONE_SEVERITY: Record<IndexTone, Severity> = { dearer: 'ok', level: 'mute', cheaper: 'warn' }
 
 /**
- * The lowest-price score as a share: flagged (no competitor cheaper than us, a tie counts as lowest) ÷ counted. Each
- * material counts once — unweighted, unlike the index. `null` when nothing was counted.
+ * The lowest-price score as a share (0.75 = 75 %), read by its column's unit: Cube publishes it as a `share`; a
+ * `percent` column is ÷100. `null` when there is no figure (nothing scored).
  */
-export function lowestPriceScore(flagged: unknown, counted: unknown): number | null {
-  const f = num(flagged)
-  const c = num(counted)
-  return f === null || c === null || c <= 0 ? null : f / c
+export function asShare(value: unknown, unit: MeasureUnit | null | undefined): number | null {
+  const v = num(value)
+  return v === null ? null : unit === 'percent' ? v / 100 : v
 }
 
 // ── Reading the answers ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -135,31 +137,28 @@ export function indexTrend(result: AnalyticsQueryResult, basis: PriceBasis): Ind
 /** One lowest-price score figure: across all competitors (`competitor` ''), or one competitor's. */
 export interface ScoreFigure {
   competitor: string
-  flagged: number | null
-  counted: number | null
+  /** A share, 0..1; null = nothing scored. */
   score: number | null
+  /** The day|item pairs the score was taken over. */
+  scored: number | null
 }
 
 export function scoreFigures(result: AnalyticsQueryResult, basis: PriceBasis): ScoreFigure[] {
-  const flaggedKey = flaggedMeasure(basis)
+  const key = scoreMeasure(basis)
+  const unit = unitOf(result, key)
   return result.rows
-    .map((row) => {
-      const flagged = num(row[flaggedKey])
-      const counted = num(row[COUNTED_MEASURE])
-      return { competitor: text(row.competitor), flagged, counted, score: lowestPriceScore(flagged, counted) }
-    })
+    .map((row) => ({ competitor: text(row.competitor), score: asShare(row[key], unit), scored: num(row[SCORED_MEASURE]) }))
     .sort((a, b) => byText(a.competitor, b.competitor))
 }
 
 /** The score over time (all competitors), oldest first. */
 export function scoreTrend(result: AnalyticsQueryResult, basis: PriceBasis): { day: string; score: number | null }[] {
-  const flaggedKey = flaggedMeasure(basis)
-  return result.rows
-    .map((row) => ({ day: day(row.date), score: lowestPriceScore(row[flaggedKey], row[COUNTED_MEASURE]) }))
-    .sort((a, b) => byText(a.day, b.day))
+  const key = scoreMeasure(basis)
+  const unit = unitOf(result, key)
+  return result.rows.map((row) => ({ day: day(row.date), score: asShare(row[key], unit) })).sort((a, b) => byText(a.day, b.day))
 }
 
-// ── The Cube queries (GUESSED members, BO 4132) ──────────────────────────────────────────────────────────────────
+// ── The Cube queries (BO 4132 members) ──────────────────────────────────────────────────────────────────
 
 /** Shelf (their regular against our basic) or paid (what a customer pays, offers included, against our effective). */
 export type PriceBasis = 'shelf' | 'paid'
@@ -191,9 +190,9 @@ export const trendSlot = (i: number): number | null => (i < CHART_SLOT_COUNT ? i
 
 /** The index measure the switch picks — the one thing shelf/paid changes on an index query. */
 export const indexMeasure = (basis: PriceBasis): string => `${basis}_price_index`
-/** The lowest-price score's flagged count on a basis ("no competitor cheaper than us"); `lowest_price_counted` is basis-free. */
-export const flaggedMeasure = (basis: PriceBasis): string => `${basis}_lowest_price_flagged`
-export const COUNTED_MEASURE = 'lowest_price_counted'
+/** The lowest-price score on a basis (view `price_lowest_score`, a share); `lowest_price_scored_items` is basis-free. */
+export const scoreMeasure = (basis: PriceBasis): string => `${basis}_lowest_price_score`
+export const SCORED_MEASURE = 'lowest_price_scored_items'
 export const MATERIALS_MEASURE = 'price_indexed_materials'
 
 const base = (period: IndexPeriod): Pick<AnalyticsSemanticQuery, 'filters' | 'period'> => ({ filters: [], period })
@@ -216,7 +215,7 @@ export function indexTrendQuery(basis: PriceBasis, grain: IndexGrain, period: In
 /** The lowest-price score: across all competitors (no dimension), per competitor, or over time (all competitors). */
 export type ScoreCut = 'overall' | 'competitor' | IndexGrain
 export function scoreQuery(basis: PriceBasis, cut: ScoreCut, period: IndexPeriod): AnalyticsSemanticQuery {
-  const measures = [flaggedMeasure(basis), COUNTED_MEASURE]
+  const measures = [scoreMeasure(basis), SCORED_MEASURE]
   if (cut === 'overall') return { ...base(period), measures, dimensions: [] }
   if (cut === 'competitor') return { ...base(period), measures, dimensions: ['competitor'] }
   return { ...base(period), measures, dimensions: ['date'], grain: cut }

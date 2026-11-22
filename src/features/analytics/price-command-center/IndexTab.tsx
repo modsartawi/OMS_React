@@ -31,7 +31,6 @@ import {
   indexTone,
   indexTrend,
   indexTrendQuery,
-  lowestPriceScore,
   scoreFigures,
   scoreQuery,
   scoreTrend,
@@ -60,7 +59,8 @@ function useCube(name: string, query: AnalyticsSemanticQuery) {
  * overall and per competitor, with its trend. Shelf or paid throughout. Read from Cube through `Analytics/Query`, so the
  * tab needs `Analytics:03` beside the PriceWatch view grant (`canViewPriceIndex`).
  *
- * ⚠ GUESSED (BO 4132, not built): the flipped index members and the lowest-price score members — see `index-tab.ts`.
+ * Cube members as shipped by BO 4132 (pricing2 d099aac36) — see `index-tab.ts`. The 4132 image build + release is still
+ * owed on the host: until then the old (ours ÷ theirs) index and no lowest-price score answer there.
  */
 export default function IndexTab() {
   const { t, i18n } = useTranslation(NS)
@@ -127,7 +127,7 @@ export default function IndexTab() {
       <Section title={t('index.score.title')} explain={t('index.score.explain')} id="score">
         <Answer read={scoreAll}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-index-score-overall="">
-            <ScoreTile label={t('index.score.overall')} flagged={overall?.flagged ?? null} counted={overall?.counted ?? null} spark={scoreSpark} />
+            <ScoreTile label={t('index.score.overall')} score={overall?.score ?? null} scored={overall?.scored ?? null} spark={scoreSpark} />
           </div>
         </Answer>
         {/* Per competitor: its own read, so its loading or failure shows on its own, not hidden behind the overall one. */}
@@ -135,7 +135,7 @@ export default function IndexTab() {
           {scoreEach.data && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-index-score-each="">
               {scoreFigures(scoreEach.data, askedOn(scoreEach.data)).map((f) => (
-                <ScoreTile key={f.competitor} label={name(f.competitor)} pair flagged={f.flagged} counted={f.counted} spark={[]} />
+                <ScoreTile key={f.competitor} label={name(f.competitor)} pair score={f.score} scored={f.scored} spark={[]} />
               ))}
             </div>
           )}
@@ -265,20 +265,20 @@ export function IndexFigure({ index }: { index: number | null }) {
 }
 
 /**
- * A lowest-price score tile: flagged ÷ counted as a percent, with the two counts under it. A competitor's label is a
+ * A lowest-price score tile: Cube's share as a percent, with the items it was scored over under it. A competitor's label is a
  * `code · name` pair (`pair`), a machine value isolated LTR like the tables; the overall label is a sentence.
  */
 export function ScoreTile({
   label,
   pair = false,
-  flagged,
-  counted,
+  score,
+  scored,
   spark,
 }: {
   label: string
   pair?: boolean
-  flagged: number | null
-  counted: number | null
+  score: number | null
+  scored: number | null
   spark: readonly { x: string; label: string; value: number | null }[]
 }) {
   const { t, i18n } = useTranslation(NS)
@@ -287,7 +287,7 @@ export function ScoreTile({
       <div className="text-sm font-medium">{pair ? <Ltr>{label}</Ltr> : <bdi>{label}</bdi>}</div>
       <KpiTile
         measureLabel={label}
-        value={lowestPriceScore(flagged, counted)}
+        value={score}
         previous={null}
         delta={null}
         spark={spark}
@@ -295,14 +295,9 @@ export function ScoreTile({
         format="auto"
         locale={i18n.language}
       />
-      {flagged !== null && counted !== null && (
+      {scored !== null && (
         <p className="text-xs text-muted-foreground" data-index-score-counts="">
-          <Trans
-            t={t}
-            i18nKey="index.score.counted"
-            values={{ flagged: formatFigure(flagged), counted: formatFigure(counted) }}
-            components={{ f: <Ltr />, c: <Ltr /> }}
-          />
+          <Trans t={t} i18nKey="index.score.scored" values={{ scored: formatFigure(scored) }} components={{ n: <Ltr /> }} />
         </p>
       )}
     </div>

@@ -51,13 +51,13 @@ the dev walk and for the BO doors below.
 - **No door clears a block (ruling).** `GET PriceWatch/FeedHealth` carries `isBlocked`/`blockedAt`/`blockReason` but
   SIS.Api has no clear door — the scraper's operator clears it in the database. The tab shows the block and its reason
   only, with a sentence saying the screen does not lift it. If BO adds a door, the action goes in `CompetitorFeed`.
-- **GUESSED (BO 4131) — per-source runs, cross-check, effective-price job.** Modelled as OPTIONAL fields on the shipped
+- **GUESSED (reconciled 2026-11-22, see below) (BO 4131) — per-source runs, cross-check, effective-price job.** Modelled as OPTIONAL fields on the shipped
   `PriceWatchFeedHealth` (`core/models/price-watch.ts`, Feed health section, `⚠ GUESSED` block):
   `crossCheckMarginPercent`, `effectivePriceJob`, and per competitor `authoritativeSource`,
   `runsBySource[{ source, lastRun{…, errorMessage, isQuotaOrAuthError} }]`, `crossCheck{ disagreements, examples[] }`.
   Today's server (none of them) still renders: one "Latest run (source not reported)" row per competitor, no cross-check,
   no job, no setting (drive step 6). Reconcile against 4131 as shipped.
-- **GUESSED (BO 4128) — the authority setting door.** `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource`
+- **GUESSED (reconciled 2026-11-22, see below) (BO 4128) — the authority setting door.** `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource`
   `{ source: 'SCRAPER'|'MINDSITE' }` → the competitor setting; refusal `PWT-00050` (`PRICE_FEED_HEALTH_ERRORS.sourceUnknown`)
   guessed too. The current authority is read off the feed health (`authoritativeSource`); the setting is offered only with
   Manage AND when the server reports the authority. Confirmation on the core confirm dialog (`confirmAction`), sentence
@@ -67,3 +67,19 @@ the dev walk and for the BO doors below.
   `/analytics/price-command-center?material=<n>`) and `CrossCheckMaterial` (`FeedHealthTab.tsx`). Swap both for 936's
   drill-down link helper at the merge.
 - Cross-check prices are formatted with `formatMoney` (2 dp): the guessed example carries no `currency`.
+
+**2026-11-22 — reconciled to BO pricing2 d099aac36** (merge of 4128–4132 + review fixes `16164d170`; branch `t4127-reconcile`). Differences fixed (`PriceWatchFeedHealthService.cs`, `PriceWatchSourceAuthorityService.cs`):
+- per-source runs are **`lastRunBySource: RunSummary[]`** (each run carries `source` + `errorMessage`; a source that never
+  ran is absent), not `runsBySource[{ source, lastRun }]`. `lastRun` (any source) gains `source` + `errorMessage` too.
+- **no `isQuotaOrAuthError`**: a run with an `errorMessage` now reads "Ended with an error" (state `error`, was
+  `quotaOrAuth`), its message beside it.
+- cross-check gains **`compared`** (exact matches both sources read fresh the same day) and each example `listingId`;
+  "the two sources agree" is now said only when `compared` > 0, else "No exact match was read by both sources on the same
+  day" (new). Cross-check readings are platform-sold only (review fix 16164d170).
+- `effectivePriceJob` and `crossCheckMarginPercent` exactly as guessed.
+- authority door: **`PUT PriceWatch/Competitors/{competitor}/Authority`** `{ source }` (not `…/AuthoritativeSource`), answer
+  `{ competitorCode, competitorName, isEnabled, authoritativeSource, setBy, setAt }` (year-1 `setAt` = never). Refusals
+  `PWT-00050` (source) and `PWT-00003` (competitor) as guessed. A list door `GET PriceWatch/Competitors/Authority` (View)
+  also exists; the tab reads the authority off FeedHealth and does not need it.
+- The pre-4131 fallbacks (source-less run row, hidden setting, no cross-check) are gone.
+Still unprovided: no door clears a block (unchanged). Tests red then green; drive 33/33 on the real shapes.

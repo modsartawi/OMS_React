@@ -1,24 +1,22 @@
 // Ticket 939 drive — the Feed health tab of the price command center (BackOffice spec 4127, decision 8). Drives the REAL
 // app in Chromium against STUBBED `PriceWatch/*` envelopes.
 //
-// Stub contract:
-//   - `GET PriceWatch/FeedHealth` base shape is SHIPPED (BackOffice `pricing2`, `PriceWatchFeedHealthService.cs`, read
-//     2026-11-21).
-//   - ⚠ GUESSED (BO 4131, not shipped): `crossCheckMarginPercent`, `effectivePriceJob`, and per competitor
-//     `authoritativeSource`, `runsBySource[{ source, lastRun{…, errorMessage, isQuotaOrAuthError} }]`,
-//     `crossCheck{ disagreements, examples[] }`.
-//   - ⚠ GUESSED (BO 4128, not shipped): `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource` `{ source }` →
-//     the competitor setting.
-//   Source: the 4127 contract notes (scratchpad `4127/contracts.md`), from the BO ticket text. Still owed: the dev walk.
+// Stub contract — BO 4131 / 4128 as shipped (BackOffice pricing2 d099aac36):
+//   - `GET PriceWatch/FeedHealth` (`PriceWatchFeedHealthService.cs`): top `crossCheckMarginPercent`, `effectivePriceJob`
+//     (null = never ran); per competitor `authoritativeSource`, `lastRun` (latest of any source), `lastRunBySource[]`
+//     (the latest run of each source that ever ran there, each with `source` + `errorMessage`; a source that never ran
+//     is absent) and `crossCheck{ compared, disagreements, examples[{ materialNumber, listingId, day, … }] }`.
+//   - `PUT PriceWatch/Competitors/{competitor}/Authority` `{ source }` (`PriceWatchSourceAuthorityService.cs`) →
+//     `{ competitorCode, competitorName, isEnabled, authoritativeSource, setBy, setAt }`. Still owed: the dev walk.
 //
-//   1. a manager: `?tab=feed-health` opens the tab; one run row per source per competitor; the quota refusal, the run
+//   1. a manager: `?tab=feed-health` opens the tab; one run row per source per competitor; the run ending in an error, the run
 //      still going and the source that never ran read as such; the effective-price job shows its watched count.
 //   2. the block shows with its reason, and nothing offers to clear it.
 //   3. the cross-check flag lists its materials, each a link to the drill-down address.
 //   4. the authority change: picking Mindsite opens the confirmation naming what changes; No sends nothing; Yes sends
 //      `{ source: 'MINDSITE' }` to the competitor's door and reads feed health again.
 //   5. a viewer (PriceWatch:03 only): feed health shows, no authority setting.
-//   6. a server before BO 4131 (shipped shape only): renders the one latest run, no cross-check, no setting.
+//   6. nothing ran yet: both sources "never ran", the cross-check says nothing was compared, the job has not run.
 //   7. RTL (oms.locale = ar): renders, no raw keys. No page errors anywhere.
 //
 //   1. run the app:  npx vite --port 5199
@@ -46,27 +44,18 @@ const strip = (s) => s.replace(/[\u2066-\u2069]/g, '')
 const run = (over) => ({
   scrapeRunId: 'R-1', passKind: 'DAILY', passSlotAt: '2026-11-21T03:00:00', startedAt: '2026-11-21T03:00:05',
   finishedAt: '2026-11-21T03:20:00', listingsRead: 480, pricesWritten: 471, failures: 9, listingsGone: 2,
-  isBlocked: false, blockReason: '', ...over,
+  isBlocked: false, blockReason: '', source: 'SCRAPER', errorMessage: '', ...over,
 })
-const sourceRun = (over) => ({ ...run(over), errorMessage: '', isQuotaOrAuthError: false, ...over })
 const competitor = (over) => ({
   competitorCode: 'PANDA', name: 'Panda', kind: 'pharmacy', isEnabled: true, isBlocked: false, blockedAt: null,
   blockReason: '', blockClearedAt: null, blockClearedBy: '', matchedListings: 500, staleListings: 12, goneListings: 3,
-  lastRun: run({}), ...over,
+  lastRun: run({}), authoritativeSource: 'SCRAPER', lastRunBySource: [run({})],
+  crossCheck: { compared: 0, disagreements: 0, examples: [] }, ...over,
 })
 
-// SHIPPED shape only — a server before BO 4131.
-const SHIPPED = {
+const HEALTH = {
   at: '2026-11-21T09:00:00',
   staleAfterHours: 36,
-  competitors: [
-    competitor({ competitorCode: 'NAHDI', name: 'Nahdi', lastRun: run({ scrapeRunId: 'R-OLD' }) }),
-    competitor({ competitorCode: 'AMAZON_SA', name: 'Amazon SA', kind: 'marketplace', isBlocked: true, blockedAt: '2026-11-20T22:00:00', blockReason: 'Captcha wall on listing pages' }),
-  ],
-}
-// GUESSED (BO 4131) fields on top.
-const GUESSED = {
-  ...SHIPPED,
   crossCheckMarginPercent: 10,
   effectivePriceJob: {
     runId: 'J-1', runDay: '2026-11-21', referenceStore: '1001', startedAt: '2026-11-21T01:00:00', finishedAt: '2026-11-21T01:04:10',
@@ -75,34 +64,47 @@ const GUESSED = {
   competitors: [
     competitor({
       competitorCode: 'NAHDI', name: 'Nahdi', authoritativeSource: 'SCRAPER',
-      runsBySource: [{ source: 'SCRAPER', lastRun: sourceRun({ scrapeRunId: 'R-N', finishedAt: null }) }],
+      lastRun: run({ scrapeRunId: 'R-N', finishedAt: null }),
+      lastRunBySource: [run({ scrapeRunId: 'R-N', finishedAt: null })],
     }),
     competitor({
       competitorCode: 'PANDA', name: 'Panda', authoritativeSource: 'SCRAPER',
-      runsBySource: [
-        { source: 'SCRAPER', lastRun: sourceRun({ scrapeRunId: 'R-S' }) },
-        { source: 'MINDSITE', lastRun: sourceRun({ scrapeRunId: 'R-M', listingsRead: 0, pricesWritten: 0, failures: 1, errorMessage: 'HTTP 429 quota exceeded', isQuotaOrAuthError: true }) },
+      // Ordered by source on the wire (MINDSITE first); the tab lists the scraper first.
+      lastRun: run({ scrapeRunId: 'R-M', source: 'MINDSITE', startedAt: '2026-11-21T04:00:00', listingsRead: 0, pricesWritten: 0, failures: 1, errorMessage: 'HTTP 429 quota exceeded' }),
+      lastRunBySource: [
+        run({ scrapeRunId: 'R-M', source: 'MINDSITE', startedAt: '2026-11-21T04:00:00', listingsRead: 0, pricesWritten: 0, failures: 1, errorMessage: 'HTTP 429 quota exceeded' }),
+        run({ scrapeRunId: 'R-S', source: 'SCRAPER' }),
       ],
       crossCheck: {
+        compared: 40,
         disagreements: 3,
         examples: [
-          { materialNumber: '100012345', day: '2026-11-20', scraperPaidPrice: 19.95, mindsitePaidPrice: 24.5, differencePercent: 22.8 },
-          { materialNumber: '100067890', day: '2026-11-20', scraperPaidPrice: 10, mindsitePaidPrice: 11.5, differencePercent: 15 },
+          { materialNumber: '100012345', listingId: 'L-1', day: '2026-11-20T00:00:00', scraperPaidPrice: 19.95, mindsitePaidPrice: 24.5, differencePercent: 22.8 },
+          { materialNumber: '100067890', listingId: 'L-2', day: '2026-11-20T00:00:00', scraperPaidPrice: 10, mindsitePaidPrice: 11.5, differencePercent: 15 },
         ],
       },
     }),
     competitor({
       competitorCode: 'AMAZON_SA', name: 'Amazon SA', kind: 'marketplace', authoritativeSource: 'SCRAPER',
       isBlocked: true, blockedAt: '2026-11-20T22:00:00', blockReason: 'Captcha wall on listing pages',
-      runsBySource: [{ source: 'SCRAPER', lastRun: sourceRun({ isBlocked: true, blockReason: 'Captcha wall on listing pages' }) }],
-      crossCheck: { disagreements: 0, examples: [] },
+      lastRun: run({ isBlocked: true, blockReason: 'Captcha wall on listing pages' }),
+      lastRunBySource: [run({ isBlocked: true, blockReason: 'Captcha wall on listing pages' })],
+      crossCheck: { compared: 12, disagreements: 0, examples: [] },
     }),
   ],
+}
+// Nothing ran yet anywhere.
+const IDLE = {
+  at: '2026-11-21T09:00:00',
+  staleAfterHours: 36,
+  crossCheckMarginPercent: 10,
+  effectivePriceJob: null,
+  competitors: [competitor({ competitorCode: 'NAHDI', name: 'Nahdi', lastRun: null, lastRunBySource: [] })],
 }
 
 const browser = await chromium.launch()
 
-async function open(keys, { dir = 'ltr', health = GUESSED } = {}) {
+async function open(keys, { dir = 'ltr', health = HEALTH } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
   page.setDefaultTimeout(120000) // a cold or busy dev server can take a while to serve the first load
@@ -123,10 +125,10 @@ async function open(keys, { dir = 'ltr', health = GUESSED } = {}) {
     if (path === 'PriceWatch/FeedHealth') return route.fulfill(envelope(health))
     if (path === 'PriceWatch/Matching/Coverage') return route.fulfill(envelope([]))
     if (/^PriceWatch\/Alerts/.test(path)) return route.fulfill(envelope([]))
-    const m = path.match(/^PriceWatch\/Competitors\/([^/]+)\/AuthoritativeSource$/)
+    const m = path.match(/^PriceWatch\/Competitors\/([^/]+)\/Authority$/)
     if (m && req.method() === 'PUT') {
       const body = JSON.parse(req.postData() || '{}')
-      return route.fulfill(envelope({ competitorCode: m[1], name: 'Panda', kind: 'pharmacy', isEnabled: true, authoritativeSource: body.source, authoritativeSourceChangedBy: 'msartawi', authoritativeSourceChangedAt: '2026-11-21T10:00:00' }))
+      return route.fulfill(envelope({ competitorCode: m[1], competitorName: 'Panda', isEnabled: true, authoritativeSource: body.source, setBy: 'msartawi', setAt: '2026-11-21T10:00:00' }))
     }
     return route.fulfill(envelope({}))
   })
@@ -146,7 +148,7 @@ try {
     const rows = await page.locator('[data-feed-run]').evaluateAll((els) => els.map((e) => e.getAttribute('data-feed-run')))
     check('1. one run row per source per competitor', JSON.stringify(rows) === JSON.stringify(['NAHDI:SCRAPER', 'NAHDI:MINDSITE', 'PANDA:SCRAPER', 'PANDA:MINDSITE', 'AMAZON_SA:SCRAPER', 'AMAZON_SA:MINDSITE']), JSON.stringify(rows))
     const quota = strip(await page.locator('[data-feed-run="PANDA:MINDSITE"]').innerText())
-    check('1. a quota refusal reads as such, with its error', quota.includes('Quota or auth refused') && quota.includes('HTTP 429 quota exceeded'), quota)
+    check('1. a run that ended in an error (a quota refusal) reads as such, with its error', quota.includes('Ended with an error') && quota.includes('HTTP 429 quota exceeded'), quota)
     check('1. a run still going reads Running', (await page.locator('[data-feed-run="NAHDI:SCRAPER"] [data-run-state="running"]').count()) === 1)
     check('1. a source that never ran reads Never ran', (await page.locator('[data-feed-run="NAHDI:MINDSITE"] [data-run-state="never"]').count()) === 1)
     const scraper = strip(await page.locator('[data-feed-run="PANDA:SCRAPER"]').innerText())
@@ -187,7 +189,7 @@ try {
     )
     check('4. the change is confirmed in a toast', true)
     const put = calls.find((c) => c.method === 'PUT')
-    check('4. Yes sends { source: MINDSITE } to the competitor’s door', put?.path === 'PriceWatch/Competitors/PANDA/AuthoritativeSource' && put.body === JSON.stringify({ source: 'MINDSITE' }), `${put?.path} ${put?.body}`)
+    check('4. Yes sends { source: MINDSITE } to the competitor’s door', put?.path === 'PriceWatch/Competitors/PANDA/Authority' && put.body === JSON.stringify({ source: 'MINDSITE' }), `${put?.path} ${put?.body}`)
     await page.waitForTimeout(300)
     check('4. feed health is read again', calls.filter((c) => c.path === 'PriceWatch/FeedHealth').length > reads)
 
@@ -210,15 +212,15 @@ try {
     await context.close()
   }
 
-  // ── 6: a server before BO 4131 ──
+  // ── 6: nothing ran yet ──
   {
-    const { page, context, errors } = await open(['PriceWatch:03', 'PriceWatch:06'], { health: SHIPPED })
+    const { page, context, errors } = await open(['PriceWatch:03'], { health: IDLE })
     await page.goto(ROOT)
     await page.waitForSelector('[data-feed-run]')
-    const rows = await page.locator('[data-feed-run]').evaluateAll((els) => els.map((e) => e.getAttribute('data-feed-run')))
-    check('6. one latest run per competitor, source unreported', JSON.stringify(rows) === JSON.stringify(['NAHDI:any', 'AMAZON_SA:any']), JSON.stringify(rows))
-    check('6. no cross-check, no setting, no job', (await page.locator('[data-cross-check], [data-authority-change], [data-effective-price-job]').count()) === 0)
-    check('6. the block still shows', strip(await page.locator('body').innerText()).includes('Captcha wall on listing pages'))
+    check('6. both sources read Never ran', (await page.locator('[data-feed-competitor="NAHDI"] [data-run-state="never"]').count()) === 2)
+    const cc = strip(await page.locator('[data-cross-check="NAHDI"]').innerText())
+    check('6. the cross-check says nothing was compared, not "agree"', cc.includes('No exact match was read by both sources') && !cc.includes('agree'), cc)
+    check('6. the effective-price job has not run', (await page.locator('[data-effective-price-job="never"]').count()) === 1)
     check('6. no page errors', errors.length === 0, errors.join(' | '))
     await context.close()
   }

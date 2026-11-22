@@ -2,7 +2,7 @@
  * oms 938 (BackOffice spec 4127, decision 5) — the Index tab's shelf/paid switch is which Cube measure it asks
  * `Analytics/Query` for; the network is stubbed at `@/core/api`.
  *
- * ⚠ The member names are GUESSED from BO 4132 (not built) — see `index-tab.ts`.
+ * Member names are BO 4132's as shipped (pricing2 d099aac36): views `price_index` and `price_lowest_score`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -45,13 +45,17 @@ describe('the shelf/paid switch', () => {
     expect(sent().query.grain).toBe('week')
   })
 
-  it('switches the lowest-price score: flagged on the chosen basis over the counted', async () => {
+  it('switches the lowest-price score: the score measure on the chosen basis, with the items scored', async () => {
     await priceIndexApi.query(scoreQuery('paid', 'competitor', 'last-28-days'))
-    expect(sent().query.measures).toEqual(['paid_lowest_price_flagged', 'lowest_price_counted'])
+    expect(sent().query.measures).toEqual(['paid_lowest_price_score', 'lowest_price_scored_items'])
     expect(sent().query.dimensions).toEqual(['competitor'])
 
     await priceIndexApi.query(scoreQuery('shelf', 'overall', 'last-28-days'))
-    expect(sent().query.measures).toEqual(['shelf_lowest_price_flagged', 'lowest_price_counted'])
+    expect(sent().query.measures).toEqual(['shelf_lowest_price_score', 'lowest_price_scored_items'])
     expect(sent().query.dimensions).toEqual([])
+
+    await priceIndexApi.query(scoreQuery('shelf', 'week', 'last-28-days'))
+    expect(sent().query.dimensions).toEqual(['date'])
+    expect(sent().query.grain).toBe('week')
   })
 })

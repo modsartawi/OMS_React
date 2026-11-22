@@ -22,7 +22,7 @@ import { formatPair, formatRate, fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { canManagePriceWatch } from './access'
 import { priceDrillDownApi } from './api'
-import { authorityOf, comparisonGap, drillDownMaterial, drillDownSearch, historyChart, perUnitView, seriesLabelWith, stampOrNull, type HistorySeries } from './drilldown'
+import { comparisonGap, drillDownMaterial, drillDownSearch, historyChart, perUnitView, seriesLabelWith, stampOrNull, type HistorySeries } from './drilldown'
 
 const NS = 'price-command-center'
 /** Every PriceWatch read shares this prefix: a Break refreshes the comparison, the price alerts and the grid alike. */
@@ -148,7 +148,7 @@ function OurPrice({ comparison: c }: { comparison: PriceWatchComparison }) {
   )
 }
 
-/** The price history chart and its key; a pre-4128 answer (no history) says so instead. */
+/** The price history chart and its key; with nothing to draw it says so instead. */
 function HistoryPanel({ comparison, locale, busy }: { comparison: PriceWatchComparison; locale: string; busy: boolean }) {
   const { t } = useTranslation(NS)
   const { series, rows } = historyChart(comparison, { locale, label: seriesLabelWith(t) })
@@ -274,7 +274,7 @@ function MatchRow({
   const gap = comparisonGap(side.gapPercent)
   const unit = perUnitView(side)
   const matchedAt = stampOrNull(side.matchedAt)
-  const source = side.source ?? (side.history ? authorityOf(side) : undefined)
+  const source = side.source || undefined
   return (
     <tr className="border-t border-border/60" data-match-row={side.competitorCode} data-match-id={side.matchId ?? ''}>
       <td className={td}>

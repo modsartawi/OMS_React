@@ -1,11 +1,12 @@
 /**
  * oms 939 (BackOffice spec 4127, decision 8) — the Feed health tab: each competitor's latest runs per price source, with
- * counts, failures and quota or auth errors; cross-check flags listing the materials where the two sources disagree, each
+ * counts, failures and their error (a Mindsite quota or auth refusal); cross-check flags listing the materials where the two sources disagree, each
  * linked to its drill-down; the authority setting changed only with the Manage grant, after a confirmation naming what
  * changes. Components are rendered as static markup through a real i18next instance (en and ar); the network is stubbed
  * at the `@/core/api` boundary and the confirmation at the core confirm service.
  *
- * ⚠ The per-source runs, the cross-check and the authority door are GUESSED (BO 4131 / 4128 not shipped).
+ * Fixtures are BO 4131 / 4128 as shipped (`PriceWatchFeedHealthService.cs`, `PriceWatchSourceAuthorityService.cs`, BO
+ * pricing2 d099aac36): `lastRunBySource`, `crossCheck { compared, disagreements, examples }`, the authority door.
  */
 import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -13,7 +14,7 @@ import { MemoryRouter } from 'react-router'
 import i18next from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FeedHealthCompetitor, FeedSourceRun, PriceWatchFeedHealth } from '@/core/models/price-watch'
+import type { FeedHealthCompetitor, FeedRunSummary, PriceWatchFeedHealth } from '@/core/models/price-watch'
 import en from '@/locales/en/price-command-center.json'
 import ar from '@/locales/ar/price-command-center.json'
 
@@ -33,7 +34,7 @@ const draw = (element: ReactElement, lng: 'en' | 'ar' = 'en') => {
   return renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(MemoryRouter, null, element)))
 }
 
-const run = (over: Partial<FeedSourceRun> = {}): FeedSourceRun => ({
+const run = (over: Partial<FeedRunSummary> = {}): FeedRunSummary => ({
   scrapeRunId: 'R-1',
   passKind: 'DAILY',
   passSlotAt: '2026-11-21T03:00:00',
@@ -45,8 +46,8 @@ const run = (over: Partial<FeedSourceRun> = {}): FeedSourceRun => ({
   listingsGone: 2,
   isBlocked: false,
   blockReason: '',
+  source: 'SCRAPER',
   errorMessage: '',
-  isQuotaOrAuthError: false,
   ...over,
 })
 
@@ -64,6 +65,9 @@ const competitor = (over: Partial<FeedHealthCompetitor> = {}): FeedHealthCompeti
   staleListings: 12,
   goneListings: 3,
   lastRun: run(),
+  authoritativeSource: 'SCRAPER',
+  lastRunBySource: [run()],
+  crossCheck: { compared: 0, disagreements: 0, examples: [] },
   ...over,
 })
 
@@ -71,6 +75,8 @@ const health = (competitors: FeedHealthCompetitor[], over: Partial<PriceWatchFee
   at: '2026-11-21T09:00:00',
   staleAfterHours: 36,
   competitors,
+  crossCheckMarginPercent: 10,
+  effectivePriceJob: null,
   ...over,
 })
 
@@ -86,16 +92,17 @@ beforeEach(() => {
 describe('runs are shown per source per competitor', () => {
   const panda = competitor({
     authoritativeSource: 'MINDSITE',
-    runsBySource: [
-      { source: 'MINDSITE', lastRun: run({ scrapeRunId: 'R-M', listingsRead: 0, pricesWritten: 0, failures: 1, errorMessage: 'HTTP 429 quota exceeded', isQuotaOrAuthError: true }) },
-      { source: 'SCRAPER', lastRun: run({ scrapeRunId: 'R-S', listingsRead: 480, pricesWritten: 471, failures: 9 }) },
+    // Ordered by source on the wire (MINDSITE before SCRAPER): the tab puts the scraper first itself.
+    lastRunBySource: [
+      run({ scrapeRunId: 'R-M', source: 'MINDSITE', listingsRead: 0, pricesWritten: 0, failures: 1, errorMessage: 'HTTP 429 quota exceeded' }),
+      run({ scrapeRunId: 'R-S', source: 'SCRAPER', listingsRead: 480, pricesWritten: 471, failures: 9 }),
     ],
   })
   const nahdi = competitor({
     competitorCode: 'NAHDI',
     name: 'Nahdi',
     authoritativeSource: 'SCRAPER',
-    runsBySource: [{ source: 'SCRAPER', lastRun: run({ scrapeRunId: 'R-N', finishedAt: null }) }],
+    lastRunBySource: [run({ scrapeRunId: 'R-N', source: 'SCRAPER', finishedAt: null })],
   })
 
   it('orders each competitor’s sources scraper first, and keeps a source that never ran there', () => {
@@ -109,16 +116,17 @@ describe('runs are shown per source per competitor', () => {
     ])
   })
 
-  it('a server before BO 4131 still shows its one latest run, its source unreported', () => {
-    const old = competitor({ lastRun: run({ scrapeRunId: 'R-OLD' }) })
-    expect(fh.sourceRuns(old).map((r) => [r.source, r.run?.scrapeRunId ?? null])).toEqual([[null, 'R-OLD']])
-    const html = strip(view(health([old])))
-    expect(html).toContain('data-feed-run="PANDA:any"')
-    expect(html).toContain('Latest run (source not reported)')
+  it('a competitor no source ever ran for shows both sources as never run', () => {
+    const idle = competitor({ lastRun: null, lastRunBySource: [] })
+    expect(fh.sourceRuns(idle).map((r) => [r.source, r.run])).toEqual([
+      ['SCRAPER', null],
+      ['MINDSITE', null],
+    ])
   })
 
-  it('tells a quota or auth refusal, a run still going and failures apart', () => {
-    expect(fh.runState(run({ isQuotaOrAuthError: true, failures: 1 }))).toBe('quotaOrAuth')
+  it('tells a run that ended with an error (e.g. a quota or auth refusal), a run still going and failures apart', () => {
+    expect(fh.runState(run({ errorMessage: 'HTTP 401 token expired', failures: 1 }))).toBe('error')
+    expect(fh.runState(run({ errorMessage: '   ', failures: 0 }))).toBe('ok')
     expect(fh.runState(run({ isBlocked: true }))).toBe('blocked')
     expect(fh.runState(run({ finishedAt: null }))).toBe('running')
     expect(fh.runState(run({ failures: 9 }))).toBe('failures')
@@ -130,8 +138,8 @@ describe('runs are shown per source per competitor', () => {
     const html = strip(view(health([panda, nahdi])))
     for (const key of ['PANDA:SCRAPER', 'PANDA:MINDSITE', 'NAHDI:SCRAPER', 'NAHDI:MINDSITE']) expect(html).toContain(`data-feed-run="${key}"`)
     const mindsite = html.slice(html.indexOf('data-feed-run="PANDA:MINDSITE"'), html.indexOf('data-feed-run="NAHDI:SCRAPER"'))
-    expect(mindsite).toContain('data-run-state="quotaOrAuth"')
-    expect(mindsite).toContain('Quota or auth refused')
+    expect(mindsite).toContain('data-run-state="error"')
+    expect(mindsite).toContain('Ended with an error')
     expect(mindsite).toContain('HTTP 429 quota exceeded')
     const scraper = html.slice(html.indexOf('data-feed-run="PANDA:SCRAPER"'), html.indexOf('data-feed-run="PANDA:MINDSITE"'))
     expect(scraper).toContain('480')
@@ -170,8 +178,8 @@ describe('runs are shown per source per competitor', () => {
     const html = view(health([panda, nahdi]), false, 'ar')
     expect(html).toContain('data-feed-run="PANDA:MINDSITE"')
     expect(html).toContain(ar.feedHealth.source.MINDSITE)
-    expect(html).toContain(ar.feedHealth.runState.quotaOrAuth)
-    expect(html).not.toContain('Quota or auth refused')
+    expect(html).toContain(ar.feedHealth.runState.error)
+    expect(html).not.toContain('Ended with an error')
   })
 })
 
@@ -179,10 +187,11 @@ describe('a cross-check flag lists its materials and links them', () => {
   const flagged = competitor({
     authoritativeSource: 'MINDSITE',
     crossCheck: {
+      compared: 40,
       disagreements: 3,
       examples: [
-        { materialNumber: '100012345', day: '2026-11-20', scraperPaidPrice: 19.95, mindsitePaidPrice: 24.5, differencePercent: 22.8 },
-        { materialNumber: '100067890', day: '2026-11-20', scraperPaidPrice: 10, mindsitePaidPrice: 11.5, differencePercent: 15 },
+        { materialNumber: '100012345', listingId: 'L-1', day: '2026-11-20T00:00:00', scraperPaidPrice: 19.95, mindsitePaidPrice: 24.5, differencePercent: 22.8 },
+        { materialNumber: '100067890', listingId: 'L-2', day: '2026-11-20T00:00:00', scraperPaidPrice: 10, mindsitePaidPrice: 11.5, differencePercent: 15 },
       ],
     },
   })
@@ -205,9 +214,11 @@ describe('a cross-check flag lists its materials and links them', () => {
     expect(link).toContain('data-open-drilldown="100012345"')
   })
 
-  it('says the sources agree when nothing disagrees, and shows no cross-check before BO 4131 (cross-check)', () => {
-    expect(strip(view(health([competitor({ crossCheck: { disagreements: 0, examples: [] } })])))).toContain('The two price sources agree here.')
-    expect(view(health([competitor()]))).not.toContain('data-cross-check=')
+  it('says the sources agree only when something was compared; with nothing compared it says so instead (cross-check)', () => {
+    expect(strip(view(health([competitor({ crossCheck: { compared: 12, disagreements: 0, examples: [] } })])))).toContain('The two price sources agree here.')
+    const none = strip(view(health([competitor({ crossCheck: { compared: 0, disagreements: 0, examples: [] } })])))
+    expect(none).not.toContain('The two price sources agree here.')
+    expect(none).toContain('No exact match was read by both sources on the same day.')
   })
 })
 
@@ -233,10 +244,6 @@ describe('the authority change asks for confirmation and sends the setting, and 
     expect(html).toContain('data-feed-authority="SCRAPER"')
   })
 
-  it('hides the setting where the server does not report the authoritative source (before BO 4128 / 4131)', () => {
-    expect(view(health([competitor()]), true)).not.toContain('data-authority-change')
-  })
-
   it('names what changes: whose prices will count, and whose will not', () => {
     expect(strip(fh.authorityChangeMessage(tOf(), panda, 'MINDSITE'))).toBe(
       'Mindsite’s prices will count for Panda; our scraper’s will not. Price alerts, the index and the grid follow from the next run.',
@@ -256,10 +263,10 @@ describe('the authority change asks for confirmation and sends the setting, and 
 
   it('sends the setting once confirmed', async () => {
     confirm.confirmAction.mockResolvedValue(true)
-    const setting = { competitorCode: 'PANDA', name: 'Panda', kind: 'pharmacy', isEnabled: true, authoritativeSource: 'MINDSITE', authoritativeSourceChangedBy: 'msartawi', authoritativeSourceChangedAt: '2026-11-21T10:00:00' }
+    const setting = { competitorCode: 'PANDA', competitorName: 'Panda', isEnabled: true, authoritativeSource: 'MINDSITE', setBy: 'msartawi', setAt: '2026-11-21T10:00:00' }
     api.put.mockResolvedValue(setting)
     expect(await fh.requestAuthorityChange(tOf(), panda, 'MINDSITE')).toEqual(setting)
-    expect(api.put).toHaveBeenCalledWith('PriceWatch/Competitors/PANDA/AuthoritativeSource', { source: 'MINDSITE' })
+    expect(api.put).toHaveBeenCalledWith('PriceWatch/Competitors/PANDA/Authority', { source: 'MINDSITE' })
   })
 
   it('asks nothing when the source picked is the one that already counts', async () => {

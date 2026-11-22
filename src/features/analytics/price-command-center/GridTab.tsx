@@ -44,7 +44,7 @@ const DEFAULT_COL_DEF: ColDef<PriceGridRow> = {
  * The Grid tab (oms 935, BackOffice spec 4127 decisions 6 and 8): one row per watched material, our price first, then
  * one column per competitor in the server's column order. Filters, sort and paging are the server's.
  *
- * ⚠ Reads the GUESSED BO 4129 door (`GET PriceWatch/Grid`, not built yet) — reconcile owed.
+ * Reads `GET PriceWatch/Grid` (BO 4129, reconciled to BO pricing2 d099aac36).
  * A row's material number opens its drill-down (936, `DrillDownLink`).
  */
 export default function GridTab() {
@@ -123,13 +123,13 @@ function gridColumns(competitors: readonly PriceGridCompetitor[], t: TFunction):
       colId: 'units',
       headerName: t('grid.columns.units'),
       width: 110,
-      valueGetter: ({ data }) => data?.thirtyDayUnits ?? null,
+      valueGetter: ({ data }) => data?.units30 ?? null,
       valueFormatter: ({ value }) => (value == null ? '' : formatFigure(value as number)),
     },
     ...competitors.map(
       (c): ColDef<PriceGridRow> => ({
         colId: `competitor-${c.competitorCode}`,
-        headerName: fsi(c.name || c.competitorCode),
+        headerName: fsi(c.competitorName || c.competitorCode),
         headerTooltip: fsi(c.competitorCode),
         width: 170,
         cellRenderer: ({ data }: ICellRendererParams<PriceGridRow>) => {

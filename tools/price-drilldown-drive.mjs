@@ -1,20 +1,22 @@
 // Ticket 936 drive — a material's drill-down shows our price and every competitor's history, with its source
 // (BackOffice spec 4127, decision 8). Drives the REAL app in Chromium against STUBBED `PriceWatch/*` envelopes.
 //
-// Stubs: `PriceWatch/Alerts/Mine` + `Matching/Coverage` (shipped, as the 934 drive), `Materials/{m}/Comparison` (shipped
-// fields as read from BackOffice `pricing2` `PriceWatchComparisonService.cs` on 2026-11-21) PLUS the ⚠ GUESSED BO 4128
-// extension — `ourHistory`, and per side `matchId`, `matchedByUser`, `matchedAt`, `authoritativeSource`, `source`,
-// `history[]` (scratchpad 4127/contracts.md "BO 4128"). `Matches/{matchId}/Break` (shipped MatchWire). Still owed: the
-// dev walk on PriceWatch_Dev once BO 4128 ships.
+// Stubs: `PriceWatch/Alerts/Mine` + `Matching/Coverage` (shipped, as the 934 drive), `Materials/{m}/Comparison` as
+// shipped by BO 4128 (pricing2 d099aac36, `PriceWatchComparisonService.cs`): per side `authoritativeSource`, `source` and
+// `history[]` (30 days, every source, latest first, each `{ observedAt, regularPrice, offerPrice, sellerName,
+// isPlatformSeller, inStock, source, isAuthoritative }`). ⚠ That wire has NO `matchId` / who / when and no `ourHistory`:
+// scenarios 1–5 add the match fields (`WITH_MATCH`) to prove Break once BO sends them; 7 drives the shipped wire as is.
+// `Matches/{matchId}/Break` (shipped MatchWire). Still owed: the dev walk on PriceWatch_Dev.
 //
 //   1. a manager opens the drill-down from an alert row's material: the URL gains ?material= (tab kept); the sheet
 //      reads the comparison; our basic + effective price show.
 //   2. the chart draws; its key names each series' source — NAHDI's authoritative Mindsite solid, Scraper faint.
 //   3. a comparable match shows the per-unit price; the comparison gap reads "competitor cheaper" for a negative gap.
-//   4. Break asks first, then POSTs Matches/M-1/Break and reads the comparison again.
+//   4. Break asks first, then POSTs Matches/M-1/Break and reads the comparison again (with the match id BO does not send yet).
 //   5. close drops ?material=, the alerts stay.
 //   6. a viewer (PriceWatch:03): the drill-down opens by URL, no Break.
-//   7. a pre-4128 answer (no history, no match id): "no price history yet", Break disabled with its reason.
+//   7. the shipped wire (no match id, no history of ours): the chart still draws (our price today as one point), Break
+//      disabled with its reason, who/when not recorded; an empty history with us unpriced says "no price history".
 //   8. RTL: renders, no raw keys. No page errors anywhere.
 //
 //   1. run the app:  npx vite --port 5199
@@ -49,21 +51,20 @@ const ALERT = {
   floorStatus: 'NOT_SET', floorText: 'floor not set', openedAt: '2026-11-21T08:20:00', updatedAt: '2026-11-21T08:20:00',
   resolvedAt: null, resolvedReason: '', dismissedAtGapPercent: 0, categoryManager: 'CM01', ownerUserId: 'msartawi',
 }
-const obs = (id, at, source, auth, regular, offer) => ({ priceId: id, observedAt: at, source, isAuthoritative: auth, regularPrice: regular, offerPrice: offer, sellerName: 'Nahdi Online', inStock: true })
+const obs = (at, source, auth, regular, offer) => ({ observedAt: at, regularPrice: regular, offerPrice: offer, sellerName: 'Nahdi Online', isPlatformSeller: true, inStock: true, source, isAuthoritative: auth })
 const NAHDI = {
   competitorCode: 'NAHDI', competitorName: 'Nahdi', matchKind: 'Exact', madeBy: 'Barcode',
   listingUrl: 'https://nahdi.example/p/1', listingTitle: 'Panadol Extra 24 tablets',
   hasPrice: true, regularPrice: 21, offerPrice: 19.95, observedAt: '2026-11-21T08:15:00',
   sellerName: 'Nahdi Online', isPlatformSeller: true, inStock: true, isStale: false, isGone: false,
   gapPercent: -11.3, mayAlert: true, perUnitBasis: '', ourPricePerUnit: null, theirPricePerUnit: null,
-  // GUESSED (BO 4128)
-  matchId: 'M-1', matchedByUser: 'jdoe', matchedAt: '2026-10-01T09:00:00', authoritativeSource: 'MINDSITE', source: 'MINDSITE',
+  authoritativeSource: 'MINDSITE', source: 'MINDSITE',
   history: [
-    obs('p1', '2026-11-19T08:00:00', 'MINDSITE', true, 21, null),
-    obs('p2', '2026-11-19T09:00:00', 'SCRAPER', false, 21.5, null),
-    obs('p3', '2026-11-20T08:00:00', 'MINDSITE', true, 21, 20.5),
-    obs('p4', '2026-11-20T09:00:00', 'SCRAPER', false, 21.5, 20),
-    obs('p5', '2026-11-21T08:15:00', 'MINDSITE', true, 21, 19.95),
+    obs('2026-11-21T08:15:00', 'MINDSITE', true, 21, 19.95),
+    obs('2026-11-20T09:00:00', 'SCRAPER', false, 21.5, 20),
+    obs('2026-11-20T08:00:00', 'MINDSITE', true, 21, 20.5),
+    obs('2026-11-19T09:00:00', 'SCRAPER', false, 21.5, null),
+    obs('2026-11-19T08:00:00', 'MINDSITE', true, 21, null),
   ],
 }
 const AMAZON = {
@@ -72,21 +73,28 @@ const AMAZON = {
   hasPrice: true, regularPrice: 39, offerPrice: null, observedAt: '2026-11-21T07:00:00',
   sellerName: 'Pharma Seller', isPlatformSeller: false, inStock: true, isStale: true, isGone: false,
   gapPercent: -13.3, mayAlert: false, perUnitBasis: 'piece', ourPricePerUnit: 0.9375, theirPricePerUnit: 0.8125,
-  matchId: 'M-2', matchedByUser: 'asmith', matchedAt: '2026-10-05T12:00:00', authoritativeSource: 'SCRAPER', source: 'SCRAPER',
-  history: [obs('a1', '2026-11-20T07:00:00', 'SCRAPER', true, 39, null), obs('a2', '2026-11-21T07:00:00', 'SCRAPER', true, 39, null)],
-}
-const COMPARISON = {
-  material: '100012345', referenceStore: '1001', pricedAt: '2026-11-21T06:00:00', isPriced: true, unpricedReason: '',
-  currency: 'SAR', basicPrice: 25, effectivePrice: 22.5, competitors: [NAHDI, AMAZON],
-  ourHistory: [
-    { priceDay: '2026-11-19', isPriced: true, basicPrice: 25, effectivePrice: 25 },
-    { priceDay: '2026-11-20', isPriced: true, basicPrice: 25, effectivePrice: 25 },
-    { priceDay: '2026-11-21', isPriced: true, basicPrice: 25, effectivePrice: 22.5 },
+  authoritativeSource: 'SCRAPER', source: 'SCRAPER',
+  history: [
+    { ...obs('2026-11-21T07:00:00', 'SCRAPER', true, 39, null), sellerName: 'Pharma Seller', isPlatformSeller: false },
+    { ...obs('2026-11-20T07:00:00', 'SCRAPER', true, 39, null), sellerName: 'Pharma Seller', isPlatformSeller: false },
   ],
 }
-// A pre-4128 server: the shipped wire only.
-const strip4128 = ({ matchId, matchedByUser, matchedAt, authoritativeSource, source, history, ...rest }) => rest
-const PRE_4128 = { ...COMPARISON, ourHistory: undefined, competitors: COMPARISON.competitors.map(strip4128) }
+// The shipped wire (BO d099aac36).
+const SHIPPED = {
+  material: '100012345', referenceStore: '1001', pricedAt: '2026-11-21T06:00:00', isPriced: true, unpricedReason: '',
+  currency: 'SAR', basicPrice: 25, effectivePrice: 22.5, competitors: [NAHDI, AMAZON],
+}
+// ⚠ NOT on the shipped wire: the product match's id and who/when, as a later BO change would add them (Break needs the id).
+const WITH_MATCH = {
+  ...SHIPPED,
+  competitors: [
+    { ...NAHDI, matchId: 'M-1', matchedByUser: 'jdoe', matchedAt: '2026-10-01T09:00:00' },
+    { ...AMAZON, matchId: 'M-2', matchedByUser: 'asmith', matchedAt: '2026-10-05T12:00:00' },
+  ],
+}
+const COMPARISON = WITH_MATCH
+// Nothing to draw: no observation in 30 days, and we are not priced today.
+const EMPTY = { ...SHIPPED, isPriced: false, basicPrice: 0, effectivePrice: 0, unpricedReason: 'NO_PRICE', competitors: SHIPPED.competitors.map((c) => ({ ...c, history: [], hasPrice: false, source: '' })) }
 
 const browser = await chromium.launch()
 
@@ -191,16 +199,26 @@ try {
     await context.close()
   }
 
-  // ── 7: a pre-4128 answer ──
+  // ── 7: the shipped wire (BO d099aac36) ──
   {
-    const { page, context, errors } = await open(['PriceWatch:03', 'PriceWatch:06'], { comparison: PRE_4128 })
+    const { page, context, errors } = await open(['PriceWatch:03', 'PriceWatch:06'], { comparison: SHIPPED })
     await page.goto(ROOT + '?material=100012345')
     await page.waitForSelector('[data-drilldown] [data-match-row]')
-    check('7. no history: says so, no chart', (await page.locator('[data-drilldown-history-empty]').count()) === 1 && (await page.locator('[data-chart]').count()) === 0)
+    check('7. the shipped wire draws the chart from the sides’ history', (await page.locator('[data-drilldown] [data-chart="line"]').count()) === 1)
+    check('7. …our price today is in the key (one point: no history of ours on the wire)', (await page.locator('[data-series-key="ours.effective"]').count()) === 1)
     const btn = page.locator('[data-match-row="NAHDI"] [data-match-break]')
-    check('7. Break is disabled with its reason', (await btn.getAttribute('aria-disabled')) === 'true' && /match id/.test((await btn.getAttribute('title')) ?? ''))
-    check('7. who and when not recorded', strip(await page.locator('[data-match-row="NAHDI"]').innerText()).includes('Who and when not recorded'))
+    check('7. Break is disabled with its reason (no match id on the wire)', (await btn.getAttribute('aria-disabled')) === 'true' && /match id/.test((await btn.getAttribute('title')) ?? ''))
+    const row = strip(await page.locator('[data-match-row="NAHDI"]').innerText())
+    check('7. who and when not recorded; the price source still shows', row.includes('Who and when not recorded') && row.includes('Price source: Mindsite'), row)
     check('7. no page errors', errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { page, context, errors } = await open(['PriceWatch:03'], { comparison: EMPTY })
+    await page.goto(ROOT + '?material=100012345')
+    await page.waitForSelector('[data-drilldown] [data-match-row]')
+    check('7. nothing to draw: says so, no chart', (await page.locator('[data-drilldown-history-empty]').count()) === 1 && (await page.locator('[data-drilldown] [data-chart]').count()) === 0)
+    check('7. no page errors (empty)', errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

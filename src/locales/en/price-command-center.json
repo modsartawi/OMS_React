@@ -67,9 +67,9 @@
     },
     "score": {
       "title": "Lowest-price score",
-      "explain": "The share of our matched materials on which no competitor is cheaper than us (a tie counts as lowest): flagged ÷ counted, each material once.",
+      "explain": "The share of our matched items on which no competitor is cheaper than us (a tie counts as lowest). Each item counts once a day, whatever we sold of it.",
       "overall": "All competitors",
-      "counted": "<f>{{flagged}}</f> of <c>{{counted}}</c> materials",
+      "scored": "<n>{{scored}}</n> items scored",
       "trendTitle": "Lowest-price score over time",
       "trendExplain": "The lowest-price score across all competitors, by day or by week."
     },
@@ -191,7 +191,7 @@
       "heading": "Price history",
       "aria": "Price history of our price and each competitor price",
       "key": "Series",
-      "empty": "No price history to draw yet: the history arrives with each competitor price's source (BackOffice 4128)."
+      "empty": "No price history to draw yet: no competitor price was read in the last 30 days, and we are not priced today."
     },
     "series": {
       "ours": {
@@ -259,7 +259,7 @@
       "cancel": "Cancel",
       "done": "Product match broken.",
       "failed": "The product match could not be broken.",
-      "noMatchId": "Break needs the product match id, which arrives with BackOffice 4128."
+      "noMatchId": "Break needs the product match id, which this server does not send with the comparison yet. A wrong match with a price alert can be broken by dismissing the alert as a wrong match."
     }
   },
   "grid": {
@@ -386,11 +386,9 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "authority": "Authoritative price source",
-    "authorityUnknown": "Not reported by this server",
     "blocked": "Blocked since {{at}}",
     "noReason": "No reason was recorded.",
     "blockHint": "This screen does not lift a block; the scraper’s operator does, outside it.",
-    "sourceAny": "Latest run (source not reported)",
     "source": {
       "SCRAPER": "Our scraper",
       "MINDSITE": "Mindsite"
@@ -416,7 +414,7 @@
       "never": "Never ran",
       "running": "Running",
       "blocked": "Blocked",
-      "quotaOrAuth": "Quota or auth refused",
+      "error": "Ended with an error",
       "failures": "With failures",
       "ok": "Healthy"
     },
@@ -443,8 +441,8 @@
     "crossCheck": {
       "title": "Cross-check",
       "none": "The two price sources agree here.",
+      "nothingCompared": "No exact match was read by both sources on the same day.",
       "flag": "{{n}} disagreements above {{margin}} between our scraper and Mindsite",
-      "flagNoMargin": "{{n}} disagreements between our scraper and Mindsite",
       "material": "Material",
       "day": "Day",
       "scraper": "Our scraper",

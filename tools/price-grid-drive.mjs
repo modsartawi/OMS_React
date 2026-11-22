@@ -1,15 +1,17 @@
 // Ticket 935 drive — the product grid: one row per watched material, one column per competitor (BackOffice spec 4127,
 // decisions 6 and 8). Drives the REAL app in Chromium against STUBBED `PriceWatch/*` envelopes.
 //
-// ⚠ GUESSED contract: BO 4129 (`GET PriceWatch/Grid`) is NOT built. The stub follows the guessed shape in
-// `src/core/models/price-watch.ts` (Grid section; from the 4127 contract notes): `?aLevel&bLevel&brand&competitor&
-// competitorCheaper&sort=units|gap&page&pageSize` → `{ total, page, pageSize, competitors[], rows[{ …, cells[] }] }`.
-// `PriceWatch/Matching/Coverage` (the competitor picker) is the SHIPPED door. Still owed: reconcile + dev walk.
+// Stub contract — BO 4129 as shipped (BackOffice pricing2 d099aac36, `PriceWatchGridService.cs`):
+// `GET PriceWatch/Grid?aLevel&bLevel&brand&competitor&competitorCheaper&sort&page&pageSize` (sort is upper-cased by the
+// server, so `units`/`gap` are accepted) → `{ readAt, referenceStore, staleAfterHours, sort, page, pageSize, total,
+// competitors[{ competitorCode, competitorName, isEnabled, authoritativeSource }], rows[{ …, units30, isOurCheapest,
+// competitorIsCheaper, cells[{ …, listingUrl, priceObservedAt, source }] }] }`. `PriceWatch/Matching/Coverage` (the
+// competitor picker) is the shipped door. Still owed: the dev walk.
 //
 //   1. a viewer (PriceWatch:03): the Grid tab shows; opening it reads `PriceWatch/Grid` sort=units, page=1.
 //   2. rows: one per material; our column first (effective, basic, deal); one column per competitor, in server order.
 //   3. cell states: PRICED with offer (struck regular, -%), OOS with last price, NOT_CARRIED, NO_MATCH, COMPARABLE_ONLY,
-//      stale — each its own `data-grid-cell`; the marketplace cell names its seller.
+//      stale — each its own `data-grid-cell`; a third-party (not platform-sold) cell names its seller.
 //   4. the cheapest mark follows the flag — on a competitor cell, and on ours when we lead.
 //   5. filters + sort reach the endpoint: competitor, competitorCheaper, sort=gap, A-level/B-level/brand on Apply.
 //   6. server paging: Next reads page=2.
@@ -39,40 +41,42 @@ const envelope = (data) => ({
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '')
 
 const COMPETITORS = [
-  { competitorCode: 'NAHDI', name: 'Nahdi', kind: 'pharmacy', authoritativeSource: 'SCRAPER' },
-  { competitorCode: 'AMAZON_SA', name: 'Amazon SA', kind: 'marketplace', authoritativeSource: 'MINDSITE' },
-  { competitorCode: 'WHITES', name: 'Whites', kind: 'pharmacy', authoritativeSource: 'SCRAPER' },
+  { competitorCode: 'AMAZON_SA', competitorName: 'Amazon SA', isEnabled: true, authoritativeSource: 'MINDSITE' },
+  { competitorCode: 'NAHDI', competitorName: 'Nahdi', isEnabled: true, authoritativeSource: 'SCRAPER' },
+  { competitorCode: 'WHITES', competitorName: 'Whites', isEnabled: true, authoritativeSource: 'SCRAPER' },
 ]
 const cell = (competitorCode, over) => ({
-  competitorCode, state: 'PRICED', paidPrice: 18, regularPrice: 20, offerPrice: 18, offerPercent: 10, sellerName: '',
-  isPlatformSeller: true, inStock: true, observedAt: '2026-11-21T08:15:00', isStale: false, isCheapest: false,
-  gapPercent: -20, source: 'SCRAPER', ...over,
+  competitorCode, state: 'PRICED', listingUrl: `https://${competitorCode.toLowerCase()}.example/p/1`, paidPrice: 18,
+  regularPrice: 20, offerPrice: 18, offerPercent: 10, sellerName: '', isPlatformSeller: true, inStock: true,
+  observedAt: '2026-11-21T08:15:00', priceObservedAt: '2026-11-21T08:15:00', isStale: false, source: 'SCRAPER',
+  gapPercent: -20, isCheapest: false, ...over,
 })
-const none = { paidPrice: null, regularPrice: null, offerPrice: null, offerPercent: null, observedAt: null, gapPercent: null }
+const none = { listingUrl: '', paidPrice: null, regularPrice: null, offerPrice: null, offerPercent: null, observedAt: null, priceObservedAt: null, gapPercent: null, source: '' }
 const row = (materialNumber, over) => ({
-  materialNumber, title: 'Panadol Extra 24 tablets', brand: 'Panadol', aLevel: 'A004', bLevel: 'B0041', currency: 'SAR',
-  basicPrice: 25, effectivePrice: 22.5, isPriced: true, dealText: '', appliedDealText: '10% off', thirtyDayUnits: 400,
-  isCheapest: false, widestGapPercent: -20, cells: [], ...over,
+  materialNumber, title: 'Panadol Extra 24 tablets', brand: 'Panadol', aLevel: 'A004', aLevelName: 'Pain relief',
+  bLevel: 'B0041', bLevelName: 'Paracetamol', isPriced: true, priceDay: '2026-11-21T00:00:00', currency: 'SAR',
+  basicPrice: 25, effectivePrice: 22.5, dealText: '', appliedDealText: '10% off', units30: 400, isOurCheapest: false,
+  competitorIsCheaper: true, widestGapPercent: -20, cells: [], ...over,
 })
 const ROWS = [
   row('100000001', {
     cells: [
+      cell('AMAZON_SA', { sellerName: 'Pharma Hub KSA', isPlatformSeller: false, paidPrice: 19, offerPrice: null, offerPercent: null, regularPrice: 19, source: 'MINDSITE', gapPercent: -15.6 }),
       cell('NAHDI', { isCheapest: true }),
-      cell('AMAZON_SA', { sellerName: 'Pharma Hub KSA', isPlatformSeller: false, paidPrice: 19, offerPrice: null, offerPercent: null, regularPrice: 19 }),
-      cell('WHITES', { state: 'OOS', inStock: false, paidPrice: 21, offerPrice: null, offerPercent: null, regularPrice: 21 }),
+      cell('WHITES', { state: 'OOS', inStock: false, paidPrice: 21, offerPrice: null, offerPercent: null, regularPrice: 21, priceObservedAt: '2026-11-19T10:00:00', gapPercent: -6.7 }),
     ],
   }),
   row('100000002', {
-    title: 'Vitamin D3 1000 IU', brand: 'Nature Made', isCheapest: true, appliedDealText: '', effectivePrice: 30, basicPrice: 30,
+    title: 'Vitamin D3 1000 IU', brand: 'Nature Made', isOurCheapest: true, competitorIsCheaper: false, widestGapPercent: null, appliedDealText: '', effectivePrice: 30, basicPrice: 30,
     cells: [
+      cell('AMAZON_SA', { state: 'COMPARABLE_ONLY', ...none, listingUrl: 'https://amazon_sa.example/p/9' }),
       cell('NAHDI', { state: 'NOT_CARRIED', ...none }),
-      cell('AMAZON_SA', { state: 'COMPARABLE_ONLY', ...none }),
-      cell('WHITES', { paidPrice: 34, offerPrice: null, offerPercent: null, regularPrice: 34, isStale: true }),
+      cell('WHITES', { paidPrice: 34, offerPrice: null, offerPercent: null, regularPrice: 34, isStale: true, gapPercent: 13.3 }),
     ],
   }),
-  row('100000003', { title: 'Brufen 400', brand: 'Brufen', cells: [cell('NAHDI', { state: 'NO_MATCH', ...none }), cell('AMAZON_SA', { state: 'NO_MATCH', ...none }), cell('WHITES', { state: 'NO_MATCH', ...none })] }),
+  row('100000003', { title: 'Brufen 400', brand: 'Brufen', competitorIsCheaper: false, widestGapPercent: null, cells: [cell('AMAZON_SA', { state: 'NO_MATCH', ...none }), cell('NAHDI', { state: 'NO_MATCH', ...none }), cell('WHITES', { state: 'NO_MATCH', ...none })] }),
 ]
-const COVERAGE = COMPETITORS.map((c) => ({ competitorCode: c.competitorCode, competitorName: c.name, watched: 500, exact: 100, comparable: 10, notCarried: 5, open: 385 }))
+const COVERAGE = COMPETITORS.map((c) => ({ competitorCode: c.competitorCode, competitorName: c.competitorName, watched: 500, exact: 100, comparable: 10, notCarried: 5, open: 385 }))
 
 const browser = await chromium.launch()
 
@@ -96,7 +100,8 @@ async function open(keys, { dir = 'ltr' } = {}) {
     if (path === 'PriceWatch/Alerts/Mine' || path === 'PriceWatch/Alerts') return route.fulfill(envelope([]))
     if (path === 'PriceWatch/Grid') {
       const p = Number(url.searchParams.get('page') || 1)
-      return route.fulfill(envelope({ total: 120, page: p, pageSize: 50, competitors: COMPETITORS, rows: ROWS }))
+      const sort = (url.searchParams.get('sort') || 'units').toUpperCase()
+      return route.fulfill(envelope({ readAt: '2026-11-21T09:00:00', referenceStore: '1001', staleAfterHours: 36, sort, page: p, pageSize: 50, total: 120, competitors: COMPETITORS, rows: ROWS }))
     }
     return route.fulfill(envelope({}))
   })
@@ -122,7 +127,7 @@ try {
     check('2. one row per watched material', mats.length === 3, JSON.stringify(mats))
     const headers = strip(await page.locator('.ag-header').innerText()).replace(/\s+/g, ' ')
     check('2. our price first, then one column per competitor in server order',
-      /Our price.*Nahdi.*Amazon SA.*Whites/.test(headers), headers)
+      /Our price.*Amazon SA.*Nahdi.*Whites/.test(headers), headers)
     const ours1 = strip(await page.locator('.ag-row[row-id="100000001"] [data-grid-ours]').innerText())
     check('2. our column: effective, basic beneath, deal text', /22\.50[\s\S]*Basic[\s\S]*25\.00[\s\S]*10% off/.test(ours1), ours1)
 
@@ -133,14 +138,14 @@ try {
     check('3. PRICED with offer: paid, regular struck, -%', priced.includes('18.00') && priced.includes('20.00') && priced.includes('-10%'), priced)
     check('3. …struck through', (await r1.locator('[col-id="competitor-NAHDI"] .line-through').count()) === 1)
     const oos = strip(await r1.locator('[col-id="competitor-WHITES"]').innerText())
-    check('3. OOS with its last price', oos.includes('Out of stock') && oos.includes('Last price') && oos.includes('21.00'), oos)
+    check('3. OOS with its last price, stamped when that price was read', oos.includes('Out of stock') && oos.includes('Last price') && oos.includes('21.00') && oos.includes('2026-11-19 10:00'), oos)
     check('3. NOT_CARRIED', (await r2.locator('[data-grid-cell="NOT_CARRIED"]').count()) === 1)
     check('3. COMPARABLE_ONLY', (await r2.locator('[data-grid-cell="COMPARABLE_ONLY"]').count()) === 1)
     check('3. NO_MATCH', (await page.locator('.ag-row[row-id="100000003"] [data-grid-cell="NO_MATCH"]').count()) === 3)
     check('3. stale is marked', (await r2.locator('[col-id="competitor-WHITES"] [data-grid-stale]').count()) === 1)
     const seller = strip(await r1.locator('[col-id="competitor-AMAZON_SA"]').innerText())
-    check('3. the marketplace cell names its seller', seller.includes('Pharma Hub KSA'), seller)
-    check('3. a pharmacy cell names no seller', (await r1.locator('[col-id="competitor-NAHDI"] [data-grid-seller]').count()) === 0)
+    check('3. the third-party cell names its seller', seller.includes('Pharma Hub KSA'), seller)
+    check('3. a platform-sold cell names no seller', (await r1.locator('[col-id="competitor-NAHDI"] [data-grid-seller]').count()) === 0)
 
     // 4. cheapest
     check('4. the flagged competitor cell is marked cheapest', (await r1.locator('[col-id="competitor-NAHDI"] [data-grid-cheapest]').count()) === 1)

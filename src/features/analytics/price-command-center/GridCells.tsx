@@ -108,7 +108,7 @@ export function OursCell({ row }: { row: PriceGridRow }) {
           <bdi>{view.deal}</bdi>
         </span>
       )}
-      {row.isCheapest && <CheapestMark />}
+      {row.isOurCheapest && <CheapestMark />}
     </div>
   )
 }

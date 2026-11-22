@@ -66,3 +66,7 @@ dev walk on a Nahdi queue is still owed — status stays open for it.
 - Our side has no product image on the wire (`ours.imageUrl` always ''), so it reads "No image".
 - The 934 drive's "only built tabs show" check expects `["alerts"]` and will now see `matching` too — update it when the
   sibling tabs land.
+
+**2026-11-22 — reconciled to BO pricing2 d099aac36** (merge of 4128–4132 + review fixes `16164d170`; branch `t4127-reconcile`). No change: the matching doors are as shipped. BO 4135 (MINDSITE candidate origin) is NOT built, so the
+`origin` / `candidateOrigin` guess stays as is, still marked GUESSED. 4130 makes a material with a live exact match
+watched (`GET PriceWatch/WatchList` gains `hasExactMatch`); the queue and coverage keep top sellers + additions, by design.

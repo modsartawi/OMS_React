@@ -1,15 +1,15 @@
 // Ticket 938 drive — leadership reads the price index with us at 100, and the lowest-price score (BackOffice spec 4127,
 // decisions 5 and 8). Drives the REAL app in Chromium against STUBBED `PriceWatch/*` and `Analytics/Query` envelopes.
 //
-// ⚠ GUESSED (BO 4132, not built): the Cube members. The stub answers `Analytics/Query` for the flipped
-// `shelf_price_index` / `paid_price_index` (unit `share`, theirs ÷ ours: 1.10 → 110), `price_indexed_materials`, and the
-// lowest-price score's `shelf_lowest_price_flagged` / `paid_lowest_price_flagged` / `lowest_price_counted`; dims
-// `competitor`, `category`, `date` (grain day | week). Contract source: scratchpad 4127/contracts.md "BO 4132".
-// `PriceWatch/Alerts/Mine` follows the SHIPPED contract (pricing2, 2026-11-21). Still owed: the walk on the 4132 image.
+// Cube members as shipped by BO 4132 (BackOffice pricing2 d099aac36; the image build + release is still the owner's):
+// view `price_index` — `shelf_price_index` / `paid_price_index` (flipped, unit `share`: 1.10 → 110) and
+// `price_indexed_materials`; view `price_lowest_score` — `shelf_lowest_price_score` / `paid_lowest_price_score` (a measure,
+// unit `share`) and `lowest_price_scored_items` (count); dims `competitor`, `category`, `date` (grain day | week).
+// `PriceWatch/Alerts/Mine` follows the shipped contract. Still owed: the walk on the 4132 image.
 //
 //   1. a user holding PriceWatch:03 + Analytics:03 with an OPEN price alert of their own: Alerts opens; Index is first.
 //   2. the same user with none of their own: Index opens. A competitor above 100 reads "They are dearer" (fine), below
-//      100 "They are cheaper" (the warning); the A-level table and the trend draw; the score tile reads flagged ÷ counted.
+//      100 "They are cheaper" (the warning); the A-level table and the trend draw; the score tile reads Cube's share.
 //   3. Shelf → Paid: the queries ask for the paid measures, and the figures change.
 //   4. the score members refused (ANALYTICS-406, an image without 4132): the score says the figures are not in the model
 //      yet; the index still shows.
@@ -57,13 +57,14 @@ const COVERAGE = [
 ]
 // Shares (theirs ÷ ours). Shelf: Nahdi dearer, Amazon cheaper. Paid: both cheaper.
 const INDEX = { shelf: { NAHDI: 1.1, AMAZON_SA: 0.924 }, paid: { NAHDI: 0.97, AMAZON_SA: 0.881 } }
-const SCORE = { shelf: { '': [45, 60], NAHDI: [50, 60], AMAZON_SA: [30, 60] }, paid: { '': [30, 60], NAHDI: [40, 60], AMAZON_SA: [20, 60] } }
+// [score share, items scored].
+const SCORE = { shelf: { '': [0.75, 60], NAHDI: [50 / 60, 60], AMAZON_SA: [0.5, 60] }, paid: { '': [0.5, 60], NAHDI: [40 / 60, 60], AMAZON_SA: [20 / 60, 60] } }
 const DAYS = ['2026-11-01', '2026-11-08', '2026-11-15']
 
 function cube(q) {
   const basis = q.measures.some((m) => m.startsWith('paid_')) ? 'paid' : 'shelf'
   const index = `${basis}_price_index`
-  const flagged = `${basis}_lowest_price_flagged`
+  const score = `${basis}_lowest_price_score`
   const dims = q.dimensions.join(',')
   const col = (key, role, unit) => ({ key, role, shape: role === 'measure' ? 'rate' : null, unit: unit ?? null })
   if (q.measures.includes(index)) {
@@ -78,12 +79,12 @@ function cube(q) {
       return { columns: [col('competitor', 'dimension'), col('date', 'dimension'), col(index, 'measure', 'share')],
         rows: DAYS.flatMap((d, i) => comps.map((c) => ({ competitor: c, date: d + 'T00:00:00.000', [index]: INDEX[basis][c] + i * 0.01 }))) }
   }
-  if (q.measures.includes(flagged)) {
-    const cols = [col(flagged, 'measure', 'count'), col('lowest_price_counted', 'measure', 'count')]
-    const row = (k) => ({ [flagged]: SCORE[basis][k][0], lowest_price_counted: SCORE[basis][k][1] })
+  if (q.measures.includes(score)) {
+    const cols = [col(score, 'measure', 'share'), col('lowest_price_scored_items', 'measure', 'count')]
+    const row = (k) => ({ [score]: SCORE[basis][k][0], lowest_price_scored_items: SCORE[basis][k][1] })
     if (dims === '') return { columns: cols, rows: [row('')] }
     if (dims === 'competitor') return { columns: [col('competitor', 'dimension'), ...cols], rows: ['AMAZON_SA', 'NAHDI'].map((c) => ({ competitor: c, ...row(c) })) }
-    if (dims === 'date') return { columns: [col('date', 'dimension'), ...cols], rows: DAYS.map((d, i) => ({ date: d, [flagged]: SCORE[basis][''][0] - i, lowest_price_counted: 60 })) }
+    if (dims === 'date') return { columns: [col('date', 'dimension'), ...cols], rows: DAYS.map((d, i) => ({ date: d, [score]: SCORE[basis][''][0] - i / 60, lowest_price_scored_items: 60 })) }
   }
   return { columns: [], rows: [] }
 }
@@ -112,7 +113,7 @@ async function open(keys, { dir = 'ltr', mine = [], scoreRefused = false } = {})
     if (path === 'Analytics/Query') {
       const q = body.definition.query
       if (scoreRefused && q.measures.some((m) => m.includes('lowest_price')))
-        return route.fulfill(refusal('ANALYTICS-406', "Unknown measure 'shelf_lowest_price_flagged'."))
+        return route.fulfill(refusal('ANALYTICS-406', "Unknown measure 'shelf_lowest_price_score'."))
       return route.fulfill(envelope(result(cube(q))))
     }
     return route.fulfill(envelope({}))
@@ -158,16 +159,16 @@ try {
     await page.waitForSelector('[data-index-score-tile]')
     const tiles = await page.locator('[data-index-score-tile]').allInnerTexts()
     check('2. score tiles: all competitors + one per competitor', tiles.length === 3, String(tiles.length))
-    check('2. the overall tile reads 75.0% (45 ÷ 60)', strip(tiles[0]).includes('75.0%') && strip(tiles[0]).includes('45 of 60 materials'), strip(tiles[0]))
+    check('2. the overall tile reads 75.0% over 60 items scored', strip(tiles[0]).includes('75.0%') && strip(tiles[0]).includes('60 items scored'), strip(tiles[0]))
     const explains = await page.locator('[data-index-explain]').count()
     check('2. each figure has its one-line explanation', explains === 4, String(explains))
-    check('2. shelf measures asked', queried(calls).includes('shelf_price_index') && queried(calls).includes('shelf_lowest_price_flagged') && !queried(calls).some((m) => m.startsWith('paid_')))
+    check('2. shelf measures asked', queried(calls).includes('shelf_price_index') && queried(calls).includes('shelf_lowest_price_score') && !queried(calls).some((m) => m.startsWith('paid_')))
 
     // 3. Shelf → Paid
     await page.click('[data-index-basis-chip="paid"]')
     await page.waitForFunction(() => document.querySelector('[data-index-competitor="NAHDI"]')?.textContent?.includes('97.0'))
     check('3. Paid asks for the paid index', queried(calls).includes('paid_price_index'))
-    check('3. …and the paid lowest-price score', queried(calls).includes('paid_lowest_price_flagged'))
+    check('3. …and the paid lowest-price score', queried(calls).includes('paid_lowest_price_score'))
     const nahdiPaid = strip(await nahdi.innerText())
     check('3. Nahdi on paid reads 97.0 "They are cheaper"', nahdiPaid.includes('97.0') && nahdiPaid.includes('They are cheaper'), nahdiPaid)
     await page.waitForFunction(() => document.querySelector('[data-index-score-tile]')?.textContent?.includes('50.0%'))

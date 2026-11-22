@@ -3,7 +3,9 @@
  * history on one chart, each observation's source labelled, the authoritative source solid and the other faint; the
  * product matches with Break (Manage only); a comparable match compared per unit.
  *
- * ⚠ The history, match id and who/when ride the GUESSED BO 4128 extension of `Materials/{material}/Comparison`.
+ * Fixtures are `Materials/{material}/Comparison` as shipped (BO 4128, pricing2 d099aac36): each side's authoritative
+ * source and 30-day history from every source. ⚠ That wire carries NO product-match id, no who/when and no history of
+ * our price — the tests that pass them (`WITH_MATCH`, `ourHistory`) prove the drill-down lights up if BO adds them.
  * Components are rendered as static markup through a real i18next instance; the network is stubbed at `@/core/api`.
  */
 import { createElement, type ReactElement } from 'react'
@@ -51,18 +53,23 @@ const side = (over: Partial<PriceWatchCompetitorSide> = {}): PriceWatchCompetito
   perUnitBasis: '',
   ourPricePerUnit: null,
   theirPricePerUnit: null,
-  matchId: 'M-1',
-  matchedByUser: 'jdoe',
-  matchedAt: '2026-10-01T09:00:00',
   authoritativeSource: 'MINDSITE',
   source: 'MINDSITE',
+  // Latest first, as the server sends it.
   history: [
-    { priceId: 'p1', observedAt: '2026-11-20T08:00:00', source: 'MINDSITE', isAuthoritative: true, regularPrice: 21, offerPrice: null, sellerName: 'Nahdi Online', inStock: true },
-    { priceId: 'p2', observedAt: '2026-11-20T09:00:00', source: 'SCRAPER', isAuthoritative: false, regularPrice: 21.5, offerPrice: 20, sellerName: 'Nahdi Online', inStock: true },
-    { priceId: 'p3', observedAt: '2026-11-21T08:15:00', source: 'MINDSITE', isAuthoritative: true, regularPrice: 21, offerPrice: 19.95, sellerName: 'Nahdi Online', inStock: true },
+    { observedAt: '2026-11-21T08:15:00', regularPrice: 21, offerPrice: 19.95, sellerName: 'Nahdi Online', isPlatformSeller: true, inStock: true, source: 'MINDSITE', isAuthoritative: true },
+    { observedAt: '2026-11-20T09:00:00', regularPrice: 21.5, offerPrice: 20, sellerName: 'Nahdi Online', isPlatformSeller: true, inStock: true, source: 'SCRAPER', isAuthoritative: false },
+    { observedAt: '2026-11-20T08:00:00', regularPrice: 21, offerPrice: null, sellerName: 'Nahdi Online', isPlatformSeller: true, inStock: true, source: 'MINDSITE', isAuthoritative: true },
   ],
   ...over,
 })
+/** Not on the shipped wire (BO d099aac36): the product match's id and who/when, as a later BO change would add them. */
+const WITH_MATCH: Partial<PriceWatchCompetitorSide> = { matchId: 'M-1', matchedByUser: 'jdoe', matchedAt: '2026-10-01T09:00:00' }
+/** Not on the shipped wire either: our price per day. */
+const OUR_HISTORY = [
+  { priceDay: '2026-11-20', isPriced: true, basicPrice: 25, effectivePrice: 25 },
+  { priceDay: '2026-11-21', isPriced: true, basicPrice: 25, effectivePrice: 22.5 },
+]
 
 const comparison = (over: Partial<PriceWatchComparison> = {}): PriceWatchComparison => ({
   material: '100012345',
@@ -74,10 +81,6 @@ const comparison = (over: Partial<PriceWatchComparison> = {}): PriceWatchCompari
   basicPrice: 25,
   effectivePrice: 22.5,
   competitors: [side()],
-  ourHistory: [
-    { priceDay: '2026-11-20', isPriced: true, basicPrice: 25, effectivePrice: 25 },
-    { priceDay: '2026-11-21', isPriced: true, basicPrice: 25, effectivePrice: 22.5 },
-  ],
   ...over,
 })
 
@@ -147,19 +150,19 @@ describe('break sends and refreshes, and is hidden without Manage', () => {
   })
 
   it('hides Break without the Manage grant — the product matches, who and when, still show', () => {
-    const html = strip(drawTable(false))
+    const html = strip(drawTable(false, comparison({ competitors: [side(WITH_MATCH)] })))
     expect(html).not.toContain('data-match-break')
     expect(html).toContain('data-match-row="NAHDI"')
     expect(html).toContain('jdoe')
     expect(html).toContain('By barcode')
   })
 
-  it('offers Break with the Manage grant, on the side’s product match id', () => {
-    expect(drawTable(true)).toContain('data-match-break="M-1"')
+  it('offers Break with the Manage grant, on the side’s product match id (once BO sends one)', () => {
+    expect(drawTable(true, comparison({ competitors: [side(WITH_MATCH)] }))).toContain('data-match-break="M-1"')
   })
 
-  it('a side with no match id (pre-4128) cannot be broken, and says why', () => {
-    const html = drawTable(true, comparison({ competitors: [side({ matchId: undefined, matchedByUser: undefined, matchedAt: undefined })] }))
+  it('the shipped side (no match id, BO d099aac36) cannot be broken, and says why', () => {
+    const html = drawTable(true)
     expect(html).toContain('aria-disabled="true"')
     expect(html).toContain('Break needs the product match id')
     expect(html).toContain('Who and when not recorded')
@@ -203,16 +206,27 @@ describe('the authoritative series is solid and the other source faint, both lab
   })
 
   it('lines each day up: our price per day, and each source’s latest observation that day', () => {
-    const { rows } = dd.historyChart(comparison(), { locale: 'en', label })
+    const { rows } = dd.historyChart(comparison({ ourHistory: OUR_HISTORY }), { locale: 'en', label })
     expect(rows.map((r) => r.x)).toEqual(['2026-11-20', '2026-11-21'])
     expect(rows[0].values).toMatchObject({ 'ours.effective': 25, 'NAHDI.MINDSITE.regular': 21, 'NAHDI.MINDSITE.offer': null, 'NAHDI.SCRAPER.offer': 20 })
     expect(rows[1].values).toMatchObject({ 'ours.effective': 22.5, 'NAHDI.MINDSITE.offer': 19.95, 'NAHDI.SCRAPER.offer': null })
   })
 
-  it('reads a pre-4128 answer (no history) as no series for that competitor, not a crash', () => {
-    const { series, rows } = dd.historyChart(comparison({ competitors: [side({ history: undefined })], ourHistory: undefined }), { locale: 'en', label })
+  it('reads an empty history and an unpriced us as no series at all, not a crash', () => {
+    const { series, rows } = dd.historyChart(comparison({ competitors: [side({ history: [] })], isPriced: false }), { locale: 'en', label })
     expect(series).toEqual([])
     expect(rows).toEqual([])
+  })
+
+  it('with no history of our price on the wire (BO d099aac36), our price today is the one point of our lines, on its priced day', () => {
+    const { series, rows } = dd.historyChart(comparison(), { locale: 'en', label })
+    expect(series.map((s) => s.key)).toContain('ours.effective')
+    expect(rows.map((r) => r.x)).toEqual(['2026-11-20', '2026-11-21'])
+    expect(rows[1].values).toMatchObject({ 'ours.effective': 22.5, 'ours.basic': 25 })
+    expect(rows[0].values).toMatchObject({ 'ours.effective': null })
+    // Unpriced today: no point of ours, never a zero.
+    const unpriced = dd.historyChart(comparison({ isPriced: false, basicPrice: 0, effectivePrice: 0 }), { locale: 'en', label })
+    expect(unpriced.series.map((s) => s.key)).not.toContain('ours.effective')
   })
 
   it('the key names each series’ source, the faint one marked faint', () => {

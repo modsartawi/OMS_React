@@ -1,9 +1,9 @@
 /**
  * oms 935 (BackOffice spec 4127, decisions 6 and 8) — the product grid: one row per watched material, one column per
  * competitor. Each cell state is drawn its own way; the cheapest mark follows the endpoint's flag, ours included; the
- * filters and the sort are sent to the endpoint; a marketplace cell names its seller.
+ * filters and the sort are sent to the endpoint; a third-party (marketplace) seller is named.
  *
- * ⚠ The endpoint is GUESSED (BO 4129 not built) — see the Grid section of `@/core/models/price-watch`.
+ * Fixtures are BO 4129's wire as shipped (`PriceWatchGridService.cs`, BO pricing2 d099aac36).
  * Pure rules are tested directly; the cells are rendered as static markup through a real i18next instance (en and ar);
  * the network is stubbed at the `@/core/api` boundary.
  */
@@ -32,12 +32,13 @@ const draw = (element: ReactElement, lng: 'en' | 'ar' = 'en') => {
 }
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ')
 
-const NAHDI: PriceGridCompetitor = { competitorCode: 'NAHDI', name: 'Nahdi', kind: 'pharmacy', authoritativeSource: 'SCRAPER' }
-const AMAZON: PriceGridCompetitor = { competitorCode: 'AMAZON_SA', name: 'Amazon SA', kind: 'marketplace', authoritativeSource: 'MINDSITE' }
+const NAHDI: PriceGridCompetitor = { competitorCode: 'NAHDI', competitorName: 'Nahdi', isEnabled: true, authoritativeSource: 'SCRAPER' }
+const AMAZON: PriceGridCompetitor = { competitorCode: 'AMAZON_SA', competitorName: 'Amazon SA', isEnabled: true, authoritativeSource: 'MINDSITE' }
 
 const cell = (over: Partial<PriceGridCell> = {}): PriceGridCell => ({
   competitorCode: 'NAHDI',
   state: 'PRICED',
+  listingUrl: 'https://www.nahdionline.com/p/1',
   paidPrice: 18,
   regularPrice: 20,
   offerPrice: 18,
@@ -46,6 +47,7 @@ const cell = (over: Partial<PriceGridCell> = {}): PriceGridCell => ({
   isPlatformSeller: true,
   inStock: true,
   observedAt: '2026-11-21T08:15:00',
+  priceObservedAt: '2026-11-21T08:15:00',
   isStale: false,
   isCheapest: false,
   gapPercent: -20,
@@ -57,15 +59,19 @@ const row = (over: Partial<PriceGridRow> = {}): PriceGridRow => ({
   title: 'Panadol Extra 24 tablets',
   brand: 'Panadol',
   aLevel: 'A004',
+  aLevelName: 'Pain relief',
   bLevel: 'B0041',
+  bLevelName: 'Paracetamol',
+  isPriced: true,
+  priceDay: '2026-11-21T00:00:00',
   currency: 'SAR',
   basicPrice: 25,
   effectivePrice: 22.5,
-  isPriced: true,
   dealText: 'Buy 2 get 10% off',
   appliedDealText: '10% off',
-  thirtyDayUnits: 400,
-  isCheapest: false,
+  units30: 400,
+  isOurCheapest: false,
+  competitorIsCheaper: true,
   widestGapPercent: -20,
   cells: [cell()],
   ...over,
@@ -99,6 +105,12 @@ describe('each cell state renders its own way', () => {
     expect(html).toContain('data-grid-cell="OOS"')
     expect(text(html)).toContain('Out of stock')
     expect(text(html)).toContain('Last price 19.00')
+  })
+
+  it('OOS: the time shown is when its last price was read (priceObservedAt), not the latest out-of-stock reading', () => {
+    const html = drawCell(cell({ state: 'OOS', inStock: false, observedAt: '2026-11-21T08:15:00', priceObservedAt: '2026-11-18T09:00:00' }))
+    expect(text(html)).toContain('2026-11-18 09:00')
+    expect(text(html)).not.toContain('2026-11-21 08:15')
   })
 
   it.each([
@@ -146,12 +158,12 @@ describe('the cheapest mark follows the endpoint’s flag, ours included', () =>
   })
 
   it('our column: the effective price, the basic price beneath it, the deal text — and the mark when we lead', () => {
-    const ours = draw(createElement(OursCell, { row: row({ isCheapest: true }) }))
+    const ours = draw(createElement(OursCell, { row: row({ isOurCheapest: true }) }))
     expect(ours).toContain('data-grid-ours=""')
     expect(text(ours)).toMatch(/22\.50.*Basic 25\.00/)
     expect(text(ours)).toContain('10% off')
     expect(ours).toContain('data-grid-cheapest=""')
-    expect(draw(createElement(OursCell, { row: row({ isCheapest: false }) }))).not.toContain('data-grid-cheapest')
+    expect(draw(createElement(OursCell, { row: row({ isOurCheapest: false }) }))).not.toContain('data-grid-cheapest')
   })
 
   it('our column says "not priced" when the engine could not price us', () => {
@@ -161,8 +173,8 @@ describe('the cheapest mark follows the endpoint’s flag, ours included', () =>
   })
 })
 
-describe('a marketplace cell shows its seller', () => {
-  it('names the seller on a marketplace column', () => {
+describe('a third-party seller is named (the grid wire carries no column kind: isPlatformSeller decides)', () => {
+  it('names the seller of a cell sold by a third party', () => {
     const html = drawCell(cell({ competitorCode: 'AMAZON_SA', sellerName: 'Pharma Hub KSA', isPlatformSeller: false }), AMAZON)
     expect(html).toContain('data-grid-seller=""')
     expect(text(html)).toContain('Seller Pharma Hub KSA')
@@ -170,12 +182,13 @@ describe('a marketplace cell shows its seller', () => {
   })
 
   it('keeps the seller on an out-of-stock marketplace cell', () => {
-    expect(text(drawCell(cell({ state: 'OOS', sellerName: 'Pharma Hub KSA' }), AMAZON))).toContain('Pharma Hub KSA')
+    expect(text(drawCell(cell({ state: 'OOS', sellerName: 'Pharma Hub KSA', isPlatformSeller: false }), AMAZON))).toContain('Pharma Hub KSA')
   })
 
-  it('names no seller on a pharmacy column, nor on a marketplace cell with none', () => {
-    expect(drawCell(cell({ sellerName: 'Nahdi Online' }), NAHDI)).not.toContain('data-grid-seller')
-    expect(drawCell(cell({ sellerName: '' }), AMAZON)).not.toContain('data-grid-seller')
+  it('names no seller on a platform-sold cell (a pharmacy, or Amazon selling itself), nor when there is none', () => {
+    expect(drawCell(cell({ sellerName: 'Nahdi Online', isPlatformSeller: true }), NAHDI)).not.toContain('data-grid-seller')
+    expect(drawCell(cell({ sellerName: 'Amazon.sa', isPlatformSeller: true }), AMAZON)).not.toContain('data-grid-seller')
+    expect(drawCell(cell({ sellerName: '', isPlatformSeller: false }), AMAZON)).not.toContain('data-grid-seller')
   })
 })
 
@@ -191,7 +204,7 @@ describe('the grid’s locale keys', () => {
 })
 
 describe('filter and sort are sent to the endpoint', () => {
-  const page: PriceGridPage = { total: 0, page: 1, pageSize: 50, competitors: [], rows: [] }
+  const page: PriceGridPage = { readAt: '2026-11-22T09:00:00', referenceStore: '1001', staleAfterHours: 36, sort: 'UNITS', page: 1, pageSize: 50, total: 0, competitors: [], rows: [] }
   beforeEach(() => api.get.mockResolvedValue(page))
 
   it('the default reads page 1 sorted by our units, with no filter', async () => {
@@ -212,6 +225,11 @@ describe('filter and sort are sent to the endpoint', () => {
       page: 3,
       pageSize: 50,
     })
+  })
+
+  it('reads the PWT-00070 sort refusal by name', async () => {
+    const { PRICE_GRID_ERRORS } = await import('@/core/models/price-watch')
+    expect(PRICE_GRID_ERRORS.gridSortUnknown).toBe('PWT-00070')
   })
 
   it('leaves "a competitor is cheaper" off the query when it is not asked for', () => {

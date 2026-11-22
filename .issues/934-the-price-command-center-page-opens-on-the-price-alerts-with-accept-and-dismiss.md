@@ -75,3 +75,6 @@ against `PriceWatch_Dev` alerts, which is still owed — status stays open for i
   (`// ── Grid (935)` …) and each tab declares its own `PRICE_<TAB>_ERRORS`; the locale JSON has `tabs.<id>` already —
   add a top-level `"<tab>"` block. The drill-down hook point is `AlertMaterialCell.tsx` (936 makes it the link).
   Competitors for pickers: `priceWatchSharedApi.coverage()` + `PriceWatchCoverage` (Shared section) — don't redeclare.
+
+**2026-11-22 — reconciled to BO pricing2 d099aac36** (merge of 4128–4132 + review fixes `16164d170`; branch `t4127-reconcile`). No change on this ticket's wire: `PriceWatch/Alerts`, `Alerts/Mine`, Accept and Dismiss are as shipped.
+4128 now raises alerts from the competitor's authoritative source only, server-side; the alert view is unchanged.

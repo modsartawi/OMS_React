@@ -21,13 +21,13 @@ import { formatPercent, requestAuthorityChange, runState, sourceRuns, type RunSt
 const NS = 'price-command-center'
 const FEED_HEALTH_KEY = ['price-watch', 'feed-health'] as const
 
-const RUN_SEVERITY: Record<RunState, Severity> = { never: 'mute', running: 'go', blocked: 'bad', quotaOrAuth: 'bad', failures: 'warn', ok: 'ok' }
+const RUN_SEVERITY: Record<RunState, Severity> = { never: 'mute', running: 'go', blocked: 'bad', error: 'bad', failures: 'warn', ok: 'ok' }
 
 /**
  * The Feed health tab (oms 939, BackOffice spec 4127 decision 8): per competitor, its authoritative source, whether it is
  * enabled or blocked (with the reason — no door clears a block), its stale and gone listings and its latest run per
- * price source; the nightly effective-price job's last run. ⚠ Per-source runs, the cross-check and the authority setting
- * are on GUESSED contracts (BO 4131 / 4128); a server without them still renders the shipped feed health.
+ * price source; the nightly effective-price job's last run; the cross-check; the authority setting (Manage). Reconciled
+ * to BO 4131 / 4128 as shipped (pricing2 d099aac36).
  */
 export default function FeedHealthTab() {
   const { t } = useTranslation(NS)
@@ -85,7 +85,7 @@ export function FeedHealthView({
       <p className="text-xs text-muted-foreground">
         {t('feedHealth.asOf', { at: fsi(formatDateTime(health.at)), hours: fsi(formatFigure(health.staleAfterHours)) })}
       </p>
-      {health.effectivePriceJob !== undefined && <EffectivePriceJob job={health.effectivePriceJob} />}
+      <EffectivePriceJob job={health.effectivePriceJob} />
       {health.competitors.length === 0 ? (
         <p className="rounded-lg border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">{t('feedHealth.empty')}</p>
       ) : (
@@ -97,7 +97,7 @@ export function FeedHealthView({
   )
 }
 
-/** The nightly effective-price job's last run (GUESSED, BO 4131): its day, watched count, priced and unpriced. */
+/** The nightly effective-price job's last run (BO 4131): its day, watched count, priced and unpriced. */
 function EffectivePriceJob({ job }: { job: EffectivePriceJobRun | null }) {
   const { t } = useTranslation(NS)
   if (job === null)
@@ -143,7 +143,7 @@ function CompetitorFeed({
   onChangeAuthority,
 }: {
   competitor: FeedHealthCompetitor
-  margin: number | undefined
+  margin: number
   canManage: boolean
   busy: boolean
   onChangeAuthority: (competitor: FeedHealthCompetitor, source: PriceSource) => void
@@ -160,13 +160,13 @@ function CompetitorFeed({
           <bdi>{c.kind}</bdi>
         </span>
         <StatusBadge sev={c.isEnabled ? 'ok' : 'mute'}>{c.isEnabled ? t('feedHealth.enabled') : t('feedHealth.disabled')}</StatusBadge>
-        <span className="text-xs" data-feed-authority={c.authoritativeSource ?? 'unknown'}>
+        <span className="text-xs" data-feed-authority={current}>
           <span className="text-muted-foreground">{t('feedHealth.authority')}: </span>
-          {current ? t(`feedHealth.source.${current}`) : t('feedHealth.authorityUnknown')}
+          {t(`feedHealth.source.${current}`)}
         </span>
-        {/* The setting needs Manage, and a server that reports the authority (GUESSED door, BO 4128). Picking the other
+        {/* The setting needs Manage (`PUT PriceWatch/Competitors/{competitor}/Authority`, BO 4128). Picking the other
             source opens the confirmation; the select stays on what counts until the server says otherwise. */}
-        {canManage && current && (
+        {canManage && (
           <Field label={t('feedHealth.change.label')} className="ms-auto w-56">
             <Select
               value={current}
@@ -196,21 +196,22 @@ function CompetitorFeed({
         <Fact label={t('feedHealth.listings.gone')} value={formatFigure(c.goneListings)} />
       </dl>
       <RunsTable competitor={c} />
-      {c.crossCheck && <CrossCheck code={c.competitorCode} check={c.crossCheck} margin={margin} />}
+      <CrossCheck code={c.competitorCode} check={c.crossCheck} margin={margin} />
     </section>
   )
 }
 
 /**
- * Where our scraper and Mindsite disagree above the margin at one competitor (GUESSED, BO 4131): the count, and the
- * example materials, each linked to its drill-down through `CrossCheckMaterial`.
+ * Where our scraper and Mindsite disagree above the margin at one competitor (BO 4131): the count, and the example
+ * materials, each linked to its drill-down through `CrossCheckMaterial`. "Agree" is said only when something was
+ * compared (`compared` > 0): one source alone is no agreement.
  */
-function CrossCheck({ code, check, margin }: { code: string; check: FeedCrossCheck; margin: number | undefined }) {
+function CrossCheck({ code, check, margin }: { code: string; check: FeedCrossCheck; margin: number }) {
   const { t } = useTranslation(NS)
   if (check.disagreements === 0)
     return (
-      <p className="text-xs text-muted-foreground" data-cross-check={code} data-cross-check-count={0}>
-        {t('feedHealth.crossCheck.title')}: {t('feedHealth.crossCheck.none')}
+      <p className="text-xs text-muted-foreground" data-cross-check={code} data-cross-check-count={0} data-cross-check-compared={check.compared}>
+        {t('feedHealth.crossCheck.title')}: {check.compared > 0 ? t('feedHealth.crossCheck.none') : t('feedHealth.crossCheck.nothingCompared')}
       </p>
     )
   const n = fsi(formatFigure(check.disagreements))
@@ -220,11 +221,7 @@ function CrossCheck({ code, check, margin }: { code: string; check: FeedCrossChe
     <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2" data-cross-check={code} data-cross-check-count={check.disagreements}>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <StatusBadge sev="warn">{t('feedHealth.crossCheck.title')}</StatusBadge>
-        <span>
-          {margin === undefined
-            ? t('feedHealth.crossCheck.flagNoMargin', { n })
-            : t('feedHealth.crossCheck.flag', { n, margin: fsi(formatPercent(margin)) })}
-        </span>
+        <span>{t('feedHealth.crossCheck.flag', { n, margin: fsi(formatPercent(margin)) })}</span>
       </div>
       {check.examples.length > 0 && (
         <>
@@ -240,7 +237,7 @@ function CrossCheck({ code, check, margin }: { code: string; check: FeedCrossChe
             </thead>
             <tbody>
               {check.examples.map((ex) => (
-                <tr key={`${ex.materialNumber}:${ex.day}`} className="border-t border-border/60">
+                <tr key={`${ex.listingId}:${ex.day}`} className="border-t border-border/60">
                   <td className={td}>
                     <CrossCheckMaterial material={ex.materialNumber} />
                   </td>
@@ -294,7 +291,7 @@ function RunsTable({ competitor }: { competitor: FeedHealthCompetitor }) {
         </thead>
         <tbody>
           {sourceRuns(competitor).map((row) => (
-            <RunRow key={row.source ?? 'any'} code={competitor.competitorCode} row={row} />
+            <RunRow key={row.source} code={competitor.competitorCode} row={row} />
           ))}
         </tbody>
       </table>
@@ -310,8 +307,8 @@ function RunRow({ code, row }: { code: string; row: SourceRunRow }) {
   const num = (n: number) => <Ltr>{formatFigure(n)}</Ltr>
   const error = run?.errorMessage || (run?.isBlocked ? run.blockReason : '')
   return (
-    <tr className="border-t border-border/60" data-feed-run={`${code}:${row.source ?? 'any'}`}>
-      <td className={td}>{row.source ? t(`feedHealth.source.${row.source}`) : t('feedHealth.sourceAny')}</td>
+    <tr className="border-t border-border/60" data-feed-run={`${code}:${row.source}`}>
+      <td className={td}>{t(`feedHealth.source.${row.source}`)}</td>
       <td className={td} data-run-state={state}>
         <StatusBadge sev={RUN_SEVERITY[state]}>{t(`feedHealth.runState.${state}`)}</StatusBadge>
         {error && (

@@ -48,7 +48,7 @@ Proofs green, and the drill-down walked on dev.
 (`drilldown.test.ts` 16 tests, `core/charts/series-ink.test.ts` +2), drive `tools/price-drilldown-drive.mjs` **30/30**
 on stubbed `**/api/**`. Status stays open: the dev walk on `PriceWatch_Dev` and BackOffice 4128 are owed.
 
-- **⚠ GUESSED contract (BO 4128).** Today's `Materials/{material}/Comparison` has no history, no match id, no who/when.
+- **⚠ GUESSED (reconciled 2026-11-22, see below) contract (BO 4128).** Today's `Materials/{material}/Comparison` has no history, no match id, no who/when.
   Built on the guessed additive shape (scratchpad `4127/contracts.md`): `ourHistory[] { priceDay, isPriced, basicPrice,
   effectivePrice }` on the comparison, and per side `matchId`, `matchedByUser`, `matchedAt`, `authoritativeSource`,
   `source`, `history[] { priceId, observedAt, source: SCRAPER|MINDSITE, isAuthoritative, regularPrice, offerPrice,
@@ -78,3 +78,16 @@ on stubbed `**/api/**`. Status stays open: the dev walk on `PriceWatch_Dev` and 
   `['price-watch']` query (comparison, alerts, coverage, grid). Refusals (PWT-00025/00026) shown with their code.
 - **Drive note:** the app's `lng` is pinned to `en` (Arabic not switched on), so the RTL pass checks direction and
   isolation only; the Arabic strings are proven in the unit tests.
+
+**2026-11-22 — reconciled to BO pricing2 d099aac36** (merge of 4128–4132 + review fixes `16164d170`; branch `t4127-reconcile`). BO 4128 shipped on `Materials/{material}/Comparison` (no separate history door): per side
+`authoritativeSource`, `source` ('' when the authoritative source has no reading) and `history[]` — every source, the
+last 30 days, latest first, at most 100 — each `{ observedAt, regularPrice, offerPrice, sellerName, isPlatformSeller,
+inStock, source, isAuthoritative }` (no `priceId`; `isPlatformSeller` added). The side's current price, gap and stale flag
+are the authoritative source's only. Fixed the model and fixtures to it.
+⚠ **NOT provided by the shipped BO (BO ask):**
+- **no product-match id, no who/when on a side** (`matchId`, `matchedByUser`, `matchedAt`): the drill-down cannot Break
+  a match nor say who made it. Break stays shown-but-disabled with its reason (the text now points at dismissing the
+  alert as a wrong match); who/when reads "not recorded". The optional fields stay in the model so a BO change lights them.
+- **no history of our price** (`ourHistory`): the chart now draws our price TODAY (`pricedAt` / `basicPrice` /
+  `effectivePrice`) as the one point of our lines (new test, red then green), and nothing when we are unpriced.
+Drive: 33/33 — 1–5 add the match id to prove Break; 7 drives the shipped wire as is (chart, our point, Break disabled).

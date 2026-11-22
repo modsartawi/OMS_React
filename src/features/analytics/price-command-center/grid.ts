@@ -2,7 +2,7 @@
  * The Grid tab's pure rules (oms 935, BackOffice spec 4127 decisions 6 and 8): how a competitor cell is drawn from its
  * state. No React, no `t` — the components in `GridCells.tsx` only render what this returns.
  *
- * ⚠ Built on the GUESSED BO 4129 contract (see the Grid section of `@/core/models/price-watch`).
+ * BO 4129 as shipped (`PriceWatchGridService.cs`, BO pricing2 d099aac36) — see the Grid section of `@/core/models/price-watch`.
  */
 import { formatMoneyIn } from '@/core/money'
 import {
@@ -26,9 +26,9 @@ export interface PricedCellView {
   struck: string | null
   /** The offer as a discount, `-10%`; null without an offer. */
   offerPercent: string | null
-  /** The seller — on a marketplace column only (a pharmacy sells its own stock); '' when none. */
+  /** The seller — only when a third party sells it (`isPlatformSeller` false: such a price never counts); '' otherwise. */
   seller: string
-  /** `yyyy-MM-dd HH:mm`, '' when the stamp is absent. */
+  /** When the price shown was read (`priceObservedAt`, else `observedAt`): `yyyy-MM-dd HH:mm`, '' when absent. */
   observed: string
   stale: boolean
   cheapest: boolean
@@ -59,8 +59,11 @@ export function formatOfferPercent(p: number | null): string | null {
   return `-${percent.format(p)}%`
 }
 
-/** How one competitor cell is drawn. `competitor` is the cell's column. */
-export function cellView(cell: PriceGridCell, competitor: PriceGridCompetitor, currency: string): CellView {
+/**
+ * How one competitor cell is drawn. `competitor` is the cell's column. The grid wire carries no column kind, so the
+ * seller is named by the cell's own `isPlatformSeller` (a marketplace third party), not by the column.
+ */
+export function cellView(cell: PriceGridCell, _competitor: PriceGridCompetitor, currency: string): CellView {
   if (!isState(cell.state)) return { kind: 'unknown', cheapest: false }
   if (cell.state !== 'PRICED' && cell.state !== 'OOS') return { kind: 'absent', state: cell.state, cheapest: cell.isCheapest }
   const hasOffer = cell.offerPrice !== null && cell.regularPrice !== null && cell.offerPrice < cell.regularPrice
@@ -71,8 +74,8 @@ export function cellView(cell: PriceGridCell, competitor: PriceGridCompetitor, c
     paid: formatMoneyIn(paid, currency),
     struck: hasOffer ? formatMoneyIn(cell.regularPrice, currency) : null,
     offerPercent: hasOffer ? formatOfferPercent(cell.offerPercent) : null,
-    seller: competitor.kind.toLowerCase() === 'marketplace' ? cell.sellerName.trim() : '',
-    observed: formatDateTime(cell.observedAt),
+    seller: cell.isPlatformSeller ? '' : cell.sellerName.trim(),
+    observed: formatDateTime(cell.priceObservedAt ?? cell.observedAt),
     stale: cell.isStale,
     cheapest: cell.isCheapest,
   }
@@ -94,7 +97,7 @@ export interface GridFilter {
 
 export const DEFAULT_GRID_FILTER: GridFilter = { aLevel: '', bLevel: '', brand: '', competitor: '', competitorCheaper: false, sort: 'units' }
 
-/** Rows a server page. GUESSED (BO 4129): default 50, max 200. */
+/** Rows a server page (BO 4129: default 50, max 200). */
 export const GRID_PAGE_SIZE = 50
 
 /** The query one page of the grid reads. Blank text filters are dropped; "competitor cheaper" only when asked. */

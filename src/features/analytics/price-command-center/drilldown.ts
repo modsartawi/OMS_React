@@ -2,9 +2,10 @@
  * The material drill-down's pure reading (oms 936, BackOffice spec 4127 decision 8): the price history chart's series
  * and rows, each competitor split by price source with the authoritative one solid and the other faint.
  *
- * ⚠ GUESSED (BO 4128): `ourHistory`, `history`, `authoritativeSource`, `matchId`, `matchedByUser` and `matchedAt` are not
- * on `Materials/{material}/Comparison` today. Every reader here treats them as optional — a pre-4128 answer is "no
- * history", never a crash. Reconcile against BO 4128 as shipped.
+ * Reconciled to BO 4128 as shipped (pricing2 d099aac36): each side carries `authoritativeSource`, `source` and a
+ * 30-day `history` from every source (latest first, ≤ 100), each observation labelled. ⚠ NOT provided there: a
+ * history of OUR price (`ourHistory`) — until BO sends one, our lines are today's price alone, on its priced day — and
+ * the product match's id / who / when (`matchId`, `matchedByUser`, `matchedAt`), so Break is unavailable here.
  */
 import type { ChartSeries, ChartSeriesRow } from '@/core/charts/SeriesChart'
 import { formatAxisDay } from '@/core/charts/format'
@@ -35,7 +36,7 @@ export interface HistorySeries extends ChartSeries {
 
 /** The competitor's authoritative source: the wire's, else the source its authoritative observations carry, else SCRAPER. */
 export function authorityOf(side: PriceWatchCompetitorSide): PriceSource {
-  return side.authoritativeSource ?? side.history?.find((o) => o.isAuthoritative)?.source ?? 'SCRAPER'
+  return side.authoritativeSource || side.history?.find((o) => o.isAuthoritative)?.source || 'SCRAPER'
 }
 
 const day = (stamp: string) => stamp.slice(0, 10)
@@ -74,7 +75,9 @@ export function historyChart(
       authoritative: spec.authoritative,
     })
 
-  for (const p of c.ourHistory ?? []) {
+  // BO d099aac36 sends no history of our price: then our lines are today's price alone, on the day it was priced.
+  const ourDays = c.ourHistory ?? (c.pricedAt ? [{ priceDay: c.pricedAt, isPriced: c.isPriced, basicPrice: c.basicPrice, effectivePrice: c.effectivePrice }] : [])
+  for (const p of ourDays) {
     // Through `day()` like every observation, so a stamped priceDay lines up with the competitors' rows.
     put(day(p.priceDay), 'ours.effective', p.isPriced ? p.effectivePrice : null)
     put(day(p.priceDay), 'ours.basic', p.isPriced ? p.basicPrice : null)

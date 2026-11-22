@@ -52,7 +52,7 @@ Proofs green, and the grid walked on dev.
 
 **2026-11-22 — built (branch `t935-product-grid`), proofs green, drive 28/28; status stays open (dev walk + BO 4129).**
 
-- ⚠ **Built on a GUESSED contract — reconcile owed.** BO 4129 is not built. The wire types sit in the Grid section of
+- ⚠ **Built on a GUESSED (reconciled 2026-11-22, see below) contract — reconcile owed.** BO 4129 is not built. The wire types sit in the Grid section of
   `src/core/models/price-watch.ts` under a `⚠ GUESSED (BO 4129)` header; `priceGridApi.page` says so too. Guesses:
   route `GET PriceWatch/Grid`; query `aLevel`, `bLevel`, `brand`, `competitor`, `competitorCheaper=true` (sent only when
   asked), `sort=units|gap`, `page` (1-based) + `pageSize` (50); answer `{ total, page, pageSize, competitors[{
@@ -74,3 +74,20 @@ Proofs green, and the grid walked on dev.
 **2026-11-22 — row wired to the drill-down (936 merge, branch `t936-drilldown`).** The grid's material cell
 (`GridTab.tsx` `MaterialCell`) now draws `DrillDownLink`: the material number opens the material drill-down by
 `?material=` (the open tab kept; `drillDownSearch` in `drilldown.ts`). "A row opens the material drill-down" holds.
+
+**2026-11-22 — reconciled to BO pricing2 d099aac36** (merge of 4128–4132 + review fixes `16164d170`; branch `t4127-reconcile`). `GET PriceWatch/Grid` was guessed right on route, query names (`aLevel`, `bLevel`, `brand`, `competitor`,
+`competitorCheaper`, `sort`, `page`, `pageSize`), 1-based paging (default 50, max 200, `total`), the five state codes
+(upper case) and the cell's price fields. Differences fixed (`PriceWatchGridService.cs`):
+- column: `competitorName` (not `name`) and `isEnabled`; **no `kind`**. The seller now shows when the cell is not
+  platform-sold (`isPlatformSeller: false`, a marketplace third party), not by the column's kind. A platform-sold cell
+  never names a seller.
+- row: `units30` (not `thirtyDayUnits`), `isOurCheapest` (not `isCheapest`); new `competitorIsCheaper`, `aLevelName`,
+  `bLevelName`, `priceDay`.
+- cell: new `listingUrl` and `priceObservedAt` (an OOS cell's last price is stamped with when that price was read: the
+  cell now shows it); `source` is '' when there is no price.
+- page: new `readAt`, `referenceStore`, `staleAfterHours`, `sort` (echoed upper case). The server upper-cases `sort`, so the
+  client keeps sending `units`/`gap`. New refusal `PWT-00070` (sort unknown) beside `PWT-00003`.
+- The server's cheapest mark, "cheaper" filter and gap count only PRICED, fresh, **platform-sold** cells; the client only
+  draws the flags.
+Tests: `grid.test.ts` red on the new fixtures, then green; drive stub on the real shape, 28/28. ⚠ Ticket text says "the
+seller on a marketplace": the wire has no competitor kind, so it is "the seller when a third party sells it".

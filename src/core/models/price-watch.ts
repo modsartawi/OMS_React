@@ -2,6 +2,10 @@
 //
 // Read from BackOffice `pricing2` on 2026-11-21: `Services/SIS.Api/Endpoints/PriceWatch/PriceWatchWebEndpoints.cs` and
 // `Sartawi.Retail.Data/Modules/PriceWatch/` (services, `Data/*.cs` code constants, `PriceWatchErrorCodes.cs`).
+// Reconciled 2026-11-22 to BO pricing2 merge `d099aac36` (tickets 4128–4132 + review fixes `16164d170`): the grid door
+// (`PriceWatchGridService.cs`), the comparison's source + history, the authority door
+// (`PriceWatchSourceAuthorityService.cs`), feed health per source + cross-check, and the Cube members. Only BO 4135
+// (MINDSITE candidate origin, not built) is still GUESSED.
 // `PriceWatch/` prefix, cookie auth; every GET behind `BackOfficeScreen[PriceWatch, 03]` (View), every write behind
 // `[PriceWatch, 06]` (Manage) — a missing grant is a BARE 403. JSON is camelCase. A refusal is HTTP 400, `success:false`,
 // an English-only `message` and a `PWT-xxxxx` code in `errors[0].errorCode`. Stamps are local KSA wall-clock
@@ -136,58 +140,67 @@ export interface DismissAlertBody {
 
 // ── Grid (935) ─────────────────────────────────────────────────────────────────────────────────────────────────────
 //
-// ⚠ GUESSED (BO 4129) — the product grid door is NOT built yet. Shape guessed from the BO 4129 ticket text and the
-// existing PriceWatch DTO style (camelCase, string code enums, `PWT-` codes, null stamps), per the 4127 contract notes.
-// Reconcile owed once 4129 ships: route, paging spelling (`page`/`pageSize` vs `skip`/`take`), cell keying, and field
-// names are all guesses. Nothing here has met a live server.
+// `GET PriceWatch/Grid` (View) — BO 4129 as shipped (`PriceWatchGridService.cs`, d099aac36). One row per watched
+// material (top sellers, additions and — 4130 — live exact matches), every competitor a column in code order (or only the
+// `competitor` filtered on). Read only. A cell takes ONLY the competitor's authoritative source, and only an EXACT match
+// prices it. A cell COUNTS (cheapest mark, "cheaper" filter, gap) when PRICED, priced, fresh and PLATFORM-SOLD.
 
-/** The `PWT-` refusal codes the Grid tab reads by name. GUESSED: 4129 adds none we know of; the shared ones apply. */
+/** The `PWT-` refusal codes the Grid tab reads by name (`PriceWatchErrorCodes.cs`). */
 export const PRICE_GRID_ERRORS = {
   /** Unknown competitor code in the `competitor` filter. */
   competitorUnknown: 'PWT-00003',
+  /** The sort is not UNITS or GAP (BO 4129). */
+  gridSortUnknown: 'PWT-00070',
 } as const
 
-/** A competitor cell's state (BO 4129 ticket text, exact codes). Stale is a flag beside it, not a state. */
+/** A competitor cell's state (`PriceWatchGridCellStates`). Stale is a flag beside it, not a state. */
 export const PRICE_GRID_CELL_STATES = ['PRICED', 'OOS', 'NOT_CARRIED', 'NO_MATCH', 'COMPARABLE_ONLY'] as const
 export type PriceGridCellState = (typeof PRICE_GRID_CELL_STATES)[number]
 
-/** A price's source (BO 4128): the scraper or Mindsite. */
-export type PriceWatchSource = 'SCRAPER' | 'MINDSITE'
-
-/** The grid's sort: our trailing-30-day units (default) or the widest gap first. */
+/**
+ * The grid's sort (`PriceWatchGridSorts`: `UNITS` | `GAP`). The server trims and upper-cases what it is sent, so the
+ * lower-case spelling is accepted as is; its answer echoes the upper-case code in `sort`.
+ */
 export const PRICE_GRID_SORTS = ['units', 'gap'] as const
 export type PriceGridSort = (typeof PRICE_GRID_SORTS)[number]
 
-/** One grid column: a competitor, in the server's column order. */
+/** One grid column: a competitor, in the server's column order. (No `kind` on this wire.) */
 export interface PriceGridCompetitor {
   competitorCode: string
-  name: string
-  /** `pharmacy` | `marketplace` (free text in the DB). A marketplace cell names its seller. */
-  kind: string
-  authoritativeSource: PriceWatchSource
+  competitorName: string
+  isEnabled: boolean
+  /** The only source whose prices fill this column. */
+  authoritativeSource: PriceSource
 }
 
 /** One competitor's cell in a row. Prices are the authoritative source's only. */
 export interface PriceGridCell {
   competitorCode: string
   state: PriceGridCellState
+  /** The live match's listing; '' when there is none (NOT_CARRIED, NO_MATCH). */
+  listingUrl: string
   /** offer ?? regular. OOS keeps its LAST price here; NOT_CARRIED / NO_MATCH / COMPARABLE_ONLY carry null. */
   paidPrice: number | null
   regularPrice: number | null
   offerPrice: number | null
-  /** (regular − offer) ÷ regular × 100. */
+  /** (regular − offer) ÷ regular × 100, 1 dp; null without an offer. */
   offerPercent: number | null
   sellerName: string
+  /** false = a marketplace third party: shown with its seller, but it never counts. */
   isPlatformSeller: boolean
   inStock: boolean
+  /** The latest authoritative observation; null when there is none. */
   observedAt: string | null
-  /** No price within the stale window (36 h default). */
+  /** When the price SHOWN was observed — `observedAt`, or earlier for an OOS cell showing its last price. */
+  priceObservedAt: string | null
+  /** The latest authoritative observation is older than the stale window, or there is none. */
   isStale: boolean
-  /** The (tied-)cheapest price of the row — ours takes part through `row.isCheapest`. */
+  /** The cheapest counting price of the row (ours takes part through `row.isOurCheapest`); a tie marks every tied cell. */
   isCheapest: boolean
-  /** Comparison sense: NEGATIVE = the competitor is cheaper. */
+  /** (paid − our effective) ÷ our effective × 100, 1 dp. NEGATIVE = the competitor is cheaper. */
   gapPercent: number | null
-  source: PriceWatchSource
+  /** The source of the price shown (always the authoritative one); '' with no price. */
+  source: PriceSource | ''
 }
 
 /** One watched material. */
@@ -196,41 +209,56 @@ export interface PriceGridRow {
   title: string
   brand: string
   aLevel: string
+  aLevelName: string
   bLevel: string
+  bLevelName: string
+  /** Our latest priced night (14-day lookback) at the reference store; false = no price. */
+  isPriced: boolean
+  priceDay: string | null
   currency: string
   basicPrice: number | null
   effectivePrice: number | null
-  isPriced: boolean
   dealText: string
   appliedDealText: string
-  thirtyDayUnits: number
-  /** OUR price is the (tied-)cheapest of the row. */
-  isCheapest: boolean
+  /** Our net units over the 30 days before today (the alerts' window). */
+  units30: number
+  /** OUR price is the (tied-)cheapest of the row, against at least one counting cell. */
+  isOurCheapest: boolean
+  /** A counting competitor is cheaper than our effective price. */
+  competitorIsCheaper: boolean
+  /** The most negative counting gap; null when nobody counts. */
   widestGapPercent: number | null
-  /** One per `competitors[]` entry; read by `competitorCode`, never by position. */
+  /** One per `competitors[]` entry, same order; read by `competitorCode`, never by position. */
   cells: PriceGridCell[]
 }
 
 /** `GET PriceWatch/Grid` answer: one page of rows, the column order, and the total. */
 export interface PriceGridPage {
-  total: number
+  readAt: string
+  referenceStore: string
+  staleAfterHours: number
+  /** The sort applied, upper-case (`UNITS` | `GAP`). */
+  sort: string
   page: number
   pageSize: number
+  /** Rows after the filters, across every page. */
+  total: number
   competitors: PriceGridCompetitor[]
   rows: PriceGridRow[]
 }
 
-/** `GET PriceWatch/Grid` query — blanks are dropped by `buildQuery`. */
+/** `GET PriceWatch/Grid` query — blanks are dropped by `buildQuery`. Filters are exact, case-insensitive. */
 export interface PriceGridQuery {
   aLevel?: string
   bLevel?: string
   brand?: string
   competitor?: string
-  /** true = only rows where a competitor's authoritative paid price is below our effective price. */
+  /** true = only rows where a counting competitor is cheaper than our effective price. */
   competitorCheaper?: boolean
   sort: PriceGridSort
-  /** 1-based. */
+  /** 1-based; ≤ 0 = 1. */
   page: number
+  /** 1..200; ≤ 0 = 50. */
   pageSize: number
 }
 
@@ -253,11 +281,11 @@ export type PriceMatchMadeBy = 'Barcode' | 'Person'
 /** A comparable match's per-unit basis (`PriceWatchUnits`); '' on an exact match. */
 export type PerUnitBasis = '' | 'g' | 'ml' | 'piece'
 
-// A competitor price's source (BO 4128, ⚠ GUESSED codes): `PRICE_SOURCES` / `PriceSource` are declared once, in the Feed health section's GUESSED block (939).
+// A competitor price's source (BO 4128, `PriceWatchSources`): `PRICE_SOURCES` / `PriceSource` are declared once, in the Feed health section (939).
 
 /**
  * `GET PriceWatch/Materials/{material}/Comparison` (View) — our price today at the reference store, and one side per
- * UNBROKEN product match. Shipped fields as read from `PriceWatchComparisonService.cs`; the optional ones are BO 4128's.
+ * UNBROKEN product match (`PriceWatchComparisonService.cs`, BO 4128 as shipped at d099aac36).
  */
 export interface PriceWatchComparison {
   material: string
@@ -272,7 +300,10 @@ export interface PriceWatchComparison {
   effectivePrice: number
   /** One per unbroken product match, by competitor code then matched-at; [] when none. */
   competitors: PriceWatchCompetitorSide[]
-  /** ⚠ GUESSED (BO 4128): our price per day, from `PwEffectivePrice`. Absent on a pre-4128 server. */
+  /**
+   * ⚠ NOT PROVIDED by BO pricing2 d099aac36: 4128 shipped no history of OUR price (only today's `basicPrice` /
+   * `effectivePrice` above). Kept optional so a later BO door lights the chart's our-price lines; absent today.
+   */
   ourHistory?: OurPriceDay[]
 }
 
@@ -307,34 +338,38 @@ export interface PriceWatchCompetitorSide {
   /** 4 dp, comparable only. */
   ourPricePerUnit: number | null
   theirPricePerUnit: number | null
-  // ⚠ GUESSED (BO 4128) — not on the wire today (no history, no match id, no who/when). Optional so a pre-4128 server
-  // reads as "no history, no Break" rather than a crash. Reconcile against BO 4128 as shipped.
+  // BO 4128 (shipped): the current price above (regular / offer / observedAt / gap / stale) is the AUTHORITATIVE
+  // source's latest observation only; the history carries every source, labelled.
+  /** The competitor's authoritative price source. */
+  authoritativeSource: PriceSource
+  /** The source of the current price shown; '' when the authoritative source has no observation. */
+  source: PriceSource | ''
+  /** The listing's observations from EVERY source over the last 30 days, latest first, at most 100. */
+  history: PriceObservation[]
+  // ⚠ NOT PROVIDED by BO pricing2 d099aac36: the side carries no product-match id and no who/when (4128 did not add
+  // them), so the drill-down cannot Break a match nor say who made it. Kept optional so a later BO change lights them
+  // up; absent today → the Break column says "no match id" and who/when is blank. A BO ask.
   /** The product match's id, for Break. */
   matchId?: string
   matchedByUser?: string
   /** Wall-clock stamp; a year-1 stamp means none. */
   matchedAt?: string
-  /** The competitor's authoritative price source. */
-  authoritativeSource?: PriceSource
-  /** The source of the latest authoritative observation (the current price). */
-  source?: PriceSource
-  /** Every observation in the window, from both sources. */
-  history?: PriceObservation[]
 }
 
-/** ⚠ GUESSED (BO 4128): one competitor price observation, with its source. */
+/** One competitor price observation in a side's history, with the source that read it (`PriceWatchObservation`). */
 export interface PriceObservation {
-  priceId: string
   observedAt: string
-  source: PriceSource
-  isAuthoritative: boolean
   regularPrice: number | null
   offerPrice: number | null
   sellerName: string
+  isPlatformSeller: boolean
   inStock: boolean
+  source: PriceSource
+  /** The source is the competitor's authoritative one: only these count (alerts, index, current price). */
+  isAuthoritative: boolean
 }
 
-/** ⚠ GUESSED (BO 4128): our price on one day. */
+/** Our price on one day — ⚠ NOT PROVIDED by BO pricing2 d099aac36 (see `ourHistory`). */
 export interface OurPriceDay {
   priceDay: string
   isPriced: boolean
@@ -516,7 +551,8 @@ export interface ConfirmByUrlResult {
 // ── Index (938) ────────────────────────────────────────────────────────────────────────────────────────────────────
 // No PriceWatch door: the Index tab reads Cube through `POST Analytics/Query` (gated `BackOfficeScreen[Analytics, 03]`),
 // so its wire types are `AnalyticsSemanticQuery` / `AnalyticsQueryResult` (`@/core/models/analytics`).
-// ⚠ GUESSED (BO 4132, not built): the member names — see `features/analytics/price-command-center/index-tab.ts`.
+// BO 4132 as shipped (d099aac36; Cube image build + release still the owner's): view `price_index` (flipped, unit
+// `share`, 1.10 = index 110) and view `price_lowest_score` — see `features/analytics/price-command-center/index-tab.ts`.
 
 /** The `ANALYTICS-` refusals the Index tab reads by name (the Analytics query door, not `PriceWatchErrorCodes.cs`). */
 export const PRICE_INDEX_ERRORS = {
@@ -529,20 +565,23 @@ export const PRICE_INDEX_ERRORS = {
 // ── Feed health (939) ──────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * The `PWT-` refusal codes the Feed health tab reads by name. ⚠ `sourceUnknown` is GUESSED (BO 4128 not shipped):
- * the authority door's "source is SCRAPER or MINDSITE" refusal.
+ * The `PWT-` refusal codes the Feed health tab reads by name (`PriceWatchErrorCodes.cs`; the authority door, BO 4128).
  */
 export const PRICE_FEED_HEALTH_ERRORS = {
   /** Authority change: no such competitor. */
   competitorUnknown: 'PWT-00003',
-  /** ⚠ GUESSED (BO 4128): the source is not SCRAPER or MINDSITE. */
+  /** Authority change: the source is not SCRAPER or MINDSITE. */
   sourceUnknown: 'PWT-00050',
 } as const
+
+/** A competitor price's source (`PriceWatchSources`, BO 4128): our scraper or Mindsite. */
+export const PRICE_SOURCES = ['SCRAPER', 'MINDSITE'] as const
+export type PriceSource = (typeof PRICE_SOURCES)[number]
 
 /** A scrape run's pass (`PriceWatchPassKinds`). */
 export type ScrapePassKind = 'DAILY' | 'INTRADAY' | 'MANUAL'
 
-/** One scrape run, as `GET PriceWatch/FeedHealth` sends a competitor's `lastRun` (shipped). */
+/** One scrape run (`PriceWatchRunSummary`): a competitor's `lastRun` and each entry of its `lastRunBySource`. */
 export interface FeedRunSummary {
   scrapeRunId: string
   passKind: ScrapePassKind | string
@@ -556,11 +595,15 @@ export interface FeedRunSummary {
   listingsGone: number
   isBlocked: boolean
   blockReason: string
+  /** BO 4131: the source that ran the pass (a blank stored source reads SCRAPER). */
+  source: PriceSource
+  /** BO 4131: why the pass ended badly (e.g. a Mindsite quota or auth refusal); '' when it did not. */
+  errorMessage: string
 }
 
 /**
- * One competitor on `GET PriceWatch/FeedHealth` (shipped: `PriceWatchFeedHealthService.cs`). ⚠ No door clears a block
- * (the scraper / an operator clears it in the database) — the tab shows the block and its reason only.
+ * One competitor on `GET PriceWatch/FeedHealth` (`PriceWatchFeedHealthService.cs`). ⚠ No door clears a block (the
+ * scraper / an operator clears it in the database) — the tab shows the block and its reason only.
  */
 export interface FeedHealthCompetitor {
   competitorCode: string
@@ -576,12 +619,14 @@ export interface FeedHealthCompetitor {
   matchedListings: number
   staleListings: number
   goneListings: number
-  /** The latest run of any source. A pre-4131 server says nothing of its source. */
+  /** The latest run of any source. */
   lastRun: FeedRunSummary | null
-  // ⚠ GUESSED (BO 4131) — optional, so today's FeedHealth still renders:
-  authoritativeSource?: PriceSource
-  runsBySource?: FeedSourceRuns[]
-  crossCheck?: FeedCrossCheck
+  /** BO 4131: the one source whose prices count for this competitor. */
+  authoritativeSource: PriceSource
+  /** BO 4131: the latest run of each source that EVER ran here, ordered by source; a source that never ran is absent. */
+  lastRunBySource: FeedRunSummary[]
+  /** BO 4131: where the two sources disagree on this competitor's exact matches. */
+  crossCheck: FeedCrossCheck
 }
 
 /** `GET PriceWatch/FeedHealth` (View). */
@@ -589,49 +634,34 @@ export interface PriceWatchFeedHealth {
   at: string
   staleAfterHours: number
   competitors: FeedHealthCompetitor[]
-  // ⚠ GUESSED (BO 4131) — optional:
-  /** Two sources disagreeing above this many percent on one exact match and day count against the competitor. */
-  crossCheckMarginPercent?: number
-  /** The nightly effective-price job's last run (`PwPriceJobRun` of kind EFFECTIVEPRICE); null = never ran. */
-  effectivePriceJob?: EffectivePriceJobRun | null
+  /** BO 4131: two sources' paid prices differing by MORE than this % of the authoritative one count as a disagreement. */
+  crossCheckMarginPercent: number
+  /** BO 4131: the nightly effective-price job's last run on or before today; null = never ran. */
+  effectivePriceJob: EffectivePriceJobRun | null
 }
 
-// ⚠ GUESSED (BO 4128 / 4131) ───────────────────────────────────────────────────────────────────────────────────────
-// Read off the BO ticket text and the shipped DTO style (camelCase, string codes, null stamps); nothing live yet. A
-// reconcile ticket diffs this block against the shipped doors.
-
-/** A competitor price's source (BO 4128): our scraper or Mindsite. */
-export const PRICE_SOURCES = ['SCRAPER', 'MINDSITE'] as const
-export type PriceSource = (typeof PRICE_SOURCES)[number]
-
-/** A run as `runsBySource` sends it: the shipped summary plus its error and whether it was a quota or auth refusal. */
-export interface FeedSourceRun extends FeedRunSummary {
-  errorMessage: string
-  isQuotaOrAuthError: boolean
-}
-
-/** One source's latest run at one competitor; null = that source never ran there. */
-export interface FeedSourceRuns {
-  source: PriceSource
-  lastRun: FeedSourceRun | null
-}
-
-/** One material whose two sources disagreed above the margin. */
+/** One exact match whose two sources disagreed above the margin (`PriceWatchCrossCheckExample`). */
 export interface FeedCrossCheckExample {
   materialNumber: string
+  listingId: string
+  /** The latest day both sources read it, inside the stale window. */
   day: string
   scraperPaidPrice: number
   mindsitePaidPrice: number
+  /** |scraper − Mindsite| as a % of the AUTHORITATIVE source's paid price, 2 dp. */
   differencePercent: number
 }
 
-/** Where the two sources disagree at one competitor (≤ 20 examples). */
+/** Where the two sources disagree at one competitor (`PriceWatchCrossCheck`): platform-sold, fresh, same-day readings. */
 export interface FeedCrossCheck {
+  /** Exact matches both sources read fresh on the same day. */
+  compared: number
   disagreements: number
+  /** At most 20, widest first. */
   examples: FeedCrossCheckExample[]
 }
 
-/** The nightly effective-price job's last run. */
+/** The nightly effective-price job's last run (`PriceWatchJobRunSummary`). */
 export interface EffectivePriceJobRun {
   runId: string
   runDay: string
@@ -639,7 +669,7 @@ export interface EffectivePriceJobRun {
   startedAt: string
   finishedAt: string | null
   isFinished: boolean
-  /** The watched count. */
+  /** The watched count (4130's match-only materials included). */
   materials: number
   priced: number
   unpriced: number
@@ -649,18 +679,20 @@ export interface EffectivePriceJobRun {
   errorMessage: string
 }
 
-/** `PUT PriceWatch/Competitors/{competitor}/AuthoritativeSource` (Manage) body — ⚠ GUESSED route and body (BO 4128). */
+/** `PUT PriceWatch/Competitors/{competitor}/Authority` (Manage) body (BO 4128; case and spaces ignored). */
 export interface SetAuthoritativeSourceBody {
   source: PriceSource
 }
 
-/** The competitor setting the authority door answers with — ⚠ GUESSED (BO 4128). */
-export interface PriceWatchCompetitorSetting {
+/**
+ * A competitor's authority (`PriceWatchCompetitorAuthority`): the answer of the PUT above and each row of
+ * `GET PriceWatch/Competitors/Authority` (View). `setAt` is year-1 when nobody ever changed it.
+ */
+export interface PriceWatchCompetitorAuthority {
   competitorCode: string
-  name: string
-  kind: string
+  competitorName: string
   isEnabled: boolean
   authoritativeSource: PriceSource
-  authoritativeSourceChangedBy: string
-  authoritativeSourceChangedAt: string | null
+  setBy: string
+  setAt: string
 }

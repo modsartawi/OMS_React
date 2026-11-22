@@ -51,7 +51,7 @@ Proofs green, and the tab walked against the released image.
   `index-query.test.ts` (`@/core/api` stubbed: Shelf asks `shelf_price_index` / `shelf_lowest_price_flagged`, Paid the
   `paid_*` ones, on every index and score query), `page.test.ts` (predicate, Index first, default tab). Drive
   `tools/price-index-drive.mjs` 30/30 (stubbed `**/api/**`, EN + RTL).
-- 🚩 **GUESSED (BO 4132 not built):** members `shelf_price_index` / `paid_price_index` (flipped, same names),
+- 🚩 **GUESSED (reconciled 2026-11-22, see below) (BO 4132 not built):** members `shelf_price_index` / `paid_price_index` (flipped, same names),
   `price_indexed_materials`, `shelf_lowest_price_flagged` / `paid_lowest_price_flagged` / `lowest_price_counted`; dims
   `competitor`, `category`, `date` with `grain` `day` | `week`. The index is read by its column's unit: `share` ×100,
   anything else taken as already ×100 (4132's text writes "× 100"). The score is computed client-side (flagged ÷
@@ -73,3 +73,14 @@ Proofs green, and the tab walked against the released image.
   "has own open alerts" is judged from the first 500 live alerts (ACCEPTED / DISMISSED included). A user with > 500
   live alerts, none OPEN in the first 500, reads as having none (opens on Index). Ask: `status=open` on
   `PriceWatch/Alerts/Mine` (or a `Alerts/Mine/OpenCount` door).
+
+**2026-11-22 — reconciled to BO pricing2 d099aac36** (merge of 4128–4132 + review fixes `16164d170`; branch `t4127-reconcile`). BO 4132 as shipped (Cube, BO `Analytics/cube/model`): the index keeps its member names
+`shelf_price_index` / `paid_price_index` on view `price_index`, SQL flipped to Σ theirs ÷ Σ ours weighted by our units,
+unit **`share`** (1.10 → index 110; the client's ×100 holds). Difference fixed: the lowest-price score is its own view
+**`price_lowest_score`** with **measures** `shelf_lowest_price_score` / `paid_lowest_price_score` (unit `share`, = 1 −
+beaten ÷ scored day|item; a tie counts as lowest; unweighted) and `lowest_price_scored_items` (count). The guessed
+`*_lowest_price_flagged` / `lowest_price_counted` do not exist and the beaten/scored counts are private, so the tile reads
+the share straight off and shows "n items scored" instead of "flagged of counted" (tests red, then green). Dims as guessed
+(`competitor` — omit it for all competitors —, `category`, `date` day / `sunday_week`). Drive 30/30.
+⚠ Still owed: the 4132 Cube image build + release (owner) — until then the host answers the old ours ÷ theirs index and
+refuses the score members (the tab's ANALYTICS-406 path). `Analytics:03` still needed for `Analytics/Query`.

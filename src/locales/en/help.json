@@ -51,5 +51,20 @@
     "open": "Print the guide",
     "printNow": "Print",
     "back": "Back to the help"
+  },
+  "drawer": {
+    "open": "Help for this page",
+    "eyebrow": "Help",
+    "close": "Close the help",
+    "openFull": "Open full article"
+  },
+  "startCard": {
+    "title": "New to Analytics? Start here",
+    "body": "A short tour of Analytics: finding boards, reading views and reports, and asking the copilot.",
+    "open": "Start here",
+    "dismiss": "Hide this card"
+  },
+  "howTo": {
+    "heading": "How do I…?"
   }
 }

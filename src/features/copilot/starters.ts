@@ -45,3 +45,11 @@ export function emptyPanelOffer(read: CopilotReaderStarters | null | undefined, 
   })
   return starters.length > 0 ? { kind: 'starters', starters } : { kind: 'examples' }
 }
+
+/**
+ * The "How do I…?" row's buttons (oms 952, BackOffice spec 4182 §D): the help's sample questions (`@/core/help/how-to`),
+ * each asked at once on a tap, as a starter is. A row apart from the curator-edited starters, which it never changes.
+ */
+export function howToButtons(questions: readonly string[]): StarterButton[] {
+  return questions.map((q) => ({ text: q, tap: { kind: 'ask', question: q, origin: 'starter' } }))
+}

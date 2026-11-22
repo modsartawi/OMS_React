@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +17,9 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
 import { canSqlAnalytics } from '@/core/analytics-access'
 import { usePermissions } from '@/core/permissions'
+import { helpContentsQuery } from '@/core/help/help-api'
+import { helpDir, useHelpLang } from '@/core/help/help-lang'
+import { howToQuestions } from '@/core/help/how-to'
 import { COPILOT_STARTERS_KEY } from './access'
 import { COPILOT_MAX_QUESTION, copilotAnswerModel, questionFits } from './answer'
 import { COPILOT_MAX_QUESTIONS, boxOpen, canAskMore, continuesAsk, questionCount, turnTaps, type CopilotConversation, type CopilotTurn } from './conversation'
@@ -26,7 +29,7 @@ import { cardState, proposalCard, type CardState } from './proposal'
 import { useCopilotConversation, type PastConversation } from './conversation-store'
 import { DEMO_ORDER_NO, lateExample } from './demo'
 import { copilotApi } from './api'
-import { emptyPanelOffer, type StarterTap } from './starters'
+import { emptyPanelOffer, howToButtons, type StarterTap } from './starters'
 import { COPILOT_ME_KEY, meEntryVisible, meQuery } from './me-api'
 
 /** How close to the end of the thread still counts as "at the end" (px), so new content keeps it there. */
@@ -290,6 +293,12 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
     if (tap.kind === 'fill') fillExample(tap.text, null)
     else if (ask(tap.question, { origin: tap.origin }) === null) setQuestion(tap.question)
   }
+  // oms 952 (spec 4182 §D): the "How do I…?" row, two or three of the help's sample questions in the help language —
+  // a row apart from the curator's starters above. A failed or pending read is no row.
+  const helpLang = useHelpLang()
+  const { t: th } = useTranslation('help', { lng: helpLang })
+  const helpContents = useQuery({ ...helpContentsQuery('analytics', helpLang), enabled: empty, retry: false })
+  const howTo = useMemo(() => howToButtons(howToQuestions(helpContents.data, Math.random)), [helpContents.data])
   // An ask pending keeps the box (872): the reply, typed, is the same question, even the tenth's.
   const canAsk = boxOpen(conv)
   const late = lateExample(DEMO_ORDER_NO, t('examples.latePlaceholder'))
@@ -350,6 +359,20 @@ export default function CopilotPanel({ wide = false }: { wide?: boolean }) {
                       text: s.text,
                       onClick: () => tapStarter(s.tap),
                       data: { 'data-copilot-starter': s.tap.kind },
+                    }))}
+                  />
+                </div>
+              )}
+
+              {empty && howTo.length > 0 && (
+                <div dir={helpDir(helpLang)} lang={helpLang} data-copilot-howto className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">{th('howTo.heading')}</div>
+                  <QuestionButtons
+                    buttons={howTo.map((s) => ({
+                      key: s.text,
+                      text: s.text,
+                      onClick: () => tapStarter(s.tap),
+                      data: { 'data-copilot-howto-question': true },
                     }))}
                   />
                 </div>

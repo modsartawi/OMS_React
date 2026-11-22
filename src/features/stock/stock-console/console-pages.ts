@@ -12,7 +12,13 @@ export interface ConsolePage {
   key: string
 }
 
-export const CONSOLE_PAGES: readonly ConsolePage[] = [{ to: STOCK_CONSOLE_PATH, key: 'stores' }]
+/** Feeds and switches (942): the facts that belong to no store. */
+export const FLEET_PATH = `${STOCK_CONSOLE_PATH}/fleet`
+
+export const CONSOLE_PAGES: readonly ConsolePage[] = [
+  { to: STOCK_CONSOLE_PATH, key: 'stores' },
+  { to: FLEET_PATH, key: 'fleet' },
+]
 
 const STORE_PAGES = `${STOCK_CONSOLE_PATH}/store/`
 

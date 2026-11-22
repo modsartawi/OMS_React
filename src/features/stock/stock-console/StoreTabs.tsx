@@ -6,8 +6,12 @@ import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import { storeTabKey } from './api'
 import BatchesTab from './BatchesTab'
+import FeedsTab from './FeedsTab'
+import HoldsTab from './HoldsTab'
 import ItemsTab from './ItemsTab'
+import StageTab from './StageTab'
 import { STORE_TABS, resolveStoreTab, tabParams, type StoreTab } from './store-tabs'
+import TakesTab from './TakesTab'
 
 /**
  * A store page's tabs (oms 941): the frame for all seven — Items, Holds, Batches, Takes, SAP movements, Feeds, Stage and
@@ -68,6 +72,14 @@ export default function StoreTabs({ store }: { store: string }) {
           <ItemsTab store={store} />
         ) : open === 'batches' ? (
           <BatchesTab store={store} />
+        ) : open === 'holds' ? (
+          <HoldsTab store={store} />
+        ) : open === 'takes' ? (
+          <TakesTab store={store} />
+        ) : open === 'feeds' ? (
+          <FeedsTab store={store} />
+        ) : open === 'stage' ? (
+          <StageTab store={store} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground" data-tab-not-yet={open}>
             {t('tabs.notYet')}

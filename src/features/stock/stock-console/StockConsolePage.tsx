@@ -22,6 +22,7 @@ import { canOpenStockConsole } from './access'
 import { storesQuery } from './api'
 import { CONSOLE_COL_DEF } from './columns'
 import ConsoleNav from './ConsoleNav'
+import FleetLine from './FleetLine'
 import HowRead from './HowRead'
 import Loading from './Loading'
 import StoreTiles from './StoreTiles'
@@ -67,6 +68,8 @@ function Stores() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <ConsoleNav />
+
+      {data && <FleetLine problems={data.fleet} />}
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground" data-read-at="">
         <span className="me-auto">{t('stores.baseUnits')}</span>

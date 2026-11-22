@@ -5,3 +5,9 @@
 export const HOW_STORE = ['p1', 'p2', 'p3'] as const
 export const HOW_ITEMS = ['p1', 'p2', 'p3'] as const
 export const HOW_BATCHES = ['p1', 'p2', 'p3'] as const
+// 942
+export const HOW_HOLDS = ['p1', 'p2', 'p3'] as const
+export const HOW_TAKES = ['p1', 'p2', 'p3'] as const
+export const HOW_FEEDS = ['p1', 'p2'] as const
+export const HOW_STAGE = ['p1', 'p2'] as const
+export const HOW_FLEET = ['p1', 'p2', 'p3'] as const

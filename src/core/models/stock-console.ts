@@ -199,3 +199,211 @@ export interface StockConsoleBatchRow {
   /** Stock Visibility's own placeholder-batch rule, not re-derived. */
   placeholder: boolean
 }
+
+// ── 942 ─────────────────────────────────────────────────────────────────────────────────────────────
+// `…/Holds` and `…/Takes` answer a page (searched); `…/Feeds` and `…/Stage` are read on opening their tab;
+// `StockConsole/Fleet` on opening Feeds and switches (BO 4160, SV 077). Every name not stated by the tickets is a guess.
+
+/** The Holds list's state filter, as the wire names it; `open` (standing and sold not applied) is the default;
+ *  `released` = released in the last 7 local days. The web's `filter` goes out as `state`. */
+export const HOLD_STATES = ['open', 'standing', 'sold', 'released'] as const
+
+/** One hold at the store (SV 077). Nothing is joined from OMS: no customer order, no customer, no patient. */
+export interface StockConsoleHoldRow {
+  takeId: string
+  item: string
+  nameEn: string
+  nameAr: string
+  /** May be blank: a hold on no batch. */
+  batch: string
+  quantity: number
+  takenAt: string
+  /** 'Held' (standing) | 'Sold' (sold not applied) | 'Released' — Stock Visibility's StockHold.State [guess values]. */
+  state: string
+  /** The picking source, the till, DRS — drawn as it came. */
+  source: string
+  /** A picking hold's document and line. */
+  documentNo: string | null
+  lineNumber: number | null
+  /** A till sale's store and transaction. */
+  soldStore: string | null
+  soldTrx: string | null
+  updatedAt: string | null
+  /** Only on a released hold. */
+  releasedAt: string | null
+  releaseReason: string | null
+}
+
+/** The Takes list's outcome filter; `all` is the default. The web's `filter` goes out as `outcome`. */
+export const TAKE_OUTCOMES = ['all', 'granted', 'refused', 'failed'] as const
+
+interface StockConsoleTakeRowBase {
+  takeId: string
+  /** The row's time [guess name]. */
+  at: string
+}
+
+/** A granted take: the batches it took, from its holds [guess shape]. */
+export interface StockConsoleTakeGranted extends StockConsoleTakeRowBase {
+  kind: 'granted'
+  item: string
+  nameEn: string
+  nameAr: string
+  quantity: number
+  code: string | null
+  available: number | null
+  stage: string | null
+  scannedVendorBatch: string | null
+  scannedExpiry: string | null
+  enteredBatch: string | null
+  batches: { batch: string; quantity: number }[]
+}
+
+/** A refused take: its reason, and the batch the door named instead [guess name]. */
+export interface StockConsoleTakeRefused extends StockConsoleTakeRowBase {
+  kind: 'refused'
+  item: string
+  nameEn: string
+  nameAr: string
+  namedBatch: string | null
+  asked: number
+  available: number | null
+  code: string | null
+  reason: string | null
+  isShadow: boolean
+  stage: string | null
+}
+
+/** A failed call: the request log has no item, only its status (SV 077). */
+export interface StockConsoleTakeFailed extends StockConsoleTakeRowBase {
+  kind: 'failed'
+  durationMs: number | null
+  statusCode: number | null
+  instance: string | null
+}
+
+export type StockConsoleTakeRow = StockConsoleTakeGranted | StockConsoleTakeRefused | StockConsoleTakeFailed
+
+export interface StockConsoleTakes extends StockConsolePage<StockConsoleTakeRow> {
+  /** True when an item or a batch was searched: failed calls carry no item, so they were left out. */
+  failedLeftOut: boolean
+}
+
+/** A store's feeds, from its own console row (BO 4160) [guess: the summary row's names]. */
+export interface StockConsoleStoreFeeds {
+  plant: string
+  sapPlace: string | null
+  sapLastAttempt: string | null
+  tillPlace: string | null
+  tillLastAttempt: string | null
+  /** To say "not a counted store" when there is no comparison. */
+  stage: string
+  /** The nightly comparison's differing batches; null = none (not counted, or not run yet). */
+  driftBatches: number | null
+  driftRanAt: string | null
+}
+
+/** One stage move (mirrors SV 064 / BO StoreStageMove, with the mover's name). Declared fresh: no store-stage import. */
+export interface StockConsoleStageMove {
+  store: string
+  from: string
+  to: string
+  mover: string
+  who: string
+  whoName?: string | null
+  why: string
+  movedAt: string
+}
+
+/** The store's last seed run (a subset of BO StoreSeedStatus). */
+export interface StockConsoleSeedRun {
+  state: string
+  kind: string
+  reason: string
+  askedAt: string | null
+  endedAt: string | null
+  batchRows: number
+}
+
+/** One measured gate (SV StoreGateModel). */
+export interface StockConsoleGate {
+  gate: string
+  holds: boolean
+  figure: string
+}
+
+/** The gates toward the next stage (SV StoreGatesModel). */
+export interface StockConsoleGates {
+  from: string
+  to: string
+  hold: boolean
+  measured: StockConsoleGate[]
+  confirmed: string[]
+  notConfirmed: string[]
+}
+
+/** A store's stage and count (BO 4160), under the console grant. Read-only. */
+export interface StockConsoleStoreStage {
+  store: string
+  stage: string
+  updatedAt: string | null
+  /** Newest first. */
+  moves: StockConsoleStageMove[]
+  lastSeed: StockConsoleSeedRun | null
+  /** null when the gates read did not answer [guess]. */
+  gates: StockConsoleGates | null
+}
+
+/** A feed's last full pass (SV FeedAgeModel). */
+export interface StockConsoleFeedPass {
+  feed: string
+  lastCompletePassAt: string | null
+  ageSeconds: number | null
+}
+
+/** The reserved recompute's run (a subset of SV ReservedRunState). */
+export interface StockConsoleReservedRun {
+  lastStartedAt: string | null
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  consecutiveFailures: number
+  lastError: string | null
+  lastNetting: string | null
+}
+
+/** The held-served switch (SV HeldServingModel). */
+export interface StockConsoleHeldServed {
+  served: boolean
+  changedAt: string | null
+  netting: string
+  subtractsHeld: boolean
+  fellBackAt: string | null
+}
+
+/** The hold ledger reader (a subset of SV HoldLedgerStatusModel). */
+export interface StockConsoleLedgerReader {
+  lastPassAt: string | null
+  lagSeconds: number | null
+  readThroughAt: string | null
+}
+
+/** Today's take door figures (BO TakeDoorToday) [guess: + day]. */
+export interface StockConsoleTakesToday {
+  day: string
+  takes: number
+  failed: number
+  skipped: number | null
+}
+
+/**
+ * The facts that belong to no store (BO 4160). Each null = **no answer** (a route an older Stock Visibility does not
+ * have, or one that did not answer) — drawn as no answer, never as healthy. All names [guess].
+ */
+export interface StockConsoleFleet {
+  readAt: string
+  feeds: StockConsoleFeedPass[] | null
+  reservedRun: StockConsoleReservedRun | null
+  heldServed: StockConsoleHeldServed | null
+  ledgerReader: StockConsoleLedgerReader | null
+  takesToday: StockConsoleTakesToday | null
+}

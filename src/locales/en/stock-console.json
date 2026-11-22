@@ -13,7 +13,8 @@
   },
   "nav": {
     "label": "Stock console pages",
-    "stores": "Stores"
+    "stores": "Stores",
+    "fleet": "Feeds and switches"
   },
   "tiles": {
     "label": "Filter the stores",
@@ -149,6 +150,34 @@
       "p1": "One row per item and batch at this store, from Stock Visibility, sorted by item and then expiry. The vendor batch is matched by its key, upper case and trimmed.",
       "p2": "Free for the take door is the batch's till-side stock less the holds on that batch; reserved is not taken off, because the take door works batch by batch. A batch has no last-update time, so the day it was first received is shown instead.",
       "p3": "A placeholder batch is marked by Stock Visibility's own placeholder rule. Expired means the expiry day is before today; within 90 days means today or one of the next 90 days."
+    },
+    "holds": {
+      "title": "How this is read",
+      "p1": "One row per hold at this store, from Stock Visibility's hold ledger. By default the list shows the holds that count in the held figure: standing holds, and holds sold at the till whose sale is not applied to the counter yet. Released holds of the last 7 days are listed on request, with when and why they were released.",
+      "p2": "Oldest first, so the stuck ones are on top. The age is from the time the hold was taken to when this page was read; for a released hold, to its release.",
+      "p3": "A hold shows its picking document and line, or its till sale (store and transaction), as Stock Visibility holds them. Nothing is joined from OMS: no customer order number, no customer, no patient."
+    },
+    "takes": {
+      "title": "How this is read",
+      "p1": "The take door's calls for this store on one day — today unless you pick another. Each is granted (with the batches it took, from its holds), refused (with its reason, and the batch the door named) or failed (with its status and how long it took).",
+      "p2": "A failed call carries no item: the request log holds only the store and the take id. So failed calls are listed by store and day, and are left out when you search by item or batch.",
+      "p3": "The day is written into the address with the search, so a shared link reads the same day."
+    },
+    "feeds": {
+      "title": "How this is read",
+      "p1": "Read when the tab opens, from the store's own console row. The SAP place is the SAP entry date and time of the last SAP document applied for this store; the till place is where the till feed stands. Each shows its last attempt, so a feed that tries and fails shows.",
+      "p2": "The nightly comparison runs for counted stores only (Seeded or Blocking): it counts the batches where our book and SAP's differ. A store not counted has none."
+    },
+    "stage": {
+      "title": "How this is read",
+      "p1": "Read when the tab opens, through the stage screen's own reads, under the console's grant: the store's stage, its stage log (newest first), its last seed run and the gates toward Blocking.",
+      "p2": "Read-only. Moves are made on Store stages, by those who hold its grant."
+    },
+    "fleet": {
+      "title": "How this is read",
+      "p1": "Facts that belong to no store, read once when this page opens from Stock Visibility's status routes: each feed's last full pass and its age, the reserved recompute's run, the held-served switch, the hold ledger reader's lag and today's take door figures.",
+      "p2": "A fact whose route did not answer — an older Stock Visibility, or one that could not be reached — says \"No answer\". It is never shown as healthy.",
+      "p3": "The facts that are a problem now are also said once, above the stores list, so no store is blamed for them."
     }
   },
   "store": {
@@ -262,5 +291,189 @@
     "unreachable": "Stock Visibility could not be reached. Try again in a moment — it is not your search.",
     "denied": "Your account no longer holds the stock console grant.",
     "failed": "The read failed."
+  },
+  "age": {
+    "justNow": "just now",
+    "minutes": "{{m}} min",
+    "hours": "{{h}} h {{m}} min",
+    "days": "{{d}} d {{h}} h"
+  },
+  "holds": {
+    "filter": {
+      "open": "Standing and sold not applied",
+      "standing": "Standing",
+      "sold": "Sold not applied",
+      "released": "Released in the last 7 days"
+    },
+    "state": {
+      "Held": "standing",
+      "Sold": "sold not applied",
+      "Released": "released"
+    },
+    "document": {
+      "picking": "Picking",
+      "till": "Till sale"
+    },
+    "column": {
+      "takeId": "Take id",
+      "item": "Item",
+      "name": "Name",
+      "batch": "Batch",
+      "quantity": "Quantity",
+      "takenAt": "Taken at",
+      "age": "Age",
+      "state": "State",
+      "source": "Source",
+      "document": "Picking document or till sale",
+      "releasedAt": "Released at",
+      "releaseReason": "Why"
+    },
+    "noBatch": "no batch",
+    "empty": "No hold matches this search."
+  },
+  "takes": {
+    "filter": {
+      "all": "All calls",
+      "granted": "Granted",
+      "refused": "Refused",
+      "failed": "Failed"
+    },
+    "kind": {
+      "granted": "granted",
+      "refused": "refused",
+      "failed": "failed"
+    },
+    "column": {
+      "at": "Time",
+      "kind": "Kind",
+      "item": "Item",
+      "name": "Name",
+      "quantity": "Quantity",
+      "batches": "Batches",
+      "reason": "Reason",
+      "status": "Status"
+    },
+    "status": "<c>{{code}}</c> after <ms>{{ms}}</ms> ms",
+    "day": "Day",
+    "failedLeftOut": "Failed calls carry no item, so they are not searchable by item or batch: they are left out of this list.",
+    "empty": "No take door call matches this search."
+  },
+  "feeds": {
+    "loading": "Reading the store's feeds…",
+    "sap": "SAP feed",
+    "till": "Till feed",
+    "place": "Stands at",
+    "lastAttempt": "Last attempt",
+    "comparison": {
+      "title": "Nightly comparison with SAP",
+      "notCounted": "Not a counted store: no nightly comparison.",
+      "notYet": "No comparison has run yet.",
+      "differs_one": "<n>{{n}}</n> batch differs",
+      "differs_other": "<n>{{n}}</n> batches differ",
+      "matches": "No batch differs.",
+      "ranAt": "Ran at <at>{{at}}</at>"
+    }
+  },
+  "stageTab": {
+    "loading": "Reading the store's stage…",
+    "since": "since <at>{{at}}</at>",
+    "readOnly": "Read-only. Moves are made on Store stages.",
+    "log": "Stage log",
+    "noMoves": "The store has never been moved.",
+    "column": {
+      "movedAt": "When",
+      "from": "From",
+      "to": "To",
+      "by": "By",
+      "mover": "Mover",
+      "why": "Why"
+    },
+    "seed": {
+      "title": "Last seed run",
+      "none": "No seed has run for this store.",
+      "state": "State",
+      "kind": "Kind",
+      "batchRows": "Batch rows",
+      "askedAt": "Asked at",
+      "endedAt": "Ended at",
+      "reason": "Reason"
+    },
+    "gates": {
+      "title": "Gates toward Blocking",
+      "noAnswer": "No answer: the gates could not be read.",
+      "toward": "From <s>{{from}}</s> to <s>{{to}}</s>",
+      "allHold": "every gate holds",
+      "notAllHold": "not every gate holds",
+      "holds": "holds",
+      "doesNotHold": "does not hold",
+      "confirmed": "Confirmed:",
+      "notConfirmed": "Not confirmed:"
+    }
+  },
+  "fleet": {
+    "lead": "The facts that belong to no store, read once for the whole fleet.",
+    "loading": "Reading the feeds and switches…",
+    "noAnswer": "Stock Visibility gave no answer for this fact. It is not known to be healthy.",
+    "neverPassed": "never passed",
+    "unknown": "not known",
+    "yes": "yes",
+    "no": "no",
+    "fact": {
+      "feeds": "Feeds",
+      "reservedRun": "Reserved recompute",
+      "heldServed": "Held-served switch",
+      "ledgerReader": "Hold ledger reader",
+      "takesToday": "Today's take door"
+    },
+    "view": {
+      "noAnswer": "No answer",
+      "problem": "Look at this"
+    },
+    "feed": {
+      "Sap": "SAP",
+      "Pos": "Till"
+    },
+    "reserved": {
+      "lastSuccess": "Last success",
+      "neverSucceeded": "never succeeded",
+      "lastStarted": "Last started",
+      "lastFailure": "Last failure",
+      "failures": "Failures in a row",
+      "lastError": "Last error"
+    },
+    "held": {
+      "served": "Held stock served",
+      "on": "on",
+      "off": "off",
+      "changedAt": "Changed at",
+      "subtractsHeld": "Subtracts held now",
+      "netting": "Netting",
+      "fellBackAt": "Fell back at"
+    },
+    "reader": {
+      "lastPass": "Last pass",
+      "lag": "Lag",
+      "readThrough": "Read through"
+    },
+    "takes": {
+      "day": "Day",
+      "takes": "Takes",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    }
+  },
+  "fleetLine": {
+    "lead": "Fleet:",
+    "link": "See Feeds and switches",
+    "since": "(<at>{{at}}</at>)",
+    "FeedLate": "the <s>{{subject}}</s> feed is late",
+    "ReservedNeverRun": "the reserved recompute has never run",
+    "ReservedStale": "the reserved recompute is stale",
+    "ReaderBehind": "the hold ledger reader is behind",
+    "TakesFailing": "the take door is failing: <v>{{value}}</v> failed today",
+    "unknown": "fleet fact <s>{{fact}}</s>"
+  },
+  "flagLink": {
+    "open": "Open the list behind this flag"
   }
 }

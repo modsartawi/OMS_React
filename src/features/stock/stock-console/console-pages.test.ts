@@ -18,3 +18,13 @@ describe('the stock console’s top links', () => {
       expect([path, consolePageActive(stores, path)]).toEqual([path, false])
   })
 })
+
+describe('Feeds and switches (942)', () => {
+  it('is the last link, lit on its own address only', () => {
+    const fleet = CONSOLE_PAGES[CONSOLE_PAGES.length - 1]
+    expect(fleet).toEqual({ to: '/stock/console/fleet', key: 'fleet' })
+    expect(consolePageActive(fleet, '/stock/console/fleet')).toBe(true)
+    expect(consolePageActive(fleet, '/stock/console')).toBe(false)
+    expect(consolePageActive(fleet, '/stock/console/store/P077')).toBe(false)
+  })
+})

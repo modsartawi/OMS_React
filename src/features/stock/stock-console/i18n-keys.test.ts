@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/stock-console.json'
+import { SCAN_CHIPS, SCAN_MARKS, SCAN_NOTES } from './scan'
 import ar from '@/locales/ar/stock-console.json'
 import { hasLocaleKey as has } from '@/core/test/locale'
 import { STOCK_CONSOLE_FLAGS } from '@/core/models/stock-console'
@@ -74,6 +75,21 @@ describe('stock-console — the keys the code builds exist', () => {
       ...['title', ...HOW_STORE].map((k) => `how.store.${k}`),
       ...['title', ...HOW_ITEMS].map((k) => `how.items.${k}`),
       ...['title', ...HOW_BATCHES].map((k) => `how.batches.${k}`),
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+})
+
+// ── 944 ──
+describe('stock-console — the GS1 box’s keys exist', () => {
+  it.each([en, ar])('every chip, line and expiry mark', (locale) => {
+    const keys = [
+      ...SCAN_CHIPS.map((k) => `gs1.chip.${k}`),
+      ...SCAN_NOTES.map((k) => `gs1.note.${k}`),
+      ...SCAN_MARKS.map((k) => `gs1.mark.${k}`),
+      'gs1.read',
+      'gs1.column.mark',
+      'search.gs1',
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

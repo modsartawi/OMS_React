@@ -12,6 +12,7 @@ import type {
   StockConsoleBatchRow,
   StockConsoleItemRow,
   StockConsolePage,
+  StockConsoleScan,
   StockConsoleStoreRow,
   StockConsoleStores,
 } from '@/core/models/stock-console'
@@ -105,3 +106,39 @@ export function listQuery<T>(
 export const itemsQuery = (store: string, state: SearchState) => listQuery(store, 'items', state, stockConsoleApi.items)
 export const batchesQuery = (store: string, state: SearchState) =>
   listQuery(store, 'batches', state, stockConsoleApi.batches)
+
+// ── 944 ──
+
+/**
+ * `GET StockConsole/Scan?code=` → what HQ's barcode master reads in the GS1 box's code (BO 4162). Kept beside
+ * `stockConsoleApi` rather than in it, so parallel tickets append without touching the same lines. An absent kind reads
+ * as `Unknown`; an absent `expiryDayKnown` as known.
+ */
+export async function readScan(code: string): Promise<StockConsoleScan> {
+  const d = await api.get<Partial<StockConsoleScan> | null>('StockConsole/Scan', { code })
+  return {
+    kind: d?.kind ?? 'Unknown',
+    itemFound: d?.itemFound === true,
+    item: d?.item ?? null,
+    nameEn: d?.nameEn ?? null,
+    nameAr: d?.nameAr ?? null,
+    gtin: d?.gtin ?? null,
+    lot: d?.lot ?? null,
+    expiry: d?.expiry ?? null,
+    expiryDayKnown: d?.expiryDayKnown !== false,
+    serial: d?.serial ?? null,
+  }
+}
+
+/**
+ * The GS1 box's scan: read once a search ran with the box filled (`scanCode`), keyed on the code — every list of the
+ * console shares it, and the list's own query waits on it (`scannedList`). A code reads the same for minutes.
+ */
+export const scanQuery = (code: string) =>
+  queryOptions({
+    queryKey: [...STOCK_CONSOLE_KEY, 'scan', code] as const,
+    queryFn: () => readScan(code),
+    enabled: code !== '',
+    staleTime: 5 * 60_000,
+    retry: retryUnlessAnswered,
+  })

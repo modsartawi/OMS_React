@@ -199,3 +199,31 @@ export interface StockConsoleBatchRow {
   /** Stock Visibility's own placeholder-batch rule, not re-derived. */
   placeholder: boolean
 }
+
+// ── 944 ──
+
+/** What `StockConsole/Scan` took the code for (BO 4162). Read defensively: an unknown kind is "not a code we know". */
+export type ScanKind = 'Gs1' | 'Barcode' | 'Unknown'
+
+/**
+ * `GET StockConsole/Scan?code=` (BO 4162, shape verbatim): the GS1 box's code read by HQ's barcode master. A GS1 code
+ * gives the item (from its GTIN), the lot to search as the vendor batch, the expiry and the serial; a plain barcode the
+ * item alone. The code is not stored anywhere.
+ */
+export interface StockConsoleScan {
+  /** A `ScanKind`, read defensively. */
+  kind: string
+  itemFound: boolean
+  item: string | null
+  nameEn: string | null
+  nameAr: string | null
+  gtin: string | null
+  /** AI 10: the vendor batch to search. */
+  lot: string | null
+  /** AI 17 as a day (`yyyy-MM-dd`), or the month's first day when the code's day is 00. */
+  expiry: string | null
+  /** False when the code's day is 00: the expiry compares by month. */
+  expiryDayKnown: boolean
+  /** AI 21. */
+  serial: string | null
+}

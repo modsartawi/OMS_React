@@ -10,7 +10,7 @@ import { showsPager } from '@/core/ui/pager'
 import { formatFigure } from '@/core/util/number-format'
 import Loading from './Loading'
 import RefusalBanner from './RefusalBanner'
-import { STOCK_CONSOLE_PAGE_SIZE, frameView, type FrameRead } from './search'
+import { STOCK_CONSOLE_PAGE_SIZE, frameView, type FrameRead, type FrameView } from './search'
 import type { ListSearch } from './use-list-search'
 
 /** The list's query as the frame reads it (a TanStack Query result fits). */
@@ -39,6 +39,8 @@ export interface SearchFrameProps {
   extraBoxes?: ReactNode
   /** Drawn above the rows once a search ran, before the count (944's scan chips). */
   aboveRows?: ReactNode
+  /** The search ran but nothing is read (944: a code we do not know): only `aboveRows` is drawn, which says why. */
+  stopped?: boolean
   /** The sentence for an answer with no row. */
   empty: string
   /** The rows (a `ListGrid`), drawn only when the answer has some. */
@@ -63,12 +65,13 @@ export default function SearchFrame({
   gs1 = false,
   extraBoxes,
   aboveRows,
+  stopped = false,
   empty,
   children,
 }: SearchFrameProps) {
   const { t } = useTranslation('stock-console')
   const { spec, state, boxes } = search
-  const view = frameView(state, read)
+  const view: FrameView | 'stopped' = stopped && state.ran ? 'stopped' : frameView(state, read)
   const total = read.data?.total ?? 0
   const busy = read.isFetching || read.isPlaceholderData
 

@@ -1,8 +1,9 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
+import { Trans } from 'react-i18next'
 import { Link } from 'react-router'
 
-import type { StockConsoleBatchRow } from '@/core/models/stock-console'
+import type { StockConsoleBatchRow, StockConsoleScan } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -12,6 +13,7 @@ import { localizedName } from '@/core/util/localized-name'
 import { batchMarks } from './batches'
 import { MONO, formatQuantity } from './columns'
 import { itemHref } from './items-columns'
+import { expiryMark, scanExpiry } from './scan'
 
 type Cell = ICellRendererParams<StockConsoleBatchRow>
 
@@ -38,14 +40,23 @@ const code = (headerName: string, field: 'batch' | 'vendorBatch', width: number)
 /**
  * The Batches grid's columns (oms 941), in the prototype's order: item, name, our batch, vendor batch, expiry (with its
  * "expired" / "within 90 days" mark), SAP stock, till-side, held, free for the take door, first received, and the
- * placeholder mark. `today` is the reader's local day, for the expiry mark.
+ * placeholder mark. `today` is the reader's local day, for the expiry mark. After a scan with an expiry (944), a column
+ * beside the expiry says whether each batch's expiry is the scan's.
  */
 export function buildBatchesColumns(
   t: TFunction,
   language: string,
   store: string,
   today: LocalDate,
+  scan: StockConsoleScan | null = null,
 ): ColDef<StockConsoleBatchRow>[] {
+  const columns = buildColumns(t, language, store, today)
+  if (!scan || !scanExpiry(scan)) return columns
+  const at = columns.findIndex((c) => c.field === 'expiry') + 1
+  return [...columns.slice(0, at), scanMarkColumn(t, scan), ...columns.slice(at)]
+}
+
+function buildColumns(t: TFunction, language: string, store: string, today: LocalDate): ColDef<StockConsoleBatchRow>[] {
   return [
     {
       headerName: t('batches.column.item'),
@@ -101,6 +112,32 @@ export function buildBatchesColumns(
         ) : null,
     },
   ]
+}
+
+// ── 944 ──
+
+/** The expiry mark after a scan: "matches the scan", or "scan says <its expiry>" (by month when its day is 00). */
+const scanMarkColumn = (t: TFunction, scan: StockConsoleScan): ColDef<StockConsoleBatchRow> => ({
+  headerName: t('gs1.column.mark'),
+  colId: 'scanMark',
+  width: 170,
+  cellRenderer: (p: Cell) => (p.data ? <ScanMarkCell row={p.data} scan={scan} t={t} /> : null),
+})
+
+function ScanMarkCell({ row, scan, t }: { row: StockConsoleBatchRow; scan: StockConsoleScan; t: TFunction }) {
+  const cell = expiryMark(row.expiry, scan)
+  if (cell.mark === 'none') return null
+  return (
+    <span data-scan-mark={cell.mark}>
+      {cell.mark === 'matches' ? (
+        <StatusBadge sev="ok">{t('gs1.mark.matches')}</StatusBadge>
+      ) : (
+        <StatusBadge sev="warn">
+          <Trans t={t} i18nKey="gs1.mark.differs" values={{ expiry: cell.scan }} components={{ d: <Ltr /> }} />
+        </StatusBadge>
+      )}
+    </span>
+  )
 }
 
 const EXPIRY_SEV = { expired: 'bad', within90: 'warn' } as const

@@ -10,6 +10,7 @@ import ListGrid from './ListGrid'
 import type { ListSpec } from './search'
 import SearchFrame from './SearchFrame'
 import { useListSearch } from './use-list-search'
+import { useScan } from './use-scan'
 
 /** What the Items list owns in the address; the store page's `tab` rides along. */
 const ITEMS_LIST: ListSpec = { filters: ITEM_FILTERS, sorts: ITEM_SORTS, keep: ['tab'] }
@@ -21,7 +22,8 @@ const ITEMS_LIST: ListSpec = { filters: ITEM_FILTERS, sorts: ITEM_SORTS, keep: [
 export default function ItemsTab({ store }: { store: string }) {
   const { t, i18n } = useTranslation('stock-console')
   const search = useListSearch(ITEMS_LIST)
-  const read = useQuery(itemsQuery(store, search.state))
+  const scan = useScan(search)
+  const read = useQuery(itemsQuery(store, scan.state))
   const columns = useMemo(() => buildItemsColumns(t, i18n.language, store), [t, i18n.language, store])
 
   return (
@@ -29,10 +31,10 @@ export default function ItemsTab({ store }: { store: string }) {
       <SearchFrame
         name="items"
         search={search}
-        read={read}
         filterLabel={(f) => t(`items.filter.${f}`)}
         sortLabel={(s) => t(`items.sort.${s}`)}
         empty={t('items.empty')}
+        {...scan.frame(read)}
       >
         <ListGrid rows={read.data?.rows ?? []} columns={columns} rowId={itemRowId} name="items" />
       </SearchFrame>

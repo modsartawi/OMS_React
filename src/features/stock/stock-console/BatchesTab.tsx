@@ -37,7 +37,6 @@ export default function BatchesTab({ store }: { store: string }) {
     <div className="flex min-w-0 flex-col gap-3">
       <SearchFrame
         name="batches"
-        search={search}
         filterLabel={(f) => t(`batches.filter.${f}`)}
         empty={t('batches.empty')}
         {...scan.frame(read)}

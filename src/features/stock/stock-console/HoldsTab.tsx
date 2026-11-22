@@ -36,7 +36,6 @@ export default function HoldsTab({ store }: { store: string }) {
     <div className="flex min-w-0 flex-col gap-3">
       <SearchFrame
         name="holds"
-        search={search}
         filterLabel={(f) => t(`holds.filter.${f}`)}
         empty={t('holds.empty')}
         {...scan.frame(read)}

@@ -111,10 +111,10 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function Age({ seconds }: { seconds: number | null }) {
+function Age({ seconds }: { seconds: number | null | undefined }) {
   const { t } = useTranslation('stock-console')
-  if (seconds === null) return null
   const age = ageView(seconds)
+  if (!age) return null
   // Words around the numbers ("3 min", "٣ د"): the words carry the order, so it takes its own direction, not Ltr.
   return <bdi>{t(age.key, age.values)}</bdi>
 }
@@ -192,7 +192,7 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
             <When at={reader.lastPassAt} />
           </Row>
           <Row label={t('fleet.reader.lag')}>
-            {reader.lagSeconds === null ? t('fleet.unknown') : <Age seconds={reader.lagSeconds} />}
+            {reader.lagSeconds == null ? t('fleet.unknown') : <Age seconds={reader.lagSeconds} />}
           </Row>
           <Row label={t('fleet.reader.readThrough')}>
             <When at={reader.readThroughAt} />
@@ -216,7 +216,7 @@ function FactBody({ fact, fleet }: { fact: FleetFact; fleet: StockConsoleFleet }
             <Ltr>{formatFigure(today.failed)}</Ltr>
           </Row>
           <Row label={t('fleet.takes.skipped')}>
-            {today.skipped === null ? t('fleet.unknown') : <Ltr>{formatFigure(today.skipped)}</Ltr>}
+            {today.skipped == null ? t('fleet.unknown') : <Ltr>{formatFigure(today.skipped)}</Ltr>}
           </Row>
         </dl>
       )

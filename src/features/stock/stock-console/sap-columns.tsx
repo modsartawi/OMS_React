@@ -11,6 +11,7 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localizedName } from '@/core/util/localized-name'
 import { formatFigure } from '@/core/util/number-format'
 import { MONO, formatQuantity } from './columns'
+import { rowKey } from './row-ids'
 import { itemHref } from './console-pages'
 import { markCell } from './movements'
 
@@ -18,9 +19,9 @@ type DayCell = ICellRendererParams<StockConsoleSapDay>
 type LineCell = ICellRendererParams<StockConsoleSapLine>
 
 /** One summary row per entry day and movement type. */
-export const sapDayRowId = (row: StockConsoleSapDay) => `${row.day}\u0000${row.movementType}`
+export const sapDayRowId = (row: StockConsoleSapDay) => rowKey(row.day, row.movementType)
 /** One SAP line per material document, year and line. */
-export const sapLineRowId = (row: StockConsoleSapLine) => `${row.materialDocument}\u0000${row.year}\u0000${row.line}`
+export const sapLineRowId = (row: StockConsoleSapLine) => rowKey(row.materialDocument, row.year, row.line)
 
 /** A figure column: grouped Latin digits, isolated as a machine value. */
 const figure = <T,>(headerName: string, field: string): ColDef<T> => ({

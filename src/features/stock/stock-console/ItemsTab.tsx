@@ -30,7 +30,6 @@ export default function ItemsTab({ store }: { store: string }) {
     <div className="flex min-w-0 flex-col gap-3">
       <SearchFrame
         name="items"
-        search={search}
         filterLabel={(f) => t(`items.filter.${f}`)}
         sortLabel={(s) => t(`items.sort.${s}`)}
         empty={t('items.empty')}

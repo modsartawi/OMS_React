@@ -66,7 +66,6 @@ function Find() {
       <div className="rounded-lg border border-border/60 bg-card p-3">
         <SearchFrame
           name="find"
-          search={search}
           {...frame}
           stopped={frame.stopped || fill}
           aboveRows={

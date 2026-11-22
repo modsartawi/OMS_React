@@ -604,7 +604,8 @@ export interface StockConsoleLedgerLine {
   tillTrx: string | null
   tillLine: string | number | null
   postingDay: string | null
-  applied: boolean
+  /** null = the answer did not say (normalised in `movements.ts`); only `false` is drawn "not applied". */
+  applied: boolean | null
   /** Its effect on the SAP counter, by the ledger writer's own rule. */
   onSap: number
   /** Its effect on the till-side counter. */

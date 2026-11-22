@@ -7,11 +7,12 @@ import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { MONO, formatQuantity, formatTime } from './columns'
 import { feedCell, ledgerDocument, ledgerEffects, type EffectCell } from './movements'
+import { rowKey } from './row-ids'
 
 type Cell = ICellRendererParams<StockConsoleLedgerLine>
 
 /** A ledger line is its ledger id. */
-export const ledgerRowId = (row: StockConsoleLedgerLine) => row.id
+export const ledgerRowId = (row: StockConsoleLedgerLine) => rowKey(row.id)
 
 /** A counter's effect: the signed figure isolated as a machine value, or a quiet dash for none. */
 function Effect({ cell, t }: { cell: EffectCell; t: TFunction }) {
@@ -72,7 +73,7 @@ export function buildLedgerColumns(t: TFunction): ColDef<StockConsoleLedgerLine>
                 <Ltr>{doc}</Ltr>
               </span>
             )}
-            {!p.data.applied && (
+            {p.data.applied === false && (
               <span data-not-applied="">
                 <StatusBadge sev="warn">{t('movements.notApplied')}</StatusBadge>
               </span>

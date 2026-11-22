@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import type { ColDef, GetRowIdParams } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 
@@ -6,6 +6,7 @@ import { AgGridReact } from 'ag-grid-react'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { CONSOLE_COL_DEF } from './columns'
+import { gridRowIds } from './row-ids'
 
 /**
  * One page of a searched list (oms 941): at most 25 rows, so the grid is sized to its rows and never scrolls inside.
@@ -24,7 +25,11 @@ export default function ListGrid<T>({
   /** The `data-list-grid` hook a drive finds it by. */
   name: string
 }) {
-  const getRowId = useMemo(() => ({ data: row }: GetRowIdParams<T>) => rowId(row), [rowId])
+  // A blank or repeated key falls back to the row's place (`./row-ids`): AG Grid would drop the row otherwise. The ids
+  // are the page's, read through a ref, since AG Grid takes `getRowId` once.
+  const ids = useRef<Map<T, string>>(new Map())
+  ids.current = useMemo(() => gridRowIds(rows, rowId), [rows, rowId])
+  const getRowId = useMemo(() => ({ data: row }: GetRowIdParams<T>) => ids.current.get(row) ?? rowId(row), [rowId])
   return (
     <div className="overflow-hidden rounded-md border border-border/60" data-list-grid={name}>
       <AgGridReact<T>

@@ -10,13 +10,14 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { localizedName } from '@/core/util/localized-name'
 import { formatFigure } from '@/core/util/number-format'
 import { MONO, formatTime } from './columns'
+import { rowKey } from './row-ids'
 import { itemHref } from './items-columns'
 import { takeCells } from './takes'
 
 type Cell = ICellRendererParams<StockConsoleTakeRow>
 
 /** One take door call per row. Module-level, as AG Grid wants. */
-export const takeRowId = (row: StockConsoleTakeRow) => `${row.takeId}\u0000${row.at}`
+export const takeRowId = (row: StockConsoleTakeRow) => rowKey(row.takeId, row.at)
 
 /**
  * The Takes grid's columns (oms 942, spec 4157 stories 40–42), each cell by the row's kind (`takeCells`, pure and

@@ -11,6 +11,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { stageQuery } from './api'
 import { MONO, formatTime } from './columns'
+import { rowKey } from './row-ids'
 import HowRead from './HowRead'
 import { HOW_STAGE } from './how-sections'
 import ListGrid from './ListGrid'
@@ -23,7 +24,7 @@ const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
 const stageWord = (t: TFunction, stage: string) => (KNOWN_STAGES.includes(stage) ? t(`stage.${stage}`) : stage)
 
 /** One move per row: newest first, as the server sends them. Module-level, as AG Grid wants. */
-const moveRowId = (m: StockConsoleStageMove) => `${m.movedAt}\u0000${m.from}\u0000${m.to}`
+const moveRowId = (m: StockConsoleStageMove) => rowKey(m.movedAt, m.from, m.to)
 
 /**
  * A store's Stage and count tab (oms 942, spec 4157 story 50), read on opening, behind the console's grant: the stage

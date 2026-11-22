@@ -4,7 +4,7 @@
  * line that says why something was not found or not searched.
  */
 import type { StockConsoleScan } from '@/core/models/stock-console'
-import { shouldRead, type SearchState } from './search'
+import { shouldRead, wireParams, type SearchState } from './search'
 import type { FrameQuery } from './SearchFrame'
 
 /** The chips' kinds, in the spec's order (`gs1.chip.<kind>`). */
@@ -93,6 +93,21 @@ export function scannedList(state: SearchState, scan: StockConsoleScan | undefin
 }
 
 /** The part of the scan's query the frame looks at (a TanStack Query result fits). */
+/**
+ * Whether a Search with the GS1 box filled asks exactly what is already asked: the same code, and the same list read once
+ * the scan has put its item and lot in (`scannedList`). The address may still change — the boxes it overrides were
+ * typed differently — but no query key does, so the frame must read again itself ("busy, try again" can be tried
+ * again). False with the GS1 box empty: the list's own address decides (`sameSearch`).
+ */
+export function scanReadsSame(shown: SearchState, next: SearchState, scan: StockConsoleScan | undefined): boolean {
+  const code = scanCode(next)
+  if (code === '' || code !== scanCode(shown)) return false
+  const [a, b] = [scannedList(shown, scan), scannedList(next, scan)]
+  // Neither reads a list (the scan unanswered, or nothing to search): the scan's read is all that is asked.
+  if (!a.ran && !b.ran) return true
+  return a.ran === b.ran && JSON.stringify(wireParams(a)) === JSON.stringify(wireParams(b))
+}
+
 export interface ScanRead {
   isError: boolean
   error: unknown

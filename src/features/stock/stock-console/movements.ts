@@ -260,7 +260,7 @@ export function toLedgerLine(d: LedgerLineWire): StockConsoleLedgerLine {
     tillTrx: d.tillTrx ?? till?.transaction ?? null,
     tillLine: d.tillLine ?? till?.line ?? null,
     postingDay: d.postingDay ?? null,
-    applied: d.applied ?? false,
+    applied: typeof d.applied === 'boolean' ? d.applied : null,
     onSap: d.onSap ?? 0,
     onTill: d.onTill ?? 0,
   }

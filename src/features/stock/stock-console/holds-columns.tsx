@@ -8,13 +8,14 @@ import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { localizedName } from '@/core/util/localized-name'
 import { MONO, formatQuantity, formatTime } from './columns'
+import { rowKey } from './row-ids'
 import { holdAge, holdColumns, holdDocument, holdStateCell, type HoldColumn } from './holds'
 import { itemHref } from './items-columns'
 
 type Cell = ICellRendererParams<StockConsoleHoldRow>
 
 /** A hold is one take's hold on one batch [guess: take id and batch are unique within a store's page]. */
-export const holdRowId = (row: StockConsoleHoldRow) => `${row.takeId}\u0000${row.batch}\u0000${row.takenAt}`
+export const holdRowId = (row: StockConsoleHoldRow) => rowKey(row.takeId, row.batch, row.takenAt)
 
 /**
  * The Holds grid's columns (oms 942), in the prototype's order (`holdColumns`, pure and tested): take id, item, name,

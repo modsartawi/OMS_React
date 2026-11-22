@@ -186,6 +186,11 @@ describe('a ledger line as read', () => {
     expect(toLedgerLine(ledgerLine())).toEqual(ledgerLine())
   })
 
+  it('whether it was applied, when the answer does not say, is not known (null) — not "not applied"', () => {
+    expect(toLedgerLine({ id: 'Z', feed: 'Sap' }).applied).toBeNull()
+    expect(toLedgerLine({ id: 'Z', feed: 'Sap', applied: false }).applied).toBe(false)
+  })
+
   it('Stock Visibility’s built names read the same: time, a nested SAP or till document', () => {
     const sap = toLedgerLine({
       id: 'X',

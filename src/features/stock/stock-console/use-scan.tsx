@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { StockConsoleScan } from '@/core/models/stock-console'
 import { scanQuery } from './api'
-import { applyScan, scanCode, scanFrameRead, scannedList } from './scan'
+import { applyScan, scanCode, scanFrameRead, scannedList, scanReadsSame } from './scan'
 import ScanChips from './ScanChips'
-import type { SearchState } from './search'
+import { submitSearch, type SearchState } from './search'
 import type { FrameQuery, SearchFrameProps } from './SearchFrame'
 import type { ListSearch } from './use-list-search'
 
@@ -14,8 +14,11 @@ export interface ListScan {
   state: SearchState
   /** The scan's answer for the address's code, once read (the Batches expiry mark compares against it). */
   answer: StockConsoleScan | null
-  /** The frame's GS1 props: the box, the chips above the rows, and the list's read with the scan's in front of it. */
-  frame: (read: FrameQuery) => Pick<SearchFrameProps, 'gs1' | 'read' | 'aboveRows' | 'stopped'>
+  /**
+   * The frame's GS1 props: the box, the chips above the rows, the list's read with the scan's in front of it, and the
+   * search — whose Search reads again when the scan leaves the read unchanged.
+   */
+  frame: (read: FrameQuery) => Pick<SearchFrameProps, 'search' | 'gs1' | 'read' | 'aboveRows' | 'stopped'>
 }
 
 /**
@@ -27,7 +30,7 @@ export interface ListScan {
  * const search = useListSearch(SPEC)
  * const scan = useScan(search)
  * const read = useQuery(xQuery(store, scan.state))
- * <SearchFrame … {...scan.frame(read)}>
+ * <SearchFrame name="x" … {...scan.frame(read)}>
  * ```
  */
 export function useScan(search: ListSearch): ListScan {
@@ -37,14 +40,24 @@ export function useScan(search: ListSearch): ListScan {
   const { setBox } = search
 
   // The GS1 box wins: once it answered, the item and batch boxes show what it searches. A code we do not know leaves
-  // them as they are. Again on each address change, since the boxes reset to the address's when it changes from outside.
+  // them as they are. Only when the answer itself changes: what the person types afterwards is theirs.
   useEffect(() => {
     if (!answer) return
     const read = applyScan(answer)
     if (!read.search) return
     setBox('item', read.item)
     setBox('batch', read.batch)
-  }, [answer, search.state, setBox])
+  }, [answer, setBox])
+
+  // The boxes the scan overrides may differ from the address while the read they ask stays the same: the address moves,
+  // no key does, and nothing would be read. Search reads again then, as it does for the search already shown.
+  const withRead: ListSearch = {
+    ...search,
+    search: () => {
+      const same = scanReadsSame(search.state, submitSearch(search.state, search.boxes, search.extras), answer ?? undefined)
+      return search.search() && !same
+    },
+  }
 
   return {
     state: scannedList(search.state, answer ?? undefined),
@@ -52,6 +65,7 @@ export function useScan(search: ListSearch): ListScan {
     frame: (read) => {
       const withScan = scanFrameRead(search.state, scan, read)
       return {
+        search: withRead,
         gs1: true,
         read: withScan,
         stopped: withScan.stopped,

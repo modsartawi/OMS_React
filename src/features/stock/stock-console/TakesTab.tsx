@@ -47,7 +47,6 @@ export default function TakesTab({ store }: { store: string }) {
     <div className="flex min-w-0 flex-col gap-3">
       <SearchFrame
         name="takes"
-        search={search}
         {...frame}
         filterLabel={(f) => t(`takes.filter.${f}`)}
         extraBoxes={

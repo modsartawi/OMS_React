@@ -9,6 +9,7 @@ import type { LocalDate } from '@/core/util/date-window'
 import { localizedName } from '@/core/util/localized-name'
 import { ExpiryCell, scanMarkColumn } from './batches-columns'
 import { MONO, formatQuantity } from './columns'
+import { rowKey } from './row-ids'
 import { findRowHref, itemStoresParams } from './find'
 import { scanExpiry } from './scan'
 import type { SearchState } from './search'
@@ -17,7 +18,7 @@ type BatchCell = ICellRendererParams<StockConsoleFindBatchRow>
 type ItemCell = ICellRendererParams<StockConsoleFindItemRow>
 
 /** One store, item and batch per row. Module-level, as AG Grid wants. */
-export const findBatchRowId = (row: StockConsoleFindBatchRow) => `${row.plant}\u0000${row.item}\u0000${row.batch}`
+export const findBatchRowId = (row: StockConsoleFindBatchRow) => rowKey(row.plant, row.item, row.batch)
 /** One item per row. */
 export const findItemRowId = (row: StockConsoleFindItemRow) => row.item
 

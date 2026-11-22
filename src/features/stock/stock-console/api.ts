@@ -24,9 +24,13 @@ export const STOCK_CONSOLE_KEY = ['stock', 'stock-console'] as const
 /** A row as drawn: an absent flag list reads as none. */
 const storeRow = (r: StockConsoleStoreRow): StockConsoleStoreRow => ({ ...r, flags: r.flags ?? [] })
 
-/** Stock Visibility's page as drawn: absent rows read as none, an absent total as 0, an absent page as the one asked. */
+/**
+ * Stock Visibility's page as drawn: absent rows read as none, an absent total as the rows it carries (never 0 over rows:
+ * the frame would say "nothing found" above them), an absent page as the one asked.
+ */
 export function toPage<T>(d: Partial<StockConsolePage<T>> | null | undefined, asked: { page: number; size: number }): StockConsolePage<T> {
-  return { total: d?.total ?? 0, page: d?.page ?? asked.page, size: d?.size ?? asked.size, rows: d?.rows ?? [] }
+  const rows = d?.rows ?? []
+  return { total: d?.total ?? rows.length, page: d?.page ?? asked.page, size: d?.size ?? asked.size, rows }
 }
 
 const storePath = (store: string) => `StockConsole/Stores/${encodeURIComponent(store)}`
@@ -64,9 +68,14 @@ export const storesQuery = () =>
     retry: retryUnlessAnswered,
   })
 
-/** A coded refusal (`ConsoleBusy`, `NoStore`, …) is an answer, not a blip: only an outage is retried, once. */
-export const retryUnlessAnswered = (failures: number, err: unknown): boolean =>
-  apiErrorKind(err) !== 'business' && failures < 1
+/**
+ * A coded refusal (`ConsoleBusy`, `NoStore`, …), a bare 403 and a signed-out session are answers, not blips: only an
+ * outage — the network, or the server — is retried, once.
+ */
+export const retryUnlessAnswered = (failures: number, err: unknown): boolean => {
+  const kind = apiErrorKind(err)
+  return (kind === 'network' || kind === 'server') && failures < 1
+}
 
 // ── 941 ──
 
@@ -188,12 +197,18 @@ export const stockConsoleApi942 = {
   /** `GET StockConsole/Fleet` → the facts that belong to no store. An absent fact is no answer (null), never healthy. */
   async fleet(): Promise<StockConsoleFleet> {
     const d = await api.get<Partial<StockConsoleFleet> | null>('StockConsole/Fleet')
+    const reader = d?.ledgerReader
     return {
       readAt: d?.readAt ?? '',
-      feeds: d?.feeds ?? null,
+      // A figure left out of an answered fact is no answer for that figure: null, never 0 ("just now").
+      feeds: d?.feeds
+        ? d.feeds.map((f) => ({ ...f, lastCompletePassAt: f.lastCompletePassAt ?? null, ageSeconds: f.ageSeconds ?? null }))
+        : null,
       reservedRun: d?.reservedRun ?? null,
       heldServed: d?.heldServed ?? null,
-      ledgerReader: d?.ledgerReader ?? null,
+      ledgerReader: reader
+        ? { lastPassAt: reader.lastPassAt ?? null, lagSeconds: reader.lagSeconds ?? null, readThroughAt: reader.readThroughAt ?? null }
+        : null,
       takesToday: d?.takesToday ?? null,
     }
   },
@@ -495,13 +510,13 @@ const windowKey = (decision: WindowRead): DayWindow =>
   decision.kind === 'read' ? { from: decision.from, to: decision.to } : { from: '', to: '' }
 
 /**
- * The last page kept on screen while the next one reads — only within the same window (key positions `at`, `at + 1`):
- * a new window's read shows its loading line, never the old window's rows under the new days.
+ * The last page kept on screen while the next one reads — only while the key's parts from `at` on are still `same` (a
+ * window's days, an opened row's day and type): a new window or row shows its loading line, never the old one's rows.
  */
-const keepWithinWindow =
-  (at: number, window: DayWindow) =>
+const keepWhileSame =
+  (at: number, same: readonly unknown[]) =>
   <T>(previous: T | undefined, query: { queryKey: readonly unknown[] } | undefined): T | undefined =>
-    query && query.queryKey[at] === window.from && query.queryKey[at + 1] === window.to ? previous : undefined
+    query && same.every((part, i) => query.queryKey[at + i] === part) ? previous : undefined
 
 /** The store's SAP movements for the window, read by Read SAP. Under the SAP tab's key: Refresh re-reads it (once read). */
 export function sapMovementsQuery(store: string, decision: WindowRead) {
@@ -517,12 +532,12 @@ export function sapMovementsQuery(store: string, decision: WindowRead) {
 /** An opened SAP row's lines, a page at a time; read only while its window is read and a row is open. */
 export function sapLinesQuery(store: string, decision: WindowRead, state: MovementsState) {
   const q = { day: state.sapDay, type: state.sapType, page: state.page, size: STOCK_CONSOLE_PAGE_SIZE }
+  const linesKey = [...storeTabKey(store, 'sap'), 'lines'] as const
   return queryOptions({
-    queryKey: [...storeTabKey(store, 'sap'), 'lines', q.day, q.type, q.page] as const,
+    queryKey: [...linesKey, q.day, q.type, q.page] as const,
     queryFn: () => stockConsoleApi945.sapLines(store, q),
     enabled: decision.kind === 'read' && q.day !== '' && q.type !== '',
-    placeholderData: (previous, query) =>
-      query && query.queryKey[4] === q.day && query.queryKey[5] === q.type ? previous : undefined,
+    placeholderData: keepWhileSame(linesKey.length, [q.day, q.type]),
     retry: retryUnlessAnswered,
   })
 }
@@ -535,7 +550,7 @@ export function itemMovementsQuery(store: string, item: string, decision: Window
     queryKey: [...tabKey, window.from, window.to, page] as const,
     queryFn: () => stockConsoleApi945.itemMovements(store, item, { ...window, page, size: STOCK_CONSOLE_PAGE_SIZE }),
     enabled: decision.kind === 'read',
-    placeholderData: keepWithinWindow(tabKey.length, window),
+    placeholderData: keepWhileSame(tabKey.length, [window.from, window.to]),
     retry: retryUnlessAnswered,
   })
 }

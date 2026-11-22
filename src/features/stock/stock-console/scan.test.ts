@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StockConsoleScan } from '@/core/models/stock-console'
-import { applyScan, expiryMark, scanCode, scanFrameRead, scannedList, type ScanRead } from './scan'
+import { applyScan, expiryMark, scanCode, scanFrameRead, scannedList, scanReadsSame, type ScanRead } from './scan'
 import { frameView, searchFromParams, wireParams, type ListSpec } from './search'
 
 const LIST: ListSpec = { filters: ['all', 'withStock'], keep: ['tab'] }
@@ -132,6 +132,28 @@ describe('the list a scan searches', () => {
 
   it('a code we do not know reads no list', () => {
     expect(scannedList(shown('gs1=zzz&ran=1'), scan({ kind: 'Unknown' })).ran).toBe(false)
+  })
+})
+
+describe('Search again with the GS1 box filled', () => {
+  it('asks the same read when only the boxes the scan overrides changed — so it is read again, not skipped', () => {
+    // After a refusal the boxes show the scan's item and lot; the address still holds what was typed.
+    const before = shown('gs1=0101&ran=1')
+    const after = shown('item=1001&batch=L77&gs1=0101&ran=1')
+    expect(scanReadsSame(before, after, scan())).toBe(true)
+    // The scan itself refused (no answer): a new Search with the same code asks the scan again.
+    expect(scanReadsSame(before, after, undefined)).toBe(true)
+  })
+
+  it('is a new read when the code, the filter or the page changes', () => {
+    const before = shown('gs1=0101&ran=1')
+    expect(scanReadsSame(before, shown('gs1=0202&ran=1'), scan())).toBe(false)
+    expect(scanReadsSame(before, shown('gs1=0101&filter=withStock&ran=1'), scan())).toBe(false)
+    expect(scanReadsSame(before, shown('gs1=0101&page=2&ran=1'), scan())).toBe(false)
+  })
+
+  it('with the GS1 box empty, the scan says nothing: the list’s own address decides', () => {
+    expect(scanReadsSame(shown('item=1&ran=1'), shown('item=1&ran=1'), undefined)).toBe(false)
   })
 })
 

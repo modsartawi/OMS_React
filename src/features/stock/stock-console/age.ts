@@ -1,7 +1,7 @@
 /**
  * An age as the console says it (oms 942) — pure: a hold's age ("3 d 4 h"), a feed's last full pass ("12 min"). Returns
  * a locale key and its values; the component says it. Under a minute, and a time ahead of the reader's clock, read
- * "just now" — never a negative age.
+ * "just now" — never a negative age. No figure is no answer (null), never "just now".
  */
 
 export interface AgeView {
@@ -9,10 +9,11 @@ export interface AgeView {
   values: Record<string, number>
 }
 
-/** An age in seconds, as days and hours, hours and minutes, minutes, or "just now". */
-export function ageView(seconds: number): AgeView {
+/** An age in seconds, as days and hours, hours and minutes, minutes, or "just now"; null when there is no figure. */
+export function ageView(seconds: number | null | undefined): AgeView | null {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return null
   const minutes = Math.floor(seconds / 60)
-  if (!Number.isFinite(seconds) || minutes < 1) return { key: 'age.justNow', values: {} }
+  if (minutes < 1) return { key: 'age.justNow', values: {} }
   if (minutes < 60) return { key: 'age.minutes', values: { m: minutes } }
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return { key: 'age.hours', values: { h: hours, m: minutes % 60 } }

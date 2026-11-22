@@ -147,3 +147,44 @@ describe('stock-console — the GS1 box’s keys exist', () => {
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 })
+
+// ── 943 ──
+import { ANSWER_RULES, OTHER_STOCK, SUM_LINES } from './item-sum'
+import { ITEM_TABS } from './item-tabs'
+import {
+  HOW_FIND,
+  HOW_ITEM,
+  HOW_ITEM_BATCHES,
+  HOW_ITEM_HOLDS,
+  HOW_ITEM_STORES,
+  HOW_ITEM_TAKES,
+} from './how-sections'
+
+describe('stock-console — the keys 943 builds exist', () => {
+  it.each([en, ar])('the item page, its sum, its tabs, and Find', (locale) => {
+    const keys = [
+      'nav.find',
+      ...['back', 'loading', 'atStore', 'noRowTitle', 'noRowHint', 'lastUpdate'].map((k) => `item.${k}`),
+      ...SUM_LINES.map((k) => `sum.line.${k}`),
+      ...ANSWER_RULES.map((k) => `sum.rule.${k}`),
+      'sum.rule.unknown',
+      ...OTHER_STOCK.map((k) => `sum.other.${k}`),
+      'sum.other.title',
+      ...['title', 'rules', 'onNoBatch_other', 'op.less', 'op.equals'].map((k) => `sum.${k}`),
+      ...['title', 'noAnswer', 'liveOrders'].map((k) => `sum.answeredNow.${k}`),
+      ...['title', 'floor'].map((k) => `sum.changeFeed.${k}`),
+      ...ITEM_TABS.map((k) => `itemTabs.${k}`),
+      ...ITEM_TABS.map((k) => `itemTabs.empty.${k}`),
+      ...['label', 'loading', 'showing'].map((k) => `itemTabs.${k}`),
+      ...['lead', 'fill', 'empty.batch', 'empty.item', 'rows_other', 'atStores_other', 'openStores'].map((k) => `find.${k}`),
+      ...['title', 'close'].map((k) => `find.stores.${k}`),
+      ...['title', ...HOW_ITEM].map((k) => `how.item.${k}`),
+      ...['title', ...HOW_ITEM_BATCHES].map((k) => `how.itemBatches.${k}`),
+      ...['title', ...HOW_ITEM_HOLDS].map((k) => `how.itemHolds.${k}`),
+      ...['title', ...HOW_ITEM_TAKES].map((k) => `how.itemTakes.${k}`),
+      ...['title', ...HOW_ITEM_STORES].map((k) => `how.itemStores.${k}`),
+      ...['title', ...HOW_FIND].map((k) => `how.find.${k}`),
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+})

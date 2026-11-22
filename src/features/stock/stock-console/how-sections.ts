@@ -11,3 +11,20 @@ export const HOW_TAKES = ['p1', 'p2', 'p3'] as const
 export const HOW_FEEDS = ['p1', 'p2'] as const
 export const HOW_STAGE = ['p1', 'p2'] as const
 export const HOW_FLEET = ['p1', 'p2', 'p3'] as const
+// 943 — the item's sum, one paragraph per line and per rule beside it; each item tab; Find.
+export const HOW_ITEM = [
+  'sapStock',
+  'gap',
+  'tillStock',
+  'held',
+  'reserved',
+  'free',
+  'answeredNow',
+  'changeFeed',
+  'otherStock',
+] as const
+export const HOW_ITEM_BATCHES = ['p1'] as const
+export const HOW_ITEM_HOLDS = ['p1'] as const
+export const HOW_ITEM_TAKES = ['p1'] as const
+export const HOW_ITEM_STORES = ['p1'] as const
+export const HOW_FIND = ['p1', 'p2', 'p3'] as const

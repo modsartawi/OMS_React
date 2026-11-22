@@ -272,3 +272,160 @@ export const scanQuery = (code: string) =>
     staleTime: 5 * 60_000,
     retry: retryUnlessAnswered,
   })
+
+// ── 943 ──
+// An item at a store (its figures, read on opening, and its four tabs, each one small read on opening) and Find across
+// the fleet (searched). (Imported here, not at the top, so parallel tickets append their blocks untouched.)
+import type {
+  StockConsoleFind,
+  StockConsoleItem,
+  StockConsoleItemStoreRow,
+} from '@/core/models/stock-console'
+import { findAnswer, findDecision, findWire } from './find'
+import type { ItemTab } from './item-tabs'
+import { STOCK_CONSOLE_PAGE_SIZE } from './search'
+
+/** Rows an item tab asks for at once (Stock Visibility's clamp) [guess]: an item's batches, holds and takes are few. */
+export const ITEM_TAB_SIZE = 200
+const ITEM_TAB_PAGE = { page: 1, size: ITEM_TAB_SIZE }
+
+const itemPath = (store: string, item: string) => `${storePath(store)}/Items/${encodeURIComponent(item)}`
+
+/** An item tab's answer: a page [guess] — or a bare array, read as one page of it. */
+function pageOrList<T>(d: Partial<StockConsolePage<T>> | T[] | null | undefined, asked: { page: number; size: number }) {
+  return Array.isArray(d) ? { total: d.length, page: 1, size: d.length, rows: d } : toPage(d, asked)
+}
+
+/** The item as drawn: absent names read as '', absent other stock types as 0 (not shown), no answer-now as null. */
+function toItem(d: Partial<StockConsoleItem> | null | undefined, store: string, item: string): StockConsoleItem {
+  const n = (v: number | null | undefined) => v ?? 0
+  return {
+    ...(d as StockConsoleItem),
+    plant: d?.plant ?? store,
+    item: d?.item ?? item,
+    nameEn: d?.nameEn ?? '',
+    nameAr: d?.nameAr ?? '',
+    heldOnNoBatch: n(d?.heldOnNoBatch),
+    reserved: d?.reserved ?? null,
+    reservedAt: d?.reservedAt ?? null,
+    lastUpdate: d?.lastUpdate ?? null,
+    answeredNow: d?.answeredNow ?? null,
+    quality: n(d?.quality),
+    blocked: n(d?.blocked),
+    returnsBlocked: n(d?.returnsBlocked),
+    restricted: n(d?.restricted),
+    inTransit: n(d?.inTransit),
+    inTransferPlant: n(d?.inTransferPlant),
+    inTransferLocation: n(d?.inTransferLocation),
+  }
+}
+
+export const stockConsoleApi943 = {
+  /** `GET StockConsole/Stores/{store}/Items/{item}` → the item's figures, its sums' operands. `NoRow` when absent. */
+  async item(store: string, item: string): Promise<StockConsoleItem> {
+    return toItem(await api.get<Partial<StockConsoleItem> | null>(itemPath(store, item)), store, item)
+  },
+  /** `…/Items/{item}/Batches` → the store's Batches read for that item. */
+  async itemBatches(store: string, item: string): Promise<StockConsolePage<StockConsoleBatchRow>> {
+    const d = await api.get<Partial<StockConsolePage<StockConsoleBatchRow>> | StockConsoleBatchRow[] | null>(
+      `${itemPath(store, item)}/Batches`,
+      ITEM_TAB_PAGE,
+    )
+    return pageOrList(d, ITEM_TAB_PAGE)
+  },
+  /** `…/Items/{item}/Holds` → its open holds and those released in the last 7 days, one list. */
+  async itemHolds(store: string, item: string): Promise<StockConsolePage<StockConsoleHoldRow>> {
+    const d = await api.get<Partial<StockConsolePage<StockConsoleHoldRow>> | StockConsoleHoldRow[] | null>(
+      `${itemPath(store, item)}/Holds`,
+      ITEM_TAB_PAGE,
+    )
+    return pageOrList(d, ITEM_TAB_PAGE)
+  },
+  /** `…/Items/{item}/Takes` → its takes of today and the two days before; failed calls carry no item, so none. */
+  async itemTakes(store: string, item: string): Promise<StockConsoleTakes> {
+    const d = await api.get<Partial<StockConsoleTakes> | StockConsoleTakeRow[] | null>(
+      `${itemPath(store, item)}/Takes`,
+      ITEM_TAB_PAGE,
+    )
+    const page = pageOrList(d, ITEM_TAB_PAGE)
+    const leftOut = Array.isArray(d) ? true : (d?.failedLeftOut ?? true)
+    return { ...page, rows: page.rows.map(normaliseTake), failedLeftOut: leftOut }
+  },
+  /** `GET StockConsole/Items/{item}/Stores` → a page of the item at every store. */
+  async itemStores(item: string, q: { page: number; size: number }): Promise<StockConsolePage<StockConsoleItemStoreRow>> {
+    const d = await api.get<Partial<StockConsolePage<StockConsoleItemStoreRow>> | StockConsoleItemStoreRow[] | null>(
+      `StockConsole/Items/${encodeURIComponent(item)}/Stores`,
+      q,
+    )
+    return pageOrList(d, q)
+  },
+  /** `GET StockConsole/Find` → with a batch, one row per store, item and batch; without, items. Read by what was sent. */
+  async find(sent: 'batch' | 'item', q: ReturnType<typeof findWire>): Promise<StockConsoleFind> {
+    return findAnswer(sent, await api.get<Parameters<typeof findAnswer>[1]>('StockConsole/Find', q), q)
+  },
+}
+
+/** Every read of one item at one store sits under this key. */
+export const itemKey = (store: string, item: string) => [...storeKey(store), 'item', item] as const
+
+/**
+ * An item tab's reads — what the item page's Refresh invalidates, and only that. Other stores is keyed on the item
+ * alone (the same rows from every store's page and from Find).
+ */
+export const itemTabKey = (store: string, item: string, tab: ItemTab) =>
+  tab === 'stores' ? ([...STOCK_CONSOLE_KEY, 'item-stores', item] as const) : ([...itemKey(store, item), tab] as const)
+
+/** The item's figures, read on opening; outside every tab's key. */
+export const itemHeaderQuery = (store: string, item: string) =>
+  queryOptions({
+    queryKey: [...itemKey(store, item), 'header'] as const,
+    queryFn: () => stockConsoleApi943.item(store, item),
+    retry: retryUnlessAnswered,
+  })
+
+export const itemBatchesQuery = (store: string, item: string) =>
+  queryOptions({
+    queryKey: itemTabKey(store, item, 'batches'),
+    queryFn: () => stockConsoleApi943.itemBatches(store, item),
+    retry: retryUnlessAnswered,
+  })
+
+export const itemHoldsQuery = (store: string, item: string) =>
+  queryOptions({
+    queryKey: itemTabKey(store, item, 'holds'),
+    queryFn: () => stockConsoleApi943.itemHolds(store, item),
+    retry: retryUnlessAnswered,
+  })
+
+export const itemTakesQuery = (store: string, item: string) =>
+  queryOptions({
+    queryKey: itemTabKey(store, item, 'takes'),
+    queryFn: () => stockConsoleApi943.itemTakes(store, item),
+    retry: retryUnlessAnswered,
+  })
+
+/** The item at every store, 25 a page; the last page kept on screen while the next reads. */
+export const itemStoresQuery = (item: string, page: number) =>
+  queryOptions({
+    queryKey: [...STOCK_CONSOLE_KEY, 'item-stores', item, page] as const,
+    queryFn: () => stockConsoleApi943.itemStores(item, { page, size: STOCK_CONSOLE_PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+    retry: retryUnlessAnswered,
+  })
+
+/**
+ * Find: read only once a search ran with something to find (`findDecision`) — both boxes empty ask nothing. Keyed on what
+ * it sends; the last page kept on screen while the next reads (`answerShown` keeps the other kind's off screen).
+ */
+export function findQuery(state: SearchState) {
+  const decision = findDecision(state)
+  const sent = decision === 'batch' ? 'batch' : 'item'
+  const wire = findWire(state)
+  return queryOptions({
+    queryKey: [...STOCK_CONSOLE_KEY, 'find', wire] as const,
+    queryFn: () => stockConsoleApi943.find(sent, wire),
+    enabled: decision === 'batch' || decision === 'item',
+    placeholderData: keepPreviousData,
+    retry: retryUnlessAnswered,
+  })
+}

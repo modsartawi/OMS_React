@@ -28,3 +28,14 @@ describe('Feeds and switches (942)', () => {
     expect(consolePageActive(fleet, '/stock/console/store/P077')).toBe(false)
   })
 })
+
+describe('Find an item or a batch (943)', () => {
+  it('sits between Stores and Feeds and switches, lit on its own address only', () => {
+    expect(CONSOLE_PAGES.map((p) => p.key)).toEqual(['stores', 'find', 'fleet'])
+    const find = CONSOLE_PAGES[1]
+    expect(find).toEqual({ to: '/stock/console/find', key: 'find' })
+    expect(consolePageActive(find, '/stock/console/find')).toBe(true)
+    expect(consolePageActive(find, '/stock/console')).toBe(false)
+    expect(consolePageActive(find, '/stock/console/store/P077/item/1001')).toBe(false)
+  })
+})

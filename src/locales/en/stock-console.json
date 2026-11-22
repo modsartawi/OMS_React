@@ -14,7 +14,8 @@
   "nav": {
     "label": "Stock console pages",
     "stores": "Stores",
-    "fleet": "Feeds and switches"
+    "fleet": "Feeds and switches",
+    "find": "Find an item or a batch"
   },
   "tiles": {
     "label": "Filter the stores",
@@ -178,6 +179,40 @@
       "p1": "Facts that belong to no store, read once when this page opens from Stock Visibility's status routes: each feed's last full pass and its age, the reserved recompute's run, the held-served switch, the hold ledger reader's lag and today's take door figures.",
       "p2": "A fact whose route did not answer — an older Stock Visibility, or one that could not be reached — says \"No answer\". It is never shown as healthy.",
       "p3": "The facts that are a problem now are also said once, above the stores list, so no store is blamed for them."
+    },
+    "item": {
+      "title": "How this is read",
+      "sapStock": "SAP counter: what SAP has posted for this item at storage location 0001 of this store.",
+      "gap": "Sold at the till, not in SAP yet: the SAP counter less the till-side counter — the till sales SAP has not posted.",
+      "tillStock": "Till-side: the SAP counter less the till sales SAP has not posted. It is the store's stock of this item.",
+      "held": "Held: every hold on this item not released — standing, and sold not applied (a sale not yet applied to the counter still counts, as Stock Visibility counts it). Holds on no batch are in it too.",
+      "reserved": "Reserved: the reserved recompute's total for this store and item. Never computed shows no figure, never a zero; stale shows its figure and its time, marked.",
+      "free": "Free: till-side less held less reserved, never floored at zero. When reserved was never computed it is left out, and free says so.",
+      "answeredNow": "Answered now: what the stock read answers the channels for this store and item at this moment, and the rule that made it. Under the live-orders rule the open orders are taken off in place of held.",
+      "changeFeed": "Change feed: the figure the change feed sends — till-side less held less reserved, floored at zero.",
+      "otherStock": "Other stock types: quality, blocked, returns, restricted, in transit and in transfer are not unrestricted, so they are not in the sum. Each is shown when it is not zero."
+    },
+    "itemBatches": {
+      "title": "How this is read",
+      "p1": "The store's batches of this item, by expiry. Free for the take door is a batch's till-side stock less the holds on that batch; reserved is not taken off."
+    },
+    "itemHolds": {
+      "title": "How this is read",
+      "p1": "The item's holds not released (standing, and sold not applied) and those released in the last 7 days, one list, as Stock Visibility holds them. Nothing is joined from OMS."
+    },
+    "itemTakes": {
+      "title": "How this is read",
+      "p1": "The take door's calls for this item today and the two days before. A failed call carries no item, so failed calls are not listed here."
+    },
+    "itemStores": {
+      "title": "How this is read",
+      "p1": "The item at every store, from each store's stock row, 25 a page: SAP stock, till-side, held, reserved and free by the stores list's rules. A row opens the item at that store."
+    },
+    "find": {
+      "title": "How this is read",
+      "p1": "With a batch, Find asks every store for it — our batch or the vendor batch, with or without an item — and answers one row per store, item and batch, with the count of rows and of stores. A row opens the item at that store.",
+      "p2": "Without a batch, Find answers items from HQ's item master, by number or by name. An item opens its stores on this page.",
+      "p3": "With both boxes empty, Find asks nothing. A GS1 code is read first, and its item and its lot are searched."
     }
   },
   "store": {
@@ -497,5 +532,87 @@
   },
   "flagLink": {
     "open": "Open the list behind this flag"
+  },
+  "item": {
+    "back": "Store <s>{{store}}</s>",
+    "loading": "Reading the item…",
+    "atStore": "at store <s>{{store}}</s>",
+    "noRowTitle": "No such item at this store",
+    "noRowHint": "Stock Visibility has no stock row for this item at this store. Check the number, or find the item across the fleet.",
+    "lastUpdate": "Last update <at>{{at}}</at>"
+  },
+  "sum": {
+    "title": "The sum, with this item's numbers",
+    "rules": "The two other rules in use",
+    "op": {
+      "less": "−",
+      "equals": "="
+    },
+    "line": {
+      "sapStock": "SAP counter",
+      "gap": "Sold at the till, not in SAP yet",
+      "tillStock": "Till-side",
+      "held": "Held",
+      "reserved": "Reserved",
+      "free": "Free"
+    },
+    "onNoBatch_one": "<v>{{n}}</v> of it on no batch",
+    "onNoBatch_other": "<v>{{n}}</v> of it on no batch",
+    "answeredNow": {
+      "title": "Answered now",
+      "noAnswer": "No answer",
+      "liveOrders": "less <v>{{n}}</v> in open orders"
+    },
+    "rule": {
+      "HeldServed": "by the held-served rule: till-side less held",
+      "LiveOrders": "by the live-orders rule: till-side less the open orders",
+      "unknown": "by the rule <r>{{rule}}</r>"
+    },
+    "changeFeed": {
+      "title": "Change feed",
+      "floor": "till-side less held less reserved, never below zero"
+    },
+    "other": {
+      "title": "Other stock types",
+      "quality": "Quality inspection",
+      "blocked": "Blocked",
+      "returnsBlocked": "Returns",
+      "restricted": "Restricted",
+      "inTransit": "In transit",
+      "inTransferPlant": "In transfer between stores",
+      "inTransferLocation": "In transfer between locations"
+    }
+  },
+  "itemTabs": {
+    "label": "The item's lists",
+    "batches": "Batches",
+    "holds": "Holds",
+    "takes": "Takes",
+    "stores": "Other stores",
+    "loading": "Reading…",
+    "showing": "Showing the first <n>{{shown}}</n> of <n>{{total}}</n>",
+    "empty": {
+      "batches": "This item has no batch at this store.",
+      "holds": "No hold on this item is open, or was released in the last 7 days.",
+      "takes": "No take of this item today or the two days before.",
+      "stores": "No store has a stock row for this item."
+    }
+  },
+  "find": {
+    "lead": "Search the fleet: an item by number or name, or a batch — ours or the vendor's — with or without an item.",
+    "fill": "Fill the item or the batch box.",
+    "empty": {
+      "batch": "No store holds this batch.",
+      "item": "No item matches."
+    },
+    "rows_one": "<n>{{n}}</n> row",
+    "rows_other": "<n>{{n}}</n> rows",
+    "atStores_one": "at <n>{{n}}</n> store",
+    "atStores_other": "at <n>{{n}}</n> stores",
+    "openStores": "Show this item at every store",
+    "stores": {
+      "title": "Item <i>{{item}}</i> at every store",
+      "close": "Close"
+    }
   }
 }

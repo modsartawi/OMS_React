@@ -7,13 +7,13 @@ import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import { localizedName } from '@/core/util/localized-name'
 import { MONO, formatQuantity, formatTime } from './columns'
+import { itemHref } from './console-pages'
 import { FreeCell, ReservedCell } from './figure-cells'
-import { storeHref } from './stores-columns'
 
 type Cell = ICellRendererParams<StockConsoleItemRow>
 
-/** An item's page at a store (ticket 943). */
-export const itemHref = (store: string, item: string) => `${storeHref(store)}/item/${encodeURIComponent(item)}`
+/** An item's page at a store (ticket 943) — built in `./console-pages`, so the pure modules link to it too. */
+export { itemHref }
 
 /** The Items grid's row id: the item is unique within one store's page. Module-level, as AG Grid wants. */
 export const itemRowId = (row: StockConsoleItemRow) => row.item

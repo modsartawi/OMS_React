@@ -6,14 +6,14 @@ import type { StockConsoleStoreRow } from '@/core/models/stock-console'
 import Ltr from '@/core/ui/Ltr'
 import LtrCell from '@/core/ui/LtrCell'
 import { MONO, formatQuantity, formatTime } from './columns'
-import { STOCK_CONSOLE_PATH } from './console-pages'
+import { storeHref } from './console-pages'
 import { FreeCell, ReservedCell } from './figure-cells'
 import StatusPill from './StatusPill'
 
 type Cell = ICellRendererParams<StockConsoleStoreRow>
 
-/** The store's page (ticket 941). */
-export const storeHref = (plant: string) => `${STOCK_CONSOLE_PATH}/store/${encodeURIComponent(plant)}`
+/** The store's page (ticket 941) — built in `./console-pages` since 943. */
+export { storeHref }
 
 const KNOWN_STAGES = ['Shadow', 'Seeding', 'Seeded', 'Blocking']
 

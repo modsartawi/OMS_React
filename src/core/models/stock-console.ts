@@ -435,3 +435,97 @@ export interface StockConsoleScan {
   /** AI 21. */
   serial: string | null
 }
+
+// ── 943 ──
+// `GET StockConsole/Stores/{store}/Items/{item}` answers the item's figures (BO 4161, SV 078) — the operands of its sums,
+// flat; the web writes the lines out (`item-sum.ts`). Its four tabs: `…/Items/{item}/Batches|Holds|Takes` answer the
+// store lists' shapes (a page) and `StockConsole/Items/{item}/Stores` a page of the item at every store.
+// `GET StockConsole/Find` answers a batch page or an items page, by what was sent. `NoRow`: no stock row at the store.
+
+/** What the channels are answered for this store and item now, and which rule made it (SV 078). */
+export interface StockConsoleAnsweredNow {
+  /** NOT floored. */
+  quantity: number
+  /** `'HeldServed' | 'LiveOrders'`, read defensively. */
+  rule: string
+  /** The open orders subtracted — only under the live-orders rule. */
+  liveOrders: number | null
+}
+
+/** One item at one store, with HQ's names and SIS.Api's gap, held and free added (BO 4161). */
+export interface StockConsoleItem extends StockConsoleOtherStock {
+  plant: string
+  item: string
+  nameEn: string
+  nameAr: string
+  /** The SAP counter. */
+  sapStock: number
+  /** The till-side counter. */
+  tillStock: number
+  /** sapStock − tillStock: sold at the till, not in SAP yet. */
+  gap: number
+  heldStanding: number
+  heldSold: number
+  held: number
+  /** Holds on a blank or unknown batch (SV 078). */
+  heldOnNoBatch: number
+  /** null = never computed — NEVER 0. */
+  reserved: number | null
+  /** A `ReservedState`, read defensively. */
+  reservedState: string
+  /** The recompute's time for this figure [guess: SV `reservedComputedAt` renamed]. */
+  reservedAt: string | null
+  /** till − held − reserved, never floored (reserved left out when never computed). */
+  free: number
+  reservedIncluded: boolean
+  lastUpdate: string | null
+  /** null = the answer did not carry it (normalised in `api.ts`); drawn as no answer. */
+  answeredNow: StockConsoleAnsweredNow | null
+  /** MAX(0, till − held − reserved): the change feed's figure. */
+  changeFeed: number
+}
+
+/** The item at one store of the fleet (SV 078). SIS.Api may add the store list's figures [guess]; read `?? derived`. */
+export interface StockConsoleItemStoreRow {
+  plant: string
+  city: string
+  stage: string
+  sapStock: number
+  tillStock: number
+  heldStanding: number
+  heldSold: number
+  reserved: number | null
+  lastUpdate: string | null
+  gap?: number
+  held?: number
+  free?: number
+  reservedState?: string
+  reservedIncluded?: boolean
+}
+
+/** Find with a batch: one row per store, item and batch (SV 078), names added. */
+export interface StockConsoleFindBatchRow {
+  plant: string
+  city: string
+  item: string
+  nameEn: string
+  nameAr: string
+  batch: string
+  vendorBatch: string | null
+  expiry: string | null
+  sapStock: number
+  tillStock: number
+  held: number
+}
+
+/** Find without a batch: items from HQ's item master (BO 4161). */
+export interface StockConsoleFindItemRow {
+  item: string
+  nameEn: string
+  nameAr: string
+}
+
+/** Find's answer. `kind` [guess] is only a cross-check: the web picks the answer by what it sent. */
+export type StockConsoleFind =
+  | ({ kind: 'Batch'; stores: number } & StockConsolePage<StockConsoleFindBatchRow>)
+  | ({ kind: 'Item' } & StockConsolePage<StockConsoleFindItemRow>)

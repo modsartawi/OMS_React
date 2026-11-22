@@ -30,7 +30,7 @@ export interface SearchFrameProps {
   /** The list's query — `useQuery(listQuery(…, search.state, …))`. */
   read: FrameQuery
   /** A filter value's words. */
-  filterLabel: (value: string) => string
+  filterLabel?: (value: string) => string // needed only when the spec has filters (943 Find has none)
   /** A sort value's words; needed only when the spec has sorts. */
   sortLabel?: (value: string) => string
   /** Draw the GS1 box (ticket 944). Its value is in `search.boxes.gs1` and the address's `gs1`. */
@@ -43,6 +43,8 @@ export interface SearchFrameProps {
   stopped?: boolean
   /** The sentence for an answer with no row. */
   empty: string
+  /** The line above the rows in place of "N rows found" (943 Find: "N rows at M stores"). */
+  count?: ReactNode
   /** The rows (a `ListGrid`), drawn only when the answer has some. */
   children: ReactNode
 }
@@ -67,6 +69,7 @@ export default function SearchFrame({
   aboveRows,
   stopped = false,
   empty,
+  count,
   children,
 }: SearchFrameProps) {
   const { t } = useTranslation('stock-console')
@@ -120,18 +123,21 @@ export default function SearchFrame({
             data-search-box="gs1"
           />
         )}
-        <Select
-          value={state.filter}
-          onChange={(e) => search.choose({ filter: e.target.value })}
-          aria-label={t('search.filter')}
-          data-search-filter=""
-        >
-          {spec.filters.map((f) => (
-            <option key={f} value={f}>
-              {filterLabel(f)}
-            </option>
-          ))}
-        </Select>
+        {/* A list with no filter (943 Find) draws no filter box. */}
+        {spec.filters.length > 0 && filterLabel && (
+          <Select
+            value={state.filter}
+            onChange={(e) => search.choose({ filter: e.target.value })}
+            aria-label={t('search.filter')}
+            data-search-filter=""
+          >
+            {spec.filters.map((f) => (
+              <option key={f} value={f}>
+                {filterLabel(f)}
+              </option>
+            ))}
+          </Select>
+        )}
         {spec.sorts && sortLabel && (
           <Select
             value={state.sort}
@@ -174,7 +180,9 @@ export default function SearchFrame({
       {view === 'rows' && (
         <div className="flex min-w-0 flex-col gap-2">
           <span className="text-xs text-muted-foreground" data-list-count={total}>
-            <Trans t={t} i18nKey="search.count" count={total} values={{ n: formatFigure(total) }} components={{ n: <Ltr /> }} />
+            {count ?? (
+              <Trans t={t} i18nKey="search.count" count={total} values={{ n: formatFigure(total) }} components={{ n: <Ltr /> }} />
+            )}
           </span>
           {children}
           {showsPager(total, STOCK_CONSOLE_PAGE_SIZE) && (

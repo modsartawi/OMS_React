@@ -481,6 +481,16 @@ export const router = createBrowserRouter([
         path: 'stock/console/fleet',
         lazy: async () => ({ Component: (await import('@/features/stock/stock-console/FleetPage')).default }),
       },
+      {
+        // oms 943: one item at one store — its sum written out, its tabs each read on opening.
+        path: 'stock/console/store/:store/item/:item',
+        lazy: async () => ({ Component: (await import('@/features/stock/stock-console/ItemPage')).default }),
+      },
+      {
+        // oms 943: Find an item or a batch across the fleet — searched only when asked.
+        path: 'stock/console/find',
+        lazy: async () => ({ Component: (await import('@/features/stock/stock-console/FindPage')).default }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on the one permissions answer. Filters
       // `?channel=&city=&store=` live in the URL.

@@ -10,7 +10,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDay } from '@/core/util/date-format'
 import type { LocalDate } from '@/core/util/date-window'
 import { localizedName } from '@/core/util/localized-name'
-import { batchMarks } from './batches'
+import { expiryCell } from './batches'
 import { MONO, formatQuantity } from './columns'
 import { itemHref } from './items-columns'
 import { expiryMark, scanExpiry } from './scan'
@@ -53,7 +53,7 @@ export function buildBatchesColumns(
   const columns = buildColumns(t, language, store, today)
   if (!scan || !scanExpiry(scan)) return columns
   const at = columns.findIndex((c) => c.field === 'expiry') + 1
-  return [...columns.slice(0, at), scanMarkColumn(t, scan), ...columns.slice(at)]
+  return [...columns.slice(0, at), scanMarkColumn<StockConsoleBatchRow>(t, scan), ...columns.slice(at)]
 }
 
 function buildColumns(t: TFunction, language: string, store: string, today: LocalDate): ColDef<StockConsoleBatchRow>[] {
@@ -116,16 +116,19 @@ function buildColumns(t: TFunction, language: string, store: string, today: Loca
 
 // ── 944 ──
 
-/** The expiry mark after a scan: "matches the scan", or "scan says <its expiry>" (by month when its day is 00). */
-const scanMarkColumn = (t: TFunction, scan: StockConsoleScan): ColDef<StockConsoleBatchRow> => ({
+/**
+ * The expiry mark after a scan: "matches the scan", or "scan says <its expiry>" (by month when its day is 00). Any row
+ * with an expiry takes it (943's Find batch rows too).
+ */
+export const scanMarkColumn = <T extends { expiry: string | null }>(t: TFunction, scan: StockConsoleScan): ColDef<T> => ({
   headerName: t('gs1.column.mark'),
   colId: 'scanMark',
   width: 170,
-  cellRenderer: (p: Cell) => (p.data ? <ScanMarkCell row={p.data} scan={scan} t={t} /> : null),
+  cellRenderer: (p: ICellRendererParams<T>) => (p.data ? <ScanMarkCell expiry={p.data.expiry} scan={scan} t={t} /> : null),
 })
 
-function ScanMarkCell({ row, scan, t }: { row: StockConsoleBatchRow; scan: StockConsoleScan; t: TFunction }) {
-  const cell = expiryMark(row.expiry, scan)
+function ScanMarkCell({ expiry, scan, t }: { expiry: string | null; scan: StockConsoleScan; t: TFunction }) {
+  const cell = expiryMark(expiry, scan)
   if (cell.mark === 'none') return null
   return (
     <span data-scan-mark={cell.mark}>
@@ -142,9 +145,9 @@ function ScanMarkCell({ row, scan, t }: { row: StockConsoleBatchRow; scan: Stock
 
 const EXPIRY_SEV = { expired: 'bad', within90: 'warn' } as const
 
-/** The expiry day, and its mark when the batch is expired or expires within 90 days. */
-function ExpiryCell({ row, today, t }: { row: StockConsoleBatchRow; today: LocalDate; t: TFunction }) {
-  const { expiry } = batchMarks(row, today)
+/** The expiry day, and its mark when the batch is expired or expires within 90 days. Find's batch rows (943) too. */
+export function ExpiryCell({ row, today, t }: { row: { expiry: string | null }; today: LocalDate; t: TFunction }) {
+  const expiry = expiryCell(row.expiry, today)
   if (!expiry.day) return null
   return (
     <span className="inline-flex items-center gap-1.5" data-expiry={expiry.mark}>

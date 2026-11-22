@@ -23,6 +23,9 @@ An **area** = a top-level nav group / URL prefix. It is a folder under `features
 - `features/copilot/` — **top-level, NOT an area** (spec 734 D11, enforced in `tools/check-boundaries.mjs`).
   Opened from the app shell's top bar on every screen and also routable at `/copilot`, so it belongs to no
   nav group or URL prefix — it is cross-cutting like `auth`, not a destination inside one area.
+- `features/help/` — **top-level, NOT an area** (oms 951, BackOffice spec 4182, enforced in `tools/check-boundaries.mjs`).
+  The help center takes its area as a parameter (`/analytics/help` today, `/<area>/help` later), so it belongs to no
+  one area. Its shared pieces (wire types, api, table-of-contents query, `helpLang`) live in `src/core/help/`.
 
 A new area folder appears **only when a new nav group / URL prefix does** (e.g. a future
 `features/reports/` behind `/reports/*`). The folder mirrors the URL prefix and the menu group.

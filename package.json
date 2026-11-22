@@ -19,6 +19,7 @@
     "ag-grid-react": "36.0.1",
     "i18next": "26.3.6",
     "lucide-react": "1.25.0",
+    "markdown-to-jsx": "9.10.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-i18next": "17.0.10",

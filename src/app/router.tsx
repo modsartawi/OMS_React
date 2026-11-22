@@ -48,9 +48,9 @@ const libraryLoader =
     return to ? redirect(to) : null
   }
 
-/** A menu leaf drawn by the library page (every leaf but Home and the Catalog, which have their own pages). */
-const isLibraryLeaf = (p: LibraryPageEntry): p is LibraryPageEntry & { page: Exclude<LibraryPageEntry['page'], 'home' | 'catalog'> } =>
-  p.page !== 'home' && p.page !== 'catalog'
+/** A menu leaf drawn by the library page (every leaf but Home, the Catalog and the help, which have their own pages). */
+const isLibraryLeaf = (p: LibraryPageEntry): p is LibraryPageEntry & { page: Exclude<LibraryPageEntry['page'], 'home' | 'catalog' | 'help'> } =>
+  p.page !== 'home' && p.page !== 'catalog' && p.page !== 'help'
 
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 // The call center console fills the shell's content area (ticket 407).
@@ -289,6 +289,22 @@ export const router = createBrowserRouter([
       {
         path: 'analytics/price-command-center',
         lazy: async () => ({ Component: (await import('@/features/analytics/price-command-center/PriceCommandCenterPage')).default }),
+      },
+      // The analytics help center (oms 951, BackOffice spec 4182 §D): a login only, no grant — the help holds no
+      // business data. `/analytics/help` opens `start`. The feature takes the area, so a later area reuses it.
+      {
+        path: 'analytics/help',
+        lazy: async () => {
+          const { default: HelpPage } = await import('@/features/help/HelpPage')
+          return { Component: () => <HelpPage area="analytics" /> }
+        },
+      },
+      {
+        path: 'analytics/help/:slug',
+        lazy: async () => {
+          const { default: HelpPage } = await import('@/features/help/HelpPage')
+          return { Component: () => <HelpPage area="analytics" /> }
+        },
       },
       {
         path: 'oms/deliveries',

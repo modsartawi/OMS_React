@@ -1,0 +1,31 @@
+{
+  "note": "Every `screens` route of the analytics help's table of contents. Refreshed by the capture script (oms 954); seeded by oms 951 from spec 4182 §A until BO 4183's articles can be read.",
+  "area": "analytics",
+  "screens": [
+    "/analytics",
+    "/analytics/library",
+    "/analytics/boards",
+    "/analytics/views",
+    "/analytics/reports",
+    "/analytics/shared",
+    "/analytics/certified",
+    "/analytics/deleted",
+    "/analytics/catalog",
+    "/analytics/view/:id",
+    "/analytics/board/:id",
+    "/analytics/board/:id/edit",
+    "/analytics/report/:id",
+    "/analytics/report/:id/edit",
+    "/analytics/report/:id/runs",
+    "/analytics/my-schedules",
+    "/analytics/new",
+    "/analytics/sql/new",
+    "/analytics/sql/:id",
+    "/analytics/itemlist/new",
+    "/analytics/itemlist/:id",
+    "/analytics/price-command-center",
+    "/analytics/help",
+    "/analytics/help/:slug",
+    "/copilot"
+  ]
+}

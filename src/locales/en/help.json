@@ -1,0 +1,41 @@
+{
+  "areas": {
+    "analytics": {
+      "title": "Analytics help",
+      "subtitle": "How to use Analytics, step by step."
+    }
+  },
+  "search": {
+    "label": "Search the help",
+    "placeholder": "Search the help…",
+    "empty": "No article matches your search."
+  },
+  "contents": {
+    "label": "Contents"
+  },
+  "access": {
+    "viewer": "Viewer",
+    "author": "Author",
+    "curator": "Curator",
+    "sql": "SQL",
+    "held": "You have this access.",
+    "ask": "Ask your administrator for {{access}} access."
+  },
+  "article": {
+    "openScreen": "Open this screen",
+    "previous": "Previous",
+    "next": "Next",
+    "checkedAgainst": "Checked against <v>{{version}}</v>",
+    "imageMissing": "This picture could not be loaded."
+  },
+  "draft": {
+    "title": "Draft",
+    "body": "This help is still being checked against the app. A step may still change."
+  },
+  "state": {
+    "loading": "Loading the help…",
+    "contentsFailed": "The help could not be loaded.",
+    "articleFailed": "This article could not be loaded.",
+    "notFound": "There is no article here. Pick one from the contents."
+  }
+}

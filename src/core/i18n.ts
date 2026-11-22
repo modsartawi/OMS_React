@@ -282,6 +282,9 @@ import copilotAr from '@/locales/ar/copilot.json'
 // English and Arabic together. Every later analytics screen (the home, boards, editors, TV mode) ADDS keys here.
 import boards from '@/locales/en/boards.json'
 import boardsAr from '@/locales/ar/boards.json'
+// The help center (oms 951, BackOffice spec 4182): English and Arabic articles, its chrome in both.
+import help from '@/locales/en/help.json'
+import helpAr from '@/locales/ar/help.json'
 // Item lists (oms 925, BackOffice spec 4057): the `analytics` area's `item-lists` feature, English and Arabic together.
 import itemLists from '@/locales/en/item-lists.json'
 import itemListsAr from '@/locales/ar/item-lists.json'
@@ -297,7 +300,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'stock-console', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'price-command-center', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'item-lists', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS, 'insurance-patterns'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'stock-console', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'price-command-center', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'help', 'item-lists', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS, 'insurance-patterns'],
   resources: {
     en: {
       common,
@@ -374,6 +377,7 @@ i18n.use(initReactI18next).init({
       'release-queue': releaseQueue,
       copilot,
       boards,
+      help,
       'item-lists': itemLists,
       'serial-refusals': serialRefusals,
       'bupa-line-outcomes': bupaLineOutcomes,
@@ -450,6 +454,7 @@ i18n.use(initReactI18next).init({
       'insurance-patterns': insurancePatternsAr,
       callcenter: callcenterAr,
       boards: boardsAr,
+      help: helpAr,
       'item-lists': itemListsAr,
       copilot: copilotAr,
       common: commonAr,

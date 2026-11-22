@@ -1,9 +1,10 @@
-import { BadgeCheck, BadgePercent, CalendarClock, ChartColumn, ChartColumnBig, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, BadgePercent, CalendarClock, ChartColumn, ChartColumnBig, CircleHelp, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { MY_SCHEDULES_PATH } from '@/core/analytics-routes'
 import { canViewAnalytics } from '@/core/analytics-access'
 import { MY_SCHEDULES_OFFERED_KEY, mySchedulesOffered } from '@/features/analytics/boards/access'
 import { LIBRARY_PAGES, type LibraryMenuPage } from '@/features/analytics/boards/library-pages'
 import { canViewPriceWatch } from '@/features/analytics/price-command-center/access'
+import type { Permissions } from '@/core/permissions'
 import type { MenuOffer, ShellMenuItem } from './menu-model'
 
 /**
@@ -26,6 +27,12 @@ const mySchedulesOffer: MenuOffer = {
   queryFn: () => mySchedulesOffered(),
 }
 
+/**
+ * oms 951 (BackOffice spec 4182 §D): the help leaf shows "wherever the Analytics menu shows" — to a library reader and
+ * to a PriceWatch-only reader alike. The route itself needs a login only. 🚩 Orchestrator default, open to the owner's veto.
+ */
+const canReadAnalyticsHelp = (p: Permissions): boolean => canViewAnalytics(p) || canViewPriceWatch(p)
+
 const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
   home: Home,
   boards: LayoutDashboard,
@@ -35,6 +42,7 @@ const PAGE_ICON: Record<LibraryMenuPage, LucideIcon> = {
   certified: BadgeCheck,
   catalog: Library,
   deleted: Trash2,
+  help: CircleHelp,
 }
 
 /**
@@ -50,8 +58,8 @@ export const ANALYTICS_MENU: ShellMenuItem = {
       labelKey,
       icon: PAGE_ICON[page],
       routerLink: path,
-      ...(page === 'home' ? { activePrefix: '/analytics' } : {}),
-      requires: canViewAnalytics,
+      ...(page === 'home' ? { activePrefix: '/analytics' } : page === 'help' ? { activePrefix: '/analytics/help' } : {}),
+      requires: page === 'help' ? canReadAnalyticsHelp : canViewAnalytics,
     })),
     // 886: last, after the library's leaves — it lists schedules, not items. Shown only while `mySchedulesOffer` says yes.
     {

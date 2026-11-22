@@ -9,7 +9,8 @@
     "certified": "معتمدة",
     "catalog": "الفهرس",
     "deleted": "المحذوفة مؤخرًا",
-    "mySchedules": "جداولي"
+    "mySchedules": "جداولي",
+    "help": "المساعدة"
   },
   "pin": {
     "pinLabel": "ثبّت {{title}} في الرئيسية",

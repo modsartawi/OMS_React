@@ -19,7 +19,9 @@ import { join, dirname, sep } from 'node:path'
 const SRC = 'src'
 
 // Features directly under `features/` rather than under an area (feature-structure.md).
-const TOP_LEVEL_FEATURES = new Set(['auth', 'copilot'])
+// `help` (oms 951, BackOffice spec 4182): the help center takes its area as a parameter — `/analytics/help` today,
+// another area's later — so it belongs to no one area.
+const TOP_LEVEL_FEATURES = new Set(['auth', 'copilot', 'help'])
 
 function walk(dir, acc = []) {
   for (const entry of readdirSync(dir)) {

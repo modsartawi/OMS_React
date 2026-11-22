@@ -16,7 +16,7 @@ const holding = (...screens: string[]) => permissionsOf({ screens })
 const shown = (p: Permissions, offered = true) => resolveMenu([group!], p, () => offered).items.length > 0
 
 describe('the Analytics nav group', () => {
-  it('menu lists eight library leaves behind the view grant, then My schedules behind its door', () => {
+  it('menu lists nine library leaves (951: Help last) behind a grant, then My schedules behind its door', () => {
     expect(MENU.filter((g) => g.labelKey === 'boards:menu.analytics')).toHaveLength(1)
     const library = leaves([group!]).slice(0, -2)
     expect(library.map((l) => l.routerLink)).toEqual([
@@ -28,8 +28,9 @@ describe('the Analytics nav group', () => {
       '/analytics/certified',
       '/analytics/catalog',
       '/analytics/deleted',
+      '/analytics/help',
     ])
-    expect(new Set(library.map((l) => l.labelKey)).size).toBe(8)
+    expect(new Set(library.map((l) => l.labelKey)).size).toBe(9)
     for (const leaf of library) expect(isGated(leaf)).toBe(true)
     const mine = leaves([group!]).at(-2)!
     expect([mine.labelKey, mine.routerLink, mine.offered?.queryKey]).toEqual([
@@ -44,7 +45,7 @@ describe('the Analytics nav group', () => {
     const pcc = leaves([group!]).at(-1)!
     expect([pcc.labelKey, pcc.routerLink]).toEqual(['price-command-center:menu.priceCommandCenter', '/analytics/price-command-center'])
     const links = (p: Permissions) => leaves(resolveMenu([group!], p).items).map((l) => l.routerLink)
-    expect(links(holding('PriceWatch:03'))).toEqual(['/analytics/price-command-center'])
+    expect(links(holding('PriceWatch:03'))).toEqual(['/analytics/help', '/analytics/price-command-center'])
     expect(links(holding('Analytics:03'))).not.toContain('/analytics/price-command-center')
     expect(links(holding('PriceWatch:06'))).toEqual([])
   })
@@ -53,11 +54,21 @@ describe('the Analytics nav group', () => {
     const links = (offered: boolean) =>
       leaves(resolveMenu([group!], holding('Analytics:03'), () => offered).items).map((l) => l.routerLink)
     expect(links(true)).toContain(MY_SCHEDULES_PATH)
-    expect(links(true)).toHaveLength(9)
+    expect(links(true)).toHaveLength(10)
     expect(links(false)).not.toContain(MY_SCHEDULES_PATH)
-    expect(links(false)).toHaveLength(8)
+    expect(links(false)).toHaveLength(9)
     // Not told at all (the default) is not offered.
     expect(leaves(resolveMenu([group!], holding('Analytics:03')).items).map((l) => l.routerLink)).not.toContain(MY_SCHEDULES_PATH)
+  })
+
+  it('951: Help shows wherever the Analytics menu shows — a library reader or a PriceWatch-only reader — and lights on an article', () => {
+    const help = leaves([group!]).find((l) => l.routerLink === '/analytics/help')!
+    expect(help.labelKey).toBe('boards:menu.help')
+    const links = (p: Permissions) => leaves(resolveMenu([group!], p).items).map((l) => l.routerLink)
+    expect(links(holding('Analytics:03'))).toContain('/analytics/help')
+    expect(links(holding('PriceWatch:03'))).toContain('/analytics/help')
+    expect(links(holding('Copilot:01'))).toEqual([])
+    expect(markedLeaf(MENU, '/analytics/help/boards')).toBe(help)
   })
 
   it('an offered My schedules still needs the view grant', () => {

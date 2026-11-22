@@ -9,7 +9,7 @@
 import { choiceNarrows, DEFAULT_LIBRARY_CHOICE, libraryFromParams, libraryToParams, type LibraryChoice } from './library'
 
 /** The menu's leaves. */
-export type LibraryMenuPage = 'home' | 'boards' | 'views' | 'reports' | 'shared' | 'certified' | 'catalog' | 'deleted'
+export type LibraryMenuPage = 'home' | 'boards' | 'views' | 'reports' | 'shared' | 'certified' | 'catalog' | 'deleted' | 'help'
 /**
  * Every library page: the menu's leaves, plus 840's All my items (`/analytics/library`) — the whole library Home was
  * until 840 gave Home its recent / pinned / newest certified. It is not a menu leaf; Home links to it.
@@ -34,6 +34,8 @@ export const LIBRARY_PAGES: readonly LibraryPageEntry[] = [
   { page: 'certified', path: '/analytics/certified', labelKey: 'boards:menu.certified' },
   { page: 'catalog', path: '/analytics/catalog', labelKey: 'boards:menu.catalog' },
   { page: 'deleted', path: '/analytics/deleted', labelKey: 'boards:menu.deleted' },
+  // oms 951 (BackOffice spec 4182 §D): the help center — its own page (`features/help`), not a library list.
+  { page: 'help', path: '/analytics/help', labelKey: 'boards:menu.help' },
 ]
 
 /** 840: All my items — the whole library, linked from Home. */
@@ -56,6 +58,7 @@ const FIXED: Record<LibraryPage, Partial<Pick<LibraryChoice, 'who' | 'kind' | 'f
   certified: { who: 'certified', folder: 'all' },
   catalog: {},
   deleted: { folder: 'deleted' },
+  help: {},
 }
 
 /** The library choice on a page: its URL query read as before, then what the route fixes laid over it. */

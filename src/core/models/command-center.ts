@@ -208,3 +208,41 @@ export interface CcProfileSection {
   tables: CcTable[]
   sentences?: CcPart[][]
 }
+
+// ── 949: the category profile (`GET CommandCenter/CategoryProfile`, `/Export`, BO 4178) ───────────────────────────────
+
+export const CC_CATEGORY_LEVELS = ['top', 'second'] as const
+export type CcCategoryLevel = (typeof CC_CATEGORY_LEVELS)[number]
+
+/** A category as the server names it, in the asked language. */
+export interface CcCategoryRef {
+  code: string
+  name: string
+}
+
+/** A region the profile can narrow to: the filter's list (BO 4178 is silent on it). ⚠ proposed */
+export interface CcScopeRegion {
+  region: CcRegionKey
+  name: string
+}
+
+/** `GET CommandCenter/CategoryProfile?level=&category=&scope=&region=&storeCode=&period=&lang=` (BO 4178). */
+export interface CcCategoryProfile {
+  lang: CcLang
+  level: CcCategoryLevel
+  category: CcCategoryRef
+  /** A second-level profile's top-level category. ⚠ proposed */
+  parent?: CcCategoryRef
+  /** "Others" and products with no category. */
+  unclassified: boolean
+  /** The narrowing the answer is for, with its name in the asked language (`label`). ⚠ proposed */
+  scope: CcScope & { label: string }
+  period: CcPeriod
+  /** A top-level profile lists its second-level categories. */
+  children?: CcCategoryRef[]
+  /** The regions the filter offers. ⚠ proposed — not in BO 4178's text; a pharmacy is typed by its code. */
+  regions: CcScopeRegion[]
+  /** In the server's order: share beside the other categories, product health, promotion, over- and under-selling, then
+   *  margin, availability, the price index and private label as `not-available-yet` with their reasons. */
+  sections: CcProfileSection[]
+}

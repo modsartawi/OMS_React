@@ -292,6 +292,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/analytics/command-center/CommandCenterPage')).default }),
       },
       {
+        // 949: a category profile at either depth (`CATEGORY_PROFILE_PATTERN`), narrowed in its query string.
+        path: 'analytics/command-center/category/:level/:code',
+        lazy: async () => ({ Component: (await import('@/features/analytics/command-center/CategoryProfilePage')).default }),
+      },
+      {
         path: 'analytics/price-command-center',
         lazy: async () => ({ Component: (await import('@/features/analytics/price-command-center/PriceCommandCenterPage')).default }),
       },

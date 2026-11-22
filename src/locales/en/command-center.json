@@ -55,5 +55,28 @@
     "lastGood": "Last good brief: {{date}}",
     "startsOn": "The list starts on {{date}}.",
     "empty": "Nothing to show tonight."
+  },
+  "categoryProfile": {
+    "title": "Category profile",
+    "subtitle": "One category for the chain, a region or one pharmacy: its sales and share, product health and promotion.",
+    "loading": "Loading the category profile…",
+    "loadFailed": "The category profile could not be loaded.",
+    "trail": "Where you are",
+    "children": "Its second-level categories",
+    "scope": {
+      "label": "Narrow to",
+      "chain": "The whole chain",
+      "store": "One pharmacy",
+      "storeCode": "Pharmacy code",
+      "apply": "Apply"
+    },
+    "export": "Export",
+    "exportFailed": "The workbook could not be downloaded.",
+    "unclassified": "Unclassified"
+  },
+  "profile": {
+    "notAvailableYet": "Not available yet",
+    "inclVat": "Money figures include VAT.",
+    "cut80": "The products above the line make 80% of sales."
   }
 }

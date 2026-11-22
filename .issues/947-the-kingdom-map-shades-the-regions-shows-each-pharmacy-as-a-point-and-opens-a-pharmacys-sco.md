@@ -64,7 +64,9 @@ is the server's `shade` step → `--map-none` / `--map-scale-1..5`; the page pic
 code in the brief puts `?store=` in the URL, which opens `ScorecardPanel` (core `SideSheet`): the six measures with
 colour, own and peer figure (a new pharmacy's growth measures read "New", a thin delivery "Not scored"), context
 figures, and "Open the store profile". **For 950:** `ScorecardPanel` takes `action?: (scorecard: CcScorecard) =>
-ReactNode`, drawn beside the profile link; it draws no Ask of its own. `CcScorecard.ask` is in the model.
+ReactNode`, drawn beside the profile link; it draws no Ask of its own. `CcScorecard.ask` is in the model. On merging
+950 into this branch the page hands 950's core `AskButton` into that slot (`ask={card.ask}`, label `ask.pharmacy`),
+as 950's ticket left for 947; proven in `kingdom-map.test.ts` (shown only with `ask` and the copilot held).
 
 `core/map` additions, all optional props, every existing map test green: `polygons` (Google `Polygon`, beneath lines and
 points, `--card` edge, opacity 0.55), `onSelect({ kind: 'point' | 'shape', id })`, `pointsFromZoom`, a controlled

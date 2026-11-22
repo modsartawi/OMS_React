@@ -320,6 +320,12 @@ export interface CopilotAskRequest {
    */
   sqlItemContext?: { itemId: string }
   /**
+   * oms 950 (BackOffice spec 4165, 4179 ⚠ proposed — 4179 is unbuilt): a stored finding the reader asked about ("Ask" on a
+   * brief line or a pharmacy's scorecard). Sent on the question that OPENS the conversation only; follow-ups omit it and
+   * carry `conversationId` (the server keeps the finding in the conversation). Only the id: the server reads the rest.
+   */
+  findingContext?: { findingId: string }
+  /**
    * BackOffice 3685 (spec 3633 R15, oms-react 892): a tapped assumption line's choice. Sent with `question` = the tapped
    * answer's question, verbatim, and the same `conversationId`; the server re-asks it with the reading stated. Ignored
    * where own readings do not apply; a reading the server does not allow is the `COPILOT-430` envelope.

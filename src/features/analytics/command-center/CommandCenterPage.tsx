@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { apiErrorMessage } from '@/core/api'
+import AskButton from '@/core/findings/AskButton'
 import type { CcLang } from '@/core/models/command-center'
 import { usePermissions } from '@/core/permissions'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -76,7 +77,16 @@ function Home({ lang, t, setLang }: { lang: CcLang; t: CcT; setLang: (lang: CcLa
           </div>
         </>
       )}
-      {store && <ScorecardPanel storeCode={store} lang={lang} t={t} onClose={() => setParams(withStore(params, null))} />}
+      {store && (
+        <ScorecardPanel
+          storeCode={store}
+          lang={lang}
+          t={t}
+          onClose={() => setParams(withStore(params, null))}
+          // 950's Ask for the pharmacy: present only while the server sends `ask` and the reader holds the copilot.
+          action={(card) => <AskButton ask={card.ask} lang={lang} label={t('ask.pharmacy')} hint={t('ask.pharmacyHint')} />}
+        />
+      )}
     </div>
   )
 }

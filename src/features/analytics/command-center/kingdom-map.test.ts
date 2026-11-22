@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import '@/core/i18n'
 import { homeHref } from '@/core/command-center-routes'
+import { useCopilotPanel } from '@/core/copilot-panel'
 import { PERMISSIONS_KEY, type PermissionsAnswer } from '@/core/permissions'
 import { CC_FILTERS, type CcLang, type CcScorecard, type CommandCenterHome } from '@/core/models/command-center'
 import { hasLocaleKey } from '@/core/test/locale'
@@ -25,6 +26,13 @@ import { newPharmacyScorecard, scorecardFixture } from './__fixtures__/scorecard
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/core/api', async (actual) => ({ ...(await actual<typeof import('@/core/api')>()), api }))
+// The copilot panel's store read as it stands (a static render reads no zustand snapshot), as 950's brief-ask.test does.
+vi.mock('@/core/copilot-panel', async (actual) => {
+  const real = await actual<typeof import('@/core/copilot-panel')>()
+  const panel = real.createCopilotPanel()
+  const useCopilotPanel = Object.assign(<T,>(pick: (s: ReturnType<typeof panel.getState>) => T) => pick(panel.getState()), panel)
+  return { ...real, useCopilotPanel }
+})
 
 const answer: PermissionsAnswer = {
   screens: ['Analytics:03'],
@@ -162,6 +170,23 @@ describe('the scorecard panel', () => {
     const ar = drawPage({ url: '/analytics/command-center?store=P977&lang=ar', lang: 'ar', scorecards: [newPharmacyScorecard('ar')] })
     expect(ar).toMatch(/^<div dir="rtl" lang="ar"/)
     expect(measureOf(panelOf(ar), 'salesGrowth')).toContain('>جديدة<')
+  })
+
+  it('the panel carries 950’s "Ask the copilot" for the pharmacy, only when the server offers it and the reader holds the copilot', () => {
+    const url = '/analytics/command-center?store=P166'
+    useCopilotPanel.getState().setAvailable(true)
+    try {
+      const panel = panelOf(drawPage({ url, scorecards: [scorecardFixture('en')] }))
+      expect(panel).toContain('data-copilot-ask="f-status-P166"')
+      expect(panel).toContain('Ask the copilot')
+      // `Copilot:Findings` off: the server leaves `ask` out, and there is no button.
+      const off = panelOf(drawPage({ url, scorecards: [{ ...scorecardFixture('en'), ask: undefined }] }))
+      expect(off).not.toContain('data-copilot-ask')
+    } finally {
+      useCopilotPanel.getState().setAvailable(false)
+    }
+    // No copilot grant: no button either.
+    expect(panelOf(drawPage({ url, scorecards: [scorecardFixture('en')] }))).not.toContain('data-copilot-ask')
   })
 
   it('the panel asks the server for the pharmacy in the page language', async () => {

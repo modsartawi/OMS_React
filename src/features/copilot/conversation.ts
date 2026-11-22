@@ -65,6 +65,8 @@ export interface AskFrom {
   sqlMode?: boolean
   /** Q46: the SQL item the question opens on; sent only with `sqlMode`. */
   sqlItemContext?: { itemId: string } | null
+  /** 950: the finding the question opens on ("Ask"); sent on the first question only. */
+  findingContext?: { findingId: string } | null
   /** 892: the reading a tapped assumption line states: the tapped answer's question, asked again. */
   statedReading?: CopilotStatedReading | null
 }
@@ -75,7 +77,7 @@ export interface AskFrom {
  * `sqlItemContext` on the question opening a SQL item. A field with nothing to say is left out.
  */
 export function askBody(c: CopilotConversation, question: string, from: AskFrom = {}): CopilotAskRequest {
-  const { origin, reportContext, boardContext, askId, choiceKey, sqlMode, sqlItemContext, statedReading } = from
+  const { origin, reportContext, boardContext, askId, choiceKey, sqlMode, sqlItemContext, findingContext, statedReading } = from
   const body: CopilotAskRequest = c.id ? { question, conversationId: c.id } : { question }
   return {
     ...body,
@@ -85,6 +87,7 @@ export function askBody(c: CopilotConversation, question: string, from: AskFrom 
     ...(askId ? { askId, ...(choiceKey ? { choiceKey } : {}) } : {}),
     ...(sqlMode ? { sqlMode: true } : {}),
     ...(sqlMode && sqlItemContext ? { sqlItemContext } : {}),
+    ...(findingContext ? { findingContext } : {}),
     ...(statedReading ? { statedReading } : {}),
   }
 }

@@ -2,6 +2,7 @@
   "note": "Every `screens` route of the analytics help's table of contents. Written by the capture script (oms 954, scripts/help-shots) from GET Help/analytics; do not edit by hand.",
   "area": "analytics",
   "screens": [
+    "/analytics/help",
     "/analytics",
     "/analytics/library",
     "/analytics/boards",

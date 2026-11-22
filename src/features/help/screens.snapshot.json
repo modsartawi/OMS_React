@@ -1,5 +1,5 @@
 {
-  "note": "Every `screens` route of the analytics help's table of contents. Written by the capture script (oms 954, scripts/help-shots) from GET Help/analytics; do not edit by hand. Last written offline with the same writer (screensSnapshot) from the en front matter of BackOffice pricing2 @ 98f9a5ad9.",
+  "note": "Every `screens` route of the analytics help's table of contents. Written by the capture script (oms 954, scripts/help-shots) from GET Help/analytics; do not edit by hand.",
   "area": "analytics",
   "screens": [
     "/analytics",

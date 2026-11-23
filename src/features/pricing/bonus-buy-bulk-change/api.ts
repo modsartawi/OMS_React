@@ -10,7 +10,13 @@
  */
 import { api } from '@/core/api'
 import type { BbyPromotion } from '@/core/models/bonus-buy-maintenance'
-import type { BbyBulkChangeRequest, BbyBulkChangeResult, BbyBulkListRow } from '@/core/models/bonus-buy-bulk'
+import type {
+  BbyBulkChangeRequest,
+  BbyBulkChangeResult,
+  BbyBulkListRow,
+  BbyBulkMarkTestedRequest,
+  BbyBulkMarkTestedResult,
+} from '@/core/models/bonus-buy-bulk'
 
 // The screen and the nav leaf read the maintenance grant itself (spec 4190 story 47: nobody new gains the power).
 export { canOpenBbyMaintain as canOpenBbyBulkChange } from '@/core/bonus-buy/access'
@@ -34,5 +40,10 @@ export const bbyBulkChangeApi = {
   /** The bulk change: `dryRun` computes and validates every row and writes nothing (the preview). */
   change(body: BbyBulkChangeRequest): Promise<BbyBulkChangeResult> {
     return api.post<BbyBulkChangeResult>(`${BASE}/BonusBuy/BulkChange`, body)
+  },
+
+  /** Bulk Mark Tested (oms 959, BackOffice 4194, tester grant `BbyMaintain:04`). 🚩 Guessed route. */
+  markTested(body: BbyBulkMarkTestedRequest): Promise<BbyBulkMarkTestedResult> {
+    return api.post<BbyBulkMarkTestedResult>(`${BASE}/BonusBuy/BulkMarkTested`, body)
   },
 }

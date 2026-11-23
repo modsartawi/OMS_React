@@ -98,6 +98,23 @@ export interface BbyBulkRowResult {
 }
 
 /**
+ * POST `BbyMaintainWeb/BonusBuy/BulkMarkTested` (BackOffice 4194, tester grant `BbyMaintain:04`; oms 959).
+ * 🚩 GUESSED: the targets are the bulk change's own pairs; the note is the single Mark Tested's
+ * (`BbyMarkTestedRequest.note`). The server appends the batch reference and clamps to `BbyTestMark.Note`'s width.
+ */
+export interface BbyBulkMarkTestedRequest {
+  bonusBuys: BbyBulkTarget[]
+  /** Optional; null when the tester left it blank. */
+  note: string | null
+}
+
+/**
+ * Bulk Mark Tested's in-band 200: "the same shape as the bulk change" (4194). A row is `saved` (the
+ * test mark was written, as the single Mark Tested answers) or `refused`; there are no rule values.
+ */
+export type BbyBulkMarkTestedResult = BbyBulkChangeResult
+
+/**
  * The bulk change's in-band 200 (`BbyMaintainResult`-shaped). A batch refused whole (mixed sales
  * areas, over the cap, nothing selected) is `refused` with top-level `refusals` and no rows.
  */

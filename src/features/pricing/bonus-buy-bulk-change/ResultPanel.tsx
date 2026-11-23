@@ -150,7 +150,8 @@ function Value({ value }: { value: RuleValue }) {
   )
 }
 
-function Refusals({ refusals, tone }: { refusals: BbyRefusal[]; tone: 'bad' | 'warn' }) {
+/** Refusals or warnings, code then English then Arabic; Mark Tested's report (oms 959) shares it. */
+export function Refusals({ refusals, tone }: { refusals: BbyRefusal[]; tone: 'bad' | 'warn' }) {
   if (refusals.length === 0) return null
   return (
     <ul className={`flex flex-col gap-1 ${tone === 'bad' ? 'text-danger-800' : 'text-muted-foreground'}`}>

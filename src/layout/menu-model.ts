@@ -6,7 +6,7 @@ import type { Permissions, ScreenKey } from '@/core/permissions'
 // a single-key leaf uses the `key:` shorthand instead. `layout` may import a feature.
 import { canBroadcast } from '@/features/admin/broadcast/api'
 import { canAdminCoupons, canSupportCoupons } from '@/features/pricing/coupons/api'
-import { canOpenBbyMaintain } from '@/features/pricing/bonus-buy-maintenance/api'
+import { canOpenBbyMaintain } from '@/core/bonus-buy/access'
 import {
   canOpenDeliveryStatistics,
   canOpenDocumentPayments,
@@ -961,6 +961,15 @@ export const MENU: ShellMenuItem[] = [
         activePrefix: '/pricing/bonus-buy-maintenance',
         // The same predicate as the screen's own gate. Gated by its OWN grant, `BbyMaintain:03`
         // (spec 2374), and it FAILS CLOSED: this screen writes every till's offers.
+        requires: canOpenBbyMaintain,
+      },
+      {
+        labelKey: 'bonus-buy-bulk-change:menu.bonusBuyBulkChange',
+        icon: ListChecks,
+        routerLink: '/pricing/bonus-buy-bulk-change',
+        activePrefix: '/pricing/bonus-buy-bulk-change',
+        // Beside Bonus Buy Maintenance, on the SAME grant (BackOffice spec 4190 story 47): nobody new gains the power
+        // to change bonus buys. The screen's own gate reads this predicate too. FAILS CLOSED.
         requires: canOpenBbyMaintain,
       },
       {

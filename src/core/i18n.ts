@@ -14,6 +14,9 @@ import bonusBuyInquiry from '@/locales/en/bonus-buy-inquiry.json'
 import bonusBuyMaintenance from '@/locales/en/bonus-buy-maintenance.json'
 // Ticket 932: only the sales-area words (spec 4096 story 3); the rest falls back to English.
 import bonusBuyMaintenanceAr from '@/locales/ar/bonus-buy-maintenance.json'
+// Bonus Buy Bulk Change (oms 958, BackOffice spec 4190): EN + AR throughout (story 48).
+import bonusBuyBulkChange from '@/locales/en/bonus-buy-bulk-change.json'
+import bonusBuyBulkChangeAr from '@/locales/ar/bonus-buy-bulk-change.json'
 import coupons from '@/locales/en/coupons.json'
 import notifications from '@/locales/en/notifications.json'
 import broadcast from '@/locales/en/broadcast.json'
@@ -300,7 +303,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'stock-console', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'price-command-center', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'help', 'item-lists', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS, 'insurance-patterns'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'bonus-buy-bulk-change', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'stock-console', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'price-command-center', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'help', 'item-lists', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS, 'insurance-patterns'],
   resources: {
     en: {
       common,
@@ -316,6 +319,7 @@ i18n.use(initReactI18next).init({
       'bonus-buy-download': bonusBuyDownload,
       'bonus-buy-inquiry': bonusBuyInquiry,
       'bonus-buy-maintenance': bonusBuyMaintenance,
+      'bonus-buy-bulk-change': bonusBuyBulkChange,
       coupons,
       notifications,
       broadcast,
@@ -399,6 +403,7 @@ i18n.use(initReactI18next).init({
     ar: {
       'approval-release': approvalReleaseAr,
       'bonus-buy-maintenance': bonusBuyMaintenanceAr,
+      'bonus-buy-bulk-change': bonusBuyBulkChangeAr,
       undispense: undispenseAr,
       deliveries: deliveriesAr,
       orders: ordersAr,

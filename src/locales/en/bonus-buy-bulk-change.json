@@ -1,0 +1,138 @@
+{
+  "menu": {
+    "bonusBuyBulkChange": "Bonus Buy Bulk Change"
+  },
+  "title": "Bonus Buy Bulk Change",
+  "subtitle": "Change the engine rules of many Planned bonus buys at once. Preview the change, then apply it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Bonus Buy Bulk Change",
+    "deniedHint": "Your account does not hold the Bonus Buy Maintenance grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filter": {
+    "promotion": "Promotion",
+    "allPromotions": "All promotions"
+  },
+  "select": {
+    "all": "Select all Planned",
+    "clear": "Clear selection",
+    "count_one": "{{n}} selected",
+    "count_other": "{{n}} selected",
+    "skipped_one": "{{n}} locked bonus buy skipped",
+    "skipped_other": "{{n}} locked bonus buys skipped"
+  },
+  "list": {
+    "loading": "Loading bonus buys…"
+  },
+  "error": {
+    "list": "The bonus buys could not be loaded.",
+    "change": "The bulk change could not be sent."
+  },
+  "col": {
+    "number": "Bonus buy",
+    "description": "Description",
+    "promotion": "Promotion",
+    "status": "Status",
+    "lock": "Locked"
+  },
+  "lock": {
+    "tested": "Tested: send it back to Planned first",
+    "activated": "Live at the tills: send it back to Planned first",
+    "deactivated": "Deactivated: send it back to Planned first",
+    "notOms": "A SAP bonus buy: never changed here",
+    "unknown": "Status unknown: open it in Bonus Buy Maintenance"
+  },
+  "field": {
+    "score": "Score",
+    "isStackable": "Stackable",
+    "maxValue": "Max value",
+    "timeWindow": "Time of day",
+    "includes": "Includes",
+    "excludes": "Excludes",
+    "originFilter": "Origin filter",
+    "stackingExcludes": "Stacking excludes",
+    "loyGroups": "Loyalty groups",
+    "loyTiers": "Loyalty tiers"
+  },
+  "value": {
+    "yes": "Yes",
+    "no": "No",
+    "empty": "(empty)"
+  },
+  "op": {
+    "leave": "Leave",
+    "set": "Set",
+    "yes": "Yes",
+    "no": "No",
+    "clear": "Clear",
+    "replace": "Replace",
+    "add": "Add",
+    "remove": "Remove"
+  },
+  "form": {
+    "title": "Engine rules",
+    "hint": "Every field starts on Leave: it stays as each bonus buy has it. Change only what you mean to.",
+    "value": "Value",
+    "timeFrom": "From",
+    "timeTo": "To",
+    "listHint": "Add and Remove keep each bonus buy's other codes. Separate codes with commas, spaces or new lines.",
+    "codes": "Codes",
+    "maxValueHint": "An amount in {{currency}}.",
+    "fixProblems": "Fix the fields marked in the form first.",
+    "nothing": "Choose at least one change.",
+    "problem": {
+      "score": "Enter a whole number of 0 or more.",
+      "maxValue": "Enter an amount of 0 or more.",
+      "timeWindow": "Enter both times.",
+      "includes": "Enter at least one code.",
+      "excludes": "Enter at least one code.",
+      "originFilter": "Enter at least one code.",
+      "stackingExcludes": "Enter at least one code.",
+      "loyGroups": "Enter at least one code.",
+      "loyTiers": "Enter at least one code."
+    }
+  },
+  "batch": {
+    "empty": "Select the bonus buys to change first.",
+    "overCap": "Select at most {{cap}} bonus buys in one batch.",
+    "mixedSalesArea": "The selection mixes KSA and Bahrain bonus buys. A batch takes one sales area."
+  },
+  "preview": {
+    "button": "Preview",
+    "stale": "The selection or the form changed after this preview. Preview again before applying."
+  },
+  "apply": {
+    "button": "Apply",
+    "needsPreview": "Preview the current selection and form first.",
+    "confirmTitle": "Apply the bulk change",
+    "confirmBody_one": "Save the change on {{n}} bonus buy? Refused and skipped bonus buys are not touched.",
+    "confirmBody_other": "Save the change on {{n}} bonus buys? Refused and skipped bonus buys are not touched."
+  },
+  "result": {
+    "previewTitle": "Preview: nothing has been saved",
+    "appliedTitle": "Applied",
+    "batchId": "Batch",
+    "countsPreview": "{{save}} would save · {{skip}} skipped · {{refuse}} refused",
+    "countsApplied": "{{save}} saved · {{skip}} skipped · {{refuse}} refused",
+    "refusedWhole": "The whole batch was refused. Nothing was saved.",
+    "added": "Added",
+    "removed": "Removed",
+    "col": {
+      "number": "Bonus buy",
+      "outcome": "Outcome",
+      "detail": "Changes and refusals",
+      "field": "Field",
+      "before": "Now",
+      "after": "New"
+    },
+    "outcome": {
+      "wouldSave": "Would save",
+      "save": "Saved",
+      "skip": "Skipped: nothing changes",
+      "refuse": "Refused",
+      "unknown": "Unknown outcome"
+    }
+  }
+}

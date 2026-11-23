@@ -2,11 +2,14 @@
  * Bulk Mark Tested on the bulk change screen (BackOffice spec 4190 stories 40–43, server ticket 4194;
  * oms 959). The tester grant shows the action; the request is the numbers, versions and one note; the
  * answer is a result per row and a batch id.
+ *
+ * Fixtures are BackOffice pricing2 9317c4cd6's wire shape (`BbyBulkResult`, BbyBulkChangeModels.cs).
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf, type ScreenKey } from '@/core/permissions'
-import type { BbyBulkListRow, BbyBulkMarkTestedResult } from '@/core/models/bonus-buy-bulk'
-import { canMarkBulkTested, markTestedRequest, markTestedTargets, readMarkTested } from './mark-tested'
+import type { BbyBulkListRow, BbyBulkMarkTestedResult, BbyBulkRowResult } from '@/core/models/bonus-buy-bulk'
+import type { BbyRefusal } from '@/core/models/bonus-buy-maintenance'
+import { BULK_TEST_NOTE_MAX, canMarkBulkTested, markTestedRequest, markTestedTargets, readMarkTested } from './mark-tested'
 
 const holding = (...screens: ScreenKey[]) => permissionsOf({ screens })
 
@@ -30,6 +33,7 @@ const row = (bbyNumber: string, bbyStatus: string, version: string): BbyBulkList
   description: null,
   promoNumber: 'P00000001',
   bbyStatus,
+  locked: bbyStatus !== '1',
   version,
   engineRules: null,
 })
@@ -37,16 +41,23 @@ const row = (bbyNumber: string, bbyStatus: string, version: string): BbyBulkList
 describe('the request carries the numbers, their versions and the one note', () => {
   it('sends each bonus buy with its version as loaded, and the note trimmed', () => {
     const targets = [
-      { bbyNumber: 'OMS000000001', version: 'AAAAAAAAB9E=' },
-      { bbyNumber: 'OMS000000002', version: 'AAAAAAAAB9F=' },
+      { bbyNumber: 'OMS000000001', version: '202611231015300000000' },
+      { bbyNumber: 'OMS000000002', version: '202611231015300000001' },
     ]
     expect(markTestedRequest(targets, '  Checked in the simulator, seat C  ')).toEqual({
       bonusBuys: [
-        { bbyNumber: 'OMS000000001', version: 'AAAAAAAAB9E=' },
-        { bbyNumber: 'OMS000000002', version: 'AAAAAAAAB9F=' },
+        { bbyNumber: 'OMS000000001', version: '202611231015300000000' },
+        { bbyNumber: 'OMS000000002', version: '202611231015300000001' },
       ],
       note: 'Checked in the simulator, seat C',
     })
+  })
+
+  it('the note input leaves room for the batch reference the server appends', () => {
+    // BO BbyMaintainWebService.BulkTested.cs BatchNote: BbyTestMark.Note is 200 wide; the server appends
+    // " (batch <26-char ULID>)" and clamps the note, never the reference.
+    expect(BULK_TEST_NOTE_MAX).toBe(200 - ' (batch 01JD3M2B8QK0F7V4N6T9X1Y5ZC)'.length)
+    expect(BULK_TEST_NOTE_MAX).toBe(165)
   })
 
   it('a blank note is sent as null, as the single Mark Tested does', () => {
@@ -76,36 +87,52 @@ describe('the request carries the numbers, their versions and the one note', () 
 
 const invalid = {
   code: 'BBY-GET-EMPTY',
-  english: 'The get line has no material.',
+  english: "Bonus buy 'OMS000000002': the get line has no material.",
   arabic: 'سطر الحصول لا يحتوي على مادة.',
 }
 const stale = {
   code: 'BBY-STALE',
-  english: 'Someone changed this bonus buy after you loaded it.',
+  english: "Bonus buy 'OMS000000004': someone changed this bonus buy after you loaded it.",
   arabic: 'قام شخص آخر بتغيير عرض الشراء هذا بعد تحميله.',
 }
 
-/** 🚩 A guessed 4194 answer: two tested, one re-validation refusal, one stale, one status word it does not know. */
+/** One row as bulk Mark Tested fills BO's `BbyBulkRowResult`: no rules and no changed fields. */
+const mark = (number: string, status: string, refusals: BbyRefusal[] = [], version: string | null = 'v'): BbyBulkRowResult => ({
+  number,
+  status,
+  refusals,
+  warnings: [],
+  version,
+  changedFields: [],
+  before: null,
+  after: null,
+})
+
+/** BO 4194's answer: two tested, one re-validation refusal, one stale, one status word it does not know, one not found. */
 const FIXTURE: BbyBulkMarkTestedResult = {
   status: 'saved',
   batchId: '01JD3M2B8QK0F7V4N6T9X1Y5ZC',
+  dryRun: false,
+  saved: 2,
+  skipped: 0,
+  refused: 3,
   refusals: [],
-  warnings: [],
   bonusBuys: [
-    { number: 'OMS000000001', status: 'saved', refusals: [], warnings: [] },
-    { number: 'OMS000000002', status: 'refused', refusals: [invalid], warnings: [] },
-    { number: 'OMS000000003', status: 'saved', refusals: [], warnings: [] },
-    { number: 'OMS000000004', status: 'refused', refusals: [stale], warnings: [] },
-    { number: 'OMS000000005', status: 'later', refusals: [], warnings: [] },
+    mark('OMS000000001', 'saved'),
+    mark('OMS000000002', 'refused', [invalid]),
+    mark('OMS000000003', 'saved'),
+    mark('OMS000000004', 'refused', [stale]),
+    mark('OMS000000005', 'later'),
+    mark('OMS000000006', 'notFound', [], null),
   ],
 }
 
 describe('the answer: a result per row and the batch id', () => {
   const read = readMarkTested(FIXTURE)
 
-  it('carries the batch id and counts each outcome', () => {
+  it('carries the batch id and counts each outcome (notFound is a refusal)', () => {
     expect(read.batchId).toBe('01JD3M2B8QK0F7V4N6T9X1Y5ZC')
-    expect(read.counts).toEqual({ tested: 2, refuse: 2, unknown: 1 })
+    expect(read.counts).toEqual({ tested: 2, refuse: 3, unknown: 1 })
   })
 
   it('each row keeps its number, its outcome and its refusals in both languages', () => {
@@ -115,26 +142,31 @@ describe('the answer: a result per row and the batch id', () => {
       { number: 'OMS000000003', outcome: 'tested', refusals: [], warnings: [] },
       { number: 'OMS000000004', outcome: 'refuse', refusals: [stale], warnings: [] },
       { number: 'OMS000000005', outcome: 'unknown', refusals: [], warnings: [] },
+      { number: 'OMS000000006', outcome: 'refuse', refusals: [], warnings: [] },
     ])
   })
 
-  it('🚩 a batch refused whole (no tester grant, over the cap) carries the batch refusals and no rows', () => {
-    const grant = { code: 'BBY-TEST-GRANT', english: 'You cannot mark bonus buys Tested.', arabic: 'لا يمكنك تعليم عروض الشراء كمختبرة.' }
-    const whole = readMarkTested({ status: 'refused', batchId: null, refusals: [grant], warnings: [], bonusBuys: [] })
+  it('a batch refused whole (over the cap, nothing sent) carries the batch refusals and no rows', () => {
+    const tooMany = {
+      code: 'BBY-BULK-TOO-MANY',
+      english: '201 bonus buys are selected; one bulk request takes at most 200. Nothing was changed.',
+      arabic: 'تم اختيار 201 من عروض الشراء؛ والطلب الجماعي الواحد يقبل 200 على الأكثر.',
+    }
+    const whole = readMarkTested({ status: 'refused', batchId: null, dryRun: false, refusals: [tooMany], bonusBuys: [] })
     expect(whole.refusedWhole).toBe(true)
-    expect(whole.batchRefusals).toEqual([grant])
+    expect(whole.batchRefusals).toEqual([tooMany])
     expect(whole.rows).toEqual([])
     expect(whole.batchId).toBeNull()
   })
 
   it('🚩 a whole-batch refusal with no rows at all (bonusBuys null) reads as refused whole', () => {
-    const whole = readMarkTested({ status: 'refused', batchId: null, refusals: [], warnings: [], bonusBuys: null } as unknown as BbyBulkMarkTestedResult)
+    const whole = readMarkTested({ status: 'refused', batchId: null, refusals: [], bonusBuys: null } as unknown as BbyBulkMarkTestedResult)
     expect(whole.refusedWhole).toBe(true)
     expect(whole.rows).toEqual([])
   })
 
-  it('a `tested` status word is read as tested too', () => {
-    const read2 = readMarkTested({ ...FIXTURE, bonusBuys: [{ number: 'OMS000000001', status: 'tested', refusals: [], warnings: [] }] })
-    expect(read2.rows[0].outcome).toBe('tested')
+  it('only `saved` is tested: the server never answers `tested`, so that word is unknown, never tested', () => {
+    const read2 = readMarkTested({ ...FIXTURE, bonusBuys: [mark('OMS000000001', 'tested')] })
+    expect(read2.rows[0].outcome).toBe('unknown')
   })
 })

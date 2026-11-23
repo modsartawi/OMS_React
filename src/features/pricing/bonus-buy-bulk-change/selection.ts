@@ -14,20 +14,22 @@ export type LockReason = 'tested' | 'activated' | 'deactivated' | 'notOms' | 'un
 export interface SelectableRow extends SalesAreaFields {
   bbyNumber: string
   bbyStatus: string | null | undefined
+  /** The server's own lock (`BbyBulkListRow.Locked`: any status but Planned). */
+  locked?: boolean | null
 }
 
 /** An OMS-authored bonus buy's number (`OMS` + nine digits); anything else is SAP's, never edited here. */
 const OMS_NUMBER = /^OMS\d{9}$/
 
-/** The server's per-call cap (spec 4190 "Batch size", BackOffice 4193). */
+/** The server's per-call cap (`BbyBulkLimits.MaxBonusBuys`, both bulk acts; BackOffice 4193). */
 export const BULK_CAP = 200
 
-/** Null when the row may be picked; otherwise why not. */
+/** Null when the row may be picked; otherwise why not. A row the server says is locked is never picked. */
 export function lockReason(row: SelectableRow): LockReason | null {
   if (!OMS_NUMBER.test(row.bbyNumber.trim())) return 'notOms'
   const status = readBbyStatus(row.bbyStatus)
-  if (status === 'planned') return null
-  return status
+  if (status !== 'planned') return status
+  return row.locked === true ? 'unknown' : null
 }
 
 /** Select all: the Planned rows of `rows`, in order, and how many it left out. */

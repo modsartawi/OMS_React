@@ -10,12 +10,17 @@ import { matchingPreset, pickPreset, presetForm, presetOperations, presetRenameR
 const callCenterOnly: BbyBulkPreset = {
   id: '01JF0000000000000000000001',
   name: 'Call-center only',
-  version: 'v1',
+  // BO BbyBulkPresetDocument.Version is an int: 1 on create, +1 on every edit.
+  version: 1,
+  createdBy: 'msartawi',
+  createdAt: '2026-11-23T10:15:30.123',
+  changedBy: 'msartawi',
+  changedAt: '2026-11-23T10:15:30.123',
   operations: {
     score: { op: 'set', value: 40 },
     maxValue: { op: 'set', value: 12.5 },
     isStackable: { op: 'set', value: false },
-    timeWindow: { op: 'set', from: '150000', to: '183015' },
+    timeWindow: { op: 'set', value: { from: '150000', to: '183015' } },
     includes: { op: 'clear' },
     excludes: { op: 'add', value: '100234, 100567' },
     originFilter: { op: 'replace', value: 'C' },
@@ -53,6 +58,33 @@ describe('preset ↔ form', () => {
   it('🚩 operations stored as a JSON string (the column is NVARCHAR(MAX)) read the same as an object', () => {
     const asText = { ...callCenterOnly, operations: JSON.stringify(callCenterOnly.operations) }
     expect(presetForm(asText)).toEqual(presetForm(callCenterOnly))
+  })
+
+  it('a preset as the server lists it (every Leave field null, a Clear with value null) starts the same form', () => {
+    // BO serialises BbyEngineRuleOperations with the web defaults, so the List answer names every field.
+    const listed = {
+      ...callCenterOnly,
+      operations: {
+        score: { op: 'set', value: 40 },
+        isStackable: null,
+        maxValue: null,
+        timeWindow: { op: 'clear', value: null },
+        includes: null,
+        excludes: null,
+        originFilter: null,
+        stackingExcludes: null,
+        loyGroups: { op: 'clear', value: null },
+        loyTiers: null,
+      },
+    } as unknown as BbyBulkPreset
+    const form = presetForm(listed)
+    expect(form).toEqual({
+      ...EMPTY_FORM,
+      score: { op: 'set', value: '40' },
+      timeWindow: { op: 'clear', from: '', to: '' },
+      lists: { ...EMPTY_FORM.lists, loyGroups: { op: 'clear', value: '' } },
+    })
+    expect(matchingPreset([listed], form)).toBe(listed.id)
   })
 
   it('unreadable operations start an all-Leave form, never a half-filled one', () => {
@@ -110,7 +142,7 @@ describe('saving the form as a preset', () => {
 
   it('an edit carries the preset id and the version it was loaded at (the server guards it)', () => {
     expect(presetSaveRequest(form, 'Call-center only', callCenterOnly)).toEqual({
-      request: { id: callCenterOnly.id, name: 'Call-center only', operations: { score: { op: 'set', value: 40 } }, version: 'v1' },
+      request: { id: callCenterOnly.id, name: 'Call-center only', operations: { score: { op: 'set', value: 40 } }, version: 1 },
     })
   })
 
@@ -123,12 +155,12 @@ describe('saving the form as a preset', () => {
   it("a rename sends the preset's stored operations unchanged, never re-derived through the form", () => {
     const asText = { ...callCenterOnly, operations: JSON.stringify(callCenterOnly.operations) }
     expect(presetRenameRequest(asText, '  Call center ')).toEqual({
-      request: { id: callCenterOnly.id, name: 'Call center', operations: callCenterOnly.operations, version: 'v1' },
+      request: { id: callCenterOnly.id, name: 'Call center', operations: callCenterOnly.operations, version: 1 },
     })
     // Operations the form would refuse (a negative max value) still go back exactly as stored.
     const odd = { ...callCenterOnly, operations: { maxValue: { op: 'set', value: -1 } } } as BbyBulkPreset
     expect(presetRenameRequest(odd, 'x')).toEqual({
-      request: { id: odd.id, name: 'x', operations: { maxValue: { op: 'set', value: -1 } }, version: 'v1' },
+      request: { id: odd.id, name: 'x', operations: { maxValue: { op: 'set', value: -1 } }, version: 1 },
     })
     expect(presetRenameRequest(callCenterOnly, '  ')).toEqual({ problem: 'name' })
     expect(presetRenameRequest({ ...callCenterOnly, operations: '{not json' }, 'x')).toEqual({ problem: 'nothing' })
@@ -136,29 +168,38 @@ describe('saving the form as a preset', () => {
 })
 
 describe('the preset answer (in-band)', () => {
-  const duplicate = { code: 'BBY-PRESET-DUPLICATE-NAME', english: 'A preset named "Call-center only" already exists.', arabic: 'يوجد إعداد مسبق بهذا الاسم.' }
-  const stale = { code: 'BBY-PRESET-STALE', english: 'Someone changed this preset since you loaded it.', arabic: 'غيّر شخص آخر هذا الإعداد.' }
+  // BO BbyMaintainRefusals.cs (ticket 4195): BBY-PRESET-DUPLICATE and BBY-PRESET-STALE. The client matches no code.
+  const duplicate = {
+    code: 'BBY-PRESET-DUPLICATE',
+    english: "A preset named 'Call-center only' already exists. Choose another name, or edit that preset.",
+    arabic: "يوجد إعداد مسبق باسم 'Call-center only' بالفعل. اختر اسماً آخر أو عدّل ذلك الإعداد.",
+  }
+  const stale = {
+    code: 'BBY-PRESET-STALE',
+    english: "Preset 'Call-center only' was changed by msartawi at 2026-11-23 10:15 after you opened it.",
+    arabic: "تم تعديل الإعداد المسبق 'Call-center only' بواسطة msartawi في 2026-11-23 10:15 بعد أن فتحته.",
+  }
 
-  it('a saved preset comes back with its new version', () => {
-    const saved = { ...callCenterOnly, version: 'v2' }
-    expect(readPresetOutcome({ status: 'saved', preset: saved, refusals: [], warnings: [] })).toEqual({ ok: true, preset: saved })
-    expect(readPresetOutcome({ status: 'deleted', refusals: [], warnings: [] })).toEqual({ ok: true, preset: null })
+  it('a saved preset comes back with its new version; a delete echoes none', () => {
+    const saved = { ...callCenterOnly, version: 2 }
+    expect(readPresetOutcome({ status: 'saved', preset: saved, refusals: [] })).toEqual({ ok: true, preset: saved })
+    expect(readPresetOutcome({ status: 'deleted', preset: null, refusals: [] })).toEqual({ ok: true, preset: null })
     // Saved with no row echoed: still saved — the list is fetched again for the new version.
-    expect(readPresetOutcome({ status: 'saved', refusals: [], warnings: [] })).toEqual({ ok: true, preset: null })
+    expect(readPresetOutcome({ status: 'saved', preset: null, refusals: [] })).toEqual({ ok: true, preset: null })
   })
 
   it('a duplicate name and a stale edit render their bilingual refusals, as the server words them', () => {
-    expect(readPresetOutcome({ status: 'refused', refusals: [duplicate], warnings: [] })).toEqual({
+    expect(readPresetOutcome({ status: 'refused', preset: null, refusals: [duplicate] })).toEqual({
       ok: false,
       refusals: [duplicate],
       fallback: null,
     })
-    expect(readPresetOutcome({ status: 'refused', refusals: [stale], warnings: [] })).toEqual({ ok: false, refusals: [stale], fallback: null })
+    expect(readPresetOutcome({ status: 'refused', preset: null, refusals: [stale] })).toEqual({ ok: false, refusals: [stale], fallback: null })
   })
 
   it('🚩 a refusal with no words, a preset gone, or an unknown status is shown, never read as saved', () => {
-    expect(readPresetOutcome({ status: 'refused', refusals: [], warnings: [] })).toEqual({ ok: false, refusals: [], fallback: 'refused' })
-    expect(readPresetOutcome({ status: 'notFound', refusals: [], warnings: [] })).toEqual({ ok: false, refusals: [], fallback: 'notFound' })
-    expect(readPresetOutcome({ status: 'queued', refusals: [], warnings: [] } as never)).toEqual({ ok: false, refusals: [], fallback: 'unknown' })
+    expect(readPresetOutcome({ status: 'refused', preset: null, refusals: [] })).toEqual({ ok: false, refusals: [], fallback: 'refused' })
+    expect(readPresetOutcome({ status: 'notFound', preset: null, refusals: [] })).toEqual({ ok: false, refusals: [], fallback: 'notFound' })
+    expect(readPresetOutcome({ status: 'queued', preset: null, refusals: [] } as never)).toEqual({ ok: false, refusals: [], fallback: 'unknown' })
   })
 })

@@ -35,6 +35,14 @@ describe('faultRoute', () => {
     ).toBe('settings')
   })
 
+  it('routes an unknown plant (BO 4191 SIM_UNKNOWN_PLANT, a 400 envelope) to the run settings, where Plant and Seat are', () => {
+    const err = business(
+      'SIM_UNKNOWN_PLANT',
+      'C001 is not a plant. For a call-center order, choose the stock store and set Seat to Call center.',
+    )
+    expect(faultRoute(err)).toBe('settings')
+  })
+
   it('routes an unrecognised business code to the run settings rather than nowhere', () => {
     expect(faultRoute(business('SOME_FUTURE_CODE'))).toBe('settings')
   })

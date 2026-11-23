@@ -19,8 +19,12 @@ import { lockReason } from './selection'
 /** The action is shown only with the tester grant (`BbyMaintain:04`) beside the screen grant (story 42). */
 export const canMarkBulkTested = canTestBbyMaintain
 
-/** `BbyTestMark.Note`'s width (`NVARCHAR(200)`), as the single Mark Tested caps it. */
-export const BULK_TEST_NOTE_MAX = 200
+/**
+ * The room the server leaves the tester's words: `BbyTestMark.Note` is 200 wide, and the bulk act appends
+ * ` (batch <26-char ULID>)` (35 characters), clamping the note rather than the reference (BackOffice
+ * `BbyMaintainWebService.BulkTested.cs` `BatchNote`). Capping the input here means nothing typed is cut.
+ */
+export const BULK_TEST_NOTE_MAX = 200 - ' (batch '.length - 26 - ')'.length
 
 /**
  * The batch to mark: the selected rows when there are any; otherwise the rows the last apply saved,
@@ -57,17 +61,16 @@ export interface MarkRow {
 
 export interface MarkTestedReading {
   batchId: string | null
-  /** Refused before any row was touched (no tester grant, over the cap, nothing sent). */
+  /** Refused before any row was touched (over the cap, nothing sent); no tester grant is a 403 instead. */
   refusedWhole: boolean
   batchRefusals: BbyRefusal[]
-  batchWarnings: BbyRefusal[]
   rows: MarkRow[]
   counts: Record<MarkOutcome, number>
 }
 
 function outcomeOf(status: string): MarkOutcome {
-  if (status === 'saved' || status === 'tested') return 'tested'
-  if (status === 'refused') return 'refuse'
+  if (status === 'saved') return 'tested'
+  if (status === 'refused' || status === 'notFound') return 'refuse'
   return 'unknown'
 }
 
@@ -84,7 +87,6 @@ export function readMarkTested(result: BbyBulkMarkTestedResult): MarkTestedReadi
     batchId: result.batchId ?? null,
     refusedWhole: result.status === 'refused' && rows.length === 0,
     batchRefusals: result.refusals ?? [],
-    batchWarnings: result.warnings ?? [],
     rows,
     counts,
   }

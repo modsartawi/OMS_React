@@ -158,7 +158,6 @@ function MarkTestedResult({ reading }: { reading: MarkTestedReading }) {
       </div>
       {reading.refusedWhole && <div className="font-medium text-danger-800">{t('markTested.refusedWhole')}</div>}
       <Refusals refusals={reading.batchRefusals} tone="bad" />
-      <Refusals refusals={reading.batchWarnings} tone="warn" />
       {reading.rows.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">

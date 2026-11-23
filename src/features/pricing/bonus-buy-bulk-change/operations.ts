@@ -99,7 +99,7 @@ export function toOperations(form: BulkForm): { operations: BbyBulkOperations; p
   else if (form.timeWindow.op === 'set') {
     const from = toWireTime(form.timeWindow.from)
     const to = toWireTime(form.timeWindow.to)
-    if (from && to) operations.timeWindow = { op: 'set', from, to }
+    if (from && to) operations.timeWindow = { op: 'set', value: { from, to } }
     else problems.push('timeWindow')
   }
 
@@ -117,25 +117,45 @@ export function toOperations(form: BulkForm): { operations: BbyBulkOperations; p
   return { operations, problems }
 }
 
-/** True when the operations change anything at all. */
-export function hasOperations(operations: BbyBulkOperations): boolean {
-  return Object.values(operations).some((o) => o != null)
+/**
+ * A field's op as the server reads it (`BbyBulkOperations.Op`): trimmed, lower case, and `leave` when
+ * the field is absent, null or blank. The server echoes every Leave field of a stored preset as `null`.
+ */
+function opOf(o: { op?: unknown } | null | undefined): string {
+  const op = typeof o?.op === 'string' ? o.op.trim().toLowerCase() : ''
+  return op || 'leave'
 }
 
-/** The form a set of operations stands for: every absent key is Leave. */
+/** True when the operations change anything at all. */
+export function hasOperations(operations: BbyBulkOperations): boolean {
+  return Object.values(operations).some((o) => opOf(o) !== 'leave')
+}
+
+/** The form a set of operations stands for: every absent, null or `leave` field is Leave. */
 export function fromOperations(operations: BbyBulkOperations): BulkForm {
-  const listForm = (o: BbyBulkListOperation | undefined) =>
-    !o ? LEAVE_LIST : o.op === 'clear' ? { op: 'clear' as const, value: '' } : { op: o.op, value: o.value }
+  const listForm = (o: BbyBulkListOperation | null | undefined): BulkForm['lists'][BbyBulkListField] => {
+    const op = opOf(o)
+    if (op === 'clear') return { op: 'clear', value: '' }
+    if ((op === 'replace' || op === 'add' || op === 'remove') && o && 'value' in o && typeof o.value === 'string')
+      return { op, value: o.value }
+    return LEAVE_LIST
+  }
+  const score = opOf(operations.score) === 'set' ? operations.score : null
+  const maxValue = opOf(operations.maxValue) === 'set' ? operations.maxValue : null
+  const stackable = opOf(operations.isStackable) === 'set' ? operations.isStackable : null
   const t = operations.timeWindow
+  const timeOp = opOf(t)
+  const window = timeOp === 'set' && t && t.op !== 'clear' ? t.value : null
   return {
-    score: operations.score ? { op: 'set', value: String(operations.score.value) } : EMPTY_FORM.score,
-    maxValue: operations.maxValue ? { op: 'set', value: String(operations.maxValue.value) } : EMPTY_FORM.maxValue,
-    isStackable: operations.isStackable ? (operations.isStackable.value ? 'yes' : 'no') : 'leave',
-    timeWindow: !t
-      ? EMPTY_FORM.timeWindow
-      : t.op === 'clear'
+    score: score ? { op: 'set', value: String(score.value) } : EMPTY_FORM.score,
+    maxValue: maxValue ? { op: 'set', value: String(maxValue.value) } : EMPTY_FORM.maxValue,
+    isStackable: stackable ? (stackable.value ? 'yes' : 'no') : 'leave',
+    timeWindow:
+      timeOp === 'clear'
         ? { op: 'clear', from: '', to: '' }
-        : { op: 'set', from: fromWireTime(t.from), to: fromWireTime(t.to) },
+        : window
+          ? { op: 'set', from: fromWireTime(window.from), to: fromWireTime(window.to) }
+          : EMPTY_FORM.timeWindow,
     lists: Object.fromEntries(BBY_BULK_LIST_FIELDS.map((f) => [f, listForm(operations[f])])) as BulkForm['lists'],
   }
 }

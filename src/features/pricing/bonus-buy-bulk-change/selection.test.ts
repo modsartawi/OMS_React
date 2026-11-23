@@ -28,6 +28,11 @@ describe('the lock reason per status', () => {
     expect(lockReason(row('OMS000000006', 'X'))).toBe('unknown')
   })
 
+  it("the server's own `locked` flag (BO BbyBulkListRow.Locked) locks a row the status alone would leave open", () => {
+    expect(lockReason({ ...row('OMS000000007', '1'), locked: true })).toBe('unknown')
+    expect(lockReason({ ...row('OMS000000008', '1'), locked: false })).toBeNull()
+  })
+
   it('🚩 a SAP bonus buy is locked even when it reads Planned: it is never edited here', () => {
     expect(lockReason(row('0000012345', '1'))).toBe('notOms')
   })

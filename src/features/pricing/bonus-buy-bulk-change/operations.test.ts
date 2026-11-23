@@ -54,7 +54,8 @@ describe('form → bulk operations', () => {
     expect(operations).toEqual({
       isStackable: { op: 'set', value: true },
       maxValue: { op: 'set', value: 12.5 },
-      timeWindow: { op: 'set', from: '150000', to: '183015' },
+      // BO BbyRuleOperation<BbyTimeWindow>: the window is the op's value, `{ from, to }` (BbyBulkChangeModels.cs).
+      timeWindow: { op: 'set', value: { from: '150000', to: '183015' } },
     })
     expect(toOperations(form({ timeWindow: { op: 'clear', from: '15:00', to: '' } })).operations).toEqual({
       timeWindow: { op: 'clear' },
@@ -90,7 +91,7 @@ describe('form → bulk operations', () => {
     const ops = {
       score: { op: 'set', value: 7 },
       isStackable: { op: 'set', value: true },
-      timeWindow: { op: 'set', from: '080000', to: '120000' },
+      timeWindow: { op: 'set', value: { from: '080000', to: '120000' } },
       excludes: { op: 'add', value: '100234' },
       loyGroups: { op: 'clear' },
     } as const
@@ -103,5 +104,30 @@ describe('form → bulk operations', () => {
     expect(back.lists.includes).toEqual({ op: 'leave', value: '' })
     expect(back.maxValue).toEqual({ op: 'leave', value: '' })
     expect(toOperations(back).operations).toEqual(ops)
+  })
+
+  it('operations as the server echoes them read as the form: null fields, a null Clear value and `leave` are Leave', () => {
+    // BO serialises BbyEngineRuleOperations with SIS.Api's web defaults: every Leave field is `null`, a Clear
+    // carries `value: null`, and ops compare case-insensitively (BbyBulkOperations.Op).
+    const echoed = {
+      score: { op: 'Set', value: 7 },
+      isStackable: null,
+      maxValue: { op: 'leave', value: 0 },
+      timeWindow: { op: 'clear', value: null },
+      includes: null,
+      excludes: { op: 'ADD', value: '100234' },
+      originFilter: null,
+      stackingExcludes: { op: '', value: null },
+      loyGroups: { op: 'clear', value: null },
+      loyTiers: null,
+    }
+    const back = fromOperations(echoed as never)
+    expect(back).toEqual({
+      ...EMPTY_FORM,
+      score: { op: 'set', value: '7' },
+      timeWindow: { op: 'clear', from: '', to: '' },
+      lists: { ...EMPTY_FORM.lists, excludes: { op: 'add', value: '100234' }, loyGroups: { op: 'clear', value: '' } },
+    })
+    expect(hasOperations({ score: null, isStackable: null } as never)).toBe(false)
   })
 })

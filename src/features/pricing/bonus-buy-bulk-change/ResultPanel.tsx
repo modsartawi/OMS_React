@@ -42,7 +42,6 @@ export default function ResultPanel({ reading }: { reading: BulkResultReading })
 
       {reading.refusedWhole && <div className="font-medium text-danger-800">{t('result.refusedWhole')}</div>}
       <Refusals refusals={reading.batchRefusals} tone="bad" />
-      <Refusals refusals={reading.batchWarnings} tone="warn" />
 
       {reading.rows.length > 0 && (
         <div className="overflow-x-auto">

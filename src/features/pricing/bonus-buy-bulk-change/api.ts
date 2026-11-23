@@ -5,8 +5,8 @@
  * refused, a batch refused whole — are in-band 200s; HTTP errors are infrastructure only (403 without
  * the grant). The routes sit on the bonus-buy maintenance group, behind the same grant (`BbyMaintain:03`).
  *
- * 🚩 GUESSED routes: BackOffice 4192/4193 were unbuilt when this was written. Reconcile when they ship
- * (the contract note of ticket 958 lists every guess).
+ * Routes reconciled to BackOffice pricing2 9317c4cd6 (`BbyMaintainWebEndpoints.cs`): the bulk acts and
+ * presets sit under `BbyMaintainWeb/Bulk/*`. The record is `.issues/4190-bulk-change-contract-guess.md`.
  */
 import { api } from '@/core/api'
 import type { BbyPromotion } from '@/core/models/bonus-buy-maintenance'
@@ -40,39 +40,38 @@ export const bbyBulkChangeApi = {
 
   /** Every OMS bonus buy across promotions, Planned and locked alike; a blank promotion is all of them. */
   list(promoNumber: string): Promise<BbyBulkListRow[]> {
-    return api.get<BbyBulkListRow[]>(`${BASE}/BonusBuy/BulkList`, { promoNumber })
+    return api.get<BbyBulkListRow[]>(`${BASE}/Bulk/List`, { promoNumber })
   },
 
   /** The bulk change: `dryRun` computes and validates every row and writes nothing (the preview). */
   change(body: BbyBulkChangeRequest): Promise<BbyBulkChangeResult> {
-    return api.post<BbyBulkChangeResult>(`${BASE}/BonusBuy/BulkChange`, body)
+    return api.post<BbyBulkChangeResult>(`${BASE}/Bulk/Change`, body)
   },
 
-  /** Bulk Mark Tested (oms 959, BackOffice 4194, tester grant `BbyMaintain:04`). 🚩 Guessed route. */
+  /** Bulk Mark Tested (oms 959, BackOffice 4194, tester grant `BbyMaintain:04` on top of `:03`). */
   markTested(body: BbyBulkMarkTestedRequest): Promise<BbyBulkMarkTestedResult> {
-    return api.post<BbyBulkMarkTestedResult>(`${BASE}/BonusBuy/BulkMarkTested`, body)
+    return api.post<BbyBulkMarkTestedResult>(`${BASE}/Bulk/MarkTested`, body)
   },
 }
 
 // ── presets (BackOffice 4195, oms 960) ───────────────────────────────────────────────────────────
-// 🚩 GUESSED routes, on the same group behind the same grant; the 960 section of the contract note
-// lists every guess.
+// On the same group behind the same grant (`BbyMaintain:03`), under `Bulk/Preset/*`.
 
 export const bulkPresetsKey = ['bonus-buy-bulk-change', 'presets'] as const
 
 export const bbyBulkPresetApi = {
   /** Every shared preset: the whole team's (story 36). */
   list(): Promise<BbyBulkPreset[]> {
-    return api.get<BbyBulkPreset[]>(`${BASE}/BulkPreset/List`)
+    return api.get<BbyBulkPreset[]>(`${BASE}/Bulk/Preset/List`)
   },
 
   /** Create (no id) or edit at the version loaded; a duplicate name or a stale edit is refused in-band. */
   save(body: BbyBulkPresetSaveRequest): Promise<BbyBulkPresetOutcome> {
-    return api.post<BbyBulkPresetOutcome>(`${BASE}/BulkPreset/Save`, body)
+    return api.post<BbyBulkPresetOutcome>(`${BASE}/Bulk/Preset/Save`, body)
   },
 
   /** Delete at the version loaded; a stale or missing preset is answered in-band. */
   delete(body: BbyBulkPresetDeleteRequest): Promise<BbyBulkPresetOutcome> {
-    return api.post<BbyBulkPresetOutcome>(`${BASE}/BulkPreset/Delete`, body)
+    return api.post<BbyBulkPresetOutcome>(`${BASE}/Bulk/Preset/Delete`, body)
   },
 }

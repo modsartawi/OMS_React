@@ -44,7 +44,6 @@ export interface BulkResultReading {
   /** The whole batch was refused before any row was touched (mixed sales areas, over the cap). */
   refusedWhole: boolean
   batchRefusals: BbyRefusal[]
-  batchWarnings: BbyRefusal[]
   rows: ResultRow[]
   counts: Record<RowOutcome, number>
 }
@@ -52,8 +51,34 @@ export interface BulkResultReading {
 function outcomeOf(status: string): RowOutcome {
   if (status === 'saved' || status === 'valid') return 'save'
   if (status === 'skipped') return 'skip'
-  if (status === 'refused') return 'refuse'
+  if (status === 'refused' || status === 'notFound') return 'refuse'
   return 'unknown'
+}
+
+/** The server's `changedFields` names (`BbyEngineRules` properties, PascalCase) → the form's fields. */
+const CHANGED_FIELD: Record<string, EngineField> = {
+  score: 'score',
+  isstackable: 'isStackable',
+  maxvalue: 'maxValue',
+  validfromtime: 'timeWindow',
+  validtotime: 'timeWindow',
+  includes: 'includes',
+  excludes: 'excludes',
+  originfilter: 'originFilter',
+  stackingexcludes: 'stackingExcludes',
+  loygroups: 'loyGroups',
+  loytiers: 'loyTiers',
+}
+
+/** The fields the server says the change alters, or null when it named none (then every differing field shows). */
+function namedFields(changedFields: string[] | null | undefined): Set<EngineField> | null {
+  if (!changedFields || changedFields.length === 0) return null
+  const named = new Set<EngineField>()
+  for (const f of changedFields) {
+    const field = CHANGED_FIELD[f.toLowerCase()]
+    if (field) named.add(field)
+  }
+  return named
 }
 
 const list = (v: string | null | undefined) => splitCodes(v ?? '').join(',')
@@ -104,10 +129,14 @@ export function changesBetween(before: BbyEngineRulesWire | null | undefined, af
 export function readBulkResult(result: BbyBulkChangeResult, dryRun: boolean): BulkResultReading {
   const rows: ResultRow[] = (result.bonusBuys ?? []).map((r) => {
     const outcome = outcomeOf(r.status)
+    // The server names the fields its operations change; the validator may reshape others in `after`
+    // (normalising), which the change did not make, so only the named ones are laid out.
+    const named = namedFields(r.changedFields)
+    const changes = outcome === 'save' ? changesBetween(r.before, r.after) : []
     return {
       number: r.number,
       outcome,
-      changes: outcome === 'save' ? changesBetween(r.oldRules, r.newRules) : [],
+      changes: named ? changes.filter((c) => named.has(c.field)) : changes,
       refusals: r.refusals ?? [],
       warnings: r.warnings ?? [],
     }
@@ -119,7 +148,6 @@ export function readBulkResult(result: BbyBulkChangeResult, dryRun: boolean): Bu
     batchId: result.batchId ?? null,
     refusedWhole: result.status === 'refused' && rows.length === 0,
     batchRefusals: result.refusals ?? [],
-    batchWarnings: result.warnings ?? [],
     rows,
     counts,
   }

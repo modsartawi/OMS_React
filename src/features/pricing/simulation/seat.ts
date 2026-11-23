@@ -49,6 +49,17 @@ export function seatOrigin({ seat, plant, customOrigin }: SeatInputs): string | 
   }
 }
 
+/** Why the seat cannot be sent as chosen, or `null` when it can. */
+export type SeatProblem = 'miniPosNeedsPlant'
+
+/**
+ * A Mini POS seat with a blank plant names no origin, so the run would price — and the run strip
+ * read — as a store till. It blocks Process until a plant is typed.
+ */
+export function seatProblem({ seat, plant }: SeatInputs): SeatProblem | null {
+  return seat === 'miniPos' && plant.trim() === '' ? 'miniPosNeedsPlant' : null
+}
+
 /**
  * The seat a sent origin names, read back off the request (the run strip's chips are the request,
  * not a second spelling of it — ticket 113). Since the seat is only the origin, a Custom seat typed

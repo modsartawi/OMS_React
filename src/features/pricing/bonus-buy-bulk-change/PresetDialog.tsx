@@ -9,7 +9,7 @@ import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import { bbyBulkPresetApi } from './api'
 import type { BulkForm } from './operations'
-import { presetForm, presetSaveRequest, readPresetOutcome, type PresetOutcomeReading, type PresetSaveProblem } from './presets'
+import { presetRenameRequest, presetSaveRequest, readPresetOutcome, type PresetOutcomeReading, type PresetSaveProblem } from './presets'
 import { Refusals } from './ResultPanel'
 
 /**
@@ -45,11 +45,9 @@ export default function PresetDialog({
   const [answer, setAnswer] = useState<PresetOutcomeReading | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // A rename keeps what the preset holds; create and update store the form as it stands.
-  const source = target.kind === 'rename' ? presetForm(target.preset) : form
-
   const save = async () => {
-    const built = presetSaveRequest(source, name, editing)
+    // A rename sends the preset's stored operations unchanged; create and update store the form as it stands.
+    const built = target.kind === 'rename' ? presetRenameRequest(target.preset, name) : presetSaveRequest(form, name, editing)
     if ('problem' in built) {
       setProblem(built.problem)
       return

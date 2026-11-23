@@ -127,6 +127,12 @@ describe('the answer: a result per row and the batch id', () => {
     expect(whole.batchId).toBeNull()
   })
 
+  it('🚩 a whole-batch refusal with no rows at all (bonusBuys null) reads as refused whole', () => {
+    const whole = readMarkTested({ status: 'refused', batchId: null, refusals: [], warnings: [], bonusBuys: null } as unknown as BbyBulkMarkTestedResult)
+    expect(whole.refusedWhole).toBe(true)
+    expect(whole.rows).toEqual([])
+  })
+
   it('a `tested` status word is read as tested too', () => {
     const read2 = readMarkTested({ ...FIXTURE, bonusBuys: [{ number: 'OMS000000001', status: 'tested', refusals: [], warnings: [] }] })
     expect(read2.rows[0].outcome).toBe('tested')

@@ -75,7 +75,8 @@ export function fromWireTime(value: string | null | undefined): string {
   return /^\d{6}$/.test(v) ? `${v.slice(0, 2)}:${v.slice(2, 4)}:${v.slice(4, 6)}` : v
 }
 
-const NUMBER = /^\d+(\.\d+)?$/
+/** A plain non-negative decimal: `12`, `12.5`, `12.` or `.5` (never a sign, an exponent or hex). */
+const NUMBER = /^(\d+(\.\d*)?|\.\d+)$/
 
 /** The operations the form names, and the fields that cannot be sent as typed (those are left out). */
 export function toOperations(form: BulkForm): { operations: BbyBulkOperations; problems: FormProblem[] } {

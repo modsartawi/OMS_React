@@ -15,5 +15,10 @@
     "key": {
       "seat": "نقطة البيع"
     }
+  },
+  "process": {
+    "refused": {
+      "miniPosNeedsPlant": "اختر فرعًا لنقطة البيع المصغّرة"
+    }
   }
 }

@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BbyBulkPreset } from '@/core/models/bonus-buy-bulk-preset'
 import { EMPTY_FORM, type BulkForm } from './operations'
-import { matchingPreset, pickPreset, presetForm, presetOperations, presetSaveRequest, readPresetOutcome } from './presets'
+import { matchingPreset, pickPreset, presetForm, presetOperations, presetRenameRequest, presetSaveRequest, readPresetOutcome } from './presets'
 
 const callCenterOnly: BbyBulkPreset = {
   id: '01JF0000000000000000000001',
@@ -89,6 +89,14 @@ describe('picking a preset', () => {
     expect(matchingPreset(presets, { ...picked, isStackable: 'yes' })).toBeNull()
     expect(matchingPreset(presets, EMPTY_FORM)).toBeNull()
   })
+
+  it('a form with a problem matches no preset, even when its sendable fields do', () => {
+    const groupsOnly = { ...callCenterOnly, operations: { loyGroups: { op: 'clear' } } } as BbyBulkPreset
+    const picked = pickPreset(page, groupsOnly).form
+    expect(matchingPreset([groupsOnly], picked)).toBe(groupsOnly.id)
+    // An Includes Replace with no codes is left out of the operations — but the form is not the preset.
+    expect(matchingPreset([groupsOnly], { ...picked, lists: { ...picked.lists, includes: { op: 'replace', value: ' ' } } })).toBeNull()
+  })
 })
 
 describe('saving the form as a preset', () => {
@@ -110,6 +118,20 @@ describe('saving the form as a preset', () => {
     expect(presetSaveRequest(form, '   ', null)).toEqual({ problem: 'name' })
     expect(presetSaveRequest({ ...form, maxValue: { op: 'set', value: '' } }, 'x', null)).toEqual({ problem: 'form' })
     expect(presetSaveRequest(EMPTY_FORM, 'x', null)).toEqual({ problem: 'nothing' })
+  })
+
+  it("a rename sends the preset's stored operations unchanged, never re-derived through the form", () => {
+    const asText = { ...callCenterOnly, operations: JSON.stringify(callCenterOnly.operations) }
+    expect(presetRenameRequest(asText, '  Call center ')).toEqual({
+      request: { id: callCenterOnly.id, name: 'Call center', operations: callCenterOnly.operations, version: 'v1' },
+    })
+    // Operations the form would refuse (a negative max value) still go back exactly as stored.
+    const odd = { ...callCenterOnly, operations: { maxValue: { op: 'set', value: -1 } } } as BbyBulkPreset
+    expect(presetRenameRequest(odd, 'x')).toEqual({
+      request: { id: odd.id, name: 'x', operations: { maxValue: { op: 'set', value: -1 } }, version: 'v1' },
+    })
+    expect(presetRenameRequest(callCenterOnly, '  ')).toEqual({ problem: 'name' })
+    expect(presetRenameRequest({ ...callCenterOnly, operations: '{not json' }, 'x')).toEqual({ problem: 'nothing' })
   })
 })
 

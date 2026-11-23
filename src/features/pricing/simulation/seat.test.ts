@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seatOrigin } from './seat'
+import { seatOrigin, seatProblem } from './seat'
 
 /**
  * The seat is the origin, and nothing else (BackOffice spec 4190, ticket 957). The engine's
@@ -23,5 +23,14 @@ describe('seat → origin', () => {
     expect(seatOrigin({ seat: 'miniPos', plant: ' P245 ', customOrigin: '' })).toBe('P245M')
     // No plant, no Mini POS seat to name: the origin stays blank rather than a bare `M`.
     expect(seatOrigin({ seat: 'miniPos', plant: '  ', customOrigin: '' })).toBeNull()
+  })
+})
+
+describe('a seat that cannot be sent', () => {
+  it('Mini POS with a blank plant is a problem (it would silently price as the store till)', () => {
+    expect(seatProblem({ seat: 'miniPos', plant: '  ', customOrigin: '' })).toBe('miniPosNeedsPlant')
+    expect(seatProblem({ seat: 'miniPos', plant: 'P001', customOrigin: '' })).toBeNull()
+    expect(seatProblem({ seat: 'store', plant: '', customOrigin: '' })).toBeNull()
+    expect(seatProblem({ seat: 'custom', plant: '', customOrigin: '' })).toBeNull()
   })
 })

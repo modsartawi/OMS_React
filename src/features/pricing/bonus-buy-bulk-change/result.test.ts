@@ -50,7 +50,7 @@ const DRY_RUN: BbyBulkChangeResult = {
 }
 
 describe('the preview: old → new and refusals from a dry run', () => {
-  const read = readBulkResult(DRY_RUN)
+  const read = readBulkResult(DRY_RUN, true)
 
   it('is a dry run with no batch id, and counts each outcome', () => {
     expect(read.dryRun).toBe(true)
@@ -88,7 +88,7 @@ describe('the apply report', () => {
         { number: 'OMS000000001', status: 'saved', refusals: [], warnings: [], oldRules: rules(), newRules: rules({ score: 40 }) },
         { number: 'OMS000000009', status: 'weird', refusals: [], warnings: [] },
       ],
-    })
+    }, false)
     expect(read.dryRun).toBe(false)
     expect(read.batchId).toBe('01JD3K6Q4XNV8T2B7Y5ZC9W0RM')
     expect(read.rows.map((r) => r.outcome)).toEqual(['save', 'unknown'])
@@ -98,13 +98,19 @@ describe('the apply report', () => {
 
   it('🚩 a batch refused whole carries the batch refusals and no rows', () => {
     const mixed = { code: 'BBY-BULK-SALES-AREA', english: 'One sales area per batch.', arabic: 'منطقة مبيعات واحدة لكل دفعة.' }
-    const read = readBulkResult({ status: 'refused', batchId: null, refusals: [mixed], warnings: [], bonusBuys: [] })
+    const read = readBulkResult({ status: 'refused', batchId: null, refusals: [mixed], warnings: [], bonusBuys: [] }, false)
     expect(read.refusedWhole).toBe(true)
     expect(read.batchRefusals).toEqual([mixed])
     expect(read.rows).toEqual([])
   })
 
-  it('a missing dryRun flag is read off the status: `valid` is a dry run', () => {
-    expect(readBulkResult({ status: 'valid', batchId: null, refusals: [], warnings: [], bonusBuys: [] }).dryRun).toBe(true)
+  it('the request decides dry run: a dry run refused whole with no dryRun flag is still a preview', () => {
+    const refused = { status: 'refused', batchId: null, refusals: [], warnings: [], bonusBuys: [] }
+    expect(readBulkResult(refused, true).dryRun).toBe(true)
+    expect(readBulkResult(refused, false).dryRun).toBe(false)
+  })
+
+  it('the request wins over the server flag', () => {
+    expect(readBulkResult({ status: 'valid', dryRun: false, batchId: null, refusals: [], warnings: [], bonusBuys: [] }, true).dryRun).toBe(true)
   })
 })

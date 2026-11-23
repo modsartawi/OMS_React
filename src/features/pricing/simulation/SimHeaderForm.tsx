@@ -8,7 +8,7 @@ import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { usePermissions } from '@/core/permissions'
 import { fsi } from '@/core/util/bidi'
-import { SIM_SEATS, seatOrigin, type SimSeat } from './seat'
+import { SIM_SEATS, seatOrigin, seatProblem, type SimSeat } from './seat'
 
 // The header inputs feeding SimulateRequest.header. Owner layout (488): a dense
 // 4-column grid (NOT the WPF's 2-column) — determination fields on row 1, procedure
@@ -174,7 +174,11 @@ export default function SimHeaderForm({
         />
       ) : null}
       <span className="text-[0.7rem] text-muted-foreground">
-        {origin !== null ? t('header.seatOrigin', { origin: fsi(origin) }) : t('header.seatOriginPlant')}
+        {seatProblem(value) !== null
+          ? t(`process.refused.${seatProblem(value)}`)
+          : origin !== null
+            ? t('header.seatOrigin', { origin: fsi(origin) })
+            : t('header.seatOriginPlant')}
       </span>
     </div>
   )

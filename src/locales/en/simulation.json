@@ -68,7 +68,8 @@
   "process": {
     "refused": {
       "noItems": "Add an item first",
-      "running": "A run is already in progress"
+      "running": "A run is already in progress",
+      "miniPosNeedsPlant": "Pick a plant for the Mini POS seat"
     }
   },
   "clearCache": {

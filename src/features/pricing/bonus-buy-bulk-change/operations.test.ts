@@ -74,6 +74,13 @@ describe('form → bulk operations', () => {
     expect(operations).toEqual({})
   })
 
+  it('a max value may be written without its leading zero, but never negative or in hex', () => {
+    expect(toOperations(form({ maxValue: { op: 'set', value: '.5' } })).operations).toEqual({ maxValue: { op: 'set', value: 0.5 } })
+    expect(toOperations(form({ maxValue: { op: 'set', value: '-.5' } })).problems).toEqual(['maxValue'])
+    expect(toOperations(form({ maxValue: { op: 'set', value: '0x10' } })).problems).toEqual(['maxValue'])
+    expect(toOperations(form({ maxValue: { op: 'set', value: '.' } })).problems).toEqual(['maxValue'])
+  })
+
   it('a score must be a whole number', () => {
     expect(toOperations(form({ score: { op: 'set', value: '2.5' } })).problems).toEqual(['score'])
     expect(toOperations(form({ score: { op: 'set', value: '0' } })).operations).toEqual({ score: { op: 'set', value: 0 } })

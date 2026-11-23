@@ -43,6 +43,7 @@ export default function MarkTestedPanel({
   lastSaved,
   list,
   disabled,
+  onBusyChange,
   onMarked,
 }: {
   selected: readonly BbyBulkListRow[]
@@ -51,6 +52,8 @@ export default function MarkTestedPanel({
   /** The refreshed list, for the saved rows' new versions. */
   list: readonly BbyBulkListRow[]
   disabled: boolean
+  /** Reports a Mark Tested in flight, so the page holds Preview and Apply while it runs. */
+  onBusyChange: (busy: boolean) => void
   /** Clears the selection and refetches the list. */
   onMarked: () => Promise<void>
 }) {
@@ -77,16 +80,19 @@ export default function MarkTestedPanel({
     const ok = await confirmAction(t('markTested.confirmBody', { count: targets.length, n }), t('markTested.confirmTitle'))
     if (!ok) return
     setBusy(true)
+    onBusyChange(true)
     setError(null)
     try {
-      const answer = await bbyBulkChangeApi.markTested(markTestedRequest(targets, note))
-      setReading(readMarkTested(answer))
-      if (answer.status !== 'refused' || answer.bonusBuys.length > 0) setNote('')
+      const read = readMarkTested(await bbyBulkChangeApi.markTested(markTestedRequest(targets, note)))
+      setReading(read)
+      // Decided off the reading: a batch refused whole may carry no rows at all (bonusBuys null).
+      if (!read.refusedWhole) setNote('')
       await onMarked()
     } catch (err) {
       setError(apiErrorMessage(err, t('markTested.error')))
     } finally {
       setBusy(false)
+      onBusyChange(false)
     }
   }
 

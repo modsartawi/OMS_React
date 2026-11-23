@@ -97,7 +97,11 @@ export function changesBetween(before: BbyEngineRulesWire | null | undefined, af
   return changes
 }
 
-export function readBulkResult(result: BbyBulkChangeResult): BulkResultReading {
+/**
+ * `dryRun` is the request's flag, and it wins: a dry run refused whole may come back with no flag and
+ * a `refused` status, and must still read as a preview, never as an apply.
+ */
+export function readBulkResult(result: BbyBulkChangeResult, dryRun: boolean): BulkResultReading {
   const rows: ResultRow[] = (result.bonusBuys ?? []).map((r) => {
     const outcome = outcomeOf(r.status)
     return {
@@ -111,7 +115,7 @@ export function readBulkResult(result: BbyBulkChangeResult): BulkResultReading {
   const counts: Record<RowOutcome, number> = { save: 0, skip: 0, refuse: 0, unknown: 0 }
   for (const r of rows) counts[r.outcome]++
   return {
-    dryRun: result.dryRun ?? result.status === 'valid',
+    dryRun,
     batchId: result.batchId ?? null,
     refusedWhole: result.status === 'refused' && rows.length === 0,
     batchRefusals: result.refusals ?? [],

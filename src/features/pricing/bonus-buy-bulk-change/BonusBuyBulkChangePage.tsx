@@ -70,6 +70,9 @@ function BulkChange() {
   const [form, setForm] = useState<BulkForm>(EMPTY_FORM)
   const [result, setResult] = useState<{ reading: BulkResultReading; key: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // Bulk Mark Tested in flight (reported up by its panel): Preview, Apply and Mark Tested never run together.
+  const [marking, setMarking] = useState(false)
+  const anyBusy = busy || marking
   const [error, setError] = useState<string | null>(null)
 
   const promotions = useQuery({ queryKey: bulkPromotionsKey, queryFn: () => bbyBulkChangeApi.promotions() })
@@ -102,7 +105,7 @@ function BulkChange() {
     setError(null)
     try {
       const answer = await bbyBulkChangeApi.change({ bonusBuys: targets, operations, dryRun })
-      setResult({ reading: readBulkResult(answer), key: requestKey })
+      setResult({ reading: readBulkResult(answer, dryRun), key: requestKey })
       if (!dryRun) {
         gridApi.current?.deselectAll()
         setSelected([])
@@ -138,8 +141,13 @@ function BulkChange() {
     setSelectNote({ selected: pick.selected.length, skipped: pick.skipped })
   }
 
+  /**
+   * Clears the selection itself, not through the grid's selection event: the grid may be unmounted
+   * (a list loading), and then no event comes and the rows would stay picked with no ticks shown.
+   */
   const clearSelection = () => {
     gridApi.current?.deselectAll()
+    setSelected([])
     setSelectNote(null)
   }
 
@@ -198,8 +206,11 @@ function BulkChange() {
               value={promoNumber}
               data-testid="bulk-promotion"
               onChange={(e) => {
+                // A new promotion starts a new selection: the old picks are not on the list shown
+                // (and the grid may remount while it loads), so Preview, Apply and Mark Tested
+                // must never act on rows the user cannot see ticked.
                 setPromoNumber(e.target.value)
-                setSelectNote(null)
+                clearSelection()
               }}
             >
               <option value="">{t('filter.allPromotions')}</option>
@@ -211,10 +222,10 @@ function BulkChange() {
             </Select>
           </Field>
           <div className="flex flex-wrap items-center gap-2 self-end">
-            <Button variant="secondary" disabled={rows.length === 0 || busy} onClick={selectAll} data-testid="bulk-select-all">
+            <Button variant="secondary" disabled={rows.length === 0 || anyBusy} onClick={selectAll} data-testid="bulk-select-all">
               {t('select.all')}
             </Button>
-            <Button variant="text" disabled={selected.length === 0 || busy} onClick={clearSelection}>
+            <Button variant="text" disabled={selected.length === 0 || anyBusy} onClick={clearSelection}>
               {t('select.clear')}
             </Button>
             <span className="text-xs text-muted-foreground" data-testid="bulk-selected">
@@ -263,19 +274,19 @@ function BulkChange() {
           <span className="flex-1" />
           <Button
             variant="secondary"
-            aria-disabled={blocked || busy}
+            aria-disabled={blocked || anyBusy}
             title={previewReason}
             data-testid="bulk-preview"
-            onClick={() => !blocked && !busy && run(true)}
+            onClick={() => !blocked && !anyBusy && run(true)}
           >
             {t('preview.button')}
           </Button>
           <Button
             variant="primary"
-            aria-disabled={!canApply || busy}
+            aria-disabled={!canApply || anyBusy}
             title={canApply ? undefined : t('apply.needsPreview')}
             data-testid="bulk-apply"
-            onClick={() => canApply && !busy && apply()}
+            onClick={() => canApply && !anyBusy && apply()}
           >
             {t('apply.button')}
           </Button>
@@ -307,6 +318,7 @@ function BulkChange() {
         lastSaved={result && !result.reading.dryRun ? result.reading.rows.filter((r) => r.outcome === 'save').map((r) => r.number) : []}
         list={rows}
         disabled={busy}
+        onBusyChange={setMarking}
         onMarked={async () => {
           clearSelection()
           await queryClient.invalidateQueries({ queryKey: ['bonus-buy-bulk-change', 'list'] })

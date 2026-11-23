@@ -28,6 +28,7 @@ import SimResultsGrid, { type PromoHot } from './SimResultsGrid'
 import SimRunStrip from './SimRunStrip'
 import { SimStaleResultsNote } from './SimStatusSlot'
 import { processCommand, processRefusal } from './process-command'
+import { seatProblem } from './seat'
 import { promoView } from './promo-view'
 import { runChips } from './run-chips'
 import { buildSimulateRequest } from './request'
@@ -173,7 +174,8 @@ export default function SimulationPage() {
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
   // Why Process cannot run right now — the button's tooltip, the palette row's reason and
   // the refused chord's toast are these same words (ticket 406).
-  const processReason = processRefusal({ itemCount: validItems.length, pending: process.isPending })
+  const seatBlock = seatProblem(header)
+  const processReason = processRefusal({ itemCount: validItems.length, pending: process.isPending, seatProblem: seatBlock })
 
   // The request the inputs on screen currently describe. Built once and read
   // twice: Process posts it, and the run strip's chip set reads its determination
@@ -192,14 +194,14 @@ export default function SimulationPage() {
   const stale = useMemo(() => isStaleRun(request, run?.request ?? null), [request, run])
 
   const runProcess = useCallback(() => {
-    if (request.items.length === 0 || process.isPending) return
+    if (request.items.length === 0 || process.isPending || seatBlock) return
     // Collapse on EVERY Process (ticket 113) — the determination is settled the
     // moment it is sent, and the results deserve the width.
     setStripOpen(false)
     process.mutate(request)
     // `process` is a stable mutation object bar its flags; the request is what changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request, process.isPending])
+  }, [request, process.isPending, seatBlock])
 
   // Ctrl+Enter processes from ANYWHERE — including inside the items grid and the
   // expanded form (102 §6), which is what makes the tweak-one-field-and-re-run loop

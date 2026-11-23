@@ -46,6 +46,8 @@ const canonical = (form: BulkForm) => JSON.stringify(toOperations(form).operatio
 
 /** The preset the form still says exactly (its chip is lit), or null — an edited or empty form matches none. */
 export function matchingPreset(presets: readonly BbyBulkPreset[], form: BulkForm): string | null {
+  // A field with a problem is left out of the operations, so the rest could still match: it must not.
+  if (toOperations(form).problems.length > 0) return null
   const mine = canonical(form)
   if (mine === '{}') return null
   return presets.find((p) => canonical(presetForm(p)) === mine)?.id ?? null
@@ -69,6 +71,22 @@ export function presetSaveRequest(
   if (problems.length > 0) return { problem: 'form' }
   if (!hasOperations(operations)) return { problem: 'nothing' }
   return { request: { id: editing?.id ?? null, name: trimmed, operations, version: editing?.version ?? null } }
+}
+
+/**
+ * The rename request: a new name and the preset's stored operations exactly as they are — never
+ * re-derived through the form, which could reshape them or refuse them locally. Unreadable operations
+ * cannot be sent back, so they are `nothing` to rename.
+ */
+export function presetRenameRequest(
+  preset: Pick<BbyBulkPreset, 'id' | 'version' | 'operations'>,
+  name: string,
+): { request: BbyBulkPresetSaveRequest } | { problem: PresetSaveProblem } {
+  const trimmed = name.trim()
+  if (!trimmed) return { problem: 'name' }
+  const operations = readPresetOperations(preset.operations)
+  if (!operations || !hasOperations(operations)) return { problem: 'nothing' }
+  return { request: { id: preset.id, name: trimmed, operations, version: preset.version } }
 }
 
 /**

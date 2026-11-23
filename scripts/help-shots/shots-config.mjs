@@ -67,13 +67,19 @@ export function parseShots(text) {
       problems.push(`${at} is not an object`)
       return null
     }
-    const { name, route, crop, fullPage = false, viewport = DEFAULT_VIEWPORT, steps = [] } = shot
+    const { name, route, crop, fullPage = false, viewport = DEFAULT_VIEWPORT, steps = [], hide = [], maxHeight = null, pad = 12 } = shot
     if (typeof name !== 'string' || !NAME.test(name)) problems.push(`${at} name ${JSON.stringify(name)} must be lower-case words joined by dashes`)
     else if (seen.has(name)) problems.push(`${at} name "${name}" is used twice`)
     else seen.add(name)
     if (typeof route !== 'string' || !route.startsWith('/') || route.startsWith('//')) problems.push(`${at} route must be an app path starting with "/"`)
     const hasCrop = crop !== undefined && crop !== null
-    if (hasCrop && !isText(crop)) problems.push(`${at} crop must be a selector`)
+    // A tight crop (owner 2026-11-23): one selector, or a list shot as the one box around them all.
+    if (hasCrop && !isText(crop) && !(Array.isArray(crop) && crop.length > 0 && crop.every(isText))) {
+      problems.push(`${at} crop must be a selector or a list of selectors`)
+    }
+    if (maxHeight !== null && !isSize(maxHeight)) problems.push(`${at} maxHeight must be whole pixels`)
+    if (!Array.isArray(hide) || !hide.every(isText)) problems.push(`${at} hide must be a list of selectors`)
+    if (!Number.isInteger(pad) || pad < 0) problems.push(`${at} pad must be whole pixels, 0 or more`)
     if (typeof fullPage !== 'boolean') problems.push(`${at} fullPage must be true or false`)
     if (hasCrop && fullPage === true) problems.push(`${at} takes a crop or fullPage, not both`)
     if (!hasCrop && fullPage !== true) problems.push(`${at} takes a crop or fullPage: true`)
@@ -90,10 +96,25 @@ export function parseShots(text) {
       fullPage,
       viewport: { width: viewport?.width, height: viewport?.height },
       steps,
+      hide,
+      maxHeight,
+      pad,
     }
   })
   if (problems.length) throw new Error(`shots.json has ${problems.length} problem(s):\n  ${problems.join('\n  ')}`)
   return shots
+}
+
+/**
+ * Where the Arabic guide's pictures come from (`"arabic"` at the top of shots.json): `"shoot"` (the default) shoots
+ * each language; `"english"` shoots once in English and writes the same picture as `<name>.ar.png`. The owner's ruling
+ * of 2026-11-23: while the app's own labels are English only, an Arabic shot is English text mirrored, so the Arabic
+ * guide shows the English shots. Switch back to `"shoot"` once the labels are in Arabic, and re-run.
+ */
+function arabicSource(text) {
+  const value = JSON.parse(text)?.arabic ?? 'shoot'
+  if (value !== 'shoot' && value !== 'english') throw new Error(`shots.json arabic must be "shoot" or "english" (got ${JSON.stringify(value)}).`)
+  return value
 }
 
 /**
@@ -107,10 +128,12 @@ export function planRun({ argv, env, shotsText }) {
     throw new Error('Give the BackOffice images folder: node scripts/help-shots/shoot.mjs <BackOffice>/Services/SIS.Api/Help/analytics/images')
   }
   const base = localBase(env.HELP_SHOTS_BASE || 'http://localhost:5173')
-  if (!isText(env.SIS_USER) && !isText(env.SIS_COOKIE)) {
-    throw new Error('No sign-in: set SIS_USER and SIS_PASS (the seed test user) or SIS_COOKIE in the environment.')
+  if (!isText(env.SIS_USER) && !isText(env.SIS_COOKIE) && !isText(env.SIS_STATE)) {
+    throw new Error('No sign-in: set SIS_USER and SIS_PASS (the seed test user), SIS_COOKIE, or SIS_STATE (a saved browser session file) in the environment.')
   }
-  return { base, imagesDir, shots: parseShots(shotsText), langs: [...HELP_LANGS] }
+  const shots = parseShots(shotsText)
+  const arabicFromEnglish = arabicSource(shotsText) === 'english'
+  return { base, imagesDir, shots, langs: arabicFromEnglish ? ['en'] : [...HELP_LANGS], arabicFromEnglish }
 }
 
 /**

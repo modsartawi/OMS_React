@@ -5,7 +5,7 @@
 // Shoots every entry of shots.json once in English and once in Arabic from the LOCAL app (Vite :5173 → SIS.Api :5111)
 // into `<name>.en.png` / `<name>.ar.png`, and rewrites src/features/help/screens.snapshot.json from the table of
 // contents. Everything is checked (shots-config.mjs) before a browser starts. See README.md.
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { planRun, screensSnapshot } from './shots-config.mjs'
@@ -25,15 +25,38 @@ try {
   console.error(err.message)
   process.exit(2)
 }
-const { base, imagesDir, shots, langs } = plan
+const { base, imagesDir, shots, langs, arabicFromEnglish } = plan
+
+/** The page box around every element `shot.crop` names (the first match of each), with a margin, capped at `maxHeight`. */
+async function cropBox(page, shot) {
+  const PAD = shot.pad
+  const selectors = Array.isArray(shot.crop) ? shot.crop : [shot.crop]
+  const boxes = []
+  for (const selector of selectors) {
+    const box = await page.locator(selector).first().evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height }
+    })
+    boxes.push(box)
+  }
+  const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+  const x = Math.max(0, Math.min(...boxes.map((b) => b.x)) - PAD)
+  const y = Math.max(0, Math.min(...boxes.map((b) => b.y)) - PAD)
+  const right = Math.min(pageWidth, Math.max(...boxes.map((b) => b.x + b.width)) + PAD)
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height)) + PAD
+  return { x, y, width: right - x, height: shot.maxHeight ? Math.min(bottom - y, shot.maxHeight) : bottom - y }
+}
 
 const { chromium } = await import('playwright')
 const browser = await chromium.launch()
 const failed = []
 try {
   // ── Sign in once (the secret is read from the environment and never printed or written) ──
-  const signIn = await browser.newContext()
-  if (process.env.SIS_COOKIE) {
+  // SIS_STATE: a browser session saved after signing in by hand (Playwright storage state) — cookies only, no password.
+  const signIn = await browser.newContext(process.env.SIS_STATE ? { storageState: process.env.SIS_STATE } : {})
+  if (process.env.SIS_STATE) {
+    // already signed in
+  } else if (process.env.SIS_COOKIE) {
     await signIn.addCookies([{ name: 'sis_session', value: process.env.SIS_COOKIE, url: base }])
   } else {
     await signIn.request.post(`${base}/api/Auth/Login`, {
@@ -57,7 +80,8 @@ try {
 
   // ── Every shot, once per language ──
   for (const lang of langs) {
-    const context = await browser.newContext({ storageState: session, viewport: shots[0].viewport })
+    // 2× pixels: a shot is printed at the A4 text width, and 1× text blurs there.
+    const context = await browser.newContext({ storageState: session, viewport: shots[0].viewport, deviceScaleFactor: 2 })
     // The app's language switch: `oms.locale` read before first paint (decision 9; help follows it through helpLang()).
     await context.addInitScript((locale) => {
       localStorage.setItem('oms.locale', locale)
@@ -65,21 +89,31 @@ try {
       localStorage.setItem('oms.darkMode', 'false')
     }, lang)
     const page = await context.newPage()
+    // A Copilot answer can take most of a minute; every wait gets that long before the shot is reported failed.
+    page.setDefaultTimeout(90_000)
     for (const shot of shots) {
       const file = path.join(imagesDir, `${shot.name}.${lang}.png`)
       try {
         await page.setViewportSize(shot.viewport)
-        await page.goto(`${base}${shot.route}`, { waitUntil: 'networkidle' })
+        // A board refreshes on a timer, so the network never goes quiet there: wait for the load, then the shot's own
+        // waitFor steps, then a short settle that may time out.
+        const settle = () => page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {})
+        await page.goto(`${base}${shot.route}`, { waitUntil: 'load' })
+        await settle()
         for (const step of shot.steps) {
           if (step.click) await page.locator(step.click).first().click()
           else if (step.type) await page.locator(step.type.selector).first().fill(step.type.text)
           else if (step.waitFor) await page.locator(step.waitFor).first().waitFor({ state: 'visible' })
         }
-        await page.waitForLoadState('networkidle')
+        await settle()
+        if (shot.hide.length) await page.addStyleTag({ content: `${shot.hide.join(', ')} { display: none !important; }` })
         await page.evaluate(() => document.fonts.ready)
-        if (shot.crop) await page.locator(shot.crop).first().screenshot({ path: file, animations: 'disabled' })
+        await page.waitForTimeout(300)
+        if (shot.crop) await page.screenshot({ path: file, fullPage: true, clip: await cropBox(page, shot), animations: 'disabled' })
         else await page.screenshot({ path: file, fullPage: true, animations: 'disabled' })
-        console.log(`shot  ${shot.name}.${lang}.png`)
+        // English for the Arabic guide (owner 2026-11-23): the same picture, under the Arabic name.
+        if (arabicFromEnglish) copyFileSync(file, path.join(imagesDir, `${shot.name}.ar.png`))
+        console.log(`shot  ${shot.name}.${lang}.png${arabicFromEnglish ? ' (+ .ar)' : ''}`)
       } catch (err) {
         failed.push(`${shot.name}.${lang}`)
         console.error(`FAIL  ${shot.name}.${lang}.png — ${err.message.split('\n')[0]}`)

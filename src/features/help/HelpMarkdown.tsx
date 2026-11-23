@@ -112,16 +112,23 @@ export interface HelpPrintMode {
 
 const HELP = 'help:'
 
-/** A link on paper: its words, or "see <article title>" for another article of the help. */
+/**
+ * A link on paper: its own words, and for another article of the help the article's title after them in brackets
+ * ("See [reading a board](help:boards#panel)" → "See reading a board (Boards)"). The sentence carries its own "see";
+ * the print once replaced the words with "see <title>" and read "See see Boards" (owner's PDF, 2026-11-23). Words that
+ * already are the title, or an article the contents does not list, print once.
+ */
 function PrintedAnchor({ href = '', children, lang, titles }: { href?: string; children?: ReactNode; lang: HelpLang; titles: Readonly<Record<string, string>> }) {
   const { t } = useTranslation('help', { lng: lang })
   const slug = href.startsWith(HELP) ? href.slice(HELP.length).split('#', 1)[0] : ''
-  if (!slug) return <span data-help-print-link>{children}</span>
-  const title = titles[slug] ?? textOf(children)
+  const title = slug ? titles[slug] : undefined
+  if (!title || title.trim().toLowerCase() === textOf(children).trim().toLowerCase()) {
+    return <span data-help-print-link={slug || undefined}>{children}</span>
+  }
   // The title is free text in either script: one `<bdi>` around the whole of it (bidi rule).
   return (
     <span data-help-print-link={slug}>
-      <Trans t={t} i18nKey="print.see" values={{ title }} components={{ t: <bdi /> }} />
+      {children} <Trans t={t} i18nKey="print.inArticle" values={{ title }} components={{ t: <bdi /> }} />
     </span>
   )
 }

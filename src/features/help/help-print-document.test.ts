@@ -77,9 +77,10 @@ describe('HelpPrintDocument', () => {
     expect(html).not.toMatch(/<a |<button/)
   })
 
-  it('links print as text: a help link as "see <title>", a screen link as its name', () => {
+  it('links print as text: a help link as its own words (here they already are the title, so no brackets), a screen link as its name', () => {
     const html = draw(false)
-    expect(html).toMatch(/see <bdi>Reports<\/bdi>/)
+    expect(html).toMatch(/See <span data-help-print-link="reports">reports<\/span>\./)
+    expect(html).not.toMatch(/see see/i)
     expect(html).not.toMatch(/<a |<button/)
   })
 })

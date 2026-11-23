@@ -1,34 +1,33 @@
 {
+  "arabic": "english",
   "shots": [
-    {
-      "name": "help-center",
-      "route": "/analytics/help/start",
-      "crop": "[data-help-page]",
-      "steps": [{ "waitFor": "[data-help-article=\"start\"]" }]
-    },
-    {
-      "name": "help-whats-new",
-      "route": "/analytics/help/whats-new",
-      "crop": "[data-help-page]",
-      "steps": [{ "waitFor": "[data-help-article=\"whats-new\"]" }]
-    },
-    {
-      "name": "analytics-home",
-      "route": "/analytics",
-      "fullPage": true,
-      "steps": [{ "waitFor": "[data-analytics-home-header]" }]
-    },
-    {
-      "name": "analytics-menu",
-      "route": "/analytics",
-      "crop": "nav:has(a[href=\"/analytics/help\"])",
-      "steps": [{ "waitFor": "a[href=\"/analytics/help\"]" }]
-    },
-    {
-      "name": "analytics-status",
-      "route": "/analytics",
-      "crop": "[data-analytics-status]",
-      "steps": [{ "waitFor": "[data-analytics-status-tone]" }]
-    }
+    {"name": "help-center", "route": "/analytics/help/start", "crop": "[data-help-page]", "maxHeight": 620, "steps": [{"waitFor": "[data-help-article=\"start\"]"}]},
+    {"name": "help-drawer", "route": "/analytics/library", "crop": "[data-help-drawer-side]", "maxHeight": 640, "steps": [{"waitFor": "[data-page-help-button]"}, {"click": "[data-page-help-button]"}, {"waitFor": "[data-help-drawer-article]"}], "pad": 0},
+    {"name": "home-start-card", "route": "/analytics", "crop": "[data-help-start-card]", "steps": [{"waitFor": "[data-help-start-card]"}]},
+    {"name": "analytics-status", "route": "/analytics", "crop": "[data-analytics-status]", "steps": [{"waitFor": "[data-analytics-status-tone]"}]},
+    {"name": "home-sections", "route": "/analytics", "crop": "[data-analytics-home-section]", "maxHeight": 420, "hide": ["[data-help-start-card]", "[data-analytics-status]"], "steps": [{"waitFor": "[data-analytics-home-item]"}]},
+    {"name": "library-all-items", "route": "/analytics/library", "crop": ["[data-analytics-library-rail]", "[data-analytics-home-header]", "[data-analytics-library-chips]", "[data-analytics-library-list]"], "maxHeight": 560, "hide": ["[data-analytics-status]"], "steps": [{"waitFor": "[data-analytics-item]"}]},
+    {"name": "library-chips", "route": "/analytics/library", "crop": "[data-analytics-library-chips]", "steps": [{"waitFor": "[data-analytics-library-chips]"}]},
+    {"name": "library-folder-dialog", "route": "/analytics/library", "crop": "dialog[open]", "steps": [{"waitFor": "[data-analytics-new-folder]"}, {"click": "[data-analytics-new-folder]"}, {"waitFor": "[data-analytics-folder-name]"}], "pad": 0},
+    {"name": "view-page", "route": "/analytics/view/06GVE55A15Y50FZQ7N05RX8DP4", "crop": "[data-analytics-view]", "steps": [{"waitFor": "[data-chart]"}]},
+    {"name": "view-builder", "route": "/analytics/new?kind=view", "crop": ["[data-analytics-measure-picker]", "[data-analytics-preview]"], "maxHeight": 620, "steps": [{"waitFor": "[data-analytics-measure]"}, {"click": "label:has-text(\"Orders entered in the OMS\") input"}, {"waitFor": "[data-analytics-preview] [data-chart]"}]},
+    {"name": "board-page", "route": "/analytics/board/06GVE59N1SKAWBDXRJK9K9A1E3", "crop": ["[data-analytics-board-header]", "[data-board-filters]", "[data-board-grid]"], "maxHeight": 560, "steps": [{"waitFor": "[data-board-panel-state]"}, {"waitFor": "[data-board-stream=\"idle\"]"}]},
+    {"name": "board-filters", "route": "/analytics/board/06GVE59N1SKAWBDXRJK9K9A1E3", "crop": "[data-board-filters]", "steps": [{"waitFor": "[data-board-filters]"}]},
+    {"name": "board-editor", "route": "/analytics/board/06GVE59N1SKAWBDXRJK9K9A1E3/edit", "crop": ["[data-board-editor-add]", "[data-board-palette]", "[data-board-editor-grid]"], "maxHeight": 620, "steps": [{"waitFor": "[data-board-palette-view]"}]},
+    {"name": "report-page", "route": "/analytics/report/06GV64D27KTXDS08HD960HTBR2", "crop": ["[data-analytics-report-header]", "[data-board-filters]", "[data-report-panel]"], "steps": [{"waitFor": "[data-report-panel]"}]},
+    {"name": "report-designer", "route": "/analytics/report/06GV64D27KTXDS08HD960HTBR2/edit", "crop": ["[data-designer-outline-pane]", "[data-designer-page]", "[data-designer-inspector-pane]"], "maxHeight": 620, "steps": [{"waitFor": "[data-designer-block]"}]},
+    {"name": "report-print", "route": "/analytics/print/report/06GV64D27KTXDS08HD960HTBR2", "crop": ["[data-report-back]", "[data-analytics-report]"], "maxHeight": 520, "steps": [{"waitFor": "[data-report-panel]"}]},
+    {"name": "schedules-dialog", "route": "/analytics/report/06GV64D27KTXDS08HD960HTBR2", "crop": "dialog[open]", "steps": [{"waitFor": "[data-report-panel]"}, {"click": "button:has-text(\"Schedules\")"}, {"waitFor": "[data-schedules]"}], "pad": 0},
+    {"name": "schedule-editor", "route": "/analytics/report/06GV64D27KTXDS08HD960HTBR2", "crop": "dialog[open]", "steps": [{"waitFor": "[data-report-panel]"}, {"click": "button:has-text(\"Schedules\")"}, {"click": "[data-schedule-new]"}, {"waitFor": "[data-schedule-editor]"}], "pad": 0},
+    {"name": "share-dialog", "route": "/analytics/view/06GVE55A15Y50FZQ7N05RX8DP4", "crop": "dialog[open]", "steps": [{"waitFor": "[data-chart]"}, {"click": "button:has-text(\"Share\")"}, {"waitFor": "[data-analytics-share]"}], "pad": 0},
+    {"name": "certified-header", "route": "/analytics/report/06GV64D27KTXDS08HD960HTBR2", "crop": "[data-analytics-report-header]", "steps": [{"waitFor": "[data-analytics-tier-actions]"}]},
+    {"name": "catalog-tree", "route": "/analytics/catalog", "crop": ["[data-catalog-search]", "[data-catalog-print]", "[data-catalog-tree]", "[data-catalog-detail]"], "maxHeight": 600, "steps": [{"waitFor": "[data-catalog-detail]"}]},
+    {"name": "copilot-panel", "route": "/analytics", "crop": "[data-copilot-sheet]", "maxHeight": 900, "steps": [{"waitFor": "[data-analytics-home-header]"}, {"click": "button:has-text(\"Ask the OMS\")"}, {"waitFor": "[data-copilot-examples]"}], "pad": 0},
+    {"name": "copilot-answer", "route": "/copilot", "crop": "[data-copilot-scroller]", "maxHeight": 640, "steps": [{"waitFor": "[data-copilot-question]"}, {"type": {"selector": "[data-copilot-question]", "text": "Orders by channel last week"}}, {"click": "[data-copilot-send]"}, {"waitFor": "[data-copilot-answer-footer]"}]},
+    {"name": "copilot-rules", "route": "/copilot/rules", "crop": ["[data-rules-editor]", "[data-rules-try]"], "maxHeight": 560, "steps": [{"waitFor": "[data-rules-text]"}]},
+    {"name": "copilot-rules-history", "route": "/copilot/rules", "crop": "[data-rules-history]", "maxHeight": 300, "steps": [{"waitFor": "[data-rules-history-row]"}]},
+    {"name": "copilot-me", "route": "/copilot/me", "crop": "[data-me-screen]", "steps": [{"waitFor": "[data-me-forget]"}]},
+    {"name": "sql-editor", "route": "/analytics/sql/new", "crop": "[data-analytics-sql-editor]", "steps": [{"waitFor": "[data-analytics-sql-statement]"}]},
+    {"name": "itemlist-upload", "route": "/analytics/itemlist/new", "crop": "[data-item-list-upload]", "steps": [{"waitFor": "[data-item-list-drop]"}]}
   ]
 }

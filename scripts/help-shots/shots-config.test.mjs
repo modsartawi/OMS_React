@@ -30,8 +30,8 @@ describe('the shot list', () => {
       }),
     )
     expect(shots).toEqual([
-      { name: 'help-center', route: '/analytics/help/start', crop: '[data-help-page]', fullPage: false, viewport: { width: 1440, height: 900 }, steps: [{ waitFor: '[data-help-article]' }] },
-      { name: 'home', route: '/analytics', crop: null, fullPage: true, viewport: { width: 1280, height: 800 }, steps: [{ click: 'a' }, { type: { selector: 'input', text: 'sales' } }] },
+      { name: 'help-center', route: '/analytics/help/start', crop: '[data-help-page]', fullPage: false, viewport: { width: 1440, height: 900 }, steps: [{ waitFor: '[data-help-article]' }], hide: [], maxHeight: null, pad: 12 },
+      { name: 'home', route: '/analytics', crop: null, fullPage: true, viewport: { width: 1280, height: 800 }, steps: [{ click: 'a' }, { type: { selector: 'input', text: 'sales' } }], hide: [], maxHeight: null, pad: 12 },
     ])
   })
 
@@ -75,8 +75,9 @@ describe('the run plan, made before any browser starts', () => {
     expect(planRun({ argv: ['C:/Work/BO/Services/SIS.Api/Help/analytics/images'], env, shotsText: good })).toEqual({
       base: 'http://localhost:5173',
       imagesDir: 'C:/Work/BO/Services/SIS.Api/Help/analytics/images',
-      shots: [{ name: 'home', route: '/analytics', crop: 'main', fullPage: false, viewport: { width: 1440, height: 900 }, steps: [] }],
+      shots: [{ name: 'home', route: '/analytics', crop: 'main', fullPage: false, viewport: { width: 1440, height: 900 }, steps: [], hide: [], maxHeight: null, pad: 12 }],
       langs: ['en', 'ar'],
+      arabicFromEnglish: false,
     })
   })
 
@@ -128,5 +129,60 @@ describe('the screens snapshot the run refreshes', () => {
 
   it('refuses a table of contents with no screens rather than empty the snapshot', () => {
     expect(() => screensSnapshot('analytics', { draft: true, articles: [] })).toThrow(/no screens/)
+  })
+})
+
+describe('tight crops (owner 2026-11-23: one part of the screen per shot)', () => {
+  const one = (shot) => parseShots(JSON.stringify({ shots: [{ name: 'x', route: '/analytics', ...shot }] }))[0]
+
+  it('takes a list of selectors as one crop around them all, a height cap, and things to hide', () => {
+    expect(one({ crop: ['[data-a]', '[data-b]'], maxHeight: 600, hide: ['[data-analytics-status]'] })).toMatchObject({
+      crop: ['[data-a]', '[data-b]'],
+      maxHeight: 600,
+      hide: ['[data-analytics-status]'],
+    })
+  })
+
+  it('margins a crop by 12 pixels unless told otherwise; a dialog or side panel takes pad 0, so the page behind stays out', () => {
+    expect(one({ crop: 'main' }).pad).toBe(12)
+    expect(one({ crop: 'dialog[open]', pad: 0 }).pad).toBe(0)
+  })
+
+  it.each([
+    [{ crop: [] }, 'crop'],
+    [{ crop: ['[data-a]', ''] }, 'crop'],
+    [{ crop: 'main', maxHeight: 0 }, 'maxHeight'],
+    [{ crop: 'main', maxHeight: 12.5 }, 'maxHeight'],
+    [{ crop: 'main', hide: 'main' }, 'hide'],
+    [{ crop: 'main', hide: [''] }, 'hide'],
+    [{ crop: 'main', pad: -1 }, 'pad'],
+    [{ crop: 'main', pad: 1.5 }, 'pad'],
+  ])('refuses %j', (shot, field) => {
+    expect(() => one(shot)).toThrow(`shots[0] ${field}`)
+  })
+})
+
+describe('English shots for the Arabic guide (owner 2026-11-23, until the app’s labels are in Arabic)', () => {
+  const env = { SIS_USER: 'seed' }
+  const list = (extra) => JSON.stringify({ ...extra, shots: [{ name: 'home', route: '/analytics', crop: 'main' }] })
+
+  it('"arabic": "english" shoots once in English and writes it for both languages', () => {
+    expect(planRun({ argv: ['out'], env, shotsText: list({ arabic: 'english' }) })).toMatchObject({ langs: ['en'], arabicFromEnglish: true })
+  })
+
+  it('"arabic": "shoot" (the default) shoots each language', () => {
+    expect(planRun({ argv: ['out'], env, shotsText: list({ arabic: 'shoot' }) })).toMatchObject({ langs: ['en', 'ar'], arabicFromEnglish: false })
+  })
+
+  it('refuses any other value', () => {
+    expect(() => planRun({ argv: ['out'], env, shotsText: list({ arabic: 'mirror' }) })).toThrow(/arabic/)
+  })
+})
+
+describe('signing in from a saved browser session', () => {
+  const good = JSON.stringify({ shots: [{ name: 'home', route: '/analytics', crop: 'main' }] })
+
+  it('accepts SIS_STATE (a Playwright storage-state file) in place of a user and password', () => {
+    expect(planRun({ argv: ['out'], env: { SIS_STATE: 'C:/tmp/state.json' }, shotsText: good }).base).toBe('http://localhost:5173')
   })
 })

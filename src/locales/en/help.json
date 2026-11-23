@@ -42,7 +42,7 @@
     "notFound": "There is no article here. Pick one from the contents."
   },
   "print": {
-    "see": "see <t>{{title}}</t>",
+    "inArticle": "(<t>{{title}}</t>)",
     "language": "Language: {{name}}",
     "languages": {
       "en": "English",

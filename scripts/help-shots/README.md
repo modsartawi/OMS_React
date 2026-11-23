@@ -25,6 +25,7 @@ SIS_USER=<seed test user> SIS_PASS=<password> npm run help-shots -- C:/Work/DMSC
 |---|---|
 | `SIS_USER`, `SIS_PASS` | The seed test user (a curator, so every shot's controls show). Read from the environment only — never written to the script, the shots or the output. |
 | `SIS_COOKIE` | Instead of the two above: a `sis_session` cookie from a signed-in local browser. |
+| `SIS_STATE` | Or: a Playwright storage-state file saved after signing in by hand in a visible browser (cookies only, no password). |
 | `HELP_SHOTS_BASE` | The app to drive. Default `http://localhost:5173`; anything not on localhost is refused. |
 
 Everything is checked before a browser starts: the images folder exists, the base is local, a sign-in is set, and
@@ -33,6 +34,13 @@ run then exits 1.
 
 The language switch is the app's own: `localStorage['oms.locale']` (`en` / `ar`) before the page loads, which the
 help reads through `helpLang()`.
+
+**Arabic pictures.** `"arabic": "english"` at the top of `shots.json` (the owner's ruling of 2026-11-23) shoots each
+screen once in English and writes the same picture as `<name>.ar.png`: the app's own labels are English only today, so
+an Arabic shot would be English text mirrored. Once the labels are in Arabic, set `"arabic": "shoot"` and re-run.
+
+Shots are taken at 2× pixels; the help draws them at half that (`srcSet … 2x`), the size they had on screen, and never
+taller than one printed page.
 
 ## Add a shot
 
@@ -45,8 +53,14 @@ Add an entry to `shots.json`:
 
 - `name` — lower-case words joined by dashes; the article references `images/<name>.en.png`.
 - `route` — an app path starting with `/` (ids from the local seed).
-- `crop` — the element to shoot, **or** `"fullPage": true`, never both.
+- `crop` — the element to shoot, or a list of them shot as the one box around them all (a tight crop: the part of the
+  screen the step talks about), **or** `"fullPage": true`, never both. A native dialog is `dialog[open]`.
+- `pad` — optional margin around the crop in pixels, default 12; `0` for a dialog or side panel, so the page behind
+  stays out.
+- `maxHeight` — optional cap on the crop's height, for a long list or page.
+- `hide` — optional selectors hidden before the shot (e.g. the status card above a list).
 - `steps` — optional, in order: `{ "click": sel }`, `{ "type": { "selector": sel, "text": "…" } }`, `{ "waitFor": sel }`.
+  A board never goes quiet on the network (it refreshes on a timer): wait for `[data-board-stream="idle"]`.
 - `viewport` — optional, default `{ "width": 1440, "height": 900 }`.
 
 Prefer `data-*` selectors over classes: they survive a restyle.

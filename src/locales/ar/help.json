@@ -42,7 +42,7 @@
     "notFound": "لا توجد مقالة هنا. اختر واحدة من المحتويات."
   },
   "print": {
-    "see": "انظر <t>{{title}}</t>",
+    "inArticle": "(<t>{{title}}</t>)",
     "language": "اللغة: {{name}}",
     "languages": {
       "en": "الإنجليزية",

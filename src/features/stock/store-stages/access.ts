@@ -12,3 +12,6 @@ export const canMoveStoreStage = (p: Permissions): boolean => p.has('StoreStage:
 
 /** `StoreCountClose:02` — "count closed". */
 export const canCloseStoreCount = (p: Permissions): boolean => p.has('StoreCountClose:02')
+
+/** `StoreCountStart:02` — "Start count" and "Cancel count" (the desktop SAP integration screen's Block / Unblock). */
+export const canStartStoreCount = (p: Permissions): boolean => p.has('StoreCountStart:02')

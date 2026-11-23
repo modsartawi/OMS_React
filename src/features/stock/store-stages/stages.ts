@@ -131,6 +131,36 @@ export function seedView(status: StoreSeedStatus | null | undefined): {
   }
 }
 
+/** A local calendar day as `yyyy-MM-dd` — the estate's wall clock, never UTC (`toISOString` would shift it). */
+export function localDay(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
+ * "Start count" (BackOffice 2026-11-23, the desktop Block): offered on a store with no count, for a day of today or
+ * earlier (a count recorded late); a later day is refused, here and on the server.
+ */
+export function startCommit({ row, day, today, pending }: { row: StoreCountRow | null; day: string; today: string; pending: boolean }): {
+  canCommit: boolean
+  inFuture: boolean
+} {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(day)
+  const inFuture = valid && day > today
+  return { canCommit: !pending && countState(row) === 'none' && valid && !inFuture, inFuture }
+}
+
+/** "Cancel count" (the desktop Unblock): an OPEN count only, with a reason of at most 500 characters. A closed count ends
+ * by its seed or by the hand release. */
+export function cancelCommit({ row, why, pending }: { row: StoreCountRow | null; why: string; pending: boolean }): {
+  canCommit: boolean
+  tooLong: boolean
+} {
+  const reason = why.trim()
+  const tooLong = reason.length > WHY_MAX
+  return { canCommit: !pending && countState(row) === 'open' && reason.length > 0 && !tooLong, tooLong }
+}
+
 /** The hand release may be sent on a closed count, with a reason of at most 500 characters (the log's width). */
 export function releaseCommit({ row, why, pending }: { row: StoreCountRow | null; why: string; pending: boolean }): {
   canCommit: boolean

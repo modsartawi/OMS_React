@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { ArrowRightLeft, Loader2, Lock, RotateCcw, Unlock } from 'lucide-react'
+import { ArrowRightLeft, Ban, ClipboardList, Loader2, Lock, RotateCcw, Unlock } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
@@ -27,20 +27,23 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { usePermissions } from '@/core/permissions'
-import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages } from './access'
+import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages, canStartStoreCount } from './access'
 import { storeStageApi } from './api'
 import { STAGE_SEVERITY, moverLabel, stageColumns, stageLabel } from './columns'
 import {
   STAGES_DEFAULTS,
   WHY_MAX,
   canAskCountClosed,
+  cancelCommit,
   countOf,
   countState,
+  localDay,
   moveCommit,
   personMovesFrom,
   releaseCommit,
   seedView,
   stageRow,
+  startCommit,
   stagesFiltersFromParams,
   stagesFiltersToParams,
   stagesShown,
@@ -184,6 +187,7 @@ function Stages() {
           stage={open}
           canMove={canMoveStoreStage(permissions)}
           canCloseCount={canCloseStoreCount(permissions)}
+          canStartCount={canStartStoreCount(permissions)}
           count={countOf(counts.data ?? [], open.store)}
           countFailed={counts.isError}
           onClose={() => patch({ open: '' })}
@@ -197,6 +201,7 @@ function StoreSheet({
   stage,
   canMove,
   canCloseCount,
+  canStartCount,
   count,
   countFailed,
   onClose,
@@ -204,6 +209,7 @@ function StoreSheet({
   stage: StoreStage
   canMove: boolean
   canCloseCount: boolean
+  canStartCount: boolean
   count: StoreCountRow | null
   countFailed: boolean
   onClose: () => void
@@ -222,7 +228,14 @@ function StoreSheet({
         onClose={onClose}
       />
       <div className={SHEET_BODY}>
-        <CountSection store={stage.store} count={count} failed={countFailed} canClose={canCloseCount} canRelease={canMove} />
+        <CountSection
+          store={stage.store}
+          count={count}
+          failed={countFailed}
+          canStart={canStartCount}
+          canClose={canCloseCount}
+          canRelease={canMove}
+        />
         {canMove && <MoveForm stage={stage} />}
         <section className="flex flex-col gap-2" data-stage-log="">
           <h3 className="text-sm font-semibold">{t('log.title')}</h3>
@@ -370,12 +383,14 @@ function CountSection({
   store,
   count,
   failed,
+  canStart,
   canClose,
   canRelease,
 }: {
   store: string
   count: StoreCountRow | null
   failed: boolean
+  canStart: boolean
   canClose: boolean
   canRelease: boolean
 }) {
@@ -451,6 +466,37 @@ function CountSection({
     },
   })
   const releasable = releaseCommit({ row: count, why, pending: release.isPending })
+
+  // BackOffice 2026-11-23: "Start count" and "Cancel count" (the desktop Block / Unblock), behind StoreCountStart:02.
+  const today = localDay(new Date())
+  const [day, setDay] = useState(today)
+  const [cancelWhy, setCancelWhy] = useState('')
+  const start = useMutation({
+    mutationFn: () => storeStageApi.countStarted(store, { countDay: day }),
+    onSettled: () => {
+      inFlight.current = false
+      refresh()
+    },
+    onSuccess: () => {
+      notify.success(t('count.start.done.title'), t('count.start.done.detail', { store: fsi(store), day: fsi(formatDay(day)) }))
+      setReopened(null)
+      setRefusal(null)
+    },
+  })
+  const startable = startCommit({ row: count, day, today, pending: start.isPending })
+  const cancel = useMutation({
+    mutationFn: () => storeStageApi.countCancelled(store, { why: cancelWhy.trim() }),
+    onSettled: () => {
+      inFlight.current = false
+      refresh()
+    },
+    onSuccess: () => {
+      notify.success(t('count.cancel.done.title'), t('count.cancel.done.detail', { store: fsi(store) }))
+      setCancelWhy('')
+      setReopened(null)
+    },
+  })
+  const cancellable = cancelCommit({ row: count, why: cancelWhy, pending: cancel.isPending })
   const releaseRows = releases.data ?? []
 
   return (
@@ -471,6 +517,52 @@ function CountSection({
               : t('count.closed', { who: fsi(count!.countClosedBy), at: fsi(formatDateTime(count!.countClosedAt)) })}
           </p>
         </>
+      )}
+
+      {state === 'none' && canStart && (
+        <form
+          className="flex flex-col gap-2 border-t border-border/40 pt-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (inFlight.current || !startable.canCommit) return
+            inFlight.current = true
+            start.mutate()
+          }}
+          data-stage-count-start=""
+        >
+          <p className="text-xs text-muted-foreground">{t('count.start.hint')}</p>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <Field id="store-count-day" label={t('count.start.day')}>
+              <Input
+                type="date"
+                dir="ltr"
+                value={day}
+                max={today}
+                onChange={(e) => setDay(e.target.value)}
+                disabled={start.isPending}
+                className="w-44"
+                required
+                data-stage-count-day=""
+              />
+            </Field>
+            <Button type="submit" variant="primary" disabled={!startable.canCommit} data-stage-count-start-commit="">
+              {start.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {start.isPending ? t('count.start.committing') : t('count.start.commit')}
+            </Button>
+          </div>
+          {startable.inFuture && <p className="text-xs text-attention-800">{t('count.start.inFuture')}</p>}
+          {start.isError && (
+            <ErrorBanner
+              className="p-2.5"
+              title={t('count.start.refusedTitle')}
+              message={apiErrorMessage(start.error, t('count.start.failed'))}
+            />
+          )}
+        </form>
       )}
 
       {canAskCountClosed(count, canClose, close.isPending) && !seedShown.running && (
@@ -527,6 +619,49 @@ function CountSection({
             </bdi>
           )}
         </div>
+      )}
+
+      {state === 'open' && canStart && (
+        <form
+          className="flex flex-col gap-2 border-t border-border/40 pt-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (inFlight.current || !cancellable.canCommit) return
+            inFlight.current = true
+            cancel.mutate()
+          }}
+          data-stage-count-cancel=""
+        >
+          <h4 className="text-[0.8125rem] font-semibold">{t('count.cancel.title')}</h4>
+          <p className="text-xs text-muted-foreground">{t('count.cancel.hint')}</p>
+          <Field id="store-count-cancel-why" label={t('count.cancel.why')}>
+            <Textarea
+              value={cancelWhy}
+              onChange={(e) => setCancelWhy(e.target.value)}
+              disabled={cancel.isPending}
+              rows={2}
+              placeholder={t('count.cancel.whyPlaceholder')}
+              className="w-full"
+              required
+            />
+          </Field>
+          {cancellable.tooLong && (
+            <p className="text-xs text-attention-800">{t('move.tooLong', { max: fsi(String(WHY_MAX)) })}</p>
+          )}
+          {cancel.isError && (
+            <ErrorBanner
+              className="p-2.5"
+              title={t('count.cancel.refusedTitle')}
+              message={apiErrorMessage(cancel.error, t('count.cancel.failed'))}
+            />
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" variant="secondary" disabled={!cancellable.canCommit} data-stage-count-cancel-commit="">
+              {cancel.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Ban className="h-3.5 w-3.5" aria-hidden />}
+              {cancel.isPending ? t('count.cancel.committing') : t('count.cancel.commit')}
+            </Button>
+          </div>
+        </form>
       )}
 
       {state === 'closed' && canRelease && (

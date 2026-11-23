@@ -13,6 +13,7 @@ import type {
   StoreCountRelease,
   StoreCountReleaseRequest,
   StoreCountRow,
+  StoreCountStartRequest,
   StoreStage,
   StoreStageMove,
   StoreStageMoveRequest,
@@ -56,6 +57,17 @@ export const storeStageApi = {
    */
   seedStatus(store: string): Promise<StoreSeedStatus> {
     return api.get<StoreSeedStatus>(`StoreStage/${encodeURIComponent(store)}/Seed`)
+  },
+
+  /** `POST StoreStage/{store}/CountStarted` → the store's new open count row. Refusals (already under count, a future
+   * day, an unknown store) are business `ApiError`s. */
+  countStarted(store: string, request: StoreCountStartRequest): Promise<StoreCountRow> {
+    return api.post<StoreCountRow>(`StoreStage/${encodeURIComponent(store)}/CountStarted`, request)
+  },
+
+  /** `POST StoreStage/{store}/CountCancelled` → an OPEN count cancelled, with a reason. A closed count is refused. */
+  countCancelled(store: string, request: StoreCountReleaseRequest): Promise<boolean> {
+    return api.post<boolean>(`StoreStage/${encodeURIComponent(store)}/CountCancelled`, request)
   },
 
   /** Ticket 3898: `POST StoreStage/{store}/Release` → a closed count released by hand. A refusal is a business `ApiError`. */

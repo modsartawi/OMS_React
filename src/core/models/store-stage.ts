@@ -57,6 +57,10 @@ export interface StoreStageMoveRequest {
  *   `seedRefusal` and the row stays, closed.
  * - `POST StoreStage/{store}/Release` `{ why }` → after a refused seed, a named person releases the closed count, the store
  *   back to Shadow, logged (`BackOfficeScreen[StoreStage, 02]`).
+ * - BackOffice 2026-11-23, the count's start on the web: `POST StoreStage/{store}/CountStarted` `{ countDay }` → the store's
+ *   new open count row (count day `yyyy-MM-dd`, blank = today, never after today); `POST StoreStage/{store}/CountCancelled`
+ *   `{ why }` → an OPEN count cancelled (a closed one is refused). Both `BackOfficeScreen[StoreCountStart, 02]`, both logged
+ *   in the releases log as kinds `Started` / `Cancelled`.
  */
 export interface StoreCountRow {
   storeCode: string
@@ -67,7 +71,7 @@ export interface StoreCountRow {
   countClosedBy: string
 }
 
-/** One release of a closed count. `kind` is `Seeded` or `ByHand`. */
+/** One row of the store's count log. `kind` is `Started`, `Cancelled`, `Seeded`, `ByHand` or `Reopened`. */
 export interface StoreCountRelease {
   id: string
   storeCode: string
@@ -111,7 +115,12 @@ export interface StoreSeedStatus {
   reopened: boolean
 }
 
-/** The hand release's body. */
+/** The hand release's body, and "Cancel count"'s. */
 export interface StoreCountReleaseRequest {
   why: string
+}
+
+/** "Start count"'s body: the count day, `yyyy-MM-dd` (local), or blank for today. */
+export interface StoreCountStartRequest {
+  countDay?: string
 }

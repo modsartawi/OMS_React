@@ -83,7 +83,7 @@
   },
   "count": {
     "title": "Count",
-    "none": "This store is not blocked for a count.",
+    "none": "This store is not under count.",
     "day": "Count day",
     "open": "Under count, open: sales dated after the count day are held.",
     "closed": "Count closed by {{who}} at {{at}}: every sale and every DRS post of the store is held until its seed writes Seeded.",
@@ -100,6 +100,33 @@
     "seedFailedTitle": "The seed did not finish: the store stays held",
     "reopenedTitle": "The count is open again",
     "reopened": "The seed found sales of the count day or earlier that are not in SAP yet. A closed count holds those sales too, so the count was opened again: they now go on to SAP, and later sales stay held. Press Count closed again once they are posted.",
+    "start": {
+      "hint": "Starts the store's count: from the count day its sales dated after that day are held from SAP until the count is closed and seeded.",
+      "day": "Count day",
+      "commit": "Start count",
+      "committing": "Starting…",
+      "inFuture": "The count day cannot be after today.",
+      "refusedTitle": "The count could not be started",
+      "failed": "The count could not be started. Try again in a moment.",
+      "done": {
+        "title": "Count started",
+        "detail": "{{store}} is under count from {{day}}."
+      }
+    },
+    "cancel": {
+      "title": "Cancel this count",
+      "hint": "Only for a count started by mistake, before it is closed. The store's held sales go on to SAP.",
+      "why": "Why",
+      "whyPlaceholder": "The reason, kept in the count log",
+      "commit": "Cancel count",
+      "committing": "Cancelling…",
+      "refusedTitle": "The count could not be cancelled",
+      "failed": "The count could not be cancelled. Try again in a moment.",
+      "done": {
+        "title": "Count cancelled",
+        "detail": "{{store}} is no longer under count."
+      }
+    },
     "released": {
       "title": "Count released",
       "detail": "{{store}} is Seeded; its count row is deleted."
@@ -119,8 +146,8 @@
       }
     },
     "releases": {
-      "title": "Releases of closed counts",
-      "empty": "No closed count of this store has been released.",
+      "title": "Count log",
+      "empty": "Nothing is logged for this store's counts yet.",
       "failed": "The releases could not be read.",
       "releasedAt": "When",
       "kind": "How",
@@ -128,6 +155,8 @@
       "why": "Why"
     },
     "kind": {
+      "Started": "Started",
+      "Cancelled": "Cancelled before it was closed",
       "Seeded": "The seed wrote Seeded",
       "ByHand": "By hand",
       "Reopened": "Opened again: sales still on their way to SAP"

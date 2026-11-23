@@ -4,13 +4,16 @@ import {
   STAGES_DEFAULTS,
   WHY_MAX,
   canAskCountClosed,
+  cancelCommit,
   countOf,
   countState,
+  localDay,
   moveCommit,
   personMovesFrom,
   releaseCommit,
   seedView,
   stageRow,
+  startCommit,
   stagesFiltersFromParams,
   stagesFiltersToParams,
   stagesShown,
@@ -185,5 +188,45 @@ describe('seedView — what the Count section shows of the seed', () => {
       refusal: null,
       failure: 'The seed was interrupted.',
     })
+  })
+})
+
+// BackOffice 2026-11-23: the count's start and its cancel on the web (the desktop Block / Unblock).
+describe('the count start and cancel', () => {
+  const open: StoreCountRow = {
+    storeCode: 'P077',
+    inventoryDate: '2026-11-20T00:00:00',
+    isCountClosed: false,
+    countClosedAt: '0001-01-01T00:00:00',
+    countClosedBy: '',
+  }
+  const closed: StoreCountRow = { ...open, isCountClosed: true, countClosedAt: '2026-11-21T10:00:00', countClosedBy: 'u1' }
+  const today = '2026-11-23'
+
+  it('starts a store with no count, today or earlier, never later', () => {
+    expect(startCommit({ row: null, day: today, today, pending: false })).toEqual({ canCommit: true, inFuture: false })
+    expect(startCommit({ row: null, day: '2026-11-20', today, pending: false }).canCommit).toBe(true)
+    expect(startCommit({ row: null, day: '2026-11-24', today, pending: false })).toEqual({ canCommit: false, inFuture: true })
+  })
+
+  it('never starts a store already under count, a blank day, or twice at once', () => {
+    expect(startCommit({ row: open, day: today, today, pending: false }).canCommit).toBe(false)
+    expect(startCommit({ row: closed, day: today, today, pending: false }).canCommit).toBe(false)
+    expect(startCommit({ row: null, day: '', today, pending: false })).toEqual({ canCommit: false, inFuture: false })
+    expect(startCommit({ row: null, day: today, today, pending: true }).canCommit).toBe(false)
+  })
+
+  it('cancels an open count only, with a reason of at most 500 characters', () => {
+    expect(cancelCommit({ row: open, why: ' wrong store ', pending: false })).toEqual({ canCommit: true, tooLong: false })
+    expect(cancelCommit({ row: open, why: '   ', pending: false }).canCommit).toBe(false)
+    expect(cancelCommit({ row: closed, why: 'why', pending: false }).canCommit).toBe(false)
+    expect(cancelCommit({ row: null, why: 'why', pending: false }).canCommit).toBe(false)
+    expect(cancelCommit({ row: open, why: 'x'.repeat(WHY_MAX + 1), pending: false })).toEqual({ canCommit: false, tooLong: true })
+  })
+
+  it('reads today off the local wall clock, not UTC', () => {
+    // 00:30 local on 23 Nov is still 22 Nov in UTC at +03:00; the count day must be the 23rd.
+    expect(localDay(new Date(2026, 10, 23, 0, 30))).toBe('2026-11-23')
+    expect(localDay(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05')
   })
 })

@@ -10,7 +10,13 @@
  */
 import { api } from '@/core/api'
 import type { BbyPromotion } from '@/core/models/bonus-buy-maintenance'
-import type { BbyBulkChangeRequest, BbyBulkChangeResult, BbyBulkListRow } from '@/core/models/bonus-buy-bulk'
+import type {
+  BbyBulkChangeRequest,
+  BbyBulkChangeResult,
+  BbyBulkListRow,
+  BbyBulkMarkTestedRequest,
+  BbyBulkMarkTestedResult,
+} from '@/core/models/bonus-buy-bulk'
 import type {
   BbyBulkPreset,
   BbyBulkPresetDeleteRequest,
@@ -40,6 +46,11 @@ export const bbyBulkChangeApi = {
   /** The bulk change: `dryRun` computes and validates every row and writes nothing (the preview). */
   change(body: BbyBulkChangeRequest): Promise<BbyBulkChangeResult> {
     return api.post<BbyBulkChangeResult>(`${BASE}/BonusBuy/BulkChange`, body)
+  },
+
+  /** Bulk Mark Tested (oms 959, BackOffice 4194, tester grant `BbyMaintain:04`). 🚩 Guessed route. */
+  markTested(body: BbyBulkMarkTestedRequest): Promise<BbyBulkMarkTestedResult> {
+    return api.post<BbyBulkMarkTestedResult>(`${BASE}/BonusBuy/BulkMarkTested`, body)
   },
 }
 

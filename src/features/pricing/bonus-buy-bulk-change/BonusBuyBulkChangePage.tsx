@@ -21,6 +21,7 @@ import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { bbyBulkChangeApi, bulkListKey, bulkPromotionsKey, canOpenBbyBulkChange } from './api'
 import { EMPTY_FORM, hasOperations, toOperations, type BulkForm } from './operations'
+import MarkTestedPanel from './MarkTestedPanel'
 import PresetChips from './PresetChips'
 import ResultPanel from './ResultPanel'
 import RulesForm from './RulesForm'
@@ -299,6 +300,18 @@ function BulkChange() {
           <ResultPanel reading={result.reading} />
         </>
       )}
+
+      {/* ── 3. bulk Mark Tested (oms 959): shown only with the tester grant ── */}
+      <MarkTestedPanel
+        selected={selectedRows}
+        lastSaved={result && !result.reading.dryRun ? result.reading.rows.filter((r) => r.outcome === 'save').map((r) => r.number) : []}
+        list={rows}
+        disabled={busy}
+        onMarked={async () => {
+          clearSelection()
+          await queryClient.invalidateQueries({ queryKey: ['bonus-buy-bulk-change', 'list'] })
+        }}
+      />
     </div>
   )
 }

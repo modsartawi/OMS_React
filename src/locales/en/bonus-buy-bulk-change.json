@@ -174,5 +174,31 @@
       "save": "The preset could not be saved.",
       "delete": "The preset could not be deleted."
     }
+  },
+  "markTested": {
+    "title": "Mark Tested",
+    "fromSelection_one": "{{n}} selected bonus buy",
+    "fromSelection_other": "{{n}} selected bonus buys",
+    "fromApply_one": "{{n}} Planned bonus buy saved by the last apply",
+    "fromApply_other": "{{n}} Planned bonus buys saved by the last apply",
+    "empty": "Select Planned bonus buys, or apply a change first.",
+    "button": "Mark Tested",
+    "note": "Test note",
+    "notePlaceholder": "Optional. One note for every bonus buy in the batch.",
+    "confirmTitle": "Mark the batch Tested",
+    "confirmBody_one": "Mark {{n}} bonus buy Tested? It is checked again first, and refused if it fails.",
+    "confirmBody_other": "Mark {{n}} bonus buys Tested? Each is checked again first, and the ones that fail are refused.",
+    "error": "The bonus buys could not be marked Tested.",
+    "resultTitle": "Marked Tested",
+    "counts": "{{tested}} tested · {{refuse}} refused",
+    "refusedWhole": "The whole batch was refused. Nothing was marked Tested.",
+    "col": {
+      "refusals": "Refusals"
+    },
+    "outcome": {
+      "tested": "Tested",
+      "refuse": "Refused",
+      "unknown": "Unknown outcome"
+    }
   }
 }

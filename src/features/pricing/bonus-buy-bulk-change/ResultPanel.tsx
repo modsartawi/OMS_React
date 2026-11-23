@@ -150,7 +150,7 @@ function Value({ value }: { value: RuleValue }) {
   )
 }
 
-/** Refusals as the server words them, English and Arabic (the presets' dialog shows its own the same way). */
+/** Refusals or warnings, code then English then Arabic; Mark Tested's report (oms 959) shares it. */
 export function Refusals({ refusals, tone }: { refusals: BbyRefusal[]; tone: 'bad' | 'warn' }) {
   if (refusals.length === 0) return null
   return (

@@ -84,21 +84,35 @@ describe('the real whats-new article', () => {
   })
 })
 
-describe('the real front matter claims /analytics three times', () => {
-  // start (0), home-library (1) and whats-new (99) all list `/analytics`: the first in reading order opens on Home.
+describe('each screen of the real front matter has one article (BackOffice 5b5cd5f52)', () => {
+  // start and whats-new claim the help center; Home and the library's pages are home-library's; Shared and Certified
+  // are sharing-certified's.
   const articles = helpContentsOf({
     articles: [
-      { ...info('en'), slug: 'start', order: 0, screens: ['/analytics'] },
-      { ...info('en'), slug: 'home-library', order: 1, screens: ['/analytics', '/analytics/library', '/analytics/shared'] },
+      { ...info('en'), slug: 'start', order: 0, screens: ['/analytics/help'] },
+      { ...info('en'), slug: 'home-library', order: 1, screens: ['/analytics', '/analytics/library', '/analytics/deleted'] },
       { ...info('en'), slug: 'sharing-certified', order: 6, screens: ['/analytics/shared', '/analytics/certified'] },
       { ...info('en'), slug: 'reports', order: 4, screens: ['/analytics/report/:id', '/analytics/print/report/:id'] },
+      { ...info('en'), slug: 'whats-new', order: 99, screens: ['/analytics/help'] },
       info('en'),
     ],
   } as unknown as HelpContentsReply).articles
 
-  it('Home opens start; a shared screen opens the earlier article; a pattern matches its route', () => {
-    expect(articleForRoute(articles, '/analytics')).toBe('start')
-    expect(articleForRoute(articles, '/analytics/shared')).toBe('home-library')
+  it('Home opens home-library, Shared opens sharing-certified, the help center opens start, a pattern matches its route', () => {
+    expect(articleForRoute(articles, '/analytics')).toBe('home-library')
+    expect(articleForRoute(articles, '/analytics/shared')).toBe('sharing-certified')
+    expect(articleForRoute(articles, '/analytics/certified')).toBe('sharing-certified')
+    expect(articleForRoute(articles, '/analytics/help')).toBe('start')
     expect(articleForRoute(articles, '/analytics/report/42')).toBe('reports')
+  })
+
+  it('if two articles ever claim one screen, the first in the contents (the server sends reading order) wins', () => {
+    const overlap = helpContentsOf({
+      articles: [
+        { ...info('en'), slug: 'home-library', order: 1, screens: ['/analytics/shared'] },
+        { ...info('en'), slug: 'sharing-certified', order: 6, screens: ['/analytics/shared'] },
+      ],
+    } as unknown as HelpContentsReply).articles
+    expect(articleForRoute(overlap, '/analytics/shared')).toBe('home-library')
   })
 })

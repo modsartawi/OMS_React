@@ -28,6 +28,11 @@ export interface SimulateHeaderInput {
   /** The basket's loyalty-group codes; the engine binds `string[]` (`SimulateHeaderDto.LoyGroups`). */
   loyGroups: string[] | null
   loyTier: string | null
+  /**
+   * The seat the order is priced from (`SimulateHeaderDto.Origin`, BackOffice spec 4190). Bonus buys
+   * filter by origin prefix; `null` lets the engine take the plant as the origin (a store till).
+   */
+  origin: string | null
   isPromotionApplicable: boolean
   /**
    * Also price Planned (`1`) and Tested (`3`) bonus buys, not only Activated ones — the simulator's

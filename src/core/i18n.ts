@@ -9,6 +9,9 @@ import uaAdmin from '@/locales/en/ua-admin.json'
 import authzAdmin from '@/locales/en/authz-admin.json'
 import activeSessions from '@/locales/en/active-sessions.json'
 import simulation from '@/locales/en/simulation.json'
+// POS Simulation's Arabic is PARTIAL (BackOffice spec 4190, ticket 957): the Seat words only. Every key not in it
+// falls back to English through `fallbackLng`, as the whole screen did before.
+import simulationAr from '@/locales/ar/simulation.json'
 import bonusBuyDownload from '@/locales/en/bonus-buy-download.json'
 import bonusBuyInquiry from '@/locales/en/bonus-buy-inquiry.json'
 import bonusBuyMaintenance from '@/locales/en/bonus-buy-maintenance.json'
@@ -397,6 +400,7 @@ i18n.use(initReactI18next).init({
       ...INSURANCE_RULES_EN,
     },
     ar: {
+      simulation: simulationAr,
       'approval-release': approvalReleaseAr,
       'bonus-buy-maintenance': bonusBuyMaintenanceAr,
       undispense: undispenseAr,

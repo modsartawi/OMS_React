@@ -7,16 +7,19 @@ import { buildSimulateRequest, type SimRequestInputs } from './request'
  * groups are picked with the core picker, which hands back one comma string; the engine binds
  * `SimulateHeaderDto.LoyGroups` as `string[]`, so the request splits it, and no group is `null`.
  */
-function inputs(loyGroups: string): SimRequestInputs {
+function inputs(loyGroups: string, seat: Partial<Pick<SimRequestInputs['header'], 'seat' | 'customOrigin' | 'plant'>> = {}): SimRequestInputs {
   return {
     header: {
       plant: 'P001',
+      seat: 'store',
+      customOrigin: '',
       pricingDate: '2026-10-27',
       salesOrganization: '1000',
       distributionChannel: '20',
       documentPricingProcedureKey: '',
       loyGroups,
       loyTier: '',
+      ...seat,
     },
     promotion: true,
     unactivated: false,
@@ -49,6 +52,7 @@ describe('the simulate request carries the basket loyalty groups', () => {
         documentPricingProcedureKey: '',
         loyGroups: null,
         loyTier: null,
+        origin: null,
         isPromotionApplicable: true,
         skipBonusBuyActivationCheck: false,
       },
@@ -56,5 +60,14 @@ describe('the simulate request carries the basket loyalty groups', () => {
       includeConditions: true,
       includePricingElements: false,
     })
+  })
+})
+
+describe('the simulate request carries the seat as its origin (spec 4190, 957)', () => {
+  it('the request carries header.origin', () => {
+    expect(buildSimulateRequest(inputs('')).header.origin).toBeNull()
+    expect(buildSimulateRequest(inputs('', { seat: 'callCenter' })).header.origin).toBe('C000')
+    expect(buildSimulateRequest(inputs('', { seat: 'miniPos', plant: 'P245' })).header.origin).toBe('P245M')
+    expect(buildSimulateRequest(inputs('', { seat: 'custom', customOrigin: ' W9 ' })).header.origin).toBe('W9')
   })
 })

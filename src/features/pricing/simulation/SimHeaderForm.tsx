@@ -7,6 +7,8 @@ import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import { usePermissions } from '@/core/permissions'
+import { fsi } from '@/core/util/bidi'
+import { SIM_SEATS, seatOrigin, type SimSeat } from './seat'
 
 // The header inputs feeding SimulateRequest.header. Owner layout (488): a dense
 // 4-column grid (NOT the WPF's 2-column) — determination fields on row 1, procedure
@@ -18,6 +20,10 @@ import { usePermissions } from '@/core/permissions'
 // and its footer (Process / Clear / Wipe cache) belongs to `SimRunStrip`.
 export interface SimHeaderState {
   plant: string
+  /** The seat (ticket 957) — the request's origin is derived from it (`seat.ts`). */
+  seat: SimSeat
+  /** The Custom seat's typed origin; kept while another seat is picked, sent only under Custom. */
+  customOrigin: string
   pricingDate: string
   salesOrganization: string
   distributionChannel: string
@@ -46,6 +52,9 @@ function todayIso(): string {
 export function defaultHeader(): SimHeaderState {
   return {
     plant: 'P001',
+    // A store till: no origin, so the plant is the origin — what the simulator always priced.
+    seat: 'store',
+    customOrigin: '',
     pricingDate: todayIso(),
     salesOrganization: '1000',
     distributionChannel: '20',
@@ -133,6 +142,43 @@ export default function SimHeaderForm({
     field('loyGroups', t('header.loyGroup'))
   )
 
+  // The Seat (ticket 957, spec 4190) — beside Plant, because the seat is the origin and a store
+  // till's origin IS the plant. The origin it sends reads beneath it, so Mini POS visibly follows a
+  // plant edit; Custom opens a free-text origin under the select.
+  const origin = seatOrigin(value)
+  const seatField = (
+    <div className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-muted-foreground">{t('header.seat')}</span>
+        <Select
+          value={value.seat}
+          disabled={disabled}
+          data-testid="sim-header-seat"
+          onChange={(e) => onChange({ seat: e.target.value as SimSeat })}
+        >
+          {SIM_SEATS.map((seat) => (
+            <option key={seat} value={seat}>
+              {t(`header.seatOptions.${seat}`)}
+            </option>
+          ))}
+        </Select>
+      </label>
+      {value.seat === 'custom' ? (
+        <Input
+          value={value.customOrigin}
+          disabled={disabled}
+          aria-label={t('header.customOrigin')}
+          placeholder={t('header.customOrigin')}
+          data-testid="sim-header-customOrigin"
+          onChange={(e) => onChange({ customOrigin: e.target.value })}
+        />
+      ) : null}
+      <span className="text-[0.7rem] text-muted-foreground">
+        {origin !== null ? t('header.seatOrigin', { origin: fsi(origin) }) : t('header.seatOriginPlant')}
+      </span>
+    </div>
+  )
+
   const loyTierField = (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-medium text-muted-foreground">{t('header.loyTier')}</span>
@@ -157,6 +203,7 @@ export default function SimHeaderForm({
           actually room for four. 680 = four ~155 px fields plus the grid's three gaps. */}
       <div className="grid grid-cols-2 gap-3 @[680px]:grid-cols-4">
         {field('plant', t('header.plant'), { autoFocus: autoFocusFirstField })}
+        {seatField}
         {field('pricingDate', t('header.pricingDate'), { type: 'date' })}
         {field('salesOrganization', t('header.salesOrg'))}
         {field('distributionChannel', t('header.distChannel'))}

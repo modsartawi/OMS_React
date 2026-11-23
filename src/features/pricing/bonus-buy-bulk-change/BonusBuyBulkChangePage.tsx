@@ -21,6 +21,7 @@ import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { bbyBulkChangeApi, bulkListKey, bulkPromotionsKey, canOpenBbyBulkChange } from './api'
 import { EMPTY_FORM, hasOperations, toOperations, type BulkForm } from './operations'
+import PresetChips from './PresetChips'
 import ResultPanel from './ResultPanel'
 import RulesForm from './RulesForm'
 import { readBulkResult, type BulkResultReading } from './result'
@@ -278,7 +279,8 @@ function BulkChange() {
             {t('apply.button')}
           </Button>
         </div>
-        <div className="p-3">
+        <div className="flex flex-col gap-3 p-3">
+          <PresetChips form={form} onPick={setForm} disabled={busy} />
           <RulesForm form={form} onChange={setForm} problems={problems} currency={currency} disabled={busy} />
         </div>
         {previewReason && selected.length > 0 && (

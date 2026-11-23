@@ -134,5 +134,45 @@
       "refuse": "Refused",
       "unknown": "Unknown outcome"
     }
+  },
+  "presets": {
+    "label": "Presets",
+    "loading": "Loading presets…",
+    "none": "No presets yet.",
+    "saveAs": "Save as preset…",
+    "picked": "Started from",
+    "rename": "Rename",
+    "update": "Save the form into this preset",
+    "updateSame": "The form already says what this preset holds.",
+    "delete": {
+      "button": "Delete",
+      "confirmTitle": "Delete the preset",
+      "confirmBody": "Delete the preset {{name}} for the whole team? Bonus buys already changed with it are not touched."
+    },
+    "dialog": {
+      "createTitle": "Save as preset",
+      "renameTitle": "Rename the preset",
+      "updateTitle": "Save the form into the preset",
+      "name": "Name",
+      "createHint": "The preset holds the form's changes, not the selected bonus buys. The whole team sees it.",
+      "updateBody": "The current form replaces what this preset holds:",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "problem": {
+      "name": "Give the preset a name.",
+      "form": "Fix the form's highlighted fields first.",
+      "nothing": "The form changes nothing, so there is nothing to save."
+    },
+    "refused": {
+      "refused": "The preset was not saved.",
+      "notFound": "This preset no longer exists. Someone may have deleted it.",
+      "unknown": "The server answered with an unknown outcome. Reload the presets before trying again."
+    },
+    "error": {
+      "list": "The presets could not be loaded.",
+      "save": "The preset could not be saved.",
+      "delete": "The preset could not be deleted."
+    }
   }
 }

@@ -90,6 +90,8 @@ export const RETIRED_MONEY = [
  *  translator's decision. */
 export const UPPERCASE = [
   'strip.key.plant',
+  // 957 — the seat chip's key, minted uppercase like the plant's beside it.
+  'strip.key.seat',
   'strip.key.org',
   'strip.key.chan',
   'strip.key.proc',

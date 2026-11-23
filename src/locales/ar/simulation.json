@@ -1,0 +1,19 @@
+{
+  "header": {
+    "seat": "نقطة البيع",
+    "seatOptions": {
+      "store": "صندوق الفرع",
+      "callCenter": "مركز الاتصال",
+      "miniPos": "نقطة البيع المصغّرة",
+      "custom": "مخصّص…"
+    },
+    "customOrigin": "المصدر",
+    "seatOrigin": "المصدر {{origin}}",
+    "seatOriginPlant": "المصدر = الفرع"
+  },
+  "strip": {
+    "key": {
+      "seat": "نقطة البيع"
+    }
+  }
+}

@@ -133,6 +133,9 @@ export const SCREEN_KEYS = [
   'InsurancePattern:06',
   'InsurancePattern:01',
   'InsurancePatientBlock:02',
+  // Parked returns (BackOffice spec 4212, ticket 4218's seed): `BackOfficeScreen[ParkedReturns, 03]` view, `06` settle.
+  'ParkedReturns:03',
+  'ParkedReturns:06',
   // Nphies
   'Nphies:03',
   'NphiesReleaseApproval:03',

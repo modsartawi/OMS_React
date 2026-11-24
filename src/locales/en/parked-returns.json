@@ -1,7 +1,8 @@
 {
   "menu": {
     "group": "Returns",
-    "parked": "Parked returns"
+    "parked": "Parked returns",
+    "ruleReturns": "Parked rule returns"
   },
   "title": "Parked returns",
   "subtitle": "Every parked return across the stores, with its store details and refund ledger rows. Opens on the ones only HQ can move.",
@@ -228,5 +229,59 @@
     "PARKED_RETURN_NOT_ROWLESS": "This return already has a refund ledger row. Settle that row instead."
   },
   "yes": "Yes",
-  "no": "No"
+  "no": "No",
+  "rule": {
+    "title": "Parked rule returns",
+    "subtitle": "Returns whose partner refund the till gave up on and parked. Un-park sends the till a request to try again.",
+    "filters": {
+      "label": "Filter parked rule returns",
+      "store": "Store",
+      "show": "Show",
+      "parkedOnly": "Not yet sent",
+      "includeSent": "Include sent",
+      "clear": "Clear filters"
+    },
+    "list": {
+      "count_one": "{{n}} parked rule return",
+      "count_other": "{{n}} parked rule returns",
+      "order": "Oldest first.",
+      "reading": "Reading…",
+      "failed": "The parked rule returns could not be read.",
+      "empty": "No parked rule return matches these filters."
+    },
+    "col": {
+      "transaction": "Transaction",
+      "storeTill": "Store · till",
+      "refusal": "Why it parked",
+      "attempts": "Attempts",
+      "parkedAt": "Parked at",
+      "state": "Last state",
+      "action": "Action"
+    },
+    "state": {
+      "parked": "Parked",
+      "unparkRequested": "Un-park requested",
+      "applied": "Un-park applied",
+      "sent": "Sent",
+      "parkedAgain": "Parked again",
+      "unknown": "Unknown state"
+    },
+    "unpark": {
+      "action": "Un-park",
+      "confirmTitle": "Un-park this return?",
+      "confirmBody": "The till at {{store}} will try transaction {{transactionId}} again the next time it sends. The row shows \"Un-park requested\" until the till applies it.",
+      "done": "Un-park requested",
+      "committing": "Saving…",
+      "requestedBy": "Requested by {{user}} at {{time}}"
+    },
+    "refusal": {
+      "title": "Not saved",
+      "failed": "The un-park could not be saved.",
+      "noSettleRight": "You no longer have the right to settle parked returns. Ask your administrator.",
+      "PARKED_RULE_RETURN_NOT_FOUND": "This parked rule return no longer exists. The list has been refreshed.",
+      "PARKED_RULE_RETURN_NOT_PARKED": "This return is no longer parked, so it cannot be un-parked. The list has been refreshed.",
+      "PARKED_RULE_RETURN_UNPARK_PENDING": "An un-park is already waiting for the till, perhaps from a colleague at the same moment. The list has been refreshed.",
+      "PARKED_RULE_RETURN_NO_REQUESTER": "Your session did not say who you are. Sign in again and retry."
+    }
+  }
 }

@@ -17,5 +17,11 @@ export const returnsRoute: RouteObject = {
       path: 'parked',
       lazy: async () => ({ Component: (await import('@/features/returns/parked-returns/ParkedReturnsPage')).default }),
     },
+
+    // 4226 · Parked rule returns — the rule-driven partner legs the tills parked (`?store=&sent=1&page=`), and Un-park.
+    {
+      path: 'rule-returns',
+      lazy: async () => ({ Component: (await import('@/features/returns/parked-returns/ParkedRuleReturnsPage')).default }),
+    },
   ],
 }

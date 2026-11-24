@@ -16,6 +16,7 @@ const holding = (...screens: string[]) => permissionsOf({ screens })
 
 const GROUP = 'parked-returns:menu.group'
 const LEAF = 'parked-returns:menu.parked'
+const RULE_LEAF = 'parked-returns:menu.ruleReturns'
 
 describe('4224 — the Returns area', () => {
   it('is its own top-level group, with Parked returns at /returns/parked', () => {
@@ -26,7 +27,7 @@ describe('4224 — the Returns area', () => {
   })
 
   it('shows on ParkedReturns:03 alone — and nothing else in the whole menu does', () => {
-    expect(visible(holding('ParkedReturns:03'))).toEqual([LEAF])
+    expect(visible(holding('ParkedReturns:03'))).toEqual([LEAF, RULE_LEAF])
   })
 
   it('the settle right alone does not open it (settle is not view)', () => {
@@ -41,7 +42,21 @@ describe('4224 — the Returns area', () => {
       permissionsFromQuery({ isPending: false, isError: true, data: undefined }),
     ]) {
       expect(visible(p)).not.toContain(LEAF)
+      expect(visible(p)).not.toContain(RULE_LEAF)
       expect(resolveMenu(MENU, p).items.map((g) => g.labelKey)).not.toContain(GROUP)
     }
+  })
+})
+
+describe('4226 — Parked rule returns, in the Returns area', () => {
+  it('is a leaf of the Returns group at /returns/rule-returns', () => {
+    const group = MENU.find((g) => g.labelKey === GROUP)
+    expect(leaves([group!]).find((l) => l.labelKey === RULE_LEAF)).toMatchObject({ routerLink: '/returns/rule-returns' })
+    expect(markedLeaf(MENU, '/returns/rule-returns')?.labelKey).toBe(RULE_LEAF)
+  })
+
+  it('shows on the view right; the settle right alone does not open it', () => {
+    expect(visible(holding('ParkedReturns:03'))).toContain(RULE_LEAF)
+    expect(visible(holding('ParkedReturns:06'))).not.toContain(RULE_LEAF)
   })
 })

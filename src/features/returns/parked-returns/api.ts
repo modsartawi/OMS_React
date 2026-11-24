@@ -4,15 +4,28 @@
  * field (`./wire`). View only: no write door is called from this ticket.
  */
 import { api } from '@/core/api'
-import type { ParkedReturnDetail, ParkedReturnGrain, ParkedReturnsPage, ParkedReturnsQuery } from '@/core/models/parked-returns'
+import type {
+  ParkedReturnDetail,
+  ParkedReturnGrain,
+  ParkedReturnsPage,
+  ParkedReturnsQuery,
+  ParkedRuleReturnRow,
+  ParkedRuleReturnsPage,
+  ParkedRuleReturnsQuery,
+} from '@/core/models/parked-returns'
 import type { RowlessRequest, SettleRequest } from './settle'
+import { readRuleReturnRow, readRuleReturnsPage } from './rule-returns'
 import { readDetail, readGrainAnswer, readListPage } from './wire'
 
 const LIST = 'RefundLedgerWeb/ParkedReturns'
+const RULE_LIST = 'Rules/ParkedRuleReturns'
 
 /** Every read sits under this prefix. */
 export const PARKED_RETURNS_KEY = ['parked-returns'] as const
 export const listKey = (query: ParkedReturnsQuery) => [...PARKED_RETURNS_KEY, 'list', query] as const
+/** The parked rule returns' reads (ticket 4226) sit under their own prefix: an un-park re-reads them alone. */
+export const RULE_RETURNS_KEY = ['parked-rule-returns'] as const
+export const ruleListKey = (query: ParkedRuleReturnsQuery) => [...RULE_RETURNS_KEY, 'list', query] as const
 export const detailKey = (transactionId: string) => [...PARKED_RETURNS_KEY, 'detail', transactionId] as const
 
 export const parkedReturnsApi = {
@@ -36,5 +49,17 @@ export const parkedReturnsApi = {
    * FAILED. The answer is not read: the screen reads the return again. */
   async resolveRowless(transactionId: string, request: RowlessRequest): Promise<void> {
     await api.post<unknown>(`${LIST}/${encodeURIComponent(transactionId.trim())}/ResolveRowless`, request)
+  },
+
+  /** `GET Rules/ParkedRuleReturns` (BackOffice 4221, `ParkedReturns.View`) — a page of the parked rule returns, oldest first. */
+  async ruleList(query: ParkedRuleReturnsQuery): Promise<ParkedRuleReturnsPage> {
+    return readRuleReturnsPage(await api.get<unknown>(RULE_LIST, { ...query }))
+  },
+
+  /** `POST Rules/ParkedRuleReturns/{id}/Unpark` (BackOffice 4222, `ParkedReturns.Settle`, no body; the requester is the
+   * session's user) → the row. A refusal is a business `ApiError` carrying a `PARKED_RULE_RETURN_*` code (`./rule-returns`). */
+  async unpark(id: string): Promise<ParkedRuleReturnRow> {
+    const raw = await api.post<unknown>(`${RULE_LIST}/${encodeURIComponent(id.trim())}/Unpark`, {})
+    return readRuleReturnRow(typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {})
   },
 }

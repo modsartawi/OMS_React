@@ -10,6 +10,7 @@ import ar from '@/locales/ar/parked-returns.json'
 import { hasLocaleKey, localeAt } from '@/core/test/locale'
 import { LEDGER_STATUSES, VIEWS } from './filter'
 import { SETTLE_REFUSAL_CODES } from './settle'
+import { RULE_STATE_KEYS, UNPARK_REFUSAL_CODES } from './rule-returns'
 import { grainBadges, ledgerLabel, needsHqReasonLabel, NEEDS_HQ_REASONS, PARK_REASONS, parkReasonLabel, rowBadges, stateLabel, STATES } from './labels'
 
 const EN_PLURAL = ['_one', '_other']
@@ -91,6 +92,19 @@ describe('parked-returns — the keys the screen builds exist', () => {
       ...['REFUNDED', 'VOID_AFTER_CHECK'].flatMap((o) => [`settle.confirm.${o}.title`, `settle.confirm.${o}.body`]),
       ...['REFUNDED', 'VOID_AFTER_CHECK', 'PAY_IN_CASH'].map((o) => `settle.done.${o}`),
       ...['title', 'hint', 'reason', 'evidence', 'reasonMissing', 'evidenceMissing', 'tooLong', 'commit', 'committing', 'cancel'].map((k) => `cash.${k}`),
+      // 4226: the parked rule returns page — its menu leaf, every state label, Un-park and every refusal.
+      'menu.ruleReturns',
+      'rule.title',
+      'rule.subtitle',
+      ...['label', 'store', 'show', 'parkedOnly', 'includeSent', 'clear'].map((k) => `rule.filters.${k}`),
+      ...['order', 'reading', 'failed', 'empty'].map((k) => `rule.list.${k}`),
+      ...['transaction', 'storeTill', 'refusal', 'attempts', 'parkedAt', 'state', 'action'].map((k) => `rule.col.${k}`),
+      ...RULE_STATE_KEYS,
+      ...['action', 'confirmTitle', 'confirmBody', 'done', 'committing', 'requestedBy'].map((k) => `rule.unpark.${k}`),
+      ...UNPARK_REFUSAL_CODES.map((c) => `rule.refusal.${c}`),
+      'rule.refusal.noSettleRight',
+      'rule.refusal.title',
+      'rule.refusal.failed',
       ...['action', 'title', 'hint', 'status', 'statusPick', 'statusRefunded', 'statusFailed', 'partner', 'tenderType', 'originalReference', 'amount', 'store', 'cashier', 'commit', 'committing', 'cancel', 'done'].map(
         (k) => `rowless.${k}`,
       ),
@@ -102,12 +116,20 @@ describe('parked-returns — the keys the screen builds exist', () => {
     ['en', en],
     ['ar', ar],
   ])('%s: the plurals the screen counts with', (_lang, locale) => {
-    for (const key of ['list.count', 'list.needsHqCount', 'age.days']) expect([key, hasLocaleKey(locale, `${key}_other`)]).toEqual([key, true])
+    for (const key of ['list.count', 'list.needsHqCount', 'age.days', 'rule.list.count']) expect([key, hasLocaleKey(locale, `${key}_other`)]).toEqual([key, true])
   })
 
   it('the three labels the ticket names, in English', () => {
     expect(localeAt(en, 'badge.storeDetailsNotReceived')).toBe('Store details not received')
     expect(localeAt(en, 'state.waitingForStore')).toBe('Waiting for the store')
     expect(localeAt(en, 'badge.awaitingHq')).toBe('Awaiting HQ')
+  })
+
+  it('the five rule-return labels the ticket names, in English (4226)', () => {
+    expect(localeAt(en, 'rule.state.parked')).toBe('Parked')
+    expect(localeAt(en, 'rule.state.unparkRequested')).toBe('Un-park requested')
+    expect(localeAt(en, 'rule.state.applied')).toBe('Un-park applied')
+    expect(localeAt(en, 'rule.state.sent')).toBe('Sent')
+    expect(localeAt(en, 'rule.state.parkedAgain')).toBe('Parked again')
   })
 })

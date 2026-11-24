@@ -132,3 +132,40 @@ export interface ParkedReturnDetail {
   tenders: ParkedReturnTender[]
   grains: ParkedReturnGrain[]
 }
+
+/**
+ * A parked **rule** return (BackOffice 4221, `GET Rules/ParkedRuleReturns`): a return whose rule-driven partner leg the
+ * till parked, mirrored to HQ. `state` is `PARKED` / `UNPARKED` / `SENT`; the un-park ids say whether HQ asked to un-park
+ * it and whether the till applied that request (BackOffice 4222). Optional times read as ''.
+ */
+export interface ParkedRuleReturnRow {
+  id: string
+  storeCode: string
+  registerId: string
+  transactionId: string
+  originalTransactionId: string
+  errorCode: string
+  errorMessage: string
+  attemptsCount: number
+  parkedAt: string
+  state: string
+  lastEventAt: string
+  appliedUnparkId: string
+  unparkRequestId: string
+  unparkRequestedBy: string
+  unparkRequestedTime: string
+}
+
+export interface ParkedRuleReturnsPage {
+  total: number
+  rows: ParkedRuleReturnRow[]
+}
+
+/** The rule-return list's query, under the door's own names. */
+export interface ParkedRuleReturnsQuery {
+  store: string
+  includeSent: boolean
+  /** 1-based. */
+  page: number
+  pageSize: number
+}

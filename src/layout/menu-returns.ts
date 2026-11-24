@@ -1,4 +1,4 @@
-import { PackageOpen, Undo2 } from 'lucide-react'
+import { ArchiveRestore, PackageOpen, Undo2 } from 'lucide-react'
 // 4224 · the Parked returns screen's OWN grant (BackOffice 4218's seed, `ParkedReturns:03`)
 import { canViewParkedReturns } from '@/features/returns/parked-returns/access'
 // Type-only: `menu-model` imports this module, so a value import would be a cycle.
@@ -21,6 +21,13 @@ export const RETURNS_MENU: ShellMenuItem = {
       labelKey: 'parked-returns:menu.parked',
       icon: PackageOpen,
       routerLink: '/returns/parked',
+      requires: canViewParkedReturns,
+    },
+    // 4226 · Parked rule returns (`/returns/rule-returns`): the same view right; Un-park inside needs `ParkedReturns:06`.
+    {
+      labelKey: 'parked-returns:menu.ruleReturns',
+      icon: ArchiveRestore,
+      routerLink: '/returns/rule-returns',
       requires: canViewParkedReturns,
     },
   ],

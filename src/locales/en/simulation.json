@@ -11,6 +11,16 @@
   },
   "header": {
     "plant": "Plant",
+    "seat": "Seat",
+    "seatOptions": {
+      "store": "Store till",
+      "callCenter": "Call center",
+      "miniPos": "Mini POS",
+      "custom": "Custom…"
+    },
+    "customOrigin": "Origin",
+    "seatOrigin": "Origin {{origin}}",
+    "seatOriginPlant": "Origin = the plant",
     "pricingDate": "Pricing date",
     "salesOrg": "Sales org",
     "distChannel": "Distribution channel",
@@ -58,7 +68,8 @@
   "process": {
     "refused": {
       "noItems": "Add an item first",
-      "running": "A run is already in progress"
+      "running": "A run is already in progress",
+      "miniPosNeedsPlant": "Pick a plant for the Mini POS seat"
     }
   },
   "clearCache": {
@@ -142,6 +153,7 @@
     "promoOff": "PROMO off",
     "key": {
       "plant": "PLANT",
+      "seat": "SEAT",
       "org": "ORG",
       "chan": "CHAN",
       "proc": "PROC",

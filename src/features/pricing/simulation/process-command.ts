@@ -13,6 +13,7 @@
  */
 import { Play } from 'lucide-react'
 import type { Command } from '@/core/commands/palette-model'
+import type { SeatProblem } from './seat'
 
 /** Process's chord — the screen's Ctrl+Enter (K3). */
 export const PROCESS_KEYS = 'Ctrl+Enter'
@@ -22,9 +23,10 @@ export const PROCESS_KEYS = 'Ctrl+Enter'
  * row's reason and the refused chord's toast — or `null` when it can. A run in flight
  * comes first: it is the reason the press does nothing even once the basket is emptied.
  */
-export function processRefusal(input: { itemCount: number; pending: boolean }): string | null {
+export function processRefusal(input: { itemCount: number; pending: boolean; seatProblem?: SeatProblem | null }): string | null {
   if (input.pending) return 'simulation:process.refused.running'
   if (input.itemCount === 0) return 'simulation:process.refused.noItems'
+  if (input.seatProblem) return `simulation:process.refused.${input.seatProblem}`
   return null
 }
 

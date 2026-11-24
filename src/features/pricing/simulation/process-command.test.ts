@@ -34,6 +34,13 @@ describe('process refusal reason', () => {
   it('otherwise enabled', () => {
     expect(processRefusal({ itemCount: 1, pending: false })).toBeNull()
   })
+
+  it('a Mini POS seat with no plant blocks Process with its reason', () => {
+    const reason = processRefusal({ itemCount: 1, pending: false, seatProblem: 'miniPosNeedsPlant' })
+    expect(reason).toBe('simulation:process.refused.miniPosNeedsPlant')
+    expect(shipped(reason!)).toBe('Pick a plant for the Mini POS seat')
+    expect(processRefusal({ itemCount: 1, pending: true, seatProblem: 'miniPosNeedsPlant' })).toBe('simulation:process.refused.running')
+  })
 })
 
 describe('the Process command', () => {

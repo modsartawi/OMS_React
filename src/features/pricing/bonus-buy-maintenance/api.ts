@@ -21,23 +21,12 @@ import type {
   BbyPromotionSave,
 } from '@/core/models/bonus-buy-maintenance'
 import type { BbyUploadResult } from '@/core/models/bonus-buy-upload'
-import type { Permissions } from '@/core/permissions'
 import { uploadForm, type UploadOptions } from './upload'
 
 const BASE = 'BbyMaintainWeb'
 
-/**
- * The screen grant (`BbyMaintain:03`), for the nav leaf and the screen gate alike, off the one
- * permissions answer (oms 914). This screen WRITES to every till's offers: a pending or failed
- * answer is a denial (fail closed).
- */
-export const canOpenBbyMaintain = (p: Permissions): boolean => p.has('BbyMaintain:03')
-
-/**
- * The tester grant (`BbyMaintain:04`, spec 2396) — Mark Tested — and only BESIDE the screen
- * grant: `:04` without `:03` offers nothing (brief 3995's BbyMaintain combination).
- */
-export const canTestBbyMaintain = (p: Permissions): boolean => p.has('BbyMaintain:03') && p.has('BbyMaintain:04')
+// The grants graduated to `@/core/bonus-buy/access` (oms 958: the bulk change screen shares them).
+export { canOpenBbyMaintain, canTestBbyMaintain } from '@/core/bonus-buy/access'
 
 export const promotionListKey = ['bonus-buy-maintenance', 'promotions'] as const
 export const promotionKey = (promoNumber: string) =>

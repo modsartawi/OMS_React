@@ -42,6 +42,8 @@ function canonical(request: SimulateRequest): string {
       text(header.documentPricingProcedureKey),
       text(header.loyGroups?.join(',')),
       text(header.loyTier),
+      // The seat (spec 4190): it decides which bonus buys can fire.
+      text(header.origin),
       header.isPromotionApplicable === true,
       header.skipBonusBuyActivationCheck === true,
     ],

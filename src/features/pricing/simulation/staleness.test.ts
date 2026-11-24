@@ -39,6 +39,7 @@ function request(patch: RequestPatch = {}): SimulateRequest {
       documentPricingProcedureKey: '',
       loyGroups: null,
       loyTier: null,
+      origin: null,
       isPromotionApplicable: true,
       skipBonusBuyActivationCheck: false,
       ...patch.header,
@@ -63,6 +64,12 @@ describe('isStaleRun marks the results as describing an older basket', () => {
 
   it('is stale on a changed determination field', () => {
     expect(isStaleRun(request({ header: { plant: 'P002' } }), request())).toBe(true)
+  })
+
+  it('is stale on a changed seat — the origin decides which bonus buys can fire (spec 4190)', () => {
+    expect(isStaleRun(request({ header: { origin: 'C000' } }), request())).toBe(true)
+    // A Custom seat left blank sends no origin: the same run as a store till.
+    expect(isStaleRun(request({ header: { origin: '' } }), request())).toBe(false)
   })
 
   it('is stale on a changed lever — as stale as a changed determination field', () => {
@@ -185,6 +192,7 @@ describe('isStaleRun marks the results as describing an older basket', () => {
         header: {
           skipBonusBuyActivationCheck: false,
           isPromotionApplicable: true,
+          origin: null,
           loyTier: null,
           loyGroups: null,
           documentPricingProcedureKey: '',

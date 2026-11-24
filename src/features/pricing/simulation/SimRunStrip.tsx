@@ -55,7 +55,9 @@ function pair(label: string, value: string) {
 
 /** A chip's identity, for React's list key: one chip per kind+key on any run. */
 function chipId(chip: RunChip): string {
-  return chip.kind === 'date' || chip.kind === 'promo' ? chip.kind : `${chip.kind}:${chip.key}`
+  return chip.kind === 'date' || chip.kind === 'promo' || chip.kind === 'seat'
+    ? chip.kind
+    : `${chip.kind}:${chip.key}`
 }
 
 /** The run's headline figures, absent before the first Process and after a failure. */
@@ -332,6 +334,26 @@ export default function SimRunStrip({
                     {t(`strip.key.${chip.key}`)}
                   </span>
                   <span className="font-medium text-foreground">{chip.value}</span>
+                </>
+              ) : null}
+              {/* The seat (ticket 957): named, then the origin it sent — a code, isolated
+                  whole. A store till sent none (its origin is the plant), and a Custom
+                  seat is only its code, so neither carries the other half. */}
+              {chip.kind === 'seat' ? (
+                <>
+                  <span data-chip-key data-upper-mark className={chipKey}>
+                    {t('strip.key.seat')}
+                  </span>
+                  {chip.seat !== 'custom' ? (
+                    <span className="font-medium text-foreground">
+                      {t(`header.seatOptions.${chip.seat}`)}
+                    </span>
+                  ) : null}
+                  {chip.origin !== null ? (
+                    <span className="font-medium text-foreground">
+                      <Ltr>{chip.origin}</Ltr>
+                    </span>
+                  ) : null}
                 </>
               ) : null}
               {/* `25 Jul 2026` — a digit-space-digit run, and the first entry on the

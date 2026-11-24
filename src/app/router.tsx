@@ -1150,6 +1150,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/bonus-buy-maintenance/BonusBuyEditorPage')).default,
         }),
       },
+      // Bonus Buy Bulk Change (oms 958, BackOffice spec 4190): Planned bonus buys' engine rules, previewed and applied in bulk.
+      {
+        path: 'pricing/bonus-buy-bulk-change',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-bulk-change/BonusBuyBulkChangePage')).default,
+        }),
+      },
       {
         path: 'pricing/coupons',
         lazy: async () => ({

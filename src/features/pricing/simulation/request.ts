@@ -1,5 +1,6 @@
 import type { SimulateRequest } from '@/core/models/simulation'
 import type { SimHeaderState } from './SimHeaderForm'
+import { seatOrigin } from './seat'
 import type { SimItemRow } from './SimItemsEntry'
 import type { SimManualConditionRow } from './SimManualConditions'
 
@@ -44,6 +45,8 @@ export function buildSimulateRequest({
       documentPricingProcedureKey: header.documentPricingProcedureKey.trim(),
       loyGroups: loyGroupCodes(header.loyGroups),
       loyTier: header.loyTier.trim() || null,
+      // The seat is the origin, and nothing else (spec 4190): Mini POS follows the plant sent.
+      origin: seatOrigin(header),
       isPromotionApplicable: promotion,
       skipBonusBuyActivationCheck: unactivated,
     },

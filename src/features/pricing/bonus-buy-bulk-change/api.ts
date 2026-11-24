@@ -1,0 +1,77 @@
+/**
+ * Bonus Buy Bulk Change's server calls (BackOffice spec 4190, server tickets 4192 + 4193; oms 958).
+ *
+ * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`). Business outcomes — a row
+ * refused, a batch refused whole — are in-band 200s; HTTP errors are infrastructure only (403 without
+ * the grant). The routes sit on the bonus-buy maintenance group, behind the same grant (`BbyMaintain:03`).
+ *
+ * Routes reconciled to BackOffice pricing2 9317c4cd6 (`BbyMaintainWebEndpoints.cs`): the bulk acts and
+ * presets sit under `BbyMaintainWeb/Bulk/*`. The record is `.issues/4190-bulk-change-contract-guess.md`.
+ */
+import { api } from '@/core/api'
+import type { BbyPromotion } from '@/core/models/bonus-buy-maintenance'
+import type {
+  BbyBulkChangeRequest,
+  BbyBulkChangeResult,
+  BbyBulkListRow,
+  BbyBulkMarkTestedRequest,
+  BbyBulkMarkTestedResult,
+} from '@/core/models/bonus-buy-bulk'
+import type {
+  BbyBulkPreset,
+  BbyBulkPresetDeleteRequest,
+  BbyBulkPresetOutcome,
+  BbyBulkPresetSaveRequest,
+} from '@/core/models/bonus-buy-bulk-preset'
+
+// The screen and the nav leaf read the maintenance grant itself (spec 4190 story 47: nobody new gains the power).
+export { canOpenBbyMaintain as canOpenBbyBulkChange } from '@/core/bonus-buy/access'
+
+const BASE = 'BbyMaintainWeb'
+
+export const bulkListKey = (promoNumber: string) => ['bonus-buy-bulk-change', 'list', promoNumber] as const
+export const bulkPromotionsKey = ['bonus-buy-bulk-change', 'promotions'] as const
+
+export const bbyBulkChangeApi = {
+  /** The promotion filter's choices: the shipped `Promotion/List` (its bonus buys are not read here). */
+  promotions(): Promise<BbyPromotion[]> {
+    return api.get<BbyPromotion[]>(`${BASE}/Promotion/List`)
+  },
+
+  /** Every OMS bonus buy across promotions, Planned and locked alike; a blank promotion is all of them. */
+  list(promoNumber: string): Promise<BbyBulkListRow[]> {
+    return api.get<BbyBulkListRow[]>(`${BASE}/Bulk/List`, { promoNumber })
+  },
+
+  /** The bulk change: `dryRun` computes and validates every row and writes nothing (the preview). */
+  change(body: BbyBulkChangeRequest): Promise<BbyBulkChangeResult> {
+    return api.post<BbyBulkChangeResult>(`${BASE}/Bulk/Change`, body)
+  },
+
+  /** Bulk Mark Tested (oms 959, BackOffice 4194, tester grant `BbyMaintain:04` on top of `:03`). */
+  markTested(body: BbyBulkMarkTestedRequest): Promise<BbyBulkMarkTestedResult> {
+    return api.post<BbyBulkMarkTestedResult>(`${BASE}/Bulk/MarkTested`, body)
+  },
+}
+
+// ── presets (BackOffice 4195, oms 960) ───────────────────────────────────────────────────────────
+// On the same group behind the same grant (`BbyMaintain:03`), under `Bulk/Preset/*`.
+
+export const bulkPresetsKey = ['bonus-buy-bulk-change', 'presets'] as const
+
+export const bbyBulkPresetApi = {
+  /** Every shared preset: the whole team's (story 36). */
+  list(): Promise<BbyBulkPreset[]> {
+    return api.get<BbyBulkPreset[]>(`${BASE}/Bulk/Preset/List`)
+  },
+
+  /** Create (no id) or edit at the version loaded; a duplicate name or a stale edit is refused in-band. */
+  save(body: BbyBulkPresetSaveRequest): Promise<BbyBulkPresetOutcome> {
+    return api.post<BbyBulkPresetOutcome>(`${BASE}/Bulk/Preset/Save`, body)
+  },
+
+  /** Delete at the version loaded; a stale or missing preset is answered in-band. */
+  delete(body: BbyBulkPresetDeleteRequest): Promise<BbyBulkPresetOutcome> {
+    return api.post<BbyBulkPresetOutcome>(`${BASE}/Bulk/Preset/Delete`, body)
+  },
+}

@@ -108,6 +108,9 @@ const readGrain = (r: Raw): ParkedReturnGrain => ({
   partnerEvidence: str(r.partnerEvidence),
 })
 
+/** The settle door's answer: one grain in the detail's `grains[]` shape. */
+export const readGrainAnswer = (raw: unknown): ParkedReturnGrain => readGrain(isRaw(raw) ? raw : {})
+
 /** `{ transactionId, state, needsHqReasons, storeDetailsReceived, resumeResolution, canFinalize, header?, lines, tenders, grains }`. */
 export function readDetail(raw: unknown): ParkedReturnDetail {
   const r = isRaw(raw) ? raw : {}

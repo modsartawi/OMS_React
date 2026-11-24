@@ -9,6 +9,7 @@ import en from '@/locales/en/parked-returns.json'
 import ar from '@/locales/ar/parked-returns.json'
 import { hasLocaleKey, localeAt } from '@/core/test/locale'
 import { LEDGER_STATUSES, VIEWS } from './filter'
+import { SETTLE_REFUSAL_CODES } from './settle'
 import { grainBadges, ledgerLabel, needsHqReasonLabel, NEEDS_HQ_REASONS, PARK_REASONS, parkReasonLabel, rowBadges, stateLabel, STATES } from './labels'
 
 const EN_PLURAL = ['_one', '_other']
@@ -81,6 +82,18 @@ describe('parked-returns — the keys the screen builds exist', () => {
       needsHqReasonLabel('?'),
       ...PARK_REASONS.map(parkReasonLabel),
       parkReasonLabel(''),
+      // 4225: every settle refusal, the bare 403, each action and the dialogs.
+      ...SETTLE_REFUSAL_CODES.map((c) => `refusal.${c}`),
+      'refusal.noSettleRight',
+      'refusal.title',
+      'refusal.failed',
+      ...['REFUNDED', 'VOID_AFTER_CHECK', 'PAY_IN_CASH'].map((o) => `settle.action.${o}`),
+      ...['REFUNDED', 'VOID_AFTER_CHECK'].flatMap((o) => [`settle.confirm.${o}.title`, `settle.confirm.${o}.body`]),
+      ...['REFUNDED', 'VOID_AFTER_CHECK', 'PAY_IN_CASH'].map((o) => `settle.done.${o}`),
+      ...['title', 'hint', 'reason', 'evidence', 'reasonMissing', 'evidenceMissing', 'tooLong', 'commit', 'committing', 'cancel'].map((k) => `cash.${k}`),
+      ...['action', 'title', 'hint', 'status', 'statusPick', 'statusRefunded', 'statusFailed', 'partner', 'tenderType', 'originalReference', 'amount', 'store', 'cashier', 'commit', 'committing', 'cancel', 'done'].map(
+        (k) => `rowless.${k}`,
+      ),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

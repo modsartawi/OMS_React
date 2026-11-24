@@ -4,8 +4,9 @@
  * field (`./wire`). View only: no write door is called from this ticket.
  */
 import { api } from '@/core/api'
-import type { ParkedReturnDetail, ParkedReturnsPage, ParkedReturnsQuery } from '@/core/models/parked-returns'
-import { readDetail, readListPage } from './wire'
+import type { ParkedReturnDetail, ParkedReturnGrain, ParkedReturnsPage, ParkedReturnsQuery } from '@/core/models/parked-returns'
+import type { RowlessRequest, SettleRequest } from './settle'
+import { readDetail, readGrainAnswer, readListPage } from './wire'
 
 const LIST = 'RefundLedgerWeb/ParkedReturns'
 
@@ -23,5 +24,17 @@ export const parkedReturnsApi = {
   /** `GET RefundLedgerWeb/ParkedReturns/{transactionId}` — the mirrored return and its ledger grains (404 when unknown). */
   async detail(transactionId: string): Promise<ParkedReturnDetail> {
     return readDetail(await api.get<unknown>(`${LIST}/${encodeURIComponent(transactionId.trim())}`))
+  },
+
+  /** `POST RefundLedgerWeb/Grains/{refundId}/Settle` → the settled grain. The settler is the session's user, never sent.
+   * A refusal is a business `ApiError` carrying a `PARKED_RETURN_*` code (`./settle`). */
+  async settle(refundId: string, request: SettleRequest): Promise<ParkedReturnGrain> {
+    return readGrainAnswer(await api.post<unknown>(`RefundLedgerWeb/Grains/${encodeURIComponent(refundId.trim())}/Settle`, request))
+  },
+
+  /** `POST RefundLedgerWeb/ParkedReturns/{transactionId}/ResolveRowless` — a park with no ledger row, resolved REFUNDED or
+   * FAILED. The answer is not read: the screen reads the return again. */
+  async resolveRowless(transactionId: string, request: RowlessRequest): Promise<void> {
+    await api.post<unknown>(`${LIST}/${encodeURIComponent(transactionId.trim())}/ResolveRowless`, request)
   },
 }

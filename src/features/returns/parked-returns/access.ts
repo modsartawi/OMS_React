@@ -11,5 +11,5 @@ import type { Permissions } from '@/core/permissions'
 /** `ParkedReturns:03` (`canView`): the Returns area, the list, the detail drawer. */
 export const canViewParkedReturns = (p: Permissions): boolean => p.has('ParkedReturns:03')
 
-/** `ParkedReturns:06` (`canSettle`): the settle actions. No button reads it in 4224 (view only). */
+/** `ParkedReturns:06` (`canSettle`): the settle actions and Resolve row-less in the detail drawer (ticket 4225). */
 export const canSettleParkedReturns = (p: Permissions): boolean => p.has('ParkedReturns:06')

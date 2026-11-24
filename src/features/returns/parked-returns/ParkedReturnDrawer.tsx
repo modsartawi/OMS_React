@@ -15,15 +15,20 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
+import { usePermissions } from '@/core/permissions'
+import { canSettleParkedReturns } from './access'
 import { detailKey, parkedReturnsApi } from './api'
 import { grainBadges, needsHqReasonLabel, parkReasonLabel, rowBadges } from './labels'
+import { canResolveRowless } from './settle'
+import { GrainSettleActions, RowlessResolve } from './SettleControls'
 
 /**
  * **One parked return** (BackOffice ticket 4224, spec 4212 stories 4-11; door BackOffice 4218
  * `GET RefundLedgerWeb/ParkedReturns/{transactionId}`): the mirrored header and lines, the customer, the original invoice,
  * why and where it parked, the slip's refund reference, and every ledger grain with its status, deadline, escalation,
  * who settled it and when, and any cash ruling. A return the store never mirrored says so and shows its grains alone.
- * View only: no action buttons.
+ * With the settle right (`ParkedReturns:06`, ticket 4225) each grain offers its settle actions and a row-less park offers
+ * "Resolve row-less"; without it, no button at all (story 23).
  */
 export default function ParkedReturnDrawer({ row, onClose }: { row: ParkedReturnRow; onClose: () => void }) {
   const { t } = useTranslation('parked-returns')
@@ -35,6 +40,7 @@ export default function ParkedReturnDrawer({ row, onClose }: { row: ParkedReturn
   })
   const d = detail.data
   const badges = rowBadges(d ?? row)
+  const canSettle = canSettleParkedReturns(usePermissions())
 
   return (
     <SideSheet onClose={onClose} width="w-[64rem]" aria-labelledby={titleId} data-parked-drawer={row.transactionId}>
@@ -65,7 +71,7 @@ export default function ParkedReturnDrawer({ row, onClose }: { row: ParkedReturn
         ) : detail.isError ? (
           <ErrorBanner className="p-3" title={t('detail.failed')} message={apiErrorMessage(detail.error, t('detail.failed'))} />
         ) : (
-          <DetailBody d={detail.data} />
+          <DetailBody d={detail.data} canSettle={canSettle} />
         )}
       </div>
     </SideSheet>
@@ -94,7 +100,7 @@ function F({ label, children, data }: { label: string; children: ReactNode; data
   )
 }
 
-function DetailBody({ d }: { d: ParkedReturnDetail }) {
+function DetailBody({ d, canSettle }: { d: ParkedReturnDetail; canSettle: boolean }) {
   const { t } = useTranslation('parked-returns')
   const h = d.header
   const currency = h?.currency ?? ''
@@ -250,11 +256,14 @@ function DetailBody({ d }: { d: ParkedReturnDetail }) {
 
       <Section title={t('detail.section.grains')} data="grains">
         {d.grains.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('detail.noGrains')}</p>
+          <>
+            <p className="text-sm text-muted-foreground">{t('detail.noGrains')}</p>
+            {canResolveRowless(d, canSettle) && <RowlessResolve detail={d} />}
+          </>
         ) : (
           <div className="flex flex-col gap-2">
             {d.grains.map((g) => (
-              <Grain key={g.refundId} g={g} money={money} />
+              <Grain key={g.refundId} g={g} money={money} returnState={d.state} canSettle={canSettle} />
             ))}
           </div>
         )}
@@ -263,7 +272,17 @@ function DetailBody({ d }: { d: ParkedReturnDetail }) {
   )
 }
 
-function Grain({ g, money }: { g: ParkedReturnGrain; money: (v: number) => string }) {
+function Grain({
+  g,
+  money,
+  returnState,
+  canSettle,
+}: {
+  g: ParkedReturnGrain
+  money: (v: number) => string
+  returnState: string
+  canSettle: boolean
+}) {
   const { t } = useTranslation('parked-returns')
   return (
     <div className="rounded-lg border border-border/60 p-3" data-parked-grain={g.refundId} data-status={g.status}>
@@ -319,6 +338,7 @@ function Grain({ g, money }: { g: ParkedReturnGrain; money: (v: number) => strin
           </p>
         </div>
       )}
+      <GrainSettleActions grain={g} returnState={returnState} canSettle={canSettle} money={money} />
     </div>
   )
 }

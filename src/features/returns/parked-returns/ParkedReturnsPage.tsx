@@ -44,8 +44,8 @@ const counted = (count: number) => ({ count, n: fsi(formatFigure(count)) })
 /**
  * **Parked returns** (BackOffice ticket 4224, spec 4212 stories 1-13, 23; doors BackOffice 4218): every parked return
  * across the stores, opening on "needs HQ". Filters by view, store, partner, ledger status, age and transaction, kept in
- * the URL; paged; the server orders the rows. A row opens its detail drawer. View only: no action buttons (story 23 — the
- * settle actions are a later ticket's, behind `ParkedReturns:06`).
+ * the URL; paged; the server orders the rows. A row opens its detail drawer, where the settle actions live behind `ParkedReturns:06` (ticket 4225; story
+ * 23: none without it).
  */
 export default function ParkedReturnsPage() {
   const { t } = useTranslation('parked-returns')

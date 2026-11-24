@@ -156,6 +156,77 @@
       "partnerEvidence": "Partner dashboard showed:"
     }
   },
+  "settle": {
+    "title": "Settle this row",
+    "action": {
+      "REFUNDED": "Refunded",
+      "VOID_AFTER_CHECK": "Void after check",
+      "PAY_IN_CASH": "Pay in cash"
+    },
+    "confirm": {
+      "REFUNDED": {
+        "title": "Mark this row refunded?",
+        "body": "Only if you saw the refund of {{amount}} to {{partner}} on the partner's dashboard. The store can then complete the return."
+      },
+      "VOID_AFTER_CHECK": {
+        "title": "Void this row after your check?",
+        "body": "The refund of {{amount}} to {{partner}} did not happen and the customer will not be paid. The store will void the return."
+      }
+    },
+    "done": {
+      "REFUNDED": "Marked refunded",
+      "VOID_AFTER_CHECK": "Marked void after check",
+      "PAY_IN_CASH": "Ruled pay in cash"
+    },
+    "committing": "Saving…"
+  },
+  "cash": {
+    "title": "Pay in cash",
+    "hint": "The store will pay {{amount}} from the drawer instead of the {{partner}} refund. Both fields are kept with the ruling for audit.",
+    "reason": "Reason",
+    "evidence": "What the partner's dashboard showed",
+    "reasonMissing": "Type the reason.",
+    "evidenceMissing": "Type what the partner's dashboard showed.",
+    "tooLong": "At most {{max}} characters.",
+    "commit": "Rule pay in cash",
+    "committing": "Saving…",
+    "cancel": "Cancel"
+  },
+  "rowless": {
+    "action": "Resolve row-less",
+    "title": "Resolve a row-less park",
+    "hint": "No refund ledger row was written for this return. Check the partner's dashboard, then record what happened to the refund.",
+    "status": "What happened",
+    "statusPick": "Choose…",
+    "statusRefunded": "The partner refunded it",
+    "statusFailed": "The refund failed",
+    "partner": "Partner",
+    "tenderType": "Tender",
+    "originalReference": "Original payment reference",
+    "amount": "Amount",
+    "store": "Store",
+    "cashier": "Cashier",
+    "commit": "Resolve",
+    "committing": "Saving…",
+    "cancel": "Cancel",
+    "done": "Row-less park resolved"
+  },
+  "refusal": {
+    "title": "Not saved",
+    "failed": "The change could not be saved.",
+    "noSettleRight": "You no longer have the right to settle parked returns. Ask your administrator.",
+    "PARKED_RETURN_NO_SETTLER": "Your session did not say who you are. Sign in again and retry.",
+    "PARKED_RETURN_INVALID_OUTCOME": "That is not an action the server knows. Reload the page and try again.",
+    "PARKED_RETURN_REASON_REQUIRED": "Pay in cash needs a reason.",
+    "PARKED_RETURN_EVIDENCE_REQUIRED": "Pay in cash needs what the partner's dashboard showed.",
+    "PARKED_RETURN_NOT_FOUND": "This row or return no longer exists. The list has been refreshed.",
+    "PARKED_RETURN_ALREADY_SETTLED": "Someone already settled this row. It has been refreshed to show what they chose.",
+    "PARKED_RETURN_FINISHED_AT_TILL": "The store already finished this return at the till, so it can no longer be settled.",
+    "PARKED_RETURN_NOT_SETTLEABLE": "This row is not in a state that allows this action. It has been refreshed.",
+    "PARKED_RETURN_SETTLED_CONCURRENTLY": "Someone settled this row at the same moment as you, and theirs was saved first. It has been refreshed.",
+    "PARKED_RETURN_INVALID_STATUS": "Choose whether the partner refunded it or the refund failed.",
+    "PARKED_RETURN_NOT_ROWLESS": "This return already has a refund ledger row. Settle that row instead."
+  },
   "yes": "Yes",
   "no": "No"
 }

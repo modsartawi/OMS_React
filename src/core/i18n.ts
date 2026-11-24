@@ -220,6 +220,10 @@ import priceCommandCenterAr from '@/locales/ar/price-command-center.json'
 // their keys here rather than minting another namespace.
 import insurancePatterns from '@/locales/en/insurance-patterns.json'
 import insurancePatternsAr from '@/locales/ar/insurance-patterns.json'
+// Parked returns (BackOffice spec 4212, ticket 4224): the `returns` area's first feature, `parked-returns`. Its namespace
+// also holds the area's words (the menu group and its leaves). English and Arabic together.
+import parkedReturns from '@/locales/en/parked-returns.json'
+import parkedReturnsAr from '@/locales/ar/parked-returns.json'
 // The insurance-rules area (BackOffice spec 3126, oms 607): every one of its namespaces, English and Arabic,
 // is registered in `@/core/insurance-rules/locales` — a later slice edits THAT file, never this one.
 import { INSURANCE_RULES_AR, INSURANCE_RULES_EN, INSURANCE_RULES_NS } from '@/core/insurance-rules/locales'
@@ -300,7 +304,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'stock-console', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'price-command-center', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'help', 'item-lists', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS, 'insurance-patterns'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'orders', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'approval-release', 'undispense', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'hungerstation-promotions', 'hybris-stock-stores', 'hybris-stock-materials', 'hybris-stock-pushes', 'delivery-statistics', 'pick-support', 'donor-words', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'sourcing-advisor', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'bupa-line-outcomes', 'expired-approval-picks', 'held-stock-report', 'hold-daily-list', 'store-stages', 'stock-health', 'stock-console', 'mini-pos-assignments', 'mini-pos-stores', 'mini-pos-items', 'mini-pos-scorecard', 'price-command-center', 'doc-type-config', 'loy-groups', 'copilot', 'boards', 'help', 'item-lists', 'release-queue', 'mini-pos-phone', ...INSURANCE_RULES_NS, 'insurance-patterns', 'parked-returns'],
   resources: {
     en: {
       common,
@@ -394,6 +398,7 @@ i18n.use(initReactI18next).init({
       'mini-pos-scorecard': miniPosScorecard,
       'price-command-center': priceCommandCenter,
       'insurance-patterns': insurancePatterns,
+      'parked-returns': parkedReturns,
       ...INSURANCE_RULES_EN,
     },
     ar: {
@@ -452,6 +457,7 @@ i18n.use(initReactI18next).init({
       'mini-pos-scorecard': miniPosScorecardAr,
       'price-command-center': priceCommandCenterAr,
       'insurance-patterns': insurancePatternsAr,
+      'parked-returns': parkedReturnsAr,
       callcenter: callcenterAr,
       boards: boardsAr,
       help: helpAr,

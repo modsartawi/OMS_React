@@ -1,0 +1,161 @@
+{
+  "menu": {
+    "group": "Returns",
+    "parked": "Parked returns"
+  },
+  "title": "Parked returns",
+  "subtitle": "Every parked return across the stores, with its store details and refund ledger rows. Opens on the ones only HQ can move.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to parked returns",
+    "deniedHint": "Parked returns need the parked returns view right. Ask your administrator for it.",
+    "unreachableTitle": "Your access could not be read",
+    "unreachableHint": "Reload the page. If it keeps happening, the server may be down."
+  },
+  "filters": {
+    "label": "Filter parked returns",
+    "view": "Show",
+    "views": {
+      "needsHq": "Needs HQ",
+      "open": "All open",
+      "all": "Open and finished"
+    },
+    "store": "Store",
+    "partner": "Partner",
+    "status": "Ledger status",
+    "age": "Parked for",
+    "transaction": "Transaction",
+    "any": "Any",
+    "clear": "Clear filters"
+  },
+  "age": {
+    "days_one": "{{n}} day",
+    "days_other": "{{n}} days",
+    "atLeast_one": "{{n}} day or more",
+    "atLeast_other": "{{n}} days or more"
+  },
+  "list": {
+    "count_one": "{{n}} parked return",
+    "count_other": "{{n}} parked returns",
+    "needsHqCount_one": "{{n}} needs HQ",
+    "needsHqCount_other": "{{n}} need HQ",
+    "grains_one": "{{n}} row",
+    "grains_other": "{{n}} rows",
+    "order": "Needs HQ first, then the oldest.",
+    "reading": "Reading…",
+    "failed": "The parked returns could not be read.",
+    "empty": "No parked return matches these filters.",
+    "emptyNeedsHq": "No parked return needs HQ right now.",
+    "open": "Open parked return {{transactionId}}",
+    "cashier": "Cashier",
+    "reasonJoin": ", "
+  },
+  "col": {
+    "transaction": "Transaction",
+    "storeTill": "Store · till",
+    "parkedAt": "Parked at",
+    "age": "Age",
+    "state": "State",
+    "partners": "Partners",
+    "ledger": "Ledger",
+    "amount": "Refund amount",
+    "deadline": "Park deadline",
+    "settled": "Last settled"
+  },
+  "state": {
+    "needsHq": "Needs HQ",
+    "waitingForPartner": "Waiting for the partner",
+    "waitingForStore": "Waiting for the store",
+    "finished": "Finished",
+    "unknown": "Unknown state"
+  },
+  "ledger": {
+    "pending": "Pending",
+    "submitted": "Submitted",
+    "refunded": "Refunded",
+    "failed": "Failed",
+    "unknown": "Unknown status"
+  },
+  "badge": {
+    "storeDetailsNotReceived": "Store details not received",
+    "awaitingHq": "Awaiting HQ",
+    "escalated": "Escalated",
+    "cashRuled": "Pay in cash"
+  },
+  "reason": {
+    "noStatusApi": "The partner has no status check",
+    "escalated": "Escalated by the reconciler",
+    "aged": "Waiting on the partner for more than 3 days",
+    "uncheckedFailure": "Failed, and no one has checked it",
+    "mixed": "Some rows refunded and some did not",
+    "rowless": "Parked with no ledger row",
+    "unknown": "Another reason"
+  },
+  "parkReason": {
+    "ambiguousAnswer": "The partner's answer was unclear",
+    "heldAtCompletion": "Held when the return was completed",
+    "unknown": "Not known"
+  },
+  "detail": {
+    "eyebrow": "Parked return",
+    "close": "Close",
+    "loading": "Reading the parked return…",
+    "failed": "The parked return could not be read.",
+    "needsHq": "Needs HQ because:",
+    "noHeader": "The store has not sent this return's details yet. The ledger rows below are all HQ has.",
+    "noLines": "No lines.",
+    "noGrains": "No ledger row was written for this return.",
+    "section": {
+      "return": "Return",
+      "lines": "Lines",
+      "tenders": "Tenders",
+      "grains": "Refund ledger rows"
+    },
+    "field": {
+      "storeTill": "Store · till",
+      "cashier": "Cashier",
+      "parkedAt": "Parked at",
+      "parkReason": "Why it parked",
+      "originalReceipt": "Original receipt",
+      "originalTransaction": "Original transaction",
+      "customer": "Customer",
+      "loyalty": "Loyalty ID",
+      "mobile": "Loyalty mobile",
+      "total": "Return total",
+      "mirrorStatus": "Store status"
+    },
+    "line": {
+      "line": "Line",
+      "material": "Material",
+      "description": "Description",
+      "quantity": "Quantity",
+      "total": "Total",
+      "reason": "Return reason",
+      "originalLine": "Original line",
+      "voided": "Voided"
+    },
+    "tender": {
+      "type": "Tender",
+      "amount": "Amount",
+      "slipReference": "Refund reference on the slip",
+      "parked": "Parked",
+      "settlement": "Settlement"
+    },
+    "grain": {
+      "tenderType": "Tender",
+      "originalReference": "Original payment reference",
+      "partnerReference": "Partner refund reference",
+      "statusApi": "Partner status check",
+      "added": "Added",
+      "deadline": "Park deadline",
+      "settledBy": "Settled by",
+      "settledAt": "Settled at",
+      "grainKey": "Row key",
+      "cashRuling": "Pay in cash ruling",
+      "cashReason": "Reason:",
+      "partnerEvidence": "Partner dashboard showed:"
+    }
+  },
+  "yes": "Yes",
+  "no": "No"
+}

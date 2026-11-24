@@ -29,6 +29,7 @@ import { canOpenStockHealth } from '@/features/stock/stock-health/access'
 import { canOpenStockConsole } from '@/features/stock/stock-console/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 import { INSURANCE_MENU } from './menu-insurance'
+import { RETURNS_MENU } from './menu-returns'
 import { canAuthorRules, canReadAuthoring, canSupportRules, canSwitchEngine } from '@/core/rules/access'
 import { canViewPrescriptionSessions } from '@/features/oms/prescription-sessions/access'
 // Analytics (spec 766, ticket 767): declared in `./menu-analytics`, where 770–780 add their leaves.
@@ -493,6 +494,10 @@ export const MENU: ShellMenuItem[] = [
       },
     ],
   },
+  // Returns (BackOffice spec 4212, ticket 4224): `/returns/*`, after Mini POS and before Administration — not last, where
+  // the channel and insurance groups' tests pin the tail by position. Declared in `./menu-returns`, where the parked rule
+  // returns page adds its leaf without touching this file.
+  RETURNS_MENU,
   {
     labelKey: 'ua-admin:menu.admin',
     icon: ShieldCheck,

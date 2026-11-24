@@ -1,0 +1,181 @@
+{
+  "menu": {
+    "group": "المرتجعات",
+    "parked": "المرتجعات المعلقة"
+  },
+  "title": "المرتجعات المعلقة",
+  "subtitle": "كل مرتجع معلق في الفروع، مع بيانات الفرع وسجلات دفتر الاسترداد. تفتح على ما لا يحركه إلا المكتب الرئيسي.",
+  "access": {
+    "checking": "جار التحقق من صلاحياتك…",
+    "deniedTitle": "لا صلاحية للمرتجعات المعلقة",
+    "deniedHint": "تحتاج المرتجعات المعلقة إلى صلاحية عرض المرتجعات المعلقة. اطلبها من مسؤول النظام.",
+    "unreachableTitle": "تعذرت قراءة صلاحياتك",
+    "unreachableHint": "أعد تحميل الصفحة. إذا تكرر ذلك فقد يكون الخادم متوقفا."
+  },
+  "filters": {
+    "label": "تصفية المرتجعات المعلقة",
+    "view": "العرض",
+    "views": {
+      "needsHq": "تحتاج المكتب الرئيسي",
+      "open": "كل المفتوحة",
+      "all": "المفتوحة والمنتهية"
+    },
+    "store": "الفرع",
+    "partner": "الشريك",
+    "status": "حالة الدفتر",
+    "age": "مدة التعليق",
+    "transaction": "العملية",
+    "any": "الكل",
+    "clear": "مسح عوامل التصفية"
+  },
+  "age": {
+    "days_zero": "{{n}} يوم",
+    "days_one": "يوم واحد",
+    "days_two": "يومان",
+    "days_few": "{{n}} أيام",
+    "days_many": "{{n}} يوما",
+    "days_other": "{{n}} يوم",
+    "atLeast_zero": "{{n}} يوم أو أكثر",
+    "atLeast_one": "يوم واحد أو أكثر",
+    "atLeast_two": "يومان أو أكثر",
+    "atLeast_few": "{{n}} أيام أو أكثر",
+    "atLeast_many": "{{n}} يوما أو أكثر",
+    "atLeast_other": "{{n}} يوم أو أكثر"
+  },
+  "list": {
+    "count_zero": "لا مرتجعات معلقة",
+    "count_one": "مرتجع معلق واحد",
+    "count_two": "مرتجعان معلقان",
+    "count_few": "{{n}} مرتجعات معلقة",
+    "count_many": "{{n}} مرتجعا معلقا",
+    "count_other": "{{n}} مرتجع معلق",
+    "needsHqCount_zero": "لا شيء يحتاج المكتب الرئيسي",
+    "needsHqCount_one": "واحد يحتاج المكتب الرئيسي",
+    "needsHqCount_two": "اثنان يحتاجان المكتب الرئيسي",
+    "needsHqCount_few": "{{n}} تحتاج المكتب الرئيسي",
+    "needsHqCount_many": "{{n}} تحتاج المكتب الرئيسي",
+    "needsHqCount_other": "{{n}} تحتاج المكتب الرئيسي",
+    "grains_zero": "لا سجلات",
+    "grains_one": "سجل واحد",
+    "grains_two": "سجلان",
+    "grains_few": "{{n}} سجلات",
+    "grains_many": "{{n}} سجلا",
+    "grains_other": "{{n}} سجل",
+    "order": "ما يحتاج المكتب الرئيسي أولا، ثم الأقدم.",
+    "reading": "جار القراءة…",
+    "failed": "تعذرت قراءة المرتجعات المعلقة.",
+    "empty": "لا يوجد مرتجع معلق يطابق عوامل التصفية هذه.",
+    "emptyNeedsHq": "لا يوجد مرتجع معلق يحتاج المكتب الرئيسي الآن.",
+    "open": "فتح المرتجع المعلق {{transactionId}}",
+    "cashier": "الكاشير",
+    "reasonJoin": "، "
+  },
+  "col": {
+    "transaction": "العملية",
+    "storeTill": "الفرع · نقطة البيع",
+    "parkedAt": "وقت التعليق",
+    "age": "المدة",
+    "state": "الحالة",
+    "partners": "الشركاء",
+    "ledger": "الدفتر",
+    "amount": "مبلغ الاسترداد",
+    "deadline": "موعد انتهاء التعليق",
+    "settled": "آخر تسوية"
+  },
+  "state": {
+    "needsHq": "يحتاج المكتب الرئيسي",
+    "waitingForPartner": "بانتظار الشريك",
+    "waitingForStore": "بانتظار الفرع",
+    "finished": "منتهٍ",
+    "unknown": "حالة غير معروفة"
+  },
+  "ledger": {
+    "pending": "قيد الانتظار",
+    "submitted": "مرسل",
+    "refunded": "مسترد",
+    "failed": "فاشل",
+    "unknown": "حالة غير معروفة"
+  },
+  "badge": {
+    "storeDetailsNotReceived": "لم تصل بيانات الفرع",
+    "awaitingHq": "بانتظار المكتب الرئيسي",
+    "escalated": "مصعّد",
+    "cashRuled": "الدفع نقدا"
+  },
+  "reason": {
+    "noStatusApi": "لا يوفر الشريك فحصا للحالة",
+    "escalated": "صعّده المطابق",
+    "aged": "بانتظار الشريك لأكثر من 3 أيام",
+    "uncheckedFailure": "فشل ولم يتحقق منه أحد",
+    "mixed": "استُرد بعض السجلات ولم يُسترد بعضها",
+    "rowless": "عُلّق دون سجل في الدفتر",
+    "unknown": "سبب آخر"
+  },
+  "parkReason": {
+    "ambiguousAnswer": "كان رد الشريك غير واضح",
+    "heldAtCompletion": "احتُجز عند إتمام المرتجع",
+    "unknown": "غير معروف"
+  },
+  "detail": {
+    "eyebrow": "مرتجع معلق",
+    "close": "إغلاق",
+    "loading": "جار قراءة المرتجع المعلق…",
+    "failed": "تعذرت قراءة المرتجع المعلق.",
+    "needsHq": "يحتاج المكتب الرئيسي لأن:",
+    "noHeader": "لم يرسل الفرع بيانات هذا المرتجع بعد. سجلات الدفتر أدناه هي كل ما لدى المكتب الرئيسي.",
+    "noLines": "لا توجد بنود.",
+    "noGrains": "لم يُكتب أي سجل في الدفتر لهذا المرتجع.",
+    "section": {
+      "return": "المرتجع",
+      "lines": "البنود",
+      "tenders": "وسائل الدفع",
+      "grains": "سجلات دفتر الاسترداد"
+    },
+    "field": {
+      "storeTill": "الفرع · نقطة البيع",
+      "cashier": "الكاشير",
+      "parkedAt": "وقت التعليق",
+      "parkReason": "سبب التعليق",
+      "originalReceipt": "الإيصال الأصلي",
+      "originalTransaction": "العملية الأصلية",
+      "customer": "العميل",
+      "loyalty": "رقم الولاء",
+      "mobile": "جوال الولاء",
+      "total": "إجمالي المرتجع",
+      "mirrorStatus": "حالة الفرع"
+    },
+    "line": {
+      "line": "البند",
+      "material": "المادة",
+      "description": "الوصف",
+      "quantity": "الكمية",
+      "total": "الإجمالي",
+      "reason": "سبب الإرجاع",
+      "originalLine": "البند الأصلي",
+      "voided": "ملغى"
+    },
+    "tender": {
+      "type": "وسيلة الدفع",
+      "amount": "المبلغ",
+      "slipReference": "مرجع الاسترداد في القسيمة",
+      "parked": "معلق",
+      "settlement": "التسوية"
+    },
+    "grain": {
+      "tenderType": "وسيلة الدفع",
+      "originalReference": "مرجع الدفع الأصلي",
+      "partnerReference": "مرجع استرداد الشريك",
+      "statusApi": "فحص حالة الشريك",
+      "added": "أضيف",
+      "deadline": "موعد انتهاء التعليق",
+      "settledBy": "سواه",
+      "settledAt": "وقت التسوية",
+      "grainKey": "مفتاح السجل",
+      "cashRuling": "قرار الدفع نقدا",
+      "cashReason": "السبب:",
+      "partnerEvidence": "ما أظهرته لوحة الشريك:"
+    }
+  },
+  "yes": "نعم",
+  "no": "لا"
+}

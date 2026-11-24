@@ -60,17 +60,20 @@ export function GrainSettleActions({
   returnState,
   canSettle,
   money,
+  grains,
 }: {
   grain: ParkedReturnGrain
   returnState: string
   canSettle: boolean
   money: (v: number) => string
+  /** Every grain of the same return: Void after check is hidden beside a refunded or cash-ruled one. */
+  grains: readonly ParkedReturnGrain[]
 }) {
   const { t } = useTranslation('parked-returns')
   const words = useRefusalWords()
   const refresh = useRefreshParked()
   const [cashOpen, setCashOpen] = useState(false)
-  const actions = grainActions(grain, { canSettle, returnState })
+  const actions = grainActions(grain, { canSettle, returnState, grains })
   const amount = fsi(money(grain.amount))
   const partner = fsi(grain.partner)
 

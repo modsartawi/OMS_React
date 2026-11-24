@@ -263,7 +263,7 @@ function DetailBody({ d, canSettle }: { d: ParkedReturnDetail; canSettle: boolea
         ) : (
           <div className="flex flex-col gap-2">
             {d.grains.map((g) => (
-              <Grain key={g.refundId} g={g} money={money} returnState={d.state} canSettle={canSettle} />
+              <Grain key={g.refundId} g={g} money={money} returnState={d.state} canSettle={canSettle} grains={d.grains} />
             ))}
           </div>
         )}
@@ -277,11 +277,13 @@ function Grain({
   money,
   returnState,
   canSettle,
+  grains,
 }: {
   g: ParkedReturnGrain
   money: (v: number) => string
   returnState: string
   canSettle: boolean
+  grains: readonly ParkedReturnGrain[]
 }) {
   const { t } = useTranslation('parked-returns')
   return (
@@ -338,7 +340,7 @@ function Grain({
           </p>
         </div>
       )}
-      <GrainSettleActions grain={g} returnState={returnState} canSettle={canSettle} money={money} />
+      <GrainSettleActions grain={g} returnState={returnState} canSettle={canSettle} money={money} grains={grains} />
     </div>
   )
 }

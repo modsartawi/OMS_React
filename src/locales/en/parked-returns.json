@@ -226,7 +226,8 @@
     "PARKED_RETURN_NOT_SETTLEABLE": "This row is not in a state that allows this action. It has been refreshed.",
     "PARKED_RETURN_SETTLED_CONCURRENTLY": "Someone settled this row at the same moment as you, and theirs was saved first. It has been refreshed.",
     "PARKED_RETURN_INVALID_STATUS": "Choose whether the partner refunded it or the refund failed.",
-    "PARKED_RETURN_NOT_ROWLESS": "This return already has a refund ledger row. Settle that row instead."
+    "PARKED_RETURN_NOT_ROWLESS": "This return already has a refund ledger row. Settle that row instead.",
+    "PARKED_RETURN_VOID_BESIDE_REFUNDED": "Another refund of this return was refunded or ruled cash, so this one cannot be voided: the store could never finish the return. Settle it Pay in cash or Refunded."
   },
   "yes": "Yes",
   "no": "No",

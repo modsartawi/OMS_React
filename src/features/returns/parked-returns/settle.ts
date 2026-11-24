@@ -57,20 +57,33 @@ export function cashCommit({ reason, evidence, pending }: { reason: string; evid
 
 const IN_FLIGHT = ['PENDING', 'SUBMITTED']
 
+/** The part of a grain the settle buttons read. */
+interface SettleableGrain {
+  refundId?: string
+  status: string
+  settledBy: string
+  cashRuled?: boolean
+}
+
 /**
  * The settle buttons one grain offers, in the server's own preconditions (BackOffice 4219 / 4215): nothing without the
  * settle right (story 23), on a return finished at the till, or on a grain a person already settled (story 21).
- * Refunded is for an in-flight grain; Void after check and Pay in cash for an in-flight grain or a FAILED one nobody
- * settled yet (story 18: the reconciler's FAILED is a guess until HQ checks it). A refunded grain is an end state.
+ * All three — Refunded, Void after check, Pay in cash — for an in-flight grain or a FAILED one nobody settled yet
+ * (story 18: the reconciler's FAILED is a guess until HQ checks it; spec 4212 review fix: Refunded too, the till never
+ * finalizes an unchecked FAILED). A refunded grain is an end state. Void after check is hidden when another grain of the
+ * same return (`grains`) is refunded or ruled cash: that mix can never finish at the till, and the server refuses it
+ * (`PARKED_RETURN_VOID_BESIDE_REFUNDED`).
  */
 export function grainActions(
-  grain: { status: string; settledBy: string },
-  { canSettle, returnState }: { canSettle: boolean; returnState: string },
+  grain: SettleableGrain,
+  { canSettle, returnState, grains = [] }: { canSettle: boolean; returnState: string; grains?: readonly SettleableGrain[] },
 ): SettleOutcome[] {
   if (!canSettle || returnState === 'FINISHED' || grain.settledBy.trim() !== '') return []
-  if (IN_FLIGHT.includes(grain.status)) return ['REFUNDED', 'VOID_AFTER_CHECK', 'PAY_IN_CASH']
-  if (grain.status === 'FAILED') return ['VOID_AFTER_CHECK', 'PAY_IN_CASH']
-  return []
+  if (!IN_FLIGHT.includes(grain.status) && grain.status !== 'FAILED') return []
+  const besideFinished = grains.some(
+    (g) => g.refundId !== grain.refundId && (g.status === 'REFUNDED' || (g.status === 'FAILED' && g.cashRuled === true)),
+  )
+  return besideFinished ? ['REFUNDED', 'PAY_IN_CASH'] : ['REFUNDED', 'VOID_AFTER_CHECK', 'PAY_IN_CASH']
 }
 
 /**
@@ -98,6 +111,7 @@ export const SETTLE_REFUSAL_CODES = [
   'PARKED_RETURN_SETTLED_CONCURRENTLY',
   'PARKED_RETURN_INVALID_STATUS',
   'PARKED_RETURN_NOT_ROWLESS',
+  'PARKED_RETURN_VOID_BESIDE_REFUNDED',
 ] as const
 
 export type SettleRefusalCode = (typeof SETTLE_REFUSAL_CODES)[number]

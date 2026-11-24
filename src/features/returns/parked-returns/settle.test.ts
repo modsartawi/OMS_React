@@ -103,8 +103,28 @@ describe('which settle buttons a grain offers', () => {
       ])
   })
 
-  it('a failed grain nobody settled offers Void after check and Pay in cash, not Refunded', () => {
-    expect(grainActions(grain({ status: 'FAILED' }), { canSettle: true, returnState: open })).toEqual(['VOID_AFTER_CHECK', 'PAY_IN_CASH'])
+  it('a failed grain nobody settled offers Refunded, Void after check and Pay in cash (spec 4212 review fix)', () => {
+    // The till never finalizes an unchecked FAILED (D7), so HQ may still find the money moved and settle it Refunded.
+    expect(grainActions(grain({ status: 'FAILED' }), { canSettle: true, returnState: open })).toEqual([
+      'REFUNDED',
+      'VOID_AFTER_CHECK',
+      'PAY_IN_CASH',
+    ])
+  })
+
+  it('Void after check is hidden beside a grain of the same return that is refunded or ruled cash (spec 4212 review fix)', () => {
+    // Refunded or Cash beside a Void can never finish at the till; the server refuses it as PARKED_RETURN_VOID_BESIDE_REFUNDED.
+    const self = grain({ refundId: 'A', status: 'FAILED' })
+    const refunded = grain({ refundId: 'B', status: 'REFUNDED', awaitingHq: false })
+    const cash = grain({ refundId: 'C', status: 'FAILED', awaitingHq: false, settledBy: 'hq.user', cashRuled: true })
+    const inFlight = grain({ refundId: 'D', status: 'SUBMITTED', awaitingHq: false })
+    for (const sibling of [refunded, cash])
+      expect(grainActions(self, { canSettle: true, returnState: open, grains: [self, sibling] })).toEqual(['REFUNDED', 'PAY_IN_CASH'])
+    expect(grainActions(self, { canSettle: true, returnState: open, grains: [self, inFlight] })).toEqual([
+      'REFUNDED',
+      'VOID_AFTER_CHECK',
+      'PAY_IN_CASH',
+    ])
   })
 
   it('a grain a person already settled, a refunded grain or an unknown status offers nothing', () => {
@@ -178,6 +198,7 @@ describe('a refusal in plain words, per error code', () => {
         'PARKED_RETURN_SETTLED_CONCURRENTLY',
         'PARKED_RETURN_INVALID_STATUS',
         'PARKED_RETURN_NOT_ROWLESS',
+        'PARKED_RETURN_VOID_BESIDE_REFUNDED',
       ].sort(),
     )
     for (const code of SETTLE_REFUSAL_CODES) expect(settleRefusalKey(refused(code))).toBe(`refusal.${code}`)

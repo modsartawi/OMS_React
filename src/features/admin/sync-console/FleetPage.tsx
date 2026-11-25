@@ -45,6 +45,7 @@ import {
   type FleetView,
 } from './helpers'
 import { FLEET_DEFAULT_COL_DEF, buildFleetColumns } from './fleet-columns'
+import { fleetUnstableTills } from './tills-helpers'
 import {
   BULK_CAP,
   SELECTION_CAP,
@@ -336,6 +337,7 @@ function Fleet() {
               <Trans t={t} i18nKey="table.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
             </span>
           )}
+          {shown && <UnstableTillsNote rows={rows} />}
         </div>
 
         {stores.isError && (
@@ -514,5 +516,20 @@ function Tile({
       </span>
       <span className="text-xs text-muted-foreground">{tile === 'all' ? t('tiles.all') : t(`states.${tile}`)}</span>
     </button>
+  )
+}
+
+/**
+ * BackOffice 4292 (spec 4288): the page's tills on an unstable or offline link right now, and how many stores they are
+ * in — said only when there are some, in the warning colour, so a calm fleet reads calm.
+ */
+function UnstableTillsNote({ rows }: { rows: readonly StoreRow[] }) {
+  const { t } = useTranslation('sync-console')
+  const { tills, stores } = fleetUnstableTills(rows)
+  if (tills === 0) return null
+  return (
+    <span className="text-xs font-medium text-attention-800" data-fleet-unstable-tills={tills}>
+      {t('tills.fleetTotal', { tills: fsi(figure(tills)), stores: fsi(figure(stores)) })}
+    </span>
   )
 }

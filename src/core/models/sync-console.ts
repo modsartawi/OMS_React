@@ -165,6 +165,12 @@ export interface StoreRow {
   pausedBy?: string | null
   pausedAt?: string | null
   pauseReason?: string | null
+  /**
+   * BackOffice 4292 (spec 4288): the store's tills whose WAN or store link is unstable or offline right now (only tills
+   * that stamped presence and reported within the last 3 minutes). Optional: a pre-4292 door does not send it, and the
+   * fleet cell is then blank, never a reassuring 0.
+   */
+  unstableTills?: number
   /** `appliedVersion < controlVersion` — the "pending" badge reads this. */
   controlPending: boolean
   states: StoreState[]
@@ -522,6 +528,31 @@ export interface Till {
 export interface StoreTills {
   asOf: string
   items: Till[]
+}
+
+/** What a till counted on one link in one hour (BackOffice 4292): checks, of them failed / slow, the worst p95, seconds. */
+export interface LinkHour {
+  checks: number
+  failed: number
+  slow: number
+  maxP95Ms: number
+  unstableSeconds: number
+  offlineSeconds: number
+}
+
+/** One hour of one till. A `null` link = no row for that hour: no data, never a healthy zero. */
+export interface TillHour {
+  /** The hour's start, local. */
+  hour: string
+  wan: LinkHour | null
+  /** `null` on a main till always (its store link is local), and until a secondary till reports it (4291). */
+  store: LinkHour | null
+}
+
+/** `GET ActionSync/Store/Till/Hours?code=&device=` (BackOffice 4292): 168 hours, oldest first, the current hour last. */
+export interface StoreTillHours {
+  asOf: string
+  items: TillHour[]
 }
 
 // ── The control door and the audit feed (ticket 447) ─────────────────────────────

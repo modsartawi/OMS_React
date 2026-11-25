@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/sync-console.json'
 import ar from '@/locales/ar/sync-console.json'
-import { LINK_STATES, type LinkVerdict, type Till } from '@/core/models/sync-console'
-import { TILL_SILENT_AFTER_MS, tillLinkCell, tillSilent } from './tills-helpers'
+import { LINK_STATES, type LinkHour, type LinkVerdict, type Till, type TillHour } from '@/core/models/sync-console'
+import {
+  TILL_HOUR_LEGEND,
+  TILL_SILENT_AFTER_MS,
+  fleetUnstableTills,
+  tillHistorySummary,
+  tillHourCell,
+  tillHourFigures,
+  tillLinkCell,
+  tillSilent,
+  unstableTillsCell,
+} from './tills-helpers'
 
 /**
  * The Tills view's pure logic (spec 4288, BackOffice 4290): what one link cell says and how it is coloured. The till
@@ -123,5 +133,77 @@ describe('the Tills words', () => {
       expect(at(ar, key), `ar ${key}`).toBeTruthy()
       expect(slots(at(ar, key)), key).toEqual(slots(at(en, key)))
     }
+  })
+})
+
+// ── BackOffice 4292: the till drill-in's 7-day hour strip, and the fleet's per-store count ──────────────────────
+
+const hourOf = (link: Partial<LinkHour> | null): LinkHour | null =>
+  link && { checks: 360, failed: 0, slow: 0, maxP95Ms: 120, unstableSeconds: 0, offlineSeconds: 0, ...link }
+
+describe('tillHourCell', () => {
+  it('reads an hour with no row as no data, never as healthy', () => {
+    expect(tillHourCell(null)).toMatchObject({ cell: 'noData', swatch: 'bg-muted', labelKey: 'tills.history.cells.noData' })
+  })
+
+  it('paints the worst thing the till saw in the hour: offline, then unstable, then blips, then online', () => {
+    expect(tillHourCell(hourOf({ offlineSeconds: 30, unstableSeconds: 600, failed: 9 })).cell).toBe('offline')
+    expect(tillHourCell(hourOf({ unstableSeconds: 1, failed: 2, slow: 40 })).cell).toBe('unstable')
+    expect(tillHourCell(hourOf({ failed: 1 })).cell).toBe('blips')
+    expect(tillHourCell(hourOf({ slow: 3 })).cell).toBe('blips')
+    expect(tillHourCell(hourOf({})).cell).toBe('online')
+  })
+
+  it('colours each cell from the token palette, and every cell has its words in both languages', () => {
+    const swatches = TILL_HOUR_LEGEND.map((e) => e.swatch)
+    expect(swatches).toEqual(['bg-success', 'bg-success/35', 'bg-attention', 'bg-danger', 'bg-muted'])
+    for (const entry of TILL_HOUR_LEGEND) {
+      expect(at(en, entry.labelKey), entry.labelKey).toEqual(expect.any(String))
+      expect(at(ar, entry.labelKey), entry.labelKey).toEqual(expect.any(String))
+    }
+  })
+})
+
+describe('tillHourFigures', () => {
+  it('gives the hour in the numbers L1 reads to the network team: counts, p95 and whole minutes', () => {
+    expect(tillHourFigures(hourOf({ failed: 4, slow: 80, maxP95Ms: 1840, unstableSeconds: 1800, offlineSeconds: 29 }))).toEqual({
+      checks: 360,
+      failed: 4,
+      slow: 80,
+      p95Ms: 1840,
+      unstableMinutes: 30,
+      offlineMinutes: 0,
+    })
+    expect(tillHourFigures(hourOf({ unstableSeconds: 30 }))?.unstableMinutes, 'half a minute rounds up to one').toBe(1)
+    expect(tillHourFigures(null)).toBeNull()
+  })
+})
+
+describe('tillHistorySummary', () => {
+  it('counts the hours a link was unstable or offline out of the hours it reported', () => {
+    const hours: TillHour[] = [
+      { hour: '2026-11-25T08:00:00', wan: hourOf({}), store: null },
+      { hour: '2026-11-25T09:00:00', wan: hourOf({ unstableSeconds: 600 }), store: hourOf({ offlineSeconds: 60 }) },
+      { hour: '2026-11-25T10:00:00', wan: null, store: null },
+      { hour: '2026-11-25T11:00:00', wan: hourOf({ offlineSeconds: 120 }), store: hourOf({ failed: 1 }) },
+    ]
+    expect(tillHistorySummary(hours, 'wan')).toEqual({ reported: 3, troubled: 2 })
+    expect(tillHistorySummary(hours, 'store')).toEqual({ reported: 2, troubled: 1 })
+    expect(tillHistorySummary([], 'wan')).toEqual({ reported: 0, troubled: 0 })
+  })
+})
+
+describe('unstableTillsCell', () => {
+  it('flags a store with tills on an unstable or offline link, and stays quiet at zero', () => {
+    expect(unstableTillsCell({ unstableTills: 3 })).toEqual({ text: '3', sev: 'warn' })
+    expect(unstableTillsCell({ unstableTills: 0 })).toEqual({ text: '0', sev: 'mute' })
+  })
+
+  it('leaves the cell blank for a door older than BackOffice 4292, never a reassuring 0', () => {
+    expect(unstableTillsCell({})).toBeNull()
+  })
+
+  it('sums the fleet page', () => {
+    expect(fleetUnstableTills([{ unstableTills: 3 }, {}, { unstableTills: 1 }, { unstableTills: 0 }])).toEqual({ tills: 4, stores: 2 })
   })
 })

@@ -67,6 +67,7 @@ import type {
   StoreDetail,
   StoreHours,
   StoreLocation,
+  StoreTillHours,
   StoreTills,
   StoreMirror,
   StorePass,
@@ -195,6 +196,11 @@ export const syncConsoleApi = {
   /** `GET ActionSync/Store/Tills?code=` → the store's tills and each link's latest verdict (spec 4288, BackOffice 4290). */
   storeTills(code: string): Promise<StoreTills> {
     return api.get<StoreTills>('ActionSync/Store/Tills', { code })
+  },
+
+  /** `GET ActionSync/Store/Till/Hours?code=&device=` → one till's last 7 days, hour by hour, per link (BackOffice 4292). */
+  storeTillHours(code: string, device: string): Promise<StoreTillHours> {
+    return api.get<StoreTillHours>('ActionSync/Store/Till/Hours', { code, device })
   },
 
   /** `GET ActionSync/Store/Location?code=` → the sync location, never its credentials. */
@@ -598,6 +604,16 @@ export const storeScriptsQuery = (code: string) => ({
 export const storeTillsQuery = (code: string) => ({
   queryKey: [...storeKey(code), 'tills'] as const,
   queryFn: () => syncConsoleApi.storeTills(code),
+  ...refresh,
+})
+
+/**
+ * One till's drill-in (BackOffice 4292), under the Tills tab's prefix. Polled on the console's cadence like the list:
+ * the current hour grows with every report.
+ */
+export const storeTillHoursQuery = (code: string, device: string) => ({
+  queryKey: [...storeKey(code), 'tills', device, 'hours'] as const,
+  queryFn: () => syncConsoleApi.storeTillHours(code, device),
   ...refresh,
 })
 

@@ -8,6 +8,7 @@ import type { StoreRow } from '@/core/models/sync-console'
 import { formatDateTime } from '@/core/util/date-format'
 import { agreementBadge, figure, lastLoopError, stateBadge } from './helpers'
 import CodeBadgeView from './CodeBadgeView'
+import { LINK_DOT, unstableTillsCell } from './tills-helpers'
 import StateBadges from './StateBadges'
 import MirrorLaneChipView from './MirrorLaneChipView'
 import TillClockTime from './TillClockTime'
@@ -95,6 +96,35 @@ export function buildFleetColumns(t: TFunction): ColDef<StoreRow>[] {
         p.data ? <TillClockTime value={p.data.mirror.tillBacklogOldestAt} /> : null,
     },
     { headerName: t('table.columns.mirrorLastPull'), field: 'mirror.lastPullAt', width: 150, valueFormatter: formatTime },
+    {
+      // BackOffice 4292 (spec 4288): the store's tills on an unstable or offline link now - the way into its Tills tab.
+      // Blank from a pre-4292 door, never a 0 that would read as "every till is fine".
+      headerName: t('tills.fleetColumn'),
+      colId: 'unstableTills',
+      field: 'unstableTills',
+      width: 120,
+      type: 'rightAligned',
+      cellRenderer: (p: ICellRendererParams<StoreRow>) => {
+        const cell = p.data ? unstableTillsCell(p.data) : null
+        if (!p.data || !cell) return null
+        const words = (
+          <span className="inline-flex items-center gap-1.5" data-unstable-tills={cell.text}>
+            <span className={'h-2 w-2 rounded-full ' + LINK_DOT[cell.sev]} aria-hidden />
+            <Ltr>{cell.text}</Ltr>
+          </span>
+        )
+        return cell.sev === 'warn' ? (
+          <Link
+            to={`/admin/sync/store/${encodeURIComponent(p.data.code)}?tab=tills`}
+            className="font-medium text-attention-800 underline-offset-2 hover:underline"
+          >
+            {words}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">{words}</span>
+        )
+      },
+    },
     {
       // Rail agreement over the judged window (2571), as the door sent it. The fleet filters
       // on it through the "Rails disagree" tile (the `railsDisagree` state): the door has no

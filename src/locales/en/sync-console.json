@@ -2016,6 +2016,28 @@
     "figures": "<fail>{{fail}}%</fail> failed · <slow>{{slow}}%</slow> slow · p95 <p95>{{p95}} ms</p95>",
     "since": "since <at>{{at}}</at>",
     "lastReport": "last report: {{state}}, <at>{{at}}</at>",
-    "never": "Never"
+    "never": "Never",
+    "fleetColumn": "Unstable tills",
+    "fleetTotal": "{{tills}} tills on an unstable or offline link, in {{stores}} stores of this page",
+    "history": {
+      "open": "7 days",
+      "openLabel": "Show till {{device}}'s last 7 days",
+      "close": "Close",
+      "title": "Till {{device}}: the last 7 days, hour by hour",
+      "loading": "Loading the till's hours…",
+      "failed": "The till's hours could not be loaded.",
+      "summary": "Unstable or offline in {{troubled}} of {{reported}} reported hours",
+      "noHours": "No hour reported",
+      "cellTitle": "{{reading}}: {{checks}} checks, {{failed}} failed, {{slow}} slow, p95 {{p95}} ms, {{unstable}} min unstable, {{offline}} min offline",
+      "legend": "Legend",
+      "note": "One cell per hour of HQ's clock, from what the till reported; kept 7 days. No data = the till was off, silent or on an older build.",
+      "cells": {
+        "online": "Online",
+        "blips": "Some failed or slow checks",
+        "unstable": "Unstable",
+        "offline": "Offline",
+        "noData": "No data"
+      }
+    }
   }
 }

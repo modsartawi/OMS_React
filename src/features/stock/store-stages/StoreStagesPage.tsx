@@ -30,6 +30,7 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { usePermissions } from '@/core/permissions'
 import { canBlockStoreEarly, canCloseStoreCount, canMoveStoreStage, canOpenStoreStages, canStartStoreCount } from './access'
 import { storeStageApi } from './api'
+import RefusalDays from './RefusalDays'
 import { STAGE_SEVERITY, confirmationLabel, gateLabel, moverLabel, stageColumns, stageLabel } from './columns'
 import {
   STAGES_DEFAULTS,
@@ -652,6 +653,7 @@ function GatesSection({
             </span>
             <GateList title={t('gates.store')} gates={apart.store} scope="store" />
             <GateList title={t('gates.fleet')} gates={apart.fleet} scope="fleet" />
+            <RefusalDays gates={gates} />
           </>
         )
       )}

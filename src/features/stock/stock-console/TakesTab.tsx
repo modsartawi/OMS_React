@@ -1,29 +1,28 @@
 import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { TAKE_OUTCOMES } from '@/core/models/stock-console'
+import { TAKES_FALLBACK_ONLY } from '@/core/models/stock-console'
 import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import { localToday } from '@/core/util/date-window'
 import { takesQuery } from './api'
 import FailedLeftOut from './FailedLeftOut'
 import HowRead from './HowRead'
 import { HOW_TAKES } from './how-sections'
 import ListGrid from './ListGrid'
-import type { ListSpec } from './search'
 import SearchFrame from './SearchFrame'
-import { failedNotSearchable, takesDay } from './takes'
+import { TAKES_LIST, failedNotSearchable, takesDay } from './takes'
 import { buildTakesColumns, takeRowId } from './takes-columns'
 import { useListSearch } from './use-list-search'
 import { useScan } from './use-scan'
-
-/** What the Takes list owns in the address: its outcome filter and its day; no sort. */
-const TAKES_LIST: ListSpec = { filters: TAKE_OUTCOMES, extras: ['day'], keep: ['tab'] }
 
 /**
  * A store's Takes tab (oms 942, spec 4157 stories 40–42): the search-first frame over
  * `StockConsole/Stores/{store}/Takes`, for one day — today by default, and written to the address with every search,
  * so a shared link reads the same day. With an item or a batch searched, a line says failed calls are left out: they
- * carry no item. The GS1 box (944) searches the item and vendor batch a scanned code gives.
+ * carry no item. The GS1 box (944) searches the item and vendor batch a scanned code gives. BackOffice 4277: a box keeps
+ * only the calls the expiry fallback touched (`fallback=true`), and a column shows the pack's vendor batch and the batch the
+ * fallback chose or would have chosen.
  */
 export default function TakesTab({ store }: { store: string }) {
   const { t, i18n } = useTranslation('stock-console')
@@ -51,15 +50,27 @@ export default function TakesTab({ store }: { store: string }) {
         {...frame}
         filterLabel={(f) => t(`takes.filter.${f}`)}
         extraBoxes={
-          <Input
-            type="date"
-            value={extras.day ?? today}
-            max={today}
-            onChange={(e) => setExtra('day', e.target.value)}
-            aria-label={t('takes.day')}
-            className="w-fit"
-            data-search-box="day"
-          />
+          <>
+            <Input
+              type="date"
+              value={extras.day ?? today}
+              max={today}
+              onChange={(e) => setExtra('day', e.target.value)}
+              aria-label={t('takes.day')}
+              className="w-fit"
+              data-search-box="day"
+            />
+            <Select
+              value={extras.fallback === TAKES_FALLBACK_ONLY ? TAKES_FALLBACK_ONLY : ''}
+              onChange={(e) => setExtra('fallback', e.target.value)}
+              aria-label={t('takes.fallback.filter')}
+              className="w-fit"
+              data-search-box="fallback"
+            >
+              <option value="">{t('takes.fallback.any')}</option>
+              <option value={TAKES_FALLBACK_ONLY}>{t('takes.fallback.only')}</option>
+            </Select>
+          </>
         }
         aboveRows={
           (frame.aboveRows || leftOut) && (

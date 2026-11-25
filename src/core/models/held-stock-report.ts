@@ -23,6 +23,8 @@ export interface TakeRefusalReportQuery {
   day?: string
   /** Comma-separated store codes. */
   stores?: string
+  /** BackOffice 4277: only the rows the expiry fallback touched (Stock Visibility's filter). */
+  fallback?: boolean
 }
 
 /** The refusals of one store, material and batch on the day (`isShadow`: would-be refusals, nothing was refused). */
@@ -67,6 +69,14 @@ export interface TakeRefusalRow {
   sapFeedAgeSeconds: number | null
   posFeedAgeSeconds: number | null
   loggedAt: string
+  /** BackOffice 4277 (spec 4275): the pack's scanned vendor batch and expiry; null when the call could not be checked. */
+  scannedVendorBatch?: string | null
+  scannedExpiry?: string | null
+  /** The batch the expiry fallback would have chosen (a `Record` store) and its quantity; null when none. */
+  fallbackBatch?: string | null
+  fallbackQuantity?: number | null
+  /** Why the fallback did not place the pack (`ScannedDateDisagrees`). */
+  fallbackNote?: string | null
 }
 
 /** The lines of one store on the day that span more than one batch. */

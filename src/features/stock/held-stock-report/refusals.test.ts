@@ -6,6 +6,7 @@ import {
   groupsShown,
   refusalFiltersFromParams,
   refusalFiltersToParams,
+  refusalFallback,
   refusalQuery,
   refusalTotals,
   rowsShown,
@@ -23,6 +24,7 @@ describe('the refusal report URL', () => {
       day: '2026-11-12',
       stores: 'P001,P002',
       kind: 'shadow' as const,
+      fallback: true,
       drill: { store: 'P001', material: '100234', batch: '', shadow: true },
     }
     expect(refusalFiltersFromParams(refusalFiltersToParams(filters))).toEqual(filters)
@@ -123,5 +125,30 @@ describe("the day's tiles", () => {
       storesUnreached: ['P009'],
     }
     expect(refusalTotals(report)).toEqual({ refused: 4, wouldRefuse: 4, groups: 3, multiBatchLines: 7, lastResortTakes: 0, storesUnreached: 1 })
+  })
+})
+
+describe('the expiry fallback filter (BackOffice 4277, spec 4275)', () => {
+  it('is off by default; on, the URL says fallback=1 and the read asks Stock Visibility for the fallback rows only', () => {
+    expect(REFUSAL_DEFAULTS.fallback).toBe(false)
+    const on = refusalFiltersFromParams(new URLSearchParams('fallback=1&day=2026-11-24'))
+    expect(on.fallback).toBe(true)
+    expect(refusalFiltersToParams(on).toString()).toBe('day=2026-11-24&fallback=1')
+    expect(refusalQuery(on)).toEqual({ day: '2026-11-24', fallback: true })
+    expect(refusalQuery(REFUSAL_DEFAULTS)).toEqual({})
+  })
+
+  it('a log row shows the pack’s vendor batch and the batch the fallback would have chosen, with its quantity', () => {
+    const row = {
+      takeId: 'T9', store: 'P077', material: 'M1', batch: '', quantityAsked: 2, quantityAvailable: 0, code: 'Refused',
+      reason: 'NoStockInBatch', batchWithStock: '', batchWithStockExpiry: null, batchWithStockQuantity: null,
+      expiredQuantity: null, document: 'D1', user: 'U1', isShadow: false, stage: 'Blocking', sapFeedAgeSeconds: null,
+      posFeedAgeSeconds: null, loggedAt: '2026-11-24T09:00:00', scannedVendorBatch: 'LOT77', scannedExpiry: '2027-03-00',
+      fallbackBatch: '0000777001', fallbackQuantity: 2, fallbackNote: null,
+    } satisfies TakeRefusalRow
+    expect(refusalFallback(row)).toEqual({ vendorBatch: 'LOT77', wouldBe: '0000777001 · 2', note: null })
+    expect(refusalFallback({ ...row, scannedVendorBatch: undefined, fallbackBatch: undefined, fallbackQuantity: undefined }))
+      .toEqual({ vendorBatch: '', wouldBe: '', note: null })
+    expect(refusalFallback({ ...row, fallbackBatch: null, fallbackNote: 'ScannedDateDisagrees' }).note).toBe('ScannedDateDisagrees')
   })
 })

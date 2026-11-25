@@ -80,6 +80,28 @@ export interface StoreGates {
   confirmed: string[]
   notConfirmed: string[]
   waived: string[]
+  /** BackOffice 4277 (SIS.Stock 086): the store's expiry fallback state; absent from an older server. */
+  expiryFallback?: string | null
+  /** BackOffice 4277: per day of the would-be refusals' window, the refusal share beside the fallback's share. */
+  refusalDays?: StoreRefusalDay[]
+}
+
+/**
+ * BackOffice 4277 (spec 4275, ADR 0146): one local day of a store's takes. Shares are fractions (4 dp), null on a day with
+ * nothing to share. A fallback take is a placed take, never a refusal; the fallback has no gate of its own.
+ */
+export interface StoreRefusalDay {
+  day: string
+  takes: number
+  refused: number
+  refusalShare: number | null
+  /** Takes of a scanned pack: the fallback's ground. */
+  scannedTakes: number
+  /** Takes placed by the fallback (`On`). */
+  fallbackTakes: number
+  fallbackShare: number | null
+  /** Refusals the fallback would have placed (`Record`). */
+  wouldBePlacements: number
 }
 
 /**

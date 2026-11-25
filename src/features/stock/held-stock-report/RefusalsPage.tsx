@@ -196,6 +196,17 @@ function Report() {
             </Select>
           </Field>
         )}
+        <Field label={t('refusals.fallbackLabel')}>
+          <Select
+            value={filters.fallback ? '1' : ''}
+            onChange={(e) => patch({ fallback: e.target.value === '1' })}
+            className="w-56"
+            data-hsr-filter="fallback"
+          >
+            <option value="">{t('fallback.any')}</option>
+            <option value="1">{t('fallback.only')}</option>
+          </Select>
+        </Field>
         <Button type="submit" variant="secondary" data-hsr-apply="">
           {t('filters.apply')}
         </Button>

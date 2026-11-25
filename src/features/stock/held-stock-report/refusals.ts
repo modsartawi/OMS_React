@@ -9,6 +9,8 @@ import type {
   TakeRefusalReportQuery,
   TakeRefusalRow,
 } from '@/core/models/held-stock-report'
+import { formatPair } from '@/core/util/bidi'
+import { formatFigure } from '@/core/util/number-format'
 import { normalizeStores, realDay } from './shared'
 
 export const REFUSAL_TABS = ['groups', 'rows', 'multiBatch', 'lastResort'] as const
@@ -32,10 +34,12 @@ export interface RefusalFilters {
   day: string
   stores: string
   kind: RefusalKind
+  /** BackOffice 4277 (spec 4275): only the rows the expiry fallback touched, Stock Visibility's filter (`fallback=1`). */
+  fallback: boolean
   drill: RefusalDrill | null
 }
 
-export const REFUSAL_DEFAULTS: RefusalFilters = { tab: 'groups', day: '', stores: '', kind: '', drill: null }
+export const REFUSAL_DEFAULTS: RefusalFilters = { tab: 'groups', day: '', stores: '', kind: '', fallback: false, drill: null }
 
 /**
  * The filters a URL describes; anything unknown reads as its default. The drill is on while `store` is present, so
@@ -51,6 +55,7 @@ export function refusalFiltersFromParams(params: URLSearchParams): RefusalFilter
     day: realDay(day) ? day : '',
     stores: normalizeStores(params.get('stores') ?? ''),
     kind: (REFUSAL_KINDS as readonly string[]).includes(kind) ? (kind as RefusalKind) : '',
+    fallback: params.get('fallback') === '1',
     drill: store
       ? {
           store,
@@ -69,6 +74,7 @@ export function refusalFiltersToParams(filters: RefusalFilters): URLSearchParams
   if (filters.day) qs.set('day', filters.day)
   if (filters.stores) qs.set('stores', filters.stores)
   if (filters.kind) qs.set('kind', filters.kind)
+  if (filters.fallback) qs.set('fallback', '1')
   if (filters.drill) {
     qs.set('store', filters.drill.store)
     qs.set('material', filters.drill.material)
@@ -78,12 +84,25 @@ export function refusalFiltersToParams(filters: RefusalFilters): URLSearchParams
   return qs
 }
 
-/** What the report read sends: the day (absent = today) and the stores (absent = every open store). Kind, tab and drill are
- * the screen's own: they never re-read. */
+/** What the report read sends: the day (absent = today), the stores (absent = every open store) and the fallback filter
+ * (BackOffice 4277; absent = every row). Kind, tab and drill are the screen's own: they never re-read. */
 export function refusalQuery(filters: RefusalFilters): TakeRefusalReportQuery {
   return {
     ...(filters.day ? { day: filters.day } : {}),
     ...(filters.stores ? { stores: filters.stores } : {}),
+    ...(filters.fallback ? { fallback: true } : {}),
+  }
+}
+
+/**
+ * BackOffice 4277 (spec 4275, ADR 0146): a log row's fallback facts as drawn — the pack's scanned vendor batch, the batch
+ * the fallback would have chosen with its quantity (one value), and why it could not run. Blank where the row has none.
+ */
+export function refusalFallback(row: TakeRefusalRow): { vendorBatch: string; wouldBe: string; note: string | null } {
+  return {
+    vendorBatch: row.scannedVendorBatch ?? '',
+    wouldBe: row.fallbackBatch ? formatPair(row.fallbackBatch, formatFigure(row.fallbackQuantity ?? null)) : '',
+    note: row.fallbackNote || null,
   }
 }
 

@@ -31,7 +31,8 @@ describe('Feeds and switches (942)', () => {
 
 describe('Find an item or a batch (943)', () => {
   it('sits between Stores and Feeds and switches, lit on its own address only', () => {
-    expect(CONSOLE_PAGES.map((p) => p.key)).toEqual(['stores', 'find', 'fleet'])
+    // BackOffice 4277 puts the expiry fallback list between Find and Feeds and switches.
+    expect(CONSOLE_PAGES.map((p) => p.key)).toEqual(['stores', 'find', 'fallback', 'fleet'])
     const find = CONSOLE_PAGES[1]
     expect(find).toEqual({ to: '/stock/console/find', key: 'find' })
     expect(consolePageActive(find, '/stock/console/find')).toBe(true)

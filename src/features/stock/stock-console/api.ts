@@ -13,6 +13,7 @@ import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { api, apiErrorKind } from '@/core/api'
 import type {
   StockConsoleBatchRow,
+  StockConsoleExpiryFallbackList,
   StockConsoleFind,
   StockConsoleFleet,
   StockConsoleHoldRow,
@@ -32,6 +33,7 @@ import type {
   StockConsoleTakes,
 } from '@/core/models/stock-console'
 import type { LocalDate } from '@/core/util/date-window'
+import type { FallbackListRead } from './fallback-list'
 import { findDecision, findWire, type FindWire } from './find'
 import type { ItemTab } from './item-tabs'
 import type { DayWindow, MovementsState, WindowRead } from './movements'
@@ -109,6 +111,10 @@ export const stockConsoleApi = {
   /** `…/Items/{item}/Holds` → its open holds and those released in the last 7 days, one list (not paged). */
   itemHolds(store: string, item: string): Promise<StockConsoleItemHolds> {
     return api.get<StockConsoleItemHolds>(`${itemPath(store, item)}/Holds`)
+  },
+  /** BackOffice 4277: `…/ExpiryFallbackTakes?from=&to=` → inventory control's list of the store's expiry fallback takes. */
+  expiryFallbackTakes(store: string, from: LocalDate, to: LocalDate): Promise<StockConsoleExpiryFallbackList> {
+    return api.get<StockConsoleExpiryFallbackList>(`${storePath(store)}/ExpiryFallbackTakes`, { from, to })
   },
   /** `…/Items/{item}/Takes` → its takes of today and the two days before; failed calls carry no item, so none. */
   itemTakes(store: string, item: string): Promise<StockConsoleTakes> {
@@ -384,6 +390,18 @@ export function itemMovementsQuery(store: string, item: string, decision: Window
     queryFn: () => stockConsoleApi.itemMovements(store, item, { ...window, page, size: STOCK_CONSOLE_PAGE_SIZE }),
     enabled: decision.kind === 'read',
     placeholderData: keepWhileSame(tabKey.length, [window.from, window.to]),
+    retry: retryUnlessAnswered,
+  })
+}
+
+// ── Expiry fallback takes (BackOffice 4277) ─────────────────────────────────────────────────────────────
+/** Inventory control's list for a store and its days, read only once Read was pressed on a range the server accepts. */
+export function fallbackListQuery(decision: FallbackListRead) {
+  const ask = decision.kind === 'read' ? decision : { store: '', from: '', to: '' }
+  return queryOptions({
+    queryKey: [...STOCK_CONSOLE_KEY, 'fallback', ask.store, ask.from, ask.to] as const,
+    queryFn: () => stockConsoleApi.expiryFallbackTakes(ask.store, ask.from, ask.to),
+    enabled: decision.kind === 'read',
     retry: retryUnlessAnswered,
   })
 }

@@ -4,12 +4,18 @@
  * the request log has no item). Failed calls carry no item, so a search by item or batch leaves them out, and a line
  * says so.
  */
-import type { StockConsoleTakeRow } from '@/core/models/stock-console'
+import { TAKE_OUTCOMES, TAKES_FALLBACK_ONLY, type StockConsoleTakeRow } from '@/core/models/stock-console'
 import type { Severity } from '@/core/ui/severity'
 import { formatPair } from '@/core/util/bidi'
 import type { LocalDate } from '@/core/util/date-window'
 import { formatFigure } from '@/core/util/number-format'
-import type { SearchState } from './search'
+import type { ListSpec, SearchState } from './search'
+
+/**
+ * What the Takes list owns in the address: its outcome filter, its day and (BackOffice 4277) the expiry fallback filter;
+ * no sort.
+ */
+export const TAKES_LIST: ListSpec = { filters: TAKE_OUTCOMES, extras: ['day', 'fallback'], keep: ['tab'] }
 
 const KIND_SEV: Record<string, Severity> = { granted: 'ok', refused: 'warn', failed: 'bad' }
 
@@ -70,7 +76,56 @@ export function takeCells(row: StockConsoleTakeRow): TakeCells {
  */
 export function failedNotSearchable(state: SearchState, data: { failedLeftOut: boolean } | undefined): boolean {
   if (!state.ran || state.filter === 'granted' || state.filter === 'refused') return false
-  return state.item !== '' || state.batch !== '' || data?.failedLeftOut === true
+  return state.item !== '' || state.batch !== '' || fallbackOnly(state) || data?.failedLeftOut === true
+}
+
+/** BackOffice 4277: the list is filtered on the expiry fallback (`fallback=true` in the address and on the wire). */
+export const fallbackOnly = (state: SearchState): boolean => state.extras.fallback === TAKES_FALLBACK_ONLY
+
+/** The notes Stock Visibility writes when the fallback could not run (`ExpiryFallbackNotes`); each has its words. */
+export const FALLBACK_NOTES = ['ScannedDateDisagrees'] as const
+
+/** A fallback note in the console's words when it is known, else as it came. */
+export const fallbackNoteWord = (note: string): { key: string } | { raw: string } =>
+  (FALLBACK_NOTES as readonly string[]).includes(note) ? { key: `takes.fallbackNote.${note}` } : { raw: note }
+
+/** A take row's fallback cell (BackOffice 4277, spec 4275, ADR 0146). */
+export interface TakeFallbackCell {
+  /** `takes.fallback.placed` (the fallback placed it), `.wouldBe` (a `Record` store's refusal), `.note` (it could not run). */
+  key: string
+  sev: Severity
+  /** The pack's own (scanned) vendor batch. */
+  vendorBatch: string | null
+  /** The batches the fallback chose (placed) or would have chosen (refused), each with its quantity, one value each. */
+  batches: string[]
+  /** Why the fallback could not run, as Stock Visibility names it. */
+  note: string | null
+}
+
+/**
+ * The fallback cell: a granted take the fallback placed (its fallback batches only), a refusal with the batch the fallback
+ * would have chosen, or a refusal with the note saying why it could not run. Anything else, and a row from a server without
+ * the fields, has none.
+ */
+export function takeFallback(row: StockConsoleTakeRow): TakeFallbackCell | null {
+  const vendorBatch = row.scannedVendorBatch ?? null
+  if (row.kind === 'granted' && row.isExpiryFallback === true) {
+    const batches = (row.batches ?? [])
+      .filter((b) => b.isExpiryFallback === true)
+      .map((b) => formatPair(b.batch, formatFigure(b.quantity)))
+    return { key: 'takes.fallback.placed', sev: 'warn', vendorBatch, batches, note: null }
+  }
+  if (row.kind !== 'refused') return null
+  const note = row.fallbackNote || null
+  if (row.fallbackBatch)
+    return {
+      key: 'takes.fallback.wouldBe',
+      sev: 'mute',
+      vendorBatch,
+      batches: [formatPair(row.fallbackBatch, formatFigure(row.fallbackQuantity ?? null))],
+      note,
+    }
+  return note ? { key: 'takes.fallback.note', sev: 'bad', vendorBatch, batches: [], note } : null
 }
 
 /** The day the Takes list reads: the address's, or today. */

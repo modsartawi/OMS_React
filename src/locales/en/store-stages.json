@@ -225,6 +225,21 @@
     "doesNotHold": "does not hold",
     "refresh": "Measure again"
   },
+  "refusalDays": {
+    "title": "Takes per day: refusals and the expiry fallback",
+    "hint": "The would-be refusal share beside the fallback's share of scanned takes. A fallback take is a placed take, never a refusal; the fallback has no gate of its own, and confirming the refusals were read confirms both.",
+    "state": "Expiry fallback: {{state}}.",
+    "column": {
+      "day": "Day",
+      "takes": "Takes",
+      "refused": "Refused",
+      "refusalShare": "Refusal share",
+      "scannedTakes": "Scanned takes",
+      "fallbackTakes": "Fallback takes",
+      "fallbackShare": "Fallback share",
+      "wouldBePlacements": "Would be placed"
+    }
+  },
   "gate": {
     "Seed": "Seed",
     "CountersMet": "Counters met",

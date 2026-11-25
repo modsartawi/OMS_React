@@ -41,6 +41,10 @@ export type TillLinkFigures = { failPct: number | null; slowPct: number | null; 
  * - `verdict` — the till's current judgement (`labelKey` null for a state this bundle does not know: show the code);
  * - `silent` — the till stopped reporting; `state` is the last verdict it sent, for the sub-line only;
  * - `noData` — the link was never reported (an older build, or the store link before 4291).
+ *
+ * `noteKey` explains a cell whose word alone would puzzle L1: a **local** store link (BackOffice 4291) is the main
+ * till's — the store database is on that till, so there is no store network to check, and the cell says so rather
+ * than leaving a grey "Local" to be read as "no data".
  */
 export type TillLinkCell = {
   kind: 'verdict' | 'silent' | 'noData'
@@ -49,6 +53,7 @@ export type TillLinkCell = {
   state: LinkState | null
   figures: TillLinkFigures | null
   since: string | null
+  noteKey: string | null
 }
 
 /** A wire time (`yyyy-MM-ddTHH:mm:ss`, local, no offset) as ms, or `null` when absent or unreadable. */
@@ -74,7 +79,7 @@ export function tillSilent(till: Pick<Till, 'lastSeenAt'>, asOf: string): boolea
 /** What one link cell of `till` says, as of the door's `asOf`. */
 export function tillLinkCell(link: LinkVerdict | null, till: Pick<Till, 'lastSeenAt' | 'reportedAt'>, asOf: string): TillLinkCell {
   if (!link)
-    return { kind: 'noData', labelKey: 'tills.states.noData', sev: 'mute', state: null, figures: null, since: null }
+    return { kind: 'noData', labelKey: 'tills.states.noData', sev: 'mute', state: null, figures: null, since: null, noteKey: null }
 
   const figures =
     link.state === 'local' || (link.failPct == null && link.slowPct == null && link.p95Ms == null)
@@ -82,8 +87,9 @@ export function tillLinkCell(link: LinkVerdict | null, till: Pick<Till, 'lastSee
       : { failPct: link.failPct, slowPct: link.slowPct, p95Ms: link.p95Ms }
 
   if (tillSilent(till, asOf) || isOld(till.reportedAt, asOf))
-    return { kind: 'silent', labelKey: 'tills.states.silent', sev: 'mute', state: link.state, figures, since: link.since }
+    return { kind: 'silent', labelKey: 'tills.states.silent', sev: 'mute', state: link.state, figures, since: link.since, noteKey: null }
 
   const badge = codeBadge(LINK_SEVERITY, 'tills.states', link.state)
-  return { kind: 'verdict', labelKey: badge.labelKey, sev: badge.sev, state: link.state, figures, since: link.since }
+  const noteKey = link.state === 'local' ? 'tills.localNote' : null
+  return { kind: 'verdict', labelKey: badge.labelKey, sev: badge.sev, state: link.state, figures, since: link.since, noteKey }
 }

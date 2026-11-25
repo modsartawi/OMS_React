@@ -2015,6 +2015,7 @@
     },
     "figures": "<fail>{{fail}}%</fail> failed · <slow>{{slow}}%</slow> slow · p95 <p95>{{p95}} ms</p95>",
     "since": "since <at>{{at}}</at>",
+    "localNote": "Main till: the store database is on this till",
     "lastReport": "last report: {{state}}, <at>{{at}}</at>",
     "never": "Never"
   }

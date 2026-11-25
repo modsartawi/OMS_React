@@ -7,7 +7,10 @@ import {
   DEFAULT_LINK_HEALTH_FILTER,
   LINK_HEALTH_PAGE_SIZE,
   attentionReasons,
+  clampLinkHealthPage,
+  linkHealthEmptyKey,
   linkHealthQuery,
+  storeTotalsKey,
   setLinkHealth,
   toggleView,
   CHRONIC_WINDOW,
@@ -39,6 +42,9 @@ const cell = (over: Partial<LinkHealthCell> = {}): LinkHealthCell => ({
   tillsAffected: 0,
   ...over,
 })
+
+const lookup = (bundle: unknown, key: string): unknown =>
+  key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], bundle)
 
 const store = (code: string, over: Partial<LinkHealthStore> = {}): LinkHealthStore => ({
   code,
@@ -212,12 +218,19 @@ describe('the strings', () => {
 })
 
 describe('the Link health filter (BackOffice 4295, owner follow-up)', () => {
-  it('starts on today, the WAN line, every store, page 1', () => {
-    expect(DEFAULT_LINK_HEALTH_FILTER).toEqual({ period: 'today', link: 'WAN', q: '', show: 'all', page: 1 })
+  // Code review of spec 4288 (finding 13): the fleet's "Link unstable" tile counts both links, so the page it leads to
+  // opens on both too; WAN and Store stay one click away. A Both cell is the worse of the two links that store-hour
+  // (the door's rollup keeps each hour's worst minutes, whichever link they were on).
+  it('starts on today, both links, every store, page 1', () => {
+    expect(DEFAULT_LINK_HEALTH_FILTER).toEqual({ period: 'today', link: 'both', q: '', show: 'all', page: 1 })
+    expect(linkHealthQuery(DEFAULT_LINK_HEALTH_FILTER).link).toBe('both')
+    expect(setLinkHealth(DEFAULT_LINK_HEALTH_FILTER, { link: 'WAN' }).link).toBe('WAN')
+    expect(lookup(en, 'links.links.both')).toBeTruthy()
+    expect(lookup(ar, 'links.links.both')).toBeTruthy()
   })
 
   it('sends the search, the view and the page to the door: the server pages and filters, never the browser', () => {
-    expect(linkHealthQuery({ ...DEFAULT_LINK_HEALTH_FILTER, q: '  p077 ', show: 'attention', page: 3 })).toEqual({
+    expect(linkHealthQuery({ ...DEFAULT_LINK_HEALTH_FILTER, link: 'WAN', q: '  p077 ', show: 'attention', page: 3 })).toEqual({
       period: 'today',
       link: 'WAN',
       q: 'p077',
@@ -254,5 +267,45 @@ describe('why a store needs attention', () => {
       { key: 'links.reasons.chronic', n: 0 },
       { key: 'links.reasons.silent', n: 1 },
     ])
+  })
+})
+
+// Code review of spec 4288 (finding 10): "No store in the fleet." was said for every empty grid - a search that matched
+// nothing, an empty view, and a truly empty fleet read the same. Each now has its own sentence; and a page left past the
+// end after a refresh (the view shrank) is pulled back to the last page that exists.
+describe('an empty grid says why', () => {
+  const counts = (all: number, attention = 0) => ({ all, attention, troubled: 0, healthy: all - attention, noData: 0 })
+
+  it('a search that matched nothing, an empty view, an empty fleet', () => {
+    expect(linkHealthEmptyKey({ ...DEFAULT_LINK_HEALTH_FILTER, q: 'zz9' }, counts(0))).toBe('links.emptyText.search')
+    expect(linkHealthEmptyKey({ ...DEFAULT_LINK_HEALTH_FILTER, q: 'p07', show: 'attention' }, counts(3))).toBe('links.emptyText.view')
+    expect(linkHealthEmptyKey({ ...DEFAULT_LINK_HEALTH_FILTER, show: 'attention' }, counts(60))).toBe('links.emptyText.view')
+    expect(linkHealthEmptyKey(DEFAULT_LINK_HEALTH_FILTER, counts(0))).toBe('links.emptyText.fleet')
+    for (const key of ['search', 'view', 'fleet']) {
+      expect(lookup(en, `links.emptyText.${key}`), key).toBeTruthy()
+      expect(lookup(ar, `links.emptyText.${key}`), key).toBeTruthy()
+    }
+    expect(new Set(['search', 'view', 'fleet'].map((k) => lookup(en, `links.emptyText.${k}`))).size).toBe(3)
+  })
+
+  it('pulls a page past the end back to the last page; a page that exists is left alone', () => {
+    expect(clampLinkHealthPage({ page: 3, pageSize: 50, total: 120 })).toBeNull()
+    expect(clampLinkHealthPage({ page: 4, pageSize: 50, total: 120 })).toBe(3)
+    expect(clampLinkHealthPage({ page: 2, pageSize: 50, total: 0 })).toBe(1)
+    expect(clampLinkHealthPage({ page: 1, pageSize: 50, total: 0 })).toBeNull()
+  })
+})
+
+// Code review of spec 4288 (finding 9): a store whose tills have gone quiet is not "No trouble". With a silent till, or
+// no row yet for the current hour while the store did report earlier, the label says the store is not reporting now.
+describe("a store's totals line", () => {
+  it('says "not reporting now" for a silent till or an empty current hour, "no trouble" only when it is reporting', () => {
+    expect(storeTotalsKey(store('S1', { cells: [cell(), cell()] }))).toBe('links.healthy')
+    expect(storeTotalsKey(store('S1', { cells: [cell(), cell()], silentTills: 1 }))).toBe('links.notReporting')
+    expect(storeTotalsKey(store('S1', { cells: [cell(), null] }))).toBe('links.notReporting')
+    expect(storeTotalsKey(store('S1', { noData: true, cells: [null, null] }))).toBe('links.noData')
+    expect(storeTotalsKey(store('S1', { troubledHours: 1, cells: [unstable, null] }))).toBe('links.totals')
+    expect(lookup(en, 'links.notReporting')).toBeTruthy()
+    expect(lookup(ar, 'links.notReporting')).toBeTruthy()
   })
 })

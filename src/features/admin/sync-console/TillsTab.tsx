@@ -21,6 +21,7 @@ import {
   tillHistorySummary,
   tillHourCell,
   tillHourFigures,
+  tillFigureTexts,
   tillLinkCell,
   tillSilent,
 } from './tills-helpers'
@@ -223,7 +224,7 @@ function LinkCell({ link, till, asOf, id }: { link: LinkVerdict | null; till: Ti
           <Trans
             t={t}
             i18nKey="tills.lastReport"
-            values={{ state: t(`tills.states.${cell.state}`), at: formatDateTime(till.reportedAt) }}
+            values={{ state: cell.stateLabelKey ? t(cell.stateLabelKey) : cell.state, at: formatDateTime(till.reportedAt) }}
             components={{ at: <Ltr /> }}
           />
         </span>
@@ -234,11 +235,7 @@ function LinkCell({ link, till, asOf, id }: { link: LinkVerdict | null; till: Ti
           <Trans
             t={t}
             i18nKey="tills.figures"
-            values={{
-              fail: figure(cell.figures.failPct ?? 0),
-              slow: figure(cell.figures.slowPct ?? 0),
-              p95: figure(cell.figures.p95Ms ?? 0),
-            }}
+            values={tillFigureTexts(cell.figures)}
             components={{ fail: <Ltr />, slow: <Ltr />, p95: <Ltr /> }}
           />
           {cell.since && (

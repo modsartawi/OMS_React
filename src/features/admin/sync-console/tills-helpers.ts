@@ -9,7 +9,7 @@
  */
 import type { Severity } from '@/core/ui/severity'
 import type { LinkHour, LinkState, LinkVerdict, StoreRow, Till, TillHour } from '@/core/models/sync-console'
-import { codeBadge } from './helpers'
+import { codeBadge, figure } from './helpers'
 
 /**
  * A till reports with its presence stamp, about once a minute; one missed beat is noise, three is silence. Past this, a
@@ -51,6 +51,8 @@ export type TillLinkCell = {
   labelKey: string | null
   sev: Severity
   state: LinkState | null
+  /** `state`'s own label key (a silent till's sub-line names its last state); null for a state this bundle does not know. */
+  stateLabelKey: string | null
   figures: TillLinkFigures | null
   since: string | null
   noteKey: string | null
@@ -79,19 +81,55 @@ export function tillSilent(till: Pick<Till, 'lastSeenAt'>, asOf: string): boolea
 /** What one link cell of `till` says, as of the door's `asOf`. */
 export function tillLinkCell(link: LinkVerdict | null, till: Pick<Till, 'lastSeenAt' | 'reportedAt'>, asOf: string): TillLinkCell {
   if (!link)
-    return { kind: 'noData', labelKey: 'tills.states.noData', sev: 'mute', state: null, figures: null, since: null, noteKey: null }
+    return {
+      kind: 'noData',
+      labelKey: 'tills.states.noData',
+      sev: 'mute',
+      state: null,
+      stateLabelKey: null,
+      figures: null,
+      since: null,
+      noteKey: null,
+    }
 
   const figures =
     link.state === 'local' || (link.failPct == null && link.slowPct == null && link.p95Ms == null)
       ? null
       : { failPct: link.failPct, slowPct: link.slowPct, p95Ms: link.p95Ms }
 
-  if (tillSilent(till, asOf) || isOld(till.reportedAt, asOf))
-    return { kind: 'silent', labelKey: 'tills.states.silent', sev: 'mute', state: link.state, figures, since: link.since, noteKey: null }
-
   const badge = codeBadge(LINK_SEVERITY, 'tills.states', link.state)
+  if (tillSilent(till, asOf) || isOld(till.reportedAt, asOf))
+    return {
+      kind: 'silent',
+      labelKey: 'tills.states.silent',
+      sev: 'mute',
+      state: link.state,
+      stateLabelKey: badge.labelKey,
+      figures,
+      since: link.since,
+      noteKey: null,
+    }
+
   const noteKey = link.state === 'local' ? 'tills.localNote' : null
-  return { kind: 'verdict', labelKey: badge.labelKey, sev: badge.sev, state: link.state, figures, since: link.since, noteKey }
+  return {
+    kind: 'verdict',
+    labelKey: badge.labelKey,
+    sev: badge.sev,
+    state: link.state,
+    stateLabelKey: badge.labelKey,
+    figures,
+    since: link.since,
+    noteKey,
+  }
+}
+
+/** What a figure the till did not send reads as: a dash, never a reassuring "0%". */
+export const NO_FIGURE = '–'
+
+/** A cell's figures as the line shows them, each with its unit, or {@link NO_FIGURE} when the till did not send it. */
+export function tillFigureTexts(figures: TillLinkFigures): { fail: string; slow: string; p95: string } {
+  const text = (n: number | null, unit: string) => (n == null ? NO_FIGURE : figure(n) + unit)
+  return { fail: text(figures.failPct, '%'), slow: text(figures.slowPct, '%'), p95: text(figures.p95Ms, ' ms') }
 }
 
 // ── BackOffice 4292: one till's 7-day hour strip ────────────────────────────────────────────────────────────────

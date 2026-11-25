@@ -601,7 +601,7 @@ export interface LinkHealthStore {
   tillsAffected: number
   /** Fresh tills on an unstable or offline link (of the read's link) right now. */
   unstableTills: number
-  /** Tills seen in the last hour, reported before, now silent for over 3 minutes. */
+  /** Tills that reported in the period and have been quiet for over 3 minutes, however long ago (never "no trouble"). */
   silentTills: number
   /** Unstable or offline in 4 or more of the period's last 8 hours (the door's judgement). */
   chronic: boolean

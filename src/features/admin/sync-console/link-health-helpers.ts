@@ -10,6 +10,7 @@
  */
 import type {
   LinkHealthCell,
+  LinkHealthCounts,
   LinkHealthLink,
   LinkHealthPeriod,
   LinkHealthStore,
@@ -128,14 +129,18 @@ export const LINK_HEALTH_PAGE_SIZE = 50
 /** What the page asks the door for: the toggles, the search, the tile (view) and the page. */
 export interface LinkHealthFilter {
   period: LinkHealthPeriod
-  /** The page reads one link at a time - the telecom line and the store network are read apart. */
-  link: Exclude<LinkHealthLink, 'both'>
+  /**
+   * Both links (the default: the fleet's "Link unstable" tile counts both, so the page it leads to does too), or one -
+   * the telecom line and the store network read apart. A Both cell is the worse of the two links that store-hour: the
+   * door keeps each hour's worst minutes, whichever link they were on.
+   */
+  link: LinkHealthLink
   q: string
   show: LinkHealthView
   page: number
 }
 
-export const DEFAULT_LINK_HEALTH_FILTER: LinkHealthFilter = { period: 'today', link: 'WAN', q: '', show: 'all', page: 1 }
+export const DEFAULT_LINK_HEALTH_FILTER: LinkHealthFilter = { period: 'today', link: 'both', q: '', show: 'all', page: 1 }
 
 /** The `GET ActionSync/Fleet/LinkHealth` parameters: search trimmed, page never below 1. */
 export function linkHealthQuery(filter: LinkHealthFilter): Record<string, string | number> {
@@ -169,4 +174,42 @@ export function attentionReasons(
   if (store.chronic) reasons.push({ key: 'links.reasons.chronic', n: 0 })
   if (store.silentTills > 0) reasons.push({ key: 'links.reasons.silent', n: store.silentTills })
   return reasons
+}
+
+// ── Code review of spec 4288 ──────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Why the grid is empty, as its own sentence (finding 10): the search matched no store, the chosen view holds none, or
+ * the fleet itself is empty. `counts.all` is the searched fleet (after `q`, before the view).
+ */
+export function linkHealthEmptyKey(
+  filter: Pick<LinkHealthFilter, 'q' | 'show'>,
+  counts: Pick<LinkHealthCounts, 'all'>,
+): 'links.emptyText.search' | 'links.emptyText.view' | 'links.emptyText.fleet' {
+  if (counts.all > 0) return 'links.emptyText.view'
+  return filter.q.trim() ? 'links.emptyText.search' : 'links.emptyText.fleet'
+}
+
+/**
+ * A page left past the end (the view shrank between two reads): the last page that exists, or `null` when the page is
+ * fine. An empty view's only page is 1.
+ */
+export function clampLinkHealthPage(d: { page: number; pageSize: number; total: number }): number | null {
+  const last = Math.max(1, Math.ceil(d.total / Math.max(1, d.pageSize)))
+  return d.page > last ? last : null
+}
+
+/**
+ * The label under a store's name (finding 9): no data; its troubled hours; "not reporting now" when a till has gone
+ * silent or the current hour has no row yet although the store reported earlier; and "no trouble" only for a store that
+ * is reporting and had none. The current hour is the last cell (the door's hours end at it).
+ */
+export function storeTotalsKey(
+  store: Pick<LinkHealthStore, 'noData' | 'troubledHours' | 'silentTills' | 'cells'>,
+): 'links.noData' | 'links.totals' | 'links.notReporting' | 'links.healthy' {
+  if (store.noData) return 'links.noData'
+  if (store.troubledHours > 0) return 'links.totals'
+  const current = store.cells.length > 0 ? store.cells[store.cells.length - 1] : null
+  if (store.silentTills > 0 || current == null) return 'links.notReporting'
+  return 'links.healthy'
 }

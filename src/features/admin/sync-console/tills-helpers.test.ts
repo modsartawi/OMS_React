@@ -9,6 +9,7 @@ import {
   tillHistorySummary,
   tillHourCell,
   tillHourFigures,
+  tillFigureTexts,
   tillLinkCell,
   tillSilent,
   unstableTillsCell,
@@ -145,6 +146,18 @@ describe('tillLinkCell', () => {
     expect(tillLinkCell(t.wan, t, AS_OF)).toMatchObject({ kind: 'verdict', labelKey: null, sev: 'mute' })
   })
 
+  // Code review of spec 4288 (finding 11): a silent till's sub-line names the state it last sent. A state this bundle
+  // does not know has no key - the line shows the raw code, never a raw "tills.states.sideways" i18n key.
+  it("names a silent till's last state through the same fallback: an unknown state has no key", () => {
+    const quiet = { lastSeenAt: '2026-11-25T10:00:00', reportedAt: '2026-11-25T10:00:00' }
+    expect(tillLinkCell(verdict('unstable'), quiet, AS_OF)).toMatchObject({ kind: 'silent', stateLabelKey: 'tills.states.unstable' })
+    expect(tillLinkCell(verdict('sideways' as never), quiet, AS_OF)).toMatchObject({
+      kind: 'silent',
+      state: 'sideways',
+      stateLabelKey: null,
+    })
+  })
+
   it('a till never seen is silent', () => {
     expect(tillSilent(till(null, { lastSeenAt: null, reportedAt: null }), AS_OF)).toBe(true)
   })
@@ -168,6 +181,21 @@ describe('the Tills words', () => {
 
 const hourOf = (link: Partial<LinkHour> | null): LinkHour | null =>
   link && { checks: 360, failed: 0, slow: 0, maxP95Ms: 120, unstableSeconds: 0, offlineSeconds: 0, ...link }
+
+// Code review of spec 4288 (finding 12): a figure the till did not send is a dash, never "0%" - a zero reads as a
+// perfect link.
+describe('tillFigureTexts', () => {
+  it('formats each figure with its unit, and a null one as a dash', () => {
+    expect(tillFigureTexts({ failPct: 7, slowPct: 0, p95Ms: 1840 })).toEqual({ fail: '7%', slow: '0%', p95: '1,840 ms' })
+    expect(tillFigureTexts({ failPct: null, slowPct: null, p95Ms: null })).toEqual({ fail: '–', slow: '–', p95: '–' })
+    expect(tillFigureTexts({ failPct: 3, slowPct: null, p95Ms: 0 })).toEqual({ fail: '3%', slow: '–', p95: '0 ms' })
+  })
+
+  it('the figures line carries no unit of its own, so a dash is never followed by one', () => {
+    expect(String(at(en, 'tills.figures'))).not.toMatch(/%|ms/)
+    expect(String(at(ar, 'tills.figures'))).not.toMatch(/%|ms/)
+  })
+})
 
 describe('tillHourCell', () => {
   it('reads an hour with no row as no data, never as healthy', () => {

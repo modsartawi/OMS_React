@@ -6,11 +6,12 @@
 //
 // It verifies, with 60 stores on both links (realistic names, morning trouble on some WAN lines, one chronic store
 // network, a few stores with no data):
-//   1. today on WAN: the grid draws a row per store of the page, 24 hour columns, the hours not reached yet empty;
-//      worst first; a chronic badge; a cell names the tills hit;
-//   2. the Store toggle asks link=STORE and redraws;
+//   1. today on both links (the default since the code review of spec 4288, finding 13 - a Both cell is the worse of
+//      the two links that store-hour): the grid draws a row per store of the page, 24 hour columns, the hours not
+//      reached yet empty; worst first; a chronic badge; a cell names the tills hit;
+//   2. the WAN and Store toggles ask link=WAN / link=STORE and redraw;
 //   3. 7 days asks period=7d and draws seven day rows per store;
-//   4. the Needs attention tile asks show=attention, and the search asks q=;
+//   4. the Needs attention tile asks show=attention, and the search asks q= (a search that matches nothing says so);
 //   5. paging asks page=2;
 //   6. a store code links to its Tills tab;
 //   7. Arabic: right to left, no page errors;
@@ -100,9 +101,26 @@ STORES.push({ code: 'P077', description: 'Riyadh Al Yasmin Pharmacy (24h)', till
 function linkHealth(period, link, q, show, page, pageSize) {
   const days = period === '7d' ? DAYS : DAYS.slice(-1)
   const hours = days.flatMap((d, di) => Array.from({ length: di === days.length - 1 ? 13 : 24 }, (_, h) => hourStamp(d, h)))
-  seed = 4295 + (link === 'WAN' ? 0 : 7)
-  const all = STORES.map((s) => {
-    const cells = hours.map((hr) => cellFor(s.profile, link, hr.slice(0, 10), Number(hr.slice(11, 13)), s.tills))
+  const cellsOf = (one) => {
+    seed = 4295 + (one === 'WAN' ? 0 : 7)
+    return STORES.map((s) => hours.map((hr) => cellFor(s.profile, one, hr.slice(0, 10), Number(hr.slice(11, 13)), s.tills)))
+  }
+  // Both: the door's rollup over both links' rows - checks summed, each hour's worst minutes and p95 kept.
+  const worse = (a, b) => !a ? b : !b ? a : {
+    checks: a.checks + b.checks, failed: a.failed + b.failed, slow: a.slow + b.slow,
+    failPct: Math.round(((a.failed + b.failed) * 100) / (a.checks + b.checks)), slowPct: Math.round(((a.slow + b.slow) * 100) / (a.checks + b.checks)),
+    maxP95Ms: Math.max(a.maxP95Ms, b.maxP95Ms), unstableSeconds: Math.max(a.unstableSeconds, b.unstableSeconds),
+    offlineSeconds: Math.max(a.offlineSeconds, b.offlineSeconds), tillsReporting: Math.max(a.tillsReporting, b.tillsReporting),
+    tillsAffected: Math.max(a.tillsAffected, b.tillsAffected),
+  }
+  let byStore
+  if (link === 'both') {
+    const wan = cellsOf('WAN')
+    const store = cellsOf('STORE')
+    byStore = wan.map((cells, i) => cells.map((c, h) => worse(c, store[i][h])))
+  } else byStore = cellsOf(link)
+  const all = STORES.map((s, i) => {
+    const cells = byStore[i]
     const bad = cells.filter((c) => c && (c.unstableSeconds > 0 || c.offlineSeconds > 0))
     const last8 = cells.slice(-8).filter((c) => c && (c.unstableSeconds > 0 || c.offlineSeconds > 0)).length
     const noData = cells.every((c) => c === null)
@@ -121,7 +139,7 @@ function linkHealth(period, link, q, show, page, pageSize) {
     .filter((s) => !q || s.code.toLowerCase().includes(q.toLowerCase()) || s.description.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => Number(a.noData) - Number(b.noData) || b.troubledHours - a.troubledHours || b.offlineMinutes - a.offlineMinutes || (a.code < b.code ? -1 : 1))
   const inView = (s, v) => v === 'attention' ? s.needsAttention : v === 'troubled' ? s.troubledHours > 0
-    : v === 'healthy' ? !s.noData && s.troubledHours === 0 : v === 'noData' ? s.noData : true
+    : v === 'healthy' ? !s.noData && s.troubledHours === 0 && s.silentTills === 0 : v === 'noData' ? s.noData : true
   const shown = all.filter((s) => inView(s, show))
   const counts = Object.fromEntries(['all', 'attention', 'troubled', 'healthy', 'noData'].map((v) => [v, all.filter((s) => inView(s, v)).length]))
   return { asOf: AS_OF, period, link, hours, total: shown.length, page, pageSize, counts,
@@ -181,7 +199,17 @@ try {
       check('today: worst first (troubled stores lead, no trouble after)', /unstable or offline/.test(firstTotals ?? '') && /No trouble|No data/.test(lastTotals ?? ''), `${first}: ${firstTotals}`)
       check('today: the hours not reached are empty', (await page.locator('[data-link-cell="future"]').count()) === 50 * 11)
       check('today: a cell names the tills hit', (await page.locator('[data-link-affected]:not([data-link-affected="0"])').count()) > 0)
-      check('asks WAN today first', asked[0]?.includes('period=today') && asked[0]?.includes('link=WAN'), asked[0])
+      check('asks both links today first', asked[0]?.includes('period=today') && asked[0]?.includes('link=both'), asked[0])
+      check('the Both choice is pressed', (await page.locator('[data-link-toggle]').getAttribute('data-link-toggle')) === 'both')
+      const silentStore = page.locator('[data-link-totals="P044"]')
+      check('a store with a silent till never reads "No trouble"',
+        (await silentStore.count()) === 1 && !/No trouble/.test((await silentStore.textContent()) ?? ''))
+      await page.screenshot({ path: `${SHOTS}/today-both-en.png`, fullPage: true })
+
+      await page.locator('[data-link-choice="WAN"]').click()
+      await page.waitForFunction(() => document.querySelector('[data-link-toggle]')?.getAttribute('data-link-toggle') === 'WAN')
+      await page.waitForTimeout(400)
+      check('the WAN toggle asks link=WAN', asked.some((a) => a.includes('link=WAN')))
       await page.screenshot({ path: `${SHOTS}/today-wan-en.png`, fullPage: true })
 
       await page.locator('[data-link-choice="STORE"]').click()
@@ -211,6 +239,9 @@ try {
       await page.waitForTimeout(800)
       check('the search asks q=', asked.some((a) => a.includes('q=P077')))
       check('the search narrows the rows', (await page.locator('[data-link-store]').count()) === 1)
+      await page.locator('[data-link-search] input, input[data-link-search]').first().fill('ZZZ9')
+      await page.waitForTimeout(800)
+      check('a search that matches nothing says so', (await page.locator('[data-link-empty="links.emptyText.search"]').count()) === 1)
       await page.locator('[data-link-search] input, input[data-link-search]').first().fill('')
       await page.waitForTimeout(800)
 

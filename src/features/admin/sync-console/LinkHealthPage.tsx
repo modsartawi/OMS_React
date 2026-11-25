@@ -26,18 +26,24 @@ import {
   LINK_HEALTH_LEGEND,
   attentionReasons,
   chronicBadge,
+  clampLinkHealthPage,
+  linkHealthEmptyKey,
   hourRows,
   linkHealthCell,
   linkHealthFigures,
   setLinkHealth,
+  storeTotalsKey,
   tillsReach,
   toggleView,
   type HourSlot,
   type LinkHealthFilter,
 } from './link-health-helpers'
 
-/** The page's two links, read apart: the telecom line to HQ and the store's own network. */
-const PAGE_LINKS = ['WAN', 'STORE'] as const
+/**
+ * Both links first (the default, as the fleet's "Link unstable" tile counts both), then each read apart: the telecom
+ * line to HQ and the store's own network.
+ */
+const PAGE_LINKS = ['both', 'WAN', 'STORE'] as const
 
 /** The search box waits this long after the last keystroke before it asks the door (the Fleet page's). */
 const SEARCH_DEBOUNCE_MS = 300
@@ -49,7 +55,7 @@ const LABEL_EVERY = 3
  * The fleet "Link health" page (spec 4288, BackOffice 4295): which stores' links were unstable, when in the day, and on
  * which link — without opening each store. One read of `ActionSync/Fleet/LinkHealth`, polled on the console's cadence.
  *
- * - The WAN / Store toggle reads the telecom line and the store network apart; today / 7 days switches the period
+ * - The Both / WAN / Store toggle reads both links (a cell is the worse of the two) or each apart; today / 7 days switches the period
  *   (7 days draws a day-by-hour strip per store, so a time-of-day pattern lines up).
  * - Each cell is a store-hour, coloured by the till drill-in's own rule; a number in it is how many tills were hit.
  * - The summary tiles (all, needs attention, …) and the search are the door's parameters: it filters and pages.
@@ -73,6 +79,12 @@ export default function LinkHealthPage() {
 
   const query = useQuery({ ...fleetLinkHealthQuery(filter), placeholderData: keepPreviousData })
   const d = query.isError ? undefined : query.data
+
+  // A refresh that shrank the view can leave the page past its end: go to the last page that exists.
+  const clampTo = d ? clampLinkHealthPage(d) : null
+  useEffect(() => {
+    if (clampTo != null) setFilter((f) => (f.page === clampTo ? f : setLinkHealth(f, { page: clampTo })))
+  }, [clampTo])
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-link-health="">
@@ -145,7 +157,7 @@ export default function LinkHealthPage() {
 
       {query.isError && <ErrorBanner className="p-3" message={apiErrorMessage(query.error, t('links.failed'))} />}
       {query.isPending && <Loading label={t('links.loading')} />}
-      {d && <Grid d={d} />}
+      {d && <Grid d={d} filter={filter} />}
       {d && <Pager d={d} onPage={(page) => setFilter((f) => setLinkHealth(f, { page }))} />}
 
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label={t('links.legend')} data-link-legend="">
@@ -166,9 +178,14 @@ export default function LinkHealthPage() {
 }
 
 /** The grid: an hour header, then one block per store — its label, then its day row(s) of 24 hour cells. */
-function Grid({ d }: { d: FleetLinkHealth }) {
+function Grid({ d, filter }: { d: FleetLinkHealth; filter: LinkHealthFilter }) {
   const { t } = useTranslation('sync-console')
-  if (d.items.length === 0) return <p className="text-sm text-muted-foreground">{t('links.empty')}</p>
+  if (d.items.length === 0)
+    return (
+      <p className="text-sm text-muted-foreground" data-link-empty={linkHealthEmptyKey(filter, d.counts)}>
+        {t(linkHealthEmptyKey(filter, d.counts))}
+      </p>
+    )
   const week = d.period === '7d'
   return (
     <div
@@ -241,6 +258,7 @@ function StoreLabel({ store }: { store: LinkHealthStore }) {
   const { t } = useTranslation('sync-console')
   const chronic = chronicBadge(store.cells)
   const reasons = attentionReasons(store).filter((r) => r.key !== 'links.reasons.chronic')
+  const totalsKey = storeTotalsKey(store)
   return (
     <div className="flex min-w-0 flex-col gap-0.5" data-link-store={store.code} data-link-attention={store.needsAttention}>
       <div className="flex min-w-0 items-center gap-2">
@@ -270,16 +288,12 @@ function StoreLabel({ store }: { store: LinkHealthStore }) {
           </span>
         ))}
       </div>
-      <span className="text-[11px] text-muted-foreground" data-link-totals={store.code}>
-        {store.noData
-          ? t('links.noData')
-          : store.troubledHours === 0
-            ? t('links.healthy', { reporting: fsi(figure(store.tillsReporting)) })
-            : t('links.totals', {
-                troubled: fsi(figure(store.troubledHours)),
-                affected: fsi(figure(store.tillsAffected)),
-                reporting: fsi(figure(store.tillsReporting)),
-              })}
+      <span className="text-[11px] text-muted-foreground" data-link-totals={store.code} data-link-totals-key={totalsKey}>
+        {t(totalsKey, {
+          troubled: fsi(figure(store.troubledHours)),
+          affected: fsi(figure(store.tillsAffected)),
+          reporting: fsi(figure(store.tillsReporting)),
+        })}
       </span>
     </div>
   )

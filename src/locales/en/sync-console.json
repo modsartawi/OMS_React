@@ -2000,7 +2000,11 @@
     "subtitle": "Which stores' links were unstable, when in the day, and on which link, from what each till reported. Read only: nobody is notified.",
     "loading": "Reading the fleet's link health…",
     "failed": "The fleet's link health could not be read.",
-    "empty": "No store in the fleet.",
+    "emptyText": {
+      "search": "No store matches this search.",
+      "view": "No store in this view.",
+      "fleet": "No store in the fleet."
+    },
     "readAt": "Read at <at>{{at}}</at>",
     "linkLabel": "Link",
     "links": {
@@ -2019,6 +2023,7 @@
     "totals": "{{troubled}} h unstable or offline · {{affected}} of {{reporting}} tills hit",
     "healthy": "No trouble · {{reporting}} tills reporting",
     "noData": "No data: no till reported",
+    "notReporting": "Not reporting now · {{reporting}} tills reported earlier",
     "chronic": "Unstable {{troubled}} of the last {{of}} hours",
     "reach": {
       "some": "{{affected}} of {{reporting}} tills",
@@ -2067,7 +2072,7 @@
       "noData": "No data",
       "silent": "Not reporting"
     },
-    "figures": "<fail>{{fail}}%</fail> failed · <slow>{{slow}}%</slow> slow · p95 <p95>{{p95}} ms</p95>",
+    "figures": "<fail>{{fail}}</fail> failed · <slow>{{slow}}</slow> slow · p95 <p95>{{p95}}</p95>",
     "since": "since <at>{{at}}</at>",
     "localNote": "Main till: the store database is on this till",
     "lastReport": "last report: {{state}}, <at>{{at}}</at>",

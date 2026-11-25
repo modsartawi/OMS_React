@@ -12,7 +12,7 @@ import { formatFigure } from '@/core/util/number-format'
 import { MONO, formatTime } from './columns'
 import { rowKey } from './row-ids'
 import { itemHref } from './items-columns'
-import { fallbackNoteWord, takeCells, takeFallback } from './takes'
+import { fallbackNoteWord, takeCells, takeFallback, takeFallbackValue } from './takes'
 import WordOrRaw from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleTakeRow>
@@ -106,10 +106,7 @@ export function buildTakesColumns(t: TFunction, language: string, store: string)
       headerName: t('takes.column.fallback'),
       colId: 'fallback',
       width: 330,
-      valueGetter: (p) => {
-        const cell = p.data ? takeFallback(p.data) : null
-        return cell ? [t(cell.key), ...cell.batches].join(' ') : ''
-      },
+      valueGetter: (p) => (p.data ? takeFallbackValue(p.data, (key) => t(key)) : ''),
       cellRenderer: (p: Cell) => {
         const cell = p.data ? takeFallback(p.data) : null
         if (!cell) return null

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { StoreGates } from '@/core/models/store-stage'
 import Ltr from '@/core/ui/Ltr'
+import { fsi } from '@/core/util/bidi'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatDay } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
@@ -25,7 +26,7 @@ export default function RefusalDays({ gates }: { gates: StoreGates }) {
         {view.state && (
           <>
             {' '}
-            {t('refusalDays.state', { state: t(`fallback.state.${view.state}`, { defaultValue: view.state }) })}
+            {t('refusalDays.state', { state: fsi(t(`fallback.state.${view.state}`, { defaultValue: view.state })) })}
           </>
         )}
       </p>

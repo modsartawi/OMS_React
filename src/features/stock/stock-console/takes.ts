@@ -128,6 +128,18 @@ export function takeFallback(row: StockConsoleTakeRow): TakeFallbackCell | null 
   return note ? { key: 'takes.fallback.note', sev: 'bad', vendorBatch, batches: [], note } : null
 }
 
+/**
+ * The fallback cell as one value, for the grid's sort, filter, copy and export (review O6): the mark, the batches and the
+ * note, the note in the console's words when known, else as it came. Empty when the row has no fallback cell.
+ */
+export function takeFallbackValue(row: StockConsoleTakeRow, t: (key: string) => string): string {
+  const cell = takeFallback(row)
+  if (!cell) return ''
+  const note = cell.note ? fallbackNoteWord(cell.note) : null
+  const noteText = note ? ('key' in note ? t(note.key) : note.raw) : null
+  return [t(cell.key), ...cell.batches, ...(noteText ? [noteText] : [])].join(' ')
+}
+
 /** The day the Takes list reads: the address's, or today. */
 export function takesDay(state: SearchState, today: LocalDate): LocalDate {
   const day = state.extras.day ?? ''

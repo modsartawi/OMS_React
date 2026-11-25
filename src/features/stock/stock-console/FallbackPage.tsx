@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { GridApi } from 'ag-grid-community'
@@ -24,8 +24,9 @@ import ConsoleNav from './ConsoleNav'
 import {
   FALLBACK_MOST_DAYS,
   FALLBACK_TEXT_COLUMNS,
-  defaultFallbackDays,
+  fallbackBoxes,
   fallbackListFromParams,
+  fallbackListPress,
   fallbackListRead,
   fallbackListToParams,
 } from './fallback-list'
@@ -52,26 +53,37 @@ export default function FallbackPage() {
 
 function FallbackList() {
   const { t, i18n } = useTranslation('stock-console')
-  const { query: state, update } = useUrlQuery(fallbackListFromParams, fallbackListToParams)
+  const { query: state, update, changedFromOutside } = useUrlQuery(fallbackListFromParams, fallbackListToParams)
   // The reader's local day, taken once while the page is open: the boxes' default and the last day allowed.
   const today = useMemo(() => localToday(), [])
-  const [boxes, setBoxes] = useState(() => {
-    const days = defaultFallbackDays(today)
-    return { store: state.store, from: state.from || days.from, to: state.to || state.from || days.to }
-  })
+  const [boxes, setBoxes] = useState(() => fallbackBoxes(state, today))
+  // Review O5: Back or a pasted link resets the boxes to the address; the page's own Read keeps them.
+  useEffect(() => {
+    if (changedFromOutside()) setBoxes(fallbackBoxes(state, today))
+  }, [state, today, changedFromOutside])
   const decision = fallbackListRead(state, today)
   const read = useQuery(fallbackListQuery(decision))
   const data = decision.kind === 'read' ? read.data : undefined
   const store = decision.kind === 'read' ? decision.store : ''
   const columns = useMemo(() => buildFallbackListColumns(t, i18n.language, store), [t, i18n.language, store])
   const gridApi = useRef<GridApi<StockConsoleExpiryFallbackRow> | null>(null)
+  const onApi = useCallback((api: GridApi<StockConsoleExpiryFallbackRow> | null) => {
+    gridApi.current = api
+  }, [])
 
-  const press = () =>
-    update(() => ({ store: boxes.store.trim().toUpperCase(), from: boxes.from.trim(), to: boxes.to.trim(), ran: true }))
+  // Review O1: Read on the list already shown writes the same address, which reads nothing: re-read it instead.
+  const press = () => {
+    const { next, same } = fallbackListPress(state, boxes)
+    if (same) {
+      if (decision.kind === 'read') void read.refetch()
+      return
+    }
+    update(() => next)
+  }
 
   async function exportXlsx() {
     const api = gridApi.current
-    if (!api || !data) return
+    if (!api || !data || data.rows.length === 0) return
     try {
       const sheet = gridSheet(api, t('fallback.sheet'), { asText: (colId) => FALLBACK_TEXT_COLUMNS.has(colId) })
       await writeWorkbook(
@@ -129,7 +141,12 @@ function FallbackList() {
           {read.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           {t('fallback.read')}
         </Button>
-        <Button variant="outlined" disabled={!data} onClick={() => void exportXlsx()} data-fallback-export="">
+        <Button
+          variant="outlined"
+          disabled={!data || data.rows.length === 0}
+          onClick={() => void exportXlsx()}
+          data-fallback-export=""
+        >
           <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
           {t('fallback.export.button')}
         </Button>
@@ -137,7 +154,7 @@ function FallbackList() {
 
       {decision.kind === 'stopped' && (
         <p className="text-sm text-destructive" data-fallback-stopped={decision.problem}>
-          {t(`fallback.problem.${decision.problem}`, { most: FALLBACK_MOST_DAYS })}
+          {t(`fallback.problem.${decision.problem}`, { most: fsi(String(FALLBACK_MOST_DAYS)) })}
         </p>
       )}
       {decision.kind === 'nothing' && <p className="text-sm text-muted-foreground">{t('fallback.nothingYet')}</p>}
@@ -173,9 +190,7 @@ function FallbackList() {
               columns={columns}
               rowId={fallbackRowId}
               name="fallback"
-              onApi={(api) => {
-                gridApi.current = api
-              }}
+              onApi={onApi}
             />
           )}
         </section>

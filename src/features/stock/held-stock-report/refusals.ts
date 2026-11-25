@@ -84,13 +84,21 @@ export function refusalFiltersToParams(filters: RefusalFilters): URLSearchParams
   return qs
 }
 
+/**
+ * The tabs the expiry fallback filter applies to: the refusal log's (review O3). On Multi-batch and Last resort it does not
+ * apply: those sections are not the fallback's, and a filtered report answers them empty (BackOffice review B1).
+ */
+export const fallbackApplies = (tab: RefusalTab): boolean => tab === 'groups' || tab === 'rows'
+
 /** What the report read sends: the day (absent = today), the stores (absent = every open store) and the fallback filter
- * (BackOffice 4277; absent = every row). Kind, tab and drill are the screen's own: they never re-read. */
+ * (BackOffice 4277; absent = every row), on the refusal-log tabs only (`fallbackApplies`), so Multi-batch and Last resort
+ * read their whole sections. Kind and drill are the screen's own: they never re-read; the tab re-reads only while the
+ * fallback filter is on. */
 export function refusalQuery(filters: RefusalFilters): TakeRefusalReportQuery {
   return {
     ...(filters.day ? { day: filters.day } : {}),
     ...(filters.stores ? { stores: filters.stores } : {}),
-    ...(filters.fallback ? { fallback: true } : {}),
+    ...(filters.fallback && fallbackApplies(filters.tab) ? { fallback: true } : {}),
   }
 }
 

@@ -79,6 +79,34 @@ export const defaultFallbackDays = (today: LocalDate): { from: LocalDate; to: Lo
   to: today,
 })
 
+/** The Read form's boxes, drafts until Read. */
+export interface FallbackBoxes {
+  store: string
+  from: string
+  to: string
+}
+
+/**
+ * The boxes for an address: its store and days, the last 7 days where it gives none. The page's first boxes, and what
+ * they reset to when the address changes from outside (Back, a pasted link: review O5).
+ */
+export function fallbackBoxes(state: FallbackListState, today: LocalDate): FallbackBoxes {
+  const days = defaultFallbackDays(today)
+  return { store: state.store, from: state.from || days.from, to: state.to || state.from || days.to }
+}
+
+/**
+ * Read pressed: the address it writes, and whether that is the list already shown (review O1). The same address changes
+ * nothing, so the page re-reads the list itself instead.
+ */
+export function fallbackListPress(
+  shown: FallbackListState,
+  boxes: FallbackBoxes,
+): { next: FallbackListState; same: boolean } {
+  const next = { store: boxes.store.trim().toUpperCase(), from: boxes.from.trim(), to: boxes.to.trim(), ran: true }
+  return { next, same: fallbackListToParams(next).toString() === fallbackListToParams(shown).toString() }
+}
+
 /** The days read, for the file name and the heading: one day, or the range. */
 export const fallbackDaysCount = (from: LocalDate, to: LocalDate): number => windowDays(from, to) ?? 0
 

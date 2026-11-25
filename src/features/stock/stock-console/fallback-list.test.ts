@@ -11,7 +11,9 @@ import {
   FALLBACK_MOST_DAYS,
   fallbackListFromParams,
   fallbackListRead,
+  fallbackListPress,
   fallbackListToParams,
+  fallbackBoxes,
   fallbackTakesHref,
 } from './fallback-list'
 
@@ -74,5 +76,32 @@ describe('its address', () => {
     expect(fallbackTakesHref('P077', '2026-11-20', '2026-11-25')).toBe(
       '/stock/console/fallback?store=P077&from=2026-11-20&to=2026-11-25&ran=1',
     )
+  })
+})
+
+describe('Read (review O1, O5)', () => {
+  const shown = { store: 'P077', from: '2026-11-20', to: '2026-11-25', ran: true }
+
+  it('pressed on the list already shown, it says so, so the page re-reads instead of writing the same address', () => {
+    expect(fallbackListPress(shown, { store: ' p077 ', from: '2026-11-20', to: '2026-11-25' })).toEqual({ next: shown, same: true })
+    expect(fallbackListPress(shown, { store: 'P077', from: '2026-11-21', to: '2026-11-25' })).toEqual({
+      next: { ...shown, from: '2026-11-21' },
+      same: false,
+    })
+    expect(fallbackListPress({ ...shown, ran: false }, { store: 'P077', from: '2026-11-20', to: '2026-11-25' }).same).toBe(false)
+  })
+
+  it('the boxes are the address’s values, the last 7 days where it gives none: what Back or a pasted link resets them to', () => {
+    expect(fallbackBoxes(shown, TODAY)).toEqual({ store: 'P077', from: '2026-11-20', to: '2026-11-25' })
+    expect(fallbackBoxes({ store: '', from: '2026-11-22', to: '', ran: false }, TODAY)).toEqual({
+      store: '',
+      from: '2026-11-22',
+      to: '2026-11-22',
+    })
+    expect(fallbackBoxes({ store: '', from: '', to: '', ran: false }, TODAY)).toEqual({
+      store: '',
+      from: '2026-11-19',
+      to: '2026-11-25',
+    })
   })
 })

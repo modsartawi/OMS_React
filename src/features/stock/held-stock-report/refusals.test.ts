@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { TakeRefusalGroup, TakeRefusalReport, TakeRefusalRow } from '@/core/models/held-stock-report'
 import {
   REFUSAL_DEFAULTS,
+  REFUSAL_TABS,
   drillIntoGroup,
+  fallbackApplies,
   groupsShown,
   refusalFiltersFromParams,
   refusalFiltersToParams,
@@ -136,6 +138,15 @@ describe('the expiry fallback filter (BackOffice 4277, spec 4275)', () => {
     expect(refusalFiltersToParams(on).toString()).toBe('day=2026-11-24&fallback=1')
     expect(refusalQuery(on)).toEqual({ day: '2026-11-24', fallback: true })
     expect(refusalQuery(REFUSAL_DEFAULTS)).toEqual({})
+  })
+
+  it('applies to the refusal-log tabs only: on Multi-batch and Last resort the read leaves it out (review O3, B1)', () => {
+    const on = { ...REFUSAL_DEFAULTS, day: '2026-11-24', fallback: true }
+    expect(REFUSAL_TABS.filter(fallbackApplies)).toEqual(['groups', 'rows'])
+    expect(refusalQuery({ ...on, tab: 'groups' })).toEqual({ day: '2026-11-24', fallback: true })
+    expect(refusalQuery({ ...on, tab: 'rows' })).toEqual({ day: '2026-11-24', fallback: true })
+    expect(refusalQuery({ ...on, tab: 'multiBatch' })).toEqual({ day: '2026-11-24' })
+    expect(refusalQuery({ ...on, tab: 'lastResort' })).toEqual({ day: '2026-11-24' })
   })
 
   it('a log row shows the pack’s vendor batch and the batch the fallback would have chosen, with its quantity', () => {

@@ -480,6 +480,8 @@ function ExpiryFallbackSection({ stage, canChange }: { stage: StoreStage; canCha
       setTo('')
       setWhy('')
       void queryClient.invalidateQueries({ queryKey: fallbackKey(stage.store) })
+      // Review O2: the gates answer carries the store's fallback state and its per-day figures (RefusalDays).
+      void queryClient.invalidateQueries({ queryKey: gatesKey(stage.store) })
     },
   })
   const commit = fallbackCommit({ stage: stage.stage, current: view.state, to, why, pending: change.isPending })
@@ -587,9 +589,13 @@ function ExpiryFallbackSection({ stage, canChange }: { stage: StoreStage; canCha
                     <Ltr>{formatDateTime(c.changedAt)}</Ltr>
                   </td>
                   <td className={TD}>{t('log.fromTo', { from: fsi(stateLabel(c.from)), to: fsi(stateLabel(c.to)) })}</td>
-                  <td className={TD}>{c.whoName || c.who}</td>
+                  {/* Review O7 (.claude/rules/bidi.md): a person's name and the reason are free text (<bdi>); the user
+                      id shown when no name is known is a code (Ltr). */}
+                  <td className={TD}>{c.whoName ? <bdi>{c.whoName}</bdi> : <Ltr>{c.who}</Ltr>}</td>
                   {/* Free text wraps inside the sheet (TD is nowrap, and two whitespace utilities do not order). */}
-                  <td className="px-2 py-1.5 align-top break-words">{c.why}</td>
+                  <td className="px-2 py-1.5 align-top break-words">
+                    <bdi>{c.why}</bdi>
+                  </td>
                 </tr>
               ))}
             </tbody>

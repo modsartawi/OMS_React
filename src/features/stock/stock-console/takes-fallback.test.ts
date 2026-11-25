@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StockConsoleTakeRow } from '@/core/models/stock-console'
 import { searchFromParams, wireParams } from './search'
-import { TAKES_LIST, failedNotSearchable, fallbackNoteWord, fallbackOnly, takeFallback } from './takes'
+import { TAKES_LIST, failedNotSearchable, fallbackNoteWord, fallbackOnly, takeFallback, takeFallbackValue } from './takes'
 
 const state = (qs: string) => searchFromParams(new URLSearchParams(qs), TAKES_LIST)
 
@@ -99,6 +99,23 @@ describe('the fallback note', () => {
   it('a known note is said in the console’s words; an unknown one as it came', () => {
     expect(fallbackNoteWord('ScannedDateDisagrees')).toEqual({ key: 'takes.fallbackNote.ScannedDateDisagrees' })
     expect(fallbackNoteWord('SomethingNew')).toEqual({ raw: 'SomethingNew' })
+  })
+})
+
+describe('the fallback cell’s value (sort, filter, copy and export; review O6)', () => {
+  const t = (key: string) => `<${key}>`
+
+  it('is the mark, the batches and the note, the note in the console’s words when known, else as it came', () => {
+    expect(takeFallbackValue(take({ kind: 'refused', fallbackNote: 'ScannedDateDisagrees' }), t)).toBe(
+      '<takes.fallback.note> <takes.fallbackNote.ScannedDateDisagrees>',
+    )
+    expect(
+      takeFallbackValue(take({ kind: 'refused', fallbackBatch: 'FB1', fallbackQuantity: 2, fallbackNote: 'SomethingNew' }), t),
+    ).toBe('<takes.fallback.wouldBe> FB1 · 2 SomethingNew')
+    expect(takeFallbackValue(take({ kind: 'refused', fallbackBatch: 'FB1', fallbackQuantity: 2 }), t)).toBe(
+      '<takes.fallback.wouldBe> FB1 · 2',
+    )
+    expect(takeFallbackValue(take({ kind: 'failed' }), t)).toBe('')
   })
 })
 

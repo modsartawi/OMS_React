@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/store-stages.json'
 import ar from '@/locales/ar/store-stages.json'
 import { CONFIRMATION_NAMES, GATE_NAMES, MOVERS, STAGE_COLUMN_IDS } from './columns'
-import { STAGES } from '@/core/models/store-stage'
+import { EXPIRY_FALLBACK_STATES, STAGES } from '@/core/models/store-stage'
 
 /** Every leaf key, dotted. */
 function leaves(node: unknown, prefix = ''): string[] {
@@ -36,6 +36,8 @@ describe('store-stages — the keys the code builds exist', () => {
       // Ticket 4261: every gate toward Blocking and every confirmation a move to Blocking names.
       ...GATE_NAMES.map((g) => `gate.${g}`),
       ...CONFIRMATION_NAMES.map((c) => `confirm.${c}`),
+      // Ticket 4276: every expiry fallback state, its label and the one line saying what it does.
+      ...EXPIRY_FALLBACK_STATES.flatMap((f) => [`fallback.state.${f}`, `fallback.does.${f}`]),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

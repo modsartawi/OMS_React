@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { StoreCountRow, StoreGate, StoreGates, StoreSeedStatus, StoreStage } from '@/core/models/store-stage'
 import {
   STAGES_DEFAULTS,
+  EXPIRY_FALLBACK_STATES,
   WHY_MAX,
   blockingCheck,
+  expiryFallbackView,
+  fallbackChoices,
+  fallbackCommit,
+  fallbackRequest,
   figureLines,
   gatesApart,
   moveRequest,
@@ -319,6 +324,62 @@ describe('the move to Blocking', () => {
     expect(moveRequest({ to: 'Shadow', why: ' back ', gates, confirmed: ['StoreTills'], waived: ['SapCount'], canWaive: true })).toEqual({
       stage: 'Shadow',
       why: 'back',
+    })
+  })
+})
+
+// BackOffice ticket 4276 (spec 4275, ADR 0146, SIS.Stock 082): the store sheet shows the store's expiry fallback state and,
+// for a counted store and a holder of the move grant, offers the three states with a required reason. A store that is not
+// counted shows its state greyed: the state has an effect only while the store is Seeded or Blocking.
+describe('the expiry fallback on the store sheet', () => {
+  const answer = (state: string) => ({ store: 'P077', state, changes: [] })
+
+  it('shows the state Stock Visibility answers, Off before it answers', () => {
+    expect(expiryFallbackView({ stage: 'Seeded', fallback: answer('Record') })).toEqual({
+      state: 'Record',
+      counted: true,
+      greyed: false,
+    })
+    expect(expiryFallbackView({ stage: 'Blocking', fallback: answer('On') }).state).toBe('On')
+    expect(expiryFallbackView({ stage: 'Seeded', fallback: null }).state).toBe('Off')
+  })
+
+  it('greys the state of a store that is not counted', () => {
+    for (const stage of ['Shadow', 'Seeding'])
+      expect(expiryFallbackView({ stage, fallback: answer('Record') })).toEqual({
+        state: 'Record',
+        counted: false,
+        greyed: true,
+      })
+  })
+
+  it('offers the three states only for a counted store, and only with the move grant', () => {
+    expect(EXPIRY_FALLBACK_STATES).toEqual(['Off', 'Record', 'On'])
+    expect(fallbackChoices({ stage: 'Seeded', canChange: true })).toEqual(['Off', 'Record', 'On'])
+    expect(fallbackChoices({ stage: 'Blocking', canChange: true })).toEqual(['Off', 'Record', 'On'])
+    expect(fallbackChoices({ stage: 'Shadow', canChange: true })).toEqual([])
+    expect(fallbackChoices({ stage: 'Seeding', canChange: true })).toEqual([])
+    expect(fallbackChoices({ stage: 'Seeded', canChange: false })).toEqual([])
+  })
+
+  it('needs a reason, a state the store does not already have, and a counted store', () => {
+    const base = { stage: 'Seeded', current: 'Off', to: 'Record', why: 'Read the fallback on live takes', pending: false }
+    expect(fallbackCommit(base)).toEqual({ canCommit: true, tooLong: false })
+    expect(fallbackCommit({ ...base, why: '' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, why: '   ' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, why: 'x'.repeat(WHY_MAX + 1) })).toEqual({ canCommit: false, tooLong: true })
+    expect(fallbackCommit({ ...base, why: 'x'.repeat(WHY_MAX) }).canCommit).toBe(true)
+    expect(fallbackCommit({ ...base, to: 'Off' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, to: '' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, to: 'Sideways' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, stage: 'Shadow' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, pending: true }).canCommit).toBe(false)
+  })
+
+  it('sends the state chosen and the reason trimmed; who is the signed-in user, never sent', () => {
+    expect(fallbackRequest({ to: 'On', why: '  P077 read clean for three days  ' })).toEqual({
+      state: 'On',
+      why: 'P077 read clean for three days',
     })
   })
 })

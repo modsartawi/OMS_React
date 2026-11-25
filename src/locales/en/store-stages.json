@@ -171,6 +171,45 @@
       "Reopened": "Opened again: sales still on their way to SAP"
     }
   },
+  "fallback": {
+    "title": "Expiry fallback",
+    "hint": "A scanned pack whose own batch is empty may go on a batch of the same expiry with no vendor batch. Stock Visibility decides; this sets the store's state.",
+    "state": {
+      "Off": "Off",
+      "Record": "Record",
+      "On": "On"
+    },
+    "does": {
+      "Off": "Off: the take door answers as today.",
+      "Record": "Record: the door answers as today, and a refused pack's row names the batch the fallback would have chosen.",
+      "On": "On: the pack is placed on that batch and the take is marked."
+    },
+    "onNeedsWorker": "Set On only once the batch worker change is live: until then a fallback sale is booked on the pack's own batch and the door oversells.",
+    "notCounted": "No effect while the store is {{stage}}: the fallback applies only to a counted store (Seeded or Blocking).",
+    "loading": "Reading the state…",
+    "failedTitle": "The state could not be read",
+    "failed": "Stock Visibility did not answer. Try again in a moment.",
+    "to": "New state",
+    "toPlaceholder": "Choose a state",
+    "why": "Why",
+    "whyPlaceholder": "The reason, kept in the state's log",
+    "tooLong": "The reason is longer than {{max}} characters.",
+    "commit": "Set",
+    "committing": "Setting…",
+    "refusedTitle": "The change was refused",
+    "changeFailed": "The state could not be changed. Try again in a moment.",
+    "done": {
+      "title": "Expiry fallback set",
+      "detail": "{{store}} is now {{state}}."
+    },
+    "changes": {
+      "title": "Changes",
+      "changedAt": "When",
+      "change": "Change",
+      "who": "Who",
+      "why": "Why"
+    }
+  },
   "gates": {
     "title": "Gates toward Blocking",
     "hint": "Measured now by Stock Visibility, as a move to Blocking would measure them. The store's own proof always refuses when it fails; a failing fleet gate may be waived by name.",

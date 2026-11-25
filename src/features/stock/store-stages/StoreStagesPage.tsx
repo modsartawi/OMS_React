@@ -7,7 +7,7 @@ import { ArrowRightLeft, Ban, ClipboardList, Loader2, Lock, RefreshCw, RotateCcw
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { STAGES, type StoreCountRow, type StoreGate, type StoreGates, type StoreStage } from '@/core/models/store-stage'
+import { EXPIRY_FALLBACK_STATES, STAGES, type StoreCountRow, type StoreGate, type StoreGates, type StoreStage } from '@/core/models/store-stage'
 import { notify } from '@/core/services/notify'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
@@ -21,6 +21,7 @@ import Select from '@/core/ui/Select'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import StatusBadge from '@/core/ui/StatusBadge'
+import type { Severity } from '@/core/ui/severity'
 import Textarea from '@/core/ui/Textarea'
 import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { useUrlQuery } from '@/core/ui/use-url-query'
@@ -41,6 +42,10 @@ import {
   cancelCommit,
   countOf,
   countState,
+  expiryFallbackView,
+  fallbackChoices,
+  fallbackCommit,
+  fallbackRequest,
   localDay,
   moveCommit,
   personMovesFrom,
@@ -61,6 +66,9 @@ const COUNTS_KEY = ['oms', 'store-stages', 'counts'] as const
 const releasesKey = (store: string) => ['oms', 'store-stages', 'releases', store] as const
 const seedKey = (store: string) => ['oms', 'store-stages', 'seed', store] as const
 const gatesKey = (store: string) => ['oms', 'store-stages', 'gates', store] as const
+const fallbackKey = (store: string) => ['oms', 'store-stages', 'expiry-fallback', store] as const
+/** The expiry fallback state's badge (ticket 4276): On places packs, Record only reads. */
+const FALLBACK_SEVERITY: Record<string, Severity> = { Off: 'mute', Record: 'go', On: 'ok' }
 /** How often the Count section reads a running seed. */
 const SEED_POLL_MS = 4000
 
@@ -262,6 +270,7 @@ function StoreSheet({
             onRefresh={() => void gates.refetch()}
           />
         )}
+        <ExpiryFallbackSection stage={stage} canChange={canMove} />
         {canMove && (
           <MoveForm
             stage={stage}
@@ -434,6 +443,159 @@ function MoveForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+/**
+ * BackOffice ticket 4276 (spec 4275 user story 20, ADR 0146): the store's expiry fallback state as Stock Visibility keeps it,
+ * what each state does in one line, and — for a counted store and a holder of `StoreStage:02` — the change, with a required
+ * reason. A store that is not counted shows its state greyed, and why. The server checks the grant and the reason again;
+ * Stock Visibility decides the rest.
+ */
+function ExpiryFallbackSection({ stage, canChange }: { stage: StoreStage; canChange: boolean }) {
+  const { t } = useTranslation('store-stages')
+  const queryClient = useQueryClient()
+  const read = useQuery({
+    queryKey: fallbackKey(stage.store),
+    queryFn: () => storeStageApi.expiryFallback(stage.store),
+    retry: false,
+  })
+  const [to, setTo] = useState('')
+  const [why, setWhy] = useState('')
+  const inFlight = useRef(false)
+  const view = expiryFallbackView({ stage: stage.stage, fallback: read.data })
+  const choices = fallbackChoices({ stage: stage.stage, canChange })
+  const stateLabel = (s: string) => t(`fallback.state.${s}`, { defaultValue: s })
+  const change = useMutation({
+    mutationFn: () => storeStageApi.setExpiryFallback(stage.store, fallbackRequest({ to, why })),
+    onSettled: () => {
+      inFlight.current = false
+    },
+    onSuccess: (changed) => {
+      notify.success(
+        t('fallback.done.title'),
+        t('fallback.done.detail', { store: fsi(stage.store), state: fsi(stateLabel(changed?.state ?? to)) }),
+      )
+      setTo('')
+      setWhy('')
+      void queryClient.invalidateQueries({ queryKey: fallbackKey(stage.store) })
+    },
+  })
+  const commit = fallbackCommit({ stage: stage.stage, current: view.state, to, why, pending: change.isPending })
+  const changes = read.data?.changes ?? []
+  const shown = !read.isPending && !read.isError
+
+  return (
+    <section
+      className={`flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/40 p-3${view.greyed ? ' opacity-60' : ''}`}
+      data-stage-fallback={shown ? view.state : read.isPending ? 'reading' : 'none'}
+      data-stage-fallback-greyed={view.greyed ? '' : undefined}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{t('fallback.title')}</h3>
+        {shown && (
+          <StatusBadge sev={view.greyed ? 'mute' : (FALLBACK_SEVERITY[view.state] ?? 'mute')}>{stateLabel(view.state)}</StatusBadge>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">{t('fallback.hint')}</p>
+      {read.isError && (
+        <ErrorBanner className="p-2.5" title={t('fallback.failedTitle')} message={apiErrorMessage(read.error, t('fallback.failed'))} />
+      )}
+      {read.isPending && <p className="text-sm text-muted-foreground">{t('fallback.loading')}</p>}
+      {view.greyed && (
+        <p className="text-[0.8125rem] text-muted-foreground" data-stage-fallback-not-counted="">
+          {t('fallback.notCounted', { stage: fsi(stageLabel(t, stage.stage)) })}
+        </p>
+      )}
+      <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+        {EXPIRY_FALLBACK_STATES.map((f) => (
+          <li key={f} className={shown && f === view.state ? 'font-semibold text-foreground' : undefined}>
+            {t(`fallback.does.${f}`)}
+          </li>
+        ))}
+      </ul>
+      {choices.length > 0 && shown && (
+        <form
+          className="flex flex-col gap-2.5 border-t border-border/40 pt-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (inFlight.current || !commit.canCommit) return
+            inFlight.current = true
+            change.mutate()
+          }}
+          data-stage-fallback-change=""
+        >
+          <Field id="store-fallback-to" label={t('fallback.to')}>
+            <Select value={to} onChange={(e) => setTo(e.target.value)} disabled={change.isPending} className="w-full" required>
+              <option value="">{t('fallback.toPlaceholder')}</option>
+              {choices.map((f) => (
+                <option key={f} value={f} disabled={f === view.state}>
+                  {stateLabel(f)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {to === 'On' && (
+            <p className="text-xs text-attention-800" data-stage-fallback-on-needs-worker="">
+              {t('fallback.onNeedsWorker')}
+            </p>
+          )}
+          <Field id="store-fallback-why" label={t('fallback.why')}>
+            <Textarea
+              value={why}
+              onChange={(e) => setWhy(e.target.value)}
+              disabled={change.isPending}
+              rows={2}
+              placeholder={t('fallback.whyPlaceholder')}
+              className="w-full"
+              required
+            />
+          </Field>
+          {commit.tooLong && <p className="text-xs text-attention-800">{t('fallback.tooLong', { max: fsi(String(WHY_MAX)) })}</p>}
+          {change.isError && (
+            <ErrorBanner
+              className="p-2.5"
+              title={t('fallback.refusedTitle')}
+              message={apiErrorMessage(change.error, t('fallback.changeFailed'))}
+            />
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary" disabled={!commit.canCommit} data-stage-fallback-commit="">
+              {change.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+              {change.isPending ? t('fallback.committing') : t('fallback.commit')}
+            </Button>
+          </div>
+        </form>
+      )}
+      {changes.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-border/40 pt-2.5" data-stage-fallback-changes="">
+          <h4 className="text-[0.8125rem] font-semibold">{t('fallback.changes.title')}</h4>
+          <table className="w-full text-[0.8125rem]">
+            <thead className="text-xs text-muted-foreground">
+              <tr>
+                <th className={TH}>{t('fallback.changes.changedAt')}</th>
+                <th className={TH}>{t('fallback.changes.change')}</th>
+                <th className={TH}>{t('fallback.changes.who')}</th>
+                <th className={TH}>{t('fallback.changes.why')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {changes.map((c, i) => (
+                <tr key={`${c.changedAt}-${i}`} className="border-t border-border/40">
+                  <td className={`${TD} tabular-nums`}>
+                    <Ltr>{formatDateTime(c.changedAt)}</Ltr>
+                  </td>
+                  <td className={TD}>{t('log.fromTo', { from: fsi(stateLabel(c.from)), to: fsi(stateLabel(c.to)) })}</td>
+                  <td className={TD}>{c.whoName || c.who}</td>
+                  {/* Free text wraps inside the sheet (TD is nowrap, and two whitespace utilities do not order). */}
+                  <td className="px-2 py-1.5 align-top break-words">{c.why}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

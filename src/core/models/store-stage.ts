@@ -83,6 +83,43 @@ export interface StoreGates {
 }
 
 /**
+ * BackOffice ticket 4276 (spec 4275, ADR 0146, SIS.Stock 082): a store's expiry fallback state. `Off` answers as today;
+ * `Record` answers as today and a refused scanned pack's row names the batch the fallback would have chosen; `On` places
+ * the pack on that batch. It has an effect only while the store is counted (Seeded or Blocking).
+ *
+ * - `GET StoreStage/{store}/ExpiryFallback` → the state and its changes, newest first (`BackOfficeScreen[StoreStage, 03]`).
+ * - `POST StoreStage/{store}/ExpiryFallback` `{ state, why }` → the state after the change (`BackOfficeScreen[StoreStage,
+ *   02]`, the screen's existing grant). Who is the signed-in user. A blank reason is refused before Stock Visibility is
+ *   asked; a store with no stage row, or a state it already has, is Stock Visibility's 400 `ExpiryFallbackRefused`.
+ */
+export const EXPIRY_FALLBACK_STATES = ['Off', 'Record', 'On'] as const
+export type ExpiryFallbackState = (typeof EXPIRY_FALLBACK_STATES)[number]
+
+/** One change of the state. `who` is the user id as logged; `whoName` the person's name from HQ's user directory. */
+export interface StoreExpiryFallbackChange {
+  store: string
+  from: string
+  to: string
+  who: string
+  whoName: string
+  why: string
+  changedAt: string
+}
+
+/** The store's state (read as a string, defensively) and its changes, newest first. */
+export interface StoreExpiryFallback {
+  store: string
+  state: string
+  changes: StoreExpiryFallbackChange[]
+}
+
+/** The change's body. */
+export interface StoreExpiryFallbackRequest {
+  state: string
+  why: string
+}
+
+/**
  * BackOffice ticket 3898, the count's closing — mirrored from `StoreCountRows.cs` / `StoreCountClosingService.cs`.
  *
  * - `GET StoreStage/Counts` → every store under count (its `StoreLastInventory` row) with the closing mark

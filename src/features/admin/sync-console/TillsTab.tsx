@@ -28,9 +28,10 @@ import {
 const tillId = (t: Till) => t.device
 
 /**
- * The Tills tab (spec 4288, BackOffice 4290): each till of the store, when it was last seen, and its WAN link's
- * verdict as the till itself judged it — so L1 can answer "is it the network?" without asking the store to run ping.
- * The store link's column fills in with ticket 4291; until then it reads "No data".
+ * The Tills tab (spec 4288, BackOffice 4290/4291): each till of the store, when it was last seen, and its WAN
+ * and store links' verdicts as the till itself judged them — so L1 can answer "is it the network?" without asking the
+ * store to run ping. The store link (BackOffice 4291) is a secondary till's path to the main till; the main till's own
+ * store link reads "Local" with a note saying why. A till on a build before 4291 reads "No data" in the store column.
  *
  * A till on an older build reports nothing and reads "No data", never "Online"; a till that stopped reporting shows
  * "Not reporting" with its last verdict greyed beneath (`tillLinkCell`). Times are judged against the door's `asOf`.
@@ -227,6 +228,7 @@ function LinkCell({ link, till, asOf, id }: { link: LinkVerdict | null; till: Ti
           />
         </span>
       )}
+      {cell.noteKey && <span className="truncate text-xs text-muted-foreground">{t(cell.noteKey)}</span>}
       {cell.figures && (
         <span className={'truncate text-xs ' + (quiet ? 'text-muted-foreground/70' : 'text-muted-foreground')}>
           <Trans

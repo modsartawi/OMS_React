@@ -81,6 +81,34 @@ describe('tillLinkCell', () => {
     expect(tillLinkCell(t.store, t, AS_OF)).toMatchObject({ kind: 'verdict', figures: null })
   })
 
+  it("names and colours the store link per state, and says why a main till's store link is local (BackOffice 4291)", () => {
+    const cases: [LinkVerdict['state'], string, string][] = [
+      ['online', 'tills.states.online', 'ok'],
+      ['unstable', 'tills.states.unstable', 'warn'],
+      ['offline', 'tills.states.offline', 'bad'],
+      ['unknown', 'tills.states.unknown', 'mute'],
+    ]
+    for (const [state, labelKey, sev] of cases) {
+      const t = till(verdict('online'), { store: verdict(state, { p95Ms: 410 }) })
+      const cell = tillLinkCell(t.store, t, AS_OF)
+      expect(cell, state).toMatchObject({ kind: 'verdict', labelKey, sev, state, noteKey: null })
+      if (state !== 'unknown') expect(cell.figures, state).toEqual({ failPct: 7, slowPct: 23, p95Ms: 410 })
+    }
+
+    const main = till(verdict('online'), { store: verdict('local', { failPct: null, slowPct: null, p95Ms: null, since: null }) })
+    const local = tillLinkCell(main.store, main, AS_OF)
+    expect(local).toMatchObject({
+      kind: 'verdict',
+      labelKey: 'tills.states.local',
+      sev: 'mute',
+      state: 'local',
+      figures: null,
+      since: null,
+      noteKey: 'tills.localNote',
+    })
+    expect(at(en, 'tills.localNote')).toEqual(expect.any(String))
+  })
+
   it('shows a never-reported link (NULL from an older build) as no data, never online', () => {
     const t = till(null, { reportedAt: null })
     const cell = tillLinkCell(t.wan, t, AS_OF)

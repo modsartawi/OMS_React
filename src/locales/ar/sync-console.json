@@ -740,6 +740,7 @@
     },
     "figures": "<fail>{{fail}}%</fail> فاشل · <slow>{{slow}}%</slow> بطيء · p95 <p95>{{p95}} ms</p95>",
     "since": "منذ <at>{{at}}</at>",
+    "localNote": "الجهاز الرئيسي: قاعدة بيانات الفرع على هذا الجهاز",
     "lastReport": "آخر بلاغ: {{state}}، <at>{{at}}</at>",
     "never": "أبدًا",
     "fleetColumn": "أجهزة اتصالها متقطع",

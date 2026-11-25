@@ -50,6 +50,8 @@ const STATE_SEVERITY: Record<StoreState, Severity> = {
   disabled: 'mute',
   // Closed in the store master but still on the worker's list (BackOffice 3917): a store to retire.
   closedNotDisabled: 'warn',
+  // A till on an unstable or offline link now (BackOffice 4295): the network team's, amber like the till's lamp.
+  linkUnstable: 'warn',
 }
 
 /** A machine code's badge: its label key, or `null` for a code this bundle does not know. */
@@ -129,6 +131,18 @@ export type FleetTile = 'all' | StoreState
  * 3917, ticket 902) closes the row: that tile, then "Select all matching", then Disable.
  */
 export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES.filter((s) => s !== 'disabled')]
+
+/** Tiles a door may not know yet: drawn only once the summary sends their count (3917's, 4295's). */
+const NEWER_TILES: readonly FleetTile[] = ['closedNotDisabled', 'linkUnstable']
+
+/**
+ * The tiles to draw against the summary's `counts`: every tile, but a newer door's tile only when the summary counts it
+ * (an older door knows no such state, and its filter would be refused). Before the summary arrives, every tile is drawn
+ * (blank), so the row does not reflow under the table.
+ */
+export function fleetTilesServed(counts: Partial<Record<FleetTile, number>> | undefined): FleetTile[] {
+  return FLEET_TILES.filter((tile) => !counts || !NEWER_TILES.includes(tile) || typeof counts[tile] === 'number')
+}
 
 /**
  * What clicking a tile does to the filter. `all` clears every state; a state tile

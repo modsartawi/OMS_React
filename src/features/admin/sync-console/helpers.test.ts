@@ -16,6 +16,8 @@ import {
   DEFAULT_FLEET_FILTER,
   FLEET_SORTS,
   FLEET_TILES,
+  fleetTilesServed,
+  type FleetTile,
   agreementBadge,
   fleetCodesQuery,
   fleetQuery,
@@ -182,13 +184,34 @@ describe('the tiles', () => {
     expect(FLEET_TILES).not.toContain('disabled')
   })
 
+  // Changed on purpose by BackOffice 4295: "Link unstable" is appended after "Closed, not disabled".
   it('end with the "Closed, not disabled" tile, which filters on closedNotDisabled (tiles_includeClosedNotDisabled)', () => {
-    expect(FLEET_TILES.at(-1)).toBe('closedNotDisabled')
-    expect(FLEET_TILES.slice(-6, -1)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree'])
+    expect(FLEET_TILES.at(-2)).toBe('closedNotDisabled')
+    expect(FLEET_TILES.slice(-7, -2)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree'])
     const f = toggleTile({ ...DEFAULT_FLEET_FILTER, page: 3 }, 'closedNotDisabled')
     expect(fleetQuery(f)).toMatchObject({ state: ['closedNotDisabled'], page: 1 })
     expect(stateBadge('closedNotDisabled')).toEqual({ labelKey: 'states.closedNotDisabled', sev: 'warn' })
     expect(en.states.closedNotDisabled).toBe('Closed, not disabled')
+  })
+
+  // BackOffice 4295 (owner follow-up): the "Link unstable" tile - a store with a fresh till on an unstable or offline
+  // link - is a state like the others: it ANDs with another tile and with the search, and any click goes to page 1.
+  it('end with "Link unstable", which ANDs with the other tiles and the search', () => {
+    expect(FLEET_TILES.at(-1)).toBe('linkUnstable')
+    const searched = { ...DEFAULT_FLEET_FILTER, q: 'P077', page: 3 }
+    const f = toggleTile(toggleTile(searched, 'linkUnstable'), 'paused')
+    expect(fleetQuery(f)).toMatchObject({ state: ['paused', 'linkUnstable'], q: 'P077', page: 1 })
+    expect(toggleTile(f, 'linkUnstable').states).toEqual(['paused'])
+    expect(stateBadge('linkUnstable')).toEqual({ labelKey: 'states.linkUnstable', sev: 'warn' })
+    expect(en.states.linkUnstable).toBe('Link unstable')
+  })
+
+  it('draw a newer door’s tile only once the summary counts it (an older door knows no such state)', () => {
+    const old = { all: 3, onWorker: 3 } as Partial<Record<FleetTile, number>>
+    expect(fleetTilesServed(old)).not.toContain('linkUnstable')
+    expect(fleetTilesServed(old)).not.toContain('closedNotDisabled')
+    expect(fleetTilesServed({ ...old, closedNotDisabled: 0, linkUnstable: 2 })).toEqual(FLEET_TILES)
+    expect(fleetTilesServed(undefined)).toEqual(FLEET_TILES)
   })
 
   it('filter on agreement through the railsDisagree state — the door has no agreement parameter', () => {

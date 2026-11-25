@@ -45,6 +45,9 @@ export type StoreState =
   // A worker store the store master marks closed (the 2882 rule) that is not disabled yet (BackOffice
   // 3917): the "Closed, not disabled" tile, the way in to "Select all matching" → Disable.
   | 'closedNotDisabled'
+  // A fresh till of the store on an unstable or offline WAN or store link (spec 4288, BackOffice 4295): the
+  // "Link unstable" tile, the door's `unstableTills > 0` as a state.
+  | 'linkUnstable'
 
 /** Every `StoreState`, in the contract's order — the order the tiles and the query use. */
 export const STORE_STATES: readonly StoreState[] = [
@@ -62,6 +65,7 @@ export const STORE_STATES: readonly StoreState[] = [
   'railsDisagree',
   'disabled',
   'closedNotDisabled',
+  'linkUnstable',
 ]
 
 /** The mirror lane's states, in the contract's order. `railsDisagree` is NOT one: it is agreement's. */
@@ -553,6 +557,73 @@ export interface TillHour {
 export interface StoreTillHours {
   asOf: string
   items: TillHour[]
+}
+
+// ── Fleet link health (spec 4288, BackOffice 4295) ─────────────────────────────
+
+/** `period`: today (local midnight to the current hour) or 7 days (midnight six days ago to now). */
+export const LINK_HEALTH_PERIODS = ['today', '7d'] as const
+export type LinkHealthPeriod = (typeof LINK_HEALTH_PERIODS)[number]
+
+/** `link`: the telecom line to HQ, the store's own network, or both rolled together. */
+export const LINK_HEALTH_LINKS = ['WAN', 'STORE', 'both'] as const
+export type LinkHealthLink = (typeof LINK_HEALTH_LINKS)[number]
+
+/**
+ * One store-hour: the store's tills' rows rolled up. A {@link LinkHour} in shape (so it reads with the drill-in's
+ * cell rules), plus the store's view: % failed / % slow of all its checks, and how many tills reported and were hit.
+ * `unstableSeconds` / `offlineSeconds` are the WORST till's, so a store-hour never holds more than the hour.
+ */
+export interface LinkHealthCell extends LinkHour {
+  failPct: number
+  slowPct: number
+  tillsReporting: number
+  tillsAffected: number
+}
+
+/** The Link health page's views (`show=`), its tiles: every store, or the ones needing attention, troubled, etc. */
+export const LINK_HEALTH_VIEWS = ['all', 'attention', 'troubled', 'healthy', 'noData'] as const
+export type LinkHealthView = (typeof LINK_HEALTH_VIEWS)[number]
+
+/** Each view's stores over the searched fleet (after `q`, before `show` and paging). */
+export type LinkHealthCounts = Record<LinkHealthView, number>
+
+/** One fleet store over the period. `noData`: no till sent a row - never healthy. `cells` align with `hours`. */
+export interface LinkHealthStore {
+  code: string
+  description: string
+  noData: boolean
+  troubledHours: number
+  offlineHours: number
+  unstableMinutes: number
+  offlineMinutes: number
+  tillsReporting: number
+  tillsAffected: number
+  /** Fresh tills on an unstable or offline link (of the read's link) right now. */
+  unstableTills: number
+  /** Tills seen in the last hour, reported before, now silent for over 3 minutes. */
+  silentTills: number
+  /** Unstable or offline in 4 or more of the period's last 8 hours (the door's judgement). */
+  chronic: boolean
+  /** `unstableTills > 0`, `chronic`, or `silentTills > 0`: the "Needs attention" view. */
+  needsAttention: boolean
+  /** One slot per hour of the door's `hours`; `null` = no till reported that hour (no data). */
+  cells: (LinkHealthCell | null)[]
+}
+
+/** `GET ActionSync/Fleet/LinkHealth?period=&link=` (BackOffice 4295): every fleet store, worst first. */
+export interface FleetLinkHealth {
+  asOf: string
+  period: LinkHealthPeriod
+  link: LinkHealthLink
+  /** The period's hours, local, oldest first. */
+  hours: string[]
+  /** The shown view's stores, before paging. */
+  total: number
+  page: number
+  pageSize: number
+  counts: LinkHealthCounts
+  items: LinkHealthStore[]
 }
 
 // ── The control door and the audit feed (ticket 447) ─────────────────────────────

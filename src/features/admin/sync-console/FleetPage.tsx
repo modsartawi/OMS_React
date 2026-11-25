@@ -33,7 +33,7 @@ import {
   DEFAULT_FLEET_FILTER,
   FLEET_PAGE_SIZE,
   FLEET_SORTS,
-  FLEET_TILES,
+  fleetTilesServed,
   figure,
   fleetView,
   stateBadge,
@@ -275,19 +275,16 @@ function Fleet() {
             <ErrorBanner className="mb-2 p-3" message={apiErrorMessage(summary.error, t('tiles.failed'))} />
           )}
           <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
-            {FLEET_TILES.filter(
-              // A door before 3917 sends no `closedNotDisabled` count and knows no such state: no tile.
-              // Drawn (blank) until the summary arrives, so the tiles do not reflow under the table.
-              (tile) =>
-                tile !== 'closedNotDisabled' || !summary.data || typeof summary.data.counts.closedNotDisabled === 'number',
-            ).map((tile) => (
+            {/* A door before 3917 (closedNotDisabled) or 4295 (linkUnstable) sends no count and knows no such
+                state: no tile. Drawn (blank) until the summary arrives, so the tiles do not reflow under the table. */}
+            {fleetTilesServed(summary.data?.counts).map((tile) => (
               <Tile
                 key={tile}
                 tile={tile}
                 count={summary.data?.counts[tile]}
                 on={tileOn(filter, tile)}
                 // Not a filter until the door has counted it: a state the door may not know is never sent.
-                inert={tile === 'closedNotDisabled' && summary.data?.counts.closedNotDisabled === undefined}
+                inert={(tile === 'closedNotDisabled' || tile === 'linkUnstable') && summary.data?.counts[tile] === undefined}
                 onClick={() => setFilter((f) => toggleTile(f, tile))}
               />
             ))}

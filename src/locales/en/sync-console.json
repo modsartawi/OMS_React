@@ -27,7 +27,8 @@
     "deferredTooLong": "Deferred too long",
     "railsDisagree": "Rails disagree",
     "disabled": "Disabled",
-    "closedNotDisabled": "Closed, not disabled"
+    "closedNotDisabled": "Closed, not disabled",
+    "linkUnstable": "Link unstable"
   },
   "hosts": {
     "Worker": "Worker",
@@ -318,6 +319,7 @@
   },
   "nav": {
     "mirror": "Mirror drain",
+    "links": "Link health",
     "label": "Store sync pages",
     "fleet": "Fleet",
     "passes": "Recent passes",
@@ -1992,6 +1994,58 @@
       "open": "Retry or acknowledge them on each store's Mirror tab: the Fleet's Dead letters tile lists the stores.",
       "toFleet": "Open the Fleet"
     }
+  },
+  "links": {
+    "title": "Link health",
+    "subtitle": "Which stores' links were unstable, when in the day, and on which link, from what each till reported. Read only: nobody is notified.",
+    "loading": "Reading the fleet's link health…",
+    "failed": "The fleet's link health could not be read.",
+    "empty": "No store in the fleet.",
+    "readAt": "Read at <at>{{at}}</at>",
+    "linkLabel": "Link",
+    "links": {
+      "WAN": "WAN (HQ line)",
+      "STORE": "Store network",
+      "both": "Both links"
+    },
+    "periodLabel": "Period",
+    "periods": {
+      "today": "Today",
+      "7d": "7 days"
+    },
+    "summary": "{{troubled}} of {{stores}} stores had an unstable or offline hour · {{noData}} with no data",
+    "store": "Store",
+    "openStore": "Open store {{code}}'s tills",
+    "totals": "{{troubled}} h unstable or offline · {{affected}} of {{reporting}} tills hit",
+    "healthy": "No trouble · {{reporting}} tills reporting",
+    "noData": "No data: no till reported",
+    "chronic": "Unstable {{troubled}} of the last {{of}} hours",
+    "reach": {
+      "some": "{{affected}} of {{reporting}} tills",
+      "whole": "All {{reporting}} tills"
+    },
+    "cellTitle": "{{reading}}: {{fail}}% failed, {{slow}}% slow, p95 {{p95}} ms, {{unstable}} min unstable, {{offline}} min offline; {{affected}} of {{reporting}} tills hit",
+    "future": "Not yet",
+    "legend": "Legend",
+    "note": "One cell per store-hour of HQ's clock, from what the store's tills reported; the worst till sets the minutes, and a number in a cell is how many tills were hit. No data = no till reported. Click a store for its tills and each till's 7-day history.",
+    "views": {
+      "all": "All stores",
+      "attention": "Needs attention",
+      "troubled": "Unstable hours",
+      "healthy": "No trouble",
+      "noData": "No data"
+    },
+    "search": "Store code or name",
+    "searchLabel": "Find a store",
+    "reasons": {
+      "unstableNow": "Unstable now: {{n}}",
+      "chronic": "Chronic",
+      "silent": "Not reporting: {{n}}"
+    },
+    "pageOf": "Page {{page}} of {{pages}} · {{total}} stores",
+    "prev": "Previous",
+    "next": "Next",
+    "viewsLabel": "Show"
   },
   "tills": {
     "loading": "Loading the tills…",

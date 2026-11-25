@@ -20,6 +20,8 @@ describe('the console’s page links', () => {
     expect(consolePages(permissionsOf({ screens: [console03] })).map((p) => p.key)).toEqual([
       'fleet',
       'mirror',
+      // BackOffice 4295: the Link health page, a read every console holder sees (added on purpose).
+      'links',
       'passes',
       'commands',
       'audit',

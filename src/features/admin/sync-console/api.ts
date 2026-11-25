@@ -68,6 +68,7 @@ import type {
   StoreHours,
   StoreLocation,
   StoreTillHours,
+  FleetLinkHealth,
   StoreTills,
   StoreMirror,
   StorePass,
@@ -85,6 +86,7 @@ import type {
   SyncWorkers,
 } from '@/core/models/sync-console'
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
+import { linkHealthQuery, type LinkHealthFilter } from './link-health-helpers'
 import { auditQuery, controlRoute, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetCodesQuery, fleetQuery, type FleetFilter } from './helpers'
 import { recentPassesQuery, type RecentPassesFilter } from './recent-passes-helpers'
@@ -201,6 +203,11 @@ export const syncConsoleApi = {
   /** `GET ActionSync/Store/Till/Hours?code=&device=` → one till's last 7 days, hour by hour, per link (BackOffice 4292). */
   storeTillHours(code: string, device: string): Promise<StoreTillHours> {
     return api.get<StoreTillHours>('ActionSync/Store/Till/Hours', { code, device })
+  },
+
+  /** `GET ActionSync/Fleet/LinkHealth?period=&link=` → every fleet store's link health, hour by hour, worst first (4295). */
+  fleetLinkHealth(filter: LinkHealthFilter): Promise<FleetLinkHealth> {
+    return api.get<FleetLinkHealth>('ActionSync/Fleet/LinkHealth', linkHealthQuery(filter))
   },
 
   /** `GET ActionSync/Store/Location?code=` → the sync location, never its credentials. */
@@ -614,6 +621,16 @@ export const storeTillsQuery = (code: string) => ({
 export const storeTillHoursQuery = (code: string, device: string) => ({
   queryKey: [...storeKey(code), 'tills', device, 'hours'] as const,
   queryFn: () => syncConsoleApi.storeTillHours(code, device),
+  ...refresh,
+})
+
+/**
+ * The fleet's link health (BackOffice 4295), polled on the console's cadence: the current hour grows with every till's
+ * report. Keyed by everything it asks (period, link, search, view, page): the door pages and filters, the browser never.
+ */
+export const fleetLinkHealthQuery = (filter: LinkHealthFilter) => ({
+  queryKey: ['sync-console', 'link-health', linkHealthQuery(filter)] as const,
+  queryFn: () => syncConsoleApi.fleetLinkHealth(filter),
   ...refresh,
 })
 

@@ -620,6 +620,8 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'drain',
       'failures',
       'fleetView',
+      // Spec 4288 (BackOffice 4295): the Link health page, in Arabic beside English (added on purpose).
+      'links',
       'nav',
       'replay',
       'results',

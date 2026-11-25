@@ -661,6 +661,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: 'admin/sync/links',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/LinkHealthPage')).default,
+        }),
+      },
+      {
         path: 'admin/sync/store/:code',
         lazy: async () => ({
           Component: (await import('@/features/admin/sync-console/StorePage')).default,

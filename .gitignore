@@ -181,6 +181,7 @@ tools/.store-db-*-shots/
 tools/.item-lists-shots/
 tools/.item-lists-copilot-shots/
 tools/.sync-console-drain-shots/
+tools/.sync-console-links-shots/
 
 # Price command center drive screenshots (tools/price-command-center-drive.mjs, ticket 934)
 tools/.price-command-center-shots/

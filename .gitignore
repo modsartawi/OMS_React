@@ -184,3 +184,5 @@ tools/.sync-console-drain-shots/
 
 # Price command center drive screenshots (tools/price-command-center-drive.mjs, ticket 934)
 tools/.price-command-center-shots/
+# Store stages move-to-Blocking drive screenshots (tools/store-stages-blocking-drive.mjs, BackOffice 4261)
+tools/.store-stages-shots/

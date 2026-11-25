@@ -40,10 +40,46 @@ export interface StoreStage {
   lastMove: StoreStageMove | null
 }
 
-/** The move's body. */
+/**
+ * The move's body. BackOffice ticket 4261 (ADR 0145, SIS.Stock 081): a move to Blocking also names each confirmation the
+ * person gives and each failing fleet gate the person waives; SIS.Api passes both on unchanged, and a move that waives
+ * anything needs `BackOfficeScreen[StoreBlockEarly, 02]` as well. Other moves send neither.
+ */
 export interface StoreStageMoveRequest {
   stage: string
   why: string
+  confirmed?: string[]
+  waived?: string[]
+}
+
+/** `StoreGateScopes`: the store's own proof (never waived) or a fleet gate (a failing one may be waived by name). */
+export type StoreGateScope = 'Store' | 'Fleet'
+
+/** One measured gate (`StoreGate`). `figure` is text: what the gate asks when it holds, else each failing day or feed. */
+export interface StoreGate {
+  gate: string
+  /** `Store` | `Fleet`, read defensively: a gate not marked is the store's. */
+  scope: string
+  holds: boolean
+  /** A failing fleet gate the person waived (only on a move's log, never on a plain read). */
+  waived: boolean
+  figure: string
+}
+
+/**
+ * Ticket 4261: `GET StoreStage/{store}/Gates` (`BackOfficeScreen[StoreStage, 03]`) — the store's gates toward Blocking as a
+ * move would measure them now: its own proof first, then the fleet's, each marked by scope. Read with no confirmation,
+ * `notConfirmed` is every name a move to Blocking must confirm. Days `yyyy-MM-ddT00:00:00`.
+ */
+export interface StoreGates {
+  store: string
+  from: string
+  to: string
+  hold: boolean
+  measured: StoreGate[]
+  confirmed: string[]
+  notConfirmed: string[]
+  waived: string[]
 }
 
 /**

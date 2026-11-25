@@ -79,6 +79,15 @@
     "done": {
       "title": "Stage moved",
       "detail": "{{store}} is now {{stage}}."
+    },
+    "blocking": {
+      "title": "Before Blocking",
+      "confirmHint": "Confirm each by name: you read its figures.",
+      "waiveHint": "Each failing fleet gate is waived by name, and the waiver is logged with its failing figure.",
+      "waive": "Waive",
+      "noWaiveGrant": "Fails. Only a holder of the block-early permission may waive it.",
+      "storeFailing": "The store's own proof does not hold ({{gates}}). It is never waived, so the move would be refused.",
+      "needsGates": "The gates must be read before a store moves to Blocking."
     }
   },
   "count": {
@@ -161,5 +170,41 @@
       "ByHand": "By hand",
       "Reopened": "Opened again: sales still on their way to SAP"
     }
+  },
+  "gates": {
+    "title": "Gates toward Blocking",
+    "hint": "Measured now by Stock Visibility, as a move to Blocking would measure them. The store's own proof always refuses when it fails; a failing fleet gate may be waived by name.",
+    "loading": "Measuring the gates…",
+    "failedTitle": "The gates could not be read",
+    "failed": "Stock Visibility did not answer. Try again in a moment.",
+    "over": "Fleet gates measured from {{from}} to {{to}}",
+    "allHold": "every gate holds",
+    "notAllHold": "not every gate holds",
+    "store": "The store's own proof (never waived)",
+    "fleet": "The fleet's gates (a failing one may be waived by name)",
+    "holds": "holds",
+    "doesNotHold": "does not hold",
+    "refresh": "Measure again"
+  },
+  "gate": {
+    "Seed": "Seed",
+    "CountersMet": "Counters met",
+    "NightlyCompare": "Nightly compare with SAP",
+    "WouldBeRefusals": "Would-be refusals",
+    "TakeDoor": "Take door",
+    "Feeds": "Feeds",
+    "SapCount": "SAP count",
+    "SalePush": "Completed-sale push",
+    "HeldServed": "Held stock served"
+  },
+  "confirm": {
+    "StoreTills": "The store's tills answer takes in time",
+    "DrsHoldsInShadow": "DRS holds held 30 days in shadow",
+    "DeliverySalesPicked": "Delivery sales carry a picking document",
+    "TillsOnHoldSeam": "Every till is on the hold-seam engine",
+    "OldDocumentsCleared": "Old picking documents are written off",
+    "FeedForcedStop": "The feeds' forced stop proved the restart and the alarm",
+    "TakeDoorSkips": "Skipped and failed takes stay under 1 in 1,000 a day",
+    "WouldBeRefusalsRead": "I read the store's would-be refusals"
   }
 }

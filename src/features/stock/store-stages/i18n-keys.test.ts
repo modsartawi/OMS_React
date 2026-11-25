@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/store-stages.json'
 import ar from '@/locales/ar/store-stages.json'
-import { MOVERS, STAGE_COLUMN_IDS } from './columns'
+import { CONFIRMATION_NAMES, GATE_NAMES, MOVERS, STAGE_COLUMN_IDS } from './columns'
 import { STAGES } from '@/core/models/store-stage'
 
 /** Every leaf key, dotted. */
@@ -33,6 +33,9 @@ describe('store-stages — the keys the code builds exist', () => {
       'menu.storeStages',
       // Ticket 3898: every release kind the log shows.
       ...['Seeded', 'ByHand', 'Reopened', 'Started', 'Cancelled'].map((k) => `count.kind.${k}`),
+      // Ticket 4261: every gate toward Blocking and every confirmation a move to Blocking names.
+      ...GATE_NAMES.map((g) => `gate.${g}`),
+      ...CONFIRMATION_NAMES.map((c) => `confirm.${c}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

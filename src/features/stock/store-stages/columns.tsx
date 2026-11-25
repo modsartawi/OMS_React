@@ -19,6 +19,39 @@ export const STAGE_COLUMN_IDS = ['store', 'stage', 'lastFrom', 'lastMover', 'las
 /** The movers SIS.Stock logs, so each has its label in both locales. */
 export const MOVERS = ['Person', 'CountClosing', 'Seed', 'CountReopening'] as const
 
+/**
+ * BackOffice ticket 4261 (SIS.Stock 081): the gates Stock Visibility measures toward Blocking — the store's own proof, then
+ * the fleet's — and the confirmations a move to Blocking names, so each has its label in both locales. A name the screen
+ * does not know still shows, as the server spells it.
+ */
+export const GATE_NAMES = [
+  'Seed',
+  'CountersMet',
+  'NightlyCompare',
+  'WouldBeRefusals',
+  'TakeDoor',
+  'Feeds',
+  'SapCount',
+  'SalePush',
+  'HeldServed',
+] as const
+export const CONFIRMATION_NAMES = [
+  'StoreTills',
+  'DrsHoldsInShadow',
+  'DeliverySalesPicked',
+  'TillsOnHoldSeam',
+  'OldDocumentsCleared',
+  'FeedForcedStop',
+  'TakeDoorSkips',
+  'WouldBeRefusalsRead',
+] as const
+
+/** A gate's label, the server's own name when this screen does not know it. */
+export const gateLabel = (t: TFunction, gate: string): string => t(`gate.${gate}`, { defaultValue: gate })
+
+/** A confirmation's label, the server's own name when this screen does not know it. */
+export const confirmationLabel = (t: TFunction, name: string): string => t(`confirm.${name}`, { defaultValue: name })
+
 /** The stage's colour: Shadow is quiet, Seeding in motion, Seeded ready, Blocking live. */
 export const STAGE_SEVERITY: Record<string, Severity> = { Shadow: 'mute', Seeding: 'warn', Seeded: 'go', Blocking: 'ok' }
 

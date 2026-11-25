@@ -470,6 +470,19 @@ const SCRIPTS = {
     { scriptId: 'SCR-2026-0419', createdAt: '2026-10-08T09:00:00', isExecuted: false, lastAttempt: '2026-10-09T11:00:00', errorMessage: "Invalid column name 'Foo'" },
   ],
 }
+// Spec 4288 (BackOffice 4290): P001's tills — one unstable WAN link, one online, one older build (no data), one silent.
+const TILLS = {
+  asOf: '2026-10-09T12:04:00',
+  items: [
+    { device: 'R01', lastSeenAt: '2026-10-09T12:03:30', reportedAt: '2026-10-09T12:03:30',
+      wan: { state: 'unstable', failPct: 7, slowPct: 23, p95Ms: 1840, since: '2026-10-09T11:42:00' }, store: null },
+    { device: 'R02', lastSeenAt: '2026-10-09T12:03:10', reportedAt: '2026-10-09T12:03:10',
+      wan: { state: 'online', failPct: 0, slowPct: 0, p95Ms: 80, since: null }, store: null },
+    { device: 'R03', lastSeenAt: '2026-10-09T12:03:40', reportedAt: null, wan: null, store: null },
+    { device: 'R04', lastSeenAt: '2026-10-09T11:40:00', reportedAt: '2026-10-09T11:40:00',
+      wan: { state: 'online', failPct: 0, slowPct: 0, p95Ms: 75, since: null }, store: null },
+  ],
+}
 const LOCATION = { code: 'P001', description: 'Olaya Main', ip: '10.20.1.11', instance: 'SQLEXPRESS', dbName: 'POS', groupId: 'G01', father: 'BackOffice', isPosSyncEnabled: true }
 
 const browser = await chromium.launch()
@@ -593,6 +606,7 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
     if (p === 'ActionSync/Store/PassDetail') return route.fulfill(envelope(PASS_DETAIL))
     if (p === 'ActionSync/Store/Scripts') return route.fulfill(envelope(SCRIPTS))
     if (p === 'ActionSync/Store/Location') return route.fulfill(envelope(LOCATION))
+    if (p === 'ActionSync/Store/Tills') return route.fulfill(envelope(TILLS))
     // The store's audit feed is 447's; here it is only an empty page of the contract's shape.
     if (p === 'ActionSync/Audit') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     if (p === 'ActionSync/Commands') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
@@ -659,7 +673,7 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   // 3: the tabs, Counters first.
   // 🚩 Changed on purpose by ticket 457: Mirror is appended at the end (six tabs → seven), and by 459:
   // Agreement after it (seven → eight), and by 467: Transactions after Agreement (eight → nine).
-  check('3. nine tabs in the prototype order, Mirror, Agreement then Transactions last', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement","transactions"]', JSON.stringify(await tabList(page)))
+  check('3. ten tabs in the prototype order, then Mirror, Agreement, Transactions and Tills (spec 4288)', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement","transactions","tills"]', JSON.stringify(await tabList(page)))
   await page.locator('[data-tab-grid="counters"] .ag-row').first().waitFor()
   check('3. Counters opens first', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('3. …reading Store/Counters', calls.includes('ActionSync/Store/Counters?code=P001'))
@@ -724,6 +738,15 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('5. Location shows the location fields', /IP address 10\.20\.1\.11/.test(loc) && /Instance SQLEXPRESS/.test(loc) && /Database POS/.test(loc) && /Group G01/.test(loc) && /Father BackOffice/.test(loc) && /POS sync sweep Enabled/.test(loc), loc)
   check('5. …and no credentials, only a note that they stay on the server', (await page.locator('[data-location] input').count()) === 0 && /Credentials Never shown in the browser/.test(loc) && !/User ?ID|Password/i.test(loc), loc)
 
+  // 5b (spec 4288, BackOffice 4290): the Tills tab — each till's WAN verdict as the till judged it.
+  await page.locator('[data-tab="tills"]').click()
+  await page.locator('[data-tab-grid="tills"] .ag-row').first().waitFor()
+  const kinds = await page.locator('[data-link="wan"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-link-kind')}:${e.getAttribute('data-link-state')}`))
+  check('5b. Tills: unstable and online verdicts, no data for an older build, not reporting for a silent till', JSON.stringify(kinds) === '["verdict:unstable","verdict:online","noData:","silent:online"]', JSON.stringify(kinds))
+  const tillsText = strip(await page.locator('[data-tab-panel="tills"]').innerText())
+  check('5b. …with the figures the till judged by, and since', /Unstable/.test(tillsText) && /7% failed/.test(tillsText) && /23% slow/.test(tillsText) && /p95 1,840 ms/.test(tillsText) && /since 2026-10-09 11:42/.test(tillsText) && /No data/.test(tillsText) && /Not reporting/.test(tillsText), tillsText)
+  await page.screenshot({ path: `${SHOTS}/tills.png`, fullPage: true })
+
   // 6: the tabs 447 and 448 filled, ?tab= and reload.
   await page.locator('[data-tab="commands"]').click()
   // 448 filled the Commands tab: it reads the store's commands (its own drive is sync-console-commands-drive).
@@ -771,7 +794,7 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('7. …and no hours read', !calls.some((c) => c.includes('Store/Hours')))
   // 🚩 Changed on purpose by ticket 457: a WPF store keeps its mirror lane (ADR 0073), so Mirror is appended,
   // and by 459: its rail agreement too, so Agreement after it, and by 467: Transactions after that (decision 5).
-  check('7. only Counters, Passes, Mirror, Agreement and Transactions', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement","transactions"]', JSON.stringify(await tabList(page)))
+  check('7. only Counters, Passes, Mirror, Agreement, Transactions and Tills', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement","transactions","tills"]', JSON.stringify(await tabList(page)))
   check('7. a withheld ?tab= falls back to Counters', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('7. …and Location is never read', !calls.some((c) => c.includes('Store/Location')))
   check('7. the host reads WPF', /Host WPF/.test(strip(await page.locator('[data-store-header]').innerText())))
@@ -855,7 +878,7 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
 
   // 11: the Mirror tab.
   // 🚩 Changed on purpose by 459: Agreement follows Mirror, and by 467: Transactions follows Agreement.
-  check('11. the tab list ends with Mirror, then Agreement, then Transactions', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement","transactions"]')
+  check('11. the tab list ends with Mirror, Agreement, Transactions, then Tills', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement","transactions","tills"]')
   check('11. Store/Mirror is not read before the tab is opened', !calls.some((c) => c.startsWith('ActionSync/Store/Mirror')))
   await page.locator('[data-tab="mirror"]').click()
   const first = 'ActionSync/Store/Mirror?code=P003&includeAcknowledged=false&page=1&pageSize=50'
@@ -962,7 +985,7 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   await page.locator('[data-mirror-hour-cell]').first().waitFor({ timeout: 10000 })
   check('12b. …its strip draws the Mirror line alone', (await page.locator('[data-mirror-hour-cell]').count()) === 24 && (await page.locator('[data-hour-cell]').count()) === 0 && !/Master and counter/.test(await page.locator('[data-hour-strip]').innerText()))
   // 🚩 Changed on purpose by 459: Agreement follows Mirror on a WPF store too, and by 467: Transactions after it.
-  check('12b. its tabs are Counters, Passes, Mirror, Agreement and Transactions, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement","transactions"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
+  check('12b. its tabs are Counters, Passes, Mirror, Agreement, Transactions and Tills, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement","transactions","tills"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
   check('12b. …which reads Store/Mirror', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P005&includeAcknowledged=false&page=1&pageSize=50'))
   await page.screenshot({ path: `${SHOTS}/wpf-mirror.png`, fullPage: true })
   check('no page errors (WPF store on mirror)', errors.length === 0, errors.join(' | '))

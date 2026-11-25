@@ -215,7 +215,8 @@
     "refresh": "Refresh",
     "mirror": "Mirror",
     "agreement": "Agreement",
-    "transactions": "Transactions"
+    "transactions": "Transactions",
+    "tills": "Tills"
   },
   "counters": {
     "loading": "Loading counters…",
@@ -1991,5 +1992,30 @@
       "open": "Retry or acknowledge them on each store's Mirror tab: the Fleet's Dead letters tile lists the stores.",
       "toFleet": "Open the Fleet"
     }
+  },
+  "tills": {
+    "loading": "Loading the tills…",
+    "failed": "The tills could not be loaded.",
+    "empty": "No till of this store has polled HQ yet.",
+    "note": "Each till judges its own links over the last 5 minutes and reports once a minute. A till silent for 3 minutes shows its last report greyed; a till on an older build shows no data.",
+    "columns": {
+      "device": "Till",
+      "lastSeen": "Last seen",
+      "wan": "WAN link (HQ)",
+      "store": "Store link"
+    },
+    "states": {
+      "online": "Online",
+      "unstable": "Unstable",
+      "offline": "Offline",
+      "unknown": "Checking",
+      "local": "Local",
+      "noData": "No data",
+      "silent": "Not reporting"
+    },
+    "figures": "<fail>{{fail}}%</fail> failed · <slow>{{slow}}%</slow> slow · p95 <p95>{{p95}} ms</p95>",
+    "since": "since <at>{{at}}</at>",
+    "lastReport": "last report: {{state}}, <at>{{at}}</at>",
+    "never": "Never"
   }
 }

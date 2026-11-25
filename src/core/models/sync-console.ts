@@ -487,6 +487,43 @@ export interface StoreLocation {
   isPosSyncEnabled: boolean
 }
 
+// ── Till link health (spec 4288, BackOffice 4290) ──────────────────────────────
+
+/**
+ * A till's judged state of one link. `unknown` = no check answered yet; `local` = the main
+ * till's store link (the store DB is on that machine: neither checked nor scored, 4291).
+ */
+export const LINK_STATES = ['online', 'unstable', 'offline', 'unknown', 'local'] as const
+export type LinkState = (typeof LINK_STATES)[number]
+
+/** One link's verdict as the till judged it: its state and its own window figures. */
+export interface LinkVerdict {
+  state: LinkState
+  /** The till's window % failed / % slow. */
+  failPct: number | null
+  slowPct: number | null
+  /** The till's window p95, ms. */
+  p95Ms: number | null
+  /** The till-clock time the link left online; `null` while online. */
+  since: string | null
+}
+
+/** One till of the store: its presence row. A `null` verdict = that link was never reported. */
+export interface Till {
+  device: string
+  lastSeenAt: string | null
+  reportedAt: string | null
+  wan: LinkVerdict | null
+  /** `null` until the till reports its store link (4291). */
+  store: LinkVerdict | null
+}
+
+/** `GET ActionSync/Store/Tills?code=`. `asOf` is the server's time of the read. */
+export interface StoreTills {
+  asOf: string
+  items: Till[]
+}
+
 // ── The control door and the audit feed (ticket 447) ─────────────────────────────
 
 /** Every `ControlAction`, in the contract's order. */

@@ -99,8 +99,9 @@ describe('passesFromBound', () => {
 describe('storeTabs', () => {
   // 🚩 Changed on purpose by ticket 457 (Mirror appended: six → seven, two → three) and again by
   // 459 (Agreement appended after it: seven → eight, three → four), and by 467 (Transactions appended
-  // after Agreement: eight → nine, four → five).
-  it('gives a worker store all nine tabs, in the prototype order, Mirror, Agreement then Transactions last', () => {
+  // after Agreement: eight → nine, four → five), and by BackOffice 4290 (spec 4288: Tills appended last on both:
+  // nine → ten, five → six).
+  it('gives a worker store all ten tabs, in the prototype order, then Mirror, Agreement, Transactions and Tills', () => {
     expect(storeTabs({ host: 'Worker' })).toEqual([
       'counters',
       'passes',
@@ -111,12 +112,13 @@ describe('storeTabs', () => {
       'mirror',
       'agreement',
       'transactions',
+      'tills',
     ])
     expect(storeTabs({ host: 'Worker' })).toEqual(STORE_TABS)
   })
 
-  it('gives a WPF store Counters and Passes, and its own mirror lane, rail agreement and Transactions', () => {
-    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror', 'agreement', 'transactions'])
+  it('gives a WPF store Counters and Passes, and its own mirror lane, rail agreement, Transactions and Tills', () => {
+    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror', 'agreement', 'transactions', 'tills'])
     expect(isWpfStore({ host: 'Wpf' })).toBe(true)
     expect(isWpfStore({ host: 'Worker' })).toBe(false)
   })

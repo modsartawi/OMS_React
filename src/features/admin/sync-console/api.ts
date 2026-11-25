@@ -67,6 +67,7 @@ import type {
   StoreDetail,
   StoreHours,
   StoreLocation,
+  StoreTills,
   StoreMirror,
   StorePass,
   StoreRow,
@@ -189,6 +190,11 @@ export const syncConsoleApi = {
   /** `GET ActionSync/Store/Scripts?code=` → the store's scripts. The SQL is never on the wire. */
   storeScripts(code: string): Promise<StoreScripts> {
     return api.get<WireStoreScripts>('ActionSync/Store/Scripts', { code }).then(normaliseStoreScripts)
+  },
+
+  /** `GET ActionSync/Store/Tills?code=` → the store's tills and each link's latest verdict (spec 4288, BackOffice 4290). */
+  storeTills(code: string): Promise<StoreTills> {
+    return api.get<StoreTills>('ActionSync/Store/Tills', { code })
   },
 
   /** `GET ActionSync/Store/Location?code=` → the sync location, never its credentials. */
@@ -583,6 +589,16 @@ export const passDetailQuery = (processId: string) => ({
 export const storeScriptsQuery = (code: string) => ({
   queryKey: [...storeKey(code), 'scripts'] as const,
   queryFn: () => syncConsoleApi.storeScripts(code),
+})
+
+/**
+ * The Tills tab's read (spec 4288, BackOffice 4290), under the tab's own prefix (`storeTabKey`), polled on the console's
+ * cadence: a till reports once a minute, and L1 watches a lamp change land.
+ */
+export const storeTillsQuery = (code: string) => ({
+  queryKey: [...storeKey(code), 'tills'] as const,
+  queryFn: () => syncConsoleApi.storeTills(code),
+  ...refresh,
 })
 
 export const storeLocationQuery = (code: string) => ({

@@ -629,7 +629,11 @@ describe('the disabled-store words (BackOffice 3913, ticket 900)', () => {
       'states',
       'store',
       'storeDb',
+      // Spec 4288 (BackOffice 4290): the Tills tab and its words, in Arabic beside English.
+      'tabs',
+      'tills',
     ])
+    expect(Object.keys((ar as Record<string, object>).tabs)).toEqual(['tills'])
     expect(Object.keys((ar as Record<string, object>).store)).toEqual(['disabled', 'unrecorded'])
   })
 })

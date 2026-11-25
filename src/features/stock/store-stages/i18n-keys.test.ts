@@ -5,8 +5,9 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/store-stages.json'
 import ar from '@/locales/ar/store-stages.json'
-import { MOVERS, STAGE_COLUMN_IDS } from './columns'
-import { STAGES } from '@/core/models/store-stage'
+import { CONFIRMATION_NAMES, GATE_NAMES, MOVERS, STAGE_COLUMN_IDS } from './columns'
+import { EXPIRY_FALLBACK_STATES, STAGES } from '@/core/models/store-stage'
+import { REFUSAL_DAY_COLUMNS } from './refusal-days'
 
 /** Every leaf key, dotted. */
 function leaves(node: unknown, prefix = ''): string[] {
@@ -33,6 +34,14 @@ describe('store-stages — the keys the code builds exist', () => {
       'menu.storeStages',
       // Ticket 3898: every release kind the log shows.
       ...['Seeded', 'ByHand', 'Reopened', 'Started', 'Cancelled'].map((k) => `count.kind.${k}`),
+      // Ticket 4261: every gate toward Blocking and every confirmation a move to Blocking names.
+      ...GATE_NAMES.map((g) => `gate.${g}`),
+      ...CONFIRMATION_NAMES.map((c) => `confirm.${c}`),
+      // Ticket 4276: every expiry fallback state, its label and the one line saying what it does.
+      ...EXPIRY_FALLBACK_STATES.flatMap((f) => [`fallback.state.${f}`, `fallback.does.${f}`]),
+      // Ticket 4277: the refusal days under the gates.
+      ...REFUSAL_DAY_COLUMNS.map((c) => `refusalDays.column.${c}`),
+      ...['title', 'hint', 'state'].map((k) => `refusalDays.${k}`),
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })

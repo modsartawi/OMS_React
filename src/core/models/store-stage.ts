@@ -40,9 +40,104 @@ export interface StoreStage {
   lastMove: StoreStageMove | null
 }
 
-/** The move's body. */
+/**
+ * The move's body. BackOffice ticket 4261 (ADR 0145, SIS.Stock 081): a move to Blocking also names each confirmation the
+ * person gives and each failing fleet gate the person waives; SIS.Api passes both on unchanged, and a move that waives
+ * anything needs `BackOfficeScreen[StoreBlockEarly, 02]` as well. Other moves send neither.
+ */
 export interface StoreStageMoveRequest {
   stage: string
+  why: string
+  confirmed?: string[]
+  waived?: string[]
+}
+
+/** `StoreGateScopes`: the store's own proof (never waived) or a fleet gate (a failing one may be waived by name). */
+export type StoreGateScope = 'Store' | 'Fleet'
+
+/** One measured gate (`StoreGate`). `figure` is text: what the gate asks when it holds, else each failing day or feed. */
+export interface StoreGate {
+  gate: string
+  /** `Store` | `Fleet`, read defensively: a gate not marked is the store's. */
+  scope: string
+  holds: boolean
+  /** A failing fleet gate the person waived (only on a move's log, never on a plain read). */
+  waived: boolean
+  figure: string
+}
+
+/**
+ * Ticket 4261: `GET StoreStage/{store}/Gates` (`BackOfficeScreen[StoreStage, 03]`) — the store's gates toward Blocking as a
+ * move would measure them now: its own proof first, then the fleet's, each marked by scope. Read with no confirmation,
+ * `notConfirmed` is every name a move to Blocking must confirm. Days `yyyy-MM-ddT00:00:00`.
+ */
+export interface StoreGates {
+  store: string
+  from: string
+  to: string
+  hold: boolean
+  measured: StoreGate[]
+  confirmed: string[]
+  notConfirmed: string[]
+  waived: string[]
+  /** BackOffice 4277 (SIS.Stock 086): the store's expiry fallback state; absent from an older server. */
+  expiryFallback?: string | null
+  /** BackOffice 4277: per day of the would-be refusals' window, the refusal share beside the fallback's share. */
+  refusalDays?: StoreRefusalDay[]
+}
+
+/**
+ * BackOffice 4277 (spec 4275, ADR 0146): one local day of a store's takes. Shares are fractions (4 dp), null on a day with
+ * nothing to share. A fallback take is a placed take, never a refusal; the fallback has no gate of its own.
+ */
+export interface StoreRefusalDay {
+  day: string
+  takes: number
+  refused: number
+  refusalShare: number | null
+  /** Takes of a scanned pack: the fallback's ground. */
+  scannedTakes: number
+  /** Takes placed by the fallback (`On`). */
+  fallbackTakes: number
+  fallbackShare: number | null
+  /** Refusals the fallback would have placed (`Record`). */
+  wouldBePlacements: number
+}
+
+/**
+ * BackOffice ticket 4276 (spec 4275, ADR 0146, SIS.Stock 082): a store's expiry fallback state. `Off` answers as today;
+ * `Record` answers as today and a refused scanned pack's row names the batch the fallback would have chosen; `On` places
+ * the pack on that batch. It has an effect only while the store is counted (Seeded or Blocking).
+ *
+ * - `GET StoreStage/{store}/ExpiryFallback` → the state and its changes, newest first (`BackOfficeScreen[StoreStage, 03]`).
+ * - `POST StoreStage/{store}/ExpiryFallback` `{ state, why }` → the state after the change (`BackOfficeScreen[StoreStage,
+ *   02]`, the screen's existing grant). Who is the signed-in user. A blank reason is refused before Stock Visibility is
+ *   asked; a store with no stage row, or a state it already has, is Stock Visibility's 400 `ExpiryFallbackRefused`.
+ */
+export const EXPIRY_FALLBACK_STATES = ['Off', 'Record', 'On'] as const
+export type ExpiryFallbackState = (typeof EXPIRY_FALLBACK_STATES)[number]
+
+/** One change of the state. `who` is the user id as logged; `whoName` the person's name from HQ's user directory. */
+export interface StoreExpiryFallbackChange {
+  store: string
+  from: string
+  to: string
+  who: string
+  whoName: string
+  why: string
+  changedAt: string
+}
+
+/** The store's state (read as a string, defensively) and its changes, newest first. */
+export interface StoreExpiryFallback {
+  store: string
+  state: string
+  changes: StoreExpiryFallbackChange[]
+}
+
+/** The change's body. */
+export interface StoreExpiryFallbackRequest {
+  state: string
   why: string
 }
 

@@ -15,7 +15,8 @@
     "label": "Stock console pages",
     "stores": "Stores",
     "fleet": "Feeds and switches",
-    "find": "Find an item or a batch"
+    "find": "Find an item or a batch",
+    "fallback": "Expiry fallback takes"
   },
   "tiles": {
     "label": "Filter the stores",
@@ -419,12 +420,25 @@
       "quantity": "Quantity",
       "batches": "Batches",
       "reason": "Reason",
-      "status": "Status"
+      "status": "Status",
+      "vendorBatch": "Pack's vendor batch",
+      "fallback": "Expiry fallback"
     },
     "status": "<c>{{code}}</c> after <ms>{{ms}}</ms> ms",
     "day": "Day",
     "failedLeftOut": "Failed calls carry no item, so they are not searchable by item or batch: they are left out of this list.",
-    "empty": "No take door call matches this search."
+    "empty": "No take door call matches this search.",
+    "fallback": {
+      "filter": "Expiry fallback",
+      "any": "Every call",
+      "only": "Expiry fallback only",
+      "placed": "fallback",
+      "wouldBe": "would place",
+      "note": "not used"
+    },
+    "fallbackNote": {
+      "ScannedDateDisagrees": "The scanned date matches none of the pack's batches"
+    }
   },
   "feeds": {
     "loading": "Reading the store's feeds…",
@@ -711,5 +725,48 @@
     "invalid": "Choose a first and a last day.",
     "reversed": "The first day is after the last day.",
     "tooLong": "At most <n>{{max}}</n> days are read at once. Shorten the window."
+  },
+  "fallback": {
+    "lead": "The takes the expiry fallback placed at a store: each material, the pack's own vendor batch and the batch the door chose, with takes and units, so the counted stock can be moved to its own batch.",
+    "store": "Store",
+    "from": "From",
+    "to": "To",
+    "read": "Read",
+    "nothingYet": "Choose a store and its days, then Read.",
+    "loading": "Reading the fallback takes…",
+    "failedTitle": "The fallback takes could not be read",
+    "failed": "Stock Visibility did not answer the list.",
+    "empty": "The expiry fallback placed no take at this store on these days.",
+    "totals_one": "<s>{{store}}</s>, <d>{{from}}</d> to <d>{{to}}</d>: <n>{{n}}</n> take, <n>{{units}}</n> units.",
+    "totals_other": "<s>{{store}}</s>, <d>{{from}}</d> to <d>{{to}}</d>: <n>{{n}}</n> takes, <n>{{units}}</n> units.",
+    "problem": {
+      "store": "Type the store.",
+      "from": "Choose the first day.",
+      "invalid": "A day is not a date.",
+      "reversed": "The last day is before the first.",
+      "tooLong": "At most {{most}} days are read at once.",
+      "outOfBounds": "A day after today has no takes yet."
+    },
+    "column": {
+      "item": "Item",
+      "name": "Name",
+      "vendorBatch": "Pack's vendor batch",
+      "batch": "Batch chosen",
+      "expiryDate": "Expiry",
+      "takes": "Takes",
+      "quantity": "Units",
+      "firstTakenAt": "First take",
+      "lastTakenAt": "Last take"
+    },
+    "sheet": "Fallback takes",
+    "fileName": "expiry-fallback-takes",
+    "export": {
+      "button": "Export to Excel",
+      "done": "Exported",
+      "doneDetail_one": "{{n}} row written.",
+      "doneDetail_other": "{{n}} rows written.",
+      "failed": "Export failed",
+      "failedDetail": "The workbook could not be written."
+    }
   }
 }

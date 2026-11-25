@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react'
-import type { ColDef, GetRowIdParams } from 'ag-grid-community'
+import { useEffect, useMemo, useRef } from 'react'
+import type { ColDef, GetRowIdParams, GridApi } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -18,13 +18,21 @@ export default function ListGrid<T>({
   columns,
   rowId,
   name,
+  onApi,
 }: {
   rows: T[]
   columns: ColDef<T>[]
   rowId: (row: T) => string
   /** The `data-list-grid` hook a drive finds it by. */
   name: string
+  /** BackOffice 4277: the grid's api once ready, for a page that exports what it shows; null once the grid is gone
+   *  (review O4), so the page never exports through a destroyed grid. */
+  onApi?: (api: GridApi<T> | null) => void
 }) {
+  // Read through a ref, so a new callback each render does not re-run the unmount effect.
+  const onApiRef = useRef(onApi)
+  onApiRef.current = onApi
+  useEffect(() => () => onApiRef.current?.(null), [])
   // A blank or repeated key falls back to the row's place (`./row-ids`): AG Grid would drop the row otherwise. The ids
   // are the page's, read through a ref, since AG Grid takes `getRowId` once.
   const ids = useRef<Map<T, string>>(new Map())
@@ -43,6 +51,7 @@ export default function ListGrid<T>({
         domLayout="autoHeight"
         animateRows={false}
         suppressColumnVirtualisation
+        onGridReady={onApi ? (e) => onApi(e.api) : undefined}
       />
     </div>
   )

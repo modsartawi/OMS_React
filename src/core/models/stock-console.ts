@@ -251,6 +251,8 @@ export interface StockConsoleTakeBatch {
   batch: string
   quantity: number
   state: string
+  /** BackOffice 4277 (SIS.Stock 086): this batch came by the expiry fallback; absent from an older server. */
+  isExpiryFallback?: boolean
 }
 
 /**
@@ -284,6 +286,49 @@ export interface StockConsoleTakeRow {
   durationMs: number | null
   statusCode: number | null
   instance: string | null
+  /**
+   * BackOffice 4277 (spec 4275, ADR 0146): granted, some of the take was placed by the expiry fallback; refused, false;
+   * failed, null. Absent from an older server.
+   */
+  isExpiryFallback?: boolean | null
+  /** Refused rows: the batch the fallback would have chosen (a `Record` store) and its quantity. */
+  fallbackBatch?: string | null
+  fallbackQuantity?: number | null
+  /** Refused rows: why the fallback did not place the pack, as Stock Visibility names it (`ScannedDateDisagrees`). */
+  fallbackNote?: string | null
+}
+
+/** The Takes list's `fallback` extra: `true` lists only the calls the expiry fallback touched (failed calls left out). */
+export const TAKES_FALLBACK_ONLY = 'true'
+
+/**
+ * BackOffice 4277: `GET StockConsole/Stores/{store}/ExpiryFallbackTakes?from=&to=` — inventory control's list of a store's
+ * expiry fallback takes over local days (both in, at most 32), by material, the pack's vendor batch and the batch the door
+ * chose, so the counted stock can be moved to its own batch. Refused `NeedADay` / `DaysOutOfRange`. Days
+ * `yyyy-MM-ddT00:00:00`, times local.
+ */
+export interface StockConsoleExpiryFallbackRow {
+  item: string
+  nameEn: string
+  nameAr: string
+  /** The pack's own (scanned) vendor batch. */
+  vendorBatch: string
+  /** The batch the door chose by the fallback. */
+  batch: string
+  expiryDate: string | null
+  takes: number
+  quantity: number
+  firstTakenAt: string
+  lastTakenAt: string
+}
+
+export interface StockConsoleExpiryFallbackList {
+  store: string
+  from: string
+  to: string
+  takes: number
+  quantity: number
+  rows: StockConsoleExpiryFallbackRow[]
 }
 
 /** `…/Takes` (item, batch, day, outcome, page, size) and `…/Items/{item}/Takes` (outcome, page, size). */

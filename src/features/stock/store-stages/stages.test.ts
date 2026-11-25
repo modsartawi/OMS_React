@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import type { StoreCountRow, StoreSeedStatus, StoreStage } from '@/core/models/store-stage'
+import type { StoreCountRow, StoreGate, StoreGates, StoreSeedStatus, StoreStage } from '@/core/models/store-stage'
 import {
   STAGES_DEFAULTS,
+  EXPIRY_FALLBACK_STATES,
   WHY_MAX,
+  blockingCheck,
+  expiryFallbackView,
+  fallbackChoices,
+  fallbackCommit,
+  fallbackRequest,
+  figureLines,
+  gatesApart,
+  moveRequest,
   canAskCountClosed,
   cancelCommit,
   countOf,
@@ -41,7 +50,7 @@ describe('the moves a person may ask for (SIS.Stock 064)', () => {
 
 describe('the move commit', () => {
   it('needs a stage the store may move to and a reason', () => {
-    expect(moveCommit({ from: 'Seeded', to: 'Blocking', why: 'Gates hold for 14 days', pending: false }).canCommit).toBe(true)
+    expect(moveCommit({ from: 'Blocking', to: 'Seeded', why: 'Back a step', pending: false }).canCommit).toBe(true)
     expect(moveCommit({ from: 'Seeded', to: '', why: 'x', pending: false }).canCommit).toBe(false)
     expect(moveCommit({ from: 'Seeded', to: 'Blocking', why: '   ', pending: false }).canCommit).toBe(false)
     expect(moveCommit({ from: 'Shadow', to: 'Seeded', why: 'x', pending: false }).canCommit).toBe(false)
@@ -228,5 +237,149 @@ describe('the count start and cancel', () => {
     // 00:30 local on 23 Nov is still 22 Nov in UTC at +03:00; the count day must be the 23rd.
     expect(localDay(new Date(2026, 10, 23, 0, 30))).toBe('2026-11-23')
     expect(localDay(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05')
+  })
+})
+
+// BackOffice ticket 4261 (ADR 0145, SIS.Stock 081): a move to Blocking is measured by the store's gates — its own proof,
+// never waived, and the fleet's gates, each failing one waived by name by a holder of StoreBlockEarly:02 — and names each
+// confirmation the gates answer asks for.
+const gate = (name: string, scope: string, holds: boolean, figure = ''): StoreGate => ({
+  gate: name,
+  scope,
+  holds,
+  waived: false,
+  figure,
+})
+
+const p077 = (measured: StoreGate[], notConfirmed = ['StoreTills', 'WouldBeRefusalsRead']): StoreGates => ({
+  store: 'P077',
+  from: '2026-11-11T00:00:00',
+  to: '2026-11-24T00:00:00',
+  hold: false,
+  measured,
+  confirmed: [],
+  notConfirmed,
+  waived: [],
+})
+
+const ownHolds = [gate('Seed', 'Store', true), gate('CountersMet', 'Store', true), gate('WouldBeRefusals', 'Store', true)]
+
+describe('the gates answer, store and fleet apart', () => {
+  it("splits by scope, and a gate not marked is the store's (it can never be waived by mistake)", () => {
+    const apart = gatesApart(p077([gate('Seed', 'Store', true), gate('SapCount', 'Fleet', false), gate('Odd', '', true)]))
+    expect(apart.store.map((g) => g.gate)).toEqual(['Seed', 'Odd'])
+    expect(apart.fleet.map((g) => g.gate)).toEqual(['SapCount'])
+    expect(gatesApart(null)).toEqual({ store: [], fleet: [] })
+  })
+
+  it('reads a figure one day or feed per line (the would-be refusals: each day split GS1 / entered / determined)', () => {
+    expect(
+      figureLines('2026-11-22: 1 of 90 takes refused (1.1%): GS1 scan 1 of 40, determined 0 of 50; 2026-11-23: 0 of 80 takes refused'),
+    ).toEqual(['2026-11-22: 1 of 90 takes refused (1.1%): GS1 scan 1 of 40, determined 0 of 50', '2026-11-23: 0 of 80 takes refused'])
+    expect(figureLines('')).toEqual([])
+  })
+})
+
+describe('the move to Blocking', () => {
+  it("is ready when the store's own proof holds, each failing fleet gate is waived and every confirmation is named", () => {
+    const gates = p077([...ownHolds, gate('SapCount', 'Fleet', false), gate('Feeds', 'Fleet', true)])
+    const check = blockingCheck({ gates, confirmed: ['StoreTills', 'WouldBeRefusalsRead'], waived: ['SapCount'], canWaive: true })
+    expect(check).toEqual({ ready: true, toConfirm: ['StoreTills', 'WouldBeRefusalsRead'], missing: [], storeFailing: [], unwaived: [] })
+    expect(moveCommit({ from: 'Seeded', to: 'Blocking', why: 'Own proof holds', pending: false, blocking: check }).canCommit).toBe(true)
+  })
+
+  it('is not ready while a confirmation is missing, a store gate fails (even "waived"), or a failing fleet gate is not waived', () => {
+    const gates = p077([gate('Seed', 'Store', true), gate('NightlyCompare', 'Store', false), gate('SapCount', 'Fleet', false)])
+    const check = blockingCheck({ gates, confirmed: ['StoreTills'], waived: ['NightlyCompare'], canWaive: true })
+    expect(check.ready).toBe(false)
+    expect(check.missing).toEqual(['WouldBeRefusalsRead'])
+    expect(check.storeFailing).toEqual(['NightlyCompare'])
+    expect(check.unwaived).toEqual(['SapCount'])
+    expect(moveCommit({ from: 'Seeded', to: 'Blocking', why: 'x', pending: false, blocking: check }).canCommit).toBe(false)
+  })
+
+  it('without the waive grant a ticked waiver counts for nothing', () => {
+    const gates = p077([...ownHolds, gate('SapCount', 'Fleet', false)], [])
+    expect(blockingCheck({ gates, confirmed: [], waived: ['SapCount'], canWaive: false }).unwaived).toEqual(['SapCount'])
+  })
+
+  it('cannot be sent before the gates are read', () => {
+    expect(blockingCheck({ gates: null, confirmed: [], waived: [], canWaive: true }).ready).toBe(false)
+    expect(moveCommit({ from: 'Seeded', to: 'Blocking', why: 'x', pending: false }).canCommit).toBe(false)
+  })
+
+  it("sends the confirmations in the answer's order and only the failing fleet gates ticked; other moves send neither", () => {
+    const gates = p077([...ownHolds, gate('SapCount', 'Fleet', false), gate('Feeds', 'Fleet', true), gate('Seed', 'Store', true)])
+    expect(
+      moveRequest({
+        to: 'Blocking',
+        why: '  Own proof holds  ',
+        gates,
+        confirmed: ['WouldBeRefusalsRead', 'StoreTills', 'Stale'],
+        waived: ['Feeds', 'SapCount', 'Seed'],
+        canWaive: true,
+      }),
+    ).toEqual({ stage: 'Blocking', why: 'Own proof holds', confirmed: ['StoreTills', 'WouldBeRefusalsRead'], waived: ['SapCount'] })
+    expect(moveRequest({ to: 'Blocking', why: 'x', gates, confirmed: [], waived: ['SapCount'], canWaive: false }).waived).toEqual([])
+    expect(moveRequest({ to: 'Shadow', why: ' back ', gates, confirmed: ['StoreTills'], waived: ['SapCount'], canWaive: true })).toEqual({
+      stage: 'Shadow',
+      why: 'back',
+    })
+  })
+})
+
+// BackOffice ticket 4276 (spec 4275, ADR 0146, SIS.Stock 082): the store sheet shows the store's expiry fallback state and,
+// for a counted store and a holder of the move grant, offers the three states with a required reason. A store that is not
+// counted shows its state greyed: the state has an effect only while the store is Seeded or Blocking.
+describe('the expiry fallback on the store sheet', () => {
+  const answer = (state: string) => ({ store: 'P077', state, changes: [] })
+
+  it('shows the state Stock Visibility answers, Off before it answers', () => {
+    expect(expiryFallbackView({ stage: 'Seeded', fallback: answer('Record') })).toEqual({
+      state: 'Record',
+      counted: true,
+      greyed: false,
+    })
+    expect(expiryFallbackView({ stage: 'Blocking', fallback: answer('On') }).state).toBe('On')
+    expect(expiryFallbackView({ stage: 'Seeded', fallback: null }).state).toBe('Off')
+  })
+
+  it('greys the state of a store that is not counted', () => {
+    for (const stage of ['Shadow', 'Seeding'])
+      expect(expiryFallbackView({ stage, fallback: answer('Record') })).toEqual({
+        state: 'Record',
+        counted: false,
+        greyed: true,
+      })
+  })
+
+  it('offers the three states only for a counted store, and only with the move grant', () => {
+    expect(EXPIRY_FALLBACK_STATES).toEqual(['Off', 'Record', 'On'])
+    expect(fallbackChoices({ stage: 'Seeded', canChange: true })).toEqual(['Off', 'Record', 'On'])
+    expect(fallbackChoices({ stage: 'Blocking', canChange: true })).toEqual(['Off', 'Record', 'On'])
+    expect(fallbackChoices({ stage: 'Shadow', canChange: true })).toEqual([])
+    expect(fallbackChoices({ stage: 'Seeding', canChange: true })).toEqual([])
+    expect(fallbackChoices({ stage: 'Seeded', canChange: false })).toEqual([])
+  })
+
+  it('needs a reason, a state the store does not already have, and a counted store', () => {
+    const base = { stage: 'Seeded', current: 'Off', to: 'Record', why: 'Read the fallback on live takes', pending: false }
+    expect(fallbackCommit(base)).toEqual({ canCommit: true, tooLong: false })
+    expect(fallbackCommit({ ...base, why: '' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, why: '   ' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, why: 'x'.repeat(WHY_MAX + 1) })).toEqual({ canCommit: false, tooLong: true })
+    expect(fallbackCommit({ ...base, why: 'x'.repeat(WHY_MAX) }).canCommit).toBe(true)
+    expect(fallbackCommit({ ...base, to: 'Off' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, to: '' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, to: 'Sideways' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, stage: 'Shadow' }).canCommit).toBe(false)
+    expect(fallbackCommit({ ...base, pending: true }).canCommit).toBe(false)
+  })
+
+  it('sends the state chosen and the reason trimmed; who is the signed-in user, never sent', () => {
+    expect(fallbackRequest({ to: 'On', why: '  P077 read clean for three days  ' })).toEqual({
+      state: 'On',
+      why: 'P077 read clean for three days',
+    })
   })
 })

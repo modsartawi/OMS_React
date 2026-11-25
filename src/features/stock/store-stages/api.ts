@@ -14,6 +14,9 @@ import type {
   StoreCountReleaseRequest,
   StoreCountRow,
   StoreCountStartRequest,
+  StoreExpiryFallback,
+  StoreExpiryFallbackRequest,
+  StoreGates,
   StoreStage,
   StoreStageMove,
   StoreStageMoveRequest,
@@ -30,9 +33,34 @@ export const storeStageApi = {
     return (await api.get<StoreStageMove[] | null>(`StoreStage/${encodeURIComponent(store)}/Moves`)) ?? []
   },
 
-  /** `POST StoreStage/{store}/Move` → the store's stage after the move. A refused move is a business `ApiError`. */
+  /**
+   * Ticket 4261: `GET StoreStage/{store}/Gates` → the store's gates toward Blocking as a move would measure them now, store
+   * and fleet apart (`BackOfficeScreen[StoreStage, 03]`). A read; Stock Visibility measures it afresh, which can take a while.
+   */
+  gates(store: string): Promise<StoreGates> {
+    return api.get<StoreGates>(`StoreStage/${encodeURIComponent(store)}/Gates`)
+  },
+
+  /**
+   * `POST StoreStage/{store}/Move` → the store's stage after the move. A refused move is a business `ApiError`. A move to
+   * Blocking carries `confirmed` and `waived` (ticket 4261); a waiver without `StoreBlockEarly:02` is refused
+   * (`StageWaiveNotPermitted`) before Stock Visibility is asked.
+   */
   move(store: string, request: StoreStageMoveRequest): Promise<StoreStage> {
     return api.post<StoreStage>(`StoreStage/${encodeURIComponent(store)}/Move`, request)
+  },
+
+  /** Ticket 4276: `GET StoreStage/{store}/ExpiryFallback` → the store's expiry fallback state and its changes. */
+  expiryFallback(store: string): Promise<StoreExpiryFallback> {
+    return api.get<StoreExpiryFallback>(`StoreStage/${encodeURIComponent(store)}/ExpiryFallback`)
+  },
+
+  /**
+   * Ticket 4276: `POST StoreStage/{store}/ExpiryFallback` → the state after the change. A refusal (`ExpiryFallbackRefused`,
+   * `ExpiryFallbackReasonRequired`, `ExpiryFallbackNotPermitted`) is a business `ApiError`.
+   */
+  setExpiryFallback(store: string, request: StoreExpiryFallbackRequest): Promise<StoreExpiryFallback> {
+    return api.post<StoreExpiryFallback>(`StoreStage/${encodeURIComponent(store)}/ExpiryFallback`, request)
   },
 
   /** Ticket 3898: `GET StoreStage/Counts` → every store under count, with the count's closing mark. */

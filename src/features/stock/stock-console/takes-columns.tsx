@@ -12,7 +12,7 @@ import { formatFigure } from '@/core/util/number-format'
 import { MONO, formatTime } from './columns'
 import { rowKey } from './row-ids'
 import { itemHref } from './items-columns'
-import { takeCells } from './takes'
+import { fallbackNoteWord, takeCells, takeFallback, takeFallbackValue } from './takes'
 import WordOrRaw from './WordOrRaw'
 
 type Cell = ICellRendererParams<StockConsoleTakeRow>
@@ -88,6 +88,41 @@ export function buildTakesColumns(t: TFunction, language: string, store: string)
                 <Ltr>{b}</Ltr>
               </span>
             ))}
+          </span>
+        )
+      },
+    },
+    {
+      // BackOffice 4277: the pack's own (scanned) vendor batch, whatever the kind.
+      headerName: t('takes.column.vendorBatch'),
+      colId: 'vendorBatch',
+      width: 130,
+      cellClass: MONO,
+      valueGetter: (p) => p.data?.scannedVendorBatch ?? '',
+      cellRenderer: LtrCell,
+    },
+    {
+      // BackOffice 4277 (spec 4275, ADR 0146): placed by the expiry fallback, would have been (a Record store), or why not.
+      headerName: t('takes.column.fallback'),
+      colId: 'fallback',
+      width: 330,
+      valueGetter: (p) => (p.data ? takeFallbackValue(p.data, (key) => t(key)) : ''),
+      cellRenderer: (p: Cell) => {
+        const cell = p.data ? takeFallback(p.data) : null
+        if (!cell) return null
+        return (
+          <span className="inline-flex flex-wrap items-center gap-1.5" data-take-fallback={cell.key}>
+            <StatusBadge sev={cell.sev}>{t(cell.key)}</StatusBadge>
+            {cell.batches.map((b, i) => (
+              <span key={`${b}-${i}`} className={MONO}>
+                <Ltr>{b}</Ltr>
+              </span>
+            ))}
+            {cell.note && (
+              <span className="text-xs text-muted-foreground">
+                <WordOrRaw word={fallbackNoteWord(cell.note)} />
+              </span>
+            )}
           </span>
         )
       },

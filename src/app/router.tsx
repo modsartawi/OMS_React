@@ -515,6 +515,11 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('@/features/stock/stock-console/ItemPage')).default }),
       },
       {
+        // BackOffice 4277: inventory control's list of a store's expiry fallback takes — read only when asked.
+        path: 'stock/console/fallback',
+        lazy: async () => ({ Component: (await import('@/features/stock/stock-console/FallbackPage')).default }),
+      },
+      {
         // oms 943: Find an item or a batch across the fleet — searched only when asked.
         path: 'stock/console/find',
         lazy: async () => ({ Component: (await import('@/features/stock/stock-console/FindPage')).default }),

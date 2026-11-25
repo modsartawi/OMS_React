@@ -90,7 +90,11 @@
     "nettedSold": "Netted as sold",
     "heldForDocument": "Held for it",
     "heldSold": "Held, sold",
-    "gap": "Gap"
+    "gap": "Gap",
+    "scannedVendorBatch": "Pack's vendor batch",
+    "scannedExpiry": "Pack's expiry",
+    "fallbackBatch": "Fallback batch (would be)",
+    "fallbackNote": "Fallback note"
   },
   "columnHint": {
     "quantityAvailable": "The quantity available at the group's latest refusal.",
@@ -184,7 +188,8 @@
       "rows": "No refusal row matches.",
       "multiBatch": "No line spanned more than one batch on this day.",
       "lastResort": "No take of last-resort stock on this day."
-    }
+    },
+    "fallbackLabel": "Expiry fallback"
   },
   "held": {
     "title": "Held stock impact",
@@ -262,5 +267,12 @@
       "deliveriesFailing": "Stores with a delivery sale completed without its picking document.",
       "tillsFailing": "Stores with a till not heard on the hold seam, or with no till seen."
     }
+  },
+  "fallback": {
+    "any": "Every row",
+    "only": "Expiry fallback only"
+  },
+  "fallbackNote": {
+    "ScannedDateDisagrees": "The scanned date matches none of the pack's batches"
   }
 }

@@ -223,3 +223,26 @@ describe('stock-console — the keys 945 builds exist', () => {
     expect(has(en, 'tabs.notYet')).toBe(false)
   })
 })
+
+// ── BackOffice 4277 ── the expiry fallback: the Takes list's column and filter, and inventory control's list.
+import { FALLBACK_LIST_COLUMNS, FALLBACK_LIST_PROBLEMS } from './fallback-list'
+import { FALLBACK_NOTES } from './takes'
+
+describe('stock-console — the keys 4277 builds exist', () => {
+  it.each([en, ar])('the fallback column, filter, notes and the list page', (locale) => {
+    const keys = [
+      'nav.fallback',
+      ...['vendorBatch', 'fallback'].map((k) => `takes.column.${k}`),
+      ...['filter', 'any', 'only', 'placed', 'wouldBe', 'note'].map((k) => `takes.fallback.${k}`),
+      ...FALLBACK_NOTES.map((n) => `takes.fallbackNote.${n}`),
+      ...FALLBACK_LIST_COLUMNS.map((c) => `fallback.column.${c}`),
+      ...FALLBACK_LIST_PROBLEMS.map((p) => `fallback.problem.${p}`),
+      ...['lead', 'store', 'from', 'to', 'read', 'nothingYet', 'loading', 'failedTitle', 'failed', 'empty', 'sheet', 'fileName'].map(
+        (k) => `fallback.${k}`,
+      ),
+      'fallback.totals_other',
+      ...['button', 'done', 'doneDetail_other', 'failed', 'failedDetail'].map((k) => `fallback.export.${k}`),
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+})

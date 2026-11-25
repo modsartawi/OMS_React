@@ -18,9 +18,13 @@ export const FLEET_PATH = `${STOCK_CONSOLE_PATH}/fleet`
 /** Find an item or a batch (943): the fleet searched. */
 export const FIND_PATH = `${STOCK_CONSOLE_PATH}/find`
 
+/** Expiry fallback takes (BackOffice 4277): inventory control's list of a store's fallback takes. */
+export const FALLBACK_PATH = `${STOCK_CONSOLE_PATH}/fallback`
+
 export const CONSOLE_PAGES: readonly ConsolePage[] = [
   { to: STOCK_CONSOLE_PATH, key: 'stores' },
   { to: FIND_PATH, key: 'find' },
+  { to: FALLBACK_PATH, key: 'fallback' },
   { to: FLEET_PATH, key: 'fleet' },
 ]
 

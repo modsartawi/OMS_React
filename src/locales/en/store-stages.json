@@ -79,6 +79,15 @@
     "done": {
       "title": "Stage moved",
       "detail": "{{store}} is now {{stage}}."
+    },
+    "blocking": {
+      "title": "Before Blocking",
+      "confirmHint": "Confirm each by name: you read its figures.",
+      "waiveHint": "Each failing fleet gate is waived by name, and the waiver is logged with its failing figure.",
+      "waive": "Waive",
+      "noWaiveGrant": "Fails. Only a holder of the block-early permission may waive it.",
+      "storeFailing": "The store's own proof does not hold ({{gates}}). It is never waived, so the move would be refused.",
+      "needsGates": "The gates must be read before a store moves to Blocking."
     }
   },
   "count": {
@@ -161,5 +170,95 @@
       "ByHand": "By hand",
       "Reopened": "Opened again: sales still on their way to SAP"
     }
+  },
+  "fallback": {
+    "title": "Expiry fallback",
+    "hint": "A scanned pack whose own batch is empty may go on a batch of the same expiry with no vendor batch. Stock Visibility decides; this sets the store's state.",
+    "state": {
+      "Off": "Off",
+      "Record": "Record",
+      "On": "On"
+    },
+    "does": {
+      "Off": "Off: the take door answers as today.",
+      "Record": "Record: the door answers as today, and a refused pack's row names the batch the fallback would have chosen.",
+      "On": "On: the pack is placed on that batch and the take is marked."
+    },
+    "onNeedsWorker": "Set On only once the batch worker change is live: until then a fallback sale is booked on the pack's own batch and the door oversells.",
+    "notCounted": "No effect while the store is {{stage}}: the fallback applies only to a counted store (Seeded or Blocking).",
+    "loading": "Reading the state…",
+    "failedTitle": "The state could not be read",
+    "failed": "Stock Visibility did not answer. Try again in a moment.",
+    "to": "New state",
+    "toPlaceholder": "Choose a state",
+    "why": "Why",
+    "whyPlaceholder": "The reason, kept in the state's log",
+    "tooLong": "The reason is longer than {{max}} characters.",
+    "commit": "Set",
+    "committing": "Setting…",
+    "refusedTitle": "The change was refused",
+    "changeFailed": "The state could not be changed. Try again in a moment.",
+    "done": {
+      "title": "Expiry fallback set",
+      "detail": "{{store}} is now {{state}}."
+    },
+    "changes": {
+      "title": "Changes",
+      "changedAt": "When",
+      "change": "Change",
+      "who": "Who",
+      "why": "Why"
+    }
+  },
+  "gates": {
+    "title": "Gates toward Blocking",
+    "hint": "Measured now by Stock Visibility, as a move to Blocking would measure them. The store's own proof always refuses when it fails; a failing fleet gate may be waived by name.",
+    "loading": "Measuring the gates…",
+    "failedTitle": "The gates could not be read",
+    "failed": "Stock Visibility did not answer. Try again in a moment.",
+    "over": "Fleet gates measured from {{from}} to {{to}}",
+    "allHold": "every gate holds",
+    "notAllHold": "not every gate holds",
+    "store": "The store's own proof (never waived)",
+    "fleet": "The fleet's gates (a failing one may be waived by name)",
+    "holds": "holds",
+    "doesNotHold": "does not hold",
+    "refresh": "Measure again"
+  },
+  "refusalDays": {
+    "title": "Takes per day: refusals and the expiry fallback",
+    "hint": "The would-be refusal share beside the fallback's share of scanned takes. A fallback take is a placed take, never a refusal; the fallback has no gate of its own, and confirming the refusals were read confirms both.",
+    "state": "Expiry fallback: {{state}}.",
+    "column": {
+      "day": "Day",
+      "takes": "Takes",
+      "refused": "Refused",
+      "refusalShare": "Refusal share",
+      "scannedTakes": "Scanned takes",
+      "fallbackTakes": "Fallback takes",
+      "fallbackShare": "Fallback share",
+      "wouldBePlacements": "Would be placed"
+    }
+  },
+  "gate": {
+    "Seed": "Seed",
+    "CountersMet": "Counters met",
+    "NightlyCompare": "Nightly compare with SAP",
+    "WouldBeRefusals": "Would-be refusals",
+    "TakeDoor": "Take door",
+    "Feeds": "Feeds",
+    "SapCount": "SAP count",
+    "SalePush": "Completed-sale push",
+    "HeldServed": "Held stock served"
+  },
+  "confirm": {
+    "StoreTills": "The store's tills answer takes in time",
+    "DrsHoldsInShadow": "DRS holds held 30 days in shadow",
+    "DeliverySalesPicked": "Delivery sales carry a picking document",
+    "TillsOnHoldSeam": "Every till is on the hold-seam engine",
+    "OldDocumentsCleared": "Old picking documents are written off",
+    "FeedForcedStop": "The feeds' forced stop proved the restart and the alarm",
+    "TakeDoorSkips": "Skipped and failed takes stay under 1 in 1,000 a day",
+    "WouldBeRefusalsRead": "I read the store's would-be refusals"
   }
 }

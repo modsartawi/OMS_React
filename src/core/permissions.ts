@@ -88,6 +88,8 @@ export const SCREEN_KEYS = [
   'StoreCountClose:02',
   // Start / cancel a store's count on the web (BackOffice 2026-11-23): `BackOfficeScreen[StoreCountStart, 02]`.
   'StoreCountStart:02',
+  // Waive a failing fleet gate on a move to Blocking (BackOffice 4261, ADR 0145): `BackOfficeScreen[StoreBlockEarly, 02]`.
+  'StoreBlockEarly:02',
   'StockHealth:03',
   // Stock console (BackOffice spec 4157 / 4158): `BackOfficeScreen[StockConsole, 03]`, role STOCK_CONSOLE_VIEWER.
   'StockConsole:03',

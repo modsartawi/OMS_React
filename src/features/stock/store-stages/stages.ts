@@ -5,7 +5,20 @@
  * offers only those (any stage back to Shadow, Seeded to Blocking, Blocking back to Seeded) so a person is not invited to a
  * refusal. Shadow to Seeding is the count's closing and Seeding to Seeded the seed's: never a person's.
  */
-import { isStageName, type StageName, type StoreCountRow, type StoreSeedStatus, type StoreStage } from '@/core/models/store-stage'
+import {
+  EXPIRY_FALLBACK_STATES,
+  isStageName,
+  type ExpiryFallbackState,
+  type StageName,
+  type StoreCountRow,
+  type StoreExpiryFallback,
+  type StoreExpiryFallbackRequest,
+  type StoreGate,
+  type StoreGates,
+  type StoreSeedStatus,
+  type StoreStage,
+  type StoreStageMoveRequest,
+} from '@/core/models/store-stage'
 
 /** SIS.Stock's log keeps a reason of at most 500 characters. */
 export const WHY_MAX = 500
@@ -24,15 +37,168 @@ export function personMovesFrom(from: string): StageName[] {
   }
 }
 
-/** Whether the move form may be sent. */
-export function moveCommit({ from, to, why, pending }: { from: string; to: string; why: string; pending: boolean }): {
+/** Whether the move form may be sent. A move to Blocking also needs its gates check ready (ticket 4261). */
+export function moveCommit({
+  from,
+  to,
+  why,
+  pending,
+  blocking,
+}: {
+  from: string
+  to: string
+  why: string
+  pending: boolean
+  blocking?: BlockingCheck
+}): {
   canCommit: boolean
   tooLong: boolean
 } {
   const reason = why.trim()
   const tooLong = reason.length > WHY_MAX
   const allowed = (personMovesFrom(from) as string[]).includes(to)
-  return { canCommit: !pending && allowed && reason.length > 0 && !tooLong, tooLong }
+  const gatesReady = to !== 'Blocking' || blocking?.ready === true
+  return { canCommit: !pending && allowed && gatesReady && reason.length > 0 && !tooLong, tooLong }
+}
+
+/**
+ * BackOffice ticket 4261 (ADR 0145, SIS.Stock 081): the store's gates, its own proof and the fleet's, apart. A gate not
+ * marked `Fleet` is the store's, as Stock Visibility reads it, so it can never be waived by mistake.
+ */
+export function gatesApart(gates: StoreGates | null | undefined): { store: StoreGate[]; fleet: StoreGate[] } {
+  const measured = gates?.measured ?? []
+  return { store: measured.filter((g) => g.scope !== 'Fleet'), fleet: measured.filter((g) => g.scope === 'Fleet') }
+}
+
+/** A gate's figure, one failing day or feed per line (Stock Visibility joins them with `; `). */
+export function figureLines(figure: string | null | undefined): string[] {
+  return (figure ?? '')
+    .split('; ')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+}
+
+/** What a move to Blocking still lacks, measured against the gates answer. */
+export interface BlockingCheck {
+  ready: boolean
+  /** Every confirmation the move must name (the answer's `notConfirmed`, read with none given), in its order. */
+  toConfirm: string[]
+  missing: string[]
+  /** The store's own gates that fail: never waived, so the move is refused. */
+  storeFailing: string[]
+  /** The failing fleet gates not waived (a waiver counts only for a holder of `StoreBlockEarly:02`). */
+  unwaived: string[]
+}
+
+export function blockingCheck({
+  gates,
+  confirmed,
+  waived,
+  canWaive,
+}: {
+  gates: StoreGates | null | undefined
+  confirmed: readonly string[]
+  waived: readonly string[]
+  canWaive: boolean
+}): BlockingCheck {
+  const { store, fleet } = gatesApart(gates)
+  const toConfirm = gates?.notConfirmed ?? []
+  const missing = toConfirm.filter((n) => !confirmed.includes(n))
+  const storeFailing = store.filter((g) => !g.holds).map((g) => g.gate)
+  const unwaived = fleet.filter((g) => !g.holds && !(canWaive && waived.includes(g.gate))).map((g) => g.gate)
+  return {
+    ready: !!gates && missing.length === 0 && storeFailing.length === 0 && unwaived.length === 0,
+    toConfirm,
+    missing,
+    storeFailing,
+    unwaived,
+  }
+}
+
+/**
+ * The move's body. A move to Blocking names the confirmations ticked (in the answer's order, only names it asks for) and
+ * the failing fleet gates ticked for a waiver (only for a holder of the grant); every other move sends neither.
+ */
+export function moveRequest({
+  to,
+  why,
+  gates,
+  confirmed,
+  waived,
+  canWaive,
+}: {
+  to: string
+  why: string
+  gates: StoreGates | null | undefined
+  confirmed: readonly string[]
+  waived: readonly string[]
+  canWaive: boolean
+}): StoreStageMoveRequest {
+  if (to !== 'Blocking') return { stage: to, why: why.trim() }
+  const failingFleet = gatesApart(gates).fleet.filter((g) => !g.holds).map((g) => g.gate)
+  return {
+    stage: to,
+    why: why.trim(),
+    confirmed: (gates?.notConfirmed ?? []).filter((n) => confirmed.includes(n)),
+    waived: canWaive ? failingFleet.filter((g) => waived.includes(g)) : [],
+  }
+}
+
+/**
+ * BackOffice ticket 4276 (spec 4275, ADR 0146): the store's expiry fallback. No rule lives here — Stock Visibility decides
+ * what each state does and refuses a change it does not allow; the screen shows the state, offers the three states only
+ * where they have an effect (a counted store: Seeded or Blocking) to a holder of the move grant, and asks a reason.
+ */
+export { EXPIRY_FALLBACK_STATES }
+
+/** A counted store: its stock was counted and seeded, so the expiry fallback has an effect there. */
+export const isCountedStage = (stage: string): boolean => stage === 'Seeded' || stage === 'Blocking'
+
+const isFallbackState = (s: string): s is ExpiryFallbackState => (EXPIRY_FALLBACK_STATES as readonly string[]).includes(s)
+
+/** What the sheet shows: the state as Stock Visibility answers it (`Off` before it answers), greyed where it has no effect. */
+export function expiryFallbackView({
+  stage,
+  fallback,
+}: {
+  stage: string
+  fallback: StoreExpiryFallback | null | undefined
+}): { state: string; counted: boolean; greyed: boolean } {
+  const counted = isCountedStage(stage)
+  return { state: fallback?.state || 'Off', counted, greyed: !counted }
+}
+
+/** The states offered: all three for a counted store and a holder of `StoreStage:02`, else none. */
+export function fallbackChoices({ stage, canChange }: { stage: string; canChange: boolean }): ExpiryFallbackState[] {
+  return canChange && isCountedStage(stage) ? [...EXPIRY_FALLBACK_STATES] : []
+}
+
+/** The change may be sent for a counted store, to another of the three states, with a reason of at most 500 characters. */
+export function fallbackCommit({
+  stage,
+  current,
+  to,
+  why,
+  pending,
+}: {
+  stage: string
+  current: string
+  to: string
+  why: string
+  pending: boolean
+}): { canCommit: boolean; tooLong: boolean } {
+  const reason = why.trim()
+  const tooLong = reason.length > WHY_MAX
+  return {
+    canCommit:
+      !pending && isCountedStage(stage) && isFallbackState(to) && to !== current && reason.length > 0 && !tooLong,
+    tooLong,
+  }
+}
+
+/** The change's body: the state chosen and the reason. Who is the signed-in user, on the server. */
+export function fallbackRequest({ to, why }: { to: string; why: string }): StoreExpiryFallbackRequest {
+  return { state: to, why: why.trim() }
 }
 
 /** The screen's URL: a store prefix, a stage, and the store whose log is open. */

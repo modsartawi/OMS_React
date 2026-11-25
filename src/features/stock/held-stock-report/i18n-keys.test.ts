@@ -67,6 +67,8 @@ describe('held-stock-report — the keys the code builds exist', () => {
       ...[...REFUSAL_COLUMN_HINTS, ...HELD_COLUMN_HINTS, ...GATE_COLUMN_HINTS].map((c) => `columnHint.${c}`),
       ...['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'].map((a) => `access.${a}`),
       'menu.refusals',
+      // BackOffice 4277: the expiry fallback filter and its note.
+      ...['refusals.fallbackLabel', 'fallback.any', 'fallback.only', 'fallbackNote.ScannedDateDisagrees'],
       'menu.held',
       'menu.gates',
       ...['title', 'subtitle', 'to', 'reset', 'failed', 'failingOnly', 'window', 'note', 'empty'].map((k) => `gates.${k}`),

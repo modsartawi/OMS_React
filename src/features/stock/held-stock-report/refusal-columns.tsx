@@ -9,6 +9,7 @@ import type {
 import { pinStart } from '@/core/theme/direction'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
+import { refusalFallback } from './refusals'
 import { formatAge } from './shared'
 
 /**
@@ -28,6 +29,8 @@ export const REFUSAL_COLUMN_IDS = [
   'firstAt', 'lastAt', 'loggedAt', 'takeId', 'code', 'reason', 'batchWithStock', 'batchWithStockExpiry',
   'batchWithStockQuantity', 'expiredQuantity', 'document', 'user', 'stage', 'lines', 'documentNo', 'sourceType',
   'sourceKey', 'lineNumber', 'pickIndex', 'quantity', 'pickedBy', 'pickedAt',
+  // BackOffice 4277 (spec 4275): the pack's vendor batch and expiry, the batch the fallback would have chosen, its note.
+  'scannedVendorBatch', 'scannedExpiry', 'fallbackBatch', 'fallbackNote',
 ] as const
 
 /** The column ids that carry a header hint, in both locales. */
@@ -36,7 +39,7 @@ export const REFUSAL_COLUMN_HINTS = ['quantityAvailable', 'sapFeedAge', 'posFeed
 /** Every code column id, exported as text. */
 export const REFUSAL_TEXT_COLUMNS = new Set([
   'store', 'material', 'batch', 'takeId', 'code', 'batchWithStock', 'document', 'user', 'documentNo', 'sourceType', 'sourceKey',
-  'pickedBy',
+  'pickedBy', 'scannedVendorBatch', 'scannedExpiry', 'fallbackBatch', 'fallbackNote',
 ])
 
 const figure = ({ value }: ValueFormatterParams) => formatFigure(value as number | null)
@@ -123,6 +126,19 @@ export function rowColumns(t: TFunction): ColDef<TakeRefusalRow>[] {
     code<TakeRefusalRow>(t, 'code', 90),
     { colId: 'reason', field: 'reason', headerName: t('column.reason'), minWidth: 140, cellClass: CODE },
     code<TakeRefusalRow>(t, 'batchWithStock'),
+    // BackOffice 4277: the pack's own vendor batch and expiry, and the batch the expiry fallback would have chosen.
+    { ...code<TakeRefusalRow>(t, 'scannedVendorBatch', 130), valueGetter: ({ data }) => (data ? refusalFallback(data).vendorBatch : '') || t('dash') },
+    code<TakeRefusalRow>(t, 'scannedExpiry'),
+    { ...code<TakeRefusalRow>(t, 'fallbackBatch', 150), valueGetter: ({ data }) => (data ? refusalFallback(data).wouldBe : '') || t('dash') },
+    {
+      colId: 'fallbackNote',
+      headerName: t('column.fallbackNote'),
+      minWidth: 150,
+      valueGetter: ({ data }) => {
+        const note = data ? refusalFallback(data).note : null
+        return note ? t(`fallbackNote.${note}`, { defaultValue: note }) : ''
+      },
+    },
     {
       colId: 'batchWithStockExpiry',
       headerName: t('column.batchWithStockExpiry'),

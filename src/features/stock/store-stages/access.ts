@@ -13,5 +13,9 @@ export const canMoveStoreStage = (p: Permissions): boolean => p.has('StoreStage:
 /** `StoreCountClose:02` — "count closed". */
 export const canCloseStoreCount = (p: Permissions): boolean => p.has('StoreCountClose:02')
 
+/** `StoreBlockEarly:02` (BackOffice ticket 4261, ADR 0145) — the waive tick beside each failing fleet gate on a move to
+ * Blocking. The server checks it again before Stock Visibility is asked. */
+export const canBlockStoreEarly = (p: Permissions): boolean => p.has('StoreBlockEarly:02')
+
 /** `StoreCountStart:02` — "Start count" and "Cancel count" (the desktop SAP integration screen's Block / Unblock). */
 export const canStartStoreCount = (p: Permissions): boolean => p.has('StoreCountStart:02')

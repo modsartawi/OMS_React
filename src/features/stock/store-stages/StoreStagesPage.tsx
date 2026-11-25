@@ -3,11 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { ArrowRightLeft, Ban, ClipboardList, Loader2, Lock, RotateCcw, Unlock } from 'lucide-react'
+import { ArrowRightLeft, Ban, ClipboardList, Loader2, Lock, RefreshCw, RotateCcw, Unlock } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { STAGES, type StoreCountRow, type StoreStage } from '@/core/models/store-stage'
+import { EXPIRY_FALLBACK_STATES, STAGES, type StoreCountRow, type StoreGate, type StoreGates, type StoreStage } from '@/core/models/store-stage'
 import { notify } from '@/core/services/notify'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
@@ -21,22 +21,32 @@ import Select from '@/core/ui/Select'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import StatusBadge from '@/core/ui/StatusBadge'
+import type { Severity } from '@/core/ui/severity'
 import Textarea from '@/core/ui/Textarea'
 import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { usePermissions } from '@/core/permissions'
-import { canCloseStoreCount, canMoveStoreStage, canOpenStoreStages, canStartStoreCount } from './access'
+import { canBlockStoreEarly, canCloseStoreCount, canMoveStoreStage, canOpenStoreStages, canStartStoreCount } from './access'
 import { storeStageApi } from './api'
-import { STAGE_SEVERITY, moverLabel, stageColumns, stageLabel } from './columns'
+import RefusalDays from './RefusalDays'
+import { STAGE_SEVERITY, confirmationLabel, gateLabel, moverLabel, stageColumns, stageLabel } from './columns'
 import {
   STAGES_DEFAULTS,
   WHY_MAX,
+  blockingCheck,
+  figureLines,
+  gatesApart,
+  moveRequest,
   canAskCountClosed,
   cancelCommit,
   countOf,
   countState,
+  expiryFallbackView,
+  fallbackChoices,
+  fallbackCommit,
+  fallbackRequest,
   localDay,
   moveCommit,
   personMovesFrom,
@@ -56,6 +66,10 @@ const movesKey = (store: string) => ['oms', 'store-stages', 'moves', store] as c
 const COUNTS_KEY = ['oms', 'store-stages', 'counts'] as const
 const releasesKey = (store: string) => ['oms', 'store-stages', 'releases', store] as const
 const seedKey = (store: string) => ['oms', 'store-stages', 'seed', store] as const
+const gatesKey = (store: string) => ['oms', 'store-stages', 'gates', store] as const
+const fallbackKey = (store: string) => ['oms', 'store-stages', 'expiry-fallback', store] as const
+/** The expiry fallback state's badge (ticket 4276): On places packs, Record only reads. */
+const FALLBACK_SEVERITY: Record<string, Severity> = { Off: 'mute', Record: 'go', On: 'ok' }
 /** How often the Count section reads a running seed. */
 const SEED_POLL_MS = 4000
 
@@ -186,6 +200,7 @@ function Stages() {
         <StoreSheet
           stage={open}
           canMove={canMoveStoreStage(permissions)}
+          canBlockEarly={canBlockStoreEarly(permissions)}
           canCloseCount={canCloseStoreCount(permissions)}
           canStartCount={canStartStoreCount(permissions)}
           count={countOf(counts.data ?? [], open.store)}
@@ -200,6 +215,7 @@ function Stages() {
 function StoreSheet({
   stage,
   canMove,
+  canBlockEarly,
   canCloseCount,
   canStartCount,
   count,
@@ -208,6 +224,7 @@ function StoreSheet({
 }: {
   stage: StoreStage
   canMove: boolean
+  canBlockEarly: boolean
   canCloseCount: boolean
   canStartCount: boolean
   count: StoreCountRow | null
@@ -217,6 +234,15 @@ function StoreSheet({
   const { t } = useTranslation('store-stages')
   const log = useQuery({ queryKey: movesKey(stage.store), queryFn: () => storeStageApi.moves(stage.store), retry: false })
   const moves = log.data ?? []
+  // Ticket 4261: the gates toward Blocking, measured afresh by Stock Visibility, for a store that is or may become Blocking.
+  const gatesShown = stage.stage === 'Seeded' || stage.stage === 'Blocking'
+  const gates = useQuery({
+    queryKey: gatesKey(stage.store),
+    queryFn: () => storeStageApi.gates(stage.store),
+    enabled: gatesShown,
+    retry: false,
+    staleTime: 60_000,
+  })
   return (
     <SideSheet onClose={onClose} width="w-[44rem]" aria-labelledby="store-stage-title" data-stage-sheet={stage.store}>
       <SideSheetHeader
@@ -236,7 +262,24 @@ function StoreSheet({
           canClose={canCloseCount}
           canRelease={canMove}
         />
-        {canMove && <MoveForm stage={stage} />}
+        {gatesShown && (
+          <GatesSection
+            gates={gates.data ?? null}
+            pending={gates.isPending}
+            fetching={gates.isFetching}
+            error={gates.isError ? gates.error : null}
+            onRefresh={() => void gates.refetch()}
+          />
+        )}
+        <ExpiryFallbackSection stage={stage} canChange={canMove} />
+        {canMove && (
+          <MoveForm
+            stage={stage}
+            gates={gates.data ?? null}
+            gatesPending={gatesShown && gates.isPending}
+            canBlockEarly={canBlockEarly}
+          />
+        )}
         <section className="flex flex-col gap-2" data-stage-log="">
           <h3 className="text-sm font-semibold">{t('log.title')}</h3>
           {log.isError && (
@@ -282,16 +325,31 @@ function StoreSheet({
   )
 }
 
-function MoveForm({ stage }: { stage: StoreStage }) {
+function MoveForm({
+  stage,
+  gates,
+  gatesPending,
+  canBlockEarly,
+}: {
+  stage: StoreStage
+  gates: StoreGates | null
+  gatesPending: boolean
+  canBlockEarly: boolean
+}) {
   const { t } = useTranslation('store-stages')
   const queryClient = useQueryClient()
   const [to, setTo] = useState('')
   const [why, setWhy] = useState('')
+  // Ticket 4261: the confirmations given and the failing fleet gates waived, by name, on a move to Blocking.
+  const [confirmed, setConfirmed] = useState<string[]>([])
+  const [waived, setWaived] = useState<string[]>([])
   const inFlight = useRef(false)
   const targets = personMovesFrom(stage.stage)
+  const blocking = blockingCheck({ gates, confirmed, waived, canWaive: canBlockEarly })
 
   const move = useMutation({
-    mutationFn: () => storeStageApi.move(stage.store, { stage: to, why: why.trim() }),
+    mutationFn: () =>
+      storeStageApi.move(stage.store, moveRequest({ to, why, gates, confirmed, waived, canWaive: canBlockEarly })),
     onSettled: () => {
       inFlight.current = false
     },
@@ -302,11 +360,14 @@ function MoveForm({ stage }: { stage: StoreStage }) {
       )
       setTo('')
       setWhy('')
+      setConfirmed([])
+      setWaived([])
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
       void queryClient.invalidateQueries({ queryKey: movesKey(stage.store) })
+      void queryClient.invalidateQueries({ queryKey: gatesKey(stage.store) })
     },
   })
-  const commit = moveCommit({ from: stage.stage, to, why, pending: move.isPending })
+  const commit = moveCommit({ from: stage.stage, to, why, pending: move.isPending, blocking })
 
   if (targets.length === 0)
     return (
@@ -356,6 +417,19 @@ function MoveForm({ stage }: { stage: StoreStage }) {
           {t('move.tooLong', { max: fsi(String(WHY_MAX)) })}
         </p>
       )}
+      {to === 'Blocking' && (
+        <BlockingChecks
+          gates={gates}
+          gatesPending={gatesPending}
+          check={blocking}
+          confirmed={confirmed}
+          waived={waived}
+          canWaive={canBlockEarly}
+          disabled={move.isPending}
+          onConfirm={(name, on) => setConfirmed((c) => toggled(c, name, on))}
+          onWaive={(gate, on) => setWaived((w) => toggled(w, gate, on))}
+        />
+      )}
       {move.isError && (
         <ErrorBanner className="p-2.5" title={t('move.refusedTitle')} message={apiErrorMessage(move.error, t('move.failed'))} />
       )}
@@ -370,6 +444,355 @@ function MoveForm({ stage }: { stage: StoreStage }) {
         </Button>
       </div>
     </form>
+  )
+}
+
+/**
+ * BackOffice ticket 4276 (spec 4275 user story 20, ADR 0146): the store's expiry fallback state as Stock Visibility keeps it,
+ * what each state does in one line, and — for a counted store and a holder of `StoreStage:02` — the change, with a required
+ * reason. A store that is not counted shows its state greyed, and why. The server checks the grant and the reason again;
+ * Stock Visibility decides the rest.
+ */
+function ExpiryFallbackSection({ stage, canChange }: { stage: StoreStage; canChange: boolean }) {
+  const { t } = useTranslation('store-stages')
+  const queryClient = useQueryClient()
+  const read = useQuery({
+    queryKey: fallbackKey(stage.store),
+    queryFn: () => storeStageApi.expiryFallback(stage.store),
+    retry: false,
+  })
+  const [to, setTo] = useState('')
+  const [why, setWhy] = useState('')
+  const inFlight = useRef(false)
+  const view = expiryFallbackView({ stage: stage.stage, fallback: read.data })
+  const choices = fallbackChoices({ stage: stage.stage, canChange })
+  const stateLabel = (s: string) => t(`fallback.state.${s}`, { defaultValue: s })
+  const change = useMutation({
+    mutationFn: () => storeStageApi.setExpiryFallback(stage.store, fallbackRequest({ to, why })),
+    onSettled: () => {
+      inFlight.current = false
+    },
+    onSuccess: (changed) => {
+      notify.success(
+        t('fallback.done.title'),
+        t('fallback.done.detail', { store: fsi(stage.store), state: fsi(stateLabel(changed?.state ?? to)) }),
+      )
+      setTo('')
+      setWhy('')
+      void queryClient.invalidateQueries({ queryKey: fallbackKey(stage.store) })
+      // Review O2: the gates answer carries the store's fallback state and its per-day figures (RefusalDays).
+      void queryClient.invalidateQueries({ queryKey: gatesKey(stage.store) })
+    },
+  })
+  const commit = fallbackCommit({ stage: stage.stage, current: view.state, to, why, pending: change.isPending })
+  const changes = read.data?.changes ?? []
+  const shown = !read.isPending && !read.isError
+
+  return (
+    <section
+      className={`flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/40 p-3${view.greyed ? ' opacity-60' : ''}`}
+      data-stage-fallback={shown ? view.state : read.isPending ? 'reading' : 'none'}
+      data-stage-fallback-greyed={view.greyed ? '' : undefined}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{t('fallback.title')}</h3>
+        {shown && (
+          <StatusBadge sev={view.greyed ? 'mute' : (FALLBACK_SEVERITY[view.state] ?? 'mute')}>{stateLabel(view.state)}</StatusBadge>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">{t('fallback.hint')}</p>
+      {read.isError && (
+        <ErrorBanner className="p-2.5" title={t('fallback.failedTitle')} message={apiErrorMessage(read.error, t('fallback.failed'))} />
+      )}
+      {read.isPending && <p className="text-sm text-muted-foreground">{t('fallback.loading')}</p>}
+      {view.greyed && (
+        <p className="text-[0.8125rem] text-muted-foreground" data-stage-fallback-not-counted="">
+          {t('fallback.notCounted', { stage: fsi(stageLabel(t, stage.stage)) })}
+        </p>
+      )}
+      <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+        {EXPIRY_FALLBACK_STATES.map((f) => (
+          <li key={f} className={shown && f === view.state ? 'font-semibold text-foreground' : undefined}>
+            {t(`fallback.does.${f}`)}
+          </li>
+        ))}
+      </ul>
+      {choices.length > 0 && shown && (
+        <form
+          className="flex flex-col gap-2.5 border-t border-border/40 pt-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (inFlight.current || !commit.canCommit) return
+            inFlight.current = true
+            change.mutate()
+          }}
+          data-stage-fallback-change=""
+        >
+          <Field id="store-fallback-to" label={t('fallback.to')}>
+            <Select value={to} onChange={(e) => setTo(e.target.value)} disabled={change.isPending} className="w-full" required>
+              <option value="">{t('fallback.toPlaceholder')}</option>
+              {choices.map((f) => (
+                <option key={f} value={f} disabled={f === view.state}>
+                  {stateLabel(f)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {to === 'On' && (
+            <p className="text-xs text-attention-800" data-stage-fallback-on-needs-worker="">
+              {t('fallback.onNeedsWorker')}
+            </p>
+          )}
+          <Field id="store-fallback-why" label={t('fallback.why')}>
+            <Textarea
+              value={why}
+              onChange={(e) => setWhy(e.target.value)}
+              disabled={change.isPending}
+              rows={2}
+              placeholder={t('fallback.whyPlaceholder')}
+              className="w-full"
+              required
+            />
+          </Field>
+          {commit.tooLong && <p className="text-xs text-attention-800">{t('fallback.tooLong', { max: fsi(String(WHY_MAX)) })}</p>}
+          {change.isError && (
+            <ErrorBanner
+              className="p-2.5"
+              title={t('fallback.refusedTitle')}
+              message={apiErrorMessage(change.error, t('fallback.changeFailed'))}
+            />
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary" disabled={!commit.canCommit} data-stage-fallback-commit="">
+              {change.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+              {change.isPending ? t('fallback.committing') : t('fallback.commit')}
+            </Button>
+          </div>
+        </form>
+      )}
+      {changes.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-border/40 pt-2.5" data-stage-fallback-changes="">
+          <h4 className="text-[0.8125rem] font-semibold">{t('fallback.changes.title')}</h4>
+          <table className="w-full text-[0.8125rem]">
+            <thead className="text-xs text-muted-foreground">
+              <tr>
+                <th className={TH}>{t('fallback.changes.changedAt')}</th>
+                <th className={TH}>{t('fallback.changes.change')}</th>
+                <th className={TH}>{t('fallback.changes.who')}</th>
+                <th className={TH}>{t('fallback.changes.why')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {changes.map((c, i) => (
+                <tr key={`${c.changedAt}-${i}`} className="border-t border-border/40">
+                  <td className={`${TD} tabular-nums`}>
+                    <Ltr>{formatDateTime(c.changedAt)}</Ltr>
+                  </td>
+                  <td className={TD}>{t('log.fromTo', { from: fsi(stateLabel(c.from)), to: fsi(stateLabel(c.to)) })}</td>
+                  {/* Review O7 (.claude/rules/bidi.md): a person's name and the reason are free text (<bdi>); the user
+                      id shown when no name is known is a code (Ltr). */}
+                  <td className={TD}>{c.whoName ? <bdi>{c.whoName}</bdi> : <Ltr>{c.who}</Ltr>}</td>
+                  {/* Free text wraps inside the sheet (TD is nowrap, and two whitespace utilities do not order). */}
+                  <td className="px-2 py-1.5 align-top break-words">
+                    <bdi>{c.why}</bdi>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+const toggled = (names: string[], name: string, on: boolean): string[] =>
+  on ? (names.includes(name) ? names : [...names, name]) : names.filter((n) => n !== name)
+
+/**
+ * Ticket 4261 (ADR 0145, SIS.Stock 081): the store's gates toward Blocking as Stock Visibility measures them now — the
+ * store's own proof (always enforced) and the fleet's gates (a failing one may be waived on the move), shown apart. Each
+ * figure is the server's text, one failing day or feed per line; the would-be refusals name each day split GS1 scan /
+ * entered batch / determined.
+ */
+function GatesSection({
+  gates,
+  pending,
+  fetching,
+  error,
+  onRefresh,
+}: {
+  gates: StoreGates | null
+  pending: boolean
+  fetching: boolean
+  error: unknown
+  onRefresh: () => void
+}) {
+  const { t } = useTranslation('store-stages')
+  const apart = gatesApart(gates)
+  return (
+    <section
+      className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/40 p-3"
+      data-stage-gates={gates ? (gates.hold ? 'hold' : 'notYet') : pending ? 'reading' : 'none'}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{t('gates.title')}</h3>
+        <Button variant="outlined" onClick={onRefresh} disabled={fetching} data-stage-gates-refresh="">
+          {fetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
+          {t('gates.refresh')}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{t('gates.hint')}</p>
+      {error != null && (
+        <ErrorBanner className="p-2.5" title={t('gates.failedTitle')} message={apiErrorMessage(error, t('gates.failed'))} />
+      )}
+      {pending && error == null ? (
+        <p className="text-sm text-muted-foreground">{t('gates.loading')}</p>
+      ) : (
+        gates && (
+          <>
+            <span className="inline-flex flex-wrap items-center gap-2 text-[0.8125rem]">
+              <span className="text-muted-foreground">
+                {t('gates.over', { from: fsi(formatDay(gates.from)), to: fsi(formatDay(gates.to)) })}
+              </span>
+              <StatusBadge sev={gates.hold ? 'ok' : 'warn'}>{t(gates.hold ? 'gates.allHold' : 'gates.notAllHold')}</StatusBadge>
+            </span>
+            <GateList title={t('gates.store')} gates={apart.store} scope="store" />
+            <GateList title={t('gates.fleet')} gates={apart.fleet} scope="fleet" />
+            <RefusalDays gates={gates} />
+          </>
+        )
+      )}
+    </section>
+  )
+}
+
+function GateList({ title, gates, scope }: { title: string; gates: StoreGate[]; scope: 'store' | 'fleet' }) {
+  const { t } = useTranslation('store-stages')
+  if (gates.length === 0) return null
+  return (
+    <div className="flex flex-col gap-1.5" data-stage-gates-scope={scope}>
+      <h4 className="text-[0.8125rem] font-semibold">{title}</h4>
+      <ul className="flex flex-col gap-1.5">
+        {gates.map((g) => (
+          <li key={g.gate} className="flex flex-col gap-0.5 text-[0.8125rem]" data-gate={g.gate} data-gate-holds={g.holds}>
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <StatusBadge sev={g.holds ? 'ok' : 'bad'}>{t(g.holds ? 'gates.holds' : 'gates.doesNotHold')}</StatusBadge>
+              <span className="font-medium">{gateLabel(t, g.gate)}</span>
+              <span className="font-mono text-[11px] text-muted-foreground">
+                <Ltr>{g.gate}</Ltr>
+              </span>
+            </span>
+            {figureLines(g.figure).map((line, i) => (
+              <bdi key={i} dir="ltr" className="whitespace-normal break-words text-xs text-muted-foreground" data-gate-figure-line="">
+                {line}
+              </bdi>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * Ticket 4261: what a move to Blocking names — each confirmation the gates answer asks for, ticked by name, and a waive tick
+ * beside each failing fleet gate for a holder of `StoreBlockEarly:02` only. The store's own proof is never waived: when it
+ * fails the move is not offered, and says why.
+ */
+function BlockingChecks({
+  gates,
+  gatesPending,
+  check,
+  confirmed,
+  waived,
+  canWaive,
+  disabled,
+  onConfirm,
+  onWaive,
+}: {
+  gates: StoreGates | null
+  gatesPending: boolean
+  check: ReturnType<typeof blockingCheck>
+  confirmed: string[]
+  waived: string[]
+  canWaive: boolean
+  disabled: boolean
+  onConfirm: (name: string, on: boolean) => void
+  onWaive: (gate: string, on: boolean) => void
+}) {
+  const { t } = useTranslation('store-stages')
+  const failingFleet = gatesApart(gates).fleet.filter((g) => !g.holds)
+  return (
+    <div className="flex flex-col gap-2.5 border-t border-border/40 pt-2.5" data-stage-blocking="">
+      <h4 className="text-[0.8125rem] font-semibold">{t('move.blocking.title')}</h4>
+      {!gates ? (
+        <p className="text-xs text-muted-foreground">{gatesPending ? t('gates.loading') : t('move.blocking.needsGates')}</p>
+      ) : (
+        <>
+          {check.storeFailing.length > 0 && (
+            <p className="text-xs text-attention-800" data-stage-blocking-store-failing="">
+              {t('move.blocking.storeFailing', { gates: fsi(check.storeFailing.map((g) => gateLabel(t, g)).join(', ')) })}
+            </p>
+          )}
+          {check.toConfirm.length > 0 && (
+            <fieldset className="flex flex-col gap-1.5" data-stage-blocking-confirm="">
+              <legend className="mb-1 text-xs text-muted-foreground">{t('move.blocking.confirmHint')}</legend>
+              {check.toConfirm.map((name) => (
+                <label key={name} className="inline-flex items-start gap-2 text-[0.8125rem]">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={confirmed.includes(name)}
+                    disabled={disabled}
+                    onChange={(e) => onConfirm(name, e.target.checked)}
+                    data-stage-confirm={name}
+                  />
+                  <span className="flex flex-col">
+                    <span>{confirmationLabel(t, name)}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      <Ltr>{name}</Ltr>
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {failingFleet.length > 0 && (
+            <fieldset className="flex flex-col gap-1.5" data-stage-blocking-waive="">
+              <legend className="mb-1 text-xs text-muted-foreground">{t('move.blocking.waiveHint')}</legend>
+              {failingFleet.map((g) => (
+                <div key={g.gate} className="flex flex-col gap-0.5 text-[0.8125rem]" data-stage-waive-gate={g.gate}>
+                  {canWaive ? (
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={waived.includes(g.gate)}
+                        disabled={disabled}
+                        onChange={(e) => onWaive(g.gate, e.target.checked)}
+                        data-stage-waive={g.gate}
+                      />
+                      <span className="font-medium">{t('move.blocking.waive')}</span>
+                      <span>{gateLabel(t, g.gate)}</span>
+                    </label>
+                  ) : (
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <StatusBadge sev="bad">{gateLabel(t, g.gate)}</StatusBadge>
+                      <span className="text-xs text-muted-foreground">{t('move.blocking.noWaiveGrant')}</span>
+                    </span>
+                  )}
+                  {figureLines(g.figure).map((line, i) => (
+                    <bdi key={i} dir="ltr" className="whitespace-normal break-words text-xs text-muted-foreground" data-gate-figure-line="">
+                      {line}
+                    </bdi>
+                  ))}
+                </div>
+              ))}
+            </fieldset>
+          )}
+        </>
+      )}
+    </div>
   )
 }
 

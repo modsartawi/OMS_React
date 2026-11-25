@@ -39,6 +39,7 @@ import {
   REFUSAL_TABS,
   REFUSAL_TILES,
   drillIntoGroup,
+  fallbackApplies,
   groupsShown,
   refusalFiltersFromParams,
   refusalFiltersToParams,
@@ -193,6 +194,20 @@ function Report() {
                   {t(k ? `kind.${k}` : 'kind.any')}
                 </option>
               ))}
+            </Select>
+          </Field>
+        )}
+        {/* Review O3: the refusal log's tabs only; Multi-batch and Last resort are not the fallback's (refusalQuery). */}
+        {fallbackApplies(filters.tab) && (
+          <Field label={t('refusals.fallbackLabel')}>
+            <Select
+              value={filters.fallback ? '1' : ''}
+              onChange={(e) => patch({ fallback: e.target.value === '1' })}
+              className="w-56"
+              data-hsr-filter="fallback"
+            >
+              <option value="">{t('fallback.any')}</option>
+              <option value="1">{t('fallback.only')}</option>
             </Select>
           </Field>
         )}

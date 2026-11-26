@@ -21,7 +21,9 @@ const SRC = 'src'
 // Features directly under `features/` rather than under an area (feature-structure.md).
 // `help` (oms 951, BackOffice spec 4182): the help center takes its area as a parameter — `/analytics/help` today,
 // another area's later — so it belongs to no one area.
-const TOP_LEVEL_FEATURES = new Set(['auth', 'copilot', 'help'])
+// `inquiry-export` (BackOffice spec 4314, ticket 4318): My exports is one page linked from two areas' menus
+// (`/collection/exports`, `/oms/exports`), so it belongs to no one area.
+const TOP_LEVEL_FEATURES = new Set(['auth', 'copilot', 'help', 'inquiry-export'])
 
 function walk(dir, acc = []) {
   for (const entry of readdirSync(dir)) {

@@ -57,6 +57,8 @@ describe('the Collections nav group', () => {
       // Ready for collection (ticket 317) — a read, beside the four reads, on its own grant.
       '/collection/ready',
       '/collection/assignment',
+      // My exports (ticket 4318, spec 4314) — the caller's export jobs; offered only while the feature is on.
+      '/collection/exports',
       // The settlement account (ticket 268) — a SECOND feature under this one group and prefix, on its own grant.
       '/collection/settlement',
     ])

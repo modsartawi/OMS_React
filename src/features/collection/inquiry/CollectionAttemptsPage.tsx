@@ -14,6 +14,8 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
+import ExportSplitButton from '@/core/inquiry-export/ExportSplitButton'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import { canOpenAttempts, collectionApi } from './api'
 import { buildAttemptsColumns, buildAttemptsDefaultColDef } from './attempts-columns'
 import {
@@ -25,7 +27,7 @@ import {
 import AttemptsToolbar from './AttemptsToolbar'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { useXlsxExport } from './use-xlsx-export'
-import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
+import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 
 /**
  * Collection Attempts (`/collection/attempts`) — the smallest screen in the suite
@@ -114,6 +116,19 @@ function AttemptsBody() {
   // says WHICH screen it is; the file is its grid, as shown.
   const xlsxExport = useXlsxExport<(typeof rows)[number]>('attempts')
 
+  // ---- Export month… (BackOffice spec 4314, ticket 4318) ----
+  // The APPLIED filters (what the grid shows), minus the grid's limit and the collection-date pair: the job's range
+  // replaces that pair, day by day, on the server. The pair pre-fills the dialog's range.
+  const month = useMemo<ExportMonthSource>(() => {
+    const { Limit: _limit, CollectionDateFrom, CollectionDateTo, ...filters } = appliedParams
+    return {
+      gridApi: xlsxExport.gridApi,
+      columnDefs: columns,
+      filters,
+      range: { from: String(CollectionDateFrom ?? ''), to: String(CollectionDateTo ?? '') },
+    }
+  }, [appliedParams, columns, xlsxExport.gridApi])
+
   return (
     <>
       <AttemptsToolbar
@@ -137,7 +152,7 @@ function AttemptsBody() {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...xlsxExport.buttonProps} />
+        <ExportSplitButton screen="CollectionAttempts" quick={xlsxExport.buttonProps} month={month} />
       </div>
 
       {/* ⚠️ Fires on a result that REACHED the cap, never on one merely large. */}

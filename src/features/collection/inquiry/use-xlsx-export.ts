@@ -20,6 +20,8 @@ import { exportGridToXlsx, type CollectionScreen } from './xlsx'
 
 /** What a Page spreads onto its `ExportButton` and its `AgGridReact`. */
 export interface XlsxExport<Row> {
+  /** The mounted grid, or null while the result is empty — Export month… reads its displayed columns (4318). */
+  gridApi: GridApi<Row> | null
   buttonProps: { label: string; onExport: () => void; disabled: boolean }
   gridProps: {
     onGridReady: (event: { api: GridApi<Row> }) => void
@@ -57,6 +59,7 @@ export function useXlsxExport<Row>(screen: CollectionScreen): XlsxExport<Row> {
   }, [gridApi, screen, t])
 
   return {
+    gridApi,
     buttonProps: {
       label: t(`${screen}.toolbar.export`),
       onExport,

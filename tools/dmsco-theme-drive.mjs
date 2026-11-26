@@ -819,7 +819,7 @@ SCREENS.push({
     // Toolbar buttons and the grid bar's Inspector chip are pills, on Button's outlined look.
     await expectAllPills(ctx, 'toolbar buttons', `${toolbar} button`)
     await expectAllPills(ctx, 'Inspector toggle', '[data-inspector-toggle]')
-    await expectRole(ctx, 'toolbar Export (outlined Button)', `${toolbar} [data-toolbar-export]`, 'border-top-color', '--border')
+    await expectRole(ctx, 'toolbar Export (outlined Button)', `${toolbar} [data-quick-export]`, 'border-top-color', '--border')
 
     // Disabled with a reason: no row is selected after a search, so Open Order is
     // aria-disabled, keeps a reason, is reachable by Tab and does nothing on click.

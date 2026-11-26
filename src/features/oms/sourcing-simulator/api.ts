@@ -7,6 +7,8 @@ import type {
   AdviseCartRequest,
   AdviseReply,
   AdviseRerunRequest,
+  AdviseWhyNot,
+  PlanGoal,
   SimulatorWorkbench,
   WeightSetListItem,
   WeightSetSaveRequest,
@@ -40,6 +42,13 @@ export const simulatorApi = {
    * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/WeightSets/Save` is ours.
    */
   saveWeightSet: (body: WeightSetSaveRequest) => api.post<WeightSetVersionRef>('SourcingAdvisor/WeightSets/Save', body),
+  /**
+   * `GET SourcingAdvisor/WhyNot` — "why not another store" (ticket 965, spec 4354 story 28): one store's rows of the
+   * held run's `search.whyNot[]` for one goal, in 4281's row shape (decision 27).
+   * PROVISIONAL (spec 4354: not specified) — the door, its path and its query `runId`, `store`, `goal` are ours. A run no
+   * longer held answers `ADVISE-404`, as the replan does.
+   */
+  whyNot: (runId: string, store: string, goal: PlanGoal) => api.get<AdviseWhyNot[]>('SourcingAdvisor/WhyNot', { runId, store, goal }),
 }
 
 export const weightSetsQuery = () => ({

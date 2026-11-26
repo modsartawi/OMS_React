@@ -67,7 +67,8 @@ What was built:
 - One control-baseline line: the range slider in `WeightSetPanel.tsx` (no shared range control in `core/ui`).
 
 PROVISIONAL (spec 4354: not specified), each marked so in the code:
-- Save grant key `SourcingAdvisorSets:06` (`SCREEN_KEYS`), read by `canSaveWeightSets` in `src/core/sourcing-advisor/access.ts`.
+- Save grant: "Save as a named set" reads 973's one provisional save grant, `canSaveWeightSets` (`SourcingAdvisorSave:01`)
+  in `src/core/sourcing-advisor/access.ts`; 963's own second key was dropped at the merge so there is a single save grant.
 - Weight-set doors: `GET SourcingAdvisor/WeightSets` → `WeightSetListItem[] { name, owner, versions, candidateVersion,
   trial }`; `GET SourcingAdvisor/WeightSets/Version?name=&version=` → `{ name, version, values, candidate, trial }`;
   `POST SourcingAdvisor/WeightSets/Save` with `{ name, basedOn, values }` → `{ name, version }`.
@@ -82,6 +83,6 @@ Other choices to confirm: "what the pins cost" shows minutes (the last promise t
 company's cost as two differences, and deliveries — no riyal total is made (4281 decision 28); a pin added after a run
 is not sent until Run; the picker opens on the candidate set's marked version; Run with nothing changed reads afresh.
 
-Proof as run: `npm test` (976 files), `npm run typecheck`, `npm run lint` green; `tools/sourcing-simulator-drive.mjs`
-106/106 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL (962's checks plus 21 for this ticket per direction). As in
+Proof as run (after merging the spec tip with 965 and 973): `npm test` (987 files), `npm run typecheck`, `npm run lint` green; `tools/sourcing-simulator-drive.mjs`
+144/144 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL (962's and 965's checks plus 21 for this ticket per direction). As in
 962, the RTL pass reads English words (the app boots i18next in English); the Arabic keys exist for every new key.

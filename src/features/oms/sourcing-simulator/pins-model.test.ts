@@ -111,7 +111,7 @@ describe('pins that leave no plan', () => {
 
 describe('the stores "never this store" offers', () => {
   it('every store the run showed — on its plans, the run without pins and the stores it read — once, in code order', () => {
-    expect(storesSeen(pinned)).toEqual(['1055', '1061', '1090'])
+    expect(storesSeen(pinned)).toEqual(['1055', '1061', '1090', '1203'])
     expect(storesSeen(null)).toEqual([])
   })
 })

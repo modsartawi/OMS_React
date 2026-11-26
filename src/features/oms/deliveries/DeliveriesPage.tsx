@@ -30,6 +30,7 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { canOpenList as canOpenListGrant } from '@/core/oms/access'
 import { usePermissions } from '@/core/permissions'
 import { fromListState, openIntentState, type OpenIntent } from '@/core/oms/open-intent'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import { useSession } from '@/core/session'
 import { fsi } from '@/core/util/bidi'
 import { deliveriesApi } from './api'
@@ -37,6 +38,7 @@ import { buildDeliveryColumns, DELIVERY_DEFAULT_COL_DEF, DELIVERY_ROW_SELECTION 
 import { DELIVERY_ACTS, actsOffered } from './acts'
 import DeliveryInspector from './DeliveryInspector'
 import EmptyOverlay, { type EmptyKind } from './EmptyOverlay'
+import { deliveryExportMonth } from './export-month'
 import { effectiveLimit, type DeliveryFilterCriteria } from './filter'
 import GridToolbar, { InspectorToggle, RowSummary } from './GridToolbar'
 import { detailsPathOf } from './inspector-model'
@@ -180,6 +182,12 @@ export default function DeliveriesPage() {
   const restore = useRef(useDeliverySearch.getState())
 
   const columns = useMemo(() => buildDeliveryColumns(t), [t])
+
+  // Export month… (BackOffice spec 4314, ticket 4324): the LAST search that ran (not the draft), its dates as the range.
+  const month = useMemo<ExportMonthSource>(
+    () => ({ gridApi, columnDefs: columns, ...deliveryExportMonth(lastRun, new Date()) }),
+    [gridApi, columns, lastRun],
+  )
 
   // The one permissions answer (oms 914): read once per page life, shared with the menu.
   const permissions = usePermissions()
@@ -708,7 +716,7 @@ export default function DeliveriesPage() {
             </span>
           )}
           {showResults && !queueOn && (
-            <GridToolbar gridApi={gridApi} selectedRow={selectedRow} hasRows={hasRows} />
+            <GridToolbar gridApi={gridApi} selectedRow={selectedRow} hasRows={hasRows} month={month} />
           )}
           <InspectorToggle open={inspector.open} onToggle={toggleInspector} />
         </div>

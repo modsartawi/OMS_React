@@ -15,7 +15,7 @@ import { api, type FileResponse } from '@/core/api'
  * The server's screen keys (`InquiryExportScreens`), one per screen that may export a month. Each later ticket adds its
  * key here when its row source lands; a key the server does not know refuses the request (`INQX-00002`).
  */
-export type InquiryExportScreen = 'CollectionAttempts' | 'CashCollections' | 'Deposits' | 'Acrs'
+export type InquiryExportScreen = 'CollectionAttempts' | 'CashCollections' | 'Deposits' | 'Acrs' | 'DeliveryList'
 
 /**
  * Where each screen's user collects the file: My exports under the screen's own area, so the area's group stays lit.
@@ -23,6 +23,7 @@ export type InquiryExportScreen = 'CollectionAttempts' | 'CashCollections' | 'De
  */
 export const MY_EXPORTS_PATH: Record<InquiryExportScreen, string> = {
   CollectionAttempts: '/collection/exports',
+  DeliveryList: '/oms/exports',
   CashCollections: '/collection/exports',
   Deposits: '/collection/exports',
   Acrs: '/collection/exports',

@@ -66,6 +66,7 @@
     "CollectionAttempts": "Collection Attempts",
     "CashCollections": "Cash Collections",
     "Deposits": "Deposits",
-    "Acrs": "ACRs"
+    "Acrs": "ACRs",
+    "DeliveryList": "Delivery Documents"
   }
 }

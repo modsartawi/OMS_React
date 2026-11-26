@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, GridApi } from 'ag-grid-community'
-import { FileSpreadsheet, RotateCcw, Search } from 'lucide-react'
+import { RotateCcw, Search } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -20,6 +20,8 @@ import { fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { fromListState } from '@/core/oms/open-intent'
 import { canOpenDocumentPayments } from '@/core/oms/access'
+import ExportSplitButton from '@/core/inquiry-export/ExportSplitButton'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import type { DocumentPaymentModel } from '@/core/models/document-payment'
 import { TOO_MANY_VALUES, documentPaymentsApi } from './api'
 import {
@@ -28,6 +30,7 @@ import {
   criteriaProblem,
   criteriaToParams,
   defaultCriteria,
+  exportMonthFilters,
   stateWithCriteria,
   type PaymentsCriteria,
 } from './criteria'
@@ -79,6 +82,8 @@ function DocumentPaymentList() {
   const [draft, setDraft] = useState<PaymentsCriteria>(() => applied ?? defaultCriteria())
   // What the grid shows once its column filters have narrowed it: the export's rows.
   const [shown, setShown] = useState(0)
+  // The same grid api as state, so Export month… reads the user's visible columns once the grid is up.
+  const [gridReady, setGridReady] = useState<GridApi<DocumentPaymentModel> | null>(null)
   const problem = criteriaProblem(draft)
 
   const types = useQuery(lookupQueries.documentTypes())
@@ -124,6 +129,21 @@ function DocumentPaymentList() {
       notify.error(t('export.failed'), t('export.failedDetail'))
     }
   }
+
+  // ---- Export month… (BackOffice spec 4314, ticket 4325) ----
+  // The APPLIED search (what the grid shows), as its query string spells it, minus the limit and the day pair: the job's
+  // range replaces the pair day by day on the server. 🔑 Unlike the grid, the job keeps the range even when numbers are
+  // pasted (story 38) — the dialog's range is always the bound. The applied pair pre-fills the dialog.
+  const month = useMemo<ExportMonthSource>(() => {
+    const { filters, range } = exportMonthFilters(applied)
+    return {
+      gridApi: gridReady,
+      columnDefs: columns,
+      filters,
+      range,
+      skipColumn: (id) => id === ACTIONS_COL_ID,
+    }
+  }, [applied, columns, gridReady])
 
   const patch = (p: Partial<PaymentsCriteria>) => setDraft((d) => ({ ...d, ...p }))
 
@@ -274,10 +294,15 @@ function DocumentPaymentList() {
 
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex justify-end">
-          <Button variant="outlined" disabled={list.isError || list.isFetching || shown === 0} onClick={() => void exportXlsx()} data-payment-export="">
-            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
-            {t('export.button')}
-          </Button>
+          <ExportSplitButton
+            screen="DocumentPayments"
+            quick={{
+              label: t('export.button'),
+              onExport: () => void exportXlsx(),
+              disabled: list.isError || list.isFetching || shown === 0,
+            }}
+            month={month}
+          />
         </div>
         <div className="relative h-[calc(100vh-24rem)] min-h-96" data-payment-list="">
           <AgGridReact<DocumentPaymentModel>
@@ -287,6 +312,7 @@ function DocumentPaymentList() {
             defaultColDef={DEFAULT_COL_DEF}
             onGridReady={({ api }) => {
               gridApi.current = api
+              setGridReady(api)
             }}
             onRowDoubleClicked={({ data }) => open(data ? paymentRowOffers(data).document : null)}
             onModelUpdated={({ api }) => setShown(api.getDisplayedRowCount())}

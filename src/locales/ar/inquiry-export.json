@@ -61,6 +61,7 @@
     "Cancelled": "أُلغي"
   },
   "screens": {
-    "CollectionAttempts": "محاولات التحصيل"
+    "CollectionAttempts": "محاولات التحصيل",
+    "DocumentPayments": "مدفوعات المستندات"
   }
 }

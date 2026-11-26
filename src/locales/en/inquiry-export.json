@@ -22,7 +22,8 @@
       "reversed": "The end date is before the start date.",
       "tooLong": "The range is longer than {{days}} days. Choose a shorter range.",
       "noColumns": "The grid shows no columns to export."
-    }
+    },
+    "undated": "This screen shows one ACR, so the file holds all of that ACR's collections. No dates are needed; collect the file from My exports."
   },
   "menu": {
     "myExports": "My exports"
@@ -51,7 +52,8 @@
     "downloadFailed": "The file could not be downloaded.",
     "removed": "File removed",
     "removedHint": "The file was removed after 7 days. Ask for the export again.",
-    "noFile": "—"
+    "noFile": "—",
+    "noRange": "All dates (one ACR)"
   },
   "status": {
     "Waiting": "Waiting",
@@ -62,6 +64,7 @@
   },
   "screens": {
     "CollectionAttempts": "Collection Attempts",
+    "CashCollections": "Cash Collections",
     "DocumentPayments": "Document payments"
   }
 }

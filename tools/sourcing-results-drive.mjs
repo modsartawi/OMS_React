@@ -133,6 +133,8 @@ async function scenario(browser, lang) {
       wire.cards.push(url.searchParams.get('orderNumber'))
       return route.fulfill(envelope(orderCard(url.searchParams.get('orderNumber'))))
     }
+    const tabReply = readingTabReply(p, url, wire)
+    if (tabReply) return route.fulfill(envelope(tabReply))
     return route.fulfill(envelope({}))
   })
 
@@ -321,11 +323,187 @@ async function scenario(browser, lang) {
     page.url(),
   )
 
+  // 7b. the five reading tabs (ticket 972)
+  await readingTabs(page, tag, lang, wire)
+
   // 8. no error, no raw key
   const all = await page.locator('main').innerText()
   check(`${tag} no raw i18n key on the page`, !/\b(top|promise|cost|marks|differ|tabs|drawer|card|filters)\.[a-zA-Z]+/.test(all))
   check(`${tag} no page error`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
+}
+
+// ── the five reading tabs (ticket 972) ───────────────────────────────────────────────────────────────
+// Their doors (PROVISIONAL, like every results door) serve `stub-tabs.json`, the reply the model tests read.
+const TABS = JSON.parse(readFileSync('src/features/oms/sourcing-results/stub-tabs.json', 'utf8'))
+const TAB_DOORS = {
+  'SourcingAdvisor/Results/Breakdowns': 'breakdowns',
+  'SourcingAdvisor/Results/OutsideRules': 'outsideRules',
+  'SourcingAdvisor/Results/Checks': 'checks',
+  'SourcingAdvisor/Results/LaterSlots': 'laterSlots',
+  'SourcingAdvisor/Results/NotRun': 'notRun',
+}
+function readingTabReply(p, url, wire) {
+  const door = TAB_DOORS[p]
+  if (!door) return null
+  const q = Object.fromEntries(url.searchParams)
+  ;(wire.tabs ??= {})[door] = [...(wire.tabs[door] ?? []), q]
+  if (door !== 'breakdowns') return TABS[door]
+  const { byRows, ...rest } = TABS.breakdowns
+  return { by: q.by, rows: byRows[q.by]?.rows ?? [], ...rest }
+}
+
+async function readingTabs(page, tag, lang, wire) {
+  const drawerFor = async (figure) => {
+    await page.locator(`[data-drill="${figure}"]`).first().click()
+    await page.locator(`dialog[open][data-results-drawer="${figure}"]`).waitFor({ timeout: 10000 })
+    const asked = wire.orders.at(-1)?.figure
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(250)
+    return asked
+  }
+  const tab = async (name) => {
+    await page.locator(`[data-tab="${name}"]`).click()
+    await page.locator(`[data-tab-panel="${name}"] [data-reading-tab="${name}"]`).waitFor({ timeout: 10000 })
+    await page.waitForTimeout(300)
+  }
+  const ltr = (sel) => isLtrIsolate(page.locator(sel).first())
+
+  // Breakdowns: the default tab
+  await page.goto(`${BASE}/oms/sourcing-results`)
+  await page.locator('[data-breakdowns-table="MODE"]').waitFor({ timeout: 15000 })
+  const firstAsk = wire.tabs.breakdowns.at(-1)
+  check(`${tag} Breakdowns opens first and reads its door by mode, with the page's filters`, firstAsk?.by === 'MODE' && firstAsk?.period === '14', JSON.stringify(firstAsk))
+  const modeRows = await page.locator('[data-breakdown-row]:not([data-breakdown-group])').evaluateAll((els) => els.map((e) => e.getAttribute('data-breakdown-row')))
+  check(
+    `${tag} Breakdowns by mode: the order's four modes in the spec's order`,
+    JSON.stringify(modeRows) === JSON.stringify(['SLOT_ONLY', 'DAWAA_NOW_ONLY', 'SLOT_AND_DAWAA_NOW', 'BEYOND_BORDER']),
+    modeRows.join(','),
+  )
+  const cols = await page.locator('[data-breakdowns-table] th[data-col]').count()
+  check(`${tag} Breakdowns: nine figure columns beside the row name`, cols === 9, String(cols))
+  const total = await page.locator('[data-breakdown-total]').innerText()
+  check(`${tag} Breakdowns: the total row as sent`, total.includes('39,870') && total.includes('68.8%') && total.includes('77.6%'), total.replace(/\s+/g, ' '))
+  check(
+    `${tag} Breakdowns: a line the stock figure could not cover (6 rows) and the channel's own split (3 parts)`,
+    (await page.locator('[data-breakdown-group="stock-short"]').count()) === 6 && (await page.locator('[data-breakdown-group="channel-split"]').count()) === 3,
+  )
+  check(`${tag} Breakdowns: a share is an LTR isolate`, await ltr('[data-breakdown-total] td:nth-child(3) bdi'))
+  const nameCell = await box(page.locator('[data-breakdowns-table] thead th').first())
+  const ordersCell = await box(page.locator('[data-breakdowns-table] th[data-col="orders"]'))
+  check(`${tag} Breakdowns: the row name stands at the reading start`, lang === 'ar' ? nameCell.x > ordersCell.x : nameCell.x < ordersCell.x)
+  check(`${tag} Breakdowns: who made the run, pairs cut by the cap per city, the own store passed over`,
+    (await page.locator('[data-made-by="OMS"]').count()) === 1 &&
+      (await page.locator('[data-pairs-cut-city="Dhahran"]').count()) === 1 &&
+      (await page.locator('[data-breakdowns-card="store-passed-over"]').innerText()).includes('1,186'))
+  check(`${tag} Breakdowns: a mode row's orders open them`, (await drawerFor('breakdown:MODE:SLOT_ONLY')) === 'breakdown:MODE:SLOT_ONLY')
+  check(`${tag} Breakdowns: a stock-short row's orders open them`, (await drawerFor('stockShort:BOOK_AT_ZERO:SLOT')) === 'stockShort:BOOK_AT_ZERO:SLOT')
+  check(`${tag} Breakdowns: a city's pairs cut open them`, (await drawerFor('pairsCut:Dammam')) === 'pairsCut:Dammam')
+  await page.screenshot({ path: `${SHOTS}/${lang}-tab-breakdowns.png`, fullPage: true })
+
+  await page.locator('[data-breakdown-by="CITY"]').click()
+  await page.locator('[data-breakdowns-table="CITY"]').waitFor({ timeout: 10000 })
+  check(`${tag} Breakdowns by city asks the door by city`, wire.tabs.breakdowns.at(-1)?.by === 'CITY')
+  const arabicCity = page.locator('[data-breakdown-row="الدمام والخبر"] bdi').first()
+  check(`${tag} Breakdowns by city: a city name is free text in <bdi>`, (await arabicCity.count()) === 1 && (await arabicCity.getAttribute('dir')) !== 'ltr')
+  check(`${tag} Breakdowns by city: "Other cities" in words`, (await page.locator('[data-breakdown-row="OTHER"]:not([data-breakdown-group])').innerText()).includes('Other cities'))
+  await page.locator('[data-breakdown-by="CHANNEL"]').click()
+  await page.locator('[data-breakdowns-table="CHANNEL"]').waitFor({ timeout: 10000 })
+  check(`${tag} Breakdowns by channel: the channels named`, (await page.locator('[data-breakdown-row="IOS"]').innerText()).includes('App, iPhone'))
+  await page.locator('[data-breakdown-by="DAY"]').click()
+  await page.locator('[data-breakdowns-table="DAY"]').waitFor({ timeout: 10000 })
+  const days = await page.locator('[data-breakdown-row]:not([data-breakdown-group])').evaluateAll((els) => els.map((e) => e.getAttribute('data-breakdown-row')))
+  check(`${tag} Breakdowns by day: 14 days, oldest first`, days.length === 14 && days[0] === '2026-11-12' && days[13] === '2026-11-25', `${days.length} ${days[0]}..${days.at(-1)}`)
+  check(`${tag} Breakdowns by day: a date is an LTR isolate`, await ltr('[data-breakdown-row="2026-11-12"] td:first-child bdi'))
+
+  // Outside the advisor's rules
+  await tab('outside-rules')
+  check(`${tag} Outside the rules: the tab is kept in the URL and reads its door`, page.url().includes('tab=outside-rules') && wire.tabs.outsideRules?.length >= 1)
+  const reasons = await page.locator('[data-outside-reason]').evaluateAll((els) => els.map((e) => e.getAttribute('data-outside-reason')))
+  check(`${tag} Outside the rules: one row per reason`, JSON.stringify(reasons) === JSON.stringify(['NO_STOCK', 'OUT_OF_REACH', 'PRODUCT_RULE', 'BOOK_NEVER_HELD']), reasons.join(','))
+  check(`${tag} Outside the rules: the line saying they are a group of their own`, /group of their own/.test(await page.locator('[data-outside-rules-group]').innerText()))
+  check(`${tag} Outside the rules: a share bar per reason`, (await page.locator('[data-outside-reason] [data-chart="share-bar"]').count()) === 4)
+  check(`${tag} Outside the rules: the Dawaa Now short-figure reason in words`, (await page.locator('[data-outside-reason="NO_STOCK"]').innerText()).includes('by Dawaa Now'))
+  check(`${tag} Outside the rules: a reason with no orders opens nothing`, (await page.locator('[data-drill="outsideRules:BOOK_NEVER_HELD"]').count()) === 0)
+  check(`${tag} Outside the rules: a reason's orders open them`, (await drawerFor('outsideRules:OUT_OF_REACH')) === 'outsideRules:OUT_OF_REACH')
+  await page.screenshot({ path: `${SHOTS}/${lang}-tab-outside-rules.png`, fullPage: true })
+
+  // Promise and stock checks
+  await tab('checks')
+  check(`${tag} Checks: the promise check's four rows`, (await page.locator('[data-reading-tab="checks"] [data-promise-row]').count()) === 4)
+  const bands = await page.locator('[data-distance-band]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-distance-band')}=${e.getAttribute('data-promise-state')}`))
+  check(
+    `${tag} Checks: Dawaa Now by distance band, 6 km or more under the band`,
+    JSON.stringify(bands) === JSON.stringify(['KM_0_2=inside', 'KM_2_4=inside', 'KM_4_6=inside', 'KM_6_PLUS=under']),
+    bands.join(' '),
+  )
+  check(`${tag} Checks: the express stamp's own share`, (await page.locator('[data-express-stamp]').innerText()).includes('81.9%'))
+  check(`${tag} Checks: the stock check's two rows`, (await page.locator('[data-stock-check]').count()) === 2)
+  check(`${tag} Checks: a distance band's shipments open them`, (await drawerFor('distanceBand:KM_6_PLUS')) === 'distanceBand:KM_6_PLUS')
+  check(`${tag} Checks: covered deliveries ended for no stock open them`, (await drawerFor('stockCheck:COVERED:NO_STOCK')) === 'stockCheck:COVERED:NO_STOCK')
+  check(`${tag} Checks: the shelf chance table holds 36 cells`, (await page.locator('[data-shelf-cell]:not([data-shelf-cell="none"])').count()) === 36)
+  await page.locator('[data-shelf-mode="SLOT"]').click()
+  await page.waitForTimeout(200)
+  const cell = await page.locator('[data-shelf-cell="1:L0"]').innerText()
+  check(`${tag} Checks: a cell carries the table's chance and its picks`, cell.includes('9.40%') && cell.includes('575 / 5,096') && cell.includes('11.3%'), cell.replace(/\s+/g, ' '))
+  check(`${tag} Checks: a cell's figures are LTR isolates`, await ltr('[data-shelf-cell="1:L0"] [data-shelf-picks] bdi'))
+  const few = page.locator('[data-shelf-cell="6:L10_PLUS"]')
+  check(`${tag} Checks: "too few" where the figure expects under 50 failed lines`, (await few.getAttribute('data-reading')) === 'TOO_FEW' && (await few.innerText()).includes('too few'))
+  const readings = await page.locator('[data-shelf-cell][data-reading]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-reading')))].sort())
+  check(`${tag} Checks: other cells read inside what chance gives or enough to change`, readings.includes('INSIDE_CHANCE') && readings.includes('ENOUGH_TO_CHANGE'), readings.join(','))
+  await page.locator('[data-shelf-second="HALVES"]').click()
+  await page.waitForTimeout(200)
+  const halves = await page.locator('[data-shelf-cell="1:L0"]').innerText()
+  check(`${tag} Checks: "Counts by half-year" shows the three half-years`, halves.includes('13.35%') && halves.includes('9.12%') && halves.includes('8.93%'), halves.replace(/\s+/g, ' '))
+  const shortRows = await page.locator('[data-short-row]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-short-row')}=${e.getAttribute('data-reading')}`))
+  check(`${tag} Checks: the eight short-figure rows`, shortRows.length === 8, shortRows.join(' '))
+  check(`${tag} Checks: pick-up's book-at-zero row reads not steady`, shortRows.includes('PICK_UP:BOOK_AT_ZERO=NOT_STEADY'))
+  check(`${tag} Checks: each row marked from deliveries`, (await page.locator('[data-short-row] [data-row-source]').count()) === 8)
+  const slotZero = await page.locator('[data-short-row="SLOT:BOOK_AT_ZERO"]').innerText()
+  check(`${tag} Checks: a row's two ratios and the lines behind them`, slotZero.includes('0.88') && slotZero.includes('0.67') && slotZero.includes('840') && slotZero.includes('2,710'), slotZero.replace(/\s+/g, ' '))
+  check(`${tag} Checks: the lines per channel group`, (await page.locator('[data-short-row="SLOT:BOOK_AT_ZERO"] [data-row-group]').count()) === 3)
+  check(`${tag} Checks: the fixed note on the two ratios`, (await page.locator('[data-ratio-note]').innerText()).includes('about 0.9 there is a row that fits'))
+  const fleet = await page.locator('[data-fleet-ratios]').innerText()
+  check(`${tag} Checks: each mode's fleet ratio, the window and the number of counts`, fleet.includes('0.84') && fleet.includes('1.12') && fleet.includes('0.97') && fleet.includes('982'), fleet.replace(/\s+/g, ' '))
+  await page.screenshot({ path: `${SHOTS}/${lang}-tab-checks.png`, fullPage: true })
+
+  // Later slots
+  await tab('later-slots')
+  const sentence = await page.locator('[data-later-slots-sentence]').innerText()
+  check(`${tag} Later slots: one sentence with the count and its share`, sentence.includes('2,447') && sentence.includes('8.9%') && sentence.includes('27,550'), sentence.replace(/\s+/g, ' '))
+  check(`${tag} Later slots: labelled evidence for phase 2`, (await page.locator('[data-phase2-evidence]').innerText()).includes('evidence for phase 2'))
+  check(`${tag} Later slots: no riyal in the sentence`, !/SAR|ر\.س|riyal/i.test(sentence))
+  await page.locator('[data-later-slots-chart] [data-chart="bar"] svg').first().waitFor({ timeout: 10000 })
+  const bars = await page.locator('[data-later-slots-chart] .recharts-bar-rectangle').count()
+  check(`${tag} Later slots: a bar per hour`, bars === 24 || bars === 23, String(bars))
+  check(`${tag} Later slots: the count opens its orders`, (await drawerFor('laterSlot')) === 'laterSlot')
+  await page.screenshot({ path: `${SHOTS}/${lang}-tab-later-slots.png`, fullPage: true })
+
+  // Orders not run
+  await tab('not-run')
+  const notRun = await page.locator('[data-not-run-reason]').evaluateAll((els) => els.map((e) => e.getAttribute('data-not-run-reason')))
+  check(
+    `${tag} Orders not run: the reasons, the stock read that failed three times among them`,
+    JSON.stringify(notRun) === JSON.stringify(['WORKER_OFF', 'TOO_LATE', 'NO_RUN_AFTER_ATTEMPTS', 'STOCK_READ_FAILED']),
+    notRun.join(','),
+  )
+  check(`${tag} Orders not run: the total as sent and what is not counted`, (await page.locator('[data-not-run-total]').innerText()).includes('1,332') && (await page.locator('[data-not-run-not-counted]').innerText()).includes('pick-up-only'))
+  check(`${tag} Orders not run: a reason's orders open them`, (await drawerFor('notRun:STOCK_READ_FAILED')) === 'notRun:STOCK_READ_FAILED')
+  await page.screenshot({ path: `${SHOTS}/${lang}-tab-not-run.png`, fullPage: true })
+
+  // every reading tab: built, no raw key, no riyal
+  let pending = 0
+  let raw = ''
+  for (const name of ['breakdowns', 'outside-rules', 'checks', 'later-slots', 'not-run']) {
+    await tab(name)
+    pending += await page.locator(`[data-tab-panel="${name}"] [data-tab-pending]`).count()
+    const text = await page.locator('[data-tab-panel]').innerText()
+    const hit = text.match(/\b(reading|stockClasses|breakdowns|outsideRules|checks|laterSlots|notRun)\.[a-zA-Z]+/)
+    if (hit) raw += `${name}:${hit[0]} `
+    if (/SAR\s*\d|\d\s*SAR|ر\.س/.test(text)) raw += `${name}:riyal `
+  }
+  check(`${tag} the five reading tabs are built: none says pending`, pending === 0)
+  check(`${tag} the five reading tabs: no raw key and no riyal figure`, raw === '', raw)
 }
 
 async function run() {

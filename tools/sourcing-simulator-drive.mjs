@@ -23,6 +23,19 @@
 //      which posts the same cart again; ADVISE-423 offers no "try again";
 //  11. RTL: the page is right to left, and the store pair and the run number read left to right;
 //  12. no page errors.
+// Ticket 964 adds a replay pass (`replayDrive`), against `replay-reply.fixture.json` (the model tests' stub too):
+//  13. "Replay an order": Run off until an order number is typed; Run posts `{ orderNumber, level, allPlans,
+//      withCustomerPoint }`; the reply says "planned on today's figures, not the order's" and shows the order's lines;
+//  14. "What happened" beside the plans (a dashed card, and the table's last column), with its one sentence;
+//  15. the map tab: every plan's stores in the table with road and straight-line km, the distances between the stores,
+//      and the switch to the selected plan;
+//  16. the customer moved (the map cannot draw without a key, so the point is typed — the click and the drag are proven
+//      by `src/core/map/map-place-customer.test.ts` and `google-engine.test.ts`): it plans again with `customer.point`,
+//      is marked "customer's point moved by hand" and hides "What happened"; "Back to the order's point" plans again
+//      from the order's own and brings it back;
+//  17. without the customer-point grant: the map says why the point was withheld, no straight line to the customer is
+//      worked out, and every km stays as sent;
+//  18. ADVISE-421 for an order of a channel the advisor does not serve.
 //
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/sourcing-simulator-drive.mjs
@@ -39,6 +52,7 @@ mkdirSync(SHOTS, { recursive: true })
 
 const json = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
 const REPLY = json('../src/features/oms/sourcing-simulator/advise-reply.fixture.json')
+const REPLAY = json('../src/features/oms/sourcing-simulator/replay-reply.fixture.json')
 // The OMS app boots i18next in English; `oms.locale = 'ar'` sets the page's direction (`src/core/theme/direction.ts`),
 // so both passes read the English words. Every Arabic text the page has is pinned by `error-text.test.ts` and the
 // locale's own keys; the server's Arabic sentences are picked when the language is Arabic (`use-plan-words.ts`).
@@ -348,9 +362,161 @@ async function drive(dir) {
   await context.close()
 }
 
+async function replayDrive(dir) {
+  const W = WORDS[dir]
+  const label = dir === 'rtl' ? 'RTL replay' : 'LTR replay'
+  const money = (amount) => W.money.replace('{{amount}}', amount)
+  const km = (n) => W.card.km.replace('{{km}}', n)
+  const { context, page, errors, wire } = await open(dir)
+  await page.goto(`${BASE}${SIM}`)
+  await page.locator('[data-sim-cart]').waitFor({ timeout: 15000 })
+
+  // 13. replay an order
+  await page.locator('[data-sim-start-switch="replay"]').click()
+  check(
+    `${label}: "Replay an order" asks for the order number; Run is off until one is typed`,
+    (await page.locator('[data-sim-field="orderNumber"]').count()) === 1 &&
+      (await page.locator('[data-sim-run]').isDisabled()) &&
+      (await page.locator('[data-sim-needs="noOrder"]').count()) === 1 &&
+      (await page.locator('[data-sim-line]').count()) === 0,
+  )
+  await page.locator('[data-sim-field="orderNumber"]').fill('4500718264')
+  await page.locator('[data-sim-field="withCustomerPoint"]').check()
+  wire.next.push(envelope(REPLAY))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-replay-banner]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: Run posts the order form at the full level, with allPlans and the customer-point switch`,
+    JSON.stringify(wire.posts.at(-1)) === JSON.stringify({ orderNumber: '4500718264', level: 'full', allPlans: true, withCustomerPoint: true }),
+    JSON.stringify(wire.posts.at(-1)),
+  )
+  check(
+    `${label}: the replay says "planned on today's figures, not the order's"`,
+    (await text(page.locator('[data-replay-todays]'))) === W.replay.todaysFigures && (await page.locator('[data-replay-moved]').count()) === 0,
+  )
+  const orderLines = await page.locator('[data-sim-order-line]').count()
+  check(
+    `${label}: then the order's lines, channel and time, as the reply read them`,
+    orderLines === 3 && (await page.locator('[data-sim-order-channel="IOS"]').count()) === 1 && (await text(page.locator('[data-sim-order-placed]'))) === '2026-11-26 19:42:00',
+    `lines=${orderLines}`,
+  )
+  const orderNo = page.locator('[data-replay-order] bdi').first()
+  check(`${label}: the order number is an Ltr isolate reading left to right`, (await isLtrIsolate(orderNo)) && (await readsLtr(orderNo)) === true)
+
+  // 14. "What happened"
+  const card = page.locator('[data-what-happened]')
+  const delivered = await text(card.locator('[data-what-happened-figure="delivered"] dd'))
+  const fee = await text(card.locator('[data-what-happened-figure="fee"] dd'))
+  const against = await text(card.locator('[data-what-happened-against]'))
+  check(
+    `${label}: "What happened" is a dashed card beside the plans: routing's store and mode, delivered, late, the fee`,
+    (await card.count()) === 1 &&
+      delivered === '2026-11-26 22:40' &&
+      fee === money('12.000') &&
+      (await card.locator('[data-what-happened-late]').count()) === 1 &&
+      (await text(card.locator('[data-what-happened-delivery="8100553201"]'))).includes('1055'),
+    `${delivered} | ${fee}`,
+  )
+  check(
+    `${label}: one sentence against the Recommended plan (53 min after planning, 2 h 5 min sooner than the 2 h 58 min the order took)`,
+    (await card.locator('[data-what-happened-against="sooner"]').count()) === 1 && against.includes('53') && against.includes('2 h 5 min') && against.includes('2 h 58 min'),
+    against,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-replay-cards.png`, fullPage: true })
+  await page.locator('[data-plans-view-switch="table"]').click()
+  await page.locator('[data-plans-table]').waitFor({ timeout: 3000 })
+  check(
+    `${label}: in the table, "What happened" is the last column`,
+    (await page.locator('[data-plans-column]').evaluateAll((els) => els.map((e) => e.getAttribute('data-plans-column')).at(-1))) === 'happened' &&
+      (await text(page.locator('[data-plans-cell="fee:happened"] span').first())) === money('12.000') &&
+      (await text(page.locator('[data-plans-cell="companyCost:happened"]'))) === W.whatHappened.notRecorded,
+  )
+  await page.locator('[data-plans-view-switch="cards"]').click()
+
+  // 15. the map tab
+  await page.locator('[data-sim-tab="map"]').click()
+  await page.locator('[data-sim-map] [data-map-state="cannot-draw"]').waitFor({ timeout: 10000 })
+  const rows = await page.locator('[data-map-store-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-map-store-row')))
+  const road = await text(page.locator('[data-map-store-row="BALANCED:1"] [data-map-road]'))
+  const straight = await text(page.locator('[data-map-store-row="BALANCED:1"] [data-map-straight]'))
+  check(
+    `${label}: the map tab lists every plan's stores with mode, plan, road km as sent and the straight line`,
+    rows.join() === 'BALANCED:1,CHEAPEST:1,CHEAPEST:2,PICK_UP:1' && road === km('2.1') && straight === km('1.5'),
+    `${rows.join()} | ${road} | ${straight}`,
+  )
+  const between = await page.locator('[data-map-between-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-map-between-row')))
+  check(`${label}: and the distances between the stores`, between.join() === '1090:1055,1090:1061,1055:1061', between.join())
+  check(
+    `${label}: no withheld note when the point is shown; the legend names the customer`,
+    (await page.locator('[data-map-withheld]').count()) === 0 && (await text(page.locator('[data-map-legend]'))).includes(W.map.legend.customer),
+  )
+  await page.locator('[data-sim-plan-pick="CHEAPEST"]').click()
+  await page.locator('[data-map-scope-switch="plan"]').click()
+  const narrowed = await page.locator('[data-map-store-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-map-store-row')))
+  check(`${label}: the switch narrows the map to the selected plan`, narrowed.join() === 'CHEAPEST:1,CHEAPEST:2' && (await page.locator('[data-map-between-row]').count()) === 1, narrowed.join())
+  await page.locator('[data-map-scope-switch="all"]').click()
+  await page.screenshot({ path: `${SHOTS}/${dir}-replay-map.png`, fullPage: true })
+
+  // 16. move the customer (typed: the map cannot draw without a key), then back to the order's point
+  const MOVED = { ...REPLAY, kind: 'REPLAY_MOVED_POINT', customerPoint: { lat: 24.78, lng: 46.745 } }
+  wire.next.push(envelope(MOVED))
+  await page.locator('[data-map-typed-field="lat"]').fill('24.78')
+  await page.locator('[data-map-typed-field="lng"]').fill('46.745')
+  await page.locator('[data-map-place-at]').click()
+  await page.locator('[data-replay-moved]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: a moved point plans again: the order with the customer's point beside it`,
+    JSON.stringify(wire.posts.at(-1)) ===
+      JSON.stringify({ orderNumber: '4500718264', customer: { point: { lat: 24.78, lng: 46.745 } }, level: 'full', allPlans: true, withCustomerPoint: true }),
+    JSON.stringify(wire.posts.at(-1)),
+  )
+  check(
+    `${label}: marked "customer's point moved by hand", and "What happened" is hidden (card and column)`,
+    (await text(page.locator('[data-replay-moved] span').first())) === W.replay.movedByHand &&
+      (await page.locator('[data-what-happened]').count()) === 0 &&
+      (await text(page.locator('[data-map-legend]'))).includes(W.map.legend.customerByHand),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-replay-moved.png`, fullPage: true })
+  wire.next.push(envelope(REPLAY))
+  await page.locator('[data-replay-back]').click()
+  await page.locator('[data-what-happened]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: "Back to the order's point" plans from the order's own point and brings "What happened" back`,
+    JSON.stringify(wire.posts.at(-1)) === JSON.stringify({ orderNumber: '4500718264', level: 'full', allPlans: true, withCustomerPoint: true }) &&
+      (await page.locator('[data-replay-moved]').count()) === 0,
+    JSON.stringify(wire.posts.at(-1)),
+  )
+
+  // 17. without the customer-point grant
+  wire.next.push(envelope({ ...REPLAY, customerPoint: null, customerPointWithheld: 'NO_GRANT' }))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-map-withheld="NO_GRANT"]').waitFor({ timeout: 5000 })
+  const straights = await page.locator('[data-map-straight]').evaluateAll((els) => els.map((e) => e.textContent.trim()))
+  check(
+    `${label}: without the grant the map says why the point was withheld, works out no straight line, and keeps every km as sent`,
+    (await text(page.locator('[data-map-withheld]'))) === W.map.withheld.NO_GRANT &&
+      straights.every((s) => s === W.dash) &&
+      (await text(page.locator('[data-map-store-row="BALANCED:1"] [data-map-road]'))) === km('2.1') &&
+      !(await text(page.locator('[data-map-legend]'))).includes(W.map.legend.customer),
+    straights.join('|'),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-replay-withheld.png`, fullPage: true })
+
+  // 18. a channel the advisor does not serve
+  wire.next.push(refusal(422, 'ADVISE-421', 'The channel CALL_CENTRE_LEGACY is not served by the advisor.'))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-error-code="ADVISE-421"]').waitFor({ timeout: 5000 })
+  check(`${label}: ADVISE-421 for an order of a channel the advisor does not serve, in our words`, (await page.getByText(W.errors['ADVISE-421'].title).count()) === 1)
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 try {
   await drive('ltr')
+  await replayDrive('ltr')
   await drive('rtl')
+  await replayDrive('rtl')
 } catch (e) {
   console.error(e)
   results.push({ name: 'the drive ran to its end', pass: false })

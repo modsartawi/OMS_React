@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { openMapPanel, type MapEngine, type MapEngineEvents, type MapEngineStart, type MapPoint, type MapTarget } from './map-panel'
-import { cardAfter, GROUP_INK, GROUP_LABEL_TEXT, GROUP_RADIUS, placeCard, pointRadius, POINT_RADIUS, type MapCardState } from './map-drawing'
+import { cardAfter, GROUP_INK, GROUP_LABEL_TEXT, GROUP_RADIUS, kmBetween, LINE_WIDTH, lineStroke, placeCard, pointRadius, POINT_RADIUS, ringPath, type MapCardState } from './map-drawing'
 
 // Ticket 881 (BackOffice spec 3630 M15-M20, M23): what the panel would draw — each point's size, colour and hollow,
 // nearby stores joined into one group, and the card a point shows. The engine is a stand-in: the tests read the
@@ -397,5 +397,96 @@ describe("on Google's map no group overlaps another group or a point, at any zoo
         expect(together(to), `${g.id} at ${zoom} still one group at ${to}`).toBe(false)
       }
     }
+  })
+})
+
+// Ticket 964 (BackOffice spec 4354 §19: "the map panel gains a dashed line, the 5 km and 10 km rings"). A line may be
+// dashed (the pick-up leg) or dotted (the line joining one plan's stores); a ring is drawn round a place at a distance in
+// km, dashed, with its words at its top. Distances are read on the ground: a degree of longitude in Riyadh is not a
+// degree of latitude.
+describe('a dashed line and a dotted one (964)', () => {
+  const FROM = { lon: 46.7386, lat: 24.7741 }
+  const TO = { lon: 46.7611, lat: 24.7902 }
+
+  it('a line keeps the dash it is given; a line given none is handed on exactly as before (solid)', () => {
+    const { e } = open([], {
+      lines: [
+        { id: 'plain', from: FROM, to: TO, tone: '--map-same' },
+        { id: 'pick-up', from: FROM, to: TO, tone: '--map-same', dash: 'dashed' },
+        { id: 'between', from: FROM, to: TO, tone: '--map-ring', dash: 'dotted' },
+      ],
+    })
+    expect(e.start.lines?.map((l) => [l.id, l.dash])).toEqual([
+      ['plain', undefined],
+      ['pick-up', 'dashed'],
+      ['between', 'dotted'],
+    ])
+  })
+
+  it('a solid line is stroked whole; a dashed one is drawn as repeated strokes of its colour and none between', () => {
+    const solid = lineStroke({ id: 'a', from: FROM, to: TO, stroke: 'ink(--map-mode-pick-up)', label: '', strong: false, dash: 'solid' })
+    expect(solid).toEqual({ strokeColor: 'ink(--map-mode-pick-up)', strokeOpacity: 0.9, strokeWeight: LINE_WIDTH })
+    const dashed = lineStroke({ id: 'b', from: FROM, to: TO, stroke: 'ink(--map-mode-pick-up)', label: '', strong: false, dash: 'dashed' })
+    expect(dashed.strokeOpacity).toBe(0)
+    expect(dashed.icons).toHaveLength(1)
+    const [dash] = dashed.icons ?? []
+    expect(dash.icon).toMatchObject({ path: 'M 0,-1 0,1', strokeColor: 'ink(--map-mode-pick-up)', strokeOpacity: 0.9 })
+    expect(dash.offset).toBe('0')
+    expect(dash.repeat).toMatch(/^\d+px$/)
+  })
+
+  it('a dotted line repeats shorter strokes, closer together, than a dashed one', () => {
+    const base = { id: 'c', from: FROM, to: TO, stroke: 'ink(--map-mode-pick-up)', label: '', strong: false }
+    const [dash] = lineStroke({ ...base, dash: 'dashed' }).icons ?? []
+    const [dot] = lineStroke({ ...base, dash: 'dotted' }).icons ?? []
+    expect(dot.icon.scale).toBeLessThan(dash.icon.scale)
+    expect(parseFloat(dot.repeat)).toBeLessThan(parseFloat(dash.repeat))
+  })
+})
+
+describe('the 5 km and 10 km rings (964)', () => {
+  const CUSTOMER = { lon: 46.7386, lat: 24.7741 }
+
+  it('a ring runs round its centre at its distance on the ground, closed', () => {
+    for (const km of [5, 10]) {
+      const path = ringPath(CUSTOMER, km)
+      expect(path.length).toBeGreaterThanOrEqual(48)
+      expect(path[0]).toEqual(path[path.length - 1])
+      for (const p of path) expect(kmBetween(CUSTOMER, p)).toBeCloseTo(km, 1)
+    }
+  })
+
+  it('the ground distance between two places: Riyadh to Jeddah is about 845 km in a straight line', () => {
+    expect(kmBetween({ lon: 46.6753, lat: 24.7136 }, { lon: 39.1925, lat: 21.4858 })).toBeGreaterThan(840)
+    expect(kmBetween({ lon: 46.6753, lat: 24.7136 }, { lon: 39.1925, lat: 21.4858 })).toBeLessThan(850)
+  })
+
+  it('the panel hands the engine each ring as a dashed closed path in its colour, its words at its top', () => {
+    const { e } = open([], {
+      rings: [
+        { id: 'ring-5', centre: CUSTOMER, km: 5, tone: '--map-ring', label: '5 km' },
+        { id: 'ring-10', centre: CUSTOMER, km: 10, tone: '--map-ring', label: '10 km' },
+      ],
+    })
+    const rings = e.start.rings ?? []
+    expect(rings.map((r) => [r.id, r.stroke, r.label])).toEqual([
+      ['ring-5', 'ink(--map-ring)', '5 km'],
+      ['ring-10', 'ink(--map-ring)', '10 km'],
+    ])
+    // Its top: due north of the centre, at its distance.
+    expect(rings[1].labelAt.lon).toBeCloseTo(CUSTOMER.lon, 6)
+    expect(rings[1].labelAt.lat).toBeGreaterThan(CUSTOMER.lat)
+    expect(kmBetween(CUSTOMER, rings[1].labelAt)).toBeCloseTo(10, 1)
+    expect(kmBetween(CUSTOMER, rings[0].path[7])).toBeCloseTo(5, 1)
+  })
+
+  it('a map given no rings hands the engine none (every map before 964)', () => {
+    const { e } = open([])
+    expect(e.start.rings ?? []).toEqual([])
+  })
+
+  it('the rings do not widen the view: it opens on the points, not on a 20 km box', () => {
+    const { e } = open([OLAYA_1, OLAYA_2], { rings: [{ id: 'ring-10', centre: { lon: OLAYA_1.lon, lat: OLAYA_1.lat }, km: 10, tone: '--map-ring' }] })
+    expect(e.start.view).toEqual({ kind: 'bounds', west: OLAYA_1.lon, south: OLAYA_1.lat, east: OLAYA_2.lon, north: OLAYA_2.lat })
   })
 })

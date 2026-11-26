@@ -6,6 +6,8 @@ import { formatFigure } from '@/core/util/number-format'
 import { plansTable, type PlanCell } from './plans-table-model'
 import PlanHead from './PlanHead'
 import { usePlanWords } from './use-plan-words'
+import { toMinute } from './WhatHappenedCard'
+import { happenedCells, type HappenedCell, type WhatHappenedCard } from './what-happened-model'
 
 /**
  * The plans as one table (ticket 962, SIMT decision 1): a row per measure, a column per plan. A plain table, not a
@@ -14,9 +16,11 @@ import { usePlanWords } from './use-plan-words'
 /** A promise sentence wraps; every figure stays on one line (`TD`). */
 const WRAP_TD = 'min-w-48 px-2 py-1.5 align-top'
 
-export default function PlansTable({ plans }: { plans: readonly AdvisePlan[] }) {
+export default function PlansTable({ plans, happened = null }: { plans: readonly AdvisePlan[]; happened?: WhatHappenedCard | null }) {
   const w = usePlanWords()
   const table = plansTable({ plans: [...plans] })
+  // 964: on a replay, "What happened" is the table's last column.
+  const last = happened ? happenedCells(happened) : null
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card" data-plans-table="">
       <table className="w-full border-collapse text-xs">
@@ -28,6 +32,11 @@ export default function PlansTable({ plans }: { plans: readonly AdvisePlan[] }) 
                 <PlanHead column={c} />
               </th>
             ))}
+            {last && (
+              <th className={`${TH} border-s-2 border-dashed border-s-border`} scope="col" data-plans-column="happened">
+                {w.t('whatHappened.column')}
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -41,6 +50,11 @@ export default function PlansTable({ plans }: { plans: readonly AdvisePlan[] }) 
                   <Cell cell={cell} />
                 </td>
               ))}
+              {last && (
+                <td className={`${TD} border-s-2 border-dashed border-s-border text-muted-foreground`} data-plans-cell={`${r.measure}:happened`}>
+                  <HappenedCellView cell={last[r.measure]} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -87,5 +101,25 @@ function Cell({ cell }: { cell: PlanCell }) {
           )}
         </div>
       )
+  }
+}
+
+/** A cell of the "What happened" column (964). */
+function HappenedCellView({ cell }: { cell: HappenedCell }) {
+  const w = usePlanWords()
+  switch (cell.kind) {
+    case 'delivered':
+      return (
+        <span className="flex flex-wrap items-center gap-1.5">
+          {cell.at ? <Ltr>{toMinute(cell.at)}</Ltr> : w.t('whatHappened.notDelivered')}
+          {cell.late && (
+            <span className="rounded-full border border-attention-border bg-attention-050 px-1.5 text-[11px] text-attention-800">{w.t('whatHappened.late')}</span>
+          )}
+        </span>
+      )
+    case 'notRecorded':
+      return <span className="italic">{w.t('whatHappened.notRecorded')}</span>
+    default:
+      return <Cell cell={cell} />
   }
 }

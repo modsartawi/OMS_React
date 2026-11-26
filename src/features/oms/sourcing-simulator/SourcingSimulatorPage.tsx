@@ -1,22 +1,26 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import type { AdviseCartRequest } from '@/core/models/sourcing-run'
+import type { MapPlace } from '@/core/map/map-panel'
 import { canRunSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import Chip from '@/core/ui/Chip'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { toIsoDate } from '@/core/util/date-format'
 import { simulatorApi, workbenchQuery } from './api'
-import { adviseRequest, cartProblem, SIMULATOR_CHANNELS, type CartForm } from './cart'
+import { adviseRequest, cartProblem, pointText, SIMULATOR_CHANNELS, type CartForm } from './cart'
 import CartPanel from './CartPanel'
 import PlanCards from './PlanCards'
 import { planNotes } from './plans-list-model'
 import PlanNotes from './PlanNotes'
 import PlansTable from './PlansTable'
+import { cartRequestOf, replayProblem, replayRequest, type ReplayForm, type SimulatorRequest, type StartKind } from './replay'
+import ReplayBanner from './ReplayBanner'
+import { SimulatorRunContext, type SimulatorRun } from './run-context'
 import RunRefusal from './RunRefusal'
 import RunSummary from './RunSummary'
 import SimulatorTabs from './SimulatorTabs'
+import { whatHappened } from './what-happened-model'
 
 /**
  * OMS ▸ Sourcing simulator (ticket 962, BackOffice spec 4354 §19; SIMT decisions 1, 6, 12; the prototype
@@ -56,12 +60,44 @@ function Workbench() {
   const { t } = useTranslation('sourcing-simulator')
   const [form, setForm] = useState<CartForm>(firstForm)
   const [view, setView] = useState<PlansView>('cards')
+  // 964: a run starts from a cart or from an order to replay.
+  const [start, setStart] = useState<StartKind>('build')
+  const [replay, setReplay] = useState<ReplayForm>({ orderNumber: '', withPoint: false, movedTo: null })
   const workbench = useQuery(workbenchQuery())
-  const request = adviseRequest(form)
-  const problem = cartProblem(form)
-  const run = useMutation({ mutationFn: (body: AdviseCartRequest) => simulatorApi.advise(body) })
+  const request: SimulatorRequest | null = start === 'build' ? adviseRequest(form) : replayRequest(replay)
+  const problem = start === 'build' ? cartProblem(form) : replayProblem(replay)
+  const run = useMutation({ mutationFn: (body: SimulatorRequest) => simulatorApi.advise(body) })
   const reply = run.data
   const notes = useMemo(() => (reply ? planNotes(reply) : null), [reply])
+  const happened = useMemo(() => (reply ? whatHappened(reply) : null), [reply])
+  // 964: the map tab moves the customer and the run plans again from there — the cart's point, or a replay's point
+  // placed by hand (kind REPLAY_MOVED_POINT); "Back to the order's point" plans the replay from the order's own again.
+  const ran = run.variables
+  const moveCustomer = useCallback(
+    (place: MapPlace) => {
+      const lat = Number(pointText(place.lat))
+      const lng = Number(pointText(place.lon))
+      if (cartRequestOf(ran)) {
+        const next = { ...form, lat: pointText(lat), lng: pointText(lng) }
+        setForm(next)
+        const body = adviseRequest(next)
+        if (body) run.mutate(body)
+      } else if (ran) {
+        const next = { ...replay, movedTo: { lat, lng } }
+        setReplay(next)
+        const body = replayRequest(next)
+        if (body) run.mutate(body)
+      }
+    },
+    [ran, form, replay, run],
+  )
+  const backToOrder = () => {
+    const next = { ...replay, movedTo: null }
+    setReplay(next)
+    const body = replayRequest(next)
+    if (body) run.mutate(body)
+  }
+  const runContext = useMemo<SimulatorRun>(() => ({ moveCustomer }), [moveCustomer])
   const stale = !!reply && !!run.variables && JSON.stringify(run.variables) !== JSON.stringify(request)
 
   return (
@@ -74,6 +110,11 @@ function Workbench() {
           problem={problem}
           running={run.isPending}
           onRun={() => request && run.mutate(request)}
+          start={start}
+          onStart={setStart}
+          replay={replay}
+          onReplay={setReplay}
+          reply={reply ?? null}
         />
 
         <div className="flex flex-col gap-3" data-sim-plans="">
@@ -105,18 +146,21 @@ function Workbench() {
 
           {reply && notes && !run.isPending ? (
             <>
+              <ReplayBanner reply={reply} onBack={backToOrder} busy={run.isPending} />
               <RunSummary reply={reply} notes={notes} />
               {reply.plans.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-run-no-plans="">
                   {t('plans.noShown')}
                 </p>
               ) : view === 'cards' ? (
-                <PlanCards plans={reply.plans} />
+                <PlanCards plans={reply.plans} happened={happened} />
               ) : (
-                <PlansTable plans={reply.plans} />
+                <PlansTable plans={reply.plans} happened={happened} />
               )}
               <PlanNotes notes={notes} />
-              <SimulatorTabs reply={reply} request={run.variables ?? null} />
+              <SimulatorRunContext.Provider value={runContext}>
+                <SimulatorTabs reply={reply} request={cartRequestOf(run.variables)} />
+              </SimulatorRunContext.Provider>
             </>
           ) : (
             !run.isPending &&

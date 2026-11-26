@@ -5,18 +5,22 @@ import { formatFigure } from '@/core/util/number-format'
 import { planColumn } from './plans-table-model'
 import PlanHead from './PlanHead'
 import { usePlanWords } from './use-plan-words'
+import WhatHappenedCard from './WhatHappenedCard'
+import type { WhatHappenedCard as Happened } from './what-happened-model'
 
 /**
  * The plans as cards (ticket 962, SIMT decision 1): per plan its label and tags, the server's promise sentence in both
  * languages, the customer's fee per shipment and in total, the company's cost, the price of waiting and the balanced
  * total, then its shipments and the lines not on it.
  */
-export default function PlanCards({ plans }: { plans: readonly AdvisePlan[] }) {
+export default function PlanCards({ plans, happened = null }: { plans: readonly AdvisePlan[]; happened?: Happened | null }) {
   return (
     <div className="grid gap-3 xl:grid-cols-2" data-plan-cards="">
       {plans.map((p) => (
         <PlanCard key={p.goal} plan={p} />
       ))}
+      {/* 964: on a replay, "What happened" beside the plans, as a dashed card. */}
+      {happened && <WhatHappenedCard card={happened} />}
     </div>
   )
 }

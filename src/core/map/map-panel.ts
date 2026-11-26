@@ -4,16 +4,20 @@ import {
   GROUP_LABEL_INK,
   lineFeatures,
   openingZoom,
+  RING_INK,
+  ringFeatures,
   type MapCardState,
   type MapFeature,
   type MapGrouping,
   type MapLine,
   type MapLineFeature,
   type MapPoint,
+  type MapRing,
+  type MapRingFeature,
   type MapTarget,
 } from './map-drawing'
 
-export type { MapCard, MapCardState, MapFeature, MapGrouping, MapLine, MapLineFeature, MapPoint, MapTarget } from './map-drawing'
+export type { MapCard, MapCardState, MapFeature, MapGrouping, MapLine, MapLineFeature, MapPoint, MapRing, MapRingFeature, MapTarget } from './map-drawing'
 
 /**
  * The map panel's own logic (ticket 879, BackOffice spec 3630 M28, M29, M33-M35; ticket 908, ADR 0139): what it hands the
@@ -76,6 +80,31 @@ export interface MapEngineStart {
    * list, empty when the caller gave none; absent is read as empty.
    */
   lines?: MapLineFeature[]
+  /** The rings to draw beneath the points (964), colours resolved. Absent is read as none. */
+  rings?: MapRingFeature[]
+  /** The customer's pin (964), above every point, colours resolved. Absent: none. */
+  pin?: MapPinFeature
+}
+
+/**
+ * The customer's pin (964, spec 4354 §12, §19): one place drawn as a diamond above every store, that a drag moves. Its
+ * colour is a token name; its words are its accessible name and its tooltip.
+ */
+export interface MapPin {
+  lon: number
+  lat: number
+  ink: string
+  label: string
+}
+
+/** The pin as the engine draws it: its colours resolved, and whether a drag moves it. */
+export interface MapPinFeature {
+  lon: number
+  lat: number
+  fill: string
+  stroke: string
+  label: string
+  draggable: boolean
 }
 
 /** What the engine reports back. */
@@ -107,6 +136,11 @@ export interface MapEngineEvents {
    * in a box with no size yet (a dialog still opening) is fitted to its points when the box gets one.
    */
   sized(width: number, height: number): void
+  /**
+   * The customer's pin was dragged and dropped at this place (964). Told once, on the drop, never while dragging: the
+   * run plans again on the drop. Optional for an engine that draws no pin.
+   */
+  pinMoved?(place: MapPlace): void
 }
 
 /** The engine once started. */
@@ -147,6 +181,8 @@ export interface OpenMapPanel {
   points: readonly MapPoint[]
   /** Lines between places (922): a case's legs. Absent: none. The view opens on the points and every line's ends. */
   lines?: readonly MapLine[]
+  /** Rings round a place (964): the customer's 5 km and 10 km. Absent: none. They do not widen the view. */
+  rings?: readonly MapRing[]
   lang: MapLang
   dir: 'ltr' | 'rtl'
   /** The model's `maps` part (BackOffice 3986), as the caller holds it. Absent, null or an empty key: `no-key`. */
@@ -169,6 +205,10 @@ export interface OpenMapPanel {
    * A click on a store is that store's, and places nothing. Absent: a click beside only closes a card, as before.
    */
   onPlace?(place: MapPlace): void
+  /** The customer's pin (964), drawn above every point. Absent or null: none. The view opens on it with the points. */
+  pin?: MapPin | null
+  /** The pin was dragged and dropped here (964). Absent: the pin is drawn but cannot be dragged. */
+  onPinMoved?(place: MapPlace): void
 }
 
 /** The view that holds every point (and every line's two ends, 922: pass them as places). */
@@ -214,7 +254,8 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     return { close: () => {} }
   }
   const lines = open.lines ?? []
-  const view = fittedView([...open.points, ...lines.flatMap((l) => [l.from, l.to])])
+  const pin = open.pin ?? null
+  const view = fittedView([...open.points, ...lines.flatMap((l) => [l.from, l.to]), ...(pin ? [pin] : [])])
   let tilesLoaded = false
   let idle = false
   const drawnWhenBoth = () => {
@@ -264,6 +305,10 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
         labelInk: inkOf(GROUP_LABEL_INK),
         lang: open.lang,
         lines: lineFeatures(lines, inkOf),
+        rings: ringFeatures(open.rings ?? [], inkOf),
+        ...(pin
+          ? { pin: { lon: pin.lon, lat: pin.lat, fill: inkOf(pin.ink), stroke: inkOf(RING_INK), label: pin.label, draggable: !!open.onPinMoved } }
+          : {}),
       },
       {
         tilesLoaded: () => {
@@ -287,6 +332,10 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
           cardOn({ kind: 'tap', target: f ? target : null })
           // 962: a click beside every point places the customer there.
           if (!f && place && state !== 'closed') open.onPlace?.(place)
+        },
+        // 964: the pin's drop is the caller's, until the panel is closed.
+        pinMoved: (place) => {
+          if (state !== 'closed') open.onPinMoved?.(place)
         },
         // Review W4: a card stands by its store, not where the store was when it was pointed at. A store joined into a
         // group by a zoom out is no longer a point to stand by: its card closes.

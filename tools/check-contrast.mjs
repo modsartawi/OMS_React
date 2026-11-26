@@ -263,6 +263,8 @@ darkOnly.push(['--chart-2', '--card', UI])
 // shades step darker one after another, so neither reading depends on hue alone.
 const mapLight = [
   ...['--map-better', '--map-same', '--map-worse', '--map-ring', '--map-group'].map((t) => [t, '--card', UI]),
+  // 964: the simulator's map tab — each mode's store and leg, and the customer's pin.
+  ...['--map-mode-dawaa-now', '--map-mode-slot', '--map-mode-carrier', '--map-mode-pick-up', '--map-customer'].map((t) => [t, '--card', UI]),
   ['--map-group-ink', '--map-group', BODY],
 ]
 // The comparison results page (oms-react 971, BackOffice spec 4354 §17). The bar's segments, the classes and the

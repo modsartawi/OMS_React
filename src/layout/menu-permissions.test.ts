@@ -56,9 +56,13 @@ describe('the real MENU over the one permissions answer', () => {
     expect(labels(resolveMenu(MENU, ADMIN, offered).items)).toEqual(labels(MENU))
   })
 
-  it('…but My schedules still waits for its door to offer it (886)', () => {
+  it('…but My schedules (886) and the two My exports leaves (4318) still wait for their doors to offer them', () => {
     const shown = labels(resolveMenu(MENU, ADMIN).items)
-    expect(labels(MENU).filter((l) => !shown.includes(l))).toEqual(['boards:menu.mySchedules'])
+    expect(labels(MENU).filter((l) => !shown.includes(l))).toEqual([
+      'inquiry-export:menu.myExports',
+      'inquiry-export:menu.myExports',
+      'boards:menu.mySchedules',
+    ])
   })
 
   it('ADMIN on a host with the notification center off ⇒ every leaf but Send broadcast (an extra, not a grant)', () => {

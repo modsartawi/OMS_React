@@ -968,6 +968,20 @@ export const router = createBrowserRouter([
       },
       // Ready for collection (ticket 317, BackOffice 1994) — read-only, behind its OWN
       // grant (`CollectionReady`), same prefix, same probe, same in-page backstop.
+      // My exports (BackOffice spec 4314, ticket 4318): one page under both areas that export a month, so the
+      // group the user came from stays lit. No grant: every row is the caller's own, and the doors are owner-scoped.
+      {
+        path: 'collection/exports',
+        lazy: async () => ({
+          Component: (await import('@/features/inquiry-export/MyExportsPage')).default,
+        }),
+      },
+      {
+        path: 'oms/exports',
+        lazy: async () => ({
+          Component: (await import('@/features/inquiry-export/MyExportsPage')).default,
+        }),
+      },
       {
         path: 'collection/ready',
         lazy: async () => ({

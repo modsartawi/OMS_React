@@ -78,6 +78,8 @@ import { CloudDownload } from 'lucide-react'
 import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 import { CalendarClock, Smartphone } from 'lucide-react'
 import { canViewMiniPos } from '@/core/mini-pos/access'
+import { FileDown } from 'lucide-react'
+import { MY_EXPORTS_OFFER } from '@/core/inquiry-export/api'
 import { canOpenMiniPosScorecard } from '@/features/mini-pos/scorecard/access'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -229,6 +231,19 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/oms/geography',
         activePrefix: '/oms/geography',
         requires: canOpenGeography,
+      },
+      {
+        // My exports (BackOffice spec 4314, ticket 4318): the caller's export jobs, the same page as the Collections
+        // group's leaf, under `/oms/` so this group stays lit. After Cities & districts (D18's
+        // inquiry run stays whole; Delivery statistics stays last). For a reader of the two OMS screens that export a
+        // month (Delivery list, Document payments — 4324/4325), and only while the feature is on and the session
+        // may export something (`offered`).
+        labelKey: 'inquiry-export:menu.myExports',
+        icon: FileDown,
+        routerLink: '/oms/exports',
+        activePrefix: '/oms/exports',
+        requires: (p) => p.has('DocumentList:03') || canOpenDocumentPayments(p),
+        offered: MY_EXPORTS_OFFER,
       },
       {
         // Document source users (ticket 438) — `DocumentSourceUsersInquiry,03`, last in D18's order.
@@ -824,6 +839,17 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/collection/assignment',
         activePrefix: '/collection/assignment',
         requires: canOpenAssignment,
+      },
+      {
+        // My exports (BackOffice spec 4314, ticket 4318): the caller's export jobs — a month of an inquiry asked for
+        // with Export month…. For a reader of the four eCollection inquiries, and only while the feature is on and
+        // the session may export something (`offered`). The OMS group links the same page at `/oms/exports`.
+        labelKey: 'inquiry-export:menu.myExports',
+        icon: FileDown,
+        routerLink: '/collection/exports',
+        activePrefix: '/collection/exports',
+        requires: (p) => canOpenCollections(p) || canOpenAcrs(p) || canOpenDeposits(p) || canOpenAttempts(p),
+        offered: MY_EXPORTS_OFFER,
       },
       {
         // The accountant's settlement account (spec 267 D1, ticket 268) — and since

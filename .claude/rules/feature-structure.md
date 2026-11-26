@@ -26,6 +26,10 @@ An **area** = a top-level nav group / URL prefix. It is a folder under `features
 - `features/help/` — **top-level, NOT an area** (oms 951, BackOffice spec 4182, enforced in `tools/check-boundaries.mjs`).
   The help center takes its area as a parameter (`/analytics/help` today, `/<area>/help` later), so it belongs to no
   one area. Its shared pieces (wire types, api, table-of-contents query, `helpLang`) live in `src/core/help/`.
+- `features/inquiry-export/` — **top-level, NOT an area** (BackOffice spec 4314, ticket 4318, enforced in
+  `tools/check-boundaries.mjs`). *My exports* is one page linked from two areas' menus (`/collection/exports`,
+  `/oms/exports`). The *Export month…* split button, its dialog and the doors live in `src/core/inquiry-export/`,
+  because every exporting screen, in any area, switches it on.
 
 A new area folder appears **only when a new nav group / URL prefix does** (e.g. a future
 `features/reports/` behind `/reports/*`). The folder mirrors the URL prefix and the menu group.

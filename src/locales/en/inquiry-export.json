@@ -1,0 +1,66 @@
+{
+  "split": {
+    "more": "More export choices",
+    "quick": "Quick export",
+    "month": "Export month…"
+  },
+  "dialog": {
+    "title": "Export a month",
+    "intro": "Choose up to {{days}} days. The file is made in the background with the filters and columns on your screen; collect it from My exports.",
+    "from": "From",
+    "to": "To",
+    "cancel": "Cancel",
+    "send": "Ask for the file",
+    "sending": "Sending…",
+    "close": "Close",
+    "queued": "Your export is queued. You can leave this page; the file will be waiting in My exports.",
+    "jobNumber": "Job number",
+    "openMyExports": "Open My exports",
+    "failed": "The export could not be queued.",
+    "problem": {
+      "missingEnd": "Choose both a start and an end date.",
+      "reversed": "The end date is before the start date.",
+      "tooLong": "The range is longer than {{days}} days. Choose a shorter range.",
+      "noColumns": "The grid shows no columns to export."
+    }
+  },
+  "menu": {
+    "myExports": "My exports"
+  },
+  "page": {
+    "title": "My exports",
+    "subtitle": "The files you asked for from the inquiry screens. A file is kept for 7 days.",
+    "refresh": "Refresh",
+    "loading": "Loading your exports…",
+    "loadFailed": "Your exports could not be loaded.",
+    "none": "You have not asked for an export yet. Use Export month… on an inquiry screen.",
+    "col": {
+      "job": "Job",
+      "screen": "Screen",
+      "range": "Range",
+      "state": "State",
+      "rows": "Rows",
+      "requested": "Requested",
+      "finished": "Finished",
+      "file": "File"
+    },
+    "cut": "Cut at {{rows}} rows",
+    "cutHint": "The file reached the row ceiling and is not complete. Ask for a shorter range.",
+    "failedHint": "The export failed. Ask for it again, or report it if it keeps failing.",
+    "download": "Download",
+    "downloadFailed": "The file could not be downloaded.",
+    "removed": "File removed",
+    "removedHint": "The file was removed after 7 days. Ask for the export again.",
+    "noFile": "—"
+  },
+  "status": {
+    "Waiting": "Waiting",
+    "Running": "Running",
+    "Done": "Done",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "screens": {
+    "CollectionAttempts": "Collection Attempts"
+  }
+}

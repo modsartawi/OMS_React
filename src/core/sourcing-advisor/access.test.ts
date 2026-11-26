@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'
-import { canRunSourcingAdvisor, canViewSourcingAdvisor } from './access'
+import { canRunSourcingAdvisor, canSaveWeightSets, canViewSourcingAdvisor } from './access'
 
 describe('the sourcing advisor grant', () => {
   it('grants on SourcingAdvisor:01 only', () => {
@@ -22,5 +22,13 @@ describe('the sourcing advisor run grant (ticket 962, provisional key)', () => {
     expect(canRunSourcingAdvisor(permissionsOf({ screens: ['SourcingAdvisorRun:06'] }))).toBe(true)
     expect(canRunSourcingAdvisor(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
     expect(canRunSourcingAdvisor(permissionsOf(null))).toBe(false)
+  })
+})
+
+describe('the weight-set save grant (ticket 963, provisional key)', () => {
+  it('grants on SourcingAdvisorSets:06 only — the run grant does not save a set', () => {
+    expect(canSaveWeightSets(permissionsOf({ screens: ['SourcingAdvisorSets:06'] }))).toBe(true)
+    expect(canSaveWeightSets(permissionsOf({ screens: ['SourcingAdvisorRun:06'] }))).toBe(false)
+    expect(canSaveWeightSets(permissionsOf(null))).toBe(false)
   })
 })

@@ -86,6 +86,9 @@ export const SCREEN_KEYS = [
   // PROVISIONAL (spec 4354: not specified) — the sourcing advisor's run grant (spec 4354 §19: "a run grant opens the
   // simulator"). BackOffice 4355 seeds it but names none; this key is ours until it lands (`canRunSourcingAdvisor`).
   'SourcingAdvisorRun:06',
+  // PROVISIONAL (spec 4354: not specified) — the grant to save weight sets and start trials (spec 4354 §19). BackOffice
+  // 4360 seeds it but names none; this key is ours until it lands (`canSaveWeightSets`, ticket 963).
+  'SourcingAdvisorSets:06',
   'StoreStage:02',
   'StoreStage:03',
   'StoreCountClose:02',

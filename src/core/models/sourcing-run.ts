@@ -101,6 +101,51 @@ export interface AdviseCartRequest {
   plannedFor?: string
   level: 'plans' | 'reasons' | 'full'
   allPlans?: boolean
+  /** The pins (4281 decision 15, ticket 963). Each applies to every goal of the run. */
+  pins?: AdvisePin[]
+  /** The weight set (4281 decision 16, ticket 963): a saved version or the simulator's draft in full. Absent: the candidate set. */
+  weightSet?: AdviseWeightSetRef
+}
+
+/**
+ * The five pins (4281 decision 15; BackOffice 4359). A pin applies to every goal of the run, is never loosened silently
+ * and never overrides a filter or a rule; one that cannot hold is refused before the solve and listed in `refusedPins`.
+ */
+export type AdvisePin =
+  | { kind: 'LINE_STORE'; lineNo: number; store: string }
+  | { kind: 'LINE_MODE'; lineNo: number; mode: DeliveryMode }
+  | { kind: 'NOT_STORE'; store: string }
+  | { kind: 'NOT_MODE'; mode: DeliveryMode }
+  | { kind: 'ONE_SHIPMENT' }
+export type AdvisePinKind = AdvisePin['kind']
+
+/**
+ * A weight set's values, the whole document (BackOffice 4243 decision 19). Carried as read and sent back in full.
+ * PROVISIONAL (spec 4354: not specified) — BackOffice 4360 names no key inside a set's document; the keys the simulator's
+ * panel edits are ours (`WEIGHT_CONTROLS` in the simulator's `draft-model.ts`).
+ */
+export type WeightSetValues = Record<string, unknown>
+
+/** A saved version of a weight set, by name and number. */
+export interface WeightSetVersionRef {
+  name: string
+  version: number
+}
+
+/** How the request names its weight set (4281 decision 16): a saved version, or the unsaved values in full. */
+export type AdviseWeightSetRef = WeightSetVersionRef | { draft: { basedOn: WeightSetVersionRef; values: WeightSetValues } }
+
+/**
+ * The earlier-run form (4281 decisions 11 and 13, ticket 963): plan again on the figures of a held run, under the weight
+ * set and the pins now sent. No outside read and no stock read; a change that needs a figure the run never read is read
+ * afresh as a new run (`READ_AFRESH`). Mixed with the cart's fields it is refused (`ADVISE-400`).
+ */
+export interface AdviseRerunRequest {
+  basedOnRun: string
+  weightSet?: AdviseWeightSetRef
+  pins?: AdvisePin[]
+  level: 'plans' | 'reasons' | 'full'
+  allPlans?: boolean
 }
 
 // ── The reply ────────────────────────────────────────────────────────────────────────────────────
@@ -139,6 +184,12 @@ export interface AdviseSolve {
   ms: AdviseStageTimes
   stoodIn: { read: string; why: 'LATE' | 'FAILED' | 'EMPTY' | string; standIn: string }[]
   marks: string[]
+  /**
+   * With the mark `READ_AFRESH`: why the change needed a figure the earlier run never read (4281 decision 13: "the
+   * reply says so with the mark `READ_AFRESH` and why").
+   * PROVISIONAL (spec 4354: not specified) — 4281 gives the "why" no field; `readAfreshWhy` is ours.
+   */
+  readAfreshWhy?: string | null
 }
 
 export interface AdvisePromise extends Bilingual {
@@ -242,6 +293,32 @@ export interface AdviseHiddenPlan {
   plan?: AdvisePlan
 }
 
+/**
+ * A pin the run refused before the solve (4281 decision 24; BackOffice 4359): the pin as sent, its code (`PIN_PAIR_REMOVED`,
+ * `PIN_NO_STOCK`, `PIN_NO_STOCK_ROW`, `PINS_CLASH`) and the figures behind it — for a removed pair the filter step and its
+ * code and the rule; for pins that clash together, the pins and the rule they break.
+ */
+export interface AdviseRefusedPin {
+  pin?: AdvisePin
+  /**
+   * For `PINS_CLASH`: the pins that clash together.
+   * PROVISIONAL (spec 4354: not specified) — 4281 says a clash carries "the pins and the rule they break" without a field
+   * name; `pins` is ours.
+   */
+  pins?: AdvisePin[]
+  code: 'PIN_PAIR_REMOVED' | 'PIN_NO_STOCK' | 'PIN_NO_STOCK_ROW' | 'PINS_CLASH' | string
+  step?: number | string | null
+  stepCode?: string | null
+  rule?: string | null
+}
+
+/** The same run without its pins, at the plans-only level (4281 decision 24), only when pins were sent. */
+export interface AdviseWithoutPins {
+  plans: AdvisePlan[]
+  noPlan?: AdviseNoPlan[]
+  hiddenPlans?: AdviseHiddenPlan[]
+}
+
 export interface AdviseReplyLine {
   lineNo: number
   item: string
@@ -278,7 +355,9 @@ export interface AdviseReply {
   plans: AdvisePlan[]
   noPlan: AdviseNoPlan[]
   hiddenPlans: AdviseHiddenPlan[]
-  refusedPins: unknown[]
+  refusedPins: AdviseRefusedPin[]
+  /** Only when pins were sent: the run without them, at the plans-only level. */
+  withoutPins?: AdviseWithoutPins | null
   /** On `NO_PLAN_POSSIBLE`: a reason for every line. */
   missingLines?: AdviseMissingLine[]
   inputs?: unknown
@@ -296,4 +375,42 @@ export interface AdviseReply {
  */
 export interface SimulatorWorkbench {
   maps?: { key: string; mapId?: string } | null
+}
+
+// ── The weight-set doors (ticket 963; BackOffice 4360) ──────────────────────────────────────────
+
+/**
+ * One weight set in the list the simulator's picker reads (BackOffice 4360: "list sets and versions").
+ * PROVISIONAL (spec 4354: not specified) — 4360 names the doors but not their paths or replies; every field is ours.
+ */
+export interface WeightSetListItem {
+  name: string
+  /** The set's owner; null for the baseline set, which belongs to nobody. */
+  owner: string | null
+  /** Its saved versions, oldest first. */
+  versions: number[]
+  /** The version marked as the candidate set, when one of this set's is. */
+  candidateVersion: number | null
+  /** A set with a what-if on planner data: runs under a banner, never the candidate. */
+  trial: boolean
+}
+
+/**
+ * One saved version, read whole (BackOffice 4360: "read a version").
+ * PROVISIONAL (spec 4354: not specified) — the reply's shape is ours.
+ */
+export interface WeightSetVersion extends WeightSetVersionRef {
+  values: WeightSetValues
+  candidate: boolean
+  trial: boolean
+}
+
+/**
+ * "Save as a named set" (BackOffice 4360: any holder of the save grant copies any version under a new name).
+ * PROVISIONAL (spec 4354: not specified) — the body's shape is ours. The reply names the version saved.
+ */
+export interface WeightSetSaveRequest {
+  name: string
+  basedOn: WeightSetVersionRef
+  values: WeightSetValues
 }

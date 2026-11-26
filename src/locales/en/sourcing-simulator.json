@@ -235,5 +235,124 @@
     },
     "planLabel": "Plan shown in the tab",
     "pending": "This tab is not built yet. It comes with a later release of the simulator."
+  },
+  "pins": {
+    "title": "Pins",
+    "none": "No pins. Pin a line from a plan, or add a pin for the whole cart here.",
+    "note": "Pins apply to every plan of the run. The run without pins is kept beside it, so each plan shows what the pins cost it. Run to plan again.",
+    "remove": "Remove the pin \"{{pin}}\"",
+    "neverStore": "Never this store",
+    "neverStorePick": "Never this store…",
+    "neverMode": "Never this mode",
+    "neverModePick": "Never this mode…",
+    "oneShipment": "Everything in one shipment",
+    "chip": {
+      "LINE_STORE": "Line {{line}}: from {{store}}",
+      "LINE_MODE": "Line {{line}}: by {{mode}}",
+      "NOT_STORE": "Never {{store}}",
+      "NOT_MODE": "Never {{mode}}",
+      "ONE_SHIPMENT": "Everything in one shipment"
+    },
+    "refused": {
+      "PIN_PAIR_REMOVED": "refused: filter step {{step}} removed this pair",
+      "PIN_NO_STOCK": "refused: the store has no stock for this line",
+      "PIN_NO_STOCK_ROW": "refused: the store has no stock row for this line",
+      "PINS_CLASH": "refused: these pins clash",
+      "unknown": "refused"
+    },
+    "plan": {
+      "neverStore": "Never this store",
+      "line": "Line {{line}}",
+      "pinStore": "Pin store",
+      "pinMode": "Pin mode"
+    },
+    "cost": {
+      "title": "What the pins cost",
+      "minutes": "Time",
+      "minutesValue": "{{n}} min",
+      "nothing": "The pins cost this plan nothing.",
+      "noPlanWithout": "The run without pins has no plan for this goal."
+    },
+    "clash": {
+      "title": "These pins leave no plan:"
+    }
+  },
+  "weights": {
+    "title": "Weight set",
+    "picker": "Weight set",
+    "reading": "Reading the weight sets…",
+    "unread": "The weight sets could not be read. Runs plan on the candidate set.",
+    "option": "{{name}}, version {{version}}",
+    "optionCandidate": "{{name}}, version {{version}} (candidate)",
+    "optionTrial": "{{name}}, version {{version}} (trial set)",
+    "changed": "changed, not saved",
+    "trial": "A trial set: it holds a what-if on planner data. It runs here and over stored orders under a banner, and can never be the candidate set.",
+    "saveAs": "Save as a named set…",
+    "saveName": "Name of the new set",
+    "saveHint": "Saved as version 1 of a new set, copied from {{name}}, version {{version}}.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saveFailed": "The set was not saved",
+    "saveNeedsGrant": "Saving a weight set needs the grant to save weight sets.",
+    "groups": {
+      "weights": "Weights",
+      "factors": "Factors",
+      "reach": "Reach and shape"
+    },
+    "controls": {
+      "companyCostWeight": {
+        "label": "The company's cost"
+      },
+      "feeWeight": {
+        "label": "The customer's fee"
+      },
+      "waitingPerHour": {
+        "label": "Price of waiting, per hour"
+      },
+      "splitPenalty": {
+        "label": "Penalty per extra shipment"
+      },
+      "mostShipments": {
+        "label": "Most shipments in one plan"
+      },
+      "marginMultiplier": {
+        "label": "The promise margin's multiplier"
+      },
+      "buffer": {
+        "label": "Buffer",
+        "hint": "Hold back units for walk-in sales."
+      },
+      "stockConfidence": {
+        "label": "Stock confidence"
+      },
+      "storeRecord": {
+        "label": "Store record",
+        "hint": "How deliveries go at this store."
+      },
+      "widerSlotReach": {
+        "label": "Wider slot reach",
+        "hint": "Any delivering store within the widened radius."
+      },
+      "carrierModes": {
+        "label": "Carrier modes on",
+        "hint": "Cut-offs and rates may be assumptions."
+      },
+      "feePerOrder": {
+        "label": "One fee per order",
+        "hint": "Off: a fee per shipment."
+      },
+      "pickUpInDeliveryPlan": {
+        "label": "A delivery plan may include a pick-up"
+      }
+    }
+  },
+  "replan": {
+    "trialTitle": "Planned on a trial set",
+    "trialBody": "This set holds a what-if on planner data. Its plans are for trying an idea and can never answer a real order.",
+    "draft": "Planned on unsaved values, from <name>{{name}}</name>, version <version>{{version}}</version>.",
+    "figuresFrom": "Figures as read at <time>{{time}}</time>, from run <run>{{run}}</run>.",
+    "figuresFromRun": "Figures as read for run <run>{{run}}</run>.",
+    "readAfresh": "This change needed figures the earlier run never read, so the cart was read afresh as a new run.",
+    "heldGone": "The earlier run is no longer held (runs are held 30 minutes), so the cart ran again with a fresh read."
   }
 }

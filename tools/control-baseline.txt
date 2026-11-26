@@ -329,6 +329,9 @@ oms/sourcing-results 4
   src/features/oms/sourcing-results/OrdersDrawer.tsx button: an order number that opens its card above the list (aria-pressed): a row picker (ticket 971)
   src/features/oms/sourcing-results/ResultsBar.tsx button: a coloured segment of the results bar that opens its orders: a chart segment, sized by its count (ticket 971)
 
+oms/sourcing-simulator 1
+  src/features/oms/sourcing-simulator/WeightSetPanel.tsx input: a weight set's slider (type=range, one component drawn per weight): no shared range control exists in core/ui (ticket 963)
+
 pricing/bonus-buy-download 0
 
 pricing/bonus-buy-inquiry 1

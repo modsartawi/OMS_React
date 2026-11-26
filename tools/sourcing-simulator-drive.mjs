@@ -23,6 +23,20 @@
 //      which posts the same cart again; ADVISE-423 offers no "try again";
 //  11. RTL: the page is right to left, and the store pair and the run number read left to right;
 //  12. no page errors.
+// Ticket 963 (pins and the weight set), in a context of its own, against PROVISIONAL weight-set doors
+// (`SourcingAdvisor/WeightSets`, `…/WeightSets/Version`, `…/WeightSets/Save`) and the save grant `SourcingAdvisorSets:06`:
+//  13. the panel opens on the candidate set, unchanged; Reach and shape has no switch for pricing waiting per shipment;
+//  14. pin a line from a plan (store and mode): chips; Run plans again on the same figures (`basedOnRun`, the pins);
+//      the refused pin stays listed with its reason, code and rule; each plan shows what the pins cost it; "figures as
+//      read at …, from run …";
+//  15. change a weight: "changed, not saved"; Run sends the draft in full as `basedOnRun`; the reply's draft is said;
+//  16. the held copy gone (ADVISE-404): the cart runs again with its pins and draft, and the screen says so;
+//  17. a change that needed a wider read: READ_AFRESH and its why are said;
+//  18. save as a named set: the whole draft goes to the save door; the picker names the new set, no longer changed,
+//      and Run names it; without the save grant the panel says the grant is needed;
+//  19. pins that leave no plan: one banner naming them;
+//  20. a trial set: the panel's mark and the run's banner;
+//  21. RTL: the pins' cost figures and the refused pin's code are Ltr isolates reading left to right; no page errors.
 //
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/sourcing-simulator-drive.mjs
@@ -45,6 +59,31 @@ const REPLY = json('../src/features/oms/sourcing-simulator/advise-reply.fixture.
 const EN = json('../src/locales/en/sourcing-simulator.json')
 const WORDS = { ltr: EN, rtl: EN }
 const RUN_GRANT = 'SourcingAdvisorRun:06'
+const SAVE_GRANT = 'SourcingAdvisorSets:06'
+// Ticket 963: the pins, the run without them and the refused pin, shared with `pins-model.test.ts`.
+const PINS = json('../src/features/oms/sourcing-simulator/pins-reply.fixture.json')
+/** The baseline set as the PROVISIONAL read door gives it: the panel's keys and settings it does not show. */
+const BASELINE_VALUES = {
+  companyCostWeight: 1,
+  feeWeight: 1,
+  waitingPerHour: 5,
+  splitPenalty: 0,
+  mostShipments: 3,
+  marginMultiplier: 1,
+  buffer: true,
+  stockConfidence: true,
+  storeRecord: true,
+  widerSlotReach: false,
+  carrierModes: false,
+  feePerOrder: false,
+  pickUpInDeliveryPlan: false,
+  coverPrice: 1,
+  failurePrices: { late: 4, returned: 9 },
+}
+const SETS = () => [
+  { name: 'Baseline', owner: null, versions: [1], candidateVersion: 1, trial: false },
+  { name: 'Carriers on', owner: 'aalharbi', versions: [1, 2], candidateVersion: null, trial: true },
+]
 
 const results = []
 const check = (name, pass, detail = '') => {
@@ -83,7 +122,7 @@ const FALLBACK = {
 
 const browser = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {})
 
-async function open(dir, { granted = true } = {}) {
+async function open(dir, { granted = true, canSave = true } = {}) {
   const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } })
   const page = await context.newPage()
   const errors = []
@@ -93,13 +132,31 @@ async function open(dir, { granted = true } = {}) {
     localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
     localStorage.setItem('oms.railExpanded', 'true')
   }, dir)
-  const wire = { posts: [], calls: [], next: [] }
+  const wire = { posts: [], calls: [], next: [], saves: [], sets: SETS(), values: { 'Baseline:1': BASELINE_VALUES, 'Carriers on:2': { ...BASELINE_VALUES, carrierModes: true } } }
   await page.route('**/api/**', async (route) => {
     const p = new URL(route.request().url()).pathname.split('/api/')[1]
     wire.calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'SourcingAdvisor:01', ...(granted ? [RUN_GRANT] : [])]))
+    if (p === 'Auth/Permissions')
+      return route.fulfill(permissions(['DocumentList:03', 'SourcingAdvisor:01', ...(granted ? [RUN_GRANT] : []), ...(granted && canSave ? [SAVE_GRANT] : [])]))
     if (p === 'SourcingAdvisor/Workbench') return route.fulfill(envelope({ maps: null }))
+    if (p === 'SourcingAdvisor/WeightSets') return route.fulfill(envelope(wire.sets))
+    if (p === 'SourcingAdvisor/WeightSets/Version') {
+      const q = new URL(route.request().url()).searchParams
+      const name = q.get('name')
+      const version = Number(q.get('version'))
+      const set = wire.sets.find((x) => x.name === name)
+      const values = wire.values[`${name}:${version}`]
+      if (!set || !values) return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not found' }))
+      return route.fulfill(envelope({ name, version, values, candidate: set.candidateVersion === version, trial: set.trial }))
+    }
+    if (p === 'SourcingAdvisor/WeightSets/Save') {
+      const body = JSON.parse(route.request().postData() || '{}')
+      wire.saves.push(body)
+      wire.sets.push({ name: body.name, owner: 'msartawi', versions: [1], candidateVersion: null, trial: false })
+      wire.values[`${body.name}:1`] = body.values
+      return route.fulfill(envelope({ name: body.name, version: 1 }))
+    }
     if (p === 'SourcingAdvisor/Advise') {
       wire.posts.push(JSON.parse(route.request().postData() || '{}'))
       // One request, one reply: held a moment, so the one "planning" state can be seen.
@@ -222,6 +279,7 @@ async function drive(dir) {
           plannedFor: `${iso} 19:42:00`,
           level: 'full',
           allPlans: true,
+          weightSet: { name: 'Baseline', version: 1 },
         }),
     JSON.stringify(posted),
   )
@@ -348,9 +406,240 @@ async function drive(dir) {
   await context.close()
 }
 
+/** Sets a range input the way a hand does: the native setter, then the input event React listens to. */
+const slide = (locator, value) =>
+  locator.evaluate((el, v) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(v))
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, value)
+
+async function buildCart(page) {
+  await page.locator('[data-sim-field="channel"]').selectOption('IOS')
+  for (const [i, [item, qty]] of [
+    ['100234', '2'],
+    ['100871', '1'],
+    ['104410', '1'],
+  ].entries()) {
+    if (i > 0) await page.locator('[data-sim-add-line]').click()
+    await page.locator(`[data-sim-line="${i + 1}"] [data-sim-line-item]`).fill(item)
+    await page.locator(`[data-sim-line="${i + 1}"] [data-sim-line-qty]`).fill(qty)
+  }
+  await page.locator('[data-sim-field="lat"]').fill('24.7741')
+  await page.locator('[data-sim-field="lng"]').fill('46.7386')
+}
+
+async function drivePins(dir) {
+  const W = WORDS[dir]
+  const label = dir === 'rtl' ? 'RTL 963' : 'LTR 963'
+  const money = (amount) => W.money.replace('{{amount}}', amount)
+
+  // 18b. without the save grant the panel says it is needed
+  {
+    const { context, page } = await open(dir, { canSave: false })
+    await page.goto(`${BASE}${SIM}`)
+    await page.locator('[data-sim-weights] [data-weights-group]').first().waitFor({ timeout: 15000 })
+    check(`${label}: without the save grant, no "save as" and the panel says the grant is needed`, (await page.locator('[data-weights-no-grant]').count()) === 1 && (await page.locator('[data-weights-save-open]').count()) === 0)
+    await context.close()
+  }
+
+  const { context, page, errors, wire } = await open(dir)
+  await page.goto(`${BASE}${SIM}`)
+  await page.locator('[data-sim-weights] [data-weights-group]').first().waitFor({ timeout: 15000 })
+
+  // 13. the panel opens on the candidate set, unchanged, and offers no switch for waiting per shipment
+  const picker = page.locator('[data-weights-picker]')
+  check(`${label}: the weight set opens on the candidate set, not changed`, (await picker.inputValue()) === JSON.stringify(['Baseline', 1]) && (await page.locator('[data-weights-changed]').count()) === 0)
+  const reach = await page.locator('[data-weights-group="reach"] [data-weights-control]').evaluateAll((els) => els.map((e) => e.getAttribute('data-weights-control')))
+  check(
+    `${label}: Weights, Factors, Reach and shape — one fee per order a switch, and no switch for waiting on each shipment`,
+    reach.join() === 'widerSlotReach,carrierModes,feePerOrder,pickUpInDeliveryPlan' &&
+      (await page.locator('[data-weights-group="weights"] input[type="range"]').count()) === 6 &&
+      (await page.locator('[data-weights-group="factors"] input[role="switch"]').count()) === 3,
+    reach.join(),
+  )
+
+  await buildCart(page)
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-plan-cards]').waitFor({ timeout: 8000 })
+  check(`${label}: before a pin, the pins panel says there are none`, (await page.locator('[data-pins-none]').count()) === 1)
+
+  // 14. pin a line from the plan: its store, and another line's mode
+  const ship = page.locator('[data-plan-card="BALANCED"] [data-plan-shipment="1"]')
+  await ship.locator('[data-pin-line-store="3"]').click()
+  await ship.locator('[data-pin-line-mode="2"]').click()
+  const chips = await page.locator('[data-pin-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pin-chip')))
+  check(
+    `${label}: pinning a line from a plan sets chips; the plans say they are stale until Run`,
+    chips.join() === 'LINE_STORE:3:1090,LINE_MODE:2:DAWAA_NOW' && (await page.locator('[data-run-stale]').count()) === 1 && (await ship.locator('[data-pin-line-store="3"]').getAttribute('aria-pressed')) === 'true',
+    chips.join(),
+  )
+  const PINNED = { ...REPLY, runId: '01JDM3P1N0000000000000000A', basedOnRun: REPLY.runId, figuresReadAt: '2026-11-26 19:42:03', refusedPins: PINS.refusedPins, withoutPins: PINS.withoutPins }
+  wire.next.push(envelope(PINNED))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-figures-from]').waitFor({ timeout: 8000 })
+  check(
+    `${label}: a changed pin plans again on the same figures: basedOnRun with the pins, nothing of the cart`,
+    JSON.stringify(wire.posts.at(-1)) === JSON.stringify({ basedOnRun: REPLY.runId, weightSet: { name: 'Baseline', version: 1 }, pins: PINS.pins, level: 'full', allPlans: true }),
+    JSON.stringify(wire.posts.at(-1)),
+  )
+  const refused = page.locator('[data-pin-chip="LINE_MODE:2:DAWAA_NOW"]')
+  const refusedText = await text(refused)
+  check(
+    `${label}: the refused pin stays listed with its reason, its step's code, the rule and its code`,
+    (await refused.getAttribute('data-pin-refused')) === 'PIN_PAIR_REMOVED' &&
+      refusedText.includes(W.pins.refused.PIN_PAIR_REMOVED.replace('{{step}}', '10')) &&
+      refusedText.includes('PRODUCT_RULE') &&
+      refusedText.includes('cold items: slot delivery and pick-up only') &&
+      (await page.locator('[data-pin-chip="LINE_STORE:3:1090"][data-pin-refused]').count()) === 0,
+    refusedText,
+  )
+  const costPart = (goal, part) => text(page.locator(`[data-plan-card="${goal}"] [data-pins-cost-part="${part}"] dd`))
+  const cost = { minutes: await costPart('BALANCED', 'minutes'), fee: await costPart('BALANCED', 'fee'), companyCost: await costPart('BALANCED', 'companyCost'), deliveries: await costPart('BALANCED', 'deliveries') }
+  check(
+    `${label}: each plan shows what the pins cost it, from the run without pins`,
+    cost.minutes === W.pins.cost.minutesValue.replace('{{n}}', '+15') &&
+      cost.fee === money('0.000') &&
+      cost.companyCost === money('+2.320') &&
+      cost.deliveries === '0' &&
+      (await page.locator('[data-plan-card="CHEAPEST"] [data-pins-cost="nothing"]').count()) === 1,
+    JSON.stringify(cost),
+  )
+  const from = await text(page.locator('[data-run-figures-from]'))
+  check(`${label}: "figures as read at …, from run …"`, from.includes('2026-11-26 19:42:03') && from.includes(REPLY.runId), from)
+  const isoCost = page.locator('[data-plan-card="BALANCED"] [data-pins-cost-part="minutes"] dd bdi').first()
+  const isoCode = refused.locator('[data-pin-reason] code bdi').last()
+  check(
+    `${label}: the pins' cost and the refused pin's code are Ltr isolates reading left to right`,
+    (await isLtrIsolate(isoCost)) && (await isLtrIsolate(isoCode)) && (await readsLtr(isoCost)) === true && (await readsLtr(isoCode)) === true,
+  )
+  await page.locator('[data-plans-view-switch="table"]').click()
+  check(`${label}: the table carries a row of what the pins cost`, (await page.locator('[data-plans-row="pinsCost"] [data-pins-cost]').count()) === 3)
+  await page.locator('[data-plans-view-switch="cards"]').click()
+  await page.screenshot({ path: `${SHOTS}/${dir}-pins.png`, fullPage: true })
+
+  // 15. change a weight: "changed, not saved"; Run sends the draft in full on the same figures
+  await slide(page.locator('[data-weights-control="companyCostWeight"] input[type="range"]'), 1.5)
+  const shown = await text(page.locator('[data-weights-control="companyCostWeight"] [data-weights-value]'))
+  check(`${label}: a changed weight marks "changed, not saved"`, (await page.locator('[data-weights-changed]').count()) === 1 && shown === '1.5' && (await page.locator('[data-run-stale]').count()) === 1, shown)
+  const draftValues = { ...BASELINE_VALUES, companyCostWeight: 1.5 }
+  const DRAFTED = { ...PINNED, runId: '01JDM3P1N0000000000000000B', basedOnRun: PINNED.runId, weightSet: { name: 'Baseline', version: 1, candidate: false, trial: false, draft: true, basedOn: { name: 'Baseline', version: 1 } } }
+  wire.next.push(envelope(DRAFTED))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-draft]').waitFor({ timeout: 8000 })
+  check(
+    `${label}: a changed weight plans again on the same figures, the draft sent in full`,
+    JSON.stringify(wire.posts.at(-1)) ===
+      JSON.stringify({ basedOnRun: PINNED.runId, weightSet: { draft: { basedOn: { name: 'Baseline', version: 1 }, values: draftValues } }, pins: PINS.pins, level: 'full', allPlans: true }),
+    JSON.stringify(wire.posts.at(-1)),
+  )
+
+  // 16. the held copy gone: ADVISE-404, then the cart runs again
+  await page.locator('[data-weights-control="buffer"] input').uncheck()
+  wire.next.push(refusal(404, 'ADVISE-404', 'Not found: run 01JDM3P1N0000000000000000B.'))
+  wire.next.push(envelope({ ...REPLY, runId: '01JDM3P1N0000000000000000C', refusedPins: PINS.refusedPins, withoutPins: PINS.withoutPins }))
+  const before404 = wire.posts.length
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-held-gone]').waitFor({ timeout: 8000 })
+  const again = wire.posts.at(-1)
+  check(
+    `${label}: when the held copy is gone (ADVISE-404), the cart runs again with its pins and draft, and the screen says so`,
+    wire.posts.length === before404 + 2 &&
+      wire.posts.at(-2).basedOnRun === DRAFTED.runId &&
+      again.channel === 'IOS' &&
+      !('basedOnRun' in again) &&
+      JSON.stringify(again.pins) === JSON.stringify(PINS.pins) &&
+      again.weightSet?.draft?.values?.buffer === false &&
+      (await page.locator('[data-run-error-code]').count()) === 0,
+    JSON.stringify(again),
+  )
+
+  // 17. a change that needs a wider read is read afresh, and the screen says so
+  await page.locator('[data-weights-control="carrierModes"] input').check()
+  const why = 'a mode switched on: CARRIER_SAME_DAY'
+  wire.next.push(envelope({ ...REPLY, runId: '01JDM3P1N0000000000000000D', solve: { ...REPLY.solve, marks: ['ASSUMED_RATES', 'READ_AFRESH'], readAfreshWhy: why }, refusedPins: PINS.refusedPins, withoutPins: PINS.withoutPins }))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-read-afresh]').waitFor({ timeout: 8000 })
+  check(
+    `${label}: a change that needed a wider read says it was read afresh, with the server's why`,
+    wire.posts.at(-1).basedOnRun === '01JDM3P1N0000000000000000C' && (await text(page.locator('[data-run-read-afresh-why]'))) === why && (await page.getByText(W.replan.readAfresh).count()) === 1,
+  )
+
+  // 18. save as a named set
+  await page.locator('[data-weights-save-open]').click()
+  await page.locator('[data-weights-save-name]').fill('Late evenings')
+  await page.locator('[data-weights-save-confirm]').click()
+  // The list is read again after the save, so the picker names the new set once it holds it.
+  await page
+    .waitForFunction(
+      (want) => document.querySelectorAll('[data-weights-changed]').length === 0 && document.querySelector('[data-weights-picker]')?.value === want,
+      JSON.stringify(['Late evenings', 1]),
+      { timeout: 8000 },
+    )
+    .catch(() => {})
+  const saved = wire.saves.at(-1)
+  check(
+    `${label}: "save as a named set" sends the name, the version it came from and the whole draft`,
+    JSON.stringify(saved) ===
+      JSON.stringify({ name: 'Late evenings', basedOn: { name: 'Baseline', version: 1 }, values: { ...draftValues, buffer: false, carrierModes: true } }),
+    JSON.stringify(saved),
+  )
+  check(
+    `${label}: after the save the picker names the new set, no longer changed`,
+    (await picker.inputValue()) === JSON.stringify(['Late evenings', 1]) && (await page.locator('[data-weights-changed]').count()) === 0,
+    await picker.inputValue(),
+  )
+  wire.next.push(envelope({ ...REPLY, runId: '01JDM3P1N0000000000000000E', weightSet: { name: 'Late evenings', version: 1, candidate: false, trial: false, draft: false }, refusedPins: PINS.refusedPins, withoutPins: PINS.withoutPins }))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-figures-from], [data-run-summary]').first().waitFor({ timeout: 8000 })
+  await page.waitForTimeout(900)
+  check(`${label}: the next Run names the saved set`, JSON.stringify(wire.posts.at(-1).weightSet) === JSON.stringify({ name: 'Late evenings', version: 1 }), JSON.stringify(wire.posts.at(-1)))
+  await page.screenshot({ path: `${SHOTS}/${dir}-weights.png`, fullPage: true })
+
+  // 19. pins that leave no plan: one banner naming them
+  await page.locator('[data-pins-one-shipment] input').check()
+  const one = { kind: 'ONE_SHIPMENT' }
+  const CLASH = {
+    ...REPLY,
+    runId: '01JDM3P1N0000000000000000F',
+    plans: [],
+    noPlan: ['BALANCED', 'FASTEST', 'FEWEST', 'CHEAPEST', 'PICK_UP'].map((goal) => ({ goal, code: 'PINS_CLASH', en: 'These pins leave no plan', ar: 'هذه التثبيتات لا تترك خطة' })),
+    refusedPins: [PINS.refusedPins[0], { pins: [PINS.pins[0], one], code: 'PINS_CLASH', rule: 'no single store holds the whole cart with line 3 from 1090' }],
+    withoutPins: PINS.withoutPins,
+  }
+  wire.next.push(envelope(CLASH))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-pins-clash]').waitFor({ timeout: 8000 })
+  const clash = await page.locator('[data-pins-clash-pin]').evaluateAll((els) => els.map((e) => e.textContent.replace(/[\u2066-\u2069]/g, '').trim()))
+  check(
+    `${label}: pins that leave no plan raise one banner naming them and the rule`,
+    (await page.locator('[data-pins-clash]').count()) === 1 &&
+      clash.join('|') === [W.pins.chip.LINE_STORE.replace('{{line}}', '3').replace('{{store}}', '1090'), W.pins.chip.ONE_SHIPMENT].join('|') &&
+      (await text(page.locator('[data-pins-clash-rule]'))) === CLASH.refusedPins[1].rule,
+    clash.join('|'),
+  )
+
+  // 20. a trial set: the panel's mark, and the run's banner
+  await picker.selectOption(JSON.stringify(['Carriers on', 2]))
+  await page.locator('[data-weights-trial]').waitFor({ timeout: 8000 })
+  wire.next.push(envelope({ ...REPLY, runId: '01JDM3P1N0000000000000000G', weightSet: { name: 'Carriers on', version: 2, candidate: false, trial: true, draft: false }, plans: REPLY.plans.map((p) => ({ ...p, trialSet: true })) }))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-trial-set]').waitFor({ timeout: 8000 })
+  check(
+    `${label}: a trial set carries the panel's mark and the run's banner`,
+    (await page.locator('[data-weights-trial]').count()) === 1 && (await page.locator('[data-run-trial-set]').count()) === 1 && JSON.stringify(wire.posts.at(-1).weightSet) === JSON.stringify({ name: 'Carriers on', version: 2 }),
+    JSON.stringify(wire.posts.at(-1)),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-trial.png`, fullPage: true })
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
+  await drivePins('ltr')
+  await drivePins('rtl')
 } catch (e) {
   console.error(e)
   results.push({ name: 'the drive ran to its end', pass: false })

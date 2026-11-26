@@ -98,15 +98,24 @@ export default function ExportMonthDialog({
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">{t('dialog.intro', { days: MAX_RANGE_DAYS })}</p>
-          <div className="flex flex-wrap gap-3">
-            <Field label={t('dialog.from')} className="w-40">
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </Field>
-            <Field label={t('dialog.to')} className="w-40">
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </Field>
-          </div>
+          {source.undated ? (
+            // BackOffice 4323: the screen's own filter bounds the export (one ACR) — no range to ask for.
+            <p className="text-sm text-muted-foreground" data-export-month-undated="">
+              {t('dialog.undated')}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">{t('dialog.intro', { days: MAX_RANGE_DAYS })}</p>
+              <div className="flex flex-wrap gap-3">
+                <Field label={t('dialog.from')} className="w-40">
+                  <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                </Field>
+                <Field label={t('dialog.to')} className="w-40">
+                  <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                </Field>
+              </div>
+            </>
+          )}
           {problem && (
             <p role="alert" className="text-sm text-danger-800" data-export-month-problem={problem}>
               {t(`dialog.problem.${problem}`, { days: MAX_RANGE_DAYS })}

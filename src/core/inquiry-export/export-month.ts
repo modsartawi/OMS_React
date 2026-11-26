@@ -19,6 +19,12 @@ export interface ExportMonthSource {
   range: { from: string; to: string }
   /** A column the server does not export (an actions column): left out of the request. */
   skipColumn?: (colId: string) => boolean
+  /**
+   * The screen's filters bound the export on their own, so it needs no range (BackOffice 4323, spec story 37: Cash
+   * Collections narrowed to one ACR — the server reads the whole ACR in one pass, as the grid does). The dialog then
+   * asks for no dates and sends none.
+   */
+  undated?: boolean
 }
 
 
@@ -75,7 +81,8 @@ export function planExportMonth(input: {
   source: ExportMonthSource
   language: 'en' | 'ar'
 }): ExportMonthPlan {
-  const problem = rangeProblem(input.from, input.to)
+  const undated = input.source.undated === true
+  const problem = undated ? null : rangeProblem(input.from, input.to)
   if (problem) return { ok: false, problem }
   const columns = exportColumns(input.source)
   if (columns.length === 0) return { ok: false, problem: 'noColumns' }
@@ -83,8 +90,8 @@ export function planExportMonth(input: {
     ok: true,
     request: {
       screen: input.screen,
-      fromDate: input.from,
-      toDate: input.to,
+      fromDate: undated ? null : input.from,
+      toDate: undated ? null : input.to,
       filters: input.source.filters,
       columns,
       language: input.language,

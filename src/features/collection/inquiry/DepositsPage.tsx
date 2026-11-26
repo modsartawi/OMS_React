@@ -20,6 +20,8 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
+import ExportSplitButton from '@/core/inquiry-export/ExportSplitButton'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import { assignmentOptionsQuery, canOpenDeposits, collectionApi } from './api'
 import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
@@ -27,6 +29,7 @@ import CollectorBalances from './CollectorBalances'
 import { buildDepositsColumns, buildDepositsDefaultColDef } from './deposit-columns'
 import {
   buildDepositsParams,
+  depositsExportFilters,
   isLandingQuery,
   landingCriteria,
   type DepositsCriteria,
@@ -34,7 +37,7 @@ import {
 import DepositDetail from './DepositDetail'
 import DepositsToolbar from './DepositsToolbar'
 import { useXlsxExport } from './use-xlsx-export'
-import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
+import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 
 /**
  * Deposits (`/collection/deposits`) — the accountant's screen, and **the one in
@@ -227,6 +230,18 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
   // says WHICH screen it is; the file is its grid, as shown.
   const xlsxExport = useXlsxExport<(typeof rows)[number]>('deposits')
 
+  // ---- Export month… (BackOffice spec 4314, ticket 4322) ----
+  // The header grid's visible columns only — the lines and slips below the grid are not columns, so no lines
+  // sheet. The *Business date* column is drawn server-side from the same ACR days the grid reads off the lines.
+  const month = useMemo<ExportMonthSource>(
+    () => ({
+      gridApi: xlsxExport.gridApi,
+      columnDefs: columns,
+      ...depositsExportFilters(appliedParams),
+    }),
+    [appliedParams, columns, xlsxExport.gridApi],
+  )
+
   return (
     <>
       <DepositsToolbar
@@ -250,7 +265,7 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...xlsxExport.buttonProps} />
+        <ExportSplitButton screen="Deposits" quick={xlsxExport.buttonProps} month={month} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on

@@ -145,3 +145,17 @@ export function criteriaToParams(c: PaymentsCriteria): Record<string, string> {
   if (numberCount(c.orderNos) > 0) params.OrderNo = c.orderNos
   return params
 }
+
+/**
+ * What Export month… sends for the applied search (BackOffice spec 4314, ticket 4325): the grid's query parameters minus
+ * `Limit` and the day pair, and that pair as the range to pre-fill. The pasted numbers travel as typed — and unlike the
+ * grid, the job keeps its range even with numbers (story 38). No search yet: no filters, an open range.
+ */
+export function exportMonthFilters(applied: PaymentsCriteria | null): {
+  filters: Record<string, string>
+  range: { from: string; to: string }
+} {
+  if (!applied) return { filters: {}, range: { from: '', to: '' } }
+  const { FromDate, ToDate, Limit: _limit, ...filters } = criteriaToParams(applied)
+  return { filters, range: { from: FromDate ?? '', to: ToDate ?? '' } }
+}

@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ExternalLink, FileSpreadsheet, PanelRight, Pin, Table2, TriangleAlert } from 'lucide-react'
+import { ExternalLink, PanelRight, Pin, Table2, TriangleAlert } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { takesEscape } from '@/core/commands/key-layer'
+import ExportSplitButton from '@/core/inquiry-export/ExportSplitButton'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import { fromListState } from '@/core/oms/open-intent'
 import { useKeyHint } from '@/core/commands/key-hint'
 import { pinStart } from '@/core/theme/direction'
@@ -40,10 +42,13 @@ export default function GridToolbar({
   gridApi,
   selectedRow,
   hasRows,
+  month,
 }: {
   gridApi: GridApi<DeliveryDocumentModel> | null
   selectedRow: DeliveryDocumentModel | null
   hasRows: boolean
+  /** Export month… (BackOffice spec 4314, ticket 4324): the last search's filters and range, the grid's columns. */
+  month: ExportMonthSource
 }) {
   const { t } = useTranslation('deliveries')
   const navigate = useNavigate()
@@ -201,10 +206,12 @@ export default function GridToolbar({
         )}
       </div>
 
-      <Button variant="outlined" disabled={!hasRows} data-toolbar-export="" onClick={exportExcel}>
-        <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
-        {t('toolbar.export')}
-      </Button>
+      {/* The quick export as before, and Export month… beside it for a session holding DeliveryListExport:03. */}
+      <ExportSplitButton
+        screen="DeliveryList"
+        quick={{ label: t('toolbar.export'), onExport: () => void exportExcel(), disabled: !hasRows }}
+        month={month}
+      />
     </div>
   )
 }

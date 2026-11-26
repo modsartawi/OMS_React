@@ -28,8 +28,10 @@ import { assignmentOptionsQuery, canOpenAcrs, canOpenCollections, collectionApi 
 import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { useXlsxExport } from './use-xlsx-export'
-import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
-import { buildAcrActionsColumn } from './RowActions'
+import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { ACTIONS_COLUMN, buildAcrActionsColumn } from './RowActions'
+import ExportSplitButton from '@/core/inquiry-export/ExportSplitButton'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import { usePermissions } from '@/core/permissions'
 
 /**
@@ -186,6 +188,22 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
   // says WHICH screen it is; the file is its grid, as shown.
   const xlsxExport = useXlsxExport<(typeof rows)[number]>('acrs')
 
+  // ---- Export month… (BackOffice spec 4314, ticket 4321) ----
+  // The APPLIED filters (what the grid shows; before the first Search, what the toolbar holds), minus the grid's
+  // limit and the business-date pair: the job's range replaces that pair (the ACR's own date), day by day, on the
+  // server. The pair pre-fills the dialog's range. The actions column has no server column.
+  const month = useMemo<ExportMonthSource>(() => {
+    const { Limit: _limit, BusinessDateFrom, BusinessDateTo, ...filters } =
+      appliedParams ?? buildAcrsParams(criteria)
+    return {
+      gridApi: xlsxExport.gridApi,
+      columnDefs: columns,
+      filters,
+      range: { from: String(BusinessDateFrom ?? ''), to: String(BusinessDateTo ?? '') },
+      skipColumn: (id) => id === ACTIONS_COLUMN,
+    }
+  }, [appliedParams, criteria, columns, xlsxExport.gridApi])
+
   return (
     <>
       <AcrsToolbar
@@ -209,7 +227,7 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...xlsxExport.buttonProps} />
+        <ExportSplitButton screen="Acrs" quick={xlsxExport.buttonProps} month={month} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on

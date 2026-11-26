@@ -360,7 +360,7 @@ async function drive(dir) {
     check(`${label}: a row without a delivery offers only its document`, r2?.offers.join(',') === 'document', r2?.offers.join(','))
 
     // 8: export
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-payment-export]').click()])
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-quick-export]').click()])
     const name = dl.suggestedFilename()
     const sheet = sheetText(unzipText(readFileSync(await dl.path())))
     const lines = sheet.split('\n')

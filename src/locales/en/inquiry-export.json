@@ -65,6 +65,7 @@
   "screens": {
     "CollectionAttempts": "Collection Attempts",
     "CashCollections": "Cash Collections",
-    "Deposits": "Deposits"
+    "Deposits": "Deposits",
+    "Acrs": "ACRs"
   }
 }

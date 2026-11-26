@@ -65,6 +65,7 @@
   "screens": {
     "CollectionAttempts": "محاولات التحصيل",
     "CashCollections": "التحصيلات النقدية",
-    "Deposits": "الإيداعات"
+    "Deposits": "الإيداعات",
+    "Acrs": "إيصالات التحصيل المجمعة"
   }
 }

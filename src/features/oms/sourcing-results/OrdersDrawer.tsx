@@ -26,6 +26,7 @@ import { fsi, formatPair, formatParts } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { sourcingResultsApi } from './api'
 import { encodeFigure } from './figure'
+import { readingFigureTitle } from './reading-figure'
 import { HATCH, classInk, modeInk } from './inks'
 import { storedRunInSimulator } from './simulator-link'
 import { countText } from './text'
@@ -49,6 +50,8 @@ export function figureTitle(t: TFunction<'sourcing-results'>, f: ResultsFigure):
       return t('drawer.figures.runNotEnded')
     case 'notRun':
       return t('drawer.figures.notRun')
+    default:
+      return readingFigureTitle(t, f)
   }
 }
 

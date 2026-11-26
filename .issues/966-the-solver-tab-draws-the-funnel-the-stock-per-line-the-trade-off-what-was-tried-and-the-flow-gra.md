@@ -109,5 +109,6 @@ Merged with `spec-4354-sourcing-advisor` after 963, 964, 965 and 971–973: the 
 `AdviseStoreInput` is the one store type; `AdviseInputs` carries both `stores` and `storeLines`; `AdviseSearch`'s parts
 are optional), the fixture keeps 965's richer `inputs.stores`, and two cases of 965's `why-not-model.test.ts` now read
 the fixture's extra "why not" rows (store 1090's own rows set aside in one case; the stores known only from removals
-are now four). After the merge: `npm test` 988 files, typecheck and lint green, the drive 144/144 on Edge.
+are now four). Then merged again after 963 (both cart helpers kept in the drive). After the merges: `npm test`
+991 files, typecheck and lint green, the drive 186/186 on Edge, and the build's entry chunk still holds no xyflow code.
 

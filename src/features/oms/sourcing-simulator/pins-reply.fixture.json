@@ -1,0 +1,103 @@
+{
+  "pins": [
+    { "kind": "LINE_STORE", "lineNo": 3, "store": "1090" },
+    { "kind": "LINE_MODE", "lineNo": 2, "mode": "DAWAA_NOW" }
+  ],
+  "refusedPins": [
+    {
+      "pin": { "kind": "LINE_MODE", "lineNo": 2, "mode": "DAWAA_NOW" },
+      "code": "PIN_PAIR_REMOVED",
+      "step": 10,
+      "stepCode": "PRODUCT_RULE",
+      "rule": "cold items: slot delivery and pick-up only"
+    }
+  ],
+  "withoutPins": {
+    "plans": [
+      {
+        "goal": "BALANCED",
+        "alsoGoals": ["FASTEST", "FEWEST"],
+        "label": { "en": "Recommended", "ar": "الأنسب" },
+        "promise": { "en": "Everything by 8:20 pm today", "ar": "كل طلبك يصلك اليوم قبل 8:20 م", "by": "2026-11-26 20:20:00" },
+        "bestFound": false,
+        "fallback": false,
+        "trialSet": false,
+        "totals": { "shipments": 1, "linesServed": 3, "fee": 16.0, "companyCost": 15.1 },
+        "shipments": [
+          {
+            "no": 1,
+            "store": "1061",
+            "storeName": "Store 1061",
+            "mode": "DAWAA_NOW",
+            "lines": [1, 2, 3],
+            "promise": { "kind": "BY", "by": "2026-11-26 20:20:00", "en": "By 8:20 pm today", "ar": "اليوم قبل 8:20 م" },
+            "fee": 16.0,
+            "feeSource": "ASSUMED",
+            "companyCost": 15.1,
+            "km": 3.2,
+            "kmKind": "ROAD"
+          }
+        ],
+        "lineMarks": [],
+        "missingLines": []
+      },
+      {
+        "goal": "CHEAPEST",
+        "alsoGoals": [],
+        "label": { "en": "Cheapest", "ar": "الأقل تكلفة" },
+        "promise": { "en": "Everything today between 10:00 and 11:59 pm", "ar": "كل طلبك يصلك اليوم بين 10:00 و11:59 م", "by": "2026-11-26 23:59:00" },
+        "bestFound": false,
+        "fallback": false,
+        "trialSet": false,
+        "totals": { "shipments": 1, "linesServed": 3, "fee": 12.0, "companyCost": 22.95 },
+        "shipments": [
+          {
+            "no": 1,
+            "store": "1055",
+            "storeName": "Store 1055",
+            "mode": "SLOT",
+            "lines": [1, 2, 3],
+            "promise": { "kind": "BETWEEN", "from": "2026-11-26 22:00:00", "by": "2026-11-26 23:59:00", "en": "Today between 10:00 and 11:59 pm", "ar": "اليوم بين 10:00 و11:59 م" },
+            "slotCode": "00022724",
+            "fee": 12.0,
+            "feeSource": "ASSUMED",
+            "companyCost": 22.95,
+            "km": 2.9,
+            "kmKind": "STRAIGHT_LINE"
+          }
+        ],
+        "lineMarks": [],
+        "missingLines": []
+      },
+      {
+        "goal": "PICK_UP",
+        "alsoGoals": [],
+        "label": { "en": "Pick-up", "ar": "الاستلام من الصيدلية" },
+        "promise": { "en": "Ready to collect at Store 1061 in 25 minutes", "ar": "جاهز للاستلام من صيدلية 1061 خلال 25 دقيقة", "by": "2026-11-26 20:10:00" },
+        "bestFound": false,
+        "fallback": false,
+        "trialSet": false,
+        "totals": { "shipments": 1, "linesServed": 3, "fee": 0.0, "companyCost": 2.05 },
+        "shipments": [
+          {
+            "no": 1,
+            "store": "1061",
+            "storeName": "Store 1061",
+            "mode": "PICK_UP",
+            "lines": [1, 2, 3],
+            "promise": { "kind": "READY_BY", "by": "2026-11-26 20:10:00", "en": "Ready to collect in 25 minutes", "ar": "جاهز للاستلام خلال 25 دقيقة" },
+            "fee": 0.0,
+            "feeSource": "ASSUMED",
+            "companyCost": 2.05,
+            "km": 3.2,
+            "kmKind": "STRAIGHT_LINE"
+          }
+        ],
+        "lineMarks": [],
+        "missingLines": []
+      }
+    ],
+    "noPlan": [],
+    "hiddenPlans": []
+  }
+}

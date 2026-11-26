@@ -168,6 +168,10 @@ export interface AdviseShipment {
   companyCost: number
   km: number | null
   kmKind: 'ROAD' | 'STRAIGHT_LINE' | string | null
+  /** The middle level and up: each part of the company's cost (4281 decision 26). */
+  costParts?: AdviseCostPart[]
+  /** The middle level and up: each part of the promise (4281 decision 26). */
+  promiseParts?: AdvisePromiseParts
 }
 
 export interface AdviseLineMark {
@@ -283,7 +287,7 @@ export interface AdviseReply {
   missingLines?: AdviseMissingLine[]
   inputs?: AdviseInputs
   filterSteps?: AdviseFilterStep[]
-  used?: unknown[]
+  used?: AdviseUsedFactor[]
   search?: AdviseSearch
   customerPoint?: AdvisePoint | null
   customerPointWithheld?: 'NO_GRANT' | 'NOT_A_REPLAY' | 'NOT_FULL_LEVEL' | string | null
@@ -296,6 +300,137 @@ export interface AdviseReply {
  */
 export interface SimulatorWorkbench {
   maps?: { key: string; mapId?: string } | null
+}
+
+// ── The middle and full levels' parts "why this plan" and "what the run used" read (ticket 965) ────────────────────
+// 4281 decisions 26 and 27 and its worked example name what is not marked. BackOffice 4363 (money), 4366 (promise),
+// 4386 (store record, slot costs) and 4379 (levels, `used[]`) build them; reconcile here when they land.
+
+/** One part of a shipment's company's cost (4281 decision 26): `DELIVERY_RATE`, `HANDLING`, `STORE_RECORD`, `NO_STOCK`, `SLOT_LOAD`, `SLOT_TIMING`. */
+export interface AdviseCostPart {
+  part: string
+  amount: number
+  /** A source code: `MEASURED`, `FINANCE`, `ASSUMED`, `STEADIED`, `WEIGHT_SET`, … */
+  source: string
+}
+
+/** A promise figure in minutes, usual and cautious, with its source (4281's `madeReady`). */
+export interface AdvisePromiseFigure {
+  usual: number
+  cautious: number
+  source: string
+}
+
+/** A lengthener (4366): its band and the minutes it adds to the usual and to the cautious figure. */
+export interface AdviseLengthener {
+  /** `DELIVERIES_WAITING` (4281); `BASKET_LINES` and `HOUR_OF_DAY` are PROVISIONAL (spec 4354: not specified). */
+  name: string
+  band: string
+  usual: number
+  cautious: number
+}
+
+/**
+ * One of the store's next two listed slots, worked out beside the slot a plan takes (4386).
+ * PROVISIONAL (spec 4354: not specified) — 4386 names the content (slot load, slot timing, the price of waiting to its
+ * end), no field names.
+ */
+export interface AdviseNextSlot {
+  code: string
+  from: string
+  to: string
+  /** The balanced sum the plan would have had on this slot. */
+  sum: number
+}
+
+export interface AdviseSlotTaken {
+  code: string
+  from: string
+  to: string
+  source: string
+  /** The earlier slots passed over and why (`INSIDE_LEAD`, 4281; `NOT_ACTIVE` is PROVISIONAL (spec 4354: not specified)). */
+  skipped: { from: string; why: string }[]
+  /** PROVISIONAL (spec 4354: not specified) — the next two listed slots (4386). */
+  next?: AdviseNextSlot[]
+  /** PROVISIONAL (spec 4354: not specified) — 4386's mark "a later slot's sum was lower"; no plan takes that slot. */
+  laterCheaper?: boolean
+}
+
+/** Each part of a shipment's promise (4281 decision 26: usual and cautious, with source; lengtheners; margin; pick end; slot). */
+export interface AdvisePromiseParts {
+  pickEnd: string
+  /**
+   * PROVISIONAL (spec 4354: not specified) — which rule set the pick end (spec §7): `CAUTIOUS_MADE_READY`,
+   * `HALF_WAY_TO_SLOT`, `SLOT_START`, `FOUR_HOURS`, `STORE_CLOSES`.
+   */
+  pickEndRule?: string
+  /** PROVISIONAL (spec 4354: not specified) — the usual time, shown and never planned on (model ticket 4243). */
+  usualBy?: string
+  madeReady?: AdvisePromiseFigure
+  /** PROVISIONAL (spec 4354: not specified) — Dawaa Now's courier wait (spec §7). */
+  courierWait?: AdvisePromiseFigure
+  /** PROVISIONAL (spec 4354: not specified) — Dawaa Now's travel; its source says road, callout km or straight line. */
+  travel?: AdvisePromiseFigure
+  /** PROVISIONAL (spec 4354: not specified) — the one margin for all three parts (4281 says "the margin"). */
+  margin?: { minutes: number; source: string }
+  /** PROVISIONAL (spec 4354: not specified) — pick-up's target in minutes (4366: 30, a system setting). */
+  target?: number
+  lengtheners: AdviseLengthener[]
+  slot?: AdviseSlotTaken | null
+}
+
+/**
+ * One measure of a store's record for one mode (4281's `record.SLOT.late`). Measures other than `late` —
+ * `returned`, `cancelled`, `neverMadeReady`, `calloutIgnored`, `readyLate` — are PROVISIONAL (spec 4354: not specified).
+ */
+export interface AdviseRecordMeasure {
+  rate: number
+  likeStores: number
+  count: number
+  /** `STEADIED`, `STORES_OWN`, `LIKE_STORES` or `NEUTRAL_DEFAULT`. */
+  source: string
+  /** PROVISIONAL (spec 4354: not specified) — the measure's cost (a credit below zero), 4386's per-measure figure. */
+  cost?: number
+}
+
+/** A store the run read (4281 decision 26, `inputs.stores[]`). */
+export interface AdviseStoreInput {
+  store: string
+  name: string
+  point?: AdvisePoint | null
+  km?: number | null
+  kmKind?: string | null
+  deliveriesWaiting?: number
+  madeReady?: Record<string, AdvisePromiseFigure>
+  /** Per mode, per measure. */
+  record?: Record<string, Record<string, AdviseRecordMeasure>>
+}
+
+/** The run's inputs (4281 decision 26). The parts no screen reads yet stay untyped. */
+export interface AdviseInputs {
+  stores?: AdviseStoreInput[]
+  storeLines?: AdviseStoreLine[]
+  [part: string]: unknown
+}
+
+/**
+ * How a factor ran (4281 decision 26). `REAL_DATA` and `SWITCHED_OFF` are 4281's; the other two states are named in
+ * prose only — `NEUTRAL_DEFAULT` and `ASSUMED` are PROVISIONAL (spec 4354: not specified), taken from the source codes.
+ */
+export const USED_STATES = ['REAL_DATA', 'NEUTRAL_DEFAULT', 'ASSUMED', 'SWITCHED_OFF'] as const
+export type UsedState = (typeof USED_STATES)[number]
+
+export interface AdviseUsedFactor {
+  /** `DELIVERIES_WAITING`, `RIDERS_AVAILABLE` (4281); every other factor code is PROVISIONAL (spec 4354: not specified). */
+  factor: string
+  state: UsedState | string
+  /** A source code, or the server's own words ("live count, 38 seconds old"). */
+  source: string
+  /**
+   * PROVISIONAL (spec 4354: not specified) — how the factor enters, the model ticket's "role":
+   * `FILTER`, `OFFERED_STOCK`, `PROMISE`, `COST`, `RULE`.
+   */
+  entersAs?: string
 }
 
 // ── The middle and full levels' parts the solver tab reads (ticket 966; 4281 decisions 26–27, the run record 4242) ──
@@ -353,23 +488,6 @@ export interface AdviseStoreLine {
   cost: number
 }
 
-/** A store the run read (the middle level, `inputs.stores[]`). Only the fields the screens read so far are typed. */
-export interface AdviseInputStore {
-  store: string
-  name: string
-  point?: AdvisePoint | null
-  km?: number | null
-  kmKind?: string | null
-  deliveriesWaiting?: number
-}
-
-/** The middle level's inputs. The parts no screen reads yet stay untyped. */
-export interface AdviseInputs {
-  stores?: AdviseInputStore[]
-  storeLines?: AdviseStoreLine[]
-  [part: string]: unknown
-}
-
 /** One of a kept plan's shipments: the pair and the lines it carries. */
 export interface AdviseKeptShipment {
   store: string
@@ -401,14 +519,17 @@ export interface AdviseKeptPlan {
   waiting?: number
 }
 
-/** "Why not" for a pair and a goal: the best plan through it and the difference part by part, or the step that removed it. */
+/**
+ * "Why not" for one pair and goal (4281 decision 27): the best plan through the pair and the difference part by part,
+ * or the filter step that removed it and its code.
+ */
 export interface AdviseWhyNot {
   store: string
   mode: DeliveryMode | string
   goal?: PlanGoal
   sum?: number
   difference?: { part: string; amount: number }[]
-  removedAt?: number | 'CUT'
+  removedAt?: number | string
   code?: string
 }
 
@@ -422,7 +543,7 @@ export interface AdviseSearchCounts {
 
 /** The full level's search (4281 decision 27). */
 export interface AdviseSearch {
-  counts: AdviseSearchCounts
-  kept: AdviseKeptPlan[]
-  whyNot: AdviseWhyNot[]
+  counts?: AdviseSearchCounts
+  kept?: AdviseKeptPlan[]
+  whyNot?: AdviseWhyNot[]
 }

@@ -17,7 +17,7 @@
     "pairs": { "beforeCut": 47, "cut": 0, "offered": 19 },
     "ms": { "waited": 0, "localReads": 12, "stockRead": 742, "roadDistance": 410, "coverage": 655, "slots": 0, "solve": 3, "total": 771 },
     "stoodIn": [],
-    "marks": ["ASSUMED_RATES"]
+    "marks": ["ASSUMED_RATES", "RANGE_NOT_CONFIRMED"]
   },
   "lines": [
     { "lineNo": 1, "item": "100234", "quantity": 2, "unit": "EA", "namedStore": null, "namedBy": null },
@@ -46,7 +46,27 @@
           "feeSource": "ASSUMED",
           "companyCost": 17.42,
           "km": 4.1,
-          "kmKind": "ROAD"
+          "kmKind": "ROAD",
+          "costParts": [
+            { "part": "DELIVERY_RATE", "amount": 15.0, "source": "MEASURED" },
+            { "part": "HANDLING", "amount": 2.0, "source": "ASSUMED" },
+            { "part": "STORE_RECORD", "amount": 0.42, "source": "STEADIED" }
+          ],
+          "promiseParts": {
+            "pickEnd": "2026-11-26 20:01:00",
+            "pickEndRule": "CAUTIOUS_MADE_READY",
+            "usualBy": "2026-11-26 20:13:00",
+            "madeReady": { "usual": 12, "cautious": 19, "source": "STORES_OWN" },
+            "courierWait": { "usual": 6, "cautious": 9, "source": "STEADIED" },
+            "travel": { "usual": 13, "cautious": 17, "source": "ROAD" },
+            "margin": { "minutes": 20, "source": "WEIGHT_SET" },
+            "lengtheners": [
+              { "name": "DELIVERIES_WAITING", "band": "1 to 2", "usual": 0, "cautious": 0 },
+              { "name": "BASKET_LINES", "band": "1 to 3", "usual": 0, "cautious": 0 },
+              { "name": "HOUR_OF_DAY", "band": "19 to 21", "usual": 0, "cautious": 3 }
+            ],
+            "slot": null
+          }
         }
       ],
       "lineMarks": [],
@@ -75,7 +95,31 @@
           "feeSource": "ASSUMED",
           "companyCost": 22.95,
           "km": 2.9,
-          "kmKind": "STRAIGHT_LINE"
+          "kmKind": "STRAIGHT_LINE",
+          "costParts": [
+            { "part": "DELIVERY_RATE", "amount": 14.35, "source": "ASSUMED" },
+            { "part": "HANDLING", "amount": 2.0, "source": "ASSUMED" },
+            { "part": "STORE_RECORD", "amount": -0.175, "source": "STEADIED" },
+            { "part": "NO_STOCK", "amount": 6.775, "source": "WEIGHT_SET" }
+          ],
+          "promiseParts": {
+            "pickEnd": "2026-11-26 20:51:00",
+            "pickEndRule": "HALF_WAY_TO_SLOT",
+            "madeReady": { "usual": 14, "cautious": 23, "source": "STORES_OWN" },
+            "lengtheners": [{ "name": "DELIVERIES_WAITING", "band": "1 to 2", "usual": 0, "cautious": 0 }],
+            "slot": {
+              "code": "00022724",
+              "from": "2026-11-26 22:00:00",
+              "to": "2026-11-26 23:59:00",
+              "source": "HYBRIS",
+              "skipped": [{ "from": "2026-11-26 20:00:00", "why": "INSIDE_LEAD" }],
+              "next": [
+                { "code": "00022731", "from": "2026-11-27 10:00:00", "to": "2026-11-27 11:59:00", "sum": 50.1 },
+                { "code": "00022732", "from": "2026-11-27 12:00:00", "to": "2026-11-27 13:59:00", "sum": 52.4 }
+              ],
+              "laterCheaper": true
+            }
+          }
         }
       ],
       "lineMarks": [
@@ -115,7 +159,22 @@
           "feeSource": "ASSUMED",
           "companyCost": 2.31,
           "km": 2.5,
-          "kmKind": "STRAIGHT_LINE"
+          "kmKind": "STRAIGHT_LINE",
+          "costParts": [
+            { "part": "HANDLING", "amount": 2.0, "source": "ASSUMED" },
+            { "part": "STORE_RECORD", "amount": 0.31, "source": "STEADIED" }
+          ],
+          "promiseParts": {
+            "pickEnd": "2026-11-26 23:42:00",
+            "pickEndRule": "FOUR_HOURS",
+            "target": 30,
+            "madeReady": { "usual": 10, "cautious": 16, "source": "STORES_OWN" },
+            "lengtheners": [
+              { "name": "DELIVERIES_WAITING", "band": "1 to 2", "usual": 0, "cautious": 0 },
+              { "name": "BASKET_LINES", "band": "1 to 3", "usual": 0, "cautious": 0 }
+            ],
+            "slot": null
+          }
         }
       ],
       "lineMarks": [],
@@ -139,10 +198,48 @@
         "kmKind": "STRAIGHT_LINE",
         "deliveriesWaiting": 2,
         "madeReady": { "SLOT": { "usual": 14, "cautious": 23, "source": "STORES_OWN" } },
-        "record": { "SLOT": { "late": { "rate": 0.031, "likeStores": 0.038, "count": 412, "source": "STEADIED" } } }
+        "record": {
+          "SLOT": {
+            "late": { "rate": 0.031, "likeStores": 0.038, "count": 412, "source": "STEADIED", "cost": -0.07 },
+            "returned": { "rate": 0.012, "likeStores": 0.0162, "count": 412, "source": "STEADIED", "cost": -0.105 },
+            "cancelled": { "rate": 0.009, "likeStores": 0.009, "count": 0, "source": "NEUTRAL_DEFAULT", "cost": 0.0 }
+          }
+        }
       },
-      { "store": "1090", "name": "Store 1090", "point": { "lat": 24.7612, "lng": 46.7102 }, "km": 4.1, "kmKind": "ROAD", "deliveriesWaiting": 1 },
-      { "store": "1061", "name": "Store 1061", "point": { "lat": 24.7488, "lng": 46.7521 }, "km": 3.4, "kmKind": "ROAD", "deliveriesWaiting": 3 }
+      {
+        "store": "1090",
+        "name": "Store 1090",
+        "point": { "lat": 24.7612, "lng": 46.7015 },
+        "km": 4.1,
+        "kmKind": "ROAD",
+        "deliveriesWaiting": 1,
+        "madeReady": { "DAWAA_NOW": { "usual": 12, "cautious": 19, "source": "STORES_OWN" }, "PICK_UP": { "usual": 10, "cautious": 16, "source": "STORES_OWN" } },
+        "record": {
+          "DAWAA_NOW": { "calloutIgnored": { "rate": 0.29, "likeStores": 0.08, "count": 238, "source": "STEADIED", "cost": 0.42 } },
+          "PICK_UP": {
+            "neverMadeReady": { "rate": 0.021, "likeStores": 0.011, "count": 96, "source": "STEADIED", "cost": 0.3 },
+            "readyLate": { "rate": 0.105, "likeStores": 0.1, "count": 96, "source": "STEADIED", "cost": 0.01 }
+          }
+        }
+      },
+      {
+        "store": "1061",
+        "name": "Store 1061",
+        "point": { "lat": 24.7488, "lng": 46.7290 },
+        "km": 3.6,
+        "kmKind": "ROAD",
+        "deliveriesWaiting": 4,
+        "madeReady": { "DAWAA_NOW": { "usual": 15, "cautious": 22, "source": "STEADIED" } },
+        "record": { "DAWAA_NOW": { "calloutIgnored": { "rate": 0.23, "likeStores": 0.08, "count": 41, "source": "STEADIED", "cost": 0.3 } } }
+      },
+      {
+        "store": "1203",
+        "name": "Store 1203",
+        "point": { "lat": 24.8135, "lng": 46.7101 },
+        "km": 6.8,
+        "kmKind": "ROAD",
+        "deliveriesWaiting": 0
+      }
     ],
     "storeLines": [
       { "store": "1055", "lineNo": 3, "tillStock": 0, "sapStock": 2, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 0, "buffer": 0, "confidence": 1.0, "offered": 0, "expectedAtPickEnd": 0, "stockClass": "BOOK_AT_ZERO", "row": 0.22, "cost": 6.6 },
@@ -163,8 +260,21 @@
     { "step": 11, "code": "NO_STOCK", "before": 47, "after": 19, "removed": [{ "store": "1061", "mode": "PICK_UP", "lineNo": 3, "offered": 0, "asked": 1, "stockClass": "BOOK_AT_ZERO" }] }
   ],
   "used": [
-    { "factor": "DELIVERIES_WAITING", "state": "REAL_DATA", "source": "live count, 38 seconds old" },
-    { "factor": "RIDERS_AVAILABLE", "state": "SWITCHED_OFF", "source": "no data" }
+    { "factor": "STOCK_AFTER_OPEN_DEMAND", "state": "REAL_DATA", "source": "the stock read", "entersAs": "OFFERED_STOCK" },
+    { "factor": "STOCK_CONFIDENCE", "state": "NEUTRAL_DEFAULT", "source": "1.0 for every store", "entersAs": "OFFERED_STOCK" },
+    { "factor": "BUFFER", "state": "REAL_DATA", "source": "walk-in sales, the stock service", "entersAs": "OFFERED_STOCK" },
+    { "factor": "ON_DUTY", "state": "REAL_DATA", "source": "the duty roster", "entersAs": "FILTER" },
+    { "factor": "PRODUCT_RULES", "state": "REAL_DATA", "source": "RULE_TABLE", "entersAs": "FILTER" },
+    { "factor": "RIDERS_AVAILABLE", "state": "SWITCHED_OFF", "source": "no data", "entersAs": "FILTER" },
+    { "factor": "MADE_READY", "state": "REAL_DATA", "source": "STORES_OWN", "entersAs": "PROMISE" },
+    { "factor": "DELIVERIES_WAITING", "state": "REAL_DATA", "source": "live count, 38 seconds old", "entersAs": "PROMISE" },
+    { "factor": "ROAD_DISTANCE", "state": "REAL_DATA", "source": "ROAD", "entersAs": "PROMISE" },
+    { "factor": "DELIVERY_RATE", "state": "ASSUMED", "source": "ASSUMED", "entersAs": "COST" },
+    { "factor": "HANDLING", "state": "ASSUMED", "source": "ASSUMED", "entersAs": "COST" },
+    { "factor": "STORE_RECORD", "state": "REAL_DATA", "source": "STEADIED", "entersAs": "COST" },
+    { "factor": "NO_STOCK", "state": "NEUTRAL_DEFAULT", "source": "NEUTRAL_DEFAULT", "entersAs": "COST" },
+    { "factor": "CUSTOMERS_FEE", "state": "ASSUMED", "source": "ASSUMED", "entersAs": "COST" },
+    { "factor": "MODE_FAILURE_COST", "state": "SWITCHED_OFF", "source": "SWITCHED_OFF", "entersAs": "COST" }
   ],
   "search": {
     "counts": { "plansChecked": 1846, "cutByShipmentCap": 212, "cutByMixing": 96, "cutByPins": 0 },

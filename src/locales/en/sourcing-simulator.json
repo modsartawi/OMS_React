@@ -107,8 +107,7 @@
     "km": "{{km}} km",
     "straightLine": "straight line",
     "noLocation": "no location",
-    "notOnPlan": "Not on this plan",
-    "shortFigure": "Line {{line}} is planned on a short stock figure at this store."
+    "notOnPlan": "Not on this plan"
   },
   "ending": {
     "label": "Ending",
@@ -370,6 +369,255 @@
       "legendCould": "Could have served",
       "none": "No plan to draw.",
       "hint": "Drag a box, scroll or pinch to zoom, drag the ground to pan, or use the buttons and the mini-map."
+    }
+  },
+  "why": {
+    "title": "Why this plan",
+    "noPlan": "No plan to explain.",
+    "minutes": "{{n}} min",
+    "promise": {
+      "title": "The promise, in parts",
+      "noParts": "This reply carries no parts of the promise: they come at the middle level.",
+      "barLabel": "The promise in parts: made ready, courier wait, travel and margin",
+      "part": {
+        "madeReady": "Made ready",
+        "courierWait": "Courier wait",
+        "travel": "Travel",
+        "margin": "Margin"
+      },
+      "usual": "usual",
+      "cautious": "cautious",
+      "usualBy": "Usual time",
+      "by": "Promise",
+      "pickEnd": "Pick ends",
+      "straightLine": "straight line",
+      "slot": "Slot",
+      "skipped": "Skipped",
+      "target": "Pick-up target",
+      "assumption": "assumption: the carrier's times come from an assumed contract",
+      "lengtheners": "Lengtheners:",
+      "addsNothing": "adds nothing",
+      "nextSlots": "The store's next two slots:",
+      "laterCheaper": "A later slot's sum was lower. The plan keeps the earliest slot.",
+      "slotSum": "balanced total"
+    },
+    "skip": {
+      "INSIDE_LEAD": "it starts before the store can be ready",
+      "NOT_ACTIVE": "the slot is not active",
+      "unknown": "passed over by the slot rule"
+    },
+    "pickEndRule": {
+      "CAUTIOUS_MADE_READY": "set by the store's cautious made-ready time",
+      "HALF_WAY_TO_SLOT": "set half-way to the slot",
+      "SLOT_START": "set by the slot's start",
+      "FOUR_HOURS": "set four hours ahead",
+      "STORE_CLOSES": "set by the store's closing"
+    },
+    "lengthener": {
+      "DELIVERIES_WAITING": "deliveries waiting",
+      "BASKET_LINES": "basket lines",
+      "HOUR_OF_DAY": "hour of day"
+    },
+    "source": {
+      "STORES_OWN": "the store's own",
+      "STEADIED": "steadied",
+      "LIKE_STORES": "like stores",
+      "NEUTRAL_DEFAULT": "neutral default",
+      "MEASURED": "measured",
+      "FINANCE": "finance",
+      "ASSUMED": "assumed",
+      "SWITCHED_OFF": "switched off",
+      "WEIGHT_SET": "weight set",
+      "ROAD": "road",
+      "CALLOUT_KM": "callout km",
+      "STRAIGHT_LINE": "straight line",
+      "HYBRIS": "Hybris",
+      "RULE_TABLE": "rule table"
+    },
+    "money": {
+      "title": "The money",
+      "inRiyals": "In riyals",
+      "plan": "Plan",
+      "listFee": "list fee",
+      "assumed": "Standing on an assumption in this plan:",
+      "row": {
+        "fee": "Customer's fee",
+        "companyCost": "Company's cost",
+        "waiting": "Price of waiting",
+        "cover": "Cover cost",
+        "split": "Split penalty",
+        "balanced": "Balanced total"
+      }
+    },
+    "part": {
+      "DELIVERY_RATE": "Delivery rate",
+      "HANDLING": "Handling",
+      "STORE_RECORD": "Store record cost",
+      "NO_STOCK": "No-stock cost",
+      "SLOT_LOAD": "Slot load",
+      "SLOT_TIMING": "Slot timing",
+      "WAITING": "Price of waiting",
+      "FEES": "Customer's fees",
+      "COVER": "Cover cost",
+      "SPLIT": "Split penalty"
+    },
+    "records": {
+      "title": "How deliveries go at this store",
+      "byMode": "by {{mode}}",
+      "notRead": "The run did not read this store.",
+      "noRecord": "No record for this mode: it runs on the neutral default and costs nothing.",
+      "measure": "Measure",
+      "thisStore": "This store",
+      "likeStores": "Like stores",
+      "deliveries": "Deliveries",
+      "cost": "Cost or credit"
+    },
+    "measure": {
+      "late": "Late",
+      "returned": "Returned by the driver",
+      "cancelled": "Cancelled, not by the customer",
+      "neverMadeReady": "Never made ready",
+      "calloutIgnored": "Callout ignored",
+      "readyLate": "Ready late"
+    },
+    "shortFigure": {
+      "title": "Lines on a short stock figure",
+      "sentence": "Line {{line}} is planned on a short stock figure. About {{n}} in 100 such lines are not handed over at this store.",
+      "store": "Store",
+      "stockClass": "Stock class",
+      "row": "Row",
+      "factor": "Store's factor",
+      "cost": "Cost",
+      "figure": {
+        "tillStock": "Till stock",
+        "sapStock": "SAP stock",
+        "heldByOrders": "Held by orders",
+        "heldByDeliveries": "Held by deliveries",
+        "shown": "Shown",
+        "asked": "Asked"
+      }
+    },
+    "stockClass": {
+      "COVERED": "Covered",
+      "NO_STOCK_ROW": "No stock row",
+      "BOOK_BELOW_ZERO": "Book below zero",
+      "BOOK_AT_ZERO": "Book at zero",
+      "BOOK_SHORT": "Book short of the line",
+      "HELD_BY_DELIVERIES": "Held by other deliveries",
+      "HELD_BY_ORDERS": "Held by orders"
+    },
+    "whyNot": {
+      "title": "Why not another store?",
+      "store": "Store",
+      "choose": "Choose a store…",
+      "reading": "Reading what the run worked out…",
+      "notHeld": "The run is no longer held. Run the cart again to ask.",
+      "failed": "What the run worked out for this store could not be read.",
+      "nothing": "The run worked out nothing for this store under this plan's goal.",
+      "inPlan": "This plan already uses this store by this mode.",
+      "removed": "Removed:",
+      "removedAt": "Removed at step {{step}}:",
+      "bestThrough": "The best plan through this store has a balanced total of",
+      "against": "against this plan's",
+      "more": "{{amount}} more",
+      "less": "{{amount}} less"
+    },
+    "filter": {
+      "MODE_OFF": "the mode is switched off",
+      "NOT_MODE_STORE": "the store does not serve this mode",
+      "LEFT_OUT": "the store is left out by name",
+      "NO_LOCATION": "the store or the customer has no location",
+      "OUT_OF_REACH": "the customer is beyond the mode's reach",
+      "CLOSED_NOW": "the store is closed now",
+      "CLOSES_BEFORE_PICK": "the store closes before the pick ends",
+      "PAST_CUTOFF": "past the carrier's cut-off",
+      "NO_SLOT": "no slot starts after the store can be ready",
+      "PRODUCT_RULE": "a product rule keeps a line off this mode",
+      "NO_STOCK": "the store's offered stock does not cover the line",
+      "PINNED_OUT": "a pin rules it out",
+      "STOCK_NOT_READ": "the store's stock was not read",
+      "NO_STOCK_ROW": "the store's book has never held the item",
+      "OVER_PAIR_CAP": "cut by the cap on pairs before the stock read",
+      "unknown": "removed by a filter step"
+    }
+  },
+  "used": {
+    "title": "What the run used",
+    "count": {
+      "REAL_DATA": "Real data",
+      "NEUTRAL_DEFAULT": "Neutral default",
+      "ASSUMED": "Assumption",
+      "SWITCHED_OFF": "Switched off"
+    },
+    "marks": {
+      "title": "Marks of the run",
+      "none": "The run carries no marks.",
+      "straightLine": {
+        "name": "Straight line",
+        "body": "A distance stands on the straight line × 1.6, not the road."
+      },
+      "assumption": {
+        "name": "Assumption",
+        "body": "Rates or fees behind a plan's cost are assumed rows."
+      },
+      "noLocation": {
+        "name": "No location",
+        "body": "A shipment has no distance: its rate is the base alone."
+      },
+      "listFee": {
+        "name": "List fee",
+        "body": "Every fee is the fee rule's figure; no waived fee is modelled."
+      },
+      "rangeNotConfirmed": {
+        "name": "Range not confirmed",
+        "body": "Dawaa Now's range is not handed over yet, so a plan with a Dawaa Now shipment carries this mark."
+      },
+      "figuresReadAt": "Figures as read at {{time}}"
+    },
+    "factors": "Factors",
+    "noneSent": "This reply lists no factors: they come at the middle level.",
+    "column": {
+      "factor": "Factor",
+      "entersAs": "Enters as",
+      "ranOn": "Ran on",
+      "source": "Source"
+    },
+    "entersAs": {
+      "FILTER": "Filter",
+      "OFFERED_STOCK": "Offered stock",
+      "PROMISE": "Promise time",
+      "COST": "Cost",
+      "RULE": "Rule inside the search"
+    },
+    "state": {
+      "REAL_DATA": "real data",
+      "NEUTRAL_DEFAULT": "neutral default",
+      "ASSUMED": "assumption",
+      "SWITCHED_OFF": "switched off"
+    },
+    "factor": {
+      "STOCK_AFTER_OPEN_DEMAND": "Stock after open demand",
+      "STOCK_CONFIDENCE": "Stock confidence",
+      "BUFFER": "Buffer",
+      "ON_DUTY": "On duty until the pick ends",
+      "PRODUCT_RULES": "Product rules",
+      "RIDERS_AVAILABLE": "Riders available now",
+      "MADE_READY": "Made-ready time",
+      "DELIVERIES_WAITING": "Deliveries waiting",
+      "ROAD_DISTANCE": "Road distance",
+      "DELIVERY_RATE": "Delivery rate",
+      "HANDLING": "Handling",
+      "STORE_RECORD": "Store record",
+      "NO_STOCK": "No-stock cost",
+      "CUSTOMERS_FEE": "Customer's fee",
+      "MODE_FAILURE_COST": "A mode's own failure cost"
+    },
+    "solveMark": {
+      "COVERAGE_NOT_CONFIRMED": "Coverage not confirmed",
+      "STOCK_PARTLY_READ": "Stock partly read",
+      "STOCK_FEED_OLD": "A stock feed was old",
+      "READ_AFRESH": "Figures read afresh",
+      "NOT_HELD": "The run could not be held"
     }
   }
 }

@@ -53,7 +53,7 @@ export function keptGoals(reply: Pick<AdviseReply, 'search'>): PlanGoal[] {
 export function triedFor(reply: Pick<AdviseReply, 'search'>, goal: PlanGoal, showAll: boolean): Tried {
   const search = reply.search
   if (!search) return { rows: [], more: 0, counts: null }
-  const all = search.kept.filter((k) => k.goal === goal).sort((a, b) => a.rank - b.rank)
+  const all = (search.kept ?? []).filter((k) => k.goal === goal).sort((a, b) => a.rank - b.rank)
   const rows = (showAll ? all : all.slice(0, TRIED_FIRST)).map(
     (k): TriedRow => ({
       rank: k.rank,
@@ -70,7 +70,7 @@ export function triedFor(reply: Pick<AdviseReply, 'search'>, goal: PlanGoal, sho
       lostMostOn: k.lostMostOn ?? null,
     }),
   )
-  return { rows, more: all.length - rows.length, counts: search.counts }
+  return { rows, more: all.length - rows.length, counts: search.counts ?? null }
 }
 
 // ── The trade-off ────────────────────────────────────────────────────────────────────────────────

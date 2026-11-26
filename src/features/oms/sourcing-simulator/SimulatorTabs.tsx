@@ -4,6 +4,8 @@ import type { AdviseCartRequest, AdvisePlan, AdviseReply, PlanGoal } from '@/cor
 import Chip from '@/core/ui/Chip'
 import SolverPanel from './SolverPanel'
 import { SIMULATOR_TABS, type SimulatorTab } from './tabs'
+import WhatTheRunUsed from './WhatTheRunUsed'
+import WhyThisPlan from './WhyThisPlan'
 
 /** What every tab's panel is handed: the run's reply, the request that made it, and the plan chosen in the strip. */
 export interface SimulatorTabProps {
@@ -17,6 +19,8 @@ export interface SimulatorTabProps {
  * Each tab's panel, by the ticket that builds it: 964 registers `map`, 965 `why` and `used`, 966 `solver`.
  */
 const TAB_PANELS: Partial<Record<SimulatorTab, ComponentType<SimulatorTabProps>>> = {
+  why: WhyThisPlan,
+  used: WhatTheRunUsed,
   solver: SolverPanel,
 }
 

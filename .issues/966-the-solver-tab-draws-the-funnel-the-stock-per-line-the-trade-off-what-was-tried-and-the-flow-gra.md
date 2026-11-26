@@ -105,3 +105,9 @@ Bundle, `npm run build` before and after:
   2.56), both loaded on demand.
 - `SourcingSimulatorPage-*.js`: 25.49 kB before, 57.47 kB after (the four diagrams and the models).
 
+Merged with `spec-4354-sourcing-advisor` after 963, 964, 965 and 971–973: the wire types sit beside 965's (965's
+`AdviseStoreInput` is the one store type; `AdviseInputs` carries both `stores` and `storeLines`; `AdviseSearch`'s parts
+are optional), the fixture keeps 965's richer `inputs.stores`, and two cases of 965's `why-not-model.test.ts` now read
+the fixture's extra "why not" rows (store 1090's own rows set aside in one case; the stores known only from removals
+are now four). After the merge: `npm test` 988 files, typecheck and lint green, the drive 144/144 on Edge.
+

@@ -1,0 +1,75 @@
+{
+  "period": { "from": "2026-10-29", "to": "2026-11-25", "days": 28 },
+  "channelGroup": "APP_SITE",
+  "runs": "OMS",
+  "candidate": { "name": "Baseline", "version": 3, "candidate": true },
+  "causes": [],
+  "limits": [
+    { "limit": "ORDERS_RUN", "state": "MET", "causes": [], "figures": [
+      { "part": "RUN_SHARE", "value": 96.4, "unit": "PERCENT", "meets": true },
+      { "part": "ERROR_OR_FALLBACK", "value": 0.6, "unit": "PER_THOUSAND", "meets": true }
+    ] },
+    { "limit": "STOP_FINDINGS", "state": "MET", "causes": [], "figures": [
+      { "part": "FINDINGS", "value": 0, "unit": "COUNT", "meets": true }
+    ] },
+    { "limit": "DAWAA_NOW_PROMISE", "state": "NOT_MET", "causes": [], "figures": [
+      { "part": "WHOLE", "value": 88.6, "unit": "PERCENT", "meets": true },
+      { "part": "FIRST_HALF", "value": 90.2, "unit": "PERCENT", "meets": true },
+      { "part": "SECOND_HALF", "value": 84.1, "unit": "PERCENT", "meets": false }
+    ] },
+    { "limit": "DISTANCE_BANDS", "state": "NOT_MET", "causes": [], "figures": [
+      { "part": "BAND_0_2", "value": 91.0, "unit": "PERCENT", "of": 2310, "meets": true },
+      { "part": "BAND_2_4", "value": 88.4, "unit": "PERCENT", "of": 2980, "meets": true },
+      { "part": "BAND_4_6", "value": 84.7, "unit": "PERCENT", "of": 1650, "meets": true },
+      { "part": "BAND_6_PLUS", "value": 78.9, "unit": "PERCENT", "of": 700, "meets": false }
+    ] },
+    { "limit": "SHELF_CHANCE", "state": "NOT_MET", "causes": [], "figures": [
+      { "part": "AGAINST_EVIDENCE_NO_RULING", "value": 2, "unit": "COUNT", "meets": false }
+    ] },
+    { "limit": "SPLIT_CHECK", "state": "CANNOT_READ", "causes": ["SPLIT_CHECK_NOT_DONE"], "figures": [] },
+    { "limit": "LARGEST_DIFFERENCES", "state": "NOT_MET", "causes": [], "figures": [
+      { "part": "MARKED", "value": 86, "unit": "COUNT", "of": 120, "meets": false },
+      { "part": "WRONG_RULE", "value": 1, "unit": "COUNT", "meets": false }
+    ] },
+    { "limit": "OUTSIDE_RULES", "state": "MET", "causes": [], "figures": [
+      { "part": "REASONS_NO_RULING", "value": 0, "unit": "COUNT", "meets": true }
+    ] },
+    { "limit": "RATES", "state": "CANNOT_READ", "causes": ["WAITS_FOR_FINANCE_RATES"], "figures": [
+      { "part": "STORES_SWING", "value": 0.7, "unit": "PERCENT", "meets": true }
+    ] }
+  ],
+  "readings": [
+    { "reading": "SAME_PLAN", "figures": [
+      { "part": "WHOLE_PLAN", "value": 68.8, "unit": "PERCENT" },
+      { "part": "STORES_ONLY", "value": 77.6, "unit": "PERCENT" }
+    ] },
+    { "reading": "ESTIMATES", "figures": [
+      { "part": "MIDDLE", "value": 6, "unit": "MINUTES" }
+    ] },
+    { "reading": "FLEET_RATIO", "figures": [
+      { "part": "DAWAA_NOW", "value": 0.91, "unit": "RATIO" },
+      { "part": "SLOT", "value": 0.88, "unit": "RATIO" }
+    ] },
+    { "reading": "LATER_SLOTS", "figures": [
+      { "part": "ORDERS", "value": 1840, "unit": "COUNT" }
+    ] }
+  ],
+  "largest": [
+    { "view": "STORES_ONLY", "direction": "LATER", "orderNumber": "4500718931", "runId": "01JE9RUN31", "estimateMinutes": -96, "mark": null, "markedBy": null, "markedAt": null },
+    { "view": "WHOLE_PLAN", "direction": "EARLIER", "orderNumber": "4500718102", "runId": "01JE9RUN102", "estimateMinutes": 212, "mark": "RULE_RIGHT", "markedBy": "msartawi", "markedAt": "2026-11-26 10:12:00" },
+    { "view": "WHOLE_PLAN", "direction": "EARLIER", "orderNumber": "4500718377", "runId": "01JE9RUN377", "estimateMinutes": 188, "mark": "WRONG_RULE", "markedBy": "msartawi", "markedAt": "2026-11-26 10:20:00" },
+    { "view": "WHOLE_PLAN", "direction": "EARLIER", "orderNumber": "4500718405", "runId": "01JE9RUN405", "estimateMinutes": 171, "mark": null, "markedBy": null, "markedAt": null },
+    { "view": "WHOLE_PLAN", "direction": "LATER", "orderNumber": "4500718550", "runId": "01JE9RUN550", "estimateMinutes": -140, "mark": "DATA_FAULT", "markedBy": "nalharbi", "markedAt": "2026-11-26 11:02:00" },
+    { "view": "WHOLE_PLAN", "direction": "LATER", "orderNumber": "4500718612", "runId": "01JE9RUN612", "estimateMinutes": -122, "mark": null, "markedBy": null, "markedAt": null },
+    { "view": "STORES_ONLY", "direction": "EARLIER", "orderNumber": "4500718720", "runId": "01JE9RUN720", "estimateMinutes": 64, "mark": "RULE_RIGHT", "markedBy": "msartawi", "markedAt": "2026-11-26 12:00:00" },
+    { "view": "STORES_ONLY", "direction": "EARLIER", "orderNumber": "4500718788", "runId": "01JE9RUN788", "estimateMinutes": 59, "mark": null, "markedBy": null, "markedAt": null },
+    { "view": "STORES_ONLY", "direction": "LATER", "orderNumber": "4500718840", "runId": "01JE9RUN840", "estimateMinutes": -101, "mark": null, "markedBy": null, "markedAt": null }
+  ],
+  "rulings": [
+    { "subject": "OUTSIDE_RULES_REASON", "key": "NEVER_HELD", "label": { "en": "The store's book has never held this item", "ar": "دفتر الفرع لم يحمل هذا الصنف قط" }, "percent": 1.4, "ruling": { "text": "Routing sends these to the order's own store by habit; the advisor is right to refuse.", "by": "msartawi", "at": "2026-11-24 09:30:00" } },
+    { "subject": "SHELF_CHANCE_FIGURE", "key": "BOOK_AT_ZERO:DAWAA_NOW", "label": { "en": "Book at zero, Dawaa Now", "ar": "الدفتر عند الصفر، دواء الآن" }, "percent": null, "ruling": null },
+    { "subject": "SHELF_CHANCE_FIGURE", "key": "HELD_BY_ORDERS:SLOT", "label": { "en": "Held by orders, slot delivery", "ar": "محجوز للطلبات، التوصيل بموعد" }, "percent": null, "ruling": null }
+  ],
+  "accepted": null,
+  "lastChangedAt": "2026-11-26 12:00:00"
+}

@@ -10,6 +10,14 @@ import type { Permissions } from '@/core/permissions'
 export const canViewSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisor:01')
 
 /**
+ * The grant to save weight sets and start trials (spec 4354 §18–§19, BO 4283 decision 4: "no new grant"). The results
+ * page's Trials tab starts a trial under it, and its Phase 2 bar tab writes marks, rulings and the accepted reading
+ * under it until a grant is named for those.
+ * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorSave:01`; BO 4360 seeds the grant unnamed.
+ */
+export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdvisorSave:01')
+
+/**
  * The run grant (ticket 962, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and the
  * kept runs"). Here, beside the view grant, because the menu reads it too and the results page (971) will.
  * PROVISIONAL (spec 4354: not specified) — BackOffice 4355 seeds the grant but names none: `SourcingAdvisorRun:06` is

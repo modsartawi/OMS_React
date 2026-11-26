@@ -62,8 +62,8 @@ the code. When BO 4393 is built, change these to match it:
   `ResultsOrderRow`, `ResultsOrderCard`; the codes of the views, the eight classes, the seven segments (with
   `BREAKS_NESTING`, the results ticket's "orders that break the nesting get a segment of their own"), the endings, the
   rates and the six marks in force; the channel code `CALL_CENTRE`.
-- The simulator link (`simulator-link.ts`, `/oms/sourcing-simulator?run=<runId>`) is a local guess:
-  `TODO(962 merge): use the core simulator link`.
+- The simulator link: settled at the 962 merge — the drawer uses `simulatorRunPath` from
+  `src/core/sourcing-advisor/simulator-path.ts` (`/oms/sourcing-simulator?run=<runId>`); `simulator-link.ts` is gone.
 - The stub reply both the model tests and the drive read: `src/features/oms/sourcing-results/stub-summary.json` (the
   results prototype's 14 days).
 

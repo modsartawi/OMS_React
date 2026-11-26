@@ -83,6 +83,9 @@ export const SCREEN_KEYS = [
   'ServingList:03',
   'ServingList:06',
   'SourcingAdvisor:01',
+  // PROVISIONAL (spec 4354: not specified) — the sourcing advisor's run grant (spec 4354 §19: "a run grant opens the
+  // simulator"). BackOffice 4355 seeds it but names none; this key is ours until it lands (`canRunSourcingAdvisor`).
+  'SourcingAdvisorRun:06',
   'StoreStage:02',
   'StoreStage:03',
   'StoreCountClose:02',

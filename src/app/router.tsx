@@ -403,6 +403,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-advisor/SourcingExplainPage')).default,
         }),
       },
+      // Sourcing simulator (ticket 962, BackOffice spec 4354 §19) — the workbench: build a cart, run it, read the plans.
+      // Behind the advisor's run grant (provisional key). Its path is `SIMULATOR_PATH` in `@/core/sourcing-advisor`.
+      {
+        path: 'oms/sourcing-simulator',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-simulator/SourcingSimulatorPage')).default,
+        }),
+      },
       // The comparison results page (ticket 971, BackOffice spec 4354 §17) — under today's advisor view grant. The menu's
       // "Sourcing advisor" entry is repointed here by ticket 974, which removes the old pages above.
       {

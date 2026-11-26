@@ -39,8 +39,13 @@ interface LatLngLiteral {
 interface GListener {
   remove(): void
 }
+/** What Google hands a map's `click` listener (962): the place under the click, when there is one. */
+interface GMouseEvent {
+  latLng?: { lat(): number; lng(): number } | null
+}
+
 interface GMap {
-  addListener(event: string, handler: () => void): GListener
+  addListener(event: string, handler: (e?: GMouseEvent) => void): GListener
   fitBounds(bounds: { west: number; south: number; east: number; north: number }, padding?: number): void
   setOptions(options: Record<string, unknown>): void
   setCenter(at: LatLngLiteral): void
@@ -182,7 +187,11 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
           )
         }
         listeners.push(
-          m.addListener('click', () => !destroyed && hits.mapClick()),
+          // 962: the click's place rides with it, so a caller can place the customer where the map was clicked.
+          m.addListener('click', (e?: GMouseEvent) => {
+            if (destroyed) return
+            hits.mapClick(e?.latLng ? { lon: e.latLng.lng(), lat: e.latLng.lat() } : undefined)
+          }),
           m.addListener('tilesloaded', () => !destroyed && events.tilesLoaded()),
           m.addListener('idle', () => !destroyed && events.idle()),
           m.addListener('bounds_changed', () => !destroyed && events.moved(m.getZoom() ?? 0)),

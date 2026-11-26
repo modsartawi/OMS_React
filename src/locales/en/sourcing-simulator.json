@@ -1,0 +1,228 @@
+{
+  "menu": {
+    "sourcingSimulator": "Sourcing simulator"
+  },
+  "title": "Sourcing simulator",
+  "lede": "Build a cart, place the customer and run it: the advisor answers with its plans, as cards or as one table. Nothing is sent to a channel from here.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the sourcing simulator",
+    "deniedHint": "Your account does not hold the sourcing advisor's run grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "money": "SAR {{amount}}",
+  "run": {
+    "action": "Run",
+    "planning": "Planning…",
+    "needs": "Add at least one line with an item and a quantity, and place the customer, to run.",
+    "badLine": "Each line needs an item and a whole quantity above zero.",
+    "badPoint": "The customer's point needs a latitude and a longitude.",
+    "badTotal": "The cart value is an amount in riyals.",
+    "stale": "The cart has changed since this run. Press Run to plan it again.",
+    "tryAgain": "Try again",
+    "code": "Code"
+  },
+  "cart": {
+    "title": "Start a run",
+    "channel": "Channel",
+    "channels": {
+      "IOS": "App (iPhone)",
+      "ROID": "App (Android)",
+      "WEB": "Site",
+      "CALL_CENTRE": "Call centre"
+    },
+    "time": "Time of day",
+    "timeHint": "Today, local time. Empty plans for now.",
+    "goodsTotal": "Cart value",
+    "goodsTotalHint": "Riyals, optional. Without it the fee is the lowest total's row.",
+    "lines": "Lines",
+    "item": "Item code",
+    "quantity": "Quantity",
+    "addLine": "Add a line",
+    "removeLine": "Remove line {{n}}",
+    "lineNo": "Line {{n}}"
+  },
+  "customer": {
+    "title": "The customer",
+    "hint": "Click the map to place the customer.",
+    "mapLabel": "Map: click to place the customer",
+    "cannotDraw": "The map cannot be drawn here. Type the customer's point instead.",
+    "lat": "Latitude",
+    "lng": "Longitude",
+    "placed": "Customer placed",
+    "pinTitle": "The customer"
+  },
+  "plans": {
+    "title": "Plans",
+    "viewLabel": "Show the plans as",
+    "view": {
+      "cards": "Cards",
+      "table": "Table"
+    },
+    "none": "Build a cart, place the customer and press Run. The plans appear here.",
+    "noShown": "The run shows no plan."
+  },
+  "goal": {
+    "BALANCED": "Recommended",
+    "FASTEST": "Fastest",
+    "FEWEST": "Fewest deliveries",
+    "CHEAPEST": "Cheapest",
+    "PICK_UP": "Pick-up"
+  },
+  "tag": {
+    "BALANCED": "also recommended",
+    "FASTEST": "also fastest",
+    "FEWEST": "also fewest deliveries",
+    "CHEAPEST": "also cheapest",
+    "PICK_UP": "also pick-up"
+  },
+  "flag": {
+    "fallback": "Simple plan",
+    "bestFound": "Best found",
+    "trialSet": "Trial set"
+  },
+  "mode": {
+    "DAWAA_NOW": "Dawaa Now",
+    "SLOT": "Slot delivery",
+    "CARRIER_SAME_DAY": "Carrier, same day",
+    "CARRIER_NEXT_DAY": "Carrier, next day",
+    "BEYOND_BORDER": "Beyond the border",
+    "PICK_UP": "Pick-up"
+  },
+  "measure": {
+    "promise": "Promise",
+    "deliveries": "Deliveries",
+    "storesAndModes": "Stores and modes",
+    "fee": "Customer's fee",
+    "companyCost": "Company's cost",
+    "waiting": "Price of waiting",
+    "balanced": "Balanced total"
+  },
+  "card": {
+    "shipments": "Shipments",
+    "perShipment": "per shipment",
+    "lines": "Lines",
+    "km": "{{km}} km",
+    "straightLine": "straight line",
+    "noLocation": "no location",
+    "notOnPlan": "Not on this plan",
+    "shortFigure": "Line {{line}} is planned on a short stock figure at this store."
+  },
+  "ending": {
+    "label": "Ending",
+    "PROVEN_BEST": "Proven best",
+    "BEST_FOUND": "Best found: the work budget ran out",
+    "NO_PLAN_POSSIBLE": "No plan possible",
+    "FALLBACK_ANSWERED": "The fallback answered"
+  },
+  "fallback": {
+    "title": "The simple plan answered",
+    "body": "The search failed, so the advisor answered with its simple plan. It is not the best plan the advisor can find.",
+    "why": "What failed:"
+  },
+  "noPlanPossible": "No line could be planned:",
+  "notes": {
+    "noPlan": "No {{goal}} plan",
+    "hidden": "Hidden plans",
+    "show": "Show {{count}} hidden plans",
+    "hide": "Hide the hidden plans",
+    "hiddenAs": {
+      "NEARLY_SAME": "Nearly the same as {{as}}: {{minutes}} min and {{riyals}} apart.",
+      "WORSE_ON_EVERYTHING": "Worse than {{as}} on everything.",
+      "OVER_MOST_SHOWN": "More plans than the most shown at once.",
+      "unknown": "Hidden by the advisor."
+    },
+    "lostTo": "Lost to {{as}}"
+  },
+  "runInfo": {
+    "run": "Run",
+    "plannedFor": "Planned for",
+    "weightSet": "Weight set",
+    "weightSetName": "{{name}}, version {{version}}",
+    "plansChecked": "Plans checked"
+  },
+  "stages": {
+    "title": "Stage times",
+    "ms": "{{ms}} ms",
+    "waited": "Waited",
+    "localReads": "Local reads",
+    "stockRead": "Stock read",
+    "roadDistance": "Road distance",
+    "coverage": "Coverage",
+    "slots": "Slots",
+    "solve": "Solve",
+    "total": "Total"
+  },
+  "errors": {
+    "ADVISE-400": {
+      "title": "The request was refused",
+      "body": "The advisor could not read part of this cart. Check the lines, the channel and the customer's point, then run again."
+    },
+    "ADVISE-401": {
+      "title": "You are signed out",
+      "body": "Your session has ended. Sign in again to run the simulator."
+    },
+    "ADVISE-403": {
+      "title": "Not allowed",
+      "body": "Your account may not run the sourcing advisor, or not for this channel."
+    },
+    "ADVISE-404": {
+      "title": "Not found",
+      "body": "The order, the weight set or the earlier run was not found, or is no longer held. Run the cart again."
+    },
+    "ADVISE-421": {
+      "title": "This channel is not served",
+      "body": "The advisor does not plan for this channel. Choose another channel."
+    },
+    "ADVISE-422": {
+      "title": "No place to plan for",
+      "body": "Place the customer on the map, then run again."
+    },
+    "ADVISE-423": {
+      "title": "Too many lines",
+      "body": "The cart has more lines than the advisor plans at once. Remove some lines, then run again."
+    },
+    "ADVISE-424": {
+      "title": "The weight set is not valid",
+      "body": "The weight set's values fail the check a save makes. Correct them, then run again."
+    },
+    "ADVISE-429": {
+      "title": "Too many runs",
+      "body": "Too many runs in a minute. Wait a moment, then try again."
+    },
+    "ADVISE-500": {
+      "title": "No plan could be built",
+      "body": "The search failed and the simple plan could not be built, though stores could serve this cart. The run's figures are held for a developer."
+    },
+    "ADVISE-503": {
+      "title": "The advisor is switched off",
+      "body": "The advise door is switched off just now. Try again later."
+    },
+    "ADVISE-504": {
+      "title": "The reads took too long",
+      "body": "The stock, distance and slot reads did not finish in time. No plan was made."
+    },
+    "ADVISE-511": {
+      "title": "The advisor is busy",
+      "body": "There was no place in the stock read. No plan was made. Try again in a moment."
+    },
+    "ADVISE-512": {
+      "title": "The stock figures could not be read",
+      "body": "The stock read failed or was late. No plan was made."
+    },
+    "ADVISE-513": {
+      "title": "A table could not be read",
+      "body": "The advisor could not read one of its own tables. No plan was made."
+    },
+    "denied": {
+      "title": "Not allowed",
+      "body": "Your account does not hold the sourcing advisor's run grant."
+    },
+    "unknown": {
+      "title": "The run failed",
+      "body": "Something went wrong running this cart. Try again in a moment."
+    }
+  }
+}

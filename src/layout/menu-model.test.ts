@@ -537,6 +537,27 @@ describe('the Sourcing advisor leaf (ticket 738)', () => {
   })
 })
 
+describe('the Sourcing simulator leaf (ticket 962)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const keys = (oms.items ?? []).map((i) => i.labelKey)
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-simulator:menu.sourcingSimulator')!
+
+  it('sits in the OMS group right after the Sourcing advisor, lit alone on its own screen', () => {
+    expect(keys.indexOf('sourcing-simulator:menu.sourcingSimulator')).toBe(keys.indexOf('sourcing-advisor:menu.sourcingAdvisor') + 1)
+    expect(leaf.routerLink).toBe('/oms/sourcing-simulator')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-simulator')).map((i) => i.labelKey)).toEqual([
+      'sourcing-simulator:menu.sourcingSimulator',
+    ])
+  })
+
+  it('🚩 reads the run grant (provisional SourcingAdvisorRun:06), not the view grant, and fails closed without it', () => {
+    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
+    expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
+  })
+})
+
 describe('the Road distance (Shadow) leaf (ticket 859)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const keys = (oms.items ?? []).map((i) => i.labelKey)

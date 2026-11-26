@@ -39,8 +39,8 @@ function Panel({ title, data, children }: { title: string; data: string; childre
   )
 }
 
-const PILL = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap'
-const STATE_PILL: Record<PromiseState, string> = {
+export const PILL = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap'
+export const STATE_PILL: Record<PromiseState, string> = {
   inside: `${PILL} border-primary/30 bg-primary-050 text-primary-800`,
   under: `${PILL} border-attention-border bg-attention-050 text-attention-800`,
   over: `${PILL} border-attention-border bg-attention-050 text-attention-800`,
@@ -84,7 +84,7 @@ export function PromiseCheck({ rows, drill = true }: { rows: ResultsPromiseRow[]
   )
 }
 
-function Gauge({ row }: { row: PromisePanelRow }) {
+export function Gauge({ row }: { row: PromisePanelRow }) {
   const { t } = useTranslation('sourcing-results')
   const label = row.gauge.band
     ? t('promise.gaugeBand', { percent: fsi(percentText(row.percent)) })

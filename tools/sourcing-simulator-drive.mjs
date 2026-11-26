@@ -1,0 +1,361 @@
+// Sourcing simulator drive (ticket 962, BackOffice spec 4354 §19) — build a cart, run it, switch cards to table.
+//
+// Drives the REAL app against a STUB of the advise door BackOffice 4355–4357 have not built, answering EXACTLY the
+// BackOffice 4281 wire (its worked example, cut to the full level: `src/features/oms/sourcing-simulator/
+// advise-reply.fixture.json`, the same reply the model tests read):
+//   GET  Auth/Permissions           → the run grant `SourcingAdvisorRun:06` (PROVISIONAL key) held or not
+//   GET  SourcingAdvisor/Workbench  → no map key (PROVISIONAL door): the map cannot draw, the point is typed
+//   POST SourcingAdvisor/Advise     → the fixture, a variant of it, or a door error (true HTTP status + code)
+// Left to right and right to left (`oms.locale = 'ar'`, the page's direction) it asserts:
+//   1. without the run grant: no menu leaf, the denied card, and the door is never asked;
+//   2. with it: the leaf, the cart, Run off and the "needs" note until a line and the customer's point are given;
+//   3. the map cannot draw without a key, says so, and the point is typed instead (the click that places the customer
+//      is proven by `src/core/map/map-place-customer.test.ts`: a drive cannot draw Google's map without a real key);
+//   4. Run shows one "planning" state, then posts the cart form at the full level with `allPlans` and the time of day;
+//   5. the plans as cards: three, the merged plan's tags, the server's promise sentence in the screen's language, the
+//      customer's fee per shipment and in total, the company's cost, the price of waiting, the balanced total, as sent;
+//      the ending in words and the stage times from the reply;
+//   6. the switch to one table: a row per measure, a column per plan; and back;
+//   7. a changed cart after a run says the plans are stale;
+//   8. a goal with no plan (with the server's sentence) and a hidden plan behind "show", with its reason;
+//   9. the simple plan answered: the banner and the ending;
+//  10. ADVISE-512 reads "The stock figures could not be read" in the screen's language, with its code and "try again",
+//      which posts the same cart again; ADVISE-423 offers no "try again";
+//  11. RTL: the page is right to left, and the store pair and the run number read left to right;
+//  12. no page errors.
+//
+//   1. run the app:  npx vite --port 5203 --strictPort
+//   2. DRIVE_PORT=5203 node tools/sourcing-simulator-drive.mjs
+//      (PLAYWRIGHT_CHANNEL=msedge to use the installed Edge when Playwright's own Chromium is not installed)
+import { createRequire } from 'node:module'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { permissions } from './permissions-stub.mjs'
+const require = createRequire(process.env.PLAYWRIGHT_FROM || import.meta.url)
+const { chromium } = require('playwright')
+
+const BASE = `http://localhost:${process.env.DRIVE_PORT || 5203}`
+const SHOTS = 'tools/.sourcing-simulator-shots'
+mkdirSync(SHOTS, { recursive: true })
+
+const json = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
+const REPLY = json('../src/features/oms/sourcing-simulator/advise-reply.fixture.json')
+// The OMS app boots i18next in English; `oms.locale = 'ar'` sets the page's direction (`src/core/theme/direction.ts`),
+// so both passes read the English words. Every Arabic text the page has is pinned by `error-text.test.ts` and the
+// locale's own keys; the server's Arabic sentences are picked when the language is Arabic (`use-plan-words.ts`).
+const EN = json('../src/locales/en/sourcing-simulator.json')
+const WORDS = { ltr: EN, rtl: EN }
+const RUN_GRANT = 'SourcingAdvisorRun:06'
+
+const results = []
+const check = (name, pass, detail = '') => {
+  results.push({ name, pass: !!pass })
+  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
+}
+
+const envelope = (data, { status = 200, success = true, message = '', errorCode } = {}) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: status,
+    success,
+    message,
+    errors: errorCode ? [{ errorCode, internalErrorCode: '', errorMessage: message }] : [],
+    data,
+  }),
+})
+const refusal = (status, errorCode, message) => envelope(null, { status, success: false, message, errorCode })
+
+/** 4281's "four kinds of reason": no single store for pick-up, and Fewest nearly the same as Recommended. */
+const WITH_REASONS = {
+  ...REPLY,
+  plans: REPLY.plans.filter((p) => p.goal !== 'PICK_UP').map((p) => (p.goal === 'BALANCED' ? { ...p, alsoGoals: ['FASTEST'] } : p)),
+  noPlan: [
+    { goal: 'PICK_UP', code: 'NO_SINGLE_STORE', lines: [1, 3], en: 'No pharmacy near you holds your whole order', ar: 'لا توجد صيدلية قريبة يتوفر فيها طلبك كاملًا' },
+  ],
+  hiddenPlans: [{ goal: 'FEWEST', code: 'NEARLY_SAME', as: 'BALANCED', minutesApart: 10, riyalsApart: 0.4 }],
+}
+const FALLBACK = {
+  ...REPLY,
+  solve: { ...REPLY.solve, ending: 'FALLBACK_ANSWERED', why: 'search timed out' },
+  plans: [{ ...REPLY.plans[0], fallback: true, alsoGoals: [] }],
+  noPlan: ['FASTEST', 'FEWEST', 'CHEAPEST', 'PICK_UP'].map((goal) => ({ goal, code: 'FALLBACK_ANSWERED', en: 'The simple plan answered', ar: 'أجابت الخطة البسيطة' })),
+}
+
+const browser = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {})
+
+async function open(dir, { granted = true } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && !/status of (4|5)\d\d/.test(m.text()) && errors.push(m.text()))
+  await page.addInitScript((d) => {
+    localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    localStorage.setItem('oms.railExpanded', 'true')
+  }, dir)
+  const wire = { posts: [], calls: [], next: [] }
+  await page.route('**/api/**', async (route) => {
+    const p = new URL(route.request().url()).pathname.split('/api/')[1]
+    wire.calls.push(p)
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', 'SourcingAdvisor:01', ...(granted ? [RUN_GRANT] : [])]))
+    if (p === 'SourcingAdvisor/Workbench') return route.fulfill(envelope({ maps: null }))
+    if (p === 'SourcingAdvisor/Advise') {
+      wire.posts.push(JSON.parse(route.request().postData() || '{}'))
+      // One request, one reply: held a moment, so the one "planning" state can be seen.
+      await new Promise((r) => setTimeout(r, 700))
+      const answer = wire.next.shift() ?? envelope(REPLY)
+      return route.fulfill(answer)
+    }
+    return route.fulfill(envelope([]))
+  })
+  return { context, page, errors, wire }
+}
+
+/** Whether a text reads left to right on screen: its first character's box starts left of its last's. */
+const readsLtr = (locator) =>
+  locator.evaluate((el) => {
+    const text = el.textContent.trim()
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let node = null
+    let at = -1
+    while (walker.nextNode()) {
+      const i = walker.currentNode.textContent.indexOf(text)
+      if (i >= 0) {
+        node = walker.currentNode
+        at = i
+        break
+      }
+    }
+    if (!node) return null
+    const box = (k) => {
+      const r = document.createRange()
+      r.setStart(node, k)
+      r.setEnd(node, k + 1)
+      return r.getBoundingClientRect()
+    }
+    return box(at).left < box(at + text.length - 1).left
+  })
+const isLtrIsolate = (locator) => locator.evaluate((el) => el.tagName === 'BDI' && el.getAttribute('dir') === 'ltr')
+const text = async (locator) => ((await locator.textContent()) ?? '').replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ').trim()
+
+const SIM = '/oms/sourcing-simulator'
+
+async function drive(dir) {
+  const W = WORDS[dir]
+  const label = dir === 'rtl' ? 'RTL' : 'LTR'
+  const money = (amount) => W.money.replace('{{amount}}', amount)
+
+  // 1. without the run grant
+  {
+    const { context, page, wire } = await open(dir, { granted: false })
+    await page.goto(`${BASE}${SIM}`)
+    const card = page.locator('main [role="alert"]').first()
+    await card.waitFor({ timeout: 15000 }).catch(() => {})
+    await page.screenshot({ path: `${SHOTS}/${dir}-denied.png` })
+    const said = (await card.count()) ? await text(card) : ''
+    const leaf = await page.locator(`nav a[href="${SIM}"]`).count()
+    check(
+      `${label}: without the run grant, no leaf, the denied card, and the door is never asked`,
+      said.includes(W.access.deniedTitle) && leaf === 0 && !wire.calls.includes('SourcingAdvisor/Advise') && !wire.calls.includes('SourcingAdvisor/Workbench'),
+      `leaf=${leaf} card=${said}`,
+    )
+    await context.close()
+  }
+
+  const { context, page, errors, wire } = await open(dir)
+  await page.goto(`${BASE}${SIM}`)
+  await page.locator('[data-sim-cart]').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(400)
+
+  // 2. the leaf, the cart, Run off until the cart can run
+  check(`${label}: the leaf is in the menu`, (await page.locator(`nav a[href="${SIM}"]`).count()) === 1)
+  check(`${label}: the page is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
+  check(
+    `${label}: Run is off with the "needs" note before a line and the customer are given`,
+    (await page.locator('[data-sim-run]').isDisabled()) && (await page.locator('[data-sim-needs="noLines"]').count()) === 1,
+  )
+  check(`${label}: before any run, the plans column says how to start`, (await page.locator('[data-run-none]').count()) === 1)
+
+  // 3. the map cannot draw without a key: it says so, and the point is typed
+  await page.locator('[data-sim-customer] [data-map-state="cannot-draw"]').waitFor({ timeout: 10000 })
+  check(`${label}: with no map key the map says it cannot draw, and the point is typed instead`, (await page.getByText(W.customer.cannotDraw).count()) === 1)
+
+  // build the cart: three lines, channel, time of day, the customer's point
+  await page.locator('[data-sim-field="channel"]').selectOption('IOS')
+  await page.locator('[data-sim-field="time"]').fill('19:42')
+  const lines = [
+    ['100234', '2'],
+    ['100871', '1'],
+    ['104410', '1'],
+  ]
+  for (const [i, [item, qty]] of lines.entries()) {
+    if (i > 0) await page.locator('[data-sim-add-line]').click()
+    await page.locator(`[data-sim-line="${i + 1}"] [data-sim-line-item]`).fill(item)
+    await page.locator(`[data-sim-line="${i + 1}"] [data-sim-line-qty]`).fill(qty)
+  }
+  check(`${label}: a line without the customer still cannot run`, (await page.locator('[data-sim-needs="noPoint"]').count()) === 1)
+  await page.locator('[data-sim-field="lat"]').fill('24.7741')
+  await page.locator('[data-sim-field="lng"]').fill('46.7386')
+  check(`${label}: with lines and the customer placed, Run is on`, !(await page.locator('[data-sim-run]').isDisabled()) && (await page.locator('[data-sim-placed]').count()) === 1)
+
+  // 4. Run: one "planning" state, then the cart form at the full level with allPlans
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-planning]').waitFor({ timeout: 3000 })
+  check(`${label}: while it runs, one "planning" state and Run is off`, (await page.locator('[data-run-planning]').count()) === 1 && (await page.locator('[data-sim-run]').isDisabled()))
+  await page.locator('[data-plan-cards]').waitFor({ timeout: 5000 })
+  const today = new Date()
+  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const posted = wire.posts[0]
+  check(
+    `${label}: Run posts the cart at the full level with allPlans, the time of day and the customer's point`,
+    wire.posts.length === 1 &&
+      JSON.stringify(posted) ===
+        JSON.stringify({
+          channel: 'IOS',
+          lines: [
+            { lineNo: 1, item: '100234', quantity: 2, unit: 'EA' },
+            { lineNo: 2, item: '100871', quantity: 1, unit: 'EA' },
+            { lineNo: 3, item: '104410', quantity: 1, unit: 'EA' },
+          ],
+          customer: { point: { lat: 24.7741, lng: 46.7386 } },
+          plannedFor: `${iso} 19:42:00`,
+          level: 'full',
+          allPlans: true,
+        }),
+    JSON.stringify(posted),
+  )
+
+  // 5. the cards
+  const cards = page.locator('[data-plan-card]')
+  const goals = await cards.evaluateAll((els) => els.map((e) => e.getAttribute('data-plan-card')))
+  check(`${label}: three cards, in the reply's order`, goals.join() === 'BALANCED,CHEAPEST,PICK_UP', goals.join())
+  const rec = page.locator('[data-plan-card="BALANCED"]')
+  const tags = await rec.locator('[data-plan-tag]').evaluateAll((els) => els.map((e) => e.textContent.trim()))
+  check(`${label}: the merged plan carries its tags`, tags.join('|') === [W.tag.FASTEST, W.tag.FEWEST].join('|'), tags.join('|'))
+  const head = await text(rec.locator('[data-plan-head] bdi').first())
+  check(`${label}: the plan's label is the server's, in the screen's language`, head === 'Recommended', head)
+  const promise = await text(rec.locator('[data-plan-promise] bdi').first())
+  const promiseSaid = REPLY.plans[0].promise.en
+  check(`${label}: the server's promise sentence, in the screen's language (the other beside it)`, promise === promiseSaid, promise)
+  const fig = async (k) => text(rec.locator(`[data-plan-figure="${k}"] dd`))
+  const figs = { fee: await fig('fee'), companyCost: await fig('companyCost'), waiting: await fig('waiting'), balanced: await fig('balanced') }
+  check(
+    `${label}: fee total, company's cost, price of waiting and balanced total as sent`,
+    figs.fee === money('16.000') && figs.companyCost === money('17.420') && figs.waiting === money('7.000') && figs.balanced === money('40.420'),
+    JSON.stringify(figs),
+  )
+  const shipFee = await text(rec.locator('[data-plan-shipment="1"] [data-shipment-fee] dd'))
+  check(`${label}: the customer's fee per shipment`, shipFee === money('16.000'), shipFee)
+  const ending = await text(page.locator('[data-run-ending]'))
+  check(`${label}: the run's ending in words`, ending === W.ending.PROVEN_BEST, ending)
+  const total = await text(page.locator('[data-run-stage="total"] dd'))
+  check(`${label}: the stage times are read from the reply`, total === W.stages.ms.replace('{{ms}}', '771') && (await page.locator('[data-run-stage]').count()) === 8, total)
+  await page.screenshot({ path: `${SHOTS}/${dir}-cards.png`, fullPage: true })
+
+  // 6. switch to one table, and back
+  await page.locator('[data-plans-view-switch="table"]').click()
+  await page.locator('[data-plans-table]').waitFor({ timeout: 3000 })
+  const rows = await page.locator('[data-plans-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-plans-row')))
+  const cols = await page.locator('[data-plans-column]').evaluateAll((els) => els.map((e) => e.getAttribute('data-plans-column')))
+  const feeCell = await text(page.locator('[data-plans-cell="fee:BALANCED"] span').first())
+  const balancedCell = await text(page.locator('[data-plans-cell="balanced:CHEAPEST"] span').first())
+  check(
+    `${label}: the table has a row per measure and a column per plan, cells as sent`,
+    rows.join() === 'promise,deliveries,storesAndModes,fee,companyCost,waiting,balanced' &&
+      cols.join() === 'BALANCED,CHEAPEST,PICK_UP' &&
+      feeCell === money('16.000') &&
+      balancedCell === money('51.350') &&
+      (await page.locator('[data-plan-cards]').count()) === 0,
+    `${rows.join()} | ${cols.join()} | ${feeCell} | ${balancedCell}`,
+  )
+  check(`${label}: the table's columns carry the tags too`, (await page.locator('[data-plans-column="BALANCED"] [data-plan-tag]').count()) === 2)
+  await page.screenshot({ path: `${SHOTS}/${dir}-table.png`, fullPage: true })
+
+  // 11. RTL (and LTR alike): the store pair and the run number are isolates that read left to right
+  const pair = page.locator('[data-plans-cell="storesAndModes:BALANCED"] .font-mono bdi').first()
+  const runId = page.locator('[data-run-id] bdi').first()
+  check(
+    `${label}: the store pair and the run number are Ltr isolates reading left to right`,
+    (await isLtrIsolate(pair)) && (await isLtrIsolate(runId)) && (await readsLtr(pair)) === true && (await readsLtr(runId)) === true,
+  )
+  await page.locator('[data-plans-view-switch="cards"]').click()
+  check(`${label}: and back to cards`, (await page.locator('[data-plan-cards]').count()) === 1 && (await page.locator('[data-plans-table]').count()) === 0)
+
+  // 7. a changed cart says the plans are stale
+  await page.locator('[data-sim-line="1"] [data-sim-line-qty]').fill('3')
+  check(`${label}: a changed cart after a run says the plans are stale`, (await page.locator('[data-run-stale]').count()) === 1)
+  await page.locator('[data-sim-line="1"] [data-sim-line-qty]').fill('2')
+  check(`${label}: put back, the plans are current again`, (await page.locator('[data-run-stale]').count()) === 0)
+
+  // 8. a goal with no plan, and a hidden plan behind "show"
+  wire.next.push(envelope(WITH_REASONS))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-plan-notes]').waitFor({ timeout: 5000 })
+  const noPlan = await text(page.locator('[data-no-plan="PICK_UP"] bdi').first())
+  check(
+    `${label}: a goal with no plan is listed with the server's sentence and its code`,
+    noPlan === WITH_REASONS.noPlan[0].en && (await page.locator('[data-no-plan-code="NO_SINGLE_STORE"]').count()) === 1,
+    noPlan,
+  )
+  check(`${label}: hidden plans sit behind "show"`, (await page.locator('[data-hidden-plans="closed"]').count()) === 1 && (await page.locator('[data-hidden-plan]').count()) === 0)
+  await page.locator('[data-hidden-toggle]').click()
+  const hidden = await text(page.locator('[data-hidden-plan="FEWEST"]'))
+  check(
+    `${label}: a hidden plan shows its reason`,
+    (await page.locator('[data-hidden-code="NEARLY_SAME"]').count()) === 1 && hidden.includes(W.goal.BALANCED) && hidden.includes('10'),
+    hidden,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-notes.png`, fullPage: true })
+
+  // 9. the simple plan answered
+  wire.next.push(envelope(FALLBACK))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-fallback]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: the simple plan answered: the banner, the plan's flag and the ending`,
+    (await text(page.locator('[data-run-ending]'))) === W.ending.FALLBACK_ANSWERED && (await page.locator('[data-plan-flag="fallback"]').count()) === 1,
+  )
+
+  // 10. ADVISE-512, then "try again"; ADVISE-423 offers none
+  wire.next.push(refusal(503, 'ADVISE-512', 'The stock figures could not be read. No plan was made.'))
+  const before = wire.posts.length
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-error-code="ADVISE-512"]').waitFor({ timeout: 5000 })
+  const banner = await text(page.locator('[role="alert"]').filter({ has: page.locator('[data-run-error-code]') }))
+  check(
+    `${label}: ADVISE-512 reads in the screen's own words, with its code and "try again" (not the door's message)`,
+    banner.includes(W.errors['ADVISE-512'].title) && banner.includes(W.errors['ADVISE-512'].body) && (await page.locator('[data-run-retry]').count()) === 1,
+    banner,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-error.png`, fullPage: true })
+  await page.locator('[data-run-retry]').click()
+  await page.locator('[data-plan-cards]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: "try again" posts the same cart again and plans`,
+    wire.posts.length === before + 2 && JSON.stringify(wire.posts.at(-1)) === JSON.stringify(wire.posts.at(-2)),
+    `posts=${wire.posts.length - before}`,
+  )
+  wire.next.push(refusal(422, 'ADVISE-423', 'The cart has 51 lines. The advisor plans at most 50.'))
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-run-error-code="ADVISE-423"]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: ADVISE-423 reads in our words and offers no "try again"`,
+    (await page.getByText(W.errors['ADVISE-423'].title).count()) === 1 && (await page.locator('[data-run-retry]').count()) === 0,
+  )
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+try {
+  await drive('ltr')
+  await drive('rtl')
+} catch (e) {
+  console.error(e)
+  results.push({ name: 'the drive ran to its end', pass: false })
+}
+await browser.close()
+const failed = results.filter((r) => !r.pass).length
+console.log(`\n${results.length - failed}/${results.length} passed`)
+process.exit(failed ? 1 : 0)

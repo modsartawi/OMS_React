@@ -1,5 +1,5 @@
 import { GROUP_LABEL_TEXT, POINT_RADIUS, type MapFeature, type MapLineFeature } from './map-drawing'
-import type { MapEngineEvents } from './map-panel'
+import type { MapEngineEvents, MapPlace } from './map-panel'
 
 /**
  * What the Google adapter puts on the map for each feature, and how it reports the reader's hits (ticket 909, BackOffice
@@ -109,10 +109,11 @@ export function markerHits(events: Pick<MapEngineEvents, 'pointer' | 'tap'>, map
       markerTapAt = now()
       events.tap({ id, x: at.x, y: at.y, zoom: drawnZoom }, mapZoom())
     },
-    /** A tap on the map beside every marker. */
-    mapClick() {
+    /** A tap on the map beside every marker, with the place under it when Google reports one (962). */
+    mapClick(place?: MapPlace) {
       if (now() - markerTapAt < SAME_TAP_MS) return
-      events.tap(null, mapZoom())
+      if (place) events.tap(null, mapZoom(), place)
+      else events.tap(null, mapZoom())
     },
     /**
      * The markers were made again (the whole zoom changed): the one under the pointer is gone with no `pointerleave`,

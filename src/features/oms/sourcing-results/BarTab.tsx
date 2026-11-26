@@ -32,7 +32,7 @@ import { sourcingResultsApi } from './api'
 import { barPeriodEnd, barReading, type BarLargestGroup, type BarLimitView, type BarWhy } from './bar-model'
 import Fig from './Fig'
 import type { ResultsTabProps } from './ResultsTabs'
-import { storedRunInSimulator } from './simulator-link'
+import { simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
 import { countText, percentText } from './text'
 
 const PILL = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap'
@@ -322,7 +322,7 @@ function Largest({ groups, query, may, onSaved }: { groups: BarLargestGroup[]; q
                 {group.rows.map((r) => (
                   <tr key={r.orderNumber} className="border-b border-border/60" data-largest-row={r.orderNumber} data-largest-mark={r.mark ?? ''}>
                     <td className={TD}>
-                      <Link to={storedRunInSimulator(r.runId)} className="underline decoration-dotted underline-offset-2 hover:text-primary" data-largest-open="">
+                      <Link to={simulatorRunPath(r.runId)} className="underline decoration-dotted underline-offset-2 hover:text-primary" data-largest-open="">
                         <Ltr>{r.orderNumber}</Ltr>
                       </Link>
                     </td>

@@ -95,8 +95,11 @@ export interface MapEngineEvents {
   failed(reason: EngineFailure): void
   /** The pointer moved over a feature (its id from {@link MapEngineStart.featuresAt}), or off every feature (null). */
   pointer(target: MapTarget | null, zoom: number): void
-  /** A click or a tap on a feature, or on the map beside every feature (null). */
-  tap(target: MapTarget | null, zoom: number): void
+  /**
+   * A click or a tap on a feature, or on the map beside every feature (null). A click beside carries the place under it
+   * when the engine can tell one (962: "a click places the customer"); a tap on a feature carries none that matters.
+   */
+  tap(target: MapTarget | null, zoom: number, place?: MapPlace): void
   /** The map moved (a pan, a zoom): a card on show follows its store (review W4). */
   moved(zoom: number): void
   /**
@@ -125,6 +128,12 @@ export interface MapEngine {
 }
 
 export type MapLang = 'en' | 'ar'
+
+/** A place on the map, as a click reports it (962). */
+export interface MapPlace {
+  lon: number
+  lat: number
+}
 
 /** Why the engine could not draw. */
 export type EngineFailure = 'refused' | 'unreachable' | 'no-graphics'
@@ -155,6 +164,11 @@ export interface OpenMapPanel {
   groupNearby?: boolean
   /** The card to show changed (881, M23): whose, where, pinned or not; null hides it. */
   onCard?(card: MapCardState): void
+  /**
+   * A click on the map beside every point, at this place (ticket 962, spec 4354 §19: "a click places the customer").
+   * A click on a store is that store's, and places nothing. Absent: a click beside only closes a card, as before.
+   */
+  onPlace?(place: MapPlace): void
 }
 
 /** The view that holds every point (and every line's two ends, 922: pass them as places). */
@@ -263,7 +277,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
         failed: fail,
         // A group has no card: pointing at one is pointing at no store.
         pointer: (target, zoom) => cardOn({ kind: 'point', target: featureOf(target, zoom)?.kind === 'point' ? target : null }),
-        tap: (target, zoom) => {
+        tap: (target, zoom, place) => {
           const f = featureOf(target, zoom)
           // A click on a group zooms in, centred on it, to where it opens (M19).
           if (f?.kind === 'group') {
@@ -271,6 +285,8 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
             return
           }
           cardOn({ kind: 'tap', target: f ? target : null })
+          // 962: a click beside every point places the customer there.
+          if (!f && place && state !== 'closed') open.onPlace?.(place)
         },
         // Review W4: a card stands by its store, not where the store was when it was pointed at. A store joined into a
         // group by a zoom out is no longer a point to stand by: its card closes.

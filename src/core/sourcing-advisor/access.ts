@@ -16,3 +16,11 @@ export const canViewSourcingAdvisor = (p: Permissions): boolean => p.has('Sourci
  * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorSave:01`; BO 4360 seeds the grant unnamed.
  */
 export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdvisorSave:01')
+
+/**
+ * The run grant (ticket 962, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and the
+ * kept runs"). Here, beside the view grant, because the menu reads it too and the results page (971) will.
+ * PROVISIONAL (spec 4354: not specified) — BackOffice 4355 seeds the grant but names none: `SourcingAdvisorRun:06` is
+ * ours. Reconcile the key in `@/core/permissions` when it lands; every reader takes THIS predicate.
+ */
+export const canRunSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisorRun:06')

@@ -24,10 +24,11 @@ import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { fsi, formatPair, formatParts } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import { simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
 import { sourcingResultsApi } from './api'
 import { encodeFigure } from './figure'
+import { readingFigureTitle } from './reading-figure'
 import { HATCH, classInk, modeInk } from './inks'
-import { storedRunInSimulator } from './simulator-link'
 import { countText } from './text'
 
 export const ORDERS_PAGE_SIZE = 25
@@ -49,6 +50,8 @@ export function figureTitle(t: TFunction<'sourcing-results'>, f: ResultsFigure):
       return t('drawer.figures.runNotEnded')
     case 'notRun':
       return t('drawer.figures.notRun')
+    default:
+      return readingFigureTitle(t, f)
   }
 }
 
@@ -241,7 +244,7 @@ function OrderCard({ orderNumber }: { orderNumber: string }) {
         {t('card.ended', { ending: t(`endings.${c.ending}`) })}
       </p>
       <div>
-        <Button variant="primary" onClick={() => navigate(storedRunInSimulator(c.runId))} data-open-simulator={c.runId}>
+        <Button variant="primary" onClick={() => navigate(simulatorRunPath(c.runId))} data-open-simulator={c.runId}>
           <PlayCircle className="h-4 w-4" aria-hidden />
           {t('card.openSimulator')}
         </Button>

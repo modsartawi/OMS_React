@@ -4,7 +4,7 @@ import { documentDirection } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { googleEngine } from './google-engine'
 import { placeCard } from './map-drawing'
-import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapLine, type MapPoint, type MapsAccess } from './map-panel'
+import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapLine, type MapPlace, type MapPoint, type MapsAccess } from './map-panel'
 
 /**
  * The map panel (ticket 879, BackOffice spec 3630; ticket 908, ADR 0139): given points, it draws them on Google's road
@@ -42,6 +42,11 @@ export interface MapPanelProps {
   ariaLabel: string
   onDrawn?: () => void
   onCannotDraw?: (reason: CannotDrawReason) => void
+  /**
+   * A click on the map beside every point, at this place (ticket 962, spec 4354 §19: "a click places the customer").
+   * Changing the handler does not restart the map. Absent: a click beside only closes a card.
+   */
+  onPlace?: (place: MapPlace) => void
   /** The panel's size. Defaults to the full width and a fixed height. */
   className?: string
 }
@@ -58,6 +63,7 @@ export default function MapPanel({
   ariaLabel,
   onDrawn,
   onCannotDraw,
+  onPlace,
   className = 'h-80 w-full',
 }: MapPanelProps) {
   const { i18n } = useTranslation()
@@ -66,8 +72,8 @@ export default function MapPanel({
   const [state, setState] = useState<MapPanelState>('drawing')
   const [card, setCard] = useState<MapCardState>(null)
   // The callers' latest handlers, without restarting the map when they change identity.
-  const handlers = useRef({ onDrawn, onCannotDraw })
-  handlers.current = { onDrawn, onCannotDraw }
+  const handlers = useRef({ onDrawn, onCannotDraw, onPlace })
+  handlers.current = { onDrawn, onCannotDraw, onPlace }
   const lang = i18n.language?.split('-')[0] === 'ar' ? 'ar' : 'en'
   // The key's own value, not the part's identity: a model read again must not restart a drawn map.
   const key = maps?.key ?? ''
@@ -88,6 +94,7 @@ export default function MapPanel({
       lines,
       inkOf: (token) => tokenOf(container, token),
       onCard: setCard,
+      onPlace: (place) => handlers.current.onPlace?.(place),
       lang,
       dir: documentDirection(),
       onDrawn: () => {

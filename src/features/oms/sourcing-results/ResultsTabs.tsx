@@ -5,6 +5,11 @@ import Chip from '@/core/ui/Chip'
 import BarTab from './BarTab'
 import { RESULTS_TABS, type ResultsTab } from './tabs'
 import TrialsTab from './TrialsTab'
+import BreakdownsTab from './BreakdownsTab'
+import ChecksTab from './ChecksTab'
+import LaterSlotsTab from './LaterSlotsTab'
+import NotRunTab from './NotRunTab'
+import OutsideRulesTab from './OutsideRulesTab'
 
 /** What every tab's panel is handed: the filters as the door takes them, and the summary already read. */
 export interface ResultsTabProps {
@@ -19,6 +24,11 @@ export interface ResultsTabProps {
 const TAB_PANELS: Partial<Record<ResultsTab, ComponentType<ResultsTabProps>>> = {
   trials: TrialsTab,
   'phase-2-bar': BarTab,
+  breakdowns: BreakdownsTab,
+  'outside-rules': OutsideRulesTab,
+  checks: ChecksTab,
+  'later-slots': LaterSlotsTab,
+  'not-run': NotRunTab,
 }
 
 /**

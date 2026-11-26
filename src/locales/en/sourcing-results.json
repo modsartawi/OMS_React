@@ -503,5 +503,256 @@
     "noEstimate": "No estimate for this order.",
     "ended": "How it ended: {{ending}}.",
     "openSimulator": "Open the stored run in the simulator"
+  },
+  "reading": {
+    "loading": "Reading this tab…",
+    "failedTitle": "This tab could not be read",
+    "failed": "Something went wrong reading this tab. Try again in a moment.",
+    "minutes": {
+      "same": "same time",
+      "earlier": "<m/> min earlier",
+      "later": "<m/> min later"
+    }
+  },
+  "stockClasses": {
+    "BOOK_BELOW_ZERO": "Book below zero",
+    "BOOK_AT_ZERO": "Book at zero",
+    "BOOK_SHORT": "Book short of the line",
+    "HELD_BY_DELIVERIES": "Held by other deliveries",
+    "HELD_BY_ORDERS": "Held by orders"
+  },
+  "breakdowns": {
+    "rowsLabel": "Rows",
+    "by": {
+      "MODE": "Mode",
+      "CITY": "City",
+      "CHANNEL": "Channel",
+      "DAY": "Day"
+    },
+    "cols": {
+      "orders": "Orders",
+      "samePlanWhole": "Same plan, the whole plan",
+      "samePlanStores": "Same plan, the stores only",
+      "estimateMiddle": "Estimate, middle order",
+      "promiseKept": "Promise kept",
+      "late": "Late",
+      "returned": "Returned",
+      "cancelled": "Cancelled",
+      "endedNoStock": "Ended for no stock"
+    },
+    "all": "All",
+    "modeRows": {
+      "SLOT_ONLY": "Slot delivery only",
+      "DAWAA_NOW_ONLY": "Dawaa Now only",
+      "SLOT_AND_DAWAA_NOW": "Slot delivery + Dawaa Now (one cart, two consignments)",
+      "BEYOND_BORDER": "Beyond border, alone or with another"
+    },
+    "otherCities": "Other cities",
+    "stockShort": "A line the stock figure could not cover",
+    "stockShortHint": "by stock class and mode, with how those orders ended",
+    "stockShortRow": "{{cls}}, {{mode}}",
+    "channelSplit": "The channel's own split",
+    "channelSplitHint": "home + express orders, compared plan against plan, by what the advisor’s plan does with the lines",
+    "splitParts": {
+      "ONE_DAWAA_NOW": "One Dawaa Now shipment holds the cart",
+      "ONE_SLOT": "One slot delivery",
+      "OTHER": "Anything else"
+    },
+    "mismatch": "The rows do not add up to the total. Every figure is shown as the server sent it.",
+    "note": "\"Estimate\" is the middle order where the plans differ, timed by the advisor's rules: an estimate, not an outcome. Late, returned and cancelled are what happened to the real orders. No riyal column while a rate is assumed.",
+    "figure": "{{by}}: {{row}}",
+    "stockShortFigure": "A line the stock figure could not cover: {{row}}",
+    "channelSplitFigure": "The channel's own split: {{part}}",
+    "storePassedOver": {
+      "title": "The order’s own store passed over",
+      "line": "<n/> orders: the order’s own store was passed over although its shelf held the cart.",
+      "figure": "The order’s own store passed over although its shelf held the cart"
+    },
+    "madeBy": {
+      "title": "Who made the run",
+      "makers": {
+        "CHECKOUT": "A channel's checkout call",
+        "OMS": "OMS"
+      },
+      "figure": "Run made by: {{maker}}",
+      "noCheckoutTitle": "Why no checkout run was used",
+      "noCheckout": {
+        "NONE": "There was none",
+        "CART_CHANGED": "The cart changed",
+        "HAD_PINS": "The run had pins"
+      },
+      "noCheckoutFigure": "No checkout run used: {{reason}}"
+    },
+    "pairsCut": {
+      "title": "Runs with pairs cut by the cap",
+      "line": "<runs/> runs had pairs cut by the cap; of those, <line/> had a line not available.",
+      "city": "City",
+      "runs": "Runs cut",
+      "share": "Share of the city’s runs",
+      "lineNotAvailable": "Of those, a line not available",
+      "note": "The figure the cap on pairs is judged by. It reads best per city.",
+      "everyCity": "every city",
+      "figure": "Pairs cut by the cap: {{where}}",
+      "figureLine": "Pairs cut by the cap, a line not available: {{where}}"
+    }
+  },
+  "outsideRules": {
+    "group": "What happened broke a rule of the advisor, so the order cannot be scored. This list is where a wrong rule or a wrong stock figure shows first. These orders are a group of their own: never \"another plan\", and never counted against a set.",
+    "cols": {
+      "reason": "Reason the pin was refused",
+      "orders": "Orders",
+      "share": "Share",
+      "says": "What it says"
+    },
+    "reasons": {
+      "NO_STOCK": "The stock figure could not cover the line, by Dawaa Now",
+      "OUT_OF_REACH": "A store out of reach for the mode",
+      "PRODUCT_RULE": "A product rule",
+      "NO_STOCK_ROW": "A pair with no stock row",
+      "BOOK_NEVER_HELD": "The store’s book has never held this item",
+      "NOT_MODE_STORE": "A store that does not serve the mode",
+      "MODE_OFF": "A mode switched off",
+      "CLOSED_NOW": "A store closed at the time",
+      "PAST_CUTOFF": "Past the store’s cutoff",
+      "NO_SLOT": "No slot left"
+    },
+    "says": {
+      "NO_STOCK": "Dawaa Now holds the stock filter at the named store too, so a Dawaa Now line on a short figure is outside the rules.",
+      "OUT_OF_REACH": "Routing sent the order to a store farther than the mode reaches: moved by hand, or chosen by a call-centre agent.",
+      "PRODUCT_RULE": "An item went by a mode its product rule keeps it off: a cold, bulky or restricted item.",
+      "NO_STOCK_ROW": "The store has no stock row for the item, so the advisor removes the pair in every mode.",
+      "BOOK_NEVER_HELD": "The store’s book has never held this item: a mistake of the book or of the routing.",
+      "NOT_MODE_STORE": "The store is not on the mode’s list of stores.",
+      "MODE_OFF": "The mode was switched off when the order landed.",
+      "CLOSED_NOW": "The store was closed when the order landed.",
+      "PAST_CUTOFF": "The order landed after the store’s cutoff for the mode.",
+      "NO_SLOT": "The store had no slot left to offer.",
+      "other": "A reason the page has no words for yet; its code is shown as sent."
+    },
+    "barLabel": "{{reason}}: {{percent}} of the orders outside the advisor’s rules",
+    "note": "A reason on more than 1% of orders needs a written ruling before the phase 2 bar is met.",
+    "figure": "Outside the advisor’s rules: {{reason}}"
+  },
+  "checks": {
+    "promiseTitle": "Promise check by distance",
+    "distance": {
+      "expressStamp": "The express stamp (came in + 45 minutes) was met by <p/>.",
+      "cols": {
+        "band": "Dawaa Now, by distance",
+        "shipments": "Shipments",
+        "within": "Within the promise"
+      },
+      "bands": {
+        "KM_0_2": "0 to 2 km",
+        "KM_2_4": "2 to 4 km",
+        "KM_4_6": "4 to 6 km",
+        "KM_6_PLUS": "6 km or more"
+      },
+      "states": {
+        "inside": "inside",
+        "under": "under",
+        "over": "over",
+        "target": "target"
+      },
+      "note": "One margin per mode cannot mend a promise that is right overall and wrong at one distance.",
+      "figure": "Promise check: Dawaa Now, {{band}}"
+    },
+    "stock": {
+      "title": "Stock check",
+      "lede": "Every real delivery is read at its own store, whatever the plan said. A no-stock ending on a delivery the run called covered is one failed pick.",
+      "cols": {
+        "read": "What the run’s stock read said of the delivery",
+        "ended": "Deliveries ended",
+        "noStock": "Ended for no stock",
+        "share": "Share"
+      },
+      "coveredLong": "Covered: the store showed at least the units asked",
+      "notCoveredLong": "A line not covered",
+      "covered": "covered",
+      "notCovered": "a line not covered",
+      "thin": "Only store tills send a reason, since mid-November: most cancellations carry none, so these counts are thin.",
+      "figure": "Stock check: {{read}}",
+      "figureNoStock": "Stock check: {{read}}, ended for no stock"
+    },
+    "shelf": {
+      "title": "The shelf chance table, with its evidence",
+      "modeLabel": "Mode",
+      "lineLabel": "Second line",
+      "lines": {
+        "PICKS": "Picks",
+        "HALVES": "Counts by half-year"
+      },
+      "bold": "Bold: the chance in the table of <set/>, version <version/>, that the shelf holds fewer units than asked.",
+      "picksLine": "Under it: failed lines of covered lines on real deliveries in this period, their share, and how the figure stands against them.",
+      "halvesLine": "Under it: what full counts found in each of the last three half-years: <h1/>, <h2/> and <h3/>.",
+      "tooFewRule": "\"Too few\" stands where the figure expects under 50 failed lines. A figure may change when it expects at least 50 failed lines on one-line deliveries, the gap is beyond chance and both halves of the window agree; a person reads this before saving a new version of the table.",
+      "asked": "Units asked",
+      "leftOverTitle": "Units left over (the units the store shows less the units asked)",
+      "leftOver": {
+        "L0": "0",
+        "L1": "1",
+        "L2": "2",
+        "L3_4": "3 to 4",
+        "L5_9": "5 to 9",
+        "L10_PLUS": "10 or more"
+      },
+      "sixOrMore": "6 or more",
+      "fleetRatio": "Fleet ratio (failed lines against what the table expected):",
+      "window": "The table is read from <counts/> full counts, from <from/> to <to/>."
+    },
+    "reading": {
+      "TOO_FEW": "too few",
+      "INSIDE_CHANCE": "inside what chance gives",
+      "ENOUGH_TO_CHANGE": "enough to change",
+      "NOT_STEADY": "not steady"
+    },
+    "rows": {
+      "title": "The eight short-figure rows, from deliveries",
+      "note": "A line in a larger basket fails less, so a ratio well under 1 on every delivery is expected. A row is judged on its one-line ratio, and about 0.9 there is a row that fits.",
+      "cols": {
+        "row": "Stock class at the named store",
+        "mode": "Mode",
+        "figure": "Row",
+        "oneLine": "Ratio, one-line deliveries",
+        "every": "Ratio, every delivery",
+        "groups": "Lines behind both, per channel group",
+        "reading": "Reading"
+      },
+      "fromDeliveries": "from deliveries",
+      "linesBehind": "<lines/> lines, <failed/> failed",
+      "groupLine": "{{group}}: <one/> one-line, <every/> every",
+      "groups": {
+        "APP_SITE": "The app and the site",
+        "CC_OUTBOUND": "The call centre’s outbound orders",
+        "CC_OTHER": "The call centre’s other orders"
+      }
+    }
+  },
+  "laterSlots": {
+    "sentence": "<b><orders/> orders</b> (<share/> of <slot/> orders with a slot delivery) had a later slot that the weight set’s slot timing table prices lower than the earliest. In the middle order the cheaper slot started <minutes/> minutes after the earliest.",
+    "sentenceNoMiddle": "<b><orders/> orders</b> (<share/> of <slot/> orders with a slot delivery) had a later slot that the weight set’s slot timing table prices lower than the earliest.",
+    "evidence": "evidence for phase 2",
+    "note": "Every plan keeps the earliest slot Hybris offers. This count changes no plan, and it is read, never a limit. The figures compare customers who chose a later slot, not customers moved to one.",
+    "empty": "No order had a cheaper later slot in this period.",
+    "measure": "Orders with a cheaper later slot",
+    "chartLabel": "Orders with a cheaper later slot, by the hour the order came in; the most at {{peak}}",
+    "axis": "The hour the order came in",
+    "figure": "A later slot priced lower than the earliest",
+    "figureHour": "A later slot priced lower than the earliest, orders in at {{hour}}"
+  },
+  "notRun": {
+    "cols": {
+      "reason": "Why an order was not run",
+      "orders": "Orders"
+    },
+    "reasons": {
+      "WORKER_OFF": "The comparison worker was switched off",
+      "TOO_LATE": "Too late: more than 10 minutes after the first delivery landed",
+      "NO_RUN_AFTER_ATTEMPTS": "No run after three attempts (the error kept on the row)",
+      "STOCK_READ_FAILED": "The stock read failed on all three attempts"
+    },
+    "total": "Not run",
+    "notCounted": "Not counted here: pick-up-only orders (the customer named the store), and every channel but the app, the site and the call centre.",
+    "figure": "Not run: {{reason}}"
   }
 }

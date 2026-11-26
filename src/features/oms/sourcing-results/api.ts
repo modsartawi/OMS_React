@@ -19,6 +19,12 @@ import type {
   TrialRow,
   TrialStartRequest,
   TrialsReply,
+  ResultsBreakdownBy,
+  ResultsBreakdownsReply,
+  ResultsChecksReply,
+  ResultsLaterSlotsReply,
+  ResultsNotRunReply,
+  ResultsOutsideRulesReply,
   ResultsOrderCard,
   ResultsOrderSort,
   ResultsOrdersReply,
@@ -96,5 +102,37 @@ export const sourcingResultsApi = {
   acceptBar(query: BarQuery & { to: string }): Promise<BarReply> {
     // PROVISIONAL (spec 4354: not specified)
     return api.post<BarReply>('SourcingAdvisor/Phase2Bar/Accept', query)
+  },
+}
+
+/**
+ * The five reading tabs' doors (ticket 972): each tab reads its own when it opens, with the page's filters.
+ * 🚩 PROVISIONAL (spec 4354: not specified) — every path, and the query name `by`. BO 4393 names the content only.
+ */
+export const readingTabsApi = {
+  /** `GET SourcingAdvisor/Results/Breakdowns` + `by` — the Breakdowns tab. */
+  breakdowns(query: ResultsQuery, by: ResultsBreakdownBy): Promise<ResultsBreakdownsReply> {
+    // PROVISIONAL (spec 4354: not specified)
+    return api.get<ResultsBreakdownsReply>('SourcingAdvisor/Results/Breakdowns', { ...query, by })
+  },
+  /** `GET SourcingAdvisor/Results/OutsideRules` — outside the advisor's rules, by reason. */
+  outsideRules(query: ResultsQuery): Promise<ResultsOutsideRulesReply> {
+    // PROVISIONAL (spec 4354: not specified)
+    return api.get<ResultsOutsideRulesReply>('SourcingAdvisor/Results/OutsideRules', { ...query })
+  },
+  /** `GET SourcingAdvisor/Results/Checks` — Dawaa Now by distance band, the stock check, the shelf chance evidence. */
+  checks(query: ResultsQuery): Promise<ResultsChecksReply> {
+    // PROVISIONAL (spec 4354: not specified)
+    return api.get<ResultsChecksReply>('SourcingAdvisor/Results/Checks', { ...query })
+  },
+  /** `GET SourcingAdvisor/Results/LaterSlots` — the later-slot count by hour. */
+  laterSlots(query: ResultsQuery): Promise<ResultsLaterSlotsReply> {
+    // PROVISIONAL (spec 4354: not specified)
+    return api.get<ResultsLaterSlotsReply>('SourcingAdvisor/Results/LaterSlots', { ...query })
+  },
+  /** `GET SourcingAdvisor/Results/NotRun` — the orders not run, by reason. */
+  notRun(query: ResultsQuery): Promise<ResultsNotRunReply> {
+    // PROVISIONAL (spec 4354: not specified)
+    return api.get<ResultsNotRunReply>('SourcingAdvisor/Results/NotRun', { ...query })
   },
 }

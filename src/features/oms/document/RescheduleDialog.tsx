@@ -12,6 +12,7 @@ import type { RescheduleDocumentModel } from '@/core/models/slots'
 import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
 import { buildRescheduleModel, selectableDays, selectableTimes, slotListDeliveryNo } from './reschedule'
+import { canSaveReschedule, seedReschedule } from './reschedule-model'
 import Field from '@/core/ui/Field'
 import Select from '@/core/ui/Select'
 
@@ -22,6 +23,10 @@ import Select from '@/core/ui/Select'
  * offers Day / Time / Reason. A non-urgent document sees only available
  * (`status === true`) windows; an urgent document sees every window. A delivery's
  * list stops at its hand-over limit, and the dialog says where that limit is.
+ *
+ * It opens with no reason chosen and does not save a move without one, as the till does
+ * (ticket 970, BackOffice spec 4354): the reason tells a customer's move from ours. A move the
+ * server still refuses is the parent's to show, with the server's own message.
  *
  * The dialog opens directly from the command panel and its primary button is the
  * deliberate confirmation (D-20); the parent posts and refreshes.
@@ -63,23 +68,32 @@ export default function RescheduleDialog({
   const reasonList = reasons.data ?? []
   const handOverLimit = formatDateTime(slots.data?.handOverLimit)
 
-  // Seed once the data lands: first day (and its first window), first reason.
+  // Seed once the data lands: the first day (and its first window). Never a reason — the user
+  // chooses one (`seedReschedule`).
   useEffect(() => {
     if (!open || loading || error) return
-    setDayIndex((current) => (current === '' && days.length > 0 ? '0' : current))
-    setReasonCode((current) => (current === '' ? (reasonList[0]?.reasonCode ?? '') : current))
-  }, [open, loading, error, days.length, reasonList])
+    setDayIndex((current) => seedReschedule({ dayIndex: current, reasonCode: '' }, days.length).dayIndex)
+  }, [open, loading, error, days.length])
 
   // The chosen day's windows are not the previous day's: re-seed the time
-  // whenever the day changes, so the pair on screen is always coherent.
+  // whenever the day changes, so the pair on screen is always coherent. Also on
+  // every open: the open clears the time, and a reopen onto the same day (the
+  // slot list re-read unchanged keeps the same day object) would otherwise
+  // leave it cleared while the browser still shows the first window.
   useEffect(() => {
+    if (!open) return
     setSlotId(selectableTimes(selectedDay, isUrgent)[0]?.slotId ?? '')
-  }, [selectedDay, isUrgent])
+  }, [open, selectedDay, isUrgent])
 
-  const canSubmit = !loading && !error && !!selectedDay && !!selectedTime && !!reasonCode
+  const canSubmit = canSaveReschedule({
+    ready: !loading && !error,
+    day: selectedDay,
+    time: selectedTime,
+    reasonCode,
+  })
 
   function submit() {
-    if (!selectedDay || !selectedTime || !reasonCode) return
+    if (!canSubmit || !selectedDay || !selectedTime) return
     onConfirmed(buildRescheduleModel(document.documentNo, selectedDay, selectedTime, reasonCode))
     onClose()
   }
@@ -100,7 +114,7 @@ export default function RescheduleDialog({
           <Button variant="text" onClick={onClose}>
             {t('dialog.cancel')}
           </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={submit}>
+          <Button variant="primary" disabled={!canSubmit} onClick={submit} data-reschedule-commit>
             <CalendarClock className="h-3.5 w-3.5" aria-hidden />
             {t('actions.reschedule')}
           </Button>
@@ -158,12 +172,15 @@ export default function RescheduleDialog({
                 ))}
               </Select>
             </Field>
-            <Field id="reschedule-reason" label={t('reschedule.reason')}>
+            <Field id="reschedule-reason" label={t('reschedule.reason')} hint={reasonCode ? undefined : t('reschedule.reasonNeeded')}>
               <Select
                 className="w-full"
                 value={reasonCode}
                 onChange={(e) => setReasonCode(e.target.value)}
               >
+                <option value="" disabled>
+                  {t('reschedule.reasonPlaceholder')}
+                </option>
                 {reasonList.map((reason) => (
                   <option key={reason.reasonCode} value={reason.reasonCode}>
                     {reason.reasonDescription}

@@ -570,6 +570,8 @@
     "day": "Day",
     "time": "Time",
     "reason": "Reason",
+    "reasonPlaceholder": "Choose a reason",
+    "reasonNeeded": "Choose why this move is made before you save it.",
     "doneDetail": "The document has been rescheduled successfully!"
   },
   "changeStore": {

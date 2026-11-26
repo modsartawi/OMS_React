@@ -1,9 +1,10 @@
 import { createElement } from 'react'
-import { describe, expect, it } from 'vitest'
-import { INQUIRY_EXPORT_JOBS_KEY, type InquiryExportJob } from '@/core/inquiry-export/api'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ApiError, api } from '@/core/api'
+import { INQUIRY_EXPORT_JOBS_KEY, inquiryExportApi, type InquiryExportJob } from '@/core/inquiry-export/api'
 import { drawExport, seeded } from '@/core/inquiry-export/test-render'
 import MyExportsPage from './MyExportsPage'
-import { refreshEvery } from './jobs'
+import { canCancel, downloadFailure, refreshEvery } from './jobs'
 
 // Ticket 4318 (spec 4314 stories 11-13, 16, 19): My exports lists the caller's jobs with their state, rows, cut flag
 // and times, a download while the file is kept and "file removed" once it is gone; it refreshes while any job is
@@ -115,5 +116,45 @@ describe('My exports refreshes while a job is waiting or running', () => {
     expect(refreshEvery([RUNNING])).toBeGreaterThan(0)
     expect(refreshEvery([DONE, FAILED, REMOVED])).toBe(false)
     expect(refreshEvery(undefined)).toBe(false)
+  })
+})
+
+// BackOffice spec 4314 review: the owner cancels a Waiting job from My exports (ticket 4320's door), and a download of
+// a swept job (410 Gone) says "file removed", not a generic failure.
+describe('My exports cancels a waiting job', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('the cancel door is a POST to the job’s own Cancel', async () => {
+    const post = vi.spyOn(api, 'post').mockResolvedValue({ ...WAITING, status: 'Cancelled' })
+    const answer = await inquiryExportApi.cancel('01J/X')
+    expect(post).toHaveBeenCalledWith('InquiryExport/Jobs/01J%2FX/Cancel', {})
+    expect(answer.status).toBe('Cancelled')
+  })
+
+  it('only a waiting job can be cancelled', () => {
+    expect(canCancel(WAITING)).toBe(true)
+    for (const j of [RUNNING, DONE, FAILED, REMOVED, job({ status: 'Cancelled' })]) expect(canCancel(j)).toBe(false)
+  })
+
+  it('a waiting row offers Cancel; no other row does', () => {
+    const html = draw([WAITING, RUNNING, DONE, FAILED, job({ jobId: 'K', status: 'Cancelled' })])
+    expect(row(html, 'W')).toContain('data-export-cancel')
+    expect(row(html, 'W')).toContain('Cancel')
+    for (const id of ['R', 'D', 'F', 'K']) expect(row(html, id)).not.toContain('data-export-cancel')
+  })
+
+  it('in Arabic, Cancel and Cancelled are Arabic', () => {
+    const ar = draw([WAITING, job({ jobId: 'K', status: 'Cancelled' })], 'ar')
+    expect(row(ar, 'W')).toContain('إلغاء')
+    expect(row(ar, 'K')).toContain('أُلغي')
+  })
+})
+
+describe('a download of a swept file says the file was removed', () => {
+  it('410 Gone is "removed"; anything else is a failed download', () => {
+    expect(downloadFailure(new ApiError('unknown', 'Unexpected API error (HTTP 410)', 410))).toBe('removed')
+    expect(downloadFailure(new ApiError('unknown', 'Unexpected API error (HTTP 404)', 404))).toBe('failed')
+    expect(downloadFailure(new ApiError('network', 'offline', 0))).toBe('failed')
+    expect(downloadFailure(new TypeError('boom'))).toBe('failed')
   })
 })

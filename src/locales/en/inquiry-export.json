@@ -50,9 +50,13 @@
     "failedHint": "The export failed. Ask for it again, or report it if it keeps failing.",
     "download": "Download",
     "downloadFailed": "The file could not be downloaded.",
+    "downloadFailedHint": "Try again, or refresh the list.",
     "removed": "File removed",
     "removedHint": "The file was removed after 7 days. Ask for the export again.",
     "noFile": "—",
+    "cancel": "Cancel",
+    "cancelFailed": "The export could not be cancelled.",
+    "cancelFailedHint": "It may have started already. Refresh the list to see its state.",
     "noRange": "All dates (one ACR)"
   },
   "status": {

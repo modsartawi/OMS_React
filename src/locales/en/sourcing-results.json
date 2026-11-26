@@ -1,0 +1,255 @@
+{
+  "title": "Comparison results",
+  "subtitle": "How the advisor's plans stand against what routing did, order by order. An estimate sits beside an outcome, and the page never says which was better.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the comparison results",
+    "deniedHint": "Your account does not hold the sourcing advisor grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "listJoin": ", ",
+  "load": {
+    "loading": "Reading the comparison…",
+    "failedTitle": "The comparison could not be read",
+    "failed": "Something went wrong reading the results. Try again in a moment."
+  },
+  "filters": {
+    "period": "Period",
+    "periods": { "1": "Yesterday", "7": "7 days", "14": "14 days", "30": "30 days" },
+    "channel": "Channel",
+    "channelGroups": {
+      "ALL": "The app, the site and the call centre",
+      "APP_SITE": "The app and the site",
+      "CALL_CENTRE": "The call centre"
+    },
+    "candidateSet": "Run on the candidate set",
+    "theCandidate": "The candidate set",
+    "set": "{{name}}, version {{version}}",
+    "setCandidate": "{{name}}, version {{version}} (candidate)",
+    "setTrial": "{{name}}, version {{version}} (trial set)",
+    "beside": "Set beside it",
+    "besideNone": "None",
+    "stockShortLine": "A line the stock figure could not cover",
+    "marks": "The run's marks",
+    "runMarks": {
+      "COVERAGE_NOT_CONFIRMED": "Coverage not confirmed",
+      "ROAD_NOT_MEASURED": "Road not measured",
+      "STOCK_FEED_OLD": "A stock feed old"
+    },
+    "read": "Orders landed from {{from}} to {{to}}"
+  },
+  "top": {
+    "sentence": "Of <orders/> orders compared, routing chose the advisor's stores for <stores/>, and the whole order shipped as the advisor planned for <plan/>.",
+    "empty": "No order was compared in this period.",
+    "barLabel": "The orders compared, by how routing's choice stands against the advisor's plan",
+    "storesBracket": "The stores only: same stores, <p/>",
+    "planBracket": "The whole plan: same plan, <p/>",
+    "segmentLabel": "{{segment}}: {{count}} orders, {{percent}}. Open its orders.",
+    "segments": {
+      "SAME_PLAN": "Same plan in both views",
+      "SAME_STORES_OTHER_WAY": "Same stores, but the advisor would ship another way (another mode, or a split)",
+      "ANOTHER_STORE": "Another store",
+      "CALLOUT_FALLBACK": "Callout fallback",
+      "OUTSIDE_RULES": "Outside the advisor's rules",
+      "NOT_COMPARABLE": "Not comparable",
+      "BREAKS_NESTING": "Same plan in the whole plan, but not in the stores only"
+    },
+    "mismatch": "The segments do not add up to the figures above them. Every figure is shown as the server sent it.",
+    "runs": "<landed/> orders landed · <open/> run and not ended yet · <notRun/> not run"
+  },
+  "promise": {
+    "title": "Promise check, where the plan was followed",
+    "pickUpGroups": {
+      "APP_SITE": "Pick-up, the app and the site",
+      "CALL_CENTRE": "Pick-up, the call centre"
+    },
+    "states": {
+      "inside": "inside the band",
+      "under": "under the band",
+      "over": "over the band",
+      "target": "target, no band"
+    },
+    "what": {
+      "DAWAA_NOW": "delivered within the promise",
+      "SLOT": "arrived within its slot",
+      "PICK_UP": "ready within the {{minutes}}-minute target"
+    },
+    "countDelivery": "matching shipments",
+    "countPickUp": "pick-ups",
+    "scale": "The scale runs from 50% to 100%. The shaded band is 85% to 95%.",
+    "gaugeBand": "{{percent}}, on a scale from 50% to 100% with the band from 85% to 95% shaded",
+    "gaugeTarget": "{{percent}}, on a scale from 50% to 100%; a target with no band"
+  },
+  "modes": {
+    "DAWAA_NOW": "Dawaa Now",
+    "SLOT": "Slot delivery",
+    "PICK_UP": "Pick-up",
+    "CARRIER_SAME_DAY": "Carrier, same day",
+    "CARRIER_NEXT_DAY": "Carrier, next day",
+    "BEYOND_BORDER": "Beyond border"
+  },
+  "cost": {
+    "title": "Cost",
+    "notice": "<b>No riyal total.</b> <assumed/> of <total/> rates behind a plan's cost are assumed, so no riyal figure is summed.",
+    "shipments": "<b>Shipments.</b> The advisor's plans hold <plan/> shipments against <real/> real deliveries.",
+    "listFee": "<b>The customer's list fee</b>, both sides under the advisor's fee rule: lower on <lower/> of orders, the same on <same/>, higher on <higher/>.",
+    "feeRulesNotConfirmed": "fee rules not confirmed",
+    "rates": "Rates.",
+    "rate": {
+      "DAWAA_NOW": "Dawaa Now",
+      "SLOT": "slot delivery",
+      "BEYOND_BORDER": "beyond border",
+      "HANDLING": "handling",
+      "FAILURE_PRICE": "the failure price",
+      "WAITING_PRICE": "the price of waiting"
+    },
+    "real": "real: {{source}}",
+    "realQuotes": "real: {{source}}, {{quotes}} quotes",
+    "sources": { "MEASURED": "measured", "FINANCE": "finance", "UNKNOWN": "source not given" },
+    "listJoin": ", ",
+    "assumed": "assumed"
+  },
+  "marks": {
+    "title": "Marks in force",
+    "names": {
+      "ASSUMED_RATES": "Assumed rates",
+      "RANGE_NOT_CONFIRMED": "Range not confirmed",
+      "FEE_RULES_NOT_CONFIRMED": "Fee rules not confirmed",
+      "EXPRESS_RECORD_NOT_MEASURED": "Express record not measured",
+      "NO_ROUTING_EQUIVALENT": "No equivalent in routing today",
+      "BEFORE_RESERVING_FLAGS_OFF": "Made before the reserving flags went off"
+    },
+    "says": {
+      "ASSUMED_RATES": "Some delivery rates are assumptions until finance's rates arrive. The cost panel names them.",
+      "RANGE_NOT_CONFIRMED": "A plan with a Dawaa Now shipment carries this mark until e-commerce hands over the range Hybris sells.",
+      "FEE_RULES_NOT_CONFIRMED": "Fees are read off past deliveries, not from Hybris.",
+      "EXPRESS_RECORD_NOT_MEASURED": "Dawaa Now's store record is the callout ignore rate alone until it is measured.",
+      "NO_ROUTING_EQUIVALENT": "A plan with a mode routing does not have today, such as a carrier shipment.",
+      "BEFORE_RESERVING_FLAGS_OFF": "Runs made while the reserving flags were still on read the stock another way."
+    },
+    "comparisons": "<n/> comparisons",
+    "none": "none in this period"
+  },
+  "views": {
+    "WHOLE_PLAN": "The whole plan",
+    "STORES_ONLY": "The stores only"
+  },
+  "classes": {
+    "SAME_PLAN": "Same plan",
+    "ANOTHER_STORE": "Another store",
+    "ANOTHER_MODE": "Another mode",
+    "FEWER_SHIPMENTS": "Fewer shipments",
+    "MORE_SHIPMENTS": "More shipments",
+    "CALLOUT_FALLBACK": "Callout fallback",
+    "OUTSIDE_RULES": "Outside the advisor's rules",
+    "NOT_COMPARABLE": "Not comparable"
+  },
+  "endings": {
+    "ON_TIME": "On time",
+    "LATE": "Late",
+    "RETURNED": "Returned by the driver",
+    "CANCELLED": "Cancelled, not by the customer",
+    "CUSTOMER_CANCELLED": "Customer's own cancellation (shown, not counted)",
+    "NOT_ENDED": "Not ended yet"
+  },
+  "differ": {
+    "title": "Where the plans differ",
+    "viewLabel": "View",
+    "cols": {
+      "cls": "Where the plans differ",
+      "orders": "Orders",
+      "estimated": "The advisor's plan, estimated",
+      "estimatedHint": "Minutes against what happened, both timed by the advisor's rules. The dot is the middle order, the bar half of the orders.",
+      "measured": "What happened, measured",
+      "measuredHint": "How the real orders ended."
+    },
+    "axisLater": "{{minutes}} min later",
+    "axisEarlier": "{{minutes}} min earlier",
+    "estimateLabel": "Middle order {{middle}} minutes; half of the orders between {{low}} and {{high}} minutes",
+    "says": {
+      "earlier": "arrives {{minutes}} min earlier",
+      "later": "arrives {{minutes}} min later",
+      "same": "arrives at the same time"
+    },
+    "none": {
+      "rules": "No estimate: the advisor's rules refuse what happened",
+      "fallback": "No estimate: no store won the callout",
+      "missing": "No estimate was sent for this class"
+    },
+    "reference": "The plan that was followed: nothing to estimate",
+    "endingsLine": "on time {{onTime}} · late {{late}} · returned {{returned}} · cancelled {{cancelled}}",
+    "note": "The left column is an estimate of a plan that was never tried. The right column is what really happened to the plan that was. The page sets them side by side and does not say which was better: the advisor is judged by outcome only where its plan was followed, in the promise check and the stock check."
+  },
+  "tabs": {
+    "label": "More of the results",
+    "names": {
+      "breakdowns": "Breakdowns",
+      "outside-rules": "Outside the advisor's rules",
+      "checks": "Promise and stock checks",
+      "later-slots": "Later slots",
+      "not-run": "Orders not run",
+      "trials": "Trials",
+      "phase-2-bar": "Phase 2 bar"
+    },
+    "pending": "This tab is not built yet. It comes with a later build of the results page."
+  },
+  "channels": {
+    "IOS": "App, iPhone",
+    "ROID": "App, Android",
+    "WEB": "Site",
+    "CALL_CENTRE": "Call centre"
+  },
+  "drawer": {
+    "eyebrow": "Orders behind the figure",
+    "count_one": "{{n}} order",
+    "count_other": "{{n}} orders",
+    "close": "Close",
+    "choose": "Choose an order to set the advisor's plan beside what happened.",
+    "loading": "Reading the orders…",
+    "failedTitle": "The orders could not be read",
+    "failed": "Something went wrong reading the orders behind this figure. Try again in a moment.",
+    "empty": "No order stands behind this figure.",
+    "cols": {
+      "orderNumber": "Order",
+      "landedAt": "Landed",
+      "channel": "Channel, city",
+      "city": "City",
+      "wholePlan": "The whole plan",
+      "storesOnly": "The stores only",
+      "estimateMinutes": "Estimate",
+      "ending": "How it ended"
+    },
+    "figures": {
+      "class": "{{view}}: {{cls}}",
+      "promise": "Promise check: {{row}}",
+      "mark": "Mark: {{mark}}",
+      "runNotEnded": "Run, not ended yet",
+      "notRun": "Not run"
+    },
+    "estimate": {
+      "earlier": "{{minutes}} min earlier",
+      "later": "{{minutes}} min later",
+      "same": "at the same time"
+    },
+    "stockShortLine": "a line the stock figure could not cover"
+  },
+  "card": {
+    "loading": "Reading the order…",
+    "failedTitle": "The order could not be read",
+    "failed": "Something went wrong reading this order. Try again in a moment.",
+    "order": "Order",
+    "plan": "The advisor's plan (Recommended)",
+    "happened": "What happened",
+    "from": "from",
+    "km": "{{km}} km",
+    "noLocation": "no location",
+    "lines_one": "{{n}} line",
+    "lines_other": "{{n}} lines",
+    "estimate": "Estimate: the advisor's plan arrives {{words}}. Never tried, so no outcome.",
+    "noEstimate": "No estimate for this order.",
+    "ended": "How it ended: {{ending}}.",
+    "openSimulator": "Open the stored run in the simulator"
+  }
+}

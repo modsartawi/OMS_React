@@ -98,7 +98,12 @@ function JobsTable({ jobs }: { jobs: InquiryExportJob[] }) {
                 </td>
                 <td className="px-3 py-2">{t(`screens.${job.screen}`, { defaultValue: job.screen })}</td>
                 <td className="px-3 py-2">
-                  <Ltr>{formatRange(formatDay(job.fromDate), formatDay(job.toDate))}</Ltr>
+                  {job.fromDate === null ? (
+                    // BackOffice 4323: a job read without a range (one ACR's Cash Collections).
+                    <span data-export-undated="">{t('page.noRange')}</span>
+                  ) : (
+                    <Ltr>{formatRange(formatDay(job.fromDate), formatDay(job.toDate))}</Ltr>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <StatusBadge sev={STATUS_SEV[job.status]}>{t(`status.${job.status}`)}</StatusBadge>

@@ -22,6 +22,8 @@ import {
   withoutAcrScope,
 } from './acr-scope'
 import ScreenGate from '@/core/ui/ScreenGate'
+import ExportSplitButton from '@/core/inquiry-export/ExportSplitButton'
+import type { ExportMonthSource } from '@/core/inquiry-export/export-month'
 import { COLLECTIONS_GRID_KEY, assignmentOptionsQuery, canOpenCollections, collectionApi } from './api'
 import { GRID_PAGE_SIZE, isCapReached } from './cap'
 import { buildCollectionsColumns, buildCollectionsDefaultColDef } from './collections-columns'
@@ -36,12 +38,13 @@ import {
 import type { AssignmentOptions } from './served-by'
 import CollectionsToolbar from './CollectionsToolbar'
 import { useXlsxExport } from './use-xlsx-export'
-import { buildReceiptActionColumn } from './RowActions'
+import { ACTIONS_COLUMN, buildReceiptActionColumn } from './RowActions'
+import { collectionsMonthFilters } from './collections-export'
 import SlipDrawer from './SlipDrawer'
 import { useSlipView } from './use-slips'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
-import { AttentionBanner, CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
+import { AttentionBanner, CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 
 /**
  * Cash Collections (`/collection/collections`) — the first real screen of the
@@ -233,6 +236,18 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
   // says WHICH screen it is; the file is its grid, as shown.
   const xlsxExport = useXlsxExport<(typeof rows)[number]>('collections')
 
+  // ---- Export month… (BackOffice spec 4314, ticket 4323) ----
+  // The query the grid issued (the ACR scope's, when scoped), read by `collectionsMonthFilters`: one ACR needs no range.
+  const month = useMemo<ExportMonthSource>(
+    () => ({
+      gridApi: xlsxExport.gridApi,
+      columnDefs: columns,
+      ...collectionsMonthFilters(queryParams),
+      skipColumn: (id) => id === ACTIONS_COLUMN,
+    }),
+    [queryParams, columns, xlsxExport.gridApi],
+  )
+
   return (
     <>
       <CollectionsToolbar
@@ -261,7 +276,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...xlsxExport.buttonProps} />
+        <ExportSplitButton screen="CashCollections" quick={xlsxExport.buttonProps} month={month} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on

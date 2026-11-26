@@ -15,7 +15,7 @@ import { api, type FileResponse } from '@/core/api'
  * The server's screen keys (`InquiryExportScreens`), one per screen that may export a month. Each later ticket adds its
  * key here when its row source lands; a key the server does not know refuses the request (`INQX-00002`).
  */
-export type InquiryExportScreen = 'CollectionAttempts'
+export type InquiryExportScreen = 'CollectionAttempts' | 'CashCollections'
 
 /**
  * Where each screen's user collects the file: My exports under the screen's own area, so the area's group stays lit.
@@ -23,6 +23,7 @@ export type InquiryExportScreen = 'CollectionAttempts'
  */
 export const MY_EXPORTS_PATH: Record<InquiryExportScreen, string> = {
   CollectionAttempts: '/collection/exports',
+  CashCollections: '/collection/exports',
 }
 
 /** `GET InquiryExport/Capabilities`: the feature is on (the share is configured) and the screens this session may export. */
@@ -38,8 +39,9 @@ export interface InquiryExportJob {
   jobId: string
   jobNumber: string
   screen: string
-  fromDate: string
-  toDate: string
+  /** Null on a job read without a range (Cash Collections narrowed to one ACR, ticket 4323). */
+  fromDate: string | null
+  toDate: string | null
   status: InquiryExportStatus
   rowCount: number
   isCut: boolean
@@ -61,8 +63,9 @@ export interface InquiryExportColumn {
 /** `POST InquiryExport/Jobs`' body. Dates are plain days (`yyyy-MM-dd`). */
 export interface InquiryExportRequest {
   screen: InquiryExportScreen
-  fromDate: string
-  toDate: string
+  /** Null when the screen's filters bound the export on their own (`ExportMonthSource.undated`). */
+  fromDate: string | null
+  toDate: string | null
   /** The screen's inquiry parameters, spelt as its grid's query string (the server reads them case-insensitively). */
   filters: Record<string, unknown>
   columns: InquiryExportColumn[]

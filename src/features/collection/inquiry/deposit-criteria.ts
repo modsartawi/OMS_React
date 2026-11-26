@@ -200,3 +200,19 @@ export function buildDepositsParams(
   if (criteria.status === 'POSTED' || criteria.status === 'VOID') params.Status = criteria.status
   return params
 }
+
+/**
+ * Export month… (BackOffice spec 4314, ticket 4322): the APPLIED params as the export job's filters — without the
+ * grid's `Limit` and without the *Collection date* pair, which the job replaces day by day on the server (the
+ * deposits' `DepositedAt`) — and that pair as the dialog's pre-filled range. The business-date pair stays a filter.
+ */
+export function depositsExportFilters(applied: Record<string, unknown>): {
+  filters: Record<string, unknown>
+  range: { from: string; to: string }
+} {
+  const { Limit: _limit, CollectionDateFrom, CollectionDateTo, ...filters } = applied
+  return {
+    filters,
+    range: { from: String(CollectionDateFrom ?? ''), to: String(CollectionDateTo ?? '') },
+  }
+}

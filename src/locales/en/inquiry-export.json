@@ -64,6 +64,7 @@
   },
   "screens": {
     "CollectionAttempts": "Collection Attempts",
-    "CashCollections": "Cash Collections"
+    "CashCollections": "Cash Collections",
+    "Deposits": "Deposits"
   }
 }

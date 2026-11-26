@@ -1,4 +1,6 @@
 // Sourcing simulator drive (ticket 962, BackOffice spec 4354 §19) — build a cart, run it, switch cards to table.
+// Ticket 966 adds the Solver tab's five diagrams (`solverDrive`, its steps listed above it): the flow graph's chunk is
+// asked for only when the graph opens.
 //
 // Drives the REAL app against a STUB of the advise door BackOffice 4355–4357 have not built, answering EXACTLY the
 // BackOffice 4281 wire (its worked example, cut to the full level: `src/features/oms/sourcing-simulator/
@@ -348,9 +350,150 @@ async function drive(dir) {
   await context.close()
 }
 
+// ── Ticket 966: the Solver tab's five diagrams ──────────────────────────────────────────────────────────────────────
+// Left to right and right to left, on the same fixture (the full level's `filterSteps`, `inputs.storeLines`, `search`):
+//  S1. the funnel: every pair, then each step with the pairs standing, the run's cut said in words, a step opening to
+//      the pairs it removed with the rule's words and figures, and the pairs offered;
+//  S2. the stock per line: every store for the picked line, the record's figures as sent, "short by", the chosen store
+//      following the plan picked in the strip;
+//  S3. the trade-off: every kept plan once as a point, the three shown plans marked;
+//  S4. what was tried: the search counts, ten rows and "show more", what a plan lost by and on what, a goal picker;
+//  S5. the flow graph: NOT ONE request for its chunk (`FlowGraph`, `@xyflow/react`) until it opens; then the boxes and
+//      lines, the chosen path animated, the controls, the mini-map and the library's attribution; a box drags; under
+//      RTL the columns run from the right;
+//  S6. no page errors.
+async function fillCart(page) {
+  await page.locator('[data-sim-cart]').waitFor({ timeout: 15000 })
+  await page.locator('[data-sim-field="channel"]').selectOption('IOS')
+  await page.locator('[data-sim-field="time"]').fill('19:42')
+  const lines = [
+    ['100234', '2'],
+    ['100871', '1'],
+    ['104410', '1'],
+  ]
+  for (const [i, [item, qty]] of lines.entries()) {
+    if (i > 0) await page.locator('[data-sim-add-line]').click()
+    await page.locator(`[data-sim-line="${i + 1}"] [data-sim-line-item]`).fill(item)
+    await page.locator(`[data-sim-line="${i + 1}"] [data-sim-line-qty]`).fill(qty)
+  }
+  await page.locator('[data-sim-field="lat"]').fill('24.7741')
+  await page.locator('[data-sim-field="lng"]').fill('46.7386')
+}
+
+async function solverDrive(dir) {
+  const label = `${dir === 'rtl' ? 'RTL' : 'LTR'} solver`
+  const S = WORDS[dir].solver
+  const { context, page, errors } = await open(dir)
+  const flowAsks = []
+  page.on('request', (r) => /FlowGraph|xyflow/i.test(r.url()) && flowAsks.push(r.url()))
+  await page.goto(`${BASE}${SIM}`)
+  await fillCart(page)
+  await page.locator('[data-sim-run]').click()
+  await page.locator('[data-plan-cards]').waitFor({ timeout: 5000 })
+  await page.locator('[data-sim-tab="solver"]').click()
+  await page.locator('[data-solver-panel="funnel"]').waitFor({ timeout: 5000 })
+
+  // S1. the funnel
+  const steps = await page.locator('[data-solver-step]').evaluateAll((els) => els.map((e) => e.getAttribute('data-solver-step')))
+  const standing = await page.locator('[data-solver-standing]').evaluateAll((els) => els.map((e) => e.textContent.replace(/[⁦-⁩]/g, '').trim()))
+  check(`${label}: the funnel starts from every pair and gives each step the pairs standing`, steps.join() === 'ALL,1,5,CUT,11' && standing.join() === '64,61,47,47,19', `${steps.join()} | ${standing.join()}`)
+  check(
+    `${label}: the cut is said in words with its code; the pairs offered close the funnel`,
+    (await page.locator('[data-solver-cut="0"][data-solver-cut-code="OVER_PAIR_CAP"]').count()) === 1 &&
+      (await text(page.locator('[data-solver-offered]'))) === S.funnel.offered.replace('{{count}}', '19'),
+  )
+  const step5 = page.locator('[data-solver-step="5"]')
+  await step5.locator('summary').click()
+  const removed = await text(step5.locator('[data-solver-removed-pair="1203:DAWAA_NOW"]'))
+  check(
+    `${label}: a step opens to the pairs it removed, with the rule's words and figures`,
+    (await text(step5.locator('[data-solver-removed-count]'))) === '−14' && removed.includes('1203') && removed.includes(S.funnel.why.OUT_OF_REACH.replace('{{km}}', '6.8').replace('{{reachKm}}', '5.0')),
+    removed,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-solver-funnel.png`, fullPage: true })
+
+  // S2. the stock per line
+  await page.locator('[data-solver-diagram="stock"]').click()
+  await page.locator('[data-solver-panel="stock"]').waitFor()
+  const stores = await page.locator('[data-solver-stock-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-solver-stock-row')))
+  const cell = async (store, k) => text(page.locator(`[data-solver-stock-row="${store}"] [data-solver-stock-cell="${k}"]`))
+  check(
+    `${label}: line 1 is worked through every store the run read, in the record's figures`,
+    stores.join() === '1055,1090,1061' && (await cell('1061', 'afterDemand')) === '3' && (await cell('1061', 'confidence')) === '×0.80' && (await cell('1061', 'buffer')) === '−1' && (await cell('1061', 'offered')) === '1',
+    stores.join(),
+  )
+  check(`${label}: a store short of the quantity says by how much`, (await cell('1061', 'serves')) === S.stock.shortBy.replace('{{count}}', '1'))
+  await page.locator('[data-solver-line-pick="3"]').click()
+  const chosenOn3 = async () => page.locator('[data-solver-stock-chosen]').evaluateAll((els) => els.map((e) => e.getAttribute('data-solver-stock-row')))
+  check(`${label}: the store the Recommended plan sends line 3 from is marked`, (await chosenOn3()).join() === '1090')
+  await page.locator('[data-sim-plan-pick="CHEAPEST"]').click()
+  check(`${label}: picking Cheapest in the strip marks its store instead`, (await chosenOn3()).join() === '1055')
+  const storeCell = page.locator('[data-solver-stock-row="1055"] td .font-mono bdi').first()
+  check(`${label}: the store pair is an Ltr isolate that reads left to right`, (await isLtrIsolate(storeCell)) && (await readsLtr(storeCell)) === true)
+  await page.screenshot({ path: `${SHOTS}/${dir}-solver-stock.png`, fullPage: true })
+
+  // S3. the trade-off
+  await page.locator('[data-solver-diagram="trade"]').click()
+  await page.locator('[data-chart="scatter"] [data-scatter-point]').first().waitFor({ timeout: 5000 })
+  const pts = await page.locator('[data-scatter-point]').count()
+  const marked = await page.locator('[data-scatter-marked="true"]').count()
+  const shapes = new Set(await page.locator('[data-scatter-point]').evaluateAll((els) => els.map((e) => e.getAttribute('data-scatter-shape'))))
+  check(`${label}: the trade-off draws every kept plan once, the shown plans marked, shaped by deliveries`, pts === 12 && marked === 3 && shapes.size === 4, `points=${pts} marked=${marked} shapes=${[...shapes]}`)
+  await page.screenshot({ path: `${SHOTS}/${dir}-solver-trade.png`, fullPage: true })
+
+  // S4. what was tried
+  await page.locator('[data-solver-diagram="tried"]').click()
+  await page.locator('[data-solver-panel="tried"]').waitFor()
+  const counts = await text(page.locator('[data-solver-counts]'))
+  check(`${label}: the search counts as sent`, counts.includes('1,846') && counts.includes('212') && counts.includes('96'), counts)
+  check(`${label}: ten kept plans, and "show more" for the rest`, (await page.locator('[data-solver-tried-row]').count()) === 10 && (await page.locator('[data-solver-show-more="2"]').count()) === 1)
+  const lost = await text(page.locator('[data-solver-tried-row="2"] [data-solver-lost]'))
+  check(`${label}: what a plan lost by and the part that cost it most`, lost.includes('1.450') && lost.includes(S.tried.part.WAITING), lost)
+  await page.locator('[data-solver-show-more]').click()
+  check(`${label}: "show more" lists every kept plan`, (await page.locator('[data-solver-tried-row]').count()) === 12)
+  await page.locator('[data-solver-goal-pick="CHEAPEST"]').click()
+  check(`${label}: another goal ranks its own kept plans`, (await page.locator('[data-solver-tried-row]').count()) === 2 && (await page.locator('[data-solver-show-more]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-solver-tried.png`, fullPage: true })
+
+  // S5. the flow graph: its chunk only when it opens
+  check(`${label}: no request for the flow graph's chunk before it opens`, flowAsks.length === 0, flowAsks.join(' '))
+  await page.locator('[data-sim-plan-pick="BALANCED"]').click()
+  await page.locator('[data-solver-diagram="flow"]').click()
+  await page.locator('[data-solver-flow] .react-flow__node').first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(500)
+  check(`${label}: opening the graph asks for its chunk`, flowAsks.length > 0, `${flowAsks.length} request(s)`)
+  const nodes = await page.locator('.react-flow__node').count()
+  const animated = await page.locator('.react-flow__edge.animated').count()
+  const edges = await page.locator('.react-flow__edge').count()
+  check(`${label}: the lines, the pairs, the shipment and the plan as boxes; the chosen path animated`, nodes === 11 && edges === 16 && animated === 5, `nodes=${nodes} edges=${edges} animated=${animated}`)
+  check(
+    `${label}: the controls, the mini-map and the library's attribution`,
+    (await page.locator('.react-flow__controls').count()) === 1 && (await page.locator('.react-flow__minimap').count()) === 1 && (await page.locator('.react-flow__attribution').isVisible()),
+  )
+  const box = (id) => page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
+  const line1 = await box('line:1')
+  const planBox = await box('plan')
+  check(`${label}: the columns run from the reading start`, dir === 'rtl' ? line1.x > planBox.x : line1.x < planBox.x, `line=${Math.round(line1.x)} plan=${Math.round(planBox.x)}`)
+  const pair = page.locator('.react-flow__node[data-id="pair:1061:DAWAA_NOW"]')
+  await pair.scrollIntoViewIfNeeded()
+  const before = await pair.boundingBox()
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(before.x + before.width / 2 + 40, before.y + before.height / 2 + 60, { steps: 8 })
+  await page.mouse.up()
+  const after = await pair.boundingBox()
+  check(`${label}: a box drags`, Math.abs(after.y - before.y) > 20, `dy=${Math.round(after.y - before.y)}`)
+  await page.screenshot({ path: `${SHOTS}/${dir}-solver-flow.png`, fullPage: true })
+
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
+  await solverDrive('ltr')
+  await solverDrive('rtl')
 } catch (e) {
   console.error(e)
   results.push({ name: 'the drive ran to its end', pass: false })

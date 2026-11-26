@@ -235,5 +235,141 @@
     },
     "planLabel": "Plan shown in the tab",
     "pending": "This tab is not built yet. It comes with a later release of the simulator."
+  },
+  "solver": {
+    "title": "How the solver got there",
+    "diagramsLabel": "Solver diagrams",
+    "diagram": {
+      "funnel": "Funnel",
+      "stock": "Stock per line",
+      "trade": "Trade-off",
+      "tried": "What was tried",
+      "flow": "Flow graph"
+    },
+    "notFull": "This run's reply does not carry this part of the solver's working: it is sent at the full level only.",
+    "funnel": {
+      "all": "Every store and mode",
+      "step": "Step {{step}}",
+      "standing": "Pairs still standing",
+      "removed": "Pairs removed",
+      "removedHere": "Pairs removed here: {{count}}",
+      "listed": "Listed in the run's record: {{count}}",
+      "noneListed": "The run's record lists none of them by name.",
+      "cutNone": "No pair was cut: the run had no more pairs in reach than the cap of {{cap}}.",
+      "cutSome": "The pair cap of {{cap}} cut {{pairs}} pairs. Each is recorded under the code {{code}}.",
+      "cutSomeNoCap": "The pair cap cut {{pairs}} pairs. Each is recorded under the code {{code}}.",
+      "offered": "Pairs offered to the solver: {{count}}",
+      "hint": "Each bar is the store and mode pairs still standing after that step. Open a step to read every pair it removed and the rule's words.",
+      "rule": {
+        "MODE_OFF": "The mode is off for this weight set or channel",
+        "NOT_MODE_STORE": "The store does not have this mode",
+        "LEFT_OUT": "The weight set leaves the store out",
+        "NO_LOCATION": "The store or the customer has no point",
+        "OUT_OF_REACH": "Beyond the mode's reach",
+        "CLOSED_NOW": "The store is off duty now",
+        "CLOSES_BEFORE_PICK": "The store goes off duty before the pick ends",
+        "PAST_CUTOFF": "Past the carrier's cut-off",
+        "NO_SLOT": "No active slot after the pick ends",
+        "PRODUCT_RULE": "A product rule keeps the line off",
+        "NO_STOCK": "The line is above the offered stock",
+        "STOCK_NOT_READ": "The store's stock was not read",
+        "NO_STOCK_ROW": "The store holds no row for the item",
+        "PINNED_OUT": "A pin excludes it",
+        "OVER_PAIR_CAP": "Cut by the pair cap",
+        "unknown": "Removed by the rule {{code}}"
+      },
+      "why": {
+        "OUT_OF_REACH": "{{km}} km away; this mode reaches {{reachKm}} km.",
+        "NO_STOCK": "Line {{lineNo}}: {{offered}} offered, {{asked}} needed.",
+        "OVER_PAIR_CAP": "{{km}} km away, beyond the nearest pairs the cap keeps.",
+        "line": "Line {{lineNo}}."
+      }
+    },
+    "stock": {
+      "lineLabel": "Cart line",
+      "linePick": "Line {{lineNo}}: {{quantity}} of item {{item}}",
+      "store": "Store",
+      "onHand": "On hand",
+      "heldByOrders": "Held by orders",
+      "heldByDeliveries": "Held by deliveries",
+      "afterDemand": "After open demand",
+      "confidence": "Times confidence",
+      "buffer": "Less buffer",
+      "offered": "Offered",
+      "needs": "Needs {{quantity}}",
+      "expected": "Expected at pick time",
+      "canServe": "Can serve",
+      "shortBy": "Short by {{count}}",
+      "chosen": "Chosen",
+      "sap": "Book: {{count}}",
+      "none": "The run read no store for this line.",
+      "hint": "The solver plans on the offered stock: the figure after open demand, times the stock confidence and rounded, less the buffer. The expected stock at pick time is shown only. A store that can serve the line may still be out of reach: the funnel says so."
+    },
+    "trade": {
+      "aria": "Every kept plan, by time and money",
+      "x": "Minutes until the whole order has arrived",
+      "y": "Customer's fee and company's cost",
+      "minutes": "{{count}} min",
+      "tipBy": "Arrives by {{time}}",
+      "tipFee": "Customer's fee: {{amount}}",
+      "tipCost": "Company's cost: {{amount}}",
+      "tipDeliveries": "Deliveries: {{count}}",
+      "tried": "Tried, not shown",
+      "shape": {
+        "circle": "One delivery",
+        "square": "Two deliveries",
+        "triangle": "Three deliveries",
+        "diamond": "Pick-up"
+      },
+      "shownMark": "A plan shown",
+      "none": "The run kept no plan with its time and money.",
+      "hint": "Lower and sooner is better for the customer. The plans shown sit on the low, early edge; a plan both later and dearer than another lost to it."
+    },
+    "tried": {
+      "goalLabel": "Goal to rank by",
+      "counts": "Whole plans checked: {{checked}}. Branches cut by the shipment cap: {{cap}}; for mixing pick-up with delivery: {{mixing}}; by pins: {{pins}}.",
+      "rank": "#",
+      "plan": "Plan",
+      "deliveries": "Deliveries",
+      "promise": "Promise",
+      "fee": "Fee",
+      "companyCost": "Company's cost",
+      "waiting": "Waiting",
+      "balanced": "Balanced total",
+      "lostBy": "Lost to the winner by",
+      "winner": "The goal's winner",
+      "lostMostly": "{{amount}}, mostly on {{part}}",
+      "showMore": "Show {{count}} more",
+      "showFewer": "Show the first ten",
+      "none": "The search kept no plan for this goal.",
+      "part": {
+        "COMPANY_COST": "the company's cost",
+        "FEES": "the customer's fees",
+        "WAITING": "waiting",
+        "COVER": "the cover cost",
+        "SPLIT": "the split penalty",
+        "STORE_RECORD": "the store record",
+        "unknown": "{{part}}"
+      }
+    },
+    "flow": {
+      "loading": "Loading the flow graph…",
+      "failed": "The flow graph could not be loaded. Try the tab again.",
+      "aria": "Cart lines, the pairs that can serve them, the shipments of the selected plan and the plan",
+      "columns": {
+        "line": "Cart lines",
+        "pair": "Pairs that can serve a line ({{serving}} of {{candidates}})",
+        "shipment": "Shipments of the selected plan",
+        "plan": "The plan"
+      },
+      "lineBox": "Line {{lineNo}}: {{quantity}} of {{item}}",
+      "shipmentBox": "Shipment {{no}}: {{pair}}, by {{time}}, {{cost}}",
+      "planBox": "{{label}}: balanced total {{amount}}",
+      "planBoxNoSum": "{{label}}",
+      "legendChosen": "On the selected plan's path",
+      "legendCould": "Could have served",
+      "none": "No plan to draw.",
+      "hint": "Drag a box, scroll or pinch to zoom, drag the ground to pan, or use the buttons and the mini-map."
+    }
   }
 }

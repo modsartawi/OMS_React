@@ -281,10 +281,10 @@ export interface AdviseReply {
   refusedPins: unknown[]
   /** On `NO_PLAN_POSSIBLE`: a reason for every line. */
   missingLines?: AdviseMissingLine[]
-  inputs?: unknown
-  filterSteps?: unknown[]
+  inputs?: AdviseInputs
+  filterSteps?: AdviseFilterStep[]
   used?: unknown[]
-  search?: unknown
+  search?: AdviseSearch
   customerPoint?: AdvisePoint | null
   customerPointWithheld?: 'NO_GRANT' | 'NOT_A_REPLAY' | 'NOT_FULL_LEVEL' | string | null
 }
@@ -296,4 +296,133 @@ export interface AdviseReply {
  */
 export interface SimulatorWorkbench {
   maps?: { key: string; mapId?: string } | null
+}
+
+// ── The middle and full levels' parts the solver tab reads (ticket 966; 4281 decisions 26–27, the run record 4242) ──
+
+/**
+ * A pair a filter step removed (4281's worked example, middle level): the store and the mode, and the figures the rule
+ * judged on — the distance and the reach for `OUT_OF_REACH`, the line, the offered stock and the quantity asked for a
+ * stock step. Which figures come depends on the code.
+ */
+export interface AdviseRemovedPair {
+  store: string
+  mode: DeliveryMode | string
+  lineNo?: number
+  km?: number
+  kmKind?: 'ROAD' | 'STRAIGHT_LINE' | string
+  reachKm?: number
+  offered?: number
+  asked?: number
+  stockClass?: string
+}
+
+/**
+ * One filter step, or the cut (`step: "CUT"`, code `OVER_PAIR_CAP`, with the `cap`), in the order the run took them
+ * (spec 4354 §4): the pairs standing before and after, and each pair removed with its code and figures. The full level
+ * lists every store out of reach, each with its km.
+ */
+export interface AdviseFilterStep {
+  step: number | 'CUT'
+  code: string
+  before: number
+  after: number
+  /** On the cut only: the most pairs a run keeps (a weight-set value, 100). */
+  cap?: number
+  removed: AdviseRemovedPair[]
+}
+
+/** Per store and line (the middle level, `inputs.storeLines[]`): the stock working the solver planned on (spec 4354 §5). */
+export interface AdviseStoreLine {
+  store: string
+  lineNo: number
+  tillStock: number
+  sapStock: number
+  heldByOrders: number
+  heldByDeliveries: number
+  /** The stock read's figure after open demand, floored at zero: the starting figure. */
+  atp: number
+  buffer: number
+  confidence: number
+  /** That figure × the confidence, rounded, less the buffer, never below zero. The solver plans on this. */
+  offered: number
+  /** Shown only; plans nothing. */
+  expectedAtPickEnd: number
+  stockClass: string
+  row: number
+  cost: number
+}
+
+/** A store the run read (the middle level, `inputs.stores[]`). Only the fields the screens read so far are typed. */
+export interface AdviseInputStore {
+  store: string
+  name: string
+  point?: AdvisePoint | null
+  km?: number | null
+  kmKind?: string | null
+  deliveriesWaiting?: number
+}
+
+/** The middle level's inputs. The parts no screen reads yet stay untyped. */
+export interface AdviseInputs {
+  stores?: AdviseInputStore[]
+  storeLines?: AdviseStoreLine[]
+  [part: string]: unknown
+}
+
+/** One of a kept plan's shipments: the pair and the lines it carries. */
+export interface AdviseKeptShipment {
+  store: string
+  mode: DeliveryMode | string
+  lines: number[]
+}
+
+/**
+ * One of the best plans kept for a goal (the full level, `search.kept[]`; 50 per goal, a system setting): its rank,
+ * its balanced total (`sum`), what it lost by against the goal's winner and the part that cost it most.
+ * The run record (BackOffice 4242) says each kept plan also has its promise, fee, company's cost and price of waiting;
+ * 4281's example shows none of them, so those four names are ours.
+ */
+export interface AdviseKeptPlan {
+  goal: PlanGoal
+  rank: number
+  sum: number
+  lostBy: number
+  /** A balanced-sum part (`WAITING` in 4281's example). Absent on the goal's winner. */
+  lostMostOn?: string | null
+  shipments: AdviseKeptShipment[]
+  /** PROVISIONAL (spec 4354: not specified) — the last shipment's promise time, `yyyy-MM-dd HH:mm:ss`. */
+  promiseBy?: string
+  /** PROVISIONAL (spec 4354: not specified) — the customer's fee for the whole plan. */
+  fee?: number
+  /** PROVISIONAL (spec 4354: not specified) — the company's cost for the whole plan. */
+  companyCost?: number
+  /** PROVISIONAL (spec 4354: not specified) — the price of waiting. */
+  waiting?: number
+}
+
+/** "Why not" for a pair and a goal: the best plan through it and the difference part by part, or the step that removed it. */
+export interface AdviseWhyNot {
+  store: string
+  mode: DeliveryMode | string
+  goal?: PlanGoal
+  sum?: number
+  difference?: { part: string; amount: number }[]
+  removedAt?: number | 'CUT'
+  code?: string
+}
+
+/** The search counts: plans checked; branches cut by the shipment cap, by mixing pick-up with delivery and by pins. */
+export interface AdviseSearchCounts {
+  plansChecked: number
+  cutByShipmentCap: number
+  cutByMixing: number
+  cutByPins: number
+}
+
+/** The full level's search (4281 decision 27). */
+export interface AdviseSearch {
+  counts: AdviseSearchCounts
+  kept: AdviseKeptPlan[]
+  whyNot: AdviseWhyNot[]
 }

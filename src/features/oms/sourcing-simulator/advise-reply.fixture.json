@@ -140,13 +140,24 @@
         "deliveriesWaiting": 2,
         "madeReady": { "SLOT": { "usual": 14, "cautious": 23, "source": "STORES_OWN" } },
         "record": { "SLOT": { "late": { "rate": 0.031, "likeStores": 0.038, "count": 412, "source": "STEADIED" } } }
-      }
+      },
+      { "store": "1090", "name": "Store 1090", "point": { "lat": 24.7612, "lng": 46.7102 }, "km": 4.1, "kmKind": "ROAD", "deliveriesWaiting": 1 },
+      { "store": "1061", "name": "Store 1061", "point": { "lat": 24.7488, "lng": 46.7521 }, "km": 3.4, "kmKind": "ROAD", "deliveriesWaiting": 3 }
     ],
     "storeLines": [
-      { "store": "1055", "lineNo": 3, "tillStock": 0, "sapStock": 2, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 0, "buffer": 0, "confidence": 1.0, "offered": 0, "expectedAtPickEnd": 0, "stockClass": "BOOK_AT_ZERO", "row": 0.22, "cost": 6.6 }
+      { "store": "1055", "lineNo": 3, "tillStock": 0, "sapStock": 2, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 0, "buffer": 0, "confidence": 1.0, "offered": 0, "expectedAtPickEnd": 0, "stockClass": "BOOK_AT_ZERO", "row": 0.22, "cost": 6.6 },
+      { "store": "1055", "lineNo": 1, "tillStock": 4, "sapStock": 4, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 4, "buffer": 0, "confidence": 1.0, "offered": 4, "expectedAtPickEnd": 4, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1055", "lineNo": 2, "tillStock": 2, "sapStock": 2, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 2, "buffer": 0, "confidence": 1.0, "offered": 2, "expectedAtPickEnd": 1, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1090", "lineNo": 1, "tillStock": 6, "sapStock": 6, "heldByOrders": 1, "heldByDeliveries": 1, "atp": 4, "buffer": 1, "confidence": 1.0, "offered": 3, "expectedAtPickEnd": 3, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1090", "lineNo": 2, "tillStock": 3, "sapStock": 3, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 3, "buffer": 0, "confidence": 1.0, "offered": 3, "expectedAtPickEnd": 2, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1090", "lineNo": 3, "tillStock": 2, "sapStock": 2, "heldByOrders": 0, "heldByDeliveries": 1, "atp": 1, "buffer": 0, "confidence": 1.0, "offered": 1, "expectedAtPickEnd": 1, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1061", "lineNo": 1, "tillStock": 5, "sapStock": 5, "heldByOrders": 2, "heldByDeliveries": 0, "atp": 3, "buffer": 1, "confidence": 0.8, "offered": 1, "expectedAtPickEnd": 2, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1061", "lineNo": 2, "tillStock": 1, "sapStock": 1, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 1, "buffer": 0, "confidence": 0.8, "offered": 1, "expectedAtPickEnd": 1, "stockClass": "COVERED", "row": 0.0, "cost": 0.0 },
+      { "store": "1061", "lineNo": 3, "tillStock": 0, "sapStock": 0, "heldByOrders": 0, "heldByDeliveries": 0, "atp": 0, "buffer": 0, "confidence": 0.8, "offered": 0, "expectedAtPickEnd": 0, "stockClass": "BOOK_AT_ZERO", "row": 0.22, "cost": 6.6 }
     ]
   },
   "filterSteps": [
+    { "step": 1, "code": "MODE_OFF", "before": 64, "after": 61, "removed": [{ "store": "1055", "mode": "CARRIER_SAME_DAY" }, { "store": "1061", "mode": "CARRIER_SAME_DAY" }, { "store": "1090", "mode": "CARRIER_SAME_DAY" }] },
     { "step": 5, "code": "OUT_OF_REACH", "before": 61, "after": 47, "removed": [{ "store": "1203", "mode": "DAWAA_NOW", "km": 6.8, "kmKind": "ROAD", "reachKm": 5.0 }] },
     { "step": "CUT", "code": "OVER_PAIR_CAP", "before": 47, "after": 47, "cap": 100, "removed": [] },
     { "step": 11, "code": "NO_STOCK", "before": 47, "after": 19, "removed": [{ "store": "1061", "mode": "PICK_UP", "lineNo": 3, "offered": 0, "asked": 1, "stockClass": "BOOK_AT_ZERO" }] }
@@ -157,9 +168,30 @@
   ],
   "search": {
     "counts": { "plansChecked": 1846, "cutByShipmentCap": 212, "cutByMixing": 96, "cutByPins": 0 },
-    "kept": [{ "goal": "BALANCED", "rank": 2, "sum": 41.87, "lostBy": 1.45, "lostMostOn": "WAITING", "shipments": [{ "store": "1055", "mode": "SLOT", "lines": [1, 2, 3] }] }],
+    "kept": [
+      { "goal": "BALANCED", "rank": 1, "sum": 40.42, "lostBy": 0.0, "lostMostOn": null, "shipments": [{ "store": "1090", "mode": "DAWAA_NOW", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 20:35:00", "fee": 16.0, "companyCost": 17.42, "waiting": 7.0 },
+      { "goal": "BALANCED", "rank": 2, "sum": 41.87, "lostBy": 1.45, "lostMostOn": "WAITING", "shipments": [{ "store": "1055", "mode": "SLOT", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 21:59:00", "fee": 12.0, "companyCost": 17.4, "waiting": 9.8 },
+      { "goal": "BALANCED", "rank": 3, "sum": 43.1, "lostBy": 2.68, "lostMostOn": "COMPANY_COST", "shipments": [{ "store": "1061", "mode": "DAWAA_NOW", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 20:41:00", "fee": 16.0, "companyCost": 19.32, "waiting": 7.78 },
+      { "goal": "BALANCED", "rank": 4, "sum": 44.05, "lostBy": 3.63, "lostMostOn": "WAITING", "shipments": [{ "store": "1090", "mode": "SLOT", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 12.0, "companyCost": 18.25, "waiting": 13.8 },
+      { "goal": "BALANCED", "rank": 5, "sum": 46.2, "lostBy": 5.78, "lostMostOn": "SPLIT", "shipments": [{ "store": "1090", "mode": "DAWAA_NOW", "lines": [1, 2] }, { "store": "1055", "mode": "SLOT", "lines": [3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 16.0, "companyCost": 18.9, "waiting": 7.3 },
+      { "goal": "BALANCED", "rank": 6, "sum": 47.31, "lostBy": 6.89, "lostMostOn": "WAITING", "shipments": [{ "store": "1090", "mode": "PICK_UP", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 20:15:00", "fee": 0.0, "companyCost": 2.31, "waiting": 45.0 },
+      { "goal": "BALANCED", "rank": 7, "sum": 48.6, "lostBy": 8.18, "lostMostOn": "SPLIT", "shipments": [{ "store": "1061", "mode": "DAWAA_NOW", "lines": [1] }, { "store": "1090", "mode": "DAWAA_NOW", "lines": [2, 3] }], "promiseBy": "2026-11-26 20:41:00", "fee": 16.0, "companyCost": 22.1, "waiting": 7.5 },
+      { "goal": "BALANCED", "rank": 8, "sum": 49.95, "lostBy": 9.53, "lostMostOn": "COVER", "shipments": [{ "store": "1055", "mode": "DAWAA_NOW", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 20:52:00", "fee": 16.0, "companyCost": 18.6, "waiting": 8.75 },
+      { "goal": "BALANCED", "rank": 9, "sum": 51.35, "lostBy": 10.93, "lostMostOn": "COVER", "shipments": [{ "store": "1055", "mode": "SLOT", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 12.0, "companyCost": 22.95, "waiting": 9.8 },
+      { "goal": "BALANCED", "rank": 10, "sum": 52.4, "lostBy": 11.98, "lostMostOn": "SPLIT", "shipments": [{ "store": "1055", "mode": "SLOT", "lines": [1, 2] }, { "store": "1090", "mode": "DAWAA_NOW", "lines": [3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 16.0, "companyCost": 21.4, "waiting": 9.0 },
+      { "goal": "BALANCED", "rank": 11, "sum": 55.8, "lostBy": 15.38, "lostMostOn": "SPLIT", "shipments": [{ "store": "1061", "mode": "DAWAA_NOW", "lines": [1, 2] }, { "store": "1090", "mode": "SLOT", "lines": [3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 16.0, "companyCost": 23.0, "waiting": 9.8 },
+      { "goal": "BALANCED", "rank": 12, "sum": 61.2, "lostBy": 20.78, "lostMostOn": "SPLIT", "shipments": [{ "store": "1061", "mode": "DAWAA_NOW", "lines": [1] }, { "store": "1055", "mode": "SLOT", "lines": [2] }, { "store": "1090", "mode": "DAWAA_NOW", "lines": [3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 16.0, "companyCost": 26.4, "waiting": 9.8 },
+      { "goal": "CHEAPEST", "rank": 1, "sum": 51.35, "lostBy": 0.0, "lostMostOn": null, "shipments": [{ "store": "1055", "mode": "SLOT", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 12.0, "companyCost": 22.95, "waiting": 9.8 },
+      { "goal": "CHEAPEST", "rank": 2, "sum": 44.05, "lostBy": 0.3, "lostMostOn": "COMPANY_COST", "shipments": [{ "store": "1090", "mode": "SLOT", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 23:59:00", "fee": 12.0, "companyCost": 18.25, "waiting": 13.8 },
+      { "goal": "PICK_UP", "rank": 1, "sum": 47.31, "lostBy": 0.0, "lostMostOn": null, "shipments": [{ "store": "1090", "mode": "PICK_UP", "lines": [1, 2, 3] }], "promiseBy": "2026-11-26 20:15:00", "fee": 0.0, "companyCost": 2.31, "waiting": 45.0 }
+    ],
     "whyNot": [
       { "store": "1061", "mode": "DAWAA_NOW", "goal": "BALANCED", "sum": 43.1, "difference": [{ "part": "STORE_RECORD", "amount": 1.9 }, { "part": "WAITING", "amount": 0.78 }] },
+      { "store": "1055", "mode": "SLOT", "goal": "BALANCED", "sum": 41.87, "difference": [{ "part": "WAITING", "amount": 2.8 }, { "part": "FEES", "amount": -4.0 }] },
+      { "store": "1090", "mode": "SLOT", "goal": "BALANCED", "sum": 44.05, "difference": [{ "part": "WAITING", "amount": 6.8 }, { "part": "FEES", "amount": -4.0 }] },
+      { "store": "1090", "mode": "PICK_UP", "goal": "BALANCED", "sum": 47.31, "difference": [{ "part": "WAITING", "amount": 38.0 }, { "part": "FEES", "amount": -16.0 }] },
+      { "store": "1055", "mode": "DAWAA_NOW", "goal": "BALANCED", "sum": 49.95, "difference": [{ "part": "COVER", "amount": 6.6 }] },
+      { "store": "1090", "mode": "DAWAA_NOW", "goal": "BALANCED", "sum": 40.42, "difference": [] },
       { "store": "1203", "mode": "DAWAA_NOW", "removedAt": 5, "code": "OUT_OF_REACH" }
     ]
   },

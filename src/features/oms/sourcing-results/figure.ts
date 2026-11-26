@@ -6,6 +6,7 @@
  * `promise:<MODE>[:<GROUP>]`, `mark:<MARK>`, `runNotEnded`, `notRun`. Ticket 972 adds its tabs' figures.
  */
 import type { ResultsFigure } from '@/core/models/sourcing-results'
+import { encodeReadingFigure } from './reading-figure'
 
 export function encodeFigure(f: ResultsFigure): string {
   switch (f.kind) {
@@ -20,5 +21,7 @@ export function encodeFigure(f: ResultsFigure): string {
     case 'runNotEnded':
     case 'notRun':
       return f.kind
+    default:
+      return encodeReadingFigure(f)
   }
 }

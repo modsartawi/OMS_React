@@ -47,7 +47,8 @@ const STATE_PILL: Record<PromiseState, string> = {
   target: `${PILL} border-border bg-muted text-muted-foreground`,
 }
 
-function PromiseCheck({ rows }: { rows: ResultsPromiseRow[] }) {
+/** Also drawn under "Set beside it" (ticket 973), where its counts are plain: the drawer reads the candidate set's orders. */
+export function PromiseCheck({ rows, drill = true }: { rows: ResultsPromiseRow[]; drill?: boolean }) {
   const { t } = useTranslation('sourcing-results')
   const panel = promisePanel(rows)
   const name = (r: PromisePanelRow) => (r.channelGroup ? t(`promise.pickUpGroups.${r.channelGroup}`) : t(`modes.${r.mode}`))
@@ -73,7 +74,7 @@ function PromiseCheck({ rows }: { rows: ResultsPromiseRow[] }) {
           <div className="text-xs text-muted-foreground">
             {r.mode === 'PICK_UP' ? t('promise.what.PICK_UP', { minutes: fsi(r.targetMinutes ?? '') }) : t(`promise.what.${r.mode}`)}
             {' · '}
-            <Drill figure={{ kind: 'promise', mode: r.mode, channelGroup: r.channelGroup }} count={r.count} />{' '}
+            {drill ? <Drill figure={{ kind: 'promise', mode: r.mode, channelGroup: r.channelGroup }} count={r.count} /> : <Ltr>{countText(r.count)}</Ltr>}{' '}
             {r.mode === 'PICK_UP' ? t('promise.countPickUp') : t('promise.countDelivery')}
           </div>
         </div>

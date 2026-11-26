@@ -2,7 +2,9 @@ import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ResultsQuery, ResultsSummaryReply } from '@/core/models/sourcing-results'
 import Chip from '@/core/ui/Chip'
+import BarTab from './BarTab'
 import { RESULTS_TABS, type ResultsTab } from './tabs'
+import TrialsTab from './TrialsTab'
 
 /** What every tab's panel is handed: the filters as the door takes them, and the summary already read. */
 export interface ResultsTabProps {
@@ -14,7 +16,10 @@ export interface ResultsTabProps {
  * Each tab's panel, by the ticket that builds it: 972 registers `breakdowns`, `outside-rules`, `checks`,
  * `later-slots` and `not-run`; 973 registers `trials` and `phase-2-bar`. A panel opens its figures with `<Drill />`.
  */
-const TAB_PANELS: Partial<Record<ResultsTab, ComponentType<ResultsTabProps>>> = {}
+const TAB_PANELS: Partial<Record<ResultsTab, ComponentType<ResultsTabProps>>> = {
+  trials: TrialsTab,
+  'phase-2-bar': BarTab,
+}
 
 /**
  * The seven tabs under "Where the plans differ" (ticket 971, spec 4354 §17): a tablist and the ONE open panel. Tab ids

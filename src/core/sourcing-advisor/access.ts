@@ -8,3 +8,11 @@ import type { Permissions } from '@/core/permissions'
 
 /** `SourcingAdvisor:01` (deliberately Create, not 03) — every reader takes THIS predicate. */
 export const canViewSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisor:01')
+
+/**
+ * The grant to save weight sets and start trials (spec 4354 §18–§19, BO 4283 decision 4: "no new grant"). The results
+ * page's Trials tab starts a trial under it, and its Phase 2 bar tab writes marks, rulings and the accepted reading
+ * under it until a grant is named for those.
+ * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorSave:01`; BO 4360 seeds the grant unnamed.
+ */
+export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdvisorSave:01')

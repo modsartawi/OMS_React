@@ -83,6 +83,9 @@ export const SCREEN_KEYS = [
   'ServingList:03',
   'ServingList:06',
   'SourcingAdvisor:01',
+  // Save weight sets and start trials (BackOffice spec 4354 §19: "the names are the build's"; seeded by BO 4360).
+  // PROVISIONAL (spec 4354: not specified) — the key. Reconcile with BO 4360 as seeded.
+  'SourcingAdvisorSave:01',
   'StoreStage:02',
   'StoreStage:03',
   'StoreCountClose:02',

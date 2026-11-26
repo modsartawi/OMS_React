@@ -40,6 +40,258 @@
     },
     "read": "Orders landed from {{from}} to {{to}}"
   },
+  "beside": {
+    "banner": "<b>Set beside it:</b> <set>{{set}}</set>. Read beside the candidate set as two trials over the same orders, <period/>. <leftOut/> orders refused for either set are left out of both.",
+    "bannerTrialSet": "<b>Set beside it, a trial set:</b> <set>{{set}}</set>. It holds a what-if on planner data, so it can be tried and never made the candidate set. Read beside the candidate set as two trials over the same orders, <period/>. <leftOut/> orders refused for either set are left out of both.",
+    "clear": "Remove the set beside it",
+    "barSentence": "<b>Under the set beside it</b>, of <orders/> orders compared, routing chose its stores for <stores/>, and the whole order shipped as it planned for <plan/>.",
+    "barLabel": "Under the set beside it: same stores {{stores}}, same plan {{plan}}",
+    "differTitle": "The plans that differ between the two sets",
+    "differ": "<count/> plans differ (<percent/> of <orders/> orders).",
+    "estimate": "Between the two sets, the set beside it {{says}} for the middle order; half of the orders fall between <low/> and <high/> minutes. An estimate, never tried.",
+    "noEstimate": "No plan differs, so there is no estimate between the two sets.",
+    "shipments": "Shipments: <candidate/> under the candidate set, <beside/> under the set beside it.",
+    "listFee": "The customer's list fee under the set beside it: lower on <lower/> of orders, the same on <same/>, higher on <higher/>.",
+    "promiseTitle": "Promise check: the real deliveries, as this set would have promised them",
+    "note": "No riyal figure is summed while any rate in it is assumed. The page sets the two sets side by side and does not say which was better."
+  },
+  "trials": {
+    "loading": "Reading the trials…",
+    "failedTitle": "The trials could not be read",
+    "failed": "Something went wrong reading the trials. Try again in a moment.",
+    "lede": "A trial solves one saved version over every stored comparison run of a period, reading nothing live and writing nothing into a run. It refuses an order it cannot answer honestly and counts the reason. One trial runs at a time, and a repeat is answered from the kept trial.",
+    "empty": "No trial has been run yet.",
+    "queue_one": "One trial is running; {{n}} waits behind it.",
+    "queue_other": "One trial is running; {{n}} wait behind it.",
+    "queueIdle": "No trial is running.",
+    "version": "version {{version}}",
+    "trialSet": "trial set",
+    "days_one": "({{n}} day)",
+    "days_other": "({{n}} days)",
+    "show": "Show the result",
+    "openBeside": "Open with this set beside it",
+    "cols": {
+      "set": "Set",
+      "period": "Period",
+      "state": "State",
+      "started": "Started",
+      "solved": "Solved",
+      "refused": "Refused",
+      "failed": "Failed",
+      "actions": "Actions"
+    },
+    "states": {
+      "DONE": "done",
+      "RUNNING": "running",
+      "WAITING": "waiting",
+      "WAITING_AT": "waiting, {{place}} in line",
+      "FAILED": "stopped"
+    },
+    "form": {
+      "title": "Start a trial",
+      "noGrant": "Starting a trial needs the grant that saves weight sets. You can read every trial.",
+      "version": "Saved version",
+      "versionHint": "A saved version by name and number, never a draft. A trial set is tried under its banner.",
+      "chooseVersion": "Choose a version",
+      "from": "First day",
+      "to": "Last day",
+      "days": "<n/> whole local days, of at most <max/>.",
+      "limits": "Whole local days, at most <max/>, from <from/> to yesterday.",
+      "problems": {
+        "NO_VERSION": "Choose a saved version.",
+        "NO_PERIOD": "Give the first and the last day.",
+        "ENDS_BEFORE_START": "The last day comes before the first.",
+        "BEFORE_KEPT": "The period starts before the oldest run that is still kept.",
+        "NOT_ENDED": "The period must end by yesterday: a trial reads whole days that have ended.",
+        "TOO_LONG": "A trial covers at most {{max}} days."
+      },
+      "start": "Start the trial",
+      "refusedTitle": "The trial was not started",
+      "refused": "Something went wrong starting the trial. Try again in a moment.",
+      "fromKept": "This version was tried over this period before: the kept trial answers.",
+      "waiting": "The trial waits its turn, {{place}} in line.",
+      "started": "The trial has started.",
+      "note": "Every order of the period with a stored comparison run is tried. Nobody picks orders by hand."
+    },
+    "result": {
+      "title": "<set>{{set}}</set>, over <period/>",
+      "trialSetBanner": "A trial set: it holds a what-if on planner data, so it can be tried and never made the candidate set.",
+      "notDone": {
+        "RUNNING": "Still running: the counts below are its progress, not its result.",
+        "WAITING": "Waiting its turn: nothing is solved yet.",
+        "FAILED": "This trial stopped before it ended. Its counts are where it stopped."
+      },
+      "counts": {
+        "orders": "Orders in the period",
+        "solved": "Solved",
+        "refused": "Refused",
+        "failed": "Failed",
+        "leftOut": "Left out: the run ended with no plan"
+      },
+      "mismatch": "Solved, refused, failed and left out do not add up to the orders of the period. Every figure is shown as the server sent it.",
+      "refusedTitle": "Refused, by reason",
+      "noneRefused": "No order was refused.",
+      "refusedNote": "A refused order is never solved on a narrower read. An order refused here is left out when this set is read beside another."
+    },
+    "refusals": {
+      "MODE_SWITCHED_ON": "A mode switched on that the run never read",
+      "REACH_WIDER_THAN_READ": "A reach wider than was read",
+      "STORE_ADDED_TO_MODE": "A store added to a mode",
+      "LONGER_WAITING_CAP": "A longer cap on a waiting delivery's age",
+      "HIGHER_PAIR_CAP_ON_CUT_RUN": "A higher pair cap on a run whose pairs were cut",
+      "STORE_NEVER_READ": "A store the run never read",
+      "PRODUCT_RULE_SWITCHED_ON": "A product rule row switched on"
+    },
+    "factors": {
+      "title": "Factor table",
+      "lede": "Each cost factor switched off in turn, over this trial's version and period: how many plans it changes. How many plans a factor changes says nothing about whether the changes are right.",
+      "loading": "Reading the factor table…",
+      "failedTitle": "The factor table could not be read",
+      "failed": "Something went wrong reading the factor table. Try again in a moment.",
+      "states": {
+        "NOT_STARTED": "The factor table has not been run for this trial.",
+        "WAITING": "The factor table waits its turn.",
+        "RUNNING": "The factor table is running.",
+        "FAILED": "The factor table stopped before it ended.",
+        "DONE": "Done."
+      },
+      "start": "Run the factor table",
+      "cols": {
+        "factor": "Factor",
+        "changed": "Plans changed",
+        "kinds": "How they changed"
+      },
+      "measure": "The store record: {{measure}}",
+      "measures": {
+        "LATE": "late",
+        "RETURNED": "returned",
+        "CANCELLED": "cancelled",
+        "PICK_UP_CANCELLED": "pick-up cancelled"
+      },
+      "names": {
+        "SLOT_LOAD": "The slot load cost",
+        "SLOT_TIMING": "The slot timing cost",
+        "STORE_RECORD": "The store record",
+        "COVER": "The cover cost",
+        "SHELF_CHANCE": "The shelf chance",
+        "STORE_OWN_PART": "The store's own part",
+        "SHORT_FIGURE": "The short-figure factor",
+        "NAMED_STORE_STAYS": "The named store stays on a short figure",
+        "COUNT_FACTOR": "The count factor"
+      },
+      "switchedOn": "(switched on, since it is off)",
+      "none": "changes no plan",
+      "plans": "Of <n/> plans solved in the trial."
+    }
+  },
+  "bar": {
+    "lede": "What the comparison must show before a second spec may let a channel obey a plan. Read over 28 whole local days on one unchanged candidate version, per channel group. The page says what is met; the owner judges, and a met bar starts nothing by itself.",
+    "perThousand": "{{n}} in 1,000 runs",
+    "minutes": "{{n}} min",
+    "picker": {
+      "from": "First of the 28 days",
+      "period": "The 28 days: <range/>",
+      "channel": "Channel group",
+      "runs": "Runs made by",
+      "runsBy": { "OMS": "OMS", "CHANNEL": "The channel" }
+    },
+    "loading": "Reading the phase 2 bar…",
+    "failedTitle": "The phase 2 bar could not be read",
+    "failed": "Something went wrong reading the phase 2 bar. Try again in a moment.",
+    "tally": "Over <range/>: <met/> limits met, <notMet/> not met, <cannot/> that cannot be read yet.",
+    "candidate": "Candidate set: {{set}}",
+    "periodCauses": "This period cannot be read yet:",
+    "causes": {
+      "DAY_BEFORE_FLAGS_OFF": "The period holds a day before the reserving flags went off.",
+      "RAMADAN_OR_EID": "The period holds a day of Ramadan or the week of Eid.",
+      "CANDIDATE_CHANGED": "The candidate set changed inside the period.",
+      "SHARE_UNDER_100": "The worker ran at a share under 100%.",
+      "READ_REACH_OFF": "The read reach was off.",
+      "BEFORE_31ST_DAY": "The period starts before the 31st whole day on which the worker and the reason fix were both live.",
+      "WAITS_FOR_FINANCE_RATES": "The whole plan's step waits for finance's rates, the fee rules, the Dawaa Now range and the mode's own failure cost.",
+      "PLAN_CHECK_NOT_RUN": "The plan check has not read every plan of the period.",
+      "SPLIT_CHECK_NOT_DONE": "The split check has not been done on this period."
+    },
+    "whyFigure": "Not kept: {{part}} reads {{value}}.",
+    "whyUnsaid": "The server gave no reason for this state.",
+    "whyUnsent": "The reading did not include this limit, so it is not shown as met.",
+    "states": {
+      "MET": "met",
+      "NOT_MET": "not met",
+      "CANNOT_READ": "cannot be read yet"
+    },
+    "ofShipments": "of {{n}} shipments",
+    "limits": {
+      "STOP_FINDINGS": { "name": "Stop findings", "rule": "None: no plan breaks a rule, makes a promise it could not keep, or fails to add up." },
+      "ORDERS_RUN": { "name": "Orders run", "rule": "At least 95% of the orders that landed with a delivery have a run, and the door's error or \"the fallback answered\" on no more than 1 run in 1,000." },
+      "DAWAA_NOW_PROMISE": { "name": "Dawaa Now's promise check", "rule": "Met by 85% to 95% over the 28 days, and in each half." },
+      "DISTANCE_BANDS": { "name": "Dawaa Now's promise by distance band", "rule": "No band with 300 matching shipments or more under 80%." },
+      "SHELF_CHANCE": { "name": "The shelf chance table", "rule": "No figure left against its evidence without a written ruling." },
+      "SPLIT_CHECK": { "name": "The split check", "rule": "Done on the period, with splits of no named cause on no more than 1% of the orders compared." },
+      "LARGEST_DIFFERENCES": { "name": "The largest differences", "rule": "The 30 orders with the largest estimate each way, in each view, opened and marked by a person, and none left \"a wrong rule\"." },
+      "OUTSIDE_RULES": { "name": "Outside the advisor's rules", "rule": "Every reason on more than 1% of the orders compared has a written ruling." },
+      "RATES": { "name": "Rates", "rule": "By step: the stores only, if halving and doubling every assumed rate changes the stores of no more than 1% of orders; the whole plan waits for finance's rates." }
+    },
+    "parts": {
+      "STOP_FINDINGS": { "FINDINGS": "stop findings" },
+      "ORDERS_RUN": { "RUN_SHARE": "orders with a run", "ERROR_OR_FALLBACK": "error or fallback" },
+      "DAWAA_NOW_PROMISE": { "WHOLE": "the 28 days", "FIRST_HALF": "the first half", "SECOND_HALF": "the second half" },
+      "DISTANCE_BANDS": { "BAND_0_2": "0 to 2 km", "BAND_2_4": "2 to 4 km", "BAND_4_6": "4 to 6 km", "BAND_6_PLUS": "6 km or more" },
+      "SHELF_CHANCE": { "AGAINST_EVIDENCE_NO_RULING": "figures against their evidence with no ruling" },
+      "SPLIT_CHECK": { "NO_NAMED_CAUSE": "splits with no named cause" },
+      "LARGEST_DIFFERENCES": { "MARKED": "opened and marked", "WRONG_RULE": "marked \"a wrong rule\"" },
+      "OUTSIDE_RULES": { "REASONS_NO_RULING": "reasons over 1% with no ruling" },
+      "RATES": { "STORES_SWING": "stores changed by halving and doubling assumed rates" }
+    },
+    "readingsTitle": "Read, and never a limit",
+    "readingsLede": "These are read beside the bar and can fail nothing.",
+    "readings": {
+      "SAME_PLAN": { "name": "The share \"same plan\"", "parts": { "WHOLE_PLAN": "the whole plan", "STORES_ONLY": "the stores only" } },
+      "ESTIMATES": { "name": "The estimates", "parts": { "MIDDLE": "middle order" } },
+      "FLEET_RATIO": { "name": "Each mode's fleet ratio", "parts": { "DAWAA_NOW": "Dawaa Now", "SLOT": "slot delivery", "PICK_UP": "pick-up" } },
+      "LATER_SLOTS": { "name": "Orders whose later slot was cheaper", "parts": { "ORDERS": "orders" } }
+    },
+    "largest": {
+      "title": "The largest differences, to open and mark",
+      "lede": "The 30 orders with the largest estimated difference each way, in each view. Open an order's stored run, then mark it.",
+      "group": "{{view}}, {{direction}}",
+      "directions": { "EARLIER": "advisor earlier", "LATER": "advisor later" },
+      "none": "No order in this list.",
+      "mark": "Mark",
+      "markedBy": "Marked by",
+      "markLabel": "Mark order {{order}}",
+      "notMarked": "Not marked",
+      "marks": {
+        "RULE_RIGHT": "The rule is right",
+        "WRONG_RULE": "A wrong rule",
+        "DATA_FAULT": "A fault in the data"
+      },
+      "failed": "The mark was not saved. Try again in a moment."
+    },
+    "rulings": {
+      "title": "Rulings to write",
+      "lede": "A reason outside the rules on more than 1% of orders, and a shelf chance figure left against its evidence, each wait for a written ruling.",
+      "noneDue": "No ruling is waiting.",
+      "subjects": {
+        "OUTSIDE_RULES_REASON": "Outside the rules:",
+        "SHELF_CHANCE_FIGURE": "Shelf chance figure:"
+      },
+      "text": "The ruling",
+      "placeholder": "Write the ruling and why",
+      "save": "Save the ruling",
+      "failed": "The ruling was not saved. Try again in a moment."
+    },
+    "accept": {
+      "title": "Accept this reading",
+      "kept": "Accepted by <by>{{by}}</by> at <at/>, over <range/>. The reading is kept with each figure.",
+      "can": "Every limit reads met or not met. The owner may accept this reading; it is kept with who, when, the period and each figure.",
+      "cannot": "A reading can be accepted once no limit is left \"cannot be read yet\".",
+      "button": "Accept this reading",
+      "failed": "The reading was not accepted. Try again in a moment.",
+      "note": "A met bar allows the second spec to let a channel obey a plan. It starts nothing by itself. A marking, a fixed stop finding or re-measured express figures start the 28 days again."
+    },
+    "lastChanged": "The figures are fixed; the last ruling or marking that changed one was at <at/>."
+  },
   "top": {
     "sentence": "Of <orders/> orders compared, routing chose the advisor's stores for <stores/>, and the whole order shipped as the advisor planned for <plan/>.",
     "empty": "No order was compared in this period.",

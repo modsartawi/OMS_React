@@ -2,6 +2,7 @@ import { useState, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AdviseCartRequest, AdvisePlan, AdviseReply, PlanGoal } from '@/core/models/sourcing-run'
 import Chip from '@/core/ui/Chip'
+import SolverPanel from './SolverPanel'
 import { SIMULATOR_TABS, type SimulatorTab } from './tabs'
 import WhatTheRunUsed from './WhatTheRunUsed'
 import WhyThisPlan from './WhyThisPlan'
@@ -20,6 +21,7 @@ export interface SimulatorTabProps {
 const TAB_PANELS: Partial<Record<SimulatorTab, ComponentType<SimulatorTabProps>>> = {
   why: WhyThisPlan,
   used: WhatTheRunUsed,
+  solver: SolverPanel,
 }
 
 /**

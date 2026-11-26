@@ -46,8 +46,9 @@ describe('why not another store', () => {
   })
 
   it('one line per mode, in the modes’ order, the plan’s own pair among them', () => {
+    // Store 1090's own rows in the fixture (966's "why not" rows) are set aside: this case states its own.
     const more: AdviseWhyNot[] = [
-      ...rows,
+      ...rows.filter((r) => r.store !== '1090'),
       { store: '1090', mode: 'PICK_UP', removedAt: 11, code: 'NO_STOCK' },
       { store: '1090', mode: 'SLOT', goal: 'BALANCED', sum: 45.0, difference: [{ part: 'WAITING', amount: 4.58 }] },
     ]
@@ -72,7 +73,9 @@ describe('the stores to pick from', () => {
   it('a store known only from a removal has no name', () => {
     const lean = { ...reply, inputs: { stores: [] }, plans: [] }
     expect(whyNotStores(lean as AdviseReply)).toEqual([
+      { store: '1055', name: null },
       { store: '1061', name: null },
+      { store: '1090', name: null },
       { store: '1203', name: null },
     ])
   })

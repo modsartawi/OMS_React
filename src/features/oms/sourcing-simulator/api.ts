@@ -3,7 +3,7 @@
  * at the page. ⚠ Neither door exists yet (BackOffice 4355–4357 open): the drive stubs both.
  */
 import { api } from '@/core/api'
-import type { AdviseReply, SimulatorWorkbench } from '@/core/models/sourcing-run'
+import type { AdviseReply, AdviseWhyNot, PlanGoal, SimulatorWorkbench } from '@/core/models/sourcing-run'
 import type { SimulatorRequest } from './replay'
 
 export const simulatorApi = {
@@ -17,6 +17,13 @@ export const simulatorApi = {
    * PROVISIONAL (spec 4354: not specified) — no key source is decided for the advisor; the door's name is ours.
    */
   workbench: () => api.get<SimulatorWorkbench>('SourcingAdvisor/Workbench'),
+  /**
+   * `GET SourcingAdvisor/WhyNot` — "why not another store" (ticket 965, spec 4354 story 28): one store's rows of the
+   * held run's `search.whyNot[]` for one goal, in 4281's row shape (decision 27).
+   * PROVISIONAL (spec 4354: not specified) — the door, its path and its query `runId`, `store`, `goal` are ours. A run no
+   * longer held answers `ADVISE-404`, as the replan does.
+   */
+  whyNot: (runId: string, store: string, goal: PlanGoal) => api.get<AdviseWhyNot[]>('SourcingAdvisor/WhyNot', { runId, store, goal }),
 }
 
 export const workbenchQuery = () => ({

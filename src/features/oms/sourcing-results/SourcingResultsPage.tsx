@@ -18,6 +18,7 @@ import Select from '@/core/ui/Select'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { sourcingResultsApi } from './api'
+import BesideSection from './BesideSection'
 import DifferTable from './DifferTable'
 import { DrillProvider } from './Drill'
 import { filtersFromParams, filtersToParams, resultsQuery, setFromKey, setKey, type ResultsFilters } from './filters'
@@ -74,6 +75,7 @@ function Results() {
         ) : (
           <div className={`flex flex-col gap-4 ${summary.isFetching ? 'opacity-60' : ''}`} aria-busy={summary.isFetching}>
             <ResultsBar top={data.top} />
+            {data.beside && <BesideSection beside={data.beside} onClear={() => patch({ beside: null })} />}
             <Panels promise={data.promise} cost={data.cost} marks={data.marks} />
             <DifferTable rows={data.differ} view={filters.view} onView={(view) => patch({ view })} />
             <ResultsTabs open={filters.tab} onSelect={(tab) => patch({ tab })} query={wire} summary={data} />
@@ -144,7 +146,8 @@ function FilterBar({
           {t('filters.beside')}
           <Select value={setKey(filters.beside)} onChange={(e) => onChange({ beside: setFromKey(e.target.value) })} className="w-64" data-filter="beside">
             <option value="">{t('filters.besideNone')}</option>
-            {sets.map((s) => (
+            {/* A trial's result may put a set here that the summary's list does not name (ticket 973). */}
+            {(filters.beside && !sets.some((s) => setKey(s) === setKey(filters.beside)) ? [...sets, filters.beside] : sets).map((s) => (
               <option key={setKey(s)} value={setKey(s)}>
                 {setLabel(s)}
               </option>

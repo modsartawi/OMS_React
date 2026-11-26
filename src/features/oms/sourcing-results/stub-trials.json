@@ -1,0 +1,143 @@
+{
+  "maxDays": 30,
+  "earliestDay": "2026-08-29",
+  "latestDay": "2026-11-26",
+  "versions": [
+    { "name": "Baseline", "version": 3, "candidate": true },
+    { "name": "Baseline", "version": 2 },
+    { "name": "Dawaa Now reach 8 km", "version": 1, "trial": true },
+    { "name": "Margin ×1.1", "version": 1 }
+  ],
+  "trials": [
+    {
+      "trialId": "01JE1B7Q2W3E4R5T6Y7U8I9O0P",
+      "set": { "name": "Baseline", "version": 3, "candidate": true },
+      "period": { "from": "2026-11-01", "to": "2026-11-14" },
+      "days": 14,
+      "state": "DONE",
+      "queuePosition": null,
+      "startedBy": "msartawi",
+      "startedAt": "2026-11-15 06:40:00",
+      "endedAt": "2026-11-15 07:02:41",
+      "orders": 40210,
+      "solved": 40118,
+      "refused": [],
+      "failed": 4,
+      "leftOutNoPlan": 88,
+      "fromKept": false
+    },
+    {
+      "trialId": "01JE3C9X8Z7Y6W5V4U3T2S1R0Q",
+      "set": { "name": "Margin ×1.1", "version": 1 },
+      "period": { "from": "2026-11-19", "to": "2026-11-25" },
+      "days": 7,
+      "state": "WAITING",
+      "queuePosition": 1,
+      "startedBy": "nalharbi",
+      "startedAt": "2026-11-27 08:05:00",
+      "endedAt": null,
+      "orders": 0,
+      "solved": 0,
+      "refused": [],
+      "failed": 0,
+      "leftOutNoPlan": 0,
+      "fromKept": false
+    },
+    {
+      "trialId": "01JE2A5M4N3B2V1C0X9Z8L7K6J",
+      "set": { "name": "Dawaa Now reach 8 km", "version": 1, "trial": true },
+      "period": { "from": "2026-11-12", "to": "2026-11-25" },
+      "days": 14,
+      "state": "DONE",
+      "queuePosition": null,
+      "startedBy": "msartawi",
+      "startedAt": "2026-11-26 07:10:00",
+      "endedAt": "2026-11-26 07:31:12",
+      "orders": 39870,
+      "solved": 38372,
+      "refused": [
+        { "reason": "STORE_NEVER_READ", "count": 240 },
+        { "reason": "REACH_WIDER_THAN_READ", "count": 1180 }
+      ],
+      "failed": 12,
+      "leftOutNoPlan": 66,
+      "fromKept": false
+    },
+    {
+      "trialId": "01JE3B1H2G3F4D5S6A7P8O9I0U",
+      "set": { "name": "Baseline", "version": 2 },
+      "period": { "from": "2026-10-27", "to": "2026-11-25" },
+      "days": 30,
+      "state": "RUNNING",
+      "queuePosition": null,
+      "startedBy": "msartawi",
+      "startedAt": "2026-11-27 08:02:00",
+      "endedAt": null,
+      "orders": 93420,
+      "solved": 41200,
+      "refused": [],
+      "failed": 0,
+      "leftOutNoPlan": 0,
+      "fromKept": false
+    }
+  ],
+  "factors": {
+    "trialId": "01JE2A5M4N3B2V1C0X9Z8L7K6J",
+    "state": "DONE",
+    "plans": 38372,
+    "rows": [
+      { "factor": "COUNT_FACTOR", "measure": null, "switched": "ON", "changed": { "count": 0, "percent": 0.0 }, "kinds": [] },
+      { "factor": "SLOT_LOAD", "measure": null, "switched": "OFF", "changed": { "count": 412, "percent": 1.1 }, "kinds": [{ "kind": "ANOTHER_MODE", "count": 292 }, { "kind": "ANOTHER_STORE", "count": 120 }] },
+      { "factor": "SLOT_TIMING", "measure": null, "switched": "OFF", "changed": { "count": 0, "percent": 0.0 }, "kinds": [] },
+      { "factor": "STORE_RECORD", "measure": "LATE", "switched": "OFF", "changed": { "count": 1310, "percent": 3.4 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 1310 }] },
+      { "factor": "STORE_RECORD", "measure": "RETURNED", "switched": "OFF", "changed": { "count": 280, "percent": 0.7 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 280 }] },
+      { "factor": "STORE_RECORD", "measure": "PICK_UP_CANCELLED", "switched": "OFF", "changed": { "count": 95, "percent": 0.2 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 95 }] },
+      { "factor": "COVER", "measure": null, "switched": "OFF", "changed": { "count": 2240, "percent": 5.8 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 1900 }, { "kind": "FEWER_SHIPMENTS", "count": 340 }] },
+      { "factor": "SHELF_CHANCE", "measure": null, "switched": "OFF", "changed": { "count": 3105, "percent": 8.1 }, "kinds": [{ "kind": "MORE_SHIPMENTS", "count": 205 }, { "kind": "ANOTHER_STORE", "count": 2900 }] },
+      { "factor": "STORE_OWN_PART", "measure": null, "switched": "OFF", "changed": { "count": 760, "percent": 2.0 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 760 }] },
+      { "factor": "SHORT_FIGURE", "measure": null, "switched": "OFF", "changed": { "count": 188, "percent": 0.5 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 188 }] },
+      { "factor": "NAMED_STORE_STAYS", "measure": null, "switched": "OFF", "changed": { "count": 41, "percent": 0.1 }, "kinds": [{ "kind": "ANOTHER_STORE", "count": 41 }] }
+    ]
+  },
+  "beside": {
+    "set": { "name": "Dawaa Now reach 8 km", "version": 1, "trial": true },
+    "trialId": "01JE2A5M4N3B2V1C0X9Z8L7K6J",
+    "period": { "from": "2026-11-12", "to": "2026-11-25" },
+    "leftOut": 1420,
+    "top": {
+      "ordersCompared": 38450,
+      "sameStores": { "count": 29000, "percent": 75.4 },
+      "samePlan": { "count": 25110, "percent": 65.3 },
+      "segments": [
+        { "segment": "SAME_PLAN", "count": 25110, "percent": 65.3 },
+        { "segment": "SAME_STORES_OTHER_WAY", "count": 3890, "percent": 10.1 },
+        { "segment": "ANOTHER_STORE", "count": 6000, "percent": 15.6 },
+        { "segment": "CALLOUT_FALLBACK", "count": 420, "percent": 1.1 },
+        { "segment": "OUTSIDE_RULES", "count": 1050, "percent": 2.7 },
+        { "segment": "NOT_COMPARABLE", "count": 1980, "percent": 5.1 }
+      ],
+      "landed": 43512,
+      "runNotEnded": 2310,
+      "notRun": 1332
+    },
+    "differ": {
+      "orders": 38450,
+      "differ": { "count": 4210, "percent": 10.9 },
+      "kinds": [
+        { "kind": "ANOTHER_MODE", "count": 1310, "percent": 3.4 },
+        { "kind": "ANOTHER_STORE", "count": 2630, "percent": 6.8 },
+        { "kind": "MORE_SHIPMENTS", "count": 90, "percent": 0.2 },
+        { "kind": "FEWER_SHIPMENTS", "count": 180, "percent": 0.5 }
+      ]
+    },
+    "estimate": { "middle": 4, "low": -3, "high": 14 },
+    "shipments": { "candidate": 40480, "beside": 40912 },
+    "listFee": { "lowerPercent": 2.1, "samePercent": 95.6, "higherPercent": 2.3 },
+    "promise": [
+      { "mode": "DAWAA_NOW", "channelGroup": null, "count": 8410, "percent": 86.9, "band": { "from": 85, "to": 95 } },
+      { "mode": "SLOT", "channelGroup": null, "count": 21300, "percent": 93.8, "band": { "from": 85, "to": 95 } },
+      { "mode": "PICK_UP", "channelGroup": "APP_SITE", "count": 46600, "percent": 74.5, "band": null, "targetMinutes": 30 },
+      { "mode": "PICK_UP", "channelGroup": "CALL_CENTRE", "count": 8260, "percent": 56.0, "band": null, "targetMinutes": 30 }
+    ]
+  }
+}

@@ -140,8 +140,9 @@ describe('nothing drawn when the point is withheld', () => {
 
 describe('a store with no location', () => {
   it('is in the table with its km as sent, listed as not drawn, and has no point, leg or pair', () => {
-    const inputs = REPLAY.inputs as { stores: { store: string; point: unknown }[] }
-    const r = reply({ inputs: { ...inputs, stores: inputs.stores.map((s) => (s.store === '1055' ? { ...s, point: null } : s)) } })
+    const inputs = REPLAY.inputs!
+    const stores = inputs.stores ?? []
+    const r = reply({ inputs: { ...inputs, stores: stores.map((s) => (s.store === '1055' ? { ...s, point: null } : s)) } })
     const v = all(r)
     expect(v.unplaced).toEqual(['1055'])
     expect(v.points.map((p) => p.id)).toEqual(['1090', '1061'])

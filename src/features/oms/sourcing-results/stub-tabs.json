@@ -1,0 +1,2693 @@
+{
+ "breakdowns": {
+  "byRows": {
+   "MODE": {
+    "rows": [
+     {
+      "key": "SLOT_ONLY",
+      "orders": 26540,
+      "samePlanWhole": 75.2,
+      "samePlanStores": 80.2,
+      "estimateMiddle": 12,
+      "promiseKept": 93.8,
+      "late": 6.9,
+      "returned": 5,
+      "cancelled": 3.1,
+      "endedNoStock": 1
+     },
+     {
+      "key": "DAWAA_NOW_ONLY",
+      "orders": 9410,
+      "samePlanWhole": 61.7,
+      "samePlanStores": 74.2,
+      "estimateMiddle": 9,
+      "promiseKept": 88.6,
+      "late": 8.4,
+      "returned": 5.3,
+      "cancelled": 3.4,
+      "endedNoStock": 1.3
+     },
+     {
+      "key": "SLOT_AND_DAWAA_NOW",
+      "orders": 1010,
+      "samePlanWhole": 3,
+      "samePlanStores": 79.2,
+      "estimateMiddle": 38,
+      "promiseKept": 90.1,
+      "late": 9.9,
+      "returned": 5.8,
+      "cancelled": 3.9,
+      "endedNoStock": 1.5
+     },
+     {
+      "key": "BEYOND_BORDER",
+      "orders": 2910,
+      "samePlanWhole": 56,
+      "samePlanStores": 64.6,
+      "estimateMiddle": 22,
+      "promiseKept": null,
+      "late": 7.7,
+      "returned": 4.9,
+      "cancelled": 2.8,
+      "endedNoStock": 0.9
+     }
+    ]
+   },
+   "CITY": {
+    "rows": [
+     {
+      "key": "Riyadh",
+      "orders": 15150,
+      "samePlanWhole": 70.2,
+      "samePlanStores": 78.9,
+      "estimateMiddle": 15,
+      "promiseKept": 91.9,
+      "late": 7.2,
+      "returned": 5.1,
+      "cancelled": 3.1,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "Jeddah",
+      "orders": 7980,
+      "samePlanWhole": 67.5,
+      "samePlanStores": 76.8,
+      "estimateMiddle": 11,
+      "promiseKept": 90.4,
+      "late": 7.9,
+      "returned": 5.2,
+      "cancelled": 3.3,
+      "endedNoStock": 1.2
+     },
+     {
+      "key": "الدمام والخبر",
+      "orders": 4390,
+      "samePlanWhole": 70.2,
+      "samePlanStores": 78.6,
+      "estimateMiddle": 18,
+      "promiseKept": 93,
+      "late": 6.6,
+      "returned": 4.8,
+      "cancelled": 3,
+      "endedNoStock": 1
+     },
+     {
+      "key": "Makkah",
+      "orders": 2790,
+      "samePlanWhole": 65.9,
+      "samePlanStores": 75.3,
+      "estimateMiddle": 9,
+      "promiseKept": 89.2,
+      "late": 8.1,
+      "returned": 5.6,
+      "cancelled": 3.5,
+      "endedNoStock": 1.4
+     },
+     {
+      "key": "Madinah",
+      "orders": 2390,
+      "samePlanWhole": 67.8,
+      "samePlanStores": 77,
+      "estimateMiddle": 13,
+      "promiseKept": 92.6,
+      "late": 7,
+      "returned": 5,
+      "cancelled": 3.2,
+      "endedNoStock": 1
+     },
+     {
+      "key": "OTHER",
+      "orders": 7170,
+      "samePlanWhole": 67.8,
+      "samePlanStores": 76.4,
+      "estimateMiddle": 16,
+      "promiseKept": 93.4,
+      "late": 7.5,
+      "returned": 5,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     }
+    ]
+   },
+   "CHANNEL": {
+    "rows": [
+     {
+      "key": "IOS",
+      "orders": 18740,
+      "samePlanWhole": 70.5,
+      "samePlanStores": 79.1,
+      "estimateMiddle": 14,
+      "promiseKept": 92.4,
+      "late": 7.3,
+      "returned": 5.1,
+      "cancelled": 3.1,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "ROID",
+      "orders": 12360,
+      "samePlanWhole": 70,
+      "samePlanStores": 78.6,
+      "estimateMiddle": 14,
+      "promiseKept": 92,
+      "late": 7.4,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "WEB",
+      "orders": 3850,
+      "samePlanWhole": 68.6,
+      "samePlanStores": 77.4,
+      "estimateMiddle": 12,
+      "promiseKept": 91.6,
+      "late": 7.6,
+      "returned": 5.2,
+      "cancelled": 3.3,
+      "endedNoStock": 1.2
+     },
+     {
+      "key": "CALL_CENTRE",
+      "orders": 4920,
+      "samePlanWhole": 59.6,
+      "samePlanStores": 69.7,
+      "estimateMiddle": 17,
+      "promiseKept": 88.3,
+      "late": 7.9,
+      "returned": 5,
+      "cancelled": 3.6,
+      "endedNoStock": 1.1
+     }
+    ]
+   },
+   "DAY": {
+    "rows": [
+     {
+      "key": "2026-11-12",
+      "orders": 2848,
+      "samePlanWhole": 70.2,
+      "samePlanStores": 78.8,
+      "estimateMiddle": 12,
+      "promiseKept": 91.6,
+      "late": 7.4,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-13",
+      "orders": 3099,
+      "samePlanWhole": 70.3,
+      "samePlanStores": 78.2,
+      "estimateMiddle": 13,
+      "promiseKept": 93.3,
+      "late": 8.2,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-14",
+      "orders": 2982,
+      "samePlanWhole": 69.3,
+      "samePlanStores": 77.3,
+      "estimateMiddle": 14,
+      "promiseKept": 93.1,
+      "late": 8.3,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-15",
+      "orders": 2669,
+      "samePlanWhole": 68,
+      "samePlanStores": 76.5,
+      "estimateMiddle": 15,
+      "promiseKept": 91.3,
+      "late": 7.5,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-16",
+      "orders": 2618,
+      "samePlanWhole": 67.2,
+      "samePlanStores": 76.3,
+      "estimateMiddle": 16,
+      "promiseKept": 89.8,
+      "late": 6.6,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-17",
+      "orders": 2904,
+      "samePlanWhole": 67.7,
+      "samePlanStores": 76.7,
+      "estimateMiddle": 12,
+      "promiseKept": 90.3,
+      "late": 6.4,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-18",
+      "orders": 3108,
+      "samePlanWhole": 69,
+      "samePlanStores": 77.5,
+      "estimateMiddle": 13,
+      "promiseKept": 92.2,
+      "late": 7.1,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-19",
+      "orders": 2931,
+      "samePlanWhole": 70.1,
+      "samePlanStores": 78.3,
+      "estimateMiddle": 14,
+      "promiseKept": 93.5,
+      "late": 8.1,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-20",
+      "orders": 2633,
+      "samePlanWhole": 70.3,
+      "samePlanStores": 78.8,
+      "estimateMiddle": 15,
+      "promiseKept": 92.7,
+      "late": 8.4,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-21",
+      "orders": 2650,
+      "samePlanWhole": 69.3,
+      "samePlanStores": 78.8,
+      "estimateMiddle": 16,
+      "promiseKept": 90.7,
+      "late": 7.8,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-22",
+      "orders": 2957,
+      "samePlanWhole": 67.9,
+      "samePlanStores": 78.1,
+      "estimateMiddle": 12,
+      "promiseKept": 89.7,
+      "late": 6.9,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-23",
+      "orders": 3105,
+      "samePlanWhole": 67.2,
+      "samePlanStores": 77.3,
+      "estimateMiddle": 13,
+      "promiseKept": 90.7,
+      "late": 6.4,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-24",
+      "orders": 2876,
+      "samePlanWhole": 67.7,
+      "samePlanStores": 76.5,
+      "estimateMiddle": 14,
+      "promiseKept": 92.7,
+      "late": 6.9,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     },
+     {
+      "key": "2026-11-25",
+      "orders": 2490,
+      "samePlanWhole": 69,
+      "samePlanStores": 76.3,
+      "estimateMiddle": 15,
+      "promiseKept": 93.5,
+      "late": 7.8,
+      "returned": 5.1,
+      "cancelled": 3.2,
+      "endedNoStock": 1.1
+     }
+    ]
+   }
+  },
+  "total": {
+   "orders": 39870,
+   "samePlanWhole": 68.8,
+   "samePlanStores": 77.6,
+   "estimateMiddle": 14,
+   "promiseKept": 92.1,
+   "late": 7.4,
+   "returned": 5.1,
+   "cancelled": 3.2,
+   "endedNoStock": 1.1
+  },
+  "stockShort": [
+   {
+    "stockClass": "BOOK_BELOW_ZERO",
+    "mode": "SLOT",
+    "orders": 312,
+    "samePlanWhole": 57.7,
+    "samePlanStores": 70.8,
+    "estimateMiddle": 7,
+    "promiseKept": 90.4,
+    "late": 8.3,
+    "returned": 5.1,
+    "cancelled": 3.8,
+    "endedNoStock": 9.6
+   },
+   {
+    "stockClass": "BOOK_AT_ZERO",
+    "mode": "SLOT",
+    "orders": 268,
+    "samePlanWhole": 56,
+    "samePlanStores": 70.9,
+    "estimateMiddle": 5,
+    "promiseKept": 89.6,
+    "late": 8.8,
+    "returned": 5.2,
+    "cancelled": 4.1,
+    "endedNoStock": 14.2
+   },
+   {
+    "stockClass": "BOOK_SHORT",
+    "mode": "SLOT",
+    "orders": 190,
+    "samePlanWhole": 63.2,
+    "samePlanStores": 74.2,
+    "estimateMiddle": 6,
+    "promiseKept": 91,
+    "late": 7.9,
+    "returned": 4.7,
+    "cancelled": 3.7,
+    "endedNoStock": 8.4
+   },
+   {
+    "stockClass": "HELD_BY_DELIVERIES",
+    "mode": "SLOT",
+    "orders": 402,
+    "samePlanWhole": 57.2,
+    "samePlanStores": 72.1,
+    "estimateMiddle": 8,
+    "promiseKept": 88.1,
+    "late": 9.2,
+    "returned": 5.5,
+    "cancelled": 4.4,
+    "endedNoStock": 27.1
+   },
+   {
+    "stockClass": "BOOK_BELOW_ZERO",
+    "mode": "PICK_UP",
+    "orders": 96,
+    "samePlanWhole": 62.5,
+    "samePlanStores": 72.9,
+    "estimateMiddle": null,
+    "promiseKept": null,
+    "late": 0,
+    "returned": 0,
+    "cancelled": 5.2,
+    "endedNoStock": 12.5
+   },
+   {
+    "stockClass": "BOOK_AT_ZERO",
+    "mode": "PICK_UP",
+    "orders": 54,
+    "samePlanWhole": 55.6,
+    "samePlanStores": 70.4,
+    "estimateMiddle": null,
+    "promiseKept": null,
+    "late": 0,
+    "returned": 0,
+    "cancelled": 7.4,
+    "endedNoStock": 24.1
+   }
+  ],
+  "channelSplit": [
+   {
+    "part": "ONE_DAWAA_NOW",
+    "orders": 410,
+    "samePlanWhole": 0,
+    "samePlanStores": 29.3,
+    "estimateMiddle": 52,
+    "promiseKept": 89,
+    "late": 6.1,
+    "returned": 4.4,
+    "cancelled": 3,
+    "endedNoStock": 1.2
+   },
+   {
+    "part": "ONE_SLOT",
+    "orders": 520,
+    "samePlanWhole": 0,
+    "samePlanStores": 50,
+    "estimateMiddle": -95,
+    "promiseKept": 94.2,
+    "late": 5,
+    "returned": 4,
+    "cancelled": 2.7,
+    "endedNoStock": 0.8
+   },
+   {
+    "part": "OTHER",
+    "orders": 134,
+    "samePlanWhole": 0,
+    "samePlanStores": 52.2,
+    "estimateMiddle": 11,
+    "promiseKept": 90.3,
+    "late": 7.5,
+    "returned": 5.2,
+    "cancelled": 3,
+    "endedNoStock": 1.5
+   }
+  ],
+  "storePassedOver": 1186,
+  "madeBy": [
+   {
+    "madeBy": "CHECKOUT",
+    "runs": 0,
+    "percent": 0
+   },
+   {
+    "madeBy": "OMS",
+    "runs": 39870,
+    "percent": 100
+   }
+  ],
+  "noCheckoutRun": [
+   {
+    "reason": "NONE",
+    "runs": 39870
+   },
+   {
+    "reason": "CART_CHANGED",
+    "runs": 0
+   },
+   {
+    "reason": "HAD_PINS",
+    "runs": 0
+   }
+  ],
+  "pairsCut": {
+   "runs": 6910,
+   "lineNotAvailable": 412,
+   "cities": [
+    {
+     "city": "Dhahran",
+     "runs": 1210,
+     "percent": 87,
+     "lineNotAvailable": 64
+    },
+    {
+     "city": "Dammam",
+     "runs": 1840,
+     "percent": 76,
+     "lineNotAvailable": 118
+    },
+    {
+     "city": "Khobar",
+     "runs": 1030,
+     "percent": 49,
+     "lineNotAvailable": 71
+    },
+    {
+     "city": "الهفوف",
+     "runs": 410,
+     "percent": 30,
+     "lineNotAvailable": 22
+    },
+    {
+     "city": "Riyadh",
+     "runs": 2420,
+     "percent": 28,
+     "lineNotAvailable": 137
+    },
+    {
+     "city": "Jeddah",
+     "runs": 0,
+     "percent": 0,
+     "lineNotAvailable": 0
+    }
+   ]
+  }
+ },
+ "outsideRules": {
+  "orders": 1240,
+  "reasons": [
+   {
+    "reason": "NO_STOCK",
+    "orders": 880,
+    "percent": 71
+   },
+   {
+    "reason": "OUT_OF_REACH",
+    "orders": 212,
+    "percent": 17.1
+   },
+   {
+    "reason": "PRODUCT_RULE",
+    "orders": 148,
+    "percent": 11.9
+   },
+   {
+    "reason": "BOOK_NEVER_HELD",
+    "orders": 0,
+    "percent": 0
+   }
+  ]
+ },
+ "checks": {
+  "dawaaNow": {
+   "band": {
+    "from": 85,
+    "to": 95
+   },
+   "bands": [
+    {
+     "band": "KM_0_2",
+     "count": 2410,
+     "percent": 91.2
+    },
+    {
+     "band": "KM_2_4",
+     "count": 2980,
+     "percent": 89.4
+    },
+    {
+     "band": "KM_4_6",
+     "count": 1530,
+     "percent": 86.1
+    },
+    {
+     "band": "KM_6_PLUS",
+     "count": 720,
+     "percent": 82.7
+    }
+   ],
+   "expressStampPercent": 81.9
+  },
+  "stock": {
+   "covered": {
+    "ended": 61900,
+    "noStock": 557,
+    "percent": 0.9
+   },
+   "notCovered": {
+    "ended": 1870,
+    "noStock": 127,
+    "percent": 6.8
+   }
+  },
+  "shelf": {
+   "set": {
+    "name": "Baseline",
+    "version": 3,
+    "candidate": true
+   },
+   "window": {
+    "from": "2025-11-26",
+    "to": "2026-11-25",
+    "counts": 982
+   },
+   "halves": [
+    {
+     "from": "2025-07-01",
+     "to": "2025-12-31"
+    },
+    {
+     "from": "2026-01-01",
+     "to": "2026-06-30"
+    },
+    {
+     "from": "2026-07-01",
+     "to": "2026-11-25"
+    }
+   ],
+   "modes": [
+    {
+     "mode": "DAWAA_NOW",
+     "fleetRatio": 0.84,
+     "cells": [
+      {
+       "asked": 1,
+       "leftOver": "L0",
+       "chance": 9.4,
+       "lines": 1427,
+       "failed": 96,
+       "failedPercent": 6.7,
+       "expectedFailed": 134.1,
+       "reading": "ENOUGH_TO_CHANGE",
+       "halves": [
+        13.35,
+        9.12,
+        8.93
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L1",
+       "chance": 3.01,
+       "lines": 1835,
+       "failed": 48,
+       "failedPercent": 2.6,
+       "expectedFailed": 55.2,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        4.27,
+        2.92,
+        2.86
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L2",
+       "chance": 2.1,
+       "lines": 2038,
+       "failed": 43,
+       "failedPercent": 2.1,
+       "expectedFailed": 42.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.98,
+        2.04,
+        2
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L3_4",
+       "chance": 1.58,
+       "lines": 3261,
+       "failed": 43,
+       "failedPercent": 1.3,
+       "expectedFailed": 51.5,
+       "reading": "NOT_STEADY",
+       "halves": [
+        2.24,
+        1.53,
+        1.5
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L5_9",
+       "chance": 1.31,
+       "lines": 4484,
+       "failed": 57,
+       "failedPercent": 1.3,
+       "expectedFailed": 58.7,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.86,
+        1.27,
+        1.24
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L10_PLUS",
+       "chance": 1.15,
+       "lines": 7338,
+       "failed": 67,
+       "failedPercent": 0.9,
+       "expectedFailed": 84.4,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.63,
+        1.12,
+        1.09
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L0",
+       "chance": 8,
+       "lines": 521,
+       "failed": 41,
+       "failedPercent": 7.9,
+       "expectedFailed": 41.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        11.36,
+        7.76,
+        7.6
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L1",
+       "chance": 3.67,
+       "lines": 670,
+       "failed": 19,
+       "failedPercent": 2.8,
+       "expectedFailed": 24.6,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.21,
+        3.56,
+        3.49
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L2",
+       "chance": 2.38,
+       "lines": 745,
+       "failed": 17,
+       "failedPercent": 2.3,
+       "expectedFailed": 17.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.38,
+        2.31,
+        2.26
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L3_4",
+       "chance": 1.99,
+       "lines": 1192,
+       "failed": 18,
+       "failedPercent": 1.5,
+       "expectedFailed": 23.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.83,
+        1.93,
+        1.89
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L5_9",
+       "chance": 1.53,
+       "lines": 1639,
+       "failed": 23,
+       "failedPercent": 1.4,
+       "expectedFailed": 25.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.17,
+        1.48,
+        1.45
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L10_PLUS",
+       "chance": 1.35,
+       "lines": 2681,
+       "failed": 26,
+       "failedPercent": 1,
+       "expectedFailed": 36.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        1.92,
+        1.31,
+        1.28
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L0",
+       "chance": 10.22,
+       "lines": 209,
+       "failed": 19,
+       "failedPercent": 9.1,
+       "expectedFailed": 21.4,
+       "reading": "TOO_FEW",
+       "halves": [
+        14.51,
+        9.91,
+        9.71
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L1",
+       "chance": 4.39,
+       "lines": 268,
+       "failed": 8,
+       "failedPercent": 3,
+       "expectedFailed": 11.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        6.23,
+        4.26,
+        4.17
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L2",
+       "chance": 3.29,
+       "lines": 298,
+       "failed": 8,
+       "failedPercent": 2.7,
+       "expectedFailed": 9.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        4.67,
+        3.19,
+        3.13
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L3_4",
+       "chance": 2.37,
+       "lines": 477,
+       "failed": 11,
+       "failedPercent": 2.3,
+       "expectedFailed": 11.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.37,
+        2.3,
+        2.25
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L5_9",
+       "chance": 1.79,
+       "lines": 655,
+       "failed": 10,
+       "failedPercent": 1.5,
+       "expectedFailed": 11.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.54,
+        1.74,
+        1.7
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L10_PLUS",
+       "chance": 1.49,
+       "lines": 1073,
+       "failed": 16,
+       "failedPercent": 1.5,
+       "expectedFailed": 16,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.12,
+        1.45,
+        1.42
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L0",
+       "chance": 11.65,
+       "lines": 93,
+       "failed": 9,
+       "failedPercent": 9.7,
+       "expectedFailed": 10.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        16.54,
+        11.3,
+        11.07
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L1",
+       "chance": 6.1,
+       "lines": 120,
+       "failed": 7,
+       "failedPercent": 5.8,
+       "expectedFailed": 7.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        8.66,
+        5.92,
+        5.79
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L2",
+       "chance": 3.8,
+       "lines": 133,
+       "failed": 4,
+       "failedPercent": 3,
+       "expectedFailed": 5.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.4,
+        3.69,
+        3.61
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L3_4",
+       "chance": 2.78,
+       "lines": 213,
+       "failed": 6,
+       "failedPercent": 2.8,
+       "expectedFailed": 5.9,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.95,
+        2.7,
+        2.64
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L5_9",
+       "chance": 2.1,
+       "lines": 293,
+       "failed": 5,
+       "failedPercent": 1.7,
+       "expectedFailed": 6.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.98,
+        2.04,
+        2
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L10_PLUS",
+       "chance": 1.62,
+       "lines": 480,
+       "failed": 7,
+       "failedPercent": 1.5,
+       "expectedFailed": 7.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.3,
+        1.57,
+        1.54
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L0",
+       "chance": 15.61,
+       "lines": 47,
+       "failed": 5,
+       "failedPercent": 10.6,
+       "expectedFailed": 7.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        22.17,
+        15.14,
+        14.83
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L1",
+       "chance": 6.68,
+       "lines": 60,
+       "failed": 4,
+       "failedPercent": 6.7,
+       "expectedFailed": 4,
+       "reading": "TOO_FEW",
+       "halves": [
+        9.49,
+        6.48,
+        6.35
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L2",
+       "chance": 4.68,
+       "lines": 67,
+       "failed": 2,
+       "failedPercent": 3,
+       "expectedFailed": 3.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        6.65,
+        4.54,
+        4.45
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L3_4",
+       "chance": 3.36,
+       "lines": 107,
+       "failed": 3,
+       "failedPercent": 2.8,
+       "expectedFailed": 3.6,
+       "reading": "TOO_FEW",
+       "halves": [
+        4.77,
+        3.26,
+        3.19
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L5_9",
+       "chance": 2.34,
+       "lines": 147,
+       "failed": 3,
+       "failedPercent": 2,
+       "expectedFailed": 3.4,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.32,
+        2.27,
+        2.22
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L10_PLUS",
+       "chance": 1.75,
+       "lines": 240,
+       "failed": 3,
+       "failedPercent": 1.3,
+       "expectedFailed": 4.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.49,
+        1.7,
+        1.66
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L0",
+       "chance": 15.62,
+       "lines": 80,
+       "failed": 13,
+       "failedPercent": 16.3,
+       "expectedFailed": 12.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        22.18,
+        15.15,
+        14.84
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L1",
+       "chance": 8.35,
+       "lines": 102,
+       "failed": 7,
+       "failedPercent": 6.9,
+       "expectedFailed": 8.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        11.86,
+        8.1,
+        7.93
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L2",
+       "chance": 5.17,
+       "lines": 114,
+       "failed": 6,
+       "failedPercent": 5.3,
+       "expectedFailed": 5.9,
+       "reading": "TOO_FEW",
+       "halves": [
+        7.34,
+        5.01,
+        4.91
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L3_4",
+       "chance": 3.89,
+       "lines": 182,
+       "failed": 6,
+       "failedPercent": 3.3,
+       "expectedFailed": 7.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.52,
+        3.77,
+        3.7
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L5_9",
+       "chance": 2.6,
+       "lines": 250,
+       "failed": 6,
+       "failedPercent": 2.4,
+       "expectedFailed": 6.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.69,
+        2.52,
+        2.47
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L10_PLUS",
+       "chance": 1.87,
+       "lines": 409,
+       "failed": 6,
+       "failedPercent": 1.5,
+       "expectedFailed": 7.6,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.66,
+        1.81,
+        1.78
+       ]
+      }
+     ]
+    },
+    {
+     "mode": "SLOT",
+     "fleetRatio": 1.12,
+     "cells": [
+      {
+       "asked": 1,
+       "leftOver": "L0",
+       "chance": 9.4,
+       "lines": 5096,
+       "failed": 575,
+       "failedPercent": 11.3,
+       "expectedFailed": 479,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        13.35,
+        9.12,
+        8.93
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L1",
+       "chance": 3.01,
+       "lines": 6552,
+       "failed": 188,
+       "failedPercent": 2.9,
+       "expectedFailed": 197.2,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        4.27,
+        2.92,
+        2.86
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L2",
+       "chance": 2.1,
+       "lines": 7280,
+       "failed": 176,
+       "failedPercent": 2.4,
+       "expectedFailed": 152.9,
+       "reading": "NOT_STEADY",
+       "halves": [
+        2.98,
+        2.04,
+        2
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L3_4",
+       "chance": 1.58,
+       "lines": 11648,
+       "failed": 248,
+       "failedPercent": 2.1,
+       "expectedFailed": 184,
+       "reading": "ENOUGH_TO_CHANGE",
+       "halves": [
+        2.24,
+        1.53,
+        1.5
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L5_9",
+       "chance": 1.31,
+       "lines": 16016,
+       "failed": 231,
+       "failedPercent": 1.4,
+       "expectedFailed": 209.8,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.86,
+        1.27,
+        1.24
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L10_PLUS",
+       "chance": 1.15,
+       "lines": 26208,
+       "failed": 392,
+       "failedPercent": 1.5,
+       "expectedFailed": 301.4,
+       "reading": "ENOUGH_TO_CHANGE",
+       "halves": [
+        1.63,
+        1.12,
+        1.09
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L0",
+       "chance": 8,
+       "lines": 1862,
+       "failed": 164,
+       "failedPercent": 8.8,
+       "expectedFailed": 149,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        11.36,
+        7.76,
+        7.6
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L1",
+       "chance": 3.67,
+       "lines": 2394,
+       "failed": 114,
+       "failedPercent": 4.8,
+       "expectedFailed": 87.9,
+       "reading": "ENOUGH_TO_CHANGE",
+       "halves": [
+        5.21,
+        3.56,
+        3.49
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L2",
+       "chance": 2.38,
+       "lines": 2660,
+       "failed": 67,
+       "failedPercent": 2.5,
+       "expectedFailed": 63.3,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        3.38,
+        2.31,
+        2.26
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L3_4",
+       "chance": 1.99,
+       "lines": 4256,
+       "failed": 106,
+       "failedPercent": 2.5,
+       "expectedFailed": 84.7,
+       "reading": "ENOUGH_TO_CHANGE",
+       "halves": [
+        2.83,
+        1.93,
+        1.89
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L5_9",
+       "chance": 1.53,
+       "lines": 5852,
+       "failed": 90,
+       "failedPercent": 1.5,
+       "expectedFailed": 89.5,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        2.17,
+        1.48,
+        1.45
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L10_PLUS",
+       "chance": 1.35,
+       "lines": 9576,
+       "failed": 155,
+       "failedPercent": 1.6,
+       "expectedFailed": 129.3,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.92,
+        1.31,
+        1.28
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L0",
+       "chance": 10.22,
+       "lines": 745,
+       "failed": 76,
+       "failedPercent": 10.2,
+       "expectedFailed": 76.1,
+       "reading": "NOT_STEADY",
+       "halves": [
+        14.51,
+        9.91,
+        9.71
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L1",
+       "chance": 4.39,
+       "lines": 958,
+       "failed": 51,
+       "failedPercent": 5.3,
+       "expectedFailed": 42.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        6.23,
+        4.26,
+        4.17
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L2",
+       "chance": 3.29,
+       "lines": 1064,
+       "failed": 33,
+       "failedPercent": 3.1,
+       "expectedFailed": 35,
+       "reading": "TOO_FEW",
+       "halves": [
+        4.67,
+        3.19,
+        3.13
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L3_4",
+       "chance": 2.37,
+       "lines": 1702,
+       "failed": 46,
+       "failedPercent": 2.7,
+       "expectedFailed": 40.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.37,
+        2.3,
+        2.25
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L5_9",
+       "chance": 1.79,
+       "lines": 2341,
+       "failed": 57,
+       "failedPercent": 2.4,
+       "expectedFailed": 41.9,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.54,
+        1.74,
+        1.7
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L10_PLUS",
+       "chance": 1.49,
+       "lines": 3830,
+       "failed": 63,
+       "failedPercent": 1.6,
+       "expectedFailed": 57.1,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        2.12,
+        1.45,
+        1.42
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L0",
+       "chance": 11.65,
+       "lines": 333,
+       "failed": 52,
+       "failedPercent": 15.6,
+       "expectedFailed": 38.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        16.54,
+        11.3,
+        11.07
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L1",
+       "chance": 6.1,
+       "lines": 428,
+       "failed": 29,
+       "failedPercent": 6.8,
+       "expectedFailed": 26.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        8.66,
+        5.92,
+        5.79
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L2",
+       "chance": 3.8,
+       "lines": 476,
+       "failed": 24,
+       "failedPercent": 5,
+       "expectedFailed": 18.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.4,
+        3.69,
+        3.61
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L3_4",
+       "chance": 2.78,
+       "lines": 762,
+       "failed": 22,
+       "failedPercent": 2.9,
+       "expectedFailed": 21.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.95,
+        2.7,
+        2.64
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L5_9",
+       "chance": 2.1,
+       "lines": 1047,
+       "failed": 28,
+       "failedPercent": 2.7,
+       "expectedFailed": 22,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.98,
+        2.04,
+        2
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L10_PLUS",
+       "chance": 1.62,
+       "lines": 1714,
+       "failed": 28,
+       "failedPercent": 1.6,
+       "expectedFailed": 27.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.3,
+        1.57,
+        1.54
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L0",
+       "chance": 15.61,
+       "lines": 167,
+       "failed": 33,
+       "failedPercent": 19.8,
+       "expectedFailed": 26.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        22.17,
+        15.14,
+        14.83
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L1",
+       "chance": 6.68,
+       "lines": 214,
+       "failed": 14,
+       "failedPercent": 6.5,
+       "expectedFailed": 14.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        9.49,
+        6.48,
+        6.35
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L2",
+       "chance": 4.68,
+       "lines": 238,
+       "failed": 13,
+       "failedPercent": 5.5,
+       "expectedFailed": 11.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        6.65,
+        4.54,
+        4.45
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L3_4",
+       "chance": 3.36,
+       "lines": 381,
+       "failed": 12,
+       "failedPercent": 3.1,
+       "expectedFailed": 12.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        4.77,
+        3.26,
+        3.19
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L5_9",
+       "chance": 2.34,
+       "lines": 524,
+       "failed": 14,
+       "failedPercent": 2.7,
+       "expectedFailed": 12.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.32,
+        2.27,
+        2.22
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L10_PLUS",
+       "chance": 1.75,
+       "lines": 857,
+       "failed": 20,
+       "failedPercent": 2.3,
+       "expectedFailed": 15,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.49,
+        1.7,
+        1.66
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L0",
+       "chance": 15.62,
+       "lines": 284,
+       "failed": 51,
+       "failedPercent": 18,
+       "expectedFailed": 44.4,
+       "reading": "TOO_FEW",
+       "halves": [
+        22.18,
+        15.15,
+        14.84
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L1",
+       "chance": 8.35,
+       "lines": 365,
+       "failed": 41,
+       "failedPercent": 11.2,
+       "expectedFailed": 30.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        11.86,
+        8.1,
+        7.93
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L2",
+       "chance": 5.17,
+       "lines": 406,
+       "failed": 23,
+       "failedPercent": 5.7,
+       "expectedFailed": 21,
+       "reading": "TOO_FEW",
+       "halves": [
+        7.34,
+        5.01,
+        4.91
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L3_4",
+       "chance": 3.89,
+       "lines": 650,
+       "failed": 33,
+       "failedPercent": 5.1,
+       "expectedFailed": 25.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.52,
+        3.77,
+        3.7
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L5_9",
+       "chance": 2.6,
+       "lines": 893,
+       "failed": 24,
+       "failedPercent": 2.7,
+       "expectedFailed": 23.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.69,
+        2.52,
+        2.47
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L10_PLUS",
+       "chance": 1.87,
+       "lines": 1462,
+       "failed": 34,
+       "failedPercent": 2.3,
+       "expectedFailed": 27.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.66,
+        1.81,
+        1.78
+       ]
+      }
+     ]
+    },
+    {
+     "mode": "PICK_UP",
+     "fleetRatio": 0.97,
+     "cells": [
+      {
+       "asked": 1,
+       "leftOver": "L0",
+       "chance": 9.4,
+       "lines": 2293,
+       "failed": 187,
+       "failedPercent": 8.2,
+       "expectedFailed": 215.5,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        13.35,
+        9.12,
+        8.93
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L1",
+       "chance": 3.01,
+       "lines": 2948,
+       "failed": 92,
+       "failedPercent": 3.1,
+       "expectedFailed": 88.7,
+       "reading": "NOT_STEADY",
+       "halves": [
+        4.27,
+        2.92,
+        2.86
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L2",
+       "chance": 2.1,
+       "lines": 3276,
+       "failed": 57,
+       "failedPercent": 1.7,
+       "expectedFailed": 68.8,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        2.98,
+        2.04,
+        2
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L3_4",
+       "chance": 1.58,
+       "lines": 5242,
+       "failed": 83,
+       "failedPercent": 1.6,
+       "expectedFailed": 82.8,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        2.24,
+        1.53,
+        1.5
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L5_9",
+       "chance": 1.31,
+       "lines": 7207,
+       "failed": 110,
+       "failedPercent": 1.5,
+       "expectedFailed": 94.4,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.86,
+        1.27,
+        1.24
+       ]
+      },
+      {
+       "asked": 1,
+       "leftOver": "L10_PLUS",
+       "chance": 1.15,
+       "lines": 11794,
+       "failed": 129,
+       "failedPercent": 1.1,
+       "expectedFailed": 135.6,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.63,
+        1.12,
+        1.09
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L0",
+       "chance": 8,
+       "lines": 838,
+       "failed": 78,
+       "failedPercent": 9.3,
+       "expectedFailed": 67,
+       "reading": "NOT_STEADY",
+       "halves": [
+        11.36,
+        7.76,
+        7.6
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L1",
+       "chance": 3.67,
+       "lines": 1077,
+       "failed": 38,
+       "failedPercent": 3.5,
+       "expectedFailed": 39.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.21,
+        3.56,
+        3.49
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L2",
+       "chance": 2.38,
+       "lines": 1197,
+       "failed": 32,
+       "failedPercent": 2.7,
+       "expectedFailed": 28.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.38,
+        2.31,
+        2.26
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L3_4",
+       "chance": 1.99,
+       "lines": 1915,
+       "failed": 35,
+       "failedPercent": 1.8,
+       "expectedFailed": 38.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.83,
+        1.93,
+        1.89
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L5_9",
+       "chance": 1.53,
+       "lines": 2633,
+       "failed": 44,
+       "failedPercent": 1.7,
+       "expectedFailed": 40.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.17,
+        1.48,
+        1.45
+       ]
+      },
+      {
+       "asked": 2,
+       "leftOver": "L10_PLUS",
+       "chance": 1.35,
+       "lines": 4309,
+       "failed": 50,
+       "failedPercent": 1.2,
+       "expectedFailed": 58.2,
+       "reading": "INSIDE_CHANCE",
+       "halves": [
+        1.92,
+        1.31,
+        1.28
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L0",
+       "chance": 10.22,
+       "lines": 335,
+       "failed": 37,
+       "failedPercent": 11,
+       "expectedFailed": 34.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        14.51,
+        9.91,
+        9.71
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L1",
+       "chance": 4.39,
+       "lines": 431,
+       "failed": 16,
+       "failedPercent": 3.7,
+       "expectedFailed": 18.9,
+       "reading": "TOO_FEW",
+       "halves": [
+        6.23,
+        4.26,
+        4.17
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L2",
+       "chance": 3.29,
+       "lines": 479,
+       "failed": 16,
+       "failedPercent": 3.3,
+       "expectedFailed": 15.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        4.67,
+        3.19,
+        3.13
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L3_4",
+       "chance": 2.37,
+       "lines": 766,
+       "failed": 15,
+       "failedPercent": 2,
+       "expectedFailed": 18.2,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.37,
+        2.3,
+        2.25
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L5_9",
+       "chance": 1.79,
+       "lines": 1053,
+       "failed": 19,
+       "failedPercent": 1.8,
+       "expectedFailed": 18.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.54,
+        1.74,
+        1.7
+       ]
+      },
+      {
+       "asked": 3,
+       "leftOver": "L10_PLUS",
+       "chance": 1.49,
+       "lines": 1724,
+       "failed": 30,
+       "failedPercent": 1.7,
+       "expectedFailed": 25.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.12,
+        1.45,
+        1.42
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L0",
+       "chance": 11.65,
+       "lines": 150,
+       "failed": 17,
+       "failedPercent": 11.3,
+       "expectedFailed": 17.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        16.54,
+        11.3,
+        11.07
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L1",
+       "chance": 6.1,
+       "lines": 193,
+       "failed": 14,
+       "failedPercent": 7.3,
+       "expectedFailed": 11.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        8.66,
+        5.92,
+        5.79
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L2",
+       "chance": 3.8,
+       "lines": 214,
+       "failed": 8,
+       "failedPercent": 3.7,
+       "expectedFailed": 8.1,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.4,
+        3.69,
+        3.61
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L3_4",
+       "chance": 2.78,
+       "lines": 343,
+       "failed": 11,
+       "failedPercent": 3.2,
+       "expectedFailed": 9.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.95,
+        2.7,
+        2.64
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L5_9",
+       "chance": 2.1,
+       "lines": 471,
+       "failed": 9,
+       "failedPercent": 1.9,
+       "expectedFailed": 9.9,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.98,
+        2.04,
+        2
+       ]
+      },
+      {
+       "asked": 4,
+       "leftOver": "L10_PLUS",
+       "chance": 1.62,
+       "lines": 771,
+       "failed": 14,
+       "failedPercent": 1.8,
+       "expectedFailed": 12.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.3,
+        1.57,
+        1.54
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L0",
+       "chance": 15.61,
+       "lines": 75,
+       "failed": 11,
+       "failedPercent": 14.7,
+       "expectedFailed": 11.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        22.17,
+        15.14,
+        14.83
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L1",
+       "chance": 6.68,
+       "lines": 96,
+       "failed": 7,
+       "failedPercent": 7.3,
+       "expectedFailed": 6.4,
+       "reading": "TOO_FEW",
+       "halves": [
+        9.49,
+        6.48,
+        6.35
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L2",
+       "chance": 4.68,
+       "lines": 107,
+       "failed": 4,
+       "failedPercent": 3.7,
+       "expectedFailed": 5,
+       "reading": "TOO_FEW",
+       "halves": [
+        6.65,
+        4.54,
+        4.45
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L3_4",
+       "chance": 3.36,
+       "lines": 171,
+       "failed": 6,
+       "failedPercent": 3.5,
+       "expectedFailed": 5.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        4.77,
+        3.26,
+        3.19
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L5_9",
+       "chance": 2.34,
+       "lines": 236,
+       "failed": 5,
+       "failedPercent": 2.1,
+       "expectedFailed": 5.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.32,
+        2.27,
+        2.22
+       ]
+      },
+      {
+       "asked": 5,
+       "leftOver": "L10_PLUS",
+       "chance": 1.75,
+       "lines": 386,
+       "failed": 7,
+       "failedPercent": 1.8,
+       "expectedFailed": 6.8,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.49,
+        1.7,
+        1.66
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L0",
+       "chance": 15.62,
+       "lines": 128,
+       "failed": 16,
+       "failedPercent": 12.5,
+       "expectedFailed": 20,
+       "reading": "TOO_FEW",
+       "halves": [
+        22.18,
+        15.15,
+        14.84
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L1",
+       "chance": 8.35,
+       "lines": 164,
+       "failed": 14,
+       "failedPercent": 8.5,
+       "expectedFailed": 13.7,
+       "reading": "TOO_FEW",
+       "halves": [
+        11.86,
+        8.1,
+        7.93
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L2",
+       "chance": 5.17,
+       "lines": 183,
+       "failed": 11,
+       "failedPercent": 6,
+       "expectedFailed": 9.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        7.34,
+        5.01,
+        4.91
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L3_4",
+       "chance": 3.89,
+       "lines": 292,
+       "failed": 11,
+       "failedPercent": 3.8,
+       "expectedFailed": 11.4,
+       "reading": "TOO_FEW",
+       "halves": [
+        5.52,
+        3.77,
+        3.7
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L5_9",
+       "chance": 2.6,
+       "lines": 402,
+       "failed": 12,
+       "failedPercent": 3,
+       "expectedFailed": 10.5,
+       "reading": "TOO_FEW",
+       "halves": [
+        3.69,
+        2.52,
+        2.47
+       ]
+      },
+      {
+       "asked": 6,
+       "leftOver": "L10_PLUS",
+       "chance": 1.87,
+       "lines": 658,
+       "failed": 11,
+       "failedPercent": 1.7,
+       "expectedFailed": 12.3,
+       "reading": "TOO_FEW",
+       "halves": [
+        2.66,
+        1.81,
+        1.78
+       ]
+      }
+     ]
+    }
+   ],
+   "rows": [
+    {
+     "stockClass": "BOOK_BELOW_ZERO",
+     "mode": "SLOT",
+     "chance": 16,
+     "oneLine": {
+      "ratio": 0.91,
+      "lines": 980,
+      "failed": 143,
+      "expectedFailed": 156.8
+     },
+     "everyDelivery": {
+      "ratio": 0.64,
+      "lines": 3120,
+      "failed": 319,
+      "expectedFailed": 499.2
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 764,
+       "everyLines": 2527
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 88,
+       "everyLines": 218
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 128,
+       "everyLines": 375
+      }
+     ],
+     "reading": "INSIDE_CHANCE"
+    },
+    {
+     "stockClass": "BOOK_AT_ZERO",
+     "mode": "SLOT",
+     "chance": 22,
+     "oneLine": {
+      "ratio": 0.88,
+      "lines": 840,
+      "failed": 163,
+      "expectedFailed": 184.8
+     },
+     "everyDelivery": {
+      "ratio": 0.67,
+      "lines": 2710,
+      "failed": 399,
+      "expectedFailed": 596.2
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 655,
+       "everyLines": 2195
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 76,
+       "everyLines": 190
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 109,
+       "everyLines": 325
+      }
+     ],
+     "reading": "INSIDE_CHANCE"
+    },
+    {
+     "stockClass": "BOOK_SHORT",
+     "mode": "SLOT",
+     "chance": 13,
+     "oneLine": {
+      "ratio": 0.93,
+      "lines": 410,
+      "failed": 50,
+      "expectedFailed": 53.3
+     },
+     "everyDelivery": {
+      "ratio": 0.69,
+      "lines": 1890,
+      "failed": 170,
+      "expectedFailed": 245.7
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 320,
+       "everyLines": 1531
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 37,
+       "everyLines": 132
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 53,
+       "everyLines": 227
+      }
+     ],
+     "reading": "INSIDE_CHANCE"
+    },
+    {
+     "stockClass": "HELD_BY_DELIVERIES",
+     "mode": "SLOT",
+     "chance": 46,
+     "oneLine": {
+      "ratio": 1.21,
+      "lines": 1210,
+      "failed": 673,
+      "expectedFailed": 556.6
+     },
+     "everyDelivery": {
+      "ratio": 0.71,
+      "lines": 4020,
+      "failed": 1313,
+      "expectedFailed": 1849.2
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 944,
+       "everyLines": 3256
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 109,
+       "everyLines": 281
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 157,
+       "everyLines": 483
+      }
+     ],
+     "reading": "ENOUGH_TO_CHANGE"
+    },
+    {
+     "stockClass": "BOOK_BELOW_ZERO",
+     "mode": "PICK_UP",
+     "chance": 21,
+     "oneLine": {
+      "ratio": 0.86,
+      "lines": 150,
+      "failed": 27,
+      "expectedFailed": 31.5
+     },
+     "everyDelivery": {
+      "ratio": 0.62,
+      "lines": 960,
+      "failed": 125,
+      "expectedFailed": 201.6
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 117,
+       "everyLines": 778
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 14,
+       "everyLines": 67
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 19,
+       "everyLines": 115
+      }
+     ],
+     "reading": "TOO_FEW"
+    },
+    {
+     "stockClass": "BOOK_AT_ZERO",
+     "mode": "PICK_UP",
+     "chance": 43,
+     "oneLine": {
+      "ratio": 0.79,
+      "lines": 320,
+      "failed": 109,
+      "expectedFailed": 137.6
+     },
+     "everyDelivery": {
+      "ratio": 0.58,
+      "lines": 1150,
+      "failed": 287,
+      "expectedFailed": 494.5
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 250,
+       "everyLines": 932
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 29,
+       "everyLines": 81
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 41,
+       "everyLines": 137
+      }
+     ],
+     "reading": "NOT_STEADY"
+    },
+    {
+     "stockClass": "BOOK_SHORT",
+     "mode": "PICK_UP",
+     "chance": 18,
+     "oneLine": {
+      "ratio": 1.04,
+      "lines": 90,
+      "failed": 17,
+      "expectedFailed": 16.2
+     },
+     "everyDelivery": {
+      "ratio": 0.66,
+      "lines": 610,
+      "failed": 72,
+      "expectedFailed": 109.8
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 70,
+       "everyLines": 494
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 8,
+       "everyLines": 43
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 12,
+       "everyLines": 73
+      }
+     ],
+     "reading": "TOO_FEW"
+    },
+    {
+     "stockClass": "HELD_BY_DELIVERIES",
+     "mode": "PICK_UP",
+     "chance": 36,
+     "oneLine": {
+      "ratio": 0.95,
+      "lines": 260,
+      "failed": 89,
+      "expectedFailed": 93.6
+     },
+     "everyDelivery": {
+      "ratio": 0.7,
+      "lines": 1320,
+      "failed": 333,
+      "expectedFailed": 475.2
+     },
+     "groups": [
+      {
+       "group": "APP_SITE",
+       "oneLineLines": 203,
+       "everyLines": 1069
+      },
+      {
+       "group": "CC_OUTBOUND",
+       "oneLineLines": 23,
+       "everyLines": 92
+      },
+      {
+       "group": "CC_OTHER",
+       "oneLineLines": 34,
+       "everyLines": 159
+      }
+     ],
+     "reading": "INSIDE_CHANCE"
+    }
+   ]
+  }
+ },
+ "laterSlots": {
+  "orders": 2447,
+  "slotOrders": 27550,
+  "percent": 8.9,
+  "middleLaterMinutes": 120,
+  "byHour": [
+   {
+    "hour": 0,
+    "orders": 210
+   },
+   {
+    "hour": 1,
+    "orders": 194
+   },
+   {
+    "hour": 2,
+    "orders": 156
+   },
+   {
+    "hour": 3,
+    "orders": 115
+   },
+   {
+    "hour": 4,
+    "orders": 86
+   },
+   {
+    "hour": 6,
+    "orders": 64
+   },
+   {
+    "hour": 7,
+    "orders": 64
+   },
+   {
+    "hour": 8,
+    "orders": 67
+   },
+   {
+    "hour": 9,
+    "orders": 71
+   },
+   {
+    "hour": 10,
+    "orders": 78
+   },
+   {
+    "hour": 11,
+    "orders": 86
+   },
+   {
+    "hour": 12,
+    "orders": 93
+   },
+   {
+    "hour": 13,
+    "orders": 98
+   },
+   {
+    "hour": 14,
+    "orders": 100
+   },
+   {
+    "hour": 15,
+    "orders": 98
+   },
+   {
+    "hour": 16,
+    "orders": 93
+   },
+   {
+    "hour": 17,
+    "orders": 86
+   },
+   {
+    "hour": 18,
+    "orders": 78
+   },
+   {
+    "hour": 19,
+    "orders": 71
+   },
+   {
+    "hour": 20,
+    "orders": 67
+   },
+   {
+    "hour": 21,
+    "orders": 119
+   },
+   {
+    "hour": 22,
+    "orders": 158
+   },
+   {
+    "hour": 23,
+    "orders": 195
+   }
+  ]
+ },
+ "notRun": {
+  "orders": 1332,
+  "reasons": [
+   {
+    "reason": "WORKER_OFF",
+    "orders": 880
+   },
+   {
+    "reason": "TOO_LATE",
+    "orders": 300
+   },
+   {
+    "reason": "NO_RUN_AFTER_ATTEMPTS",
+    "orders": 110
+   },
+   {
+    "reason": "STOCK_READ_FAILED",
+    "orders": 42
+   }
+  ]
+ }
+}

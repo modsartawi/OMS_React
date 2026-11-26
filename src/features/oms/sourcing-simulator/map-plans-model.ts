@@ -15,7 +15,7 @@
  */
 import { kmBetween, type MapLine, type MapPoint, type MapRing } from '@/core/map/map-drawing'
 import type { MapPin } from '@/core/map/map-panel'
-import type { AdviseInputStore, AdviseReply, CustomerPointWithheld, DeliveryMode, PlanGoal } from '@/core/models/sourcing-run'
+import type { AdviseReply, CustomerPointWithheld, DeliveryMode, PlanGoal } from '@/core/models/sourcing-run'
 import { formatPair } from '@/core/util/bidi'
 
 /** The words the model puts on the map, in the screen's language. */
@@ -91,7 +91,7 @@ const MEASURE_INK = '--map-ring'
 /** The rings round the customer, in km (spec 4354 §19). */
 export const RING_KMS = [5, 10] as const
 
-const storesOf = (reply: AdviseReply): AdviseInputStore[] => (reply.inputs as { stores?: AdviseInputStore[] } | null | undefined)?.stores ?? []
+const storesOf = (reply: AdviseReply) => reply.inputs?.stores ?? []
 
 export function mapPlans(reply: AdviseReply, { scope, goal, words }: { scope: MapScope; goal: PlanGoal | null; words: MapWords }): MapPlansView {
   const plans = scope === 'all' ? reply.plans : reply.plans.filter((p) => p.goal === goal)

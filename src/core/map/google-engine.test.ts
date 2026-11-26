@@ -63,7 +63,7 @@ function stageGoogle() {
   let zoom = 12
 
   class StagedMap {
-    readonly handlers = new Map<string, (() => void)[]>()
+    readonly handlers = new Map<string, ((e?: unknown) => void)[]>()
     readonly calls: unknown[][] = []
     constructor(
       readonly el: El,
@@ -73,12 +73,12 @@ function stageGoogle() {
       // Google draws into the element it is given.
       el.appendChild(new El())
     }
-    addListener(event: string, handler: () => void) {
+    addListener(event: string, handler: (e?: unknown) => void) {
       this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler])
       return { remove: () => this.handlers.set(event, (this.handlers.get(event) ?? []).filter((h) => h !== handler)) }
     }
-    fire(event: string) {
-      for (const h of this.handlers.get(event) ?? []) h()
+    fire(event: string, e?: unknown) {
+      for (const h of this.handlers.get(event) ?? []) h(e)
     }
     fitBounds(...a: unknown[]) {
       this.calls.push(['fitBounds', ...a])
@@ -408,5 +408,31 @@ describe('lines (922): each a Google polyline in its colour, its words at its mi
       await google.answer()
       expect(google.polylines).toEqual([])
     }
+  })
+})
+
+describe('a click on the map carries the place under it (ticket 962: a click places the customer)', () => {
+  const startWith = (google: ReturnType<typeof stageGoogle>, taps: unknown[][]) =>
+    googleEngine(google.loader).start(
+      { container: new El(), view: { kind: 'centre', lon: 46.7, lat: 24.7, zoom: 14 }, key: KEY, controlsCorner: 'top-right', featuresAt: () => [], labelInk: '', lang: 'en' },
+      { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap: (...a) => void taps.push(a), moved() {}, sized() {} },
+    )
+
+  it('Google’s click hands its latLng on as the place, longitude and latitude', async () => {
+    const google = stageGoogle()
+    const taps: unknown[][] = []
+    startWith(google, taps)
+    await google.answer()
+    google.maps[0].fire('click', { latLng: { lat: () => 24.6911, lng: () => 46.7012 } })
+    expect(taps).toEqual([[null, 12, { lon: 46.7012, lat: 24.6911 }]])
+  })
+
+  it('a click with no latLng is a tap beside, with no place', async () => {
+    const google = stageGoogle()
+    const taps: unknown[][] = []
+    startWith(google, taps)
+    await google.answer()
+    google.maps[0].fire('click', {})
+    expect(taps).toEqual([[null, 12]])
   })
 })

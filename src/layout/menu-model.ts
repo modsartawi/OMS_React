@@ -24,7 +24,8 @@ import { canOpenExpiredApprovalPicks } from '@/features/oms/expired-approval-pic
 import { canOpenHeldStockReport } from '@/features/stock/held-stock-report/access'
 import { canOpenHoldDailyList } from '@/features/stock/hold-daily-list/access'
 import { canOpenStoreStages } from '@/features/stock/store-stages/access'
-import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { canRunSourcingAdvisor, canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { SIMULATOR_PATH } from '@/core/sourcing-advisor/simulator-path'
 import { canOpenStockHealth } from '@/features/stock/stock-health/access'
 import { canOpenStockConsole } from '@/features/stock/stock-console/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -345,6 +346,16 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/oms/sourcing-advisor',
         activePrefix: '/oms/sourcing-advisor',
         requires: canViewSourcingAdvisor,
+      },
+      {
+        // Sourcing simulator (ticket 962, BackOffice spec 4354 §19) — the advisor's run grant (a provisional key, on its
+        // own predicate in `@/core/`); fails closed. Right after the Sourcing advisor, before Pick support, so Pick
+        // support and Delivery statistics keep the last two places their tests pin.
+        labelKey: 'sourcing-simulator:menu.sourcingSimulator',
+        icon: FlaskConical,
+        routerLink: SIMULATOR_PATH,
+        activePrefix: SIMULATOR_PATH,
+        requires: canRunSourcingAdvisor,
       },
       {
         // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport:03`, placed before Delivery statistics

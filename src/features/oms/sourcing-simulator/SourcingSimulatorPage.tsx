@@ -16,6 +16,7 @@ import PlanNotes from './PlanNotes'
 import PlansTable from './PlansTable'
 import RunRefusal from './RunRefusal'
 import RunSummary from './RunSummary'
+import SimulatorTabs from './SimulatorTabs'
 
 /**
  * OMS ▸ Sourcing simulator (ticket 962, BackOffice spec 4354 §19; SIMT decisions 1, 6, 12; the prototype
@@ -24,7 +25,8 @@ import RunSummary from './RunSummary'
  * as one table. Run calls the advise door's user route at the full level with `allPlans`; nothing runs on a change.
  *
  * Opens under the run grant (`canRunSourcingAdvisor`, a provisional key). Later tickets add the pins and the weight set
- * (963), replay and the map tab (964), "why this plan" and "what the run used" (965), the solver tab (966).
+ * (963), replay and the map tab (964), "why this plan" and "what the run used" (965), the solver tab (966); the tabs
+ * register their panels in `./SimulatorTabs`.
  *
  * ⚠ Built on a stub of BackOffice 4281's worked example: the door is BackOffice 4355–4357, still open.
  */
@@ -114,6 +116,7 @@ function Workbench() {
                 <PlansTable plans={reply.plans} />
               )}
               <PlanNotes notes={notes} />
+              <SimulatorTabs reply={reply} request={run.variables ?? null} />
             </>
           ) : (
             !run.isPending &&

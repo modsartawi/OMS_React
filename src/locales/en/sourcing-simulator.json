@@ -224,5 +224,16 @@
       "title": "The run failed",
       "body": "Something went wrong running this cart. Try again in a moment."
     }
+  },
+  "tabs": {
+    "label": "More about the run",
+    "names": {
+      "map": "Map",
+      "why": "Why this plan",
+      "used": "What the run used",
+      "solver": "Solver"
+    },
+    "planLabel": "Plan shown in the tab",
+    "pending": "This tab is not built yet. It comes with a later release of the simulator."
   }
 }

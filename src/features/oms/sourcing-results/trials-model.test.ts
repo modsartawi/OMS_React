@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FactorTableReply, ResultsBeside, TrialRow, TrialsReply } from '@/core/models/sourcing-results'
 import stub from './stub-trials.json'
-import { besideCellText, besideView, factorTable, trialResult, trialStart, trialsList } from './trials-model'
+import { besideView, factorTable, trialResult, trialStart, trialsList } from './trials-model'
 
 // The drive's stub: four trials (one done on a trial set with refusals, one running, one waiting, one older), the
 // factor table of the trial set's trial, and that trial read beside the candidate set.
@@ -176,11 +176,5 @@ describe('besideView — the tried set beside the candidate set', () => {
       ['PICK_UP:APP_SITE', 74.5, 'target'],
       ['PICK_UP:CALL_CENTRE', 56.0, 'target'],
     ])
-  })
-
-  it('gives the breakdowns\' one more column its figure as sent, nothing when the row has none', () => {
-    expect(besideCellText({ samePlan: { count: 120, percent: 61.2 } })).toBe('61.2%')
-    expect(besideCellText(null)).toBe('')
-    expect(besideCellText(undefined)).toBe('')
   })
 })

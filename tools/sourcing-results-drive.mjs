@@ -498,9 +498,18 @@ async function scenario(browser, lang) {
   check(`${tag} the promise counts under that set are plain, not drills`, (await besidePromise.locator('[data-drill]').count()) === 0)
   check(`${tag} still no riyal figure with a set beside it`, !/SAR\s*\d|\d\s*SAR|ر\.س/.test(await page.locator('[data-sourcing-results]').innerText()))
   await page.screenshot({ path: `${SHOTS}/${lang}-beside.png`, fullPage: true })
+  // the breakdowns' one more column under the set beside it
+  await page.locator('[data-tab="breakdowns"]').click()
+  await page.locator('[data-breakdowns-table="MODE"] th[data-col="besideSamePlan"]').waitFor({ timeout: 10000 })
+  check(`${tag} Breakdowns asks its door with the set beside it`, wire.tabs?.breakdowns?.at(-1)?.besideSet === 'Dawaa Now reach 8 km', JSON.stringify(wire.tabs?.breakdowns?.at(-1)))
+  const besideCols = await page.locator('[data-breakdowns-table] th[data-col]').evaluateAll((els) => els.map((e) => e.getAttribute('data-col')))
+  check(`${tag} Breakdowns gains one more column, after the two same-plan columns`, besideCols.length === 10 && besideCols[3] === 'besideSamePlan', besideCols.join(','))
+  const besideTotal = await page.locator('[data-breakdown-total] td').nth(4).innerText()
+  check(`${tag} the total row's figure under the set beside it, as sent, isolated LTR`, besideTotal.includes('65.3%') && (await isLtrIsolate(page.locator('[data-breakdown-total] td').nth(4).locator('bdi').first())), besideTotal)
   await page.locator('[data-beside-clear]').click()
   await page.waitForTimeout(400)
   check(`${tag} removing the set beside it clears the banner and the URL`, (await page.locator('[data-beside-banner]').count()) === 0 && !page.url().includes('beside='), page.url())
+  check(`${tag} without a set beside it, Breakdowns has its nine columns again`, (await page.locator('[data-breakdowns-table] th[data-col="besideSamePlan"]').count()) === 0)
 
   // 10. Phase 2 bar (ticket 973)
   await page.locator('[data-tab="phase-2-bar"]').click()
@@ -554,7 +563,8 @@ async function scenario(browser, lang) {
   check(`${tag} the picker re-reads the bar: the call centre from 2026-10-01`, wire.bars.at(-1)?.channelGroup === 'CALL_CENTRE' && wire.bars.at(-1)?.from === '2026-10-01', JSON.stringify(wire.bars.at(-1)))
   check(`${tag} the 28 days run to 2026-10-28`, (await page.locator('[data-bar-period]').innerText()).includes('2026-10-28'))
   await page.locator('[data-bar-runs="CHANNEL"]').click()
-  await page.waitForTimeout(500)
+  // The channel's runs read with nothing unreadable: wait for that reading to replace the one kept on screen.
+  await page.locator('[data-bar-limit="RATES"][data-bar-state="NOT_MET"]').waitFor({ timeout: 10000 })
   check(`${tag} the channel's runs are read apart`, wire.bars.at(-1)?.runs === 'CHANNEL', JSON.stringify(wire.bars.at(-1)))
   check(`${tag} with nothing unreadable, accept is offered`, !(await page.locator('[data-bar-accept-button]').isDisabled()))
   await page.locator('[data-bar-accept-button]').click()
@@ -592,7 +602,11 @@ function readingTabReply(p, url, wire) {
   ;(wire.tabs ??= {})[door] = [...(wire.tabs[door] ?? []), q]
   if (door !== 'breakdowns') return TABS[door]
   const { byRows, ...rest } = TABS.breakdowns
-  return { by: q.by, rows: byRows[q.by]?.rows ?? [], ...rest }
+  const rows = byRows[q.by]?.rows ?? []
+  if (!q.besideSet) return { by: q.by, rows, ...rest }
+  // Under "Set beside it" (ticket 973) each row carries its same-plan share under that set (a stub figure).
+  const beside = (f) => ({ samePlan: { count: Math.round(f.orders * (f.samePlanWhole - 3.5) / 100), percent: Math.round((f.samePlanWhole - 3.5) * 10) / 10 } })
+  return { by: q.by, rows: rows.map((r) => ({ ...r, beside: beside(r) })), ...rest, total: { ...rest.total, beside: { samePlan: { count: 25110, percent: 65.3 } } } }
 }
 
 async function readingTabs(page, tag, lang, wire) {

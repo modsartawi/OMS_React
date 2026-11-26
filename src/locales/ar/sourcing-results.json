@@ -549,6 +549,7 @@
       "orders": "الطلبات",
       "samePlanWhole": "الخطة نفسها، الخطة كاملة",
       "samePlanStores": "الخطة نفسها، الفروع فقط",
+      "besideSamePlan": "الخطة نفسها، تحت المجموعة بجانبها",
       "estimateMiddle": "التقدير، الطلب الأوسط",
       "promiseKept": "الوفاء بالوعد",
       "late": "متأخر",

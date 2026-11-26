@@ -108,3 +108,37 @@ describe('breakdownsTable — the rows and columns for each of the four grouping
     expect(empty.addsUp).toBe(true)
   })
 })
+
+describe('breakdownsTable — one more column under "Set beside it" (ticket 973)', () => {
+  const beside = (percent: number) => ({ samePlan: { count: 100, percent } })
+  const withBeside = (): ResultsBreakdownsReply => {
+    const r = reply('MODE')
+    return {
+      ...r,
+      rows: r.rows.map((row, i) => (i === 0 ? { ...row, beside: beside(64.2) } : i === 1 ? { ...row, beside: null } : { ...row, beside: beside(70.1) })),
+      total: { ...r.total, beside: beside(65.3) },
+    }
+  }
+
+  it('adds the set beside it after the two same-plan columns, only when the rows carry it', () => {
+    expect(breakdownsTable(withBeside()).columns).toEqual([
+      'orders',
+      'samePlanWhole',
+      'samePlanStores',
+      'besideSamePlan',
+      'estimateMiddle',
+      'promiseKept',
+      'late',
+      'returned',
+      'cancelled',
+      'endedNoStock',
+    ])
+    expect(breakdownsTable(reply('MODE')).columns).not.toContain('besideSamePlan')
+  })
+
+  it('reads each row\'s same-plan share under the set beside it as sent; a row with none reads null', () => {
+    const table = breakdownsTable(withBeside())
+    expect(table.rows.map((r) => r.cells.besideSamePlan)).toEqual([64.2, null, 70.1, 70.1])
+    expect(table.total.cells.besideSamePlan).toBe(65.3)
+  })
+})

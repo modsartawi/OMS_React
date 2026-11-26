@@ -30,7 +30,18 @@ export const BREAKDOWN_COLUMNS = [
   'cancelled',
   'endedNoStock',
 ] as const satisfies readonly (keyof ResultsBreakdownFigures)[]
-export type BreakdownColumn = (typeof BREAKDOWN_COLUMNS)[number]
+
+/**
+ * "Set beside it" adds one more column (ticket 973, BO 4283 decision 14): each row's same-plan share under the set
+ * beside it, after the two same-plan columns. Drawn only when the reply's rows carry it.
+ */
+export const BESIDE_COLUMN = 'besideSamePlan'
+export type BreakdownColumn = (typeof BREAKDOWN_COLUMNS)[number] | typeof BESIDE_COLUMN
+const WITH_BESIDE: readonly BreakdownColumn[] = [
+  ...BREAKDOWN_COLUMNS.slice(0, BREAKDOWN_COLUMNS.indexOf('samePlanStores') + 1),
+  BESIDE_COLUMN,
+  ...BREAKDOWN_COLUMNS.slice(BREAKDOWN_COLUMNS.indexOf('samePlanStores') + 1),
+]
 
 /** How the row's name is written: a mode row or a channel in the page's words, a city as free text, a day as a date. */
 // PROVISIONAL (spec 4354: not specified) — `OTHER` as the city key of "the other cities".
@@ -62,7 +73,10 @@ export interface BreakdownsTable {
 }
 
 const cellsOf = (f: ResultsBreakdownFigures): Record<BreakdownColumn, number | null> =>
-  Object.fromEntries(BREAKDOWN_COLUMNS.map((c) => [c, f[c] ?? null])) as Record<BreakdownColumn, number | null>
+  ({
+    ...Object.fromEntries(BREAKDOWN_COLUMNS.map((c) => [c, f[c] ?? null])),
+    [BESIDE_COLUMN]: f.beside?.samePlan.percent ?? null,
+  }) as Record<BreakdownColumn, number | null>
 
 function labelOf(by: ResultsBreakdownBy, key: string): BreakdownLabel {
   switch (by) {
@@ -89,9 +103,10 @@ export function breakdownsTable(reply: ResultsBreakdownsReply): BreakdownsTable 
   if (by === 'DAY') rows = rows.sort((a, b) => a.key.localeCompare(b.key))
 
   const sum = rows.reduce((n, r) => n + r.orders, 0)
+  const hasBeside = reply.total.beside != null || rows.some((r) => r.beside != null)
   return {
     header: by,
-    columns: BREAKDOWN_COLUMNS,
+    columns: hasBeside ? WITH_BESIDE : BREAKDOWN_COLUMNS,
     rows: rows.map((r) => ({ key: r.key, label: labelOf(by, r.key), cells: cellsOf(r), figure: { kind: 'breakdown', by, key: r.key } })),
     total: { key: 'ALL', label: { kind: 'text', text: '' }, cells: cellsOf(reply.total), figure: null },
     addsUp: sum === reply.total.orders,

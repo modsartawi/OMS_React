@@ -668,6 +668,8 @@ export interface ResultsBreakdownFigures {
   returned: number
   cancelled: number
   endedNoStock: number
+  /** Under "Set beside it" (ticket 973): the row's figure under the set beside it; sent only when `besideSet` is asked. */
+  beside?: ResultsBesideCell | null // PROVISIONAL (spec 4354: not specified)
 }
 
 /** A row of the grouping: `key` is the mode row code, the city as sent, the channel code or the local day `yyyy-MM-dd`. */

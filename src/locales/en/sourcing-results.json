@@ -533,6 +533,7 @@
       "orders": "Orders",
       "samePlanWhole": "Same plan, the whole plan",
       "samePlanStores": "Same plan, the stores only",
+      "besideSamePlan": "Same plan, under the set beside it",
       "estimateMiddle": "Estimate, middle order",
       "promiseKept": "Promise kept",
       "late": "Late",

@@ -14,7 +14,6 @@ import {
   type FactorRow,
   type FactorTableReply,
   type ResultsBeside,
-  type ResultsBesideCell,
   type ResultsShare,
   type ResultsWeightSet,
   type TrialChangeKind,
@@ -25,7 +24,6 @@ import {
 } from '@/core/models/sourcing-results'
 import { promisePanel, type PromisePanelRow } from './promise-panel-model'
 import { resultsBar, type ResultsBar } from './results-bar-model'
-import { percentText } from './text'
 
 // ── The list ────────────────────────────────────────────────────────────────────────────────────────
 
@@ -218,9 +216,3 @@ export function besideView(b: ResultsBeside): BesideView {
     promise: promisePanel(b.promise),
   }
 }
-
-/**
- * The breakdowns' one more column (ticket 973): a row's same-plan share under the set beside it, as sent; '' when the
- * row carries none (the caller draws its dash). Ticket 972's Breakdowns tab draws it.
- */
-export const besideCellText = (cell: ResultsBesideCell | null | undefined): string => (cell ? percentText(cell.samePlan.percent) : '')

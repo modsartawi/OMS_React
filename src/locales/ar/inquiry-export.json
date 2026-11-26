@@ -67,6 +67,7 @@
     "CashCollections": "التحصيلات النقدية",
     "Deposits": "الإيداعات",
     "Acrs": "إيصالات التحصيل المجمعة",
-    "DeliveryList": "مستندات التوصيل"
+    "DeliveryList": "مستندات التوصيل",
+    "DocumentPayments": "مدفوعات المستندات"
   }
 }

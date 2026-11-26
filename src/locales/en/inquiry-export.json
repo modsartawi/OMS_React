@@ -67,6 +67,7 @@
     "CashCollections": "Cash Collections",
     "Deposits": "Deposits",
     "Acrs": "ACRs",
-    "DeliveryList": "Delivery Documents"
+    "DeliveryList": "Delivery Documents",
+    "DocumentPayments": "Document payments"
   }
 }

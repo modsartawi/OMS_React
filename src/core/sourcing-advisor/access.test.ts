@@ -32,3 +32,4 @@ describe('the sourcing advisor run grant (ticket 962, provisional key)', () => {
     expect(canRunSourcingAdvisor(permissionsOf(null))).toBe(false)
   })
 })
+

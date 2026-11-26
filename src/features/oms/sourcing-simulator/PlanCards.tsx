@@ -3,6 +3,7 @@ import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { planColumn } from './plans-table-model'
+import { shortFigures } from './short-figure'
 import PlanHead from './PlanHead'
 import { usePlanWords } from './use-plan-words'
 
@@ -58,10 +59,12 @@ function PlanCard({ plan }: { plan: AdvisePlan }) {
           ))}
         </ol>
       </div>
-      {plan.lineMarks.length > 0 && (
+      {shortFigures(plan).length > 0 && (
         <ul className="flex flex-col gap-1 text-xs text-muted-foreground" data-plan-line-marks="">
-          {plan.lineMarks.map((m) => (
-            <li key={`${m.lineNo}-${m.store}`}>{t('card.shortFigure', { line: fsi(m.lineNo) })}</li>
+          {shortFigures(plan).map((m) => (
+            <li key={`${m.lineNo}-${m.store}`} data-short-figure-sentence="">
+              {t('why.shortFigure.sentence', { line: fsi(m.lineNo), n: fsi(m.inHundred) })}
+            </li>
           ))}
         </ul>
       )}

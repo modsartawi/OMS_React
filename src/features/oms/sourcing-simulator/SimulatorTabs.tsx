@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { AdviseCartRequest, AdvisePlan, AdviseReply, PlanGoal } from '@/core/models/sourcing-run'
 import Chip from '@/core/ui/Chip'
 import { SIMULATOR_TABS, type SimulatorTab } from './tabs'
+import WhatTheRunUsed from './WhatTheRunUsed'
+import WhyThisPlan from './WhyThisPlan'
 
 /** What every tab's panel is handed: the run's reply, the request that made it, and the plan chosen in the strip. */
 export interface SimulatorTabProps {
@@ -15,7 +17,10 @@ export interface SimulatorTabProps {
 /**
  * Each tab's panel, by the ticket that builds it: 964 registers `map`, 965 `why` and `used`, 966 `solver`.
  */
-const TAB_PANELS: Partial<Record<SimulatorTab, ComponentType<SimulatorTabProps>>> = {}
+const TAB_PANELS: Partial<Record<SimulatorTab, ComponentType<SimulatorTabProps>>> = {
+  why: WhyThisPlan,
+  used: WhatTheRunUsed,
+}
 
 /**
  * The tab strip under the plans: a plan picker, a tablist and the ONE open panel. Tab ids are `sim-tab-<tab>`, the panel

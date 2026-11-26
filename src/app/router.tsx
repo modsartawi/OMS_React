@@ -411,6 +411,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-simulator/SourcingSimulatorPage')).default,
         }),
       },
+      // The comparison results page (ticket 971, BackOffice spec 4354 §17) — under today's advisor view grant. The menu's
+      // "Sourcing advisor" entry is repointed here by ticket 974, which removes the old pages above.
+      {
+        path: 'oms/sourcing-results',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-results/SourcingResultsPage')).default,
+        }),
+      },
       // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
       // serial check, by staff, serial, store and article, behind its own grant on the one permissions answer. Filters in the URL.
       {

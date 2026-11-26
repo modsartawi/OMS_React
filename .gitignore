@@ -191,3 +191,5 @@ tools/.price-command-center-shots/
 tools/.store-stages-shots/
 # Expiry fallback takes drive screenshots (tools/stock-fallback-drive.mjs, BackOffice 4277)
 tools/.stock-fallback-shots/
+# Comparison results drive screenshots (tools/sourcing-results-drive.mjs, ticket 971)
+tools/.sourcing-results-shots/

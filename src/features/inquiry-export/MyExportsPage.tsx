@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download, RefreshCw } from 'lucide-react'
+import { Download, RefreshCw, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type { InquiryExportJob } from '@/core/inquiry-export/api'
 import { notify } from '@/core/services/notify'
@@ -12,7 +12,7 @@ import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { saveBlob } from '@/core/util/download-file'
 import { INQUIRY_EXPORT_JOBS_KEY, inquiryExportApi } from './api'
-import { STATUS_SEV, jobFile, refreshEvery } from './jobs'
+import { STATUS_SEV, canCancel, downloadFailure, jobFile, refreshEvery } from './jobs'
 
 /**
  * **My exports** (BackOffice spec 4314, ticket 4318) at `/collection/exports` and `/oms/exports` — one page, linked
@@ -23,8 +23,9 @@ import { STATUS_SEV, jobFile, refreshEvery } from './jobs'
  * No screen gate: every row is the caller's own and the doors are owner-scoped; the menu offers the page only while
  * the feature is on and the session may export something.
  *
- * Slots kept for 4320: a Cancel button on a Waiting row (beside the File cell) and the "Cancelled" state, already
- * worded in both languages.
+ * Ticket 4320 (spec 4314 review): a Waiting row offers Cancel in its File cell; the server's refusal (the job started
+ * meanwhile) is shown as sent, and the list is re-read either way. A download the server answers 410 Gone (swept since
+ * the list was read) says "file removed", not a failure.
  */
 export default function MyExportsPage() {
   const { t } = useTranslation('inquiry-export')
@@ -66,13 +67,29 @@ const COLUMNS = ['job', 'screen', 'range', 'state', 'rows', 'requested', 'finish
 
 function JobsTable({ jobs }: { jobs: InquiryExportJob[] }) {
   const { t } = useTranslation('inquiry-export')
+  const queryClient = useQueryClient()
+  const reread = () => void queryClient.invalidateQueries({ queryKey: INQUIRY_EXPORT_JOBS_KEY })
+
+  const cancel = useMutation({
+    mutationFn: (jobId: string) => inquiryExportApi.cancel(jobId),
+    onSuccess: reread,
+    onError: (err) => {
+      notify.error(t('page.cancelFailed'), apiErrorMessage(err, t('page.cancelFailedHint')))
+      reread()
+    },
+  })
 
   const download = async (job: InquiryExportJob) => {
     try {
       const file = await inquiryExportApi.file(job.jobId)
       saveBlob(file.filename ?? job.fileName, file.blob)
     } catch (err) {
-      notify.error(t('page.downloadFailed'), apiErrorMessage(err, t('page.removedHint')))
+      if (downloadFailure(err) === 'removed') {
+        notify.info(t('page.removed'), t('page.removedHint'))
+        reread()
+      } else {
+        notify.error(t('page.downloadFailed'), apiErrorMessage(err, t('page.downloadFailedHint')))
+      }
     }
   }
 
@@ -137,6 +154,16 @@ function JobsTable({ jobs }: { jobs: InquiryExportJob[] }) {
                     <span className="text-xs text-muted-foreground" data-export-removed="" title={t('page.removedHint')}>
                       {t('page.removed')}
                     </span>
+                  ) : canCancel(job) ? (
+                    <Button
+                      variant="outlined"
+                      onClick={() => cancel.mutate(job.jobId)}
+                      disabled={cancel.isPending && cancel.variables === job.jobId}
+                      data-export-cancel=""
+                    >
+                      <X className="size-3.5" aria-hidden />
+                      {t('page.cancel')}
+                    </Button>
                   ) : (
                     <span className="text-muted-foreground">{t('page.noFile')}</span>
                   )}

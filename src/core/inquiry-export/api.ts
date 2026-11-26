@@ -6,8 +6,8 @@
  * *Export month…* (4318 Collection Attempts; 4321–4325 the rest) and by the My exports page, so it lives in `core/`.
  *
  * Every door is owner-scoped and cookie-session only. A refusal answers 400 with `errors[0].errorCode` `INQX-000nn`
- * (`apiErrorCode`); the file door answers a bare 404 when the job is not the caller's, not done, removed, or the
- * feature is off.
+ * (`apiErrorCode`); the file door answers a bare 404 when the job is not the caller's, not done, or the feature is
+ * off, and a bare **410 Gone** when the sweeper removed the file (ticket 4320).
  */
 import { api, type FileResponse } from '@/core/api'
 
@@ -93,6 +93,13 @@ export const inquiryExportApi = {
   },
   file(jobId: string): Promise<FileResponse> {
     return api.blob(`InquiryExport/Jobs/${encodeURIComponent(jobId)}/File`)
+  },
+  /**
+   * `POST InquiryExport/Jobs/{jobId}/Cancel` (ticket 4320): the owner cancels a Waiting job and gets it back Cancelled.
+   * Refusals are the 400 envelope: `INQX` JobNotFound (not mine) or NotCancellable (no longer Waiting).
+   */
+  cancel(jobId: string): Promise<InquiryExportJob> {
+    return api.post<InquiryExportJob>(`InquiryExport/Jobs/${encodeURIComponent(jobId)}/Cancel`, {})
   },
 }
 

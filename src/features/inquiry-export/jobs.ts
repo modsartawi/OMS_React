@@ -1,3 +1,4 @@
+import { ApiError } from '@/core/api'
 import type { InquiryExportJob } from '@/core/inquiry-export/api'
 import type { Severity } from '@/core/ui/severity'
 
@@ -16,6 +17,19 @@ export function jobFile(job: InquiryExportJob): JobFile {
   if (job.fileDeletedTime) return 'removed'
   if (job.status === 'Done' && job.fileAvailable) return 'download'
   return 'none'
+}
+
+/** Only a Waiting job may be cancelled (ticket 4320); the server refuses every other state. */
+export function canCancel(job: InquiryExportJob): boolean {
+  return job.status === 'Waiting'
+}
+
+/**
+ * Why a download failed: the file door answers a bare 410 Gone once the sweeper removed the file — that is "file
+ * removed", not an error. Anything else is a failed download.
+ */
+export function downloadFailure(err: unknown): 'removed' | 'failed' {
+  return err instanceof ApiError && err.statusCode === 410 ? 'removed' : 'failed'
 }
 
 export const STATUS_SEV: Record<InquiryExportJob['status'], Severity> = {

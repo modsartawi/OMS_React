@@ -403,6 +403,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-advisor/SourcingExplainPage')).default,
         }),
       },
+      // Sourcing simulator (ticket 962, BackOffice spec 4354 §19) — the workbench: build a cart, run it, read the plans.
+      // Behind the advisor's run grant (provisional key). Its path is `SIMULATOR_PATH` in `@/core/sourcing-advisor`.
+      {
+        path: 'oms/sourcing-simulator',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-simulator/SourcingSimulatorPage')).default,
+        }),
+      },
       // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
       // serial check, by staff, serial, store and article, behind its own grant on the one permissions answer. Filters in the URL.
       {

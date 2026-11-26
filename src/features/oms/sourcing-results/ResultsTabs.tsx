@@ -2,7 +2,9 @@ import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ResultsQuery, ResultsSummaryReply } from '@/core/models/sourcing-results'
 import Chip from '@/core/ui/Chip'
+import BarTab from './BarTab'
 import { RESULTS_TABS, type ResultsTab } from './tabs'
+import TrialsTab from './TrialsTab'
 import BreakdownsTab from './BreakdownsTab'
 import ChecksTab from './ChecksTab'
 import LaterSlotsTab from './LaterSlotsTab'
@@ -20,6 +22,8 @@ export interface ResultsTabProps {
  * `later-slots` and `not-run`; 973 registers `trials` and `phase-2-bar`. A panel opens its figures with `<Drill />`.
  */
 const TAB_PANELS: Partial<Record<ResultsTab, ComponentType<ResultsTabProps>>> = {
+  trials: TrialsTab,
+  'phase-2-bar': BarTab,
   breakdowns: BreakdownsTab,
   'outside-rules': OutsideRulesTab,
   checks: ChecksTab,

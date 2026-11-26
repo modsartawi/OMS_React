@@ -123,6 +123,8 @@ export interface ResultsSummaryReply {
   cost: ResultsCost
   marks: ResultsMarkInForce[]
   differ: ResultsDifferRow[]
+  /** "Set beside it" (ticket 973): sent only when `besideSet` was asked for. */
+  beside?: ResultsBeside | null // PROVISIONAL (spec 4354: not specified)
 }
 
 /** The top: the sentence and the bar (spec §17). */
@@ -298,6 +300,337 @@ export interface ResultsOrderCard {
   happened: ResultsCardShipment[]
 }
 
+// ── Trials (ticket 973; spec §18, BO 4283 decisions 1–18, BO 4394) ─────────────────────────────────
+//
+// 🚩 BO 4394 says a trial is "a job with a door of its own" and names its content only: no path, no query name, no
+// field, no code. Everything below is this build's design and marked `// PROVISIONAL (spec 4354: not specified)`
+// until it is reconciled with BO 4394 as built.
+
+/** Why a trial refused an order it could not answer honestly (spec §18, BO 4394), in the ticket's order. */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type TrialRefusal =
+  | 'MODE_SWITCHED_ON'
+  | 'REACH_WIDER_THAN_READ'
+  | 'STORE_ADDED_TO_MODE'
+  | 'LONGER_WAITING_CAP'
+  | 'HIGHER_PAIR_CAP_ON_CUT_RUN'
+  | 'STORE_NEVER_READ'
+  | 'PRODUCT_RULE_SWITCHED_ON'
+export const TRIAL_REFUSALS: readonly TrialRefusal[] = [
+  'MODE_SWITCHED_ON',
+  'REACH_WIDER_THAN_READ',
+  'STORE_ADDED_TO_MODE',
+  'LONGER_WAITING_CAP',
+  'HIGHER_PAIR_CAP_ON_CUT_RUN',
+  'STORE_NEVER_READ',
+  'PRODUCT_RULE_SWITCHED_ON',
+]
+
+/** One trial runs at a time; others wait in order (BO 4283 decision 10). */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type TrialState = 'WAITING' | 'RUNNING' | 'DONE' | 'FAILED'
+
+/** A trial's kept row (BO 4283 decision 11): who, when, the set and version, the period, solved, refused, failed. */
+// PROVISIONAL (spec 4354: not specified) — every field.
+export interface TrialRow {
+  trialId: string
+  /** The saved version tried, by name and number (never a draft); `trial` = a trial set, shown under its banner. */
+  set: ResultsWeightSet
+  /** Whole local days, `yyyy-MM-dd`, both ends included. */
+  period: { from: string; to: string }
+  days: number
+  state: TrialState
+  /** The trial's place in the queue while it waits (1 = next); null otherwise. */
+  queuePosition: number | null
+  startedBy: string
+  startedAt: string
+  endedAt: string | null
+  /** Every order of the period with a stored comparison run (BO 4283 decision 7). */
+  orders: number
+  solved: number
+  /** Refused orders, by reason, never solved on a narrower read. */
+  refused: { reason: TrialRefusal; count: number }[]
+  failed: number
+  /** Orders whose run ended with no plan: left out, and counted (BO 4283 decision 9). */
+  leftOutNoPlan: number
+  /** A repeat of the same version over the same period, answered from the kept trial (BO 4283 decision 11). */
+  fromKept: boolean
+}
+
+/** `GET SourcingAdvisor/Trials` — the list, and what the start form may pick. */
+// PROVISIONAL (spec 4354: not specified) — the path and every field.
+export interface TrialsReply {
+  trials: TrialRow[]
+  /** The saved versions a trial may run on. */
+  versions: ResultsWeightSet[]
+  /** The longest period in whole local days (a system setting: 30). */
+  maxDays: number
+  /** The first and last day a period may hold: inside the 90 days runs are kept, up to yesterday. */
+  earliestDay: string
+  latestDay: string
+}
+
+/** `POST SourcingAdvisor/Trials/Start` — the save grant's (spec §18). Answers the started (or kept) trial's row. */
+// PROVISIONAL (spec 4354: not specified) — the path and every field.
+export interface TrialStartRequest {
+  weightSet: string
+  weightSetVersion: number
+  from: string
+  to: string
+}
+
+/** The cost factors the factor table switches in turn (BO 4283 decision 16), in its order. */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type TrialFactor =
+  | 'SLOT_LOAD'
+  | 'SLOT_TIMING'
+  | 'STORE_RECORD'
+  | 'COVER'
+  | 'SHELF_CHANCE'
+  | 'STORE_OWN_PART'
+  | 'SHORT_FIGURE'
+  | 'NAMED_STORE_STAYS'
+  | 'COUNT_FACTOR'
+export const TRIAL_FACTORS: readonly TrialFactor[] = [
+  'SLOT_LOAD',
+  'SLOT_TIMING',
+  'STORE_RECORD',
+  'COVER',
+  'SHELF_CHANCE',
+  'STORE_OWN_PART',
+  'SHORT_FIGURE',
+  'NAMED_STORE_STAYS',
+  'COUNT_FACTOR',
+]
+
+/** The kinds a changed plan is counted under: the comparison's classes, one set against the other. */
+export type TrialChangeKind = 'ANOTHER_STORE' | 'ANOTHER_MODE' | 'FEWER_SHIPMENTS' | 'MORE_SHIPMENTS'
+export const TRIAL_CHANGE_KINDS: readonly TrialChangeKind[] = ['ANOTHER_STORE', 'ANOTHER_MODE', 'FEWER_SHIPMENTS', 'MORE_SHIPMENTS']
+
+// PROVISIONAL (spec 4354: not specified) — every field.
+export interface FactorRow {
+  factor: TrialFactor
+  /** The store record's measure (`LATE`, `RETURNED`, `CANCELLED`, `PICK_UP_CANCELLED`); null for the other factors. */
+  measure: string | null
+  /** Every factor is switched off, the count factor on (it is off). */
+  switched: 'OFF' | 'ON'
+  /** Plans changed, of the plans solved. */
+  changed: ResultsShare
+  kinds: { kind: TrialChangeKind; count: number }[]
+}
+
+/** `GET SourcingAdvisor/Trials/Factors?trialId=`; `POST SourcingAdvisor/Trials/Factors` starts it (the save grant's). */
+// PROVISIONAL (spec 4354: not specified) — the paths and every field.
+export interface FactorTableReply {
+  trialId: string
+  state: 'NOT_STARTED' | TrialState
+  /** Plans solved in the trial, the whole each row's share is of. */
+  plans: number
+  rows: FactorRow[]
+}
+
+// ── Set beside it (ticket 973; BO 4283 decisions 12–15) ───────────────────────────────────────────
+
+/**
+ * The set beside the candidate set, read as two trials over the same orders (BO 4283 decisions 12–15).
+ * PROVISIONAL (spec 4354: not specified) — every field.
+ */
+export interface ResultsBeside {
+  set: ResultsWeightSet
+  /** The kept trial the figures come from; null when the set's stored runs were used as stored. */
+  trialId: string | null
+  period: { from: string; to: string }
+  /** Orders refused for either set: left out of both, counted once (BO 4283 decision 13). */
+  leftOut: number
+  /** The set against what happened: the thin second bar. */
+  top: ResultsTop
+  /** The plans that differ between the two sets: the count, the share and the kind. */
+  differ: { orders: number; differ: ResultsShare; kinds: { kind: TrialChangeKind; count: number; percent: number }[] }
+  /** Between the two sets, minutes, + = the set beside it arrives earlier; null when no plan differs. */
+  estimate: { middle: number; low: number; high: number } | null
+  shipments: { candidate: number; beside: number }
+  listFee: { lowerPercent: number; samePercent: number; higherPercent: number }
+  /** "The real deliveries, as this set would have promised them" (BO 4283 decision 15). */
+  promise: ResultsPromiseRow[]
+}
+
+/**
+ * The breakdowns' one more column under "Set beside it": one row's figure under the set beside it. Ticket 972's
+ * breakdown row carries it as `beside` when `besideSet` is asked for.
+ * PROVISIONAL (spec 4354: not specified) — the field and its shape.
+ */
+export interface ResultsBesideCell {
+  /** Same plan as what happened, under the set beside it (the whole plan). */
+  samePlan: ResultsShare
+}
+
+// ── The phase 2 bar (ticket 973; spec §18, BO 4283 decisions 31–33, BO 4396) ─────────────────────
+//
+// 🚩 BO 4396 names "SIS.Api doors" and their content only. Every path, field and code below is this build's design.
+
+/** The limits, a to i, in the spec's order (spec §18, BO 4283 decision 31). */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type BarLimit =
+  | 'STOP_FINDINGS'
+  | 'ORDERS_RUN'
+  | 'DAWAA_NOW_PROMISE'
+  | 'DISTANCE_BANDS'
+  | 'SHELF_CHANCE'
+  | 'SPLIT_CHECK'
+  | 'LARGEST_DIFFERENCES'
+  | 'OUTSIDE_RULES'
+  | 'RATES'
+export const BAR_LIMITS: readonly BarLimit[] = [
+  'STOP_FINDINGS',
+  'ORDERS_RUN',
+  'DAWAA_NOW_PROMISE',
+  'DISTANCE_BANDS',
+  'SHELF_CHANCE',
+  'SPLIT_CHECK',
+  'LARGEST_DIFFERENCES',
+  'OUTSIDE_RULES',
+  'RATES',
+]
+
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type BarState = 'MET' | 'NOT_MET' | 'CANNOT_READ'
+
+/**
+ * Why a limit cannot be read yet (BO 4396): the period's six causes, then three of one limit's own (the whole plan's
+ * step waits for finance's rates; the plan check has not read the period; the split check is not done on it).
+ */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type BarCause =
+  | 'DAY_BEFORE_FLAGS_OFF'
+  | 'RAMADAN_OR_EID'
+  | 'CANDIDATE_CHANGED'
+  | 'SHARE_UNDER_100'
+  | 'READ_REACH_OFF'
+  | 'BEFORE_31ST_DAY'
+  | 'WAITS_FOR_FINANCE_RATES'
+  | 'PLAN_CHECK_NOT_RUN'
+  | 'SPLIT_CHECK_NOT_DONE'
+export const BAR_CAUSES: readonly BarCause[] = [
+  'DAY_BEFORE_FLAGS_OFF',
+  'RAMADAN_OR_EID',
+  'CANDIDATE_CHANGED',
+  'SHARE_UNDER_100',
+  'READ_REACH_OFF',
+  'BEFORE_31ST_DAY',
+  'WAITS_FOR_FINANCE_RATES',
+  'PLAN_CHECK_NOT_RUN',
+  'SPLIT_CHECK_NOT_DONE',
+]
+
+/**
+ * One figure of a limit or a reading, as sent: `part` names it (e.g. `RUN_SHARE`, `FIRST_HALF`, `BAND_2_4`), `of` is
+ * the whole it is read against (shipments in a distance band, orders to mark), `meets` says whether this part keeps the
+ * limit (null on a reading, or where it cannot be read).
+ */
+// PROVISIONAL (spec 4354: not specified) — every field and the part codes.
+export interface BarFigure {
+  part: string
+  value: number
+  unit: 'COUNT' | 'PERCENT' | 'PER_THOUSAND' | 'RATIO' | 'MINUTES'
+  of?: number | null
+  meets?: boolean | null
+}
+
+// PROVISIONAL (spec 4354: not specified) — every field.
+export interface BarLimitReading {
+  limit: BarLimit
+  state: BarState
+  figures: BarFigure[]
+  /** Why it cannot be read yet; empty otherwise. */
+  causes: BarCause[]
+}
+
+/** Read and never a limit (spec §18, BO 4283 decision 32). */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type BarReadingCode = 'SAME_PLAN' | 'ESTIMATES' | 'FLEET_RATIO' | 'LATER_SLOTS'
+
+/** How a person marks one of the largest differences once opened (limit g: none left "a wrong rule"). */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type BarMark = 'RULE_RIGHT' | 'WRONG_RULE' | 'DATA_FAULT'
+export const BAR_MARKS: readonly BarMark[] = ['RULE_RIGHT', 'WRONG_RULE', 'DATA_FAULT']
+
+export type BarDirection = 'EARLIER' | 'LATER'
+
+/** One of the 30 orders with the largest estimated difference, each way, in each view (limit g). */
+// PROVISIONAL (spec 4354: not specified) — every field.
+export interface BarLargestRow {
+  view: ResultsView
+  direction: BarDirection
+  orderNumber: string
+  /** The order's stored run, opened in the simulator to read it before marking. */
+  runId: string
+  /** Minutes, + = the advisor's plan arrives earlier. */
+  estimateMinutes: number
+  mark: BarMark | null
+  markedBy: string | null
+  markedAt: string | null
+}
+
+/** A written ruling a limit waits for (limits e and h). */
+// PROVISIONAL (spec 4354: not specified) — every field.
+export interface BarRuling {
+  subject: 'OUTSIDE_RULES_REASON' | 'SHELF_CHANCE_FIGURE'
+  /** The reason code or the shelf chance cell, as the server keys it. */
+  key: string
+  /** The subject in words, as the server words it in both languages. */
+  label: { en: string; ar: string }
+  /** Share of the orders compared (a reason outside the rules), percent; null for a shelf chance figure. */
+  percent: number | null
+  ruling: { text: string; by: string; at: string } | null
+}
+
+/** A reading the owner accepted, kept: who, when, the period, each figure (BO 4396). */
+// PROVISIONAL (spec 4354: not specified) — every field.
+export interface BarAccepted {
+  by: string
+  at: string
+  period: { from: string; to: string }
+  limits: BarLimitReading[]
+}
+
+/** The bar is read per channel group (spec §18): the app and the site, or the call centre. */
+export type BarChannelGroup = Exclude<ResultsChannelGroup, 'ALL'>
+export const BAR_CHANNEL_GROUPS: readonly BarChannelGroup[] = ['APP_SITE', 'CALL_CENTRE']
+
+/** Runs a channel made are read apart from runs OMS made (BO 4396). */
+// PROVISIONAL (spec 4354: not specified) — the codes.
+export type BarRuns = 'OMS' | 'CHANNEL'
+export const BAR_RUNS: readonly BarRuns[] = ['OMS', 'CHANNEL']
+
+/**
+ * `GET SourcingAdvisor/Phase2Bar` + `from` (the first of the 28 whole local days; absent = the last 28), `channelGroup`,
+ * `runs`.
+ * PROVISIONAL (spec 4354: not specified) — the path, the query names and every field.
+ */
+export interface BarReply {
+  period: { from: string; to: string; days: number }
+  channelGroup: BarChannelGroup
+  runs: BarRuns
+  candidate: ResultsWeightSet | null
+  /** The causes that hold for the whole period. */
+  causes: BarCause[]
+  limits: BarLimitReading[]
+  readings: { reading: BarReadingCode; figures: BarFigure[] }[]
+  largest: BarLargestRow[]
+  rulings: BarRuling[]
+  /** The accepted reading of this very period, channel group and runs, if any. */
+  accepted: BarAccepted | null
+  /** The figures are fixed; the date of the last ruling or marking that changed one. */
+  lastChangedAt: string | null
+}
+
+// PROVISIONAL (spec 4354: not specified) — the query names.
+export interface BarQuery {
+  from?: string
+  channelGroup: BarChannelGroup
+  runs: BarRuns
+}
+
 // ── The five reading tabs (ticket 972) ───────────────────────────────────────────────────────────
 //
 // Breakdowns, Outside the advisor's rules, Promise and stock checks, Later slots, Orders not run (spec 4354 §16–§18,
@@ -335,6 +668,8 @@ export interface ResultsBreakdownFigures {
   returned: number
   cancelled: number
   endedNoStock: number
+  /** Under "Set beside it" (ticket 973): the row's figure under the set beside it; sent only when `besideSet` is asked. */
+  beside?: ResultsBesideCell | null // PROVISIONAL (spec 4354: not specified)
 }
 
 /** A row of the grouping: `key` is the mode row code, the city as sent, the channel code or the local day `yyyy-MM-dd`. */

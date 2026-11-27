@@ -1,6 +1,7 @@
 {
   "menu": { "sourcingSets": "Weight sets" },
   "title": "Weight sets",
+  "dash": "—",
   "subtitle": "The sourcing advisor's weight sets and their versions, the candidate log, and marking the candidate set.",
   "access": {
     "checking": "Checking your access…",

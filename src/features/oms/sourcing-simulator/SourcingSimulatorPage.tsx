@@ -5,7 +5,7 @@ import { Link, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { MapPlace } from '@/core/map/map-panel'
-import type { AdviseCartRequest, AdvisePin, AdviseReply, StoredRun, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+import type { AdvisePin, AdviseReply, StoredRun, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { usePermissions } from '@/core/permissions'
 import { canRunSourcingAdvisor, canSaveWeightSets } from '@/core/sourcing-advisor/access'
 import { KEPT_RUNS_PATH, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
@@ -13,10 +13,10 @@ import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { simulatorApi, storedRunQuery, weightSetsQuery, weightSetVersionQuery, workbenchQuery } from './api'
-import { adviseRequest, cartProblem, pointText, SIMULATOR_CHANNELS, type CartForm } from './cart'
+import { cartProblem, pointText, SIMULATOR_CHANNELS, type CartForm } from './cart'
 import CartPanel from './CartPanel'
 import KeepRun from './KeepRun'
-import { openedSetting, runToOpen } from './kept-runs-model'
+import { cartAsk, openedAsk, openedSetting, openedWeightSet, runToOpen } from './kept-runs-model'
 import { openDraft, setValue, waitsForSet, weightSetRef, type WeightDraft } from './draft-model'
 import { addHeld, dropSent, holdPin, isHeld, keepHeld, pinsNow, runLines, toggleHeld, type HeldPin, type PinScope, type RunLines } from './line-pins'
 import { pinChips, pinsClash, pinsCost, storesSeen } from './pins-model'
@@ -25,7 +25,7 @@ import PlanCards from './PlanCards'
 import { planNotes } from './plans-list-model'
 import PlanNotes from './PlanNotes'
 import PlansTable from './PlansTable'
-import { cartAgain, cartRequest, movedAsk, runBasis, runRequest, sameAsk, type LastRun, type RunAsk, type SimulatorRequest } from './replan-model'
+import { cartAgain, cartRequest, movedAsk, plansAgain, plansStale, runBasis, runRequest, type LastRun, type RunAsk, type SimulatorRequest } from './replan-model'
 import { cartRequestOf, replayProblem, replayRequest, type ReplayForm, type StartKind } from './replay'
 import ReplayBanner from './ReplayBanner'
 import RunBasisNotes from './RunBasisNotes'
@@ -96,26 +96,6 @@ interface RunOutput {
   stored?: StoredRun
 }
 
-/**
- * What the simulator holds as asked of a stored run opened by its link (ticket 969): its cart without the customer's
- * point, which is never stored (spec 4354 §12), or the order it replayed. Moving the customer on the map plans it
- * afresh from there.
- */
-function storedAsk(record: AdviseReply): RunAsk {
-  const setting = openedSetting(record)
-  const weightSet = { name: record.weightSet.name, version: record.weightSet.version }
-  if (setting.start === 'replay') return { cart: replayRequest(setting.replay)!, pins: [], weightSet }
-  const cart: AdviseCartRequest = {
-    channel: record.channel,
-    lines: record.lines.map((l) => ({ lineNo: l.lineNo, item: l.item, quantity: l.quantity, unit: l.unit })),
-    customer: {},
-    plannedFor: record.plannedFor,
-    level: 'full',
-    allPlans: true,
-  }
-  return { cart, pins: [], weightSet }
-}
-
 function Workbench() {
   const { t } = useTranslation('sourcing-simulator')
   const [form, setForm] = useState<CartForm>(firstForm)
@@ -155,12 +135,17 @@ function Workbench() {
   const base = version.data && chosen && version.data.name === chosen.name && version.data.version === chosen.version ? version.data : null
   const draft = base ? (edited && edited.base.name === base.name && edited.base.version === base.version ? edited : openDraft(base)) : null
 
-  const cart = start === 'build' ? adviseRequest(form) : replayRequest(replay)
-  const problem = start === 'build' ? cartProblem(form) : replayProblem(replay)
+  const [last, setLast] = useState<LastRun | null>(null)
+  // The stored run last opened by its link (ticket 969). Review 2 #3: while the form holds its cart as set back — no
+  // point, which is never stored — the cart asked is the stored run's own, so a changed pin or weight plans again on its
+  // figures; Run is then open only for that, as the cart alone cannot run without a point.
+  const [openedRecord, setOpenedRecord] = useState<AdviseReply | null>(null)
+  const fromForm = cartAsk(form, openedRecord)
+  const cart = start === 'build' ? fromForm.cart : replayRequest(replay)
   const ask: RunAsk | null = cart ? { cart, pins, weightSet: draft ? weightSetRef(draft) : null } : null
+  const problem = start === 'build' ? (fromForm.fromStored && ask && plansAgain(ask, last) ? null : cartProblem(form)) : replayProblem(replay)
   // Review 4354 #7: Run waits for the set's draft, so no run goes out naming no set only to read as stale when it opens.
   const waiting = waitsForSet({ draft: !!draft, setsRead: sets.isSuccess, setsFailed: sets.isError, chosen: !!chosen, versionFailed: version.isError })
-  const [last, setLast] = useState<LastRun | null>(null)
   // Review 4354 #2: the reply on screen is kept here, not read off the mutation (a new run clears its data), so the
   // plans, the tabs and what is open in them stay mounted — dimmed — while the next run plans.
   const [shown, setShown] = useState<RunOutput | null>(null)
@@ -185,7 +170,11 @@ function Workbench() {
     else setReplay(setting.replay)
     setStart(setting.start)
     setHeld([])
-    const ask = storedAsk(data.record)
+    setOpenedRecord(data.record)
+    // Review 2 #2: the weight set panel names the set the plans were made on.
+    setPicked(openedWeightSet(data.record))
+    setEdited(null)
+    const ask = openedAsk(data.record)
     // A changed pin or weight then plans again on the stored run's own figures (`basedOnRun`).
     setLast({ ask, runId: data.record.runId })
     setShown({ reply: data.record, ask, lines: runLines(next), heldGone: false, stored: data })
@@ -223,8 +212,9 @@ function Workbench() {
   const reply = ran?.reply
   const notes = useMemo(() => (reply ? planNotes(reply) : null), [reply])
   const happened = useMemo(() => (reply ? whatHappened(reply) : null), [reply])
-  // A stored run opened by its link was not asked from this page's form: it is never "stale".
-  const stale = !!ran && !ran.stored && (!ask || !sameAsk(ran.ask, ask))
+  // Review 2 #2: a stored run opened by its link reads as stale once a pin or the set changes from what it ran; while
+  // the set's draft is still read, the form asks nothing to compare yet.
+  const stale = plansStale(ran ? { ask: ran.ask, stored: !!ran.stored } : null, waiting ? null : ask)
   // A chip carries the refusal of the run that was sent with it; a pin added since has none yet.
   const chips = useMemo(() => pinChips(pins, ran ? ran.reply : null).map((c) => (ran && ran.ask.pins.some((p) => JSON.stringify(p) === JSON.stringify(c.pin)) ? c : { ...c, refusal: null })), [pins, ran])
   const cost = useMemo(() => (reply ? pinsCost(reply) : {}), [reply])

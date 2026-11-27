@@ -19,7 +19,13 @@ export const H2 = 'text-sm font-semibold'
 
 export const count = (n: number | null | undefined) => formatFigure(n)
 /** A share as sent: percent with one decimal. */
-export const pct = (n: number | null | undefined) => (typeof n === 'number' ? `${n.toFixed(1)}%` : '—')
+export const pct = (n: number) => `${n.toFixed(1)}%`
+
+/** A share isolated as a machine value; a missing one is the screen's dash (review 2 #8: never a literal). */
+export function Pct({ n }: { n: number | null | undefined }) {
+  const { t } = useTranslation(NS)
+  return typeof n === 'number' ? <Ltr>{pct(n)}</Ltr> : <span className="text-muted-foreground">{t('dash')}</span>
+}
 
 /** "Express margin, version 5": the free-text name and the version, each isolated in one sentence. */
 export function useSetLabel() {
@@ -111,10 +117,10 @@ export function PromiseTable({ rows }: { rows: readonly MarkingPromiseRow[] }) {
                 <Ltr>{count(p.count)}</Ltr>
               </td>
               <td className={`${TD} text-end font-semibold`}>
-                <Ltr>{pct(p.percent)}</Ltr>
+                <Pct n={p.percent} />
               </td>
               <td className={`${TD} text-end`}>
-                <Ltr>{pct(p.candidatePercent)}</Ltr>
+                <Pct n={p.candidatePercent} />
               </td>
               <td className={`${TD} whitespace-normal`}>
                 {p.band ? (

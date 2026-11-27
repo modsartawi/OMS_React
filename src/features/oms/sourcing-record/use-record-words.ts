@@ -2,8 +2,11 @@ import { useTranslation } from 'react-i18next'
 import { fsi } from '@/core/util/bidi'
 import { formatMoney3 } from '@/core/util/number-format'
 
-/** A rate (a fraction) as a percent to one decimal: a machine value, isolated by the caller (`Ltr`). */
-export const percent = (rate: number | null | undefined): string => (typeof rate === 'number' ? `${(rate * 100).toFixed(1)}%` : '')
+/**
+ * A rate (a fraction) as a percent to two decimals, as the model reads it (review 2 #7): a machine value, isolated by
+ * the caller (`Ltr`).
+ */
+export const percent = (rate: number | null | undefined): string => (typeof rate === 'number' ? `${(rate * 100).toFixed(2)}%` : '')
 
 /**
  * The store record list's words (ticket 969). Codes the door sends (modes, measures, channels, bands, neutral reasons)

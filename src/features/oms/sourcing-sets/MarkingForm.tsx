@@ -14,8 +14,8 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatRange, fsi } from '@/core/util/bidi'
 import { markingQuery, setsQuery, sourcingSetsApi } from './api'
-import { markingView, markRequest, markState, refusalLines, type MarkingView } from './marking-model'
-import { CARD, CellName, count, CountList, H2, NS, pct, PromiseTable, ReadingBadge, SetRef, useSetLabel } from './parts'
+import { markableVersions, markingView, markRequest, markState, refusalLines, type MarkingView } from './marking-model'
+import { CARD, CellName, count, CountList, H2, NS, Pct, PromiseTable, ReadingBadge, SetRef, useSetLabel } from './parts'
 
 const refKey = (r: WeightSetVersionRef) => `${r.name}|${r.version}`
 
@@ -33,10 +33,7 @@ export default function MarkingForm({ target, onPick }: { target: WeightSetVersi
   const marking = useQuery(markingQuery(target))
   const [marked, setMarked] = useState<CandidateLogEntry | null>(null)
 
-  // Every version that may be offered: not a retired set's, not the candidate set itself.
-  const options = (sets.data ?? [])
-    .filter((s) => !s.retired)
-    .flatMap((s) => s.versions.filter((v) => v !== s.candidateVersion).map((v) => ({ name: s.name, version: v })))
+  const options = markableVersions(sets.data ?? [])
 
   return (
     <div className="flex flex-col gap-4" data-marking="">
@@ -264,7 +261,7 @@ function TrialFigures({ view }: { view: MarkingView }) {
         <section className={CARD} data-mark-plans-changed="">
           <h3 className={H2}>{t('mark.plansChanged')}</h3>
           <p className="mt-1 text-2xl font-semibold">
-            <Ltr>{pct(trial.plansChanged.percent)}</Ltr>
+            <Pct n={trial.plansChanged.percent} />
           </p>
           <p className="text-xs text-muted-foreground">
             {t('mark.plansOf', {
@@ -282,7 +279,7 @@ function TrialFigures({ view }: { view: MarkingView }) {
         <section className={CARD} data-mark-refused-orders="">
           <h3 className={H2}>{t('mark.refused')}</h3>
           <p className="mt-1 text-2xl font-semibold">
-            <Ltr>{pct(trial.refused.percent)}</Ltr>
+            <Pct n={trial.refused.percent} />
           </p>
           <p className="text-xs text-muted-foreground">
             {t('mark.refusedOf', {
@@ -358,10 +355,10 @@ function ShelfFigures({ shelf }: { shelf: readonly MarkingShelfFigure[] }) {
                     <Ltr>{count(f.expectedFailed)}</Ltr>
                   </td>
                   <td className={`${TD} text-end`}>
-                    <Ltr>{pct(f.halves[0])}</Ltr>
+                    <Pct n={f.halves[0]} />
                   </td>
                   <td className={`${TD} text-end`}>
-                    <Ltr>{pct(f.halves[1])}</Ltr>
+                    <Pct n={f.halves[1]} />
                   </td>
                 </tr>
               ))}

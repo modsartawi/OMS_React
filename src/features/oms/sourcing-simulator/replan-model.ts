@@ -64,6 +64,21 @@ export function movedAsk(ask: RunAsk, point: AdvisePoint | null): RunAsk {
 /** Whether two asks differ (the "stale plans" note compares what was run with what is set now). */
 export const sameAsk = (a: RunAsk, b: RunAsk) => same(a, b)
 
+/**
+ * Whether the plans on screen read as stale: what was asked of them is no longer what the form asks. A run of this page
+ * is stale while the form cannot run too. A stored run opened by its link (ticket 969) is stale once a pin or the weight
+ * set changes from what it ran (review 2 #2), but not while the form asks nothing yet: a stored cart run never kept the
+ * customer's point, so its form opens unable to run.
+ */
+export function plansStale(shown: { ask: RunAsk; stored: boolean } | null, ask: RunAsk | null): boolean {
+  if (!shown) return false
+  if (!ask) return !shown.stored
+  return !same(shown.ask, ask)
+}
+
+/** Whether Run, asking this, plans again on the last run's figures (`basedOnRun`) rather than sending its cart. */
+export const plansAgain = (ask: RunAsk, last: LastRun | null): boolean => isRerun(runRequest(ask, last))
+
 export function runRequest(ask: RunAsk, last: LastRun | null): SimulatorRequest {
   const replan = !!last && same(ask.cart, last.ask.cart) && (!same(ask.pins, last.ask.pins) || !same(ask.weightSet, last.ask.weightSet))
   if (!replan || !last) return cartRequest(ask)

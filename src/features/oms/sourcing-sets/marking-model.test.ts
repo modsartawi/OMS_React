@@ -4,9 +4,10 @@
  * plus a tick per such figure). Fed the replies the drive serves (`stub-sets.json`, PROVISIONAL shapes).
  */
 import { describe, expect, it } from 'vitest'
+import type { WeightSetListItem } from '@/core/models/sourcing-run'
 import type { MarkingReply } from '@/core/models/sourcing-sets'
 import stub from './stub-sets.json'
-import { markingView, markRequest, markState, refusalLines } from './marking-model'
+import { markableVersions, markingView, markRequest, markState, refusalLines } from './marking-model'
 
 const reply = (key: string) => structuredClone((stub.marking as unknown as Record<string, MarkingReply>)[key])
 const clean = markingView(reply('Express margin|5'))
@@ -186,5 +187,19 @@ describe('the written reason must speak to each "too few" or "not steady"', () =
       spokenTo: ['DAWAA_NOW.1.L1', 'SLOT.2.L0', 'PICK_UP.1.L0'],
     })
     expect(markRequest(clean, 'Read.', ['SLOT.2.L0'])).toBeNull()
+  })
+})
+
+describe('the versions the marking screen offers (review 2 #9)', () => {
+  it('every version but the candidate set’s, of no retired set and no trial set: a trial set is never marked', () => {
+    expect(markableVersions(stub.sets as unknown as WeightSetListItem[])).toEqual([
+      { name: 'Baseline', version: 1 },
+      { name: 'Express margin', version: 1 },
+      { name: 'Express margin', version: 2 },
+      { name: 'Express margin', version: 3 },
+      { name: 'Express margin', version: 5 },
+      { name: 'Wider slot reach', version: 1 },
+      { name: 'Wider slot reach', version: 2 },
+    ])
   })
 })

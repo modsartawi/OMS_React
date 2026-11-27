@@ -20,6 +20,14 @@ import {
   type MarkRequest,
 } from '@/core/models/sourcing-sets'
 import { RESULTS_LEFT_OVERS, TRIAL_REFUSALS, type ResultsPromiseRow } from '@/core/models/sourcing-results'
+import type { WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+
+/**
+ * The versions the marking screen offers: not a retired set's, not the candidate set itself, and none of a trial set,
+ * which can never be marked (review 2 #9; as the set list offers Mark).
+ */
+export const markableVersions = (sets: readonly WeightSetListItem[]): WeightSetVersionRef[] =>
+  sets.filter((s) => !s.retired && !s.trial).flatMap((s) => s.versions.filter((v) => v !== s.candidateVersion).map((version) => ({ name: s.name, version })))
 
 export interface MarkingRefusalLine {
   check: MarkingCheckKey

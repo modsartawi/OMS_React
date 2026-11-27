@@ -206,7 +206,7 @@ unless a decision below names a new read.
 
 ## Comments
 
-**2026-11-27 — built (implement-spec run).** Tickets 984–994 are built on `spec/983-caller-console` (tip 2bc37582), worktree `C:\Playground\oms-react-spec983`, **not merged to main**. All on stubs; every ticket stays `open` until its live walk. The first commit carries the 2026-11-27 walk fixes to `HeaderSentence.tsx` / `ItemSearchPanel.tsx` that sat uncommitted on main. `/code-review` found 4 important + 6 nits, all fixed in 2bc37582. typecheck, 12914 tests, lint, and the callcenter drives are green.
+**2026-11-27 — built (implement-spec run).** Tickets 984–994 are built and **merged to main** (fast-forward to d41340c2; the integration branch and its worktree are removed). All on stubs; every ticket stays `open` until its live walk. The first commit carries the 2026-11-27 walk fixes to `HeaderSentence.tsx` / `ItemSearchPanel.tsx` that sat uncommitted on main. `/code-review` found 4 important + 6 nits, all fixed in 2bc37582. typecheck, 12914 tests, lint, and the callcenter drives are green.
 
 Open asks (unfiled):
 - US10 *Could still use* / Ctrl K *Apply a held coupon*: no read of coupons the caller holds but has not applied — needs a BackOffice read; the column is not drawn and the palette row is disabled.

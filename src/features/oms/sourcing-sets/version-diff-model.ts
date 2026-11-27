@@ -79,11 +79,12 @@ function shelfCell(key: string): ShelfCell | null {
 /** The server's table order: by units left over, then units asked. */
 const shelfOrder = (c: ShelfCell) => c.leftOver * 1000 + c.asked
 
-/** Whether a flat key is a setting a panel control reads (`[*]` stands for any row). */
-const covered = WEIGHT_CONTROLS.flatMap((c) => c.paths).map(
-  (p) => new RegExp(`^${p.replace(/[.]/g, '\\.').replace(/\[\*\]/g, '\\[[^\\]]+\\]').replace(/\[([A-Z_]+)\]/g, '\\[$1\\]')}$`),
-)
-const isCovered = (key: string) => covered.some((re) => re.test(key))
+/** A control's path as a pattern over flat keys (`[*]` stands for any row). */
+const pathPattern = (p: string) =>
+  new RegExp(`^${p.replace(/[.]/g, '\\.').replace(/\[\*\]/g, '\\[[^\\]]+\\]').replace(/\[([A-Z_]+)\]/g, '\\[$1\\]')}$`)
+const controlPatterns = new Map(WEIGHT_CONTROLS.map((c) => [c.key, c.paths.map(pathPattern)]))
+/** Whether a flat key is a setting a panel control reads. */
+const isCovered = (key: string) => [...controlPatterns.values()].some((res) => res.some((re) => re.test(key)))
 
 /**
  * Every setting of two versions side by side, grouped and in order; only the changed ones unless `every`. A group with
@@ -92,16 +93,21 @@ const isCovered = (key: string) => covered.some((re) => re.test(key))
 export function versionDiff(from: WeightSetValues, to: WeightSetValues, { every = false }: { every?: boolean } = {}): DiffGroup[] {
   const a = flatValues(from)
   const b = flatValues(to)
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])]
   const rows: DiffRow[] = []
 
   for (const c of WEIGHT_CONTROLS) {
     const before = controlValue(from, c)
     const after = controlValue(to, c)
     const kind: SettingKind = c.kind === 'switch' ? 'switch' : c.riyals ? 'riyals' : 'number'
-    rows.push({ key: c.key, group: c.group, kind, before, after, changed: !same(before, after) })
+    // A control over several settings reads as one value (a mode's margin, "any measure on"): it has changed when any
+    // one of its settings has, though the value it reads is the same.
+    const res = controlPatterns.get(c.key)!
+    const changed = !same(before, after) || keys.some((k) => res.some((re) => re.test(k)) && !same(a[k], b[k]))
+    rows.push({ key: c.key, group: c.group, kind, before, after, changed })
   }
 
-  const rest = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !isCovered(k))
+  const rest = keys.filter((k) => !isCovered(k))
   const shelf: DiffRow[] = []
   const other: DiffRow[] = []
   for (const key of rest) {

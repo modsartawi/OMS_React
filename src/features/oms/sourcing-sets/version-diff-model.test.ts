@@ -4,7 +4,7 @@
  * `baseline-weight-set.json`, BackOffice 4360 at pricing2 35a4e56be, with a few settings changed).
  */
 import { describe, expect, it } from 'vitest'
-import type { WeightSetVersion } from '@/core/models/sourcing-run'
+import type { WeightSetValues, WeightSetVersion } from '@/core/models/sourcing-run'
 import stub from './stub-sets.json'
 import { comparedPair, flatValues, pickToCompare, versionDiff } from './version-diff-model'
 
@@ -50,6 +50,21 @@ describe('what differs between two versions', () => {
     ])
     const margin = versionDiff(version('Express margin', 3).values, em4).flatMap((g) => g.rows).find((r) => r.key === 'marginMultiplier')
     expect(margin).toMatchObject({ before: 1.25, after: 1.1, kind: 'number' })
+  })
+
+  it('a control over several settings is changed when any one of them is, though its own value reads the same (review 3 #2)', () => {
+    const changed = (to: WeightSetValues) =>
+      versionDiff(em4, to)
+        .flatMap((g) => g.rows)
+        .filter((r) => r.changed)
+        .map((r) => r.key)
+    const modes = (em4.modes as Record<string, unknown>[]).map((m) =>
+      m.mode === 'SLOT' ? { ...m, marginMultiplier: 1.25 } : m.mode === 'CARRIER_NEXT_DAY' ? { ...m, on: true } : m,
+    )
+    expect(changed({ ...em4, modes })).toEqual(['marginMultiplier', 'carrierModes'])
+    const storeRecord = structuredClone(em4.storeRecord) as { slot: { late: { on: boolean } } }
+    storeRecord.slot.late.on = false
+    expect(changed({ ...em4, storeRecord })).toEqual(['storeRecord'])
   })
 
   it('a setting a panel control covers is never listed again under "other"', () => {

@@ -12,7 +12,7 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatDateTime } from '@/core/util/date-format'
 import { orderLinkApi } from './api'
-import { askedNumber, oldOrderLinkAnswer } from './old-order-link-model'
+import { askedNumber, oldOrderLinkAnswer, storedLineKey } from './old-order-link-model'
 
 /** The comparison results page (ticket 971), which the menu's "Sourcing advisor" opens. */
 const RESULTS_PATH = '/oms/sourcing-results'
@@ -89,8 +89,8 @@ function OrderLink() {
         <p className="text-sm">
           <Trans
             t={t}
-            i18nKey="stored.line"
-            values={{ order: answer.orderNumber, ranAt: formatDateTime(answer.ranAt) }}
+            i18nKey={storedLineKey(answer.ranAt)}
+            values={{ order: answer.orderNumber, ranAt: answer.ranAt ? formatDateTime(answer.ranAt) : '' }}
             components={{ order, at: <Ltr /> }}
           />
         </p>

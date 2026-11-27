@@ -355,6 +355,8 @@ async function scenario(browser, lang) {
   await drawer.locator('[data-order]').first().click()
   await drawer.locator('[data-order-card]').waitFor({ timeout: 10000 })
   check(`${tag} the card reads the chosen order`, last('order')?.orderNumber === orderNo, `${orderNo}`)
+  const cardHead = await drawer.locator('[data-order-card] > div').first().innerText()
+  check(`${tag} the card names the channel, not its code (review 3 #6)`, cardHead.includes('App, iPhone') && !/\bIOS\b/.test(cardHead), cardHead)
   const plan = await drawer.locator('[data-card-side="whole-plan"]').innerText()
   const happened = await drawer.locator('[data-card-side="happened"]').innerText()
   check(`${tag} the advisor's plan beside what happened, the stores only between`, plan.includes('P901') && happened.includes('P910') && (await drawer.locator('[data-card-side="stores-only"]').count()) === 1, `${plan.replace(/\n/g, ' ')} | ${happened.replace(/\n/g, ' ')}`)

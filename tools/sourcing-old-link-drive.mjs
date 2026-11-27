@@ -40,11 +40,14 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
 // The door's replies, shaped as `ResultsOrderRunReply` (camelCase), as OldOrderLinkTests reads them.
 const ORDER = '4500718264'
 const DELIVERY = '8000000253'
+const UNDATED = '4500718265'
 const reply = (over) => ({ asked: ORDER, orderNumber: ORDER, orderKnown: true, runId: null, state: null, ranAt: null, hasSummary: false, offerReplay: false, ...over })
 const ORDER_RUNS = {
   [ORDER]: reply({ runId: '94397R01', state: 'COMPARISON', ranAt: '2026-11-24T10:15:00', hasSummary: true }),
   // A delivery with no stored run: its order is named, and a replay is offered.
   [DELIVERY]: reply({ asked: DELIVERY, offerReplay: true }),
+  // A stored run the door names no time for.
+  [UNDATED]: reply({ asked: UNDATED, orderNumber: UNDATED, runId: '94397R02', state: 'COMPARISON' }),
   943979999: reply({ asked: '943979999', orderNumber: '', orderKnown: false }),
 }
 
@@ -139,6 +142,11 @@ async function pass(browser, lang) {
     new URL(page.url()).pathname === `/oms/sourcing-advisor/order/${ORDER}` &&
       ((await page.locator('[data-order-link="stored"]').textContent()) ?? '').includes('needs the simulator'),
   )
+  // a stored run the door names no time for: the sentence leaves "made …" out (review 3 #5)
+  await page.goto(`${BASE}/oms/sourcing-advisor/order/${UNDATED}`)
+  await page.locator('[data-order-link="stored"]').waitFor({ timeout: 10000 }).catch(() => {})
+  const undated = ((await page.locator('[data-order-link="stored"] p').first().textContent()) ?? '').trim()
+  check(`${L} a stored run with no time reads without "made"`, undated === `Order ${UNDATED} has a stored run.`, undated)
   await page.goto(`${BASE}/oms/sourcing-advisor/order/${DELIVERY}`)
   await page.locator('[data-order-link="none"]').waitFor({ timeout: 10000 })
   check(`${L} under the view grant alone, no replay is offered`, (await page.locator('a[data-order-link-replay]').count()) === 0)

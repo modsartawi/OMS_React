@@ -47,6 +47,9 @@ export interface LinePromotionView {
  *  server's line; none is derived from another. */
 export interface BasketLineView {
   lineId: string
+  /** 1-based position in the basket (D4). Display only, never sent; `0` on a
+   *  line viewed on its own, outside a basket. */
+  lineNumber: number
   itemNumber: string
   /** The name the agent reads out. */
   description: string
@@ -69,6 +72,18 @@ export interface BasketLineView {
   /** The server's own flag, from the agent's acceptance (169). Never re-derived. */
   belowAtpAtScan: boolean
   warnings: string[]
+  /** `unitPrice.gross`, verbatim — the price column. Display only (CONTRACT §2). */
+  unitPrice: number
+  /**
+   * The discount column: each discount condition (negative, not statistical,
+   * not VAT) as the server sent it. 🚩 Listed, never summed — a line with two
+   * discounts shows two figures, and the total beside them is the engine's.
+   */
+  discounts: LineCondition[]
+  /** The VAT class on the line's second row (D5) — `null` with no VAT condition. */
+  vatRate: number | null
+  /** The pricing detail opened under the line. */
+  pricing: PricingRow[]
 }
 
 export function basketLineView(line: SessionLine, firedPromotions: FiredPromotion[]): BasketLineView {
@@ -93,6 +108,7 @@ export function basketLineView(line: SessionLine, firedPromotions: FiredPromotio
 
   return {
     lineId: line.lineId,
+    lineNumber: 0,
     itemNumber: line.itemNumber,
     description: line.description,
     qty: line.qty,
@@ -107,6 +123,10 @@ export function basketLineView(line: SessionLine, firedPromotions: FiredPromotio
     availability: frozenAvailability(line.atpAtScan),
     belowAtpAtScan: line.belowAtpAtScan === true,
     warnings: line.warnings ?? [],
+    unitPrice: line.unitPrice.gross,
+    discounts: (line.conditions ?? []).filter((c) => !isVat(c) && !c.isStatistical && c.value < 0),
+    vatRate: lineVatRate(line),
+    pricing: linePricing(line),
   }
 }
 
@@ -118,12 +138,91 @@ function uomChoices(line: SessionLine): string[] {
   return offered.includes(line.uom) ? offered : [line.uom, ...offered]
 }
 
+/**
+ * The condition type the engine prices VAT with (§2.1: a separate condition).
+ * A set, so a second VAT type the engine starts emitting is one entry here.
+ */
+const VAT_CONDITION_TYPES = new Set(['MWST'])
+
+const isVat = (condition: LineCondition) => VAT_CONDITION_TYPES.has(condition.type)
+
+/**
+ * One row of a line's pricing detail (ticket 985), opened under the line. Every
+ * `value` is a field the server sent — a condition's own value, `lineTotal.net`,
+ * `lineTotal.gross` — and none is arrived at from the others.
+ */
+export type PricingRow =
+  | ({ kind: 'condition' } & LineCondition)
+  | { kind: 'net'; value: number }
+  /** D5: VAT as **rate and amount**. `rate` is a whole percent, or `null`
+   *  where the line gives no way to tell it. */
+  | { kind: 'vat'; rate: number | null; value: number }
+  | { kind: 'total'; value: number }
+
+/**
+ * The pricing detail: basic price, each condition by name (the server's order,
+ * VAT held back), net, then VAT as rate and amount, then the line total.
+ */
+export function linePricing(line: SessionLine): PricingRow[] {
+  const conditions = line.conditions ?? []
+  return [
+    ...conditions.filter((c) => !isVat(c)).map((c) => ({ kind: 'condition' as const, ...c })),
+    { kind: 'net', value: line.lineTotal.net },
+    ...conditions.filter(isVat).map((c) => ({ kind: 'vat' as const, rate: vatRate(c, line), value: c.value })),
+    { kind: 'total', value: line.lineTotal.gross },
+  ]
+}
+
+/** The line's VAT rate from its VAT condition, or `null` with no VAT condition. */
+function lineVatRate(line: SessionLine): number | null {
+  const vat = (line.conditions ?? []).find(isVat)
+  return vat ? vatRate(vat, line) : null
+}
+
+/**
+ * The rate of one VAT condition (D5).
+ *
+ * 🚩 The wire's condition carries **no rate field** (`CallCenterLineCondition`
+ * is type · description · value · isStatistical), and the live engine describes
+ * MWST as "Vat %" with the AMOUNT beside it — the "Vat % 20.32" D5 fixes. So:
+ * 1. the server's own words, where its description states a percent;
+ * 2. a zero amount is 0% (a medicine line) — nothing to divide;
+ * 3. otherwise the condition's amount over the line's own net, as a **whole
+ *    percent**. That is a ratio of two server figures, never an amount: no
+ *    figure the agent quotes is computed here. KSA rates are whole (15, 0).
+ * 4. `null` where there is no net to read it against.
+ * The clean fix is an additive `rate` on the condition — an owner/BackOffice ask.
+ */
+function vatRate(condition: LineCondition, line: SessionLine): number | null {
+  const worded = /(\d+(?:\.\d+)?)\s*%/.exec(condition.description ?? '')
+  if (worded) return Number(worded[1])
+  if (condition.value === 0) return 0
+  const net = line.lineTotal.net
+  return net > 0 ? Math.round((condition.value / net) * 100) : null
+}
+
 const sharedLines = (promo: FiredPromotion | undefined, lineId: string): number =>
   promo ? promo.lineIds.filter((id) => id !== lineId).length : 0
 
 /** The whole basket, in the engine's own order — nothing here re-sorts it. */
 export function basketLineViews(state: SessionState): BasketLineView[] {
-  return (state.lines ?? []).map((line) => basketLineView(line, state.firedPromotions ?? []))
+  return (state.lines ?? []).map((line, index) => ({
+    ...basketLineView(line, state.firedPromotions ?? []),
+    lineNumber: index + 1,
+  }))
+}
+
+/**
+ * Each line's number, by `lineId` (spec 983 D4) — so the promotions panel names
+ * the lines an offer landed on by the same numbers the basket shows.
+ *
+ * 🚩 **Display only, and a position, never an id.** It is 1-based in the
+ * engine's own order and recomputed from each `SessionState`, so a void
+ * renumbers what follows it. It is never sent: the wire names a line by
+ * `lineId`, and a number the agent read out a minute ago may name another line now.
+ */
+export function lineNumbers(state: SessionState): Map<string, number> {
+  return new Map((state.lines ?? []).map((line, index) => [line.lineId, index + 1]))
 }
 
 /**

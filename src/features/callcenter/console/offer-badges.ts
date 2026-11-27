@@ -47,7 +47,9 @@ export function tierPhrase(codes: string[], t: TFunction, lang: string): Guidanc
 export function formatOfferDay(date: string, lang: string, length: 'short' | 'long' = 'short'): string {
   const day = dayOf(date)
   if (!day) return date
-  return new Intl.DateTimeFormat(lang, { weekday: length, day: 'numeric', month: length }).format(day)
+  // English as the walk says it (*Thu 3 Dec*): day before month, the Saudi and British order.
+  const locale = lang.startsWith('en') ? 'en-GB' : lang
+  return new Intl.DateTimeFormat(locale, { weekday: length, day: 'numeric', month: length }).format(day)
 }
 
 function endsBadge(endsOn: string | null | undefined, now: Date): OfferBadge | null {

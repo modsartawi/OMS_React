@@ -45,10 +45,14 @@ export default function AppliedOfferCard({ card }: { card: AppliedCard }) {
       ? said
       : [
           card.lines.length > 0
-            ? { key: 'callcenter:promotions.say.applied', params: { offer, amount, currency, lines, count: card.lines.length } }
+            ? {
+                key: 'callcenter:promotions.say.applied',
+                // `1,2`: SayLine lists them in each language it says the sentence in.
+                params: { offer, amount, currency, lines: card.lines.join(','), count: card.lines.length },
+              }
             : { key: 'callcenter:promotions.say.appliedOrder', params: { offer, amount, currency } },
           ...(card.notOn.length > 0
-            ? [{ key: 'callcenter:promotions.say.notOn', params: { lines: notOn, count: card.notOn.length } }]
+            ? [{ key: 'callcenter:promotions.say.notOn', params: { lines: card.notOn.join(','), count: card.notOn.length } }]
             : []),
         ]
   return (

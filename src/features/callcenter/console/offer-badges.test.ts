@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import i18n from '@/core/i18n'
 import type { OfferAudience } from '@/core/models/callcenter'
-import { offerBadges, tierPhrase, type OfferBadge } from './offer-badges'
+import { formatOfferDay, offerBadges, tierPhrase, type OfferBadge } from './offer-badges'
 
 const en = i18n.getFixedT('en')
 /** The owner's walk: Friday 27 November 2026, mid-afternoon, local time. */
@@ -66,5 +66,12 @@ describe('tierBadgeSaysWhetherTheCallerQualifies', () => {
   it('phone-only first, then the tier, then the end date', () => {
     const owner: OfferAudience = { channelOnly: true, tiers: ['P', 'G', 'S'], callerQualifies: true }
     expect(kinds(offerBadges(owner, '2026-12-03', WALK))).toEqual(['phoneOnly', 'tier', 'ends'])
+  })
+})
+
+describe('theEndDayReadsAsTheWalkSaysIt', () => {
+  it('English: Thu 3 Dec; the Say line: Thursday 3 December', () => {
+    expect(formatOfferDay('2026-12-03', 'en')).toBe('Thu 3 Dec')
+    expect(formatOfferDay('2026-12-03', 'en', 'long')).toBe('Thursday 3 December')
   })
 })

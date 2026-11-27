@@ -809,19 +809,19 @@ async function run() {
     )
     // 987 — the add completes it, and it moves to Applied, named by the basket's own number.
     const rewardLineNo = String(FIRED_803.lines.length)
-    const on803 = (await page.locator(applied803).count()) ? await text(page, `${applied803} [data-cc-applied-on]`) : ''
+    // 996: one line ⇒ card D names it with its quantity (`Line 3 · 1 unit`) rather than 987's `Line 3`.
+    const on803 = (await page.locator(applied803).count()) ? await text(page, `${applied803} [data-cc-applied-line]`) : ''
     check(
-      '🚩 987: the completed offer moves to Applied, on the reward line by its number',
+      '🚩 987/996: the completed offer moves to Applied, on the reward line by its number',
       (await page.locator(applied803).count()) === 1 &&
         (await page.locator(applied803).getAttribute('data-cc-applied-lines')) === rewardLineNo &&
-        on803 === `Line ${rewardLineNo}`,
+        on803 === `Line ${rewardLineNo} · 1 unit`,
       on803 || 'no applied card',
     )
     const said803 = (await page.locator(applied803).count()) ? await text(page, `${applied803} [data-cc-say]`) : ''
     check(
-      '987: with the engine’s amount, and a sentence to say',
-      /10\.00/.test(await text(page, `${applied803} [data-cc-applied-amount]`)) &&
-        said803.includes(`takes 10.00 SAR off line ${rewardLineNo}`),
+      '987/996: with the engine’s amount, and a sentence to say',
+      /10\.00/.test(await text(page, `${applied803} [data-cc-applied-amount]`)) && said803.includes('You save 10.00 SAR'),
       said803,
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')

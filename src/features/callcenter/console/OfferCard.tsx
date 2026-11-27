@@ -138,8 +138,10 @@ export default function OfferCard({
         </div>
       )}
 
-      <SayLine phrases={say} bilingual />
+      {/* 🚩 Under the qualifying list, not above it: the route to the rest of a set must stay
+          inside the clamp without scrolling (138 finding 1), and the Arabic line is a second row. */}
       {children}
+      <SayLine phrases={say} bilingual />
     </div>
   )
 }

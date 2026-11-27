@@ -9,11 +9,13 @@
  *
  * 996 (spec 995 D7): `bilingual` adds the same sentence in Arabic under it, its own sentence from
  * `locales/ar` and not a word-order translation, unless the console is already in Arabic. A
- * `date` param is the offer's day (`yyyy-mm-dd`), formatted in each language it is said in.
+ * `date` param is the offer's day (`yyyy-mm-dd`) and a `lines` param the line numbers (`1,2`), each
+ * formatted in the language it is said in.
  */
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import type { GuidancePhrase } from './guidance-view'
 import { formatOfferDay } from './offer-badges'
 
@@ -59,6 +61,8 @@ function isolated(params: GuidancePhrase['params'], lang: string, t: TFunction):
     Object.entries(params).map(([key, value]) => {
       // The offer's day, in this sentence's language, isolated whole.
       if (key === 'date' && typeof value === 'string') return [key, fsi(formatOfferDay(value, lang, 'long'))]
+      // Line numbers ride as `1,2`, and are listed in this sentence's own language (`1 and 2`, `1 و2`).
+      if (key === 'lines' && typeof value === 'string') return [key, fsi(listText(value.split(','), lang))]
       // The currency is a word, said in this sentence's own language.
       if (key === 'currency') return [key, t('money.currency')]
       // The offer is isolated by its slot; isolating it again would put FSI inside the <bdi>.

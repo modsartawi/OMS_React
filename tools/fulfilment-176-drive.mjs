@@ -277,7 +277,13 @@ const measure = (page) =>
       waivedReason: document.querySelector('[data-cc-delivery-waived-reason]')?.innerText ?? null,
       threshold: !!document.querySelector('[data-cc-delivery-threshold]'),
       receipt: document.querySelector('[data-cc-receipt]').innerText,
-      blockers: document.querySelector('[data-cc-blockers]')?.innerText ?? null,
+      // 984 retired `[data-cc-blockers]`: what the order still waits on is the
+      // checklist's missing rows (textContent: the row capitalises its first
+      // letter in CSS, and the words are what this asserts, not the casing).
+      blockers:
+        [...document.querySelectorAll('[data-cc-checklist] [data-cc-check-state="missing"]')]
+          .map((el) => el.textContent)
+          .join(' ') || null,
       // 409: the rail's address / collection blocks are retired — the sentence's
       // shape says which mode the order is in, and its address word is the book's door.
       shape: header?.dataset.ccSentenceShape ?? null,

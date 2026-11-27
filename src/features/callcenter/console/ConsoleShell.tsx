@@ -32,12 +32,12 @@ import { Check, CircleDashed, Loader2, PhoneCall, RefreshCw, X } from 'lucide-re
 import { useCommands } from '@/core/commands/registry'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
-import { formatPair } from '@/core/util/bidi'
+import { formatPair, fsi } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
-import { receiptView, type DeliveryFeeView } from './basket-view'
+import { receipt as receiptOf, type ReceiptFee } from './receipt-view'
 import { paletteCommands } from './palette-model'
-import { capabilityGate, feeLine, isPickup, showsDeliveryRegion } from './fulfilment-view'
+import { capabilityGate, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions } from './CallerBar'
 import CallerColumn from './CallerColumn'
@@ -769,8 +769,9 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
  * The live receipt — never goes below the fold, with *Place order* pinned to its
  * foot where it never scrolls away (US53).
  *
- * 🚩 **Every figure is the engine's** (`receiptView` takes `totals` and is never
- * given the lines, §2.1). It re-quotes as the basket changes because the basket's
+ * 🚩 **Every figure is the engine's** (`receipt-view.ts` takes `totals` and is never
+ * given the lines, §2.1; spec 983 D6). Original and Discount are C1's v1.13 fields:
+ * on a v1.12 server they are not drawn, never found by subtraction. It re-quotes as the basket changes because the basket's
  * verbs return the whole state — including the **delivery fee**, so crossing its
  * threshold is something the agent watches happen rather than discovers at
  * submit (US36).
@@ -786,7 +787,12 @@ function Receipt({
   checklist: Checklist
 }) {
   const { t } = useTranslation('callcenter')
-  const receipt = receiptView(state.totals)
+  // 🚩 **Absent, not zero** under `PickInStore` (156, capture 09). The fee block
+  // still arrives on the wire — `{ amount: 0, waived: false, thresholdGross: 100 }`
+  // — so the flip back re-quotes instantly; what must not happen is this console
+  // drawing `Delivery SAR 0.00` and a free-delivery promise on an order nobody is
+  // delivering.
+  const receipt = receiptOf(state.totals, { delivering: showsDeliveryRegion(state.header) })
   // 🚩 The order number outranks everything else in this foot. Once it exists
   // there is nothing left to press and nothing left to fix — including the
   // `ALREADY_SUBMITTED` blocker, which is the projection saying the same thing
@@ -799,22 +805,45 @@ function Receipt({
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         <dl className="space-y-1.5 text-sm">
-          <Row label={t('receipt.items')} value={<Money value={receipt.net} />} />
-          <Row label={t('receipt.vat')} value={<Money value={receipt.vat} />} />
-          {/* 🚩 **Absent, not zero** under `PickInStore` (156, capture 09). The
-              block still arrives on the wire — `{ amount: 0, waived: false,
-              thresholdGross: 100 }` — so the flip back re-quotes instantly; what
-              must not happen is this console drawing `Delivery SAR 0.00` and a
-              free-delivery promise on an order nobody is delivering. */}
-          {showsDeliveryRegion(state.header) && receipt.delivery && (
-            <DeliveryRegion fee={receipt.delivery} />
-          )}
+          {receipt.figures.map((figure) => (
+            <Row
+              key={figure.id}
+              label={t(`receipt.${figure.id}`)}
+              value={
+                <span data-cc-receipt-figure={figure.id}>
+                  <Ltr>
+                    {/* A sign is wording, not arithmetic: the server's discount is
+                        a positive amount, drawn as one taken off. */}
+                    {figure.id === 'discount' && '−'}
+                    <Money value={figure.amount} />
+                  </Ltr>
+                </span>
+              }
+            />
+          ))}
+          {receipt.fee && <DeliveryRegion fee={receipt.fee} />}
           <div className="mt-3 flex items-baseline justify-between border-t border-border-strong pt-3">
             <span className="text-sm font-semibold">{t('receipt.total')}</span>
             <span data-cc-payable>
-              <Money value={receipt.payable} size="lg" />
+              <Ltr>
+                <Money value={receipt.total} size="lg" />
+              </Ltr>
             </span>
           </div>
+          {/* *Caller saves …* — the server's own discount, only above nought. */}
+          {receipt.saves !== null && (
+            <div className="flex justify-end">
+              <span
+                className="rounded-full bg-success-050 px-2.5 py-0.5 text-xs font-medium text-success-800"
+                data-cc-saves
+              >
+                {t('receipt.saves')}{' '}
+                <Ltr>
+                  <Money value={receipt.saves} />
+                </Ltr>
+              </span>
+            </div>
+          )}
         </dl>
         {/* 🚩 *Before you place it* (D3, US12): the server's blockers as rows, the
             same model the rail's Review step reads. Gone once the order is placed —
@@ -925,29 +954,36 @@ function BeforeYouPlace({ checklist }: { checklist: Checklist }) {
  * with *"because you're over 100"*, which may be false. The server ships the
  * branch it took; this draws it.
  *
- * ⚠ **`waivedReason` is not reachable yet** — capture 09 is a v1.4 response and
- * carries no such field (BackOffice 874 is unbuilt), so the `waived` arm below is
- * proved from a stubbed state in the drive and the drive says so. 177's lesson:
- * an unreachable path is drawn *and named*, never drawn and assumed.
+ * Spec 983 / ticket 986: a waived fee is **struck out and marked free**, its reason
+ * under it — the fee the caller would have paid, read off `deliveryFee.amount`,
+ * never a figure the console worked out.
  */
-function DeliveryRegion({ fee }: { fee: DeliveryFeeView }) {
+function DeliveryRegion({ fee }: { fee: ReceiptFee }) {
   const { t } = useTranslation('callcenter')
-  const line = feeLine(fee)
   return (
     <>
       <Row
         label={t('receipt.delivery')}
         value={
-          line.kind === 'amount' ? (
+          fee.kind === 'amount' ? (
             <span data-cc-delivery-fee>
-              <Money value={line.amount} />
+              <Ltr>
+                <Money value={fee.amount} />
+              </Ltr>
             </span>
           ) : (
             // 🚩 `waived` is an OUTCOME the agent is shown, never a control they
             // operate — the manual waiver was removed (map note 4's correction),
             // so there is nothing here to switch.
-            <span className="text-xs font-medium text-success-800" data-cc-delivery-waived>
-              {t('receipt.waived')}
+            <span className="inline-flex items-baseline gap-1.5" data-cc-delivery-waived>
+              {fee.struck !== null && (
+                <s className="text-muted-foreground" data-cc-delivery-struck>
+                  <Ltr>
+                    <Money value={fee.struck} />
+                  </Ltr>
+                </s>
+              )}
+              <span className="text-xs font-medium text-success-800">{t('receipt.free')}</span>
             </span>
           )
         }
@@ -955,23 +991,22 @@ function DeliveryRegion({ fee }: { fee: DeliveryFeeView }) {
       {/* What the basket has to reach for the fee to fall away — the server's own
           threshold, so the agent can say it out loud while the caller is still
           deciding. */}
-      {line.kind === 'amount' && line.thresholdGross !== null && (
+      {fee.kind === 'amount' && fee.thresholdGross !== null && (
         <p className="text-[11px] text-muted-foreground" data-cc-delivery-threshold>
           {/* Engine money, so it carries the currency word — read from the one
               key that holds it rather than spelled into the sentence. */}
           {t('receipt.freeOver', {
-            amount: formatMoney(line.thresholdGross),
+            amount: fsi(formatMoney(fee.thresholdGross)),
             currency: t('money.currency'),
           })}
         </p>
       )}
       {/* The reason it fell away, in the server's own branch. An unrecognised
-          category never reaches here at all — `feeLine` has already degraded it
-          to `waivedNoReason`, the bare word above and no sentence (§9), which is
-          exactly what v1.4 does today. So this key always exists. */}
-      {line.kind === 'waived' && (
-        <p className="text-[11px] text-success-800" data-cc-delivery-waived-reason={line.reason}>
-          {t(`receipt.waivedReason.${line.reason}`)}
+          category arrives as `reason: null` (receipt-view degrades it) — *free*
+          and no sentence (§9), which is exactly what v1.4 does today. */}
+      {fee.kind === 'waived' && fee.reason !== null && (
+        <p className="text-[11px] text-success-800" data-cc-delivery-waived-reason={fee.reason}>
+          {t(`receipt.waivedReason.${fee.reason}`)}
         </p>
       )}
     </>

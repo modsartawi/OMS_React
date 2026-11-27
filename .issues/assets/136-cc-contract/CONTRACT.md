@@ -1,4 +1,4 @@
-# The web call-center session API — frozen contract v1.12 (proposed)
+# The web call-center session API — frozen contract v1.13 (v1.12's shortfall half proposed)
 
 > Asset of [136](../../136-session-api-contract.md), map [126](../../126-web-call-center.md).
 > Frozen 2026-07-27 at v1.0; **v1.1** adds the fulfilment-mode axis
@@ -20,6 +20,9 @@
 > ([412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md), additive — see
 > [§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)), and adds the on-demand
 > read of one reward arm's products ([§3.7](#37-resolvereward--one-reward-arms-products-v112)).
+> **v1.13** adds `totals.beforeDiscount` and `totals.discount`, so the receipt can print the
+> original amount and the discount without subtracting
+> ([983](../../983-the-console-is-built-around-the-caller-spec.md) C1, additive — see [§2.1](#21-field-rules)).
 > **This document is the single source of truth for both tracks.**
 > Client track: `oms-react` `features/callcenter/`. Server track: SIS.Api + `SIS.Pricing`
 > (BackOffice [785](C:\Work\DMSCO\BackOffice\.issues\785-web-cc-engine-session.md),
@@ -217,6 +220,8 @@ CallCenterSession              (SIS.Api, keyed by transactionId) → customer, a
   ],
 
   "totals": {                     // display only, engine-computed
+    "beforeDiscount": 32.40,      // v1.13 — ex-VAT, before any discount — §2.1
+    "discount": 8.40,             // v1.13 — positive; beforeDiscount − discount = net
     "net": 24.00, "vat": 3.60, "gross": 27.60,
     "deliveryFee": {
       "amount": 15.00, "waived": false,
@@ -274,6 +279,15 @@ CallCenterSession              (SIS.Api, keyed by transactionId) → customer, a
 - **`replayed`.** True only on a `requestId` replay. The client renders identically; it exists so
   the console can suppress a duplicate toast and so the fixture/conformance test can assert it.
 - **Money is never client-computed.** `totals` is engine truth. The client must not sum `lines`.
+- **`beforeDiscount` / `discount` (v1.13, [983](../../983-the-console-is-built-around-the-caller-spec.md)
+  C1, BackOffice [4454](C:\Work\DMSCO\BackOffice\.issues\4454-callcenter-session-totals-carry-before-discount-and-discount.md)).**
+  Both money, both from the **same** engine run (`SimulationResultHeader`) that gives `net`:
+  `beforeDiscount` is the ex-VAT amount before any discount (`GrossValue`, or `net − TotalDiscount`
+  where the procedure has no gross step), `discount` the total discount as a **positive** amount.
+  **Invariant, held by the server: `beforeDiscount − discount = net`** to the currency's decimals.
+  The delivery fee is in neither (786 §2: the fee is not an engine line). The client prints them
+  and never does that sum. **Absent on a v1.12 server** — the receipt then hides Original and
+  Discount rather than deriving them; a client sees both or neither.
 - **`unitPrice`/`lineTotal` carry `net` and `gross`** because `MWST` is a separate 15% condition —
   the same fact that makes item search's `estimatePriceExVat` read ~13 % under the basket line
   ([131](../../131-item-search-endpoint.md)). The console labels the two differently.
@@ -1414,6 +1428,8 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.10 | 2026-07-29 | **The redeemed coupon gets a projection, a way off, and stops being offered as an add** ([2.7](#27-the-redeemed-coupon-v110)). New `header.coupons[]`; new `removeCoupon` verb; new `capabilities.canApplyCoupon` (= `canAddItem`'s predicate) and `canRemoveCoupon`; new code `COUPON_REVERSAL_REFUSED`; a fourth `nearMisses[].prereq.kind`, **`coupon`**. Two of the five are not drawings but holes: `applyCoupon` was the one verb on this contract with **no field to show its result**, and capture 02 shows the guidance strip already offering a **coupon SKU** as *add 1 more*, which qualifies the bonus buy while burning nothing. Neither the reversal ordering nor the redemption's plant stamping is new design - both are read off shipped code (issue 211, `Verbs.cs:287`). | **minor - additive** | [159](../../159-coupon-and-loyalty-signup-drawn.md) |
 
 | 1.12 | 2026-10-03 | **Proposed. A qualified offer whose reward has no target says so** ([§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)). Four new optional near-miss fields — `getShortfall`, `rewardLink`, `rewards[]` (one per get-side condition, with per-arm `have`/`need` and discount definition), `couponsSpent[]` — and one rule: **`isReady` is false for a get-side shortfall**, so *ready* goes back to meaning only *qualified but out-ranked*. No new code and no new capability. **One new read** ([415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md), [§3.7](#37-resolvereward--one-reward-arms-products-v112)): `GET CallCenterWeb/ResolveReward?transactionId=&offerId=&armId=` → `{ offerId, armId, reward, items, truncated, topN }`, `resolvePrereq`'s rules over a get-side condition and its refusals; a client that never calls it is unchanged. Server half: BackOffice ask BO-2, **unfiled**. (v1.11, the linked sales request of [194](../../194-the-callers-open-request-becomes-the-order.md) / BackOffice 880, is carried in the models but has no row here.) Server half: BackOffice ask BO-1, **unfiled**; the console builds against a stub of exactly this shape. | **minor — additive** | [412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) |
+
+| 1.13 | 2026-11-27 | **The receipt's original amount and discount** ([§2.1](#21-field-rules)). `totals` gains `beforeDiscount` and `discount` (positive), from the same simulation header as `net`, with `beforeDiscount − discount = net` held by the server and the delivery fee in neither. No new verb, code or capability. Server half: BackOffice [4454](C:\Work\DMSCO\BackOffice\.issues\4454-callcenter-session-totals-carry-before-discount-and-discount.md) (done; `CallCenterContract.Version` 1.13). ⚠ The server's own 1.12 is the location link (2482), while this document's 1.12 row is 412's shortfall; both sides call this addition 1.13. A session opened before the server bump still reports the `contractVersion` it opened under. | **minor — additive** — a v1.12 client ignores both fields | [983](../../983-the-console-is-built-around-the-caller-spec.md) C1 · [986](../../986-the-receipt-shows-original-discount-vat-fee-and-total.md) |
 
 **Why 1.12 and not 2.0.** Four new fields, all optional, and one changed *answer*: `isReady` is now
 `false` on a get-side shortfall. That reads like a changed meaning, and it is the opposite — v1.11's

@@ -1346,6 +1346,11 @@ async function open(
 
 const count = (calls, re) => calls.filter((c) => re.test(c)).length
 const text = async (page, selector) => (await page.locator(selector).first().innerText()).trim()
+// What the checklist still waits on (spec 983 D3: ticket 984 replaced the receipt's
+// `[data-cc-blockers]` line with *Before you place it*). Its MISSING rows only — a done
+// row ("Delivery slot chosen") names the same section and must not read as a blocker.
+const blockersText = async (page) =>
+  (await page.locator('[data-cc-checklist] [data-cc-check-state="missing"]').allInnerTexts()).join(' ').trim()
 
 async function run() {
   const browser = await chromium.launch()
@@ -1398,7 +1403,7 @@ async function run() {
 
     // Submit: disabled by `capabilities`, reason named from `submitBlockers`.
     check('Place order is disabled', await page.locator('[data-cc-submit]').isDisabled())
-    const blockers = await text(page, '[data-cc-blockers]')
+    const blockers = await blockersText(page)
     check(
       'the reason submit is blocked is named',
       STATE.capabilities.submitBlockers.length > 0 && blockers.length > 0,
@@ -2956,6 +2961,8 @@ async function run() {
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
     const L1 = PRIOR_STATE.lines[0]
+    // 985: the why sits in the line's pricing detail, opened under the line.
+    await page.locator(`[data-cc-line-expand="${L1.lineId}"]`).click()
     const why = (await page.locator(`[data-cc-line-why="${L1.lineId}"]`).innerText()).replace(/\s+/g, ' ')
     // 🚩 The store price and VAT as SEPARATE things — VAT is its own condition,
     // and it is the fact that explains why the line reads above the estimate.
@@ -2966,19 +2973,21 @@ async function run() {
     )
     check(
       '🚩 and VAT as a condition of its own, not folded into the price',
-      (await page.locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-condition="MWST"]`).count()) === 1 &&
+      (await page.locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-pricing-row="vat"]`).count()) === 1 &&
         why.includes(L1.conditions[2].value.toFixed(2)),
       why,
     )
     // 🚩 Scoped to the LINE. The capture ships every `offerId` blank (859), so a
     // global `[data-cc-line-promo=""]` matches every promotion in the basket — the
     // same identity gap that made the guidance strip draw one card for two offers.
+    // 985: the offer is on the line's second row, always in view — not in the detail.
+    const row = (await page.locator(`[data-cc-line="${L1.lineId}"]`).innerText()).replace(/\s+/g, ' ')
     check(
       'and the promotion that fired on it, in the offer’s own words',
       (await page
-        .locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-line-promo]`)
-        .count()) === L1.promotions.length && why.includes(L1.promotions[0].description),
-      why,
+        .locator(`[data-cc-line="${L1.lineId}"] [data-cc-line-promo]`)
+        .count()) === L1.promotions.length && row.includes(L1.promotions[0].description),
+      row,
     )
     check(
       'the line total is the projection’s own figure',
@@ -3253,7 +3262,7 @@ async function run() {
         (await chipState('reference')) === 'needsAttention',
     )
     check('and submit is dead while they are', await page.locator('[data-cc-submit]').isDisabled())
-    const blockers = (await text(page, '[data-cc-blockers]')).replace(/\s+/g, ' ')
+    const blockers = (await blockersText(page)).replace(/\s+/g, ' ')
     check('the dead submit NAMES what it is waiting for', blockers.length > 20, blockers)
     check(
       '🚩 in words — an unknown blocker code never reaches the agent',
@@ -3305,8 +3314,8 @@ async function run() {
     )
     check(
       'and the *needs attention* state clears with it',
-      !(await text(page, '[data-cc-blockers]')).toLowerCase().includes('slot'),
-      await text(page, '[data-cc-blockers]'),
+      !(await blockersText(page)).toLowerCase().includes('slot'),
+      await blockersText(page),
     )
 
     // ---- the source and its reference: two chips, one form, one verb ----
@@ -3433,8 +3442,8 @@ async function run() {
     // 🚩 It blocks nothing: the receipt never names it, whatever else it names.
     check(
       '🚩 and nothing in the receipt is waiting on a note',
-      !(await text(page, '[data-cc-blockers]')).toLowerCase().includes('note'),
-      await text(page, '[data-cc-blockers]'),
+      !(await blockersText(page)).toLowerCase().includes('note'),
+      await blockersText(page),
     )
 
     await page.locator('[data-cc-chip-open="note"]').click()

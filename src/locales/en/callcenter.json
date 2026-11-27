@@ -430,6 +430,28 @@
     "lineCount_other": "{{count}} lines",
     "empty": "Nothing added yet."
   },
+  "lineGrid": {
+    "col": {
+      "number": "#",
+      "item": "Item",
+      "qty": "Qty",
+      "price": "Price",
+      "discount": "Discount",
+      "total": "Total"
+    },
+    "vatClass": "VAT {{rate}}",
+    "expand": "Show how {{item}} was priced",
+    "collapse": "Hide how {{item}} was priced",
+    "less": "One fewer {{item}}",
+    "more": "One more {{item}}",
+    "pricing": {
+      "heading": "How line {{n}} was priced",
+      "net": "Net",
+      "vat": "VAT {{rate}}",
+      "vatNoRate": "VAT",
+      "total": "Line total"
+    }
+  },
   "guidance": {
     "heading": "Offers within reach",
     "topCount_one": "{{count}} offer within reach",
@@ -498,10 +520,13 @@
   },
   "receipt": {
     "heading": "The caller pays",
-    "items": "Items",
+    "original": "Original",
+    "discount": "Discount",
+    "subtotal": "Subtotal",
     "vat": "VAT",
-    "delivery": "Delivery",
-    "waived": "waived",
+    "delivery": "Delivery fee",
+    "free": "free",
+    "saves": "Caller saves",
     "freeOver": "Delivery is free over {{amount}} {{currency}}.",
     "total": "Total",
     "needed": "Needed first: {{list}}",

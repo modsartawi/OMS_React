@@ -79,13 +79,14 @@ PROVISIONAL (spec 4354: not specified) — every name invented, each marked so i
   a client-side word, not a wire code.
 
 Other choices to confirm: the replay request is `{ orderNumber, level: 'full', allPlans: true, withCustomerPoint }`
-(+ `customer.point` when moved), with no `plannedFor` (4244 decision 17's hour of a replay is not offered yet). The
+(+ `customer.point` when moved, + 963's `pins` and `weightSet` as a cart carries them, through `replan-model.ts`'s
+`cartRequest`; 4281 decision 11 says "`orderNumber` alone"), with no `plannedFor` (4244 decision 17's hour of a replay is not offered yet). The
 straight line to the customer and the distance between two stores are worked out from the points (great circle), since
 4281 sends one km per store. The order's lines, channel and time are shown from the reply after Run, because no order
 read door is named. The legend, the map's labels and a moved point's typed fallback are ours.
 
-Proof as run: `npm test` (975 files, 12 + 13 new model tests, 10 + 9 + 9 new map tests), `npm run typecheck`,
-`npm run lint` green. `tools/sourcing-simulator-drive.mjs` 100/100 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL
-(962's 64 checks plus 18 replay checks in each direction). Google's map needs a real key, so the drive types the moved
+Proof as run (after merging 963, 965, 966 and 973 from the spec branch): `npm test` (993 files, 12 + 13 new model tests, 10 + 9 + 9 new map tests), `npm run typecheck`,
+`npm run lint` green. `tools/sourcing-simulator-drive.mjs` 222/222 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL
+(18 replay checks in each direction beside 962's, 963's and 965's). Google's map needs a real key, so the drive types the moved
 point (the map's "cannot draw" fallback, "Plan from this point"). The click, the drag and the drawing are proven by the
 vitest tests above. As in 962, the RTL pass reads English words: `oms.locale = 'ar'` sets only the direction.

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AdviseCartRequest, AdvisePlan, AdviseReply, PlanGoal } from '@/core/models/sourcing-run'
 import Chip from '@/core/ui/Chip'
 import MapTab from './MapTab'
+import SolverPanel from './SolverPanel'
 import { SIMULATOR_TABS, type SimulatorTab } from './tabs'
 import WhatTheRunUsed from './WhatTheRunUsed'
 import WhyThisPlan from './WhyThisPlan'
@@ -22,6 +23,7 @@ const TAB_PANELS: Partial<Record<SimulatorTab, ComponentType<SimulatorTabProps>>
   map: MapTab,
   why: WhyThisPlan,
   used: WhatTheRunUsed,
+  solver: SolverPanel,
 }
 
 /**

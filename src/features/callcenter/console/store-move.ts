@@ -64,7 +64,32 @@ export function beginStoreMove(
  * three functions. What is a rebind's own — the target, the diff, the refusal —
  * is what stays here.
  */
-export const committingStoreMove = (move: StoreMove, confirmToken: string): StoreMove =>
+/**
+ * What the store picker offers on one row (994): `move` for any other store, `current` for the
+ * store the order already holds, and `confirm` for that same store when the server says choosing
+ * it is a real act.
+ *
+ * 🚩 **The seeded store must stay choosable.** A collection order still on the store `open`
+ * seeded has its item gate shut (`STORE_NOT_CHOSEN`), and the way out at that store is `setStore`
+ * carrying the store the order already holds, which advances `plantSource` to `chosenForPickup`
+ * (§2.3 item 4). A picker that greyed the current row out as *on this order* left the agent no way
+ * to open the gate at the store the caller collects from. That is the stuck state the owner met.
+ *
+ * Read off the server's own `canConfirmSeededStore`, strictly: absent on a pre-v1.3 server means
+ * no confirm was promised, so the row stays `current`.
+ */
+export type StoreOption = 'move' | 'current' | 'confirm'
+
+export function storeOption(
+  storeCode: string,
+  currentPlant: string | null,
+  canConfirmSeededStore: boolean | undefined,
+): StoreOption {
+  if (storeCode !== currentPlant) return 'move'
+  return canConfirmSeededStore === true ? 'confirm' : 'current'
+}
+
+export const committingStoreMove =(move: StoreMove, confirmToken: string): StoreMove =>
   committing(move, confirmToken)
 
 export const repreviewingStoreMove = (move: StoreMove): StoreMove => repreviewing(move)

@@ -1,24 +1,33 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactNode } from 'react'
-import type { StoredRun } from '@/core/models/sourcing-run'
+import type { AdviseReply } from '@/core/models/sourcing-run'
 import { KEPT_RUNS_PATH } from '@/core/sourcing-advisor/simulator-path'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import { keptRunsQuery } from './api'
 import CopyRunLink from './CopyRunLink'
 
 /**
- * A stored run opened by its link (ticket 969, spec 4354 §12): which run it is, who kept it and when, and whether
- * today's engine, solving again from the stored copy, answers differently — the stored plans stay the truth.
+ * A stored run opened by its link (ticket 969, spec 4354 §12; BackOffice 4380 `GET SourcingAdvisor/Runs/Open`): which
+ * run it is, who kept it and when, and whether today's engine, solving again from the stored copy, answers differently
+ * (`openedAgain.samePlans`) — the stored plans stay the truth.
+ *
+ * The open door answers the record alone: a kept run's name, keeper and time are read off the kept-run list (which holds
+ * every kept run). A comparison run is not on that list, and says so by its kind.
  */
-export default function StoredRunBanner({ stored }: { stored: StoredRun }) {
+export default function StoredRunBanner({ record }: { record: AdviseReply }) {
   const { t } = useTranslation('sourcing-simulator')
-  const { record, kept } = stored
+  const list = useQuery(keptRunsQuery())
+  const kept = list.data?.find((r) => r.runId === record.runId) ?? null
+  const state = record.kind === 'COMPARISON' ? 'COMPARISON' : 'KEPT'
+  const again = record.openedAgain
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-card px-3 py-2.5 text-xs" data-stored-run={record.runId} data-stored-state={stored.state}>
+    <section className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-card px-3 py-2.5 text-xs" data-stored-run={record.runId} data-stored-state={state}>
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex flex-col gap-0.5">
-          <span className="font-semibold text-muted-foreground">{t(`stored.title.${stored.state}`, { defaultValue: t('stored.title.KEPT') })}</span>
+          <span className="font-semibold text-muted-foreground">{t(`stored.title.${state}`)}</span>
           {kept && (
             <b className="text-sm" data-stored-name="">
               <bdi>{kept.name}</bdi>
@@ -50,9 +59,9 @@ export default function StoredRunBanner({ stored }: { stored: StoredRun }) {
           <Ltr>{record.engine.version}</Ltr>
         </Fact>
       </dl>
-      {stored.engineNow ? (
-        <p className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-attention-800" data-stored-engine-differs={stored.engineNow}>
-          {t('stored.engineDiffers', { now: fsi(stored.engineNow), then: fsi(record.engine.version) })}
+      {again && !again.samePlans ? (
+        <p className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-attention-800" data-stored-engine-differs={again.engine.version}>
+          {t('stored.engineDiffers', { now: fsi(again.engine.version), then: fsi(record.engine.version) })}
         </p>
       ) : (
         <p className="text-muted-foreground" data-stored-same-engine="">

@@ -91,9 +91,18 @@ describe('what the run stands on', () => {
     })
   })
 
-  it('a change that needed a wider read is said, with the server’s why', () => {
-    const afresh: AdviseReply = { ...reply, solve: { ...reply.solve, marks: ['ASSUMED_RATES', 'READ_AFRESH'], readAfreshWhy: 'a mode switched on: CARRIER_SAME_DAY' } }
-    expect(runBasis(afresh, { heldGone: false }).readAfresh).toEqual({ why: 'a mode switched on: CARRIER_SAME_DAY' })
+  it('a change that needed a wider read is said, with each of the server’s reasons (BackOffice 4380 `readAfresh`)', () => {
+    const afresh: AdviseReply = {
+      ...reply,
+      solve: { ...reply.solve, marks: ['ASSUMED_RATES', 'READ_AFRESH'] },
+      readAfresh: { fromRun: '01JDM3K8Q2V7X4T9B6N0R5W1YZ', why: ['MODE_SWITCHED_ON', 'REACH_WIDENED'] },
+    }
+    expect(runBasis(afresh, { heldGone: false }).readAfresh).toEqual({ fromRun: '01JDM3K8Q2V7X4T9B6N0R5W1YZ', why: ['MODE_SWITCHED_ON', 'REACH_WIDENED'] })
+  })
+
+  it('the mark alone, with no reasons sent, still says it was read afresh', () => {
+    const afresh: AdviseReply = { ...reply, solve: { ...reply.solve, marks: ['READ_AFRESH'] } }
+    expect(runBasis(afresh, { heldGone: false }).readAfresh).toEqual({ fromRun: null, why: [] })
   })
 
   it('a fresh cart run says nothing of an earlier run; one run after the held copy was gone says so', () => {

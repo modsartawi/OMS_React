@@ -19,11 +19,18 @@ export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdv
 
 /**
  * The run grant (ticket 962, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and the
- * kept runs"). Here, beside the view grant, because the menu reads it too and the results page (971) will.
- * PROVISIONAL (spec 4354: not specified) — BackOffice 4355 seeds the grant but names none: `SourcingAdvisorRun:06` is
- * ours. Reconcile the key in `@/core/permissions` when it lands; every reader takes THIS predicate.
+ * kept runs"): `BackOfficeScreen[SourcingSimulator, 03]` (BackOffice 4355 `SourcingSimulatorGrants`), the grant the
+ * advise door's user route, the kept-run doors and the store record door all check. Here, beside the view grant,
+ * because the menu reads it too and the results page does. Every reader takes THIS predicate.
  */
-export const canRunSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisorRun:06')
+export const canRunSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingSimulator:03')
+
+/**
+ * The customer-point grant (ticket 964, spec 4354 §12 and §19): `BackOfficeScreen[SourcingCustomerPoint, 03]`
+ * (BackOffice 4381 `CustomerPointGrants`). Only its holder gets a replay's real point back; without it the server still
+ * plans from the point and the reply says `NO_GRANT`. The replay's switch reads it to say so before the run.
+ */
+export const canSeeCustomerPoint = (p: Permissions): boolean => p.has('SourcingCustomerPoint:03')
 
 /**
  * The grant to mark the candidate set (spec 4354 §10: "marking the candidate set needs a second grant"; §19 "a grant to
@@ -58,7 +65,7 @@ export const canOpenSourcingPlanner = (p: Permissions): boolean =>
 /**
  * Whether the simulator reads the stored run it is handed (`?run=`, `simulatorRunPath`). It does since ticket 969:
  * opening a stored run as it was is a read door of its own, not an advise call (BackOffice 4281 decision 11); the
- * simulator reads it through that door (BackOffice 4380 "open", PROVISIONAL path `SourcingAdvisor/Runs/Open`).
+ * simulator reads it through that door (BackOffice 4380: `GET SourcingAdvisor/Runs/Open?runId=`).
  */
 export const SIMULATOR_READS_RUN: boolean = true
 

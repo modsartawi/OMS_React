@@ -73,7 +73,7 @@ describe('the flow graph', () => {
   it('a pair a step removed for one line does not serve that line', () => {
     const ruled: AdviseReply = {
       ...reply,
-      filterSteps: [...reply.filterSteps!, { step: 10, code: 'PRODUCT_RULE', before: 19, after: 18, removed: [{ store: '1090', mode: 'SLOT', lineNo: 3 }] }],
+      filterSteps: [...reply.filterSteps!, { step: 10, code: 'PRODUCT_RULE', before: 19, after: 18, removedCount: 1, removed: [{ store: '1090', mode: 'SLOT', lineNo: 3 }] }],
     }
     const g = flowGraph(ruled, recommended)!
     expect(g.edges.filter((e) => e.target === 'pair:1090:SLOT').map((e) => e.source)).toEqual(['line:1', 'line:2'])

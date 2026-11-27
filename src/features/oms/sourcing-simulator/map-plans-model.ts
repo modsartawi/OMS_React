@@ -10,11 +10,14 @@
  *   out — every km in the table is the server's. The stores and the distances between them tell nothing of the customer
  *   and stay.
  *
- * Store points are the middle level's `inputs.stores[]`. A store's straight line to the customer and the distance between
- * two stores are not on the wire (4281 sends one km per store): they are the ground distance between the points.
+ * The run record carries no store's point (BackOffice `InputStore`: a km per store, no place), so the stores are placed
+ * from the store list every screen already reads (`SdDocument/StoreDetails`, `@/core/services/lookups`). A store's
+ * straight line to the customer and the distance between two stores are not on the wire either: they are the ground
+ * distance between the points.
  */
 import { kmBetween, type MapLine, type MapPoint, type MapRing } from '@/core/map/map-drawing'
 import type { MapPin } from '@/core/map/map-panel'
+import type { StoreDetailModel } from '@/core/models/lookups'
 import type { AdviseReply, CustomerPointWithheld, DeliveryMode, PlanGoal } from '@/core/models/sourcing-run'
 import { formatPair } from '@/core/util/bidi'
 
@@ -91,16 +94,26 @@ const MEASURE_INK = '--map-ring'
 /** The rings round the customer, in km (spec 4354 §19). */
 export const RING_KMS = [5, 10] as const
 
-const storesOf = (reply: AdviseReply) => reply.inputs?.stores ?? []
+export type StorePlaces = ReadonlyMap<string, { lat: number; lon: number }>
 
-export function mapPlans(reply: AdviseReply, { scope, goal, words }: { scope: MapScope; goal: PlanGoal | null; words: MapWords }): MapPlansView {
+/** Each store's point, read off the store list (its latitude and longitude come as text); none for a blank or zero one. */
+export function storePlaces(details: readonly Pick<StoreDetailModel, 'storeCode' | 'latitude' | 'longitude'>[] | undefined): StorePlaces {
+  const places = new Map<string, { lat: number; lon: number }>()
+  for (const d of details ?? []) {
+    const lat = Number.parseFloat(d.latitude)
+    const lon = Number.parseFloat(d.longitude)
+    if (Number.isFinite(lat) && Number.isFinite(lon) && !(lat === 0 && lon === 0)) places.set(d.storeCode, { lat, lon })
+  }
+  return places
+}
+
+export function mapPlans(reply: AdviseReply, { scope, goal, words, places }: { scope: MapScope; goal: PlanGoal | null; words: MapWords; places: StorePlaces }): MapPlansView {
   const plans = scope === 'all' ? reply.plans : reply.plans.filter((p) => p.goal === goal)
-  const read = new Map(storesOf(reply).map((s) => [s.store, s]))
   const cp = reply.customerPoint
   const customer = cp ? { lon: cp.lng, lat: cp.lat } : null
   const placeOf = (store: string) => {
-    const p = read.get(store)?.point
-    return p ? { lon: p.lng, lat: p.lat } : null
+    const p = places.get(store)
+    return p ? { lon: p.lon, lat: p.lat } : null
   }
 
   const rows: MapStoreRow[] = []
@@ -115,12 +128,12 @@ export function mapPlans(reply: AdviseReply, { scope, goal, words }: { scope: Ma
         mode: s.mode,
         goal: p.goal,
         shipmentNo: s.no,
-        km: s.km,
-        kmKind: s.kmKind,
+        km: s.km ?? null,
+        kmKind: s.kmKind || null,
         straightKm: customer && at ? kmBetween(at, customer) : null,
       })
       const u = used.get(s.store) ?? { name: s.storeName, modes: new Map<string, number | null>() }
-      if (!u.modes.has(s.mode)) u.modes.set(s.mode, s.km)
+      if (!u.modes.has(s.mode)) u.modes.set(s.mode, s.km ?? null)
       used.set(s.store, u)
     }
   }

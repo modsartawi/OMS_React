@@ -1,9 +1,11 @@
 /**
- * The stock per line (ticket 966, BackOffice spec 4354 §5): for one cart line, every store the run read — on hand, less
- * open demand (held by orders, held by deliveries), times the stock confidence, less the buffer, equals the offered
- * stock the solver planned on — against the quantity needed, with the expected stock at pick time beside it, shown
- * only. Pure. Every figure is the record's `inputs.storeLines[]` row, as sent: no figure is worked out again here.
- * "Short by" is the gap between the quantity and the offered stock, said in words, never planned on.
+ * The stock per line (ticket 966, BackOffice spec 4354 §5): for one cart line, every store the run read and each mode
+ * it worked the stock for — on hand, less open demand (held by orders, held by deliveries), times the stock confidence,
+ * less the buffer, equals the offered stock the solver planned on — against the quantity needed, with the expected
+ * stock at pick time beside it, shown only. Pure. Every figure is the record's: `inputs.storeLines[]` is per store and
+ * ITEM, as the stock read gave it, with its `working[]` per mode (BackOffice 4375 / 4379); a row per working. No figure
+ * is worked out again here. "Short by" is the gap between the quantity (in the stock read's unit) and the offered
+ * stock, said in words, never planned on.
  */
 import type { AdvisePlan, AdviseReply } from '@/core/models/sourcing-run'
 
@@ -16,24 +18,26 @@ export interface StockLine {
 export interface StockRow {
   store: string
   storeName: string | null
-  /** The till's figure: on hand. */
+  /** The mode the stock was worked for: the buffer and the confidence are a mode's. */
+  mode: string
+  /** The till's figure: on hand (the figure after open demand where the read gave no till figure). */
   onHand: number
-  /** The book's figure, beside it. */
-  sapStock: number
-  heldByOrders: number
-  heldByDeliveries: number
-  /** The figure after open demand, floored at zero (the record's `atp`). */
+  /** The book's figure, beside it; null when not read. */
+  sapStock: number | null
+  /** Null both when the stock read could not split what it held. */
+  heldByOrders: number | null
+  heldByDeliveries: number | null
+  /** The figure after open demand, floored at zero (the working's `netted`). */
   afterDemand: number
   confidence: number
   buffer: number
   offered: number
   /** The expected stock at the pick end: shown only. */
   expected: number
-  stockClass: string
   /** The offered stock reaches the quantity. */
   covers: boolean
   shortBy: number
-  /** The selected plan sends this line from this store. */
+  /** The selected plan sends this line from this store by this mode. */
   chosen: boolean
 }
 
@@ -59,26 +63,30 @@ export function stockPerLine(reply: Reply, lineNo: number, plan: AdvisePlan | un
   if (!storeLines || reply.lines.length === 0) return null
   const lines = reply.lines.map((l) => ({ lineNo: l.lineNo, item: l.item, quantity: l.quantity }))
   const line = lines.find((l) => l.lineNo === lineNo) ?? lines[0]
-  const chosen = new Set((plan?.shipments ?? []).filter((s) => s.lines.includes(line.lineNo)).map((s) => s.store))
+  // The offered stock is in the stock read's unit: a part-pack line is set against its quantity in that unit.
+  const need = reply.lines.find((l) => l.lineNo === line.lineNo)?.stockQuantity ?? line.quantity
+  const chosen = new Set((plan?.shipments ?? []).filter((s) => s.lines.includes(line.lineNo)).map((s) => `${s.store} ${s.mode}`))
   const names = storeNames(reply)
-  const rows = storeLines
-    .filter((r) => r.lineNo === line.lineNo)
-    .map((r) => ({
-      store: r.store,
-      storeName: names.get(r.store) ?? null,
-      onHand: r.tillStock,
-      sapStock: r.sapStock,
-      heldByOrders: r.heldByOrders,
-      heldByDeliveries: r.heldByDeliveries,
-      afterDemand: r.atp,
-      confidence: r.confidence,
-      buffer: r.buffer,
-      offered: r.offered,
-      expected: r.expectedAtPickEnd,
-      stockClass: r.stockClass,
-      covers: r.offered >= line.quantity,
-      shortBy: Math.max(0, line.quantity - r.offered),
-      chosen: chosen.has(r.store),
-    }))
+  const rows: StockRow[] = storeLines
+    .filter((r) => r.item === line.item)
+    .flatMap((r) =>
+      (r.working ?? []).map((w) => ({
+        store: r.store,
+        storeName: names.get(r.store) ?? null,
+        mode: w.mode,
+        onHand: r.tillStock ?? r.afterOpenDemand,
+        sapStock: r.sapStock ?? null,
+        heldByOrders: r.heldByOrders ?? null,
+        heldByDeliveries: r.heldByDeliveries ?? null,
+        afterDemand: w.netted,
+        confidence: w.confidence,
+        buffer: w.buffer,
+        offered: w.offered,
+        expected: w.expectedAtPickEnd,
+        covers: w.offered >= need,
+        shortBy: Math.max(0, need - w.offered),
+        chosen: chosen.has(`${r.store} ${w.mode}`),
+      })),
+    )
   return { lines, line, rows }
 }

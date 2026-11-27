@@ -15,7 +15,7 @@ const PILL = 'inline-block rounded-full border px-1.5 py-px text-[11px] whitespa
 const STATE_PILL: Record<string, string> = {
   REAL_DATA: `${PILL} border-border text-foreground`,
   NEUTRAL_DEFAULT: `${PILL} border-dashed border-border text-muted-foreground`,
-  ASSUMED: `${PILL} border-attention-border bg-attention-050 text-attention-800`,
+  ASSUMPTION: `${PILL} border-attention-border bg-attention-050 text-attention-800`,
   SWITCHED_OFF: `${PILL} border-border bg-muted text-muted-foreground`,
 }
 
@@ -70,18 +70,23 @@ export default function WhatTheRunUsed({ reply }: SimulatorTabProps) {
               <thead className="border-b border-border text-muted-foreground">
                 <tr>
                   <th className={TH}>{t('used.column.factor')}</th>
-                  <th className={TH}>{t('used.column.entersAs')}</th>
+                  <th className={TH}>{t('used.column.mode')}</th>
                   <th className={TH}>{t('used.column.ranOn')}</th>
                   <th className={TH}>{t('used.column.source')}</th>
                 </tr>
               </thead>
               <tbody>
                 {used.rows.map((r) => (
-                  <tr key={r.factor} className="border-b border-border/60 last:border-b-0" data-used-factor={r.factor} data-used-state={r.state}>
+                  <tr key={`${r.factor} ${r.mode ?? ''}`} className="border-b border-border/60 last:border-b-0" data-used-factor={r.factor} data-used-mode={r.mode ?? undefined} data-used-state={r.state}>
                     <td className={TD}>{t(`used.factor.${r.factor}`, { defaultValue: r.factor })}</td>
-                    <td className={TD}>{r.entersAs ? t(`used.entersAs.${r.entersAs}`, { defaultValue: r.entersAs }) : t('dash')}</td>
+                    <td className={TD}>{r.mode ? t(`mode.${r.mode}`, { defaultValue: r.mode }) : t('dash')}</td>
                     <td className={TD}>
                       <span className={STATE_PILL[r.state] ?? STATE_PILL.REAL_DATA}>{t(`used.state.${r.state}`, { defaultValue: r.state })}</span>
+                      {r.storesOnDefault !== null && (
+                        <span className="ms-1.5 text-[11px] text-muted-foreground" data-used-stores-on-default={r.storesOnDefault}>
+                          {t('used.storesOnDefault', { count: r.storesOnDefault, n: fsi(r.storesOnDefault) })}
+                        </span>
+                      )}
                     </td>
                     <td className={`${TD} whitespace-normal`}>
                       <SourcePill source={r.source} />

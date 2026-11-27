@@ -33,6 +33,7 @@ describe('what was tried', () => {
       shipments: [{ store: '1055', mode: 'SLOT', lines: [1, 2, 3] }],
       deliveries: 1,
       pickUp: false,
+      linesServed: 3,
       promiseBy: '2026-11-26 21:59:00',
       fee: 12.0,
       companyCost: 17.4,
@@ -92,8 +93,9 @@ describe('the trade-off', () => {
     ])
   })
 
-  it('a kept plan without its time or money is left off the chart', () => {
-    const bare = { ...reply, search: { ...reply.search!, kept: [{ goal: 'BALANCED' as const, rank: 2, sum: 41.87, lostBy: 1.45, lostMostOn: 'WAITING', shipments: [{ store: '1055', mode: 'SLOT', lines: [1, 2, 3] }] }] } }
+  it('a kept plan whose promise time does not read is left off the chart', () => {
+    const [kept] = reply.search!.kept
+    const bare = { ...reply, search: { ...reply.search!, kept: [{ ...kept, by: '' }] } }
     expect(tradeOffPoints(bare)).toEqual([])
   })
 })

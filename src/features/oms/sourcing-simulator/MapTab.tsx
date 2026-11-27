@@ -10,9 +10,10 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { lookupQueries } from '@/core/services/lookups'
 import { workbenchQuery } from './api'
 import { pointText } from './cart'
-import { CUSTOMER_INK, mapPlans, MODE_INK, type MapScope, type MapWords } from './map-plans-model'
+import { CUSTOMER_INK, mapPlans, MODE_INK, storePlaces, type MapScope, type MapWords } from './map-plans-model'
 import { useSimulatorRun } from './run-context'
 import type { SimulatorTabProps } from './SimulatorTabs'
 import { usePlanWords } from './use-plan-words'
@@ -35,6 +36,9 @@ export default function MapTab({ reply, plan }: SimulatorTabProps) {
   const { t } = w
   const run = useSimulatorRun()
   const workbench = useQuery(workbenchQuery())
+  // The run record carries no store's point: the store list every screen reads does.
+  const details = useQuery(lookupQueries.storeDetails())
+  const places = useMemo(() => storePlaces(details.data), [details.data])
   const [scope, setScope] = useState<MapScope>('all')
   const [cannotDraw, setCannotDraw] = useState(false)
   const [typed, setTyped] = useState({ lat: '', lng: '' })
@@ -42,9 +46,9 @@ export default function MapTab({ reply, plan }: SimulatorTabProps) {
   const customerName = t('map.customer')
   const view = useMemo(() => {
     const words: MapWords = { mode: w.mode, km: (km) => t('card.km', { km: km.toFixed(1) }), ring: (km) => t('map.ring', { km }), customer: customerName }
-    return mapPlans(reply, { scope, goal: plan?.goal ?? null, words })
+    return mapPlans(reply, { scope, goal: plan?.goal ?? null, words, places })
     // `w` and `t` change with the language only, as `customerName` does.
-  }, [reply, scope, plan?.goal, customerName])
+  }, [reply, scope, plan?.goal, customerName, places])
 
   const move = useCallback((p: MapPlace) => run?.moveCustomer(p), [run])
   const lat = Number(typed.lat)

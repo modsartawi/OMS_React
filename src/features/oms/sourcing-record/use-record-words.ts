@@ -19,7 +19,8 @@ export function useRecordWords() {
     money: (v: number) => t('money', { amount: fsi(formatMoney3(v)) }),
     mode: (code: string) => t(`mode.${code}`, { defaultValue: code }),
     measure: (code: string) => t(`measure.${code}`, { defaultValue: code }),
-    channel: (code: string) => t(`channel.${code}`, { defaultValue: code }),
+    // The door sends the channel codes (`IOS`, `ROID`, `WEB`) and the categories as `category C` (BackOffice 4373).
+    channel: (code: string) => t(`channel.${code.replace(/^category /, 'category_')}`, { defaultValue: code }),
     band: (code: string | null) => (code ? t(`band.${code}`, { defaultValue: code }) : ''),
     neutral: (code: string) => t(`neutral.${code}`, { defaultValue: code }),
   }

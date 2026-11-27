@@ -1,15 +1,18 @@
 import Ltr from '@/core/ui/Ltr'
 import { TD, TH } from '@/core/ui/sheet-table'
-import { RECORD_BANDS, type RecordNeutralWhy } from '@/core/models/sourcing-store-record'
-import { formatCount, formatPair, formatRange } from '@/core/util/bidi'
+import { RECORD_BANDS } from '@/core/models/sourcing-store-record'
+import { formatCount } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import type { BoardCell, BoardRow, ModeBoard as Board } from './store-record-model'
 import { percent, useRecordWords } from './use-record-words'
 
 /**
  * One mode's tab (ticket 969, the owner's variant C): what every store of the mode shares — the counted-from date, the
- * channels each measure counts, the like-store rate per band and the measure's failure price — said once, then a row
- * per store with each measure's rate, like stores, deliveries behind it and cost or credit.
+ * channels each measure counts, the like-store rate per band — said once, then a row per store with each measure's
+ * steadied rate, like stores and the bad endings out of the deliveries behind it (BackOffice 4373's figures, as sent).
+ *
+ * SERVER GAP (spec 4354): the door sends no store name, no failure price and no cost or credit per measure or pair, and
+ * nothing "shown, not charged"; the row names the store by its code and city, and the cost is a run's (its money).
  */
 export default function ModeBoard({ board }: { board: Board }) {
   const w = useRecordWords()
@@ -28,7 +31,7 @@ export default function ModeBoard({ board }: { board: Board }) {
             {board.measures.map((m) => (
               <span key={m.measure} className="flex flex-wrap items-center gap-1.5" data-measure-channels={m.measure}>
                 <span>{w.measure(m.measure)}</span>
-                <span className="inline-flex flex-wrap gap-1" data-channels={m.channels.join(' ')}>
+                <span className="inline-flex flex-wrap gap-1" data-channels={m.channels.join('|')}>
                   {m.channels.map((c) => (
                     <span key={c} className="rounded-sm border border-border px-1 text-[11px] text-muted-foreground">
                       {w.channel(c)}
@@ -48,9 +51,6 @@ export default function ModeBoard({ board }: { board: Board }) {
                 {board.measures.map((m) => (
                   <th key={m.measure} className={`${TH} text-end`}>
                     {w.measure(m.measure)}
-                    <span className="block text-[11px] font-normal">
-                      {w.t('shared.price')} <Ltr>{w.money(m.price)}</Ltr>
-                    </span>
                   </th>
                 ))}
               </tr>
@@ -88,14 +88,11 @@ export default function ModeBoard({ board }: { board: Board }) {
                   {w.t('col.deliveries')}
                 </th>
                 {board.measures.map((m) => (
-                  <th key={m.measure} className={`${TH} border-s border-border/60 text-center`} colSpan={3}>
+                  <th key={m.measure} className={`${TH} border-s border-border/60 text-center`} colSpan={2}>
                     {w.measure(m.measure)}
                   </th>
                 ))}
                 <th className={`${TH} border-s border-border/60 text-end`} rowSpan={2}>
-                  {w.t('col.pairCost')}
-                </th>
-                <th className={`${TH} text-end`} rowSpan={2}>
                   {w.t('col.fallback')}
                 </th>
                 {isSlot && (
@@ -111,17 +108,11 @@ export default function ModeBoard({ board }: { board: Board }) {
                     </th>
                   </>
                 )}
-                <th className={`${TH} border-s border-border/60`} colSpan={3}>
-                  {w.t('shown.title')}
-                </th>
               </tr>
               <tr className="border-b border-border">
                 {board.measures.map((m) => (
                   <MeasureHeads key={m.measure} />
                 ))}
-                <th className={`${TH} border-s border-border/60 text-end`}>{w.t('shown.lastCount')}</th>
-                <th className={`${TH} text-end`}>{w.t('shown.countFactor')}</th>
-                <th className={`${TH} text-end`}>{w.t('shown.donorRefusals')}</th>
               </tr>
             </thead>
             <tbody>
@@ -132,9 +123,9 @@ export default function ModeBoard({ board }: { board: Board }) {
           </table>
         )}
         <div className="flex flex-col gap-0.5 border-t border-border px-2 py-1.5 text-[11px] text-muted-foreground">
+          <p>{w.t('rateNote')}</p>
           {isSlot && <p>{w.t('tillNote')}</p>}
           <p>{w.t('fallbackNote')}</p>
-          <p>{w.t('shown.lead')}</p>
         </div>
       </div>
     </div>
@@ -147,7 +138,6 @@ function MeasureHeads() {
     <>
       <th className={`${TH} border-s border-border/60 text-end`}>{w.t('col.thisStore')}</th>
       <th className={`${TH} text-end`}>{w.t('col.badEndings')}</th>
-      <th className={`${TH} text-end`}>{w.t('col.cost')}</th>
     </>
   )
 }
@@ -158,28 +148,29 @@ function StoreRow({ row, isSlot }: { row: BoardRow; isSlot: boolean }) {
   return (
     <tr className="border-b border-border/60 last:border-b-0" data-store-row={row.store} data-row-neutral={row.neutral ? '' : undefined}>
       <td className={TD}>
-        <Ltr>{formatPair(row.store, row.storeName)}</Ltr>
-        {row.band && <span className="block text-[11px] text-muted-foreground">{w.band(row.band)}</span>}
+        <Ltr>{row.store}</Ltr>
+        {row.city && (
+          <span className="block text-[11px] text-muted-foreground">
+            <Ltr>{row.city}</Ltr>
+          </span>
+        )}
       </td>
       <td className={`${TD} text-end tabular-nums`}>
         <Ltr>{formatFigure(row.deliveries)}</Ltr>
       </td>
       {row.cells.map((c, i) => (c ? <MeasureCells key={c.measure} cell={c} /> : <EmptyCells key={`empty-${i}`} />))}
-      <td className={`${TD} border-s border-border/60 text-end font-semibold`} data-pair-cost="">
-        <Money v={row.cost} />
-      </td>
-      <td className={`${TD} text-end tabular-nums`}>
-        <Ltr>{formatFigure(row.fallbackLeftOut)}</Ltr>
+      <td className={`${TD} border-s border-border/60 text-end tabular-nums`} data-fallback="">
+        <Ltr>{formatFigure(row.fallback)}</Ltr>
       </td>
       {isSlot && (
         <>
-          <td className={`${TD} border-s border-border/60 text-end tabular-nums`}>{row.slot ? <Ltr>{formatFigure(row.slot.usual)}</Ltr> : dash}</td>
+          <td className={`${TD} border-s border-border/60 text-end tabular-nums`}>{row.slot?.usual ? <Ltr>{formatFigure(row.slot.usual)}</Ltr> : dash}</td>
           <td className={TD} data-slot-hours="">
             {row.slot && row.slot.regularHours.length > 0 ? (
               <span className="flex gap-1">
                 {row.slot.regularHours.map((h) => (
-                  <span key={h.from} className="rounded-sm bg-muted px-1 tabular-nums">
-                    <Ltr>{formatRange(h.from, h.to)}</Ltr>
+                  <span key={h} className="rounded-sm bg-muted px-1 tabular-nums">
+                    <Ltr>{`${h.padStart(2, '0')}:00`}</Ltr>
                   </span>
                 ))}
               </span>
@@ -188,34 +179,20 @@ function StoreRow({ row, isSlot }: { row: BoardRow; isSlot: boolean }) {
             )}
           </td>
           <td className={`${TD} text-end tabular-nums`} data-till-moves="">
-            {row.tillMoves && row.tillMoves.moves > 0 ? (
-              <span className="inline-flex gap-1.5">
-                <b>
-                  <Ltr>{percent(row.tillMoves.customerShare)}</Ltr>
-                </b>
-                <span className="text-muted-foreground">
-                  <Ltr>{percent(row.tillMoves.likeStores)}</Ltr>
-                </span>
-              </span>
-            ) : (
-              dash
-            )}
+            {row.slot && row.slot.tillMoves > 0 ? <Ltr>{formatCount(row.slot.tillMovesCustomer, row.slot.tillMoves)}</Ltr> : dash}
           </td>
         </>
       )}
-      <td className={`${TD} border-s border-border/60 text-end`}>{row.shown?.lastCount ? <Ltr>{row.shown.lastCount}</Ltr> : dash}</td>
-      <td className={`${TD} text-end tabular-nums`}>{row.shown ? <Ltr>{row.shown.countFactor.toFixed(2)}</Ltr> : dash}</td>
-      <td className={`${TD} text-end tabular-nums`}>{row.shown ? <Ltr>{formatFigure(row.shown.donorRefusals)}</Ltr> : dash}</td>
     </tr>
   )
 }
 
-function NeutralMark({ why }: { why: RecordNeutralWhy }) {
+function NeutralMark() {
   const w = useRecordWords()
   return (
-    <span className="inline-flex flex-col items-end gap-0.5" data-neutral={why}>
+    <span className="inline-flex flex-col items-end gap-0.5" data-neutral="NO_DELIVERIES">
       <span className="inline-block rounded-full border border-border px-1.5 py-px text-[11px] whitespace-nowrap text-muted-foreground">{w.t('neutral.mark')}</span>
-      <span className="text-[11px] text-muted-foreground">{w.neutral(why)}</span>
+      <span className="text-[11px] text-muted-foreground">{w.neutral('NO_DELIVERIES')}</span>
     </span>
   )
 }
@@ -225,23 +202,20 @@ function MeasureCells({ cell }: { cell: BoardCell }) {
     <>
       <td className={`${TD} border-s border-border/60 text-end tabular-nums`} data-measure-cell={cell.measure}>
         {cell.neutral ? (
-          <NeutralMark why={cell.neutral} />
+          <NeutralMark />
         ) : (
           <span className="inline-flex flex-col items-end">
             <b>
-              <Ltr>{percent(cell.rate)}</Ltr>
+              <Ltr>{percent(cell.steadied)}</Ltr>
             </b>
             <span className="text-[11px] text-muted-foreground">
-              <Ltr>{percent(cell.likeStores)}</Ltr>
+              <Ltr>{percent(cell.like)}</Ltr>
             </span>
           </span>
         )}
       </td>
       <td className={`${TD} text-end tabular-nums`}>
-        <Ltr>{formatCount(cell.bad, cell.count)}</Ltr>
-      </td>
-      <td className={`${TD} text-end`}>
-        <Money v={cell.cost} />
+        <Ltr>{formatCount(cell.bad, cell.deliveries)}</Ltr>
       </td>
     </>
   )
@@ -253,17 +227,6 @@ function EmptyCells() {
     <>
       <td className={`${TD} border-s border-border/60 text-end text-muted-foreground`}>{w.t('dash')}</td>
       <td className={TD} />
-      <td className={TD} />
     </>
-  )
-}
-
-function Money({ v }: { v: number }) {
-  const w = useRecordWords()
-  return (
-    <span className="inline-flex items-center justify-end gap-1 tabular-nums">
-      <Ltr>{w.money(v)}</Ltr>
-      {v < 0 && <span className="text-[11px] font-normal text-muted-foreground">{w.t('credit')}</span>}
-    </span>
   )
 }

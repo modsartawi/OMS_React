@@ -86,9 +86,12 @@ export const SCREEN_KEYS = [
   // Save weight sets and start trials (BackOffice spec 4354 §19: "the names are the build's"; seeded by BO 4360).
   // PROVISIONAL (spec 4354: not specified) — the key. Reconcile with BO 4360 as seeded.
   'SourcingAdvisorSave:01',
-  // PROVISIONAL (spec 4354: not specified) — the sourcing advisor's run grant (spec 4354 §19: "a run grant opens the
-  // simulator"). BackOffice 4355 seeds it but names none; this key is ours until it lands (`canRunSourcingAdvisor`).
-  'SourcingAdvisorRun:06',
+  // The simulator's run grant (spec 4354 §19; BackOffice 4355 `SourcingSimulatorGrants`): `BackOfficeScreen[SourcingSimulator,
+  // 03]`. It opens the simulator, the store record list and kept runs (`canRunSourcingAdvisor`).
+  'SourcingSimulator:03',
+  // The customer-point grant (BackOffice 4381 `CustomerPointGrants`): `BackOfficeScreen[SourcingCustomerPoint, 03]`. A
+  // replay's real point reaches the browser only for its holder (`canSeeCustomerPoint`).
+  'SourcingCustomerPoint:03',
   // PROVISIONAL (spec 4354: not specified) — the grant to mark the candidate set (spec 4354 §10, §19; seeded unnamed by
   // BackOffice 4360). This key is ours until it lands (`canMarkCandidateSet`).
   'SourcingAdvisorMark:06',

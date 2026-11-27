@@ -9,10 +9,10 @@ import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { formatPair, formatRange, fsi } from '@/core/util/bidi'
+import { formatRange, fsi } from '@/core/util/bidi'
 import { storeRecordQuery } from './api'
 import ModeBoard from './ModeBoard'
-import { carrierPairs, isBuilt, recordBoard, RECORD_MODES, type RecordMode } from './store-record-model'
+import { dateOf, isBuilt, recordBoard, RECORD_MODES, wallTime, type RecordMode } from './store-record-model'
 import { useRecordWords } from './use-record-words'
 
 /**
@@ -22,7 +22,7 @@ import { useRecordWords } from './use-record-words'
  * The owner chose the prototype's variant C: a tab per mode, the shared figures said once, a row per store.
  *
  * Read only. Opens under the run grant (spec 4354 §19: "a run grant opens the simulator, the store record list and kept
- * runs"). ⚠ Built on a stub: the read door is BackOffice 4373, still open.
+ * runs"). The read door is BackOffice 4373's `GET SourcingAdvisor/StoreRecords`.
  */
 export default function SourcingRecordPage() {
   const { t } = useTranslation('sourcing-record')
@@ -44,17 +44,16 @@ function StoreRecord() {
   const tab: Tab = (TABS as readonly string[]).includes(params.get(TAB_PARAM) ?? '') ? (params.get(TAB_PARAM) as Tab) : 'SLOT'
   const reply = record.data
   const board = useMemo(() => (isBuilt(reply) && tab !== 'CARRIERS' ? recordBoard(reply, tab as RecordMode) : null), [reply, tab])
-  const carriers = useMemo(() => (isBuilt(reply) ? carrierPairs(reply) : []), [reply])
 
   return (
     <section className="flex w-full max-w-[96rem] flex-col gap-4" data-sourcing-record="">
       {isBuilt(reply) && (
-        <p className="flex flex-wrap gap-x-4 text-xs text-muted-foreground" data-record-built={reply.builtAt ?? ''}>
-          <span>{w.t('builtAt', { at: fsi(reply.builtAt ?? '') })}</span>
+        <p className="flex flex-wrap gap-x-4 text-xs text-muted-foreground" data-record-built={wallTime(reply.builtAt)}>
+          <span>{w.t('builtAt', { at: fsi(wallTime(reply.builtAt)) })}</span>
           {reply.windowFrom && reply.windowTo && (
             <span className="flex gap-1">
               {w.t('window')}
-              <Ltr>{formatRange(reply.windowFrom, reply.windowTo)}</Ltr>
+              <Ltr>{formatRange(dateOf(reply.windowFrom), dateOf(reply.windowTo))}</Ltr>
             </span>
           )}
         </p>
@@ -102,17 +101,6 @@ function StoreRecord() {
             ) : (
               <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4" data-mode-board="CARRIERS">
                 <p className="text-sm">{w.t('noRecordMode')}</p>
-                <ul className="flex flex-wrap gap-2 text-xs">
-                  {carriers.map((p) => (
-                    <li key={`${p.store}-${p.mode}`} className="flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1" data-carrier-pair={`${p.store} ${p.mode}`}>
-                      <Ltr>{formatPair(p.store, p.storeName)}</Ltr>
-                      <span className="text-muted-foreground">{w.mode(p.mode)}</span>
-                      <span className="rounded-full border border-border px-1.5 py-px text-[11px] text-muted-foreground" data-neutral="NO_RECORD">
-                        {w.t('neutral.mark')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
               </div>
             )}
           </div>

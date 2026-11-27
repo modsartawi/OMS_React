@@ -1,89 +1,110 @@
 /**
- * The store record's read door (oms-react ticket 969, BackOffice spec 4354 §6 and §14; BackOffice 4373: "A read door
- * lists every pair's record for the simulator's store record list"). One row per pair — a store with a delivery mode —
- * over the last 90 whole local days, keeping the counts behind every rate.
+ * The store record's read door (oms-react ticket 969, BackOffice spec 4354 §6 and §14; BackOffice 4373):
+ * `GET SourcingAdvisor/StoreRecords?store=&mode=` → `StoreRecordListReply` (`StoreRecordService.cs`). One row per pair —
+ * a store with a mode that keeps a record (`DAWAA_NOW`, `SLOT`, `PICK_UP`) — as last night's pass left it, keeping the
+ * counts behind every rate. A mode with no record is refused (`STORE-RECORD-400`); the carrier modes and beyond the
+ * border are never listed: they sit on the neutral default.
  *
- * ⚠ BackOffice 4373 is open and names the content only, not one field: every name below is ours.
- * PROVISIONAL (spec 4354: not specified) — the whole shape. Reconcile here when the door lands.
+ * Reconciled with BackOffice 4373 / 4385 at pricing2 35a4e56be. The reply goes through `EndpointHelpers.ExecuteAsync`
+ * with ASP.NET Core's web defaults, not the run record's options: camelCase, nulls WRITTEN, and every time ISO 8601
+ * with a `T` and no zone (`2026-11-27T02:14:09`; a date reads `2026-08-29T00:00:00`). Rates are fractions (0.0377 =
+ * 3.77%). `windowTo` is the window's last day, inclusive.
  *
- * Rates are fractions (0.0377 = 3.77%), riyals to three decimals, dates local `yyyy-MM-dd`. Every total is sent with
- * its parts, as rounded: no reader adds up for itself (BackOffice 4281 decision 28).
+ * SERVER GAP (spec 4354) — the door does not send what ticket 969 lists beside the rates: the store's name, each
+ * measure's failure price and its cost or credit, the pair's record cost, the like stores' share of till moves marked
+ * "Customer", and what is "shown, not charged" (the last count, the count factor, a donor's refusals). The screen shows
+ * the store's code and city, and says the cost is worked out per run.
  */
 
-/** The like-store bands of deliveries in the window (BackOffice 4373: under 30; 30 to 99; 100 to 299; 300 or more). */
+/** The like-store bands of deliveries in the window, by the server's index (`StoreRecordMath.BandOf`: 0 to 3). */
 export const RECORD_BANDS = ['UNDER_30', 'FROM_30', 'FROM_100', 'FROM_300'] as const
 export type RecordBand = (typeof RECORD_BANDS)[number]
 
-/**
- * Why a measure sits on the neutral default: no delivery in the window, a mode that keeps no record, or the measure
- * switched off. PROVISIONAL (spec 4354: not specified) — the codes.
- */
-export type RecordNeutralWhy = 'NO_DELIVERIES' | 'NO_RECORD' | 'SWITCHED_OFF'
+/** A band's word key from the server's index; null for an index the screen does not know. */
+export const bandOf = (index: number): RecordBand | null => RECORD_BANDS[index] ?? null
 
-/** One measure of a pair (spec 4354 §14). PROVISIONAL (spec 4354: not specified) — every field name. */
+/** One measure of a pair (`StoreRecordMeasureView`). */
 export interface StoreRecordMeasure {
-  /** `late`, `returned`, `cancelled` (slot); `neverMadeReady`, `cancelled`, `readyLate` (pick-up); `calloutIgnored` (Dawaa Now). */
+  /** `StoreRecordMeasures`: `LATE`, `RETURNED`, `CANCELLED` (slot); `NEVER_READY`, `CANCELLED`, `READY_LATE` (pick-up); `CALLOUT_IGNORED` (Dawaa Now). */
   measure: string
-  /** The store's steadied rate; null on the neutral default. */
-  rate: number | null
-  /** The store's own rate before steadying (bad endings ÷ deliveries); null with no delivery. */
-  ownRate: number | null
-  /** The band's pooled rate: stores of the same mode in the same band, counted on the measure's own channels. */
-  likeStores: number
-  /** The deliveries behind the rate. */
-  count: number
-  /** The bad endings among them: at most one per delivery, never the customer's. */
-  bad: number
-  /** The measure's failure price (spec 4354 §6), riyals. */
-  price: number
-  /** Failure price × (steadied rate − like-store rate); below zero a credit; zero on the neutral default. */
-  cost: number
-  neutral: RecordNeutralWhy | null
-  /** The channels the measure counts (`APP`, `SITE`, `CALL_CENTRE`). */
-  channels: string[]
+  /** Which channel list it counts: `COST` (the app, the site and the call centre) or `TIMING` (the app and the site). */
+  channels: string
+  /** The list's own channels (`IOS`, `ROID`, `WEB`) and categories (`category C`, the call centre). */
+  countedChannels: string[]
+  /** The bad endings among the deliveries: at most one per delivery, never the customer's. */
+  badEndings: number
+  deliveries: number
+  /** The like-store band (0 to 3, `bandOf`) and the deliveries that placed the store in it. */
+  band: number
+  bandCount: number
+  bandBadEndings: number
+  bandDeliveries: number
+  /** The store's own rate (bad endings ÷ deliveries). */
+  storeRate: number
+  /** The band's pooled rate. */
+  likeRate: number
+  /** The store's rate steadied toward the like stores'. */
+  steadiedRate: number
+  steadyingCount: number
+  /** Nothing counted: the measure sits on the like-store rate (the neutral default). */
+  isNeutral: boolean
 }
 
-/** One pair's record. PROVISIONAL (spec 4354: not specified) — every field name. */
+/** A made-ready time or a courier wait, in minutes: the store's own, its like stores', and the steadied figures. */
+export interface StoreRecordFigure {
+  count: number
+  usual: number
+  cautious: number
+  likeUsual: number
+  likeCautious: number
+  steadiedUsual: number
+  steadiedCautious: number
+  /** `STORE`, `LIKE_STORES`, `CITY`, `CHAIN` or `STAND_IN`. */
+  source: string
+}
+
+/** Slot delivery's moves and slot shape (BackOffice 4385). `usualSlot` 0 = none. */
+export interface StoreRecordSlot {
+  lateCustomerMovesFollowed: number
+  lateTillMovesHeld: number
+  tillMoves: number
+  tillMovesCustomer: number
+  tillMovesAvailability: number
+  tillMovesDelivery: number
+  tillMovesOther: number
+  slotDeliveries: number
+  /** The hours regular slots start at, comma-separated (`"10,12,14,18"`); empty when none. */
+  regularSlotHours: string
+  storeSlots: number
+  usualSlot: number
+}
+
+/** One pair's record (`StoreRecordPairView`). */
 export interface StoreRecordPair {
-  store: string
-  storeName: string
-  /** A delivery mode code (`SLOT`, `PICK_UP`, `DAWAA_NOW`, the carrier modes, `BEYOND_BORDER`). */
+  storeCode: string
+  /** A mode that keeps a record. */
   mode: string
-  /** Null for a mode that keeps no record. */
-  band: RecordBand | null
-  deliveries: number
+  city: string
   /** The mode's counted-from date: no earlier day counts (Dawaa Now from 2026-11-02). */
   countedFrom: string
+  /** The deliveries the cost measures count, and the ones the timing measures count. */
+  costDeliveries: number
+  timingDeliveries: number
   /** Deliveries that reached the store as the callout's fallback: left out of its record, and counted. */
-  fallbackLeftOut: number
-  /** The pair's record cost, sent with its parts (the measures' costs). */
-  cost: number
-  /** Empty for a mode that keeps no record. */
+  fallbackDeliveries: number
+  /** Null for pick-up. */
+  madeReady: StoreRecordFigure | null
+  /** Dawaa Now only. */
+  courierWait: StoreRecordFigure | null
+  /** Slot delivery only. */
+  slot: StoreRecordSlot | null
   measures: StoreRecordMeasure[]
-  /** Slot delivery: the store's usual slot (deliveries standing in one slot) and its regular slot hours. */
-  slot?: { usual: number; regularHours: { from: string; to: string }[] } | null
-  /** Slot delivery: the share of the store's till moves marked "Customer", beside like stores'. */
-  tillMoves?: { customerShare: number; likeStores: number; moves: number } | null
 }
 
-/** Shown, not charged (spec 4354 §6: the shelf-chance factors ship switched off), per store. */
-export interface StoreRecordShown {
-  store: string
-  /** The store's last full count, or null when none is on file. */
-  lastCount: string | null
-  countFactor: number
-  /** A donor's refusals for no stock. */
-  donorRefusals: number
-}
-
-/**
- * `GET SourcingAdvisor/StoreRecord`'s `data`. `builtAt` is null while the nightly pass has never run.
- * PROVISIONAL (spec 4354: not specified) — the door and every field name.
- */
+/** `GET SourcingAdvisor/StoreRecords`'s `data`. `builtAt` is null while the nightly pass has never run. */
 export interface StoreRecordReply {
   builtAt: string | null
   windowFrom: string | null
   windowTo: string | null
   pairs: StoreRecordPair[]
-  shown: StoreRecordShown[]
 }

@@ -1,11 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import type { AdviseReply } from '@/core/models/sourcing-run'
+import { usePermissions } from '@/core/permissions'
+import { canSeeCustomerPoint } from '@/core/sourcing-advisor/access'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatFigure } from '@/core/util/number-format'
 import type { ReplayForm } from './replay'
+
+/** When the replayed order's first delivery came in: the reply's nearest fact to when it was placed. */
+const firstCameIn = (reply: AdviseReply): string | null => (reply.whatHappened ?? []).map((d) => d.cameInAt).sort()[0] ?? null
 
 /**
  * Replay an order (ticket 964, SIMT decision 6): the order number and the customer-point switch; once run, the order's
@@ -15,6 +20,8 @@ export default function ReplayStart({ form, onChange, reply }: { form: ReplayFor
   const { t } = useTranslation('sourcing-simulator')
   // The order the reply replayed, when it is this one.
   const order = reply && reply.orderNumber && reply.orderNumber === form.orderNumber.trim() ? reply : null
+  // BackOffice 4381: only a holder of the customer-point grant gets the real point back; the server says NO_GRANT otherwise.
+  const pointGranted = canSeeCustomerPoint(usePermissions())
   return (
     <div className="flex flex-col gap-3" data-sim-replay="">
       <Field label={t('replay.orderNumber')} hint={t('replay.orderHint')}>
@@ -38,6 +45,11 @@ export default function ReplayStart({ form, onChange, reply }: { form: ReplayFor
         <span className="flex flex-col">
           <span className="font-medium">{t('replay.withPoint')}</span>
           <span className="text-muted-foreground">{t('replay.withPointHint')}</span>
+          {form.withPoint && !pointGranted && (
+            <span className="text-attention-800" data-sim-point-no-grant="">
+              {t('replay.withPointNoGrant')}
+            </span>
+          )}
         </span>
       </label>
 
@@ -53,7 +65,8 @@ export default function ReplayStart({ form, onChange, reply }: { form: ReplayFor
               <div className="flex flex-col">
                 <dt className="text-muted-foreground">{t('replay.order.placed')}</dt>
                 <dd data-sim-order-placed="">
-                  <Ltr>{order.whatHappened?.placedAt ?? t('dash')}</Ltr>
+                  {/* SERVER GAP (spec 4354): the reply sends no time the order was placed; its first delivery's coming in stands for it. */}
+                  <Ltr>{firstCameIn(order) ?? t('dash')}</Ltr>
                 </dd>
               </div>
             </dl>

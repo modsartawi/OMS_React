@@ -106,7 +106,7 @@ function Shipment({ s, pinning }: { s: AdviseShipment; pinning?: PlanPinning }) 
         <span className="font-mono">
           <Ltr>{formatPair(s.store, s.storeName)}</Ltr>
         </span>
-        <span className="text-muted-foreground" data-plan-km="">{s.km === null ? t('card.noLocation') : <Ltr>{w.km(s.km)}</Ltr>}</span>
+        <span className="text-muted-foreground" data-plan-km="">{s.km === undefined ? t('card.noLocation') : <Ltr>{w.km(s.km)}</Ltr>}</span>
         {s.kmKind === 'STRAIGHT_LINE' && (
           <span className="rounded-full border border-dashed border-border px-1.5 text-[11px] text-muted-foreground" data-plan-straight-line="">
             {t('card.straightLine')}

@@ -21,6 +21,7 @@ const labels = (items: ShellMenuItem[]): string[] => leaves(items).map((i) => i.
 const HOST_ON = {
   fileServerReady: true,
   notificationCenterOn: true,
+  commandCenterOn: true,
   nphiesContractVersion: '1.3',
   canManageRoles: true,
   canManageUsers: true,

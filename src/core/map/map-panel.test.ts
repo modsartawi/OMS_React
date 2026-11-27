@@ -294,3 +294,47 @@ describe('a panel told not to join nearby points draws each point on its own (sp
     for (const zoom of [3, 6, 10, 17]) expect([zoom, e.started[0].featuresAt(zoom).map((f) => [f.kind, f.id])]).toEqual([zoom, [['point', '1001'], ['point', '1002']]])
   })
 })
+
+describe('shapes, selection and a view the caller sets (oms 947: the command center’s kingdom map)', () => {
+  const REGION = { id: 'Center', rings: [[[44, 24], [47, 24], [47, 27], [44, 24]] as [number, number][]], fill: '--map-scale-4' }
+
+  it('hands the engine each shape with its colours resolved, beneath the points; a map given none hands none', () => {
+    const e = standIn()
+    open(e.engine, { polygons: [REGION], inkOf: (t) => `ink(${t})` })
+    expect(e.started[0].polygons).toEqual([{ id: 'Center', rings: REGION.rings, fill: 'ink(--map-scale-4)', fillOpacity: 0.55, stroke: 'ink(--card)' }])
+    const none = standIn()
+    open(none.engine)
+    expect(none.started[0].polygons).toEqual([])
+  })
+
+  it('a tap on a shape tells the caller the shape; a tap on a point tells it the point; a tap beside them tells nothing', () => {
+    const e = standIn()
+    const picked: unknown[] = []
+    open(e.engine, { polygons: [REGION], onSelect: (s) => picked.push(s) })
+    e.events.shapeTap?.('Center')
+    e.events.tap({ id: 'J001', x: 1, y: 1, zoom: 18 }, 18)
+    e.events.tap(null, 18)
+    expect(picked).toEqual([
+      { kind: 'shape', id: 'Center' },
+      { kind: 'point', id: 'J001' },
+    ])
+  })
+
+  it('told to draw points only from a zoom, draws none further out: the shapes alone show there', () => {
+    const e = standIn()
+    open(e.engine, { pointsFromZoom: 6, groupNearby: false })
+    expect(e.started[0].featuresAt(5)).toEqual([])
+    expect(e.started[0].featuresAt(6).map((f) => f.id)).toEqual(['R001', 'J001', 'D001'])
+  })
+
+  it('opens on the view the caller gives, and shows a view the caller sets later without starting the map again', () => {
+    const e = standIn()
+    const box = { kind: 'bounds', west: 34, south: 15, east: 56, north: 33 } as const
+    const { panel } = open(e.engine, { view: box })
+    expect(e.started[0].view).toEqual(box)
+    const region = { kind: 'bounds', west: 41, south: 22, east: 48, north: 29 } as const
+    panel.show(region)
+    expect(e.fits).toEqual([region])
+    expect(e.started).toHaveLength(1)
+  })
+})

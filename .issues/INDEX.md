@@ -1574,11 +1574,11 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## Retail Command Center, phase 1: the home, the kingdom map and the two profiles (BackOffice spec 4165), filed 2026-11-22
 
-- [946](946-the-command-center-home-shows-the-morning-brief-the-status-line-and-the-language-switch.md) — The command center home shows the morning brief, the status line and the language switch · *(ticket · BackOffice spec 4165 · tracer)* · **open** · blocked by: BO 4176
-- [947](947-the-kingdom-map-shades-the-regions-shows-each-pharmacy-as-a-point-and-opens-a-pharmacys-sco.md) — The kingdom map shades the regions, shows each pharmacy as a point, and opens a pharmacy's scorecard · *(ticket · BackOffice spec 4165)* · **open** · blocked by: 946
-- [948](948-the-store-profile-page-shows-every-section-for-a-period-and-exports-the-workbook.md) — The store profile page shows every section for a period and exports the workbook · *(ticket · BackOffice spec 4165)* · **open** · blocked by: 947, BO 4177
-- [949](949-the-category-profile-page-opens-at-two-depths-narrows-to-a-region-or-a-pharmacy-and-exports.md) — The category profile page opens at two depths, narrows to a region or a pharmacy, and exports · *(ticket · BackOffice spec 4165)* · **open** · blocked by: 946, BO 4178
-- [950](950-ask-opens-the-copilot-with-the-question-written-and-the-brief-and-the-copilot-show-one-find.md) — "Ask" opens the copilot with the question written, and the brief and the copilot show one finding card · *(ticket · BackOffice spec 4165)* · **open** · blocked by: 946, BO 4179
+- [946](946-the-command-center-home-shows-the-morning-brief-the-status-line-and-the-language-switch.md) — The command center home shows the morning brief, the status line and the language switch · *(ticket · BackOffice spec 4165 · tracer)* · **done 2026-11-22** (stubbed; live walk owed, BO 4176 built, merged to pricing2 2026-11-27) · blocked by: BO 4176
+- [947](947-the-kingdom-map-shades-the-regions-shows-each-pharmacy-as-a-point-and-opens-a-pharmacys-sco.md) — The kingdom map shades the regions, shows each pharmacy as a point, and opens a pharmacy's scorecard · *(ticket · BackOffice spec 4165)* · **done 2026-11-22** (stubbed; live walk owed, BO 4176 built, merged to pricing2 2026-11-27) · blocked by: BO 4176
+- [948](948-the-store-profile-page-shows-every-section-for-a-period-and-exports-the-workbook.md) — The store profile page shows every section for a period and exports the workbook · *(ticket · BackOffice spec 4165)* · **done 2026-11-22** (stubbed; live walk owed, BO 4177 built, merged to pricing2 2026-11-27) · blocked by: 947, BO 4177
+- [949](949-the-category-profile-page-opens-at-two-depths-narrows-to-a-region-or-a-pharmacy-and-exports.md) — The category profile page opens at two depths, narrows to a region or a pharmacy, and exports · *(ticket · BackOffice spec 4165)* · **done 2026-11-22** (stubbed; live walk owed, BO 4178 built, merged to pricing2 2026-11-27) · blocked by: 946, BO 4178
+- [950](950-ask-opens-the-copilot-with-the-question-written-and-the-brief-and-the-copilot-show-one-find.md) — "Ask" opens the copilot with the question written, and the brief and the copilot show one finding card · *(ticket · BackOffice spec 4165)* · **done 2026-11-22** (stubbed; live walk owed, BO 4179 built, merged to pricing2 2026-11-27) · blocked by: 946, BO 4179
 
 ## Analytics help center in English and Arabic (BackOffice spec 4182), filed 2026-11-22
 
@@ -1606,3 +1606,21 @@ Server tickets are BackOffice 4355–4398 on `pricing2`. Prototypes: BackOffice 
 - [972](972-the-results-pages-five-reading-tabs.md) — The results page’s five reading tabs · *(ticket · BackOffice spec 4354)* · **done 2026-11-27** (reconciled with BO 4393, 4396 at pricing2 35a4e56be) · blocked by: BO 4393, BO 4391
 - [973](973-the-trials-tab-and-the-phase-2-bar-tab.md) — The Trials tab and the Phase 2 bar tab · *(ticket · BackOffice spec 4354)* · **done 2026-11-27** (reconciled with BO 4394, 4396 at pricing2 35a4e56be) · blocked by: 971, BO 4394, BO 4396
 - [974](974-the-old-advisor-pages-go-and-the-menu-opens-the-results-page.md) — The old advisor pages go, and the menu opens the results page · *(ticket · BackOffice spec 4354)* · **done** · blocked by: 971, BO 4397
+
+## The copilot investigates (BackOffice spec 4411), filed 2026-11-27
+
+Server tickets are BackOffice 4413–4421 on `pricing2`.
+
+- [975](975-a-clickable-mock-of-the-investigation-panel-for-the-owner-to-react-to.md) — A clickable mock of the investigation panel, for the owner to react to · *(ticket · BackOffice spec 4411)* · **open** · blocked by: —
+- [976](976-the-panel-shows-a-running-investigations-steps-lets-the-reader-leave-or-stop-and-shows-the-finished-answers-parts.md) — The panel shows a running investigation's steps, lets the reader leave or stop, and shows the finished answer's parts · *(ticket · BackOffice spec 4411)* · **open** · blocked by: 975, BO 4413
+- [977](977-chips-rerun-investigate-why-recent-run-again-continue-save-as-report-and-the-mark.md) — Chips rerun, "Investigate why", Recent investigations, Run again, Continue, Save as report and the mark · *(ticket · BackOffice spec 4411)* · **open** · blocked by: 976, BO 4415, BO 4418
+- [978](978-the-playbook-card-and-the-labelled-suggestion-and-curators-edit-playbooks-and-see-the-misses.md) — The playbook card and the labelled suggestion; curators edit playbooks and see the misses · *(ticket · BackOffice spec 4411)* · **open** · blocked by: 976, BO 4416
+- [979](979-the-profile-on-what-the-copilot-knows-about-me-and-the-follow-offer.md) — The profile on "What the copilot knows about me", and the Follow offer · *(ticket · BackOffice spec 4411)* · **open** · blocked by: BO 4417
+
+## The copilot warns early (BackOffice spec 4412), filed 2026-11-27
+
+Server tickets are BackOffice 4422–4430 on `pricing2`.
+
+- [980](980-a-clickable-mock-of-the-copilots-opening-screen-for-the-owner-to-react-to.md) — A clickable mock of the copilot's opening screen, for the owner to react to · *(ticket · BackOffice spec 4412)* · **open** · blocked by: —
+- [981](981-the-copilot-opens-on-worth-a-look-today-right-now-start-with-and-recent-in-each-mornings-state.md) — The copilot opens on Worth a look today, Right now, Start with and Recent, in each morning's state · *(ticket · BackOffice spec 4412)* · **open** · blocked by: 980, BO 4429
+- [982](982-the-finding-cards-early-warning-form-in-the-brief-and-on-the-opening-screen.md) — The finding card's early-warning form, in the brief and on the opening screen · *(ticket · BackOffice spec 4412)* · **open** · blocked by: BO 4429

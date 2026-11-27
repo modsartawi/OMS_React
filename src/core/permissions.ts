@@ -219,6 +219,11 @@ export interface PermissionsExtras {
   fileServerReady: boolean
   /** `NotificationCenter:Enabled` — the broadcast composer needs it. */
   notificationCenterOn: boolean
+  /**
+   * `CommandCenter:Home` (oms 946, BackOffice spec 4165) — the Retail Command Center's pages and read routes are mapped
+   * only then. ⚠ proposed: BO 4176 does not carry this extra yet (follow-up on the ticket); a missing flag is off.
+   */
+  commandCenterOn: boolean
   /** `NphiesWebContract.Version` ("1.3" today). */
   nphiesContractVersion: string
   /** `S_ROLE_MAINT ACTVT=02`. */
@@ -254,6 +259,7 @@ export const PERMISSIONS_KEY = ['auth', 'permissions'] as const
 const NO_EXTRAS: PermissionsExtras = Object.freeze({
   fileServerReady: false,
   notificationCenterOn: false,
+  commandCenterOn: false,
   nphiesContractVersion: '',
   canManageRoles: false,
   canManageUsers: false,
@@ -275,6 +281,7 @@ export function parsePermissionsAnswer(raw: unknown): PermissionsAnswer | null {
     extras: {
       fileServerReady: extras.fileServerReady === true,
       notificationCenterOn: extras.notificationCenterOn === true,
+      commandCenterOn: extras.commandCenterOn === true,
       nphiesContractVersion: typeof extras.nphiesContractVersion === 'string' ? extras.nphiesContractVersion : '',
       canManageRoles: extras.canManageRoles === true,
       canManageUsers: extras.canManageUsers === true,

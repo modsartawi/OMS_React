@@ -570,5 +570,8 @@
       "total": "The {{status}} period <period>{{period}}</period> overlaps <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>), so a season may read as a change.",
       "totalOpen": "The {{status}} period from <period>{{period}}</period> overlaps <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>), so a season may read as a change."
     }
+  },
+  "finding": {
+    "askingAbout": "Asking about this finding from the morning brief"
   }
 }

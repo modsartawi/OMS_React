@@ -475,6 +475,44 @@ export function ringFeatures(rings: readonly MapRing[], inkOf: (token: string) =
   })
 }
 
+/**
+ * One shape to shade (oms 947, BackOffice spec 4165 "The kingdom map"): a region drawn from the front end's boundary
+ * file, filled in a colour the caller chose from the server's step, beneath the lines and the points. A tap on it is
+ * reported to the caller as the shape's id. A map given no shapes draws none (every map before 947).
+ */
+export interface MapPolygon {
+  id: string
+  /** Its outer rings, each `[lon, lat]` pairs; a region of islands has several. */
+  rings: readonly (readonly (readonly [number, number])[])[]
+  /** Its fill, as a token name (`--map-scale-3`). */
+  fill: string
+  /** How much of the fill shows, 0 to 1. Absent: {@link POLYGON_FILL_OPACITY}. */
+  fillOpacity?: number
+}
+
+/** A shape as the engine draws it: its colours resolved. */
+export interface MapPolygonFeature {
+  id: string
+  rings: readonly (readonly (readonly [number, number])[])[]
+  fill: string
+  fillOpacity: number
+  stroke: string
+}
+
+/** A shape's fill shows the base map through it: the roads and names stay readable under a shaded region. */
+export const POLYGON_FILL_OPACITY = 0.55
+
+/** The edge between shapes: the card's ground, so two regions of one step still read as two. */
+export const POLYGON_EDGE_INK = '--card'
+
+/** How wide a shape's edge is drawn, in pixels. */
+export const POLYGON_EDGE_WIDTH = 1
+
+/** The shapes the engine draws, in the order given, each colour token resolved by `inkOf`. */
+export function polygonFeatures(polygons: readonly MapPolygon[], inkOf: (token: string) => string): MapPolygonFeature[] {
+  return polygons.map((p) => ({ id: p.id, rings: p.rings, fill: inkOf(p.fill), fillOpacity: p.fillOpacity ?? POLYGON_FILL_OPACITY, stroke: inkOf(POLYGON_EDGE_INK) }))
+}
+
 /** Where the engine reports a pointer or a tap: the feature under it, and the place on the panel in pixels. */
 export interface MapTarget {
   id: string

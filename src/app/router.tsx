@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet, redirect, useSearchParams, type LoaderFunctionArgs } from 'react-router'
 import { ALL_ITEMS_PATH, LIBRARY_PAGES, libraryRedirect, type LibraryPage, type LibraryPageEntry } from '@/features/analytics/boards/library-pages'
+import { CC_ROUTES } from '@/core/command-center-routes'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
@@ -300,6 +301,21 @@ export const router = createBrowserRouter([
         // `?kind=report` the report designer's (828).
         path: 'analytics/new',
         lazy: async () => ({ Component: (await import('@/features/analytics/boards/AnalyticsEditorPage')).default }),
+      },
+      {
+        // 946 (BackOffice spec 4165): the Retail Command Center home. Gated in the page (grant + `CommandCenter:Home`).
+        path: CC_ROUTES.home,
+        lazy: async () => ({ Component: (await import('@/features/analytics/command-center/CommandCenterPage')).default }),
+      },
+      {
+        // 949: a category profile at either depth (`CATEGORY_PROFILE_PATTERN`, `@/core/command-center-routes`), narrowed in its query string.
+        path: CC_ROUTES.categoryProfile,
+        lazy: async () => ({ Component: (await import('@/features/analytics/command-center/CategoryProfilePage')).default }),
+      },
+      {
+        // 948: a pharmacy's store profile (`STORE_PROFILE_PATTERN`, `@/core/command-center-routes`), its period in the query string.
+        path: CC_ROUTES.storeProfile,
+        lazy: async () => ({ Component: (await import('@/features/analytics/command-center/StoreProfilePage')).default }),
       },
       // The price command center (oms 934, BackOffice spec 4127): price alerts, and the tabs 935–939 add. Gated in-page
       // by `canViewPriceWatch` (`PriceWatch:03`); the server's grant filter is the boundary.

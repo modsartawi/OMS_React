@@ -18,7 +18,7 @@ import { defaultTab, pinTab, visibleTabs, type TabEntry } from './tabs'
 
 const answer = (screens: string[]): PermissionsAnswer => ({
   screens,
-  extras: { fileServerReady: false, notificationCenterOn: false, nphiesContractVersion: '1.3', canManageRoles: false, canManageUsers: false },
+  extras: { fileServerReady: false, notificationCenterOn: false, commandCenterOn: false, nphiesContractVersion: '1.3', canManageRoles: false, canManageUsers: false },
   version: 'v',
 })
 

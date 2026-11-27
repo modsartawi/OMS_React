@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'
 import { attachmentReadCategories, canOpenAttachments, canReadAttachmentCategory, canWithdrawAttachment } from './access'
 
-const READY = { fileServerReady: true, notificationCenterOn: false, nphiesContractVersion: '1.3', canManageRoles: false, canManageUsers: false }
+const READY = { fileServerReady: true, notificationCenterOn: false, commandCenterOn: false, nphiesContractVersion: '1.3', canManageRoles: false, canManageUsers: false }
 const answer = (screens: string[], fileServerReady = true) => permissionsOf({ screens, extras: { ...READY, fileServerReady } })
 
 describe('read categories', () => {

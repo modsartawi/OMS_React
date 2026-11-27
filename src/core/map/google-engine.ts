@@ -1,6 +1,6 @@
 import { googleLoader, type GoogleLoader } from './google-loader'
 import { lineLabelLook, markerHits, markerLook, pinDrag, pinLook } from './map-markers'
-import { lineStroke, RING_LINE_WIDTH, type MapFeature } from './map-drawing'
+import { lineStroke, POLYGON_EDGE_WIDTH, RING_LINE_WIDTH, type MapFeature } from './map-drawing'
 import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapView } from './map-panel'
 
 /**
@@ -22,6 +22,8 @@ import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapV
  *   and the card's fold all read the features drawn. A click on a group eases to the zoom where it opens.
  * - Lines (922): each `start.lines` entry a Google `Polyline` in its resolved colour (beneath every overlay, so the
  *   points lie on top), taking no tap; its words an HTML element on the same overlay, at the line's middle as drawn.
+ * - Shapes (947): each `start.polygons` entry a Google `Polygon` in its resolved fill, beneath the lines and every
+ *   overlay; its click is reported as the shape's id (`events.shapeTap`).
  * - 964: a dashed or dotted line repeats a short stroke of its colour along a hidden polyline (`lineStroke`); a ring is
  *   such a dashed polyline round its closed path, beneath every leg, its words at its top; the customer's pin is an HTML
  *   element above every marker, that a drag moves (`pinDrag`) and whose drop is reported once (`pinMoved`).
@@ -75,11 +77,17 @@ interface GOverlayViewClass {
 interface GPolyline {
   setMap(map: GMap | null): void
 }
+/** 947: a shape on the map. */
+interface GPolygon {
+  setMap(map: GMap | null): void
+  addListener(event: string, handler: () => void): GListener
+}
 interface GoogleMapsNs {
   importLibrary(name: 'maps'): Promise<{
     Map: new (el: HTMLElement, options: Record<string, unknown>) => GMap
     RenderingType: { RASTER: unknown }
     Polyline: new (options: Record<string, unknown>) => GPolyline
+    Polygon: new (options: Record<string, unknown>) => GPolygon
   }>
   ControlPosition: { TOP_LEFT: unknown; TOP_RIGHT: unknown }
   OverlayView: GOverlayViewClass
@@ -104,6 +112,10 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       let overlay: GOverlayView | null = null
       // 922: the lines drawn, taken off the map again when it is closed.
       const polylines: GPolyline[] = []
+      // 947: the shapes drawn, taken off the map again when it is closed.
+      const polygons: GPolygon[] = []
+      // 947: a view shown before Google has made the map is the one it opens on.
+      let pending: MapView | null = null
       let resize: ResizeObserver | null = null
       const fail = (reason: 'refused' | 'unreachable' | 'no-graphics') => {
         if (destroyed || ended) return
@@ -125,7 +137,10 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       box.appendChild(container)
 
       const fit = (v: MapView) => {
-        if (!map || !g) return
+        if (!map || !g) {
+          pending = v
+          return
+        }
         if (v.kind === 'centre') {
           map.setCenter({ lat: v.lat, lng: v.lon })
           map.setZoom(v.zoom)
@@ -142,9 +157,9 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
       const draw = async () => {
         g = googleMaps()
         if (!g) throw new Error('Google Maps did not define google.maps')
-        const { Map, RenderingType, Polyline } = await g.importLibrary('maps')
+        const { Map, RenderingType, Polyline, Polygon } = await g.importLibrary('maps')
         if (destroyed || refused) return
-        const view = start.view
+        const view = pending ?? start.view
         try {
           map = new Map(container, {
             ...(view.kind === 'centre' ? { center: { lat: view.lat, lng: view.lon }, zoom: view.zoom } : { center: { lat: 24, lng: 45 }, zoom: 5 }),
@@ -172,6 +187,31 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         const hits = markerHits(events, () => m.getZoom() ?? 0)
         overlay = markersOverlay(g, m, start, hits, project, (place) => !destroyed && events.pinMoved?.(place))
         overlay.setMap(m)
+        // 947: each shape a polygon in its fill, every ring a path, beneath the lines (zIndex 0) and every overlay; its
+        // click is the shape's, reported by id.
+        for (const shape of start.polygons ?? []) {
+          const polygon = new Polygon({
+            map: m,
+            paths: shape.rings.map((ring) => ring.map(([lon, lat]) => ({ lat, lng: lon }))),
+            fillColor: shape.fill,
+            fillOpacity: shape.fillOpacity,
+            strokeColor: shape.stroke,
+            strokeOpacity: 1,
+            strokeWeight: POLYGON_EDGE_WIDTH,
+            zIndex: 0,
+            clickable: true,
+          })
+          // A clickable polygon takes the map's own click, so the shape's click is also the tap on the map beside the
+          // stores: a pinned card closes (review A5), as a click on bare map closes it.
+          listeners.push(
+            polygon.addListener('click', () => {
+              if (destroyed) return
+              hits.mapClick()
+              events.shapeTap?.(shape.id)
+            }),
+          )
+          polygons.push(polygon)
+        }
         // 922: each line a polyline in its colour, in the order given. Google draws polylines beneath every overlay, so
         // the points (and the lines' words) lie on top; a strong line stacks above every plain one, so a later leg lying
         // along it never hides it; a line takes no tap; the map's taps stay the panel's.
@@ -236,6 +276,8 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
           for (const l of listeners) l.remove()
           for (const p of polylines) p.setMap(null)
           polylines.length = 0
+          for (const p of polygons) p.setMap(null)
+          polygons.length = 0
           overlay?.setMap(null)
           overlay = null
           map = null

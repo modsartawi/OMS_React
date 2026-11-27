@@ -1,0 +1,295 @@
+{
+  "menu": {
+    "sourcingPlanner": "Sourcing planner data"
+  },
+  "title": "Sourcing planner data",
+  "subtitle": "The tables every advisor run reads as they stand: buffer overrides and stock confidence, product rules and lists, and the planner tables.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the planner data",
+    "deniedHint": "Each planner table needs one of the three planner grants. Ask an administrator for the one you need.",
+    "unreachableTitle": "Your access could not be checked",
+    "unreachableHint": "The server did not answer. Try again in a moment."
+  },
+  "tabsLabel": "Planner data",
+  "yes": "Yes",
+  "no": "No",
+  "blank": "(blank)",
+  "grants": {
+    "buffer": "Buffer and stock confidence",
+    "rules": "Product rules and lists",
+    "tables": "Planner tables"
+  },
+  "tabs": {
+    "overrides": "Buffer overrides",
+    "confidence": "Stock confidence",
+    "rules": "Product rules",
+    "restricted": "Restricted list",
+    "bulky": "Bulky list",
+    "storeModes": "Store by mode",
+    "contracts": "Carrier contracts",
+    "slots": "Slot rules"
+  },
+  "fields": {
+    "overrides": {
+      "level": "Level",
+      "store": "Store",
+      "item": "Item",
+      "category": "Merchandise category",
+      "keepUnits": "Keep units",
+      "keepDays": "Keep days of walk-in sales",
+      "firstDay": "First day",
+      "lastDay": "Last day"
+    },
+    "confidence": {
+      "store": "Store",
+      "confidence": "Stock confidence",
+      "endDay": "Ends on"
+    },
+    "rules": {
+      "groupKind": "Item group kind",
+      "group": "Item group",
+      "ruleKind": "Rule",
+      "mode": "Mode",
+      "stores": "Only from stores",
+      "on": "Switch"
+    },
+    "restricted": {
+      "item": "Item",
+      "source": "Source"
+    },
+    "bulky": {
+      "kind": "By",
+      "code": "Item or sub-category"
+    },
+    "storeModes": {
+      "store": "Store",
+      "DAWAA_NOW": "Dawaa Now",
+      "SLOT": "Slot delivery",
+      "CARRIER_SAME_DAY": "Carrier same day",
+      "CARRIER_NEXT_DAY": "Carrier next day",
+      "BEYOND_BORDER": "Beyond border",
+      "PICK_UP": "Pick-up",
+      "note": "Note"
+    },
+    "contracts": {
+      "courier": "Courier",
+      "mode": "Mode",
+      "cities": "Cities covered",
+      "cutoff": "Cut-off",
+      "daysToDeliver": "Days to deliver",
+      "deliveredBy": "Delivered by",
+      "rate": "Rate (SAR)",
+      "collectionTime": "Collected at",
+      "keepsCold": "Keeps cold",
+      "assumed": "Assumed"
+    },
+    "slots": {
+      "from": "Slot from",
+      "to": "Slot to",
+      "ordersUntil": "Takes orders until",
+      "day": "Day",
+      "on": "Switch"
+    }
+  },
+  "hints": {
+    "itemCode": "The item's code.",
+    "overrides": {
+      "keepUnits": "0 offers every unit.",
+      "keepDays": "Given both, the larger of the two applies.",
+      "lastDay": "Leave empty for no end."
+    },
+    "confidence": {
+      "confidence": "0.60 to 1.00. It never removes a last unit.",
+      "endDay": "At most 90 days ahead. After it, the store goes back to 1.00."
+    },
+    "rules": {
+      "group": "The class, status, list or item code the rule is about.",
+      "stores": "Store codes, for an \"only from named stores\" rule."
+    },
+    "restricted": {
+      "item": "The item's code. Items SAP marks come from SAP."
+    },
+    "bulky": {
+      "code": "An item's code, or a sub-category."
+    },
+    "contracts": {
+      "courier": "The courier's code.",
+      "assumed": "An assumed row keeps a version with a carrier mode on from being the candidate set."
+    },
+    "slots": {
+      "ordersUntil": "An order after this time gets the next slot."
+    }
+  },
+  "opt": {
+    "level": {
+      "STORE_ITEM": "Store and item",
+      "ITEM": "Item",
+      "CATEGORY": "Category",
+      "STORE": "Store"
+    },
+    "groupKind": {
+      "A_CLASS": "A class",
+      "COLD_CHAIN": "Cold chain",
+      "SAP_STATUS": "SAP material status",
+      "NAMED_LIST": "Named list",
+      "ITEM": "One item"
+    },
+    "ruleKind": {
+      "NOT_BY_MODE": "Not by this mode",
+      "ONLY_FROM_STORES": "Only from named stores"
+    },
+    "mode": {
+      "DAWAA_NOW": "Dawaa Now",
+      "SLOT": "Slot delivery",
+      "CARRIER_SAME_DAY": "Carrier same day",
+      "CARRIER_NEXT_DAY": "Carrier next day",
+      "BEYOND_BORDER": "Beyond border",
+      "PICK_UP": "Pick-up"
+    },
+    "source": {
+      "SAP": "SAP: Restricted Drugs",
+      "OURS": "Our list"
+    },
+    "bulkyKind": {
+      "SUB_CATEGORY": "Sub-category",
+      "ITEM": "Item"
+    },
+    "day": {
+      "SAME_DAY": "Same day",
+      "NEXT_DAY": "Next day"
+    }
+  },
+  "label": {
+    "overrides": {
+      "STORE_ITEM": "Item <v>{{item}}</v> at store <v>{{store}}</v>",
+      "ITEM": "Item <v>{{item}}</v> at every store",
+      "CATEGORY": "Category <v>{{category}}</v> at every store",
+      "STORE": "Every item at store <v>{{store}}</v>"
+    },
+    "rules": "<v>{{group}}</v>, {{mode}}",
+    "contracts": "<v>{{courier}}</v>, {{mode}}",
+    "slots": "<v>{{slot}}</v>, {{day}}"
+  },
+  "grid": {
+    "since": "Since",
+    "by": "Set by",
+    "ended": "Ended"
+  },
+  "switch": {
+    "on": "On",
+    "off": "Off",
+    "turnOn": "Switch this rule on",
+    "turnOff": "Switch this rule off"
+  },
+  "rules": {
+    "counts": "{{on}} on, {{off}} off"
+  },
+  "override": {
+    "beats": "This level wins over: {{levels}}.",
+    "beatsNone": "The least specific level: every other level wins over it.",
+    "listJoin": ", ",
+    "keep": {
+      "none": "Give units, days, or both.",
+      "UNITS": "Keeps {{units}} units back from online orders.",
+      "DAYS": "Keeps {{days}} days of walk-in sales back from online orders.",
+      "BOTH": "Keeps the larger of {{units}} units and {{days}} days of walk-in sales."
+    }
+  },
+  "probe": {
+    "title": "Which override applies today?",
+    "category": "The item's category",
+    "idle": "Choose a store, an item or a category.",
+    "applies": "The <b>{{level}}</b> override applies:",
+    "none": "No override applies: the computed buffer stands."
+  },
+  "form": {
+    "choose": "Choose…"
+  },
+  "reason": {
+    "label": "Reason (kept with the change)",
+    "hint": "Kept with who changed what and when. Required.",
+    "none": "This table keeps who changed what and when, and the old and new values. It keeps no reason.",
+    "short": "Reason:",
+    "notKept": "This table keeps no reason."
+  },
+  "action": {
+    "ADD": "Added",
+    "CHANGE": "Changed",
+    "END": "Ended",
+    "SWITCH_ON": "Switched on",
+    "SWITCH_OFF": "Switched off"
+  },
+  "diff": {
+    "set": "{{field}}: <v>{{new}}</v>",
+    "line": "{{field}}: <o>{{old}}</o> to <v>{{new}}</v>"
+  },
+  "locked": {
+    "SAP": "From SAP's Restricted Drugs status. It cannot be changed here."
+  },
+  "notes": {
+    "overrides": "A planner's override replaces the computed buffer, up or down. The most specific level wins.",
+    "confidence": "Every store not listed runs at 1.00. Nothing works it out: a planner sets one store's by hand, for a time.",
+    "rules": "A row keeps an item group off a mode, or on named stores only. A pin never overrides a rule. A prescription line is planned on every mode.",
+    "restricted": "A restricted item is pick-up only. SAP's Restricted Drugs status comes from SAP; our own list starts empty.",
+    "bulky": "A bulky item stays off Dawaa Now.",
+    "storeModes": "Which store ships by which mode. Serving lists are not read.",
+    "contracts": "Both carrier modes are off in the baseline set. A version with a carrier mode on cannot be the candidate set while a row it uses is assumed.",
+    "slots": "The fallback when Hybris does not answer, and for a run planned for another hour.",
+    "everyRun": "Every run reads it as it stands; a change bites within a minute.",
+    "assumed_one": "<v>{{n}}</v> contract row is assumed.",
+    "assumed_other": "<v>{{n}}</v> contract rows are assumed."
+  },
+  "problems": {
+    "needStore": "Choose a store.",
+    "needItem": "Give the item's code.",
+    "needCategory": "Choose a category.",
+    "unitsOrDays": "Give units, days, or both.",
+    "badUnits": "Units are a whole number, 0 or more.",
+    "badDays": "Days are a number, 0 or more.",
+    "needFirstDay": "Give a first day.",
+    "lastBeforeFirst": "The last day is before the first day.",
+    "required": "Give the {{field}}.",
+    "badNumber": "The {{field}} is not a number.",
+    "confidenceRange": "Stock confidence runs from 0.60 to 1.00.",
+    "endTooFar": "The end date may be at most 90 days ahead.",
+    "endPast": "The end date must be after today.",
+    "needStores": "Name the stores."
+  },
+  "actions": {
+    "add": "Add a row",
+    "addRow": "Add",
+    "save": "Save",
+    "end": "End this row",
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "list": {
+    "showEnded": "Show ended rows",
+    "count_one": "{{n}} row in force",
+    "count_other": "{{n}} rows in force",
+    "failed": "The table could not be read",
+    "loading": "Reading the table…",
+    "empty": "No rows yet.",
+    "clickHint": "Click a row to change it, end it or read its history."
+  },
+  "sheet": {
+    "newRow": "New row",
+    "version": "This version since {{at}}, by {{by}}",
+    "ended": "Ended {{at}}, by {{by}}. It stays in the history.",
+    "neverInPlace": "Saving ends this row and writes a new one; the old one stays in the history.",
+    "history": "History",
+    "historyLoading": "Reading the history…",
+    "historyFailed": "The history could not be read",
+    "noChanges": "No changes yet.",
+    "failed": "Not saved",
+    "failedFallback": "The server did not answer as expected."
+  },
+  "toast": {
+    "added": "Row added. The next run reads it.",
+    "saved": "Row changed. The old version stays in the history.",
+    "ended": "Row ended. It stays in the history.",
+    "switchedOn": "Switched on. The next run obeys it.",
+    "switchedOff": "Switched off. The next run ignores it."
+  }
+}

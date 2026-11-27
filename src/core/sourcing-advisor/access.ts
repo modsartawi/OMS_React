@@ -26,6 +26,21 @@ export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdv
 export const canRunSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisorRun:06')
 
 /**
+ * The three planner grants (ticket 968, BackOffice spec 4354 §19: "a grant for the buffer overrides and the hand-set
+ * stock confidence; a grant for the product rules and lists; a grant for the other planner tables"). BO 4375, 4362 and
+ * 4361 each seed one, unnamed. The planner page shows a tab only to the holder of its grant (owner's pick, variant A).
+ * PROVISIONAL (spec 4354: not specified) — the keys `SourcingPlannerBuffer:01`, `SourcingPlannerRules:01` and
+ * `SourcingPlannerTables:01`. Reconcile in `@/core/permissions` as seeded; every reader takes THESE predicates.
+ */
+export const canEditPlannerBuffer = (p: Permissions): boolean => p.has('SourcingPlannerBuffer:01')
+export const canEditPlannerRules = (p: Permissions): boolean => p.has('SourcingPlannerRules:01')
+export const canEditPlannerTables = (p: Permissions): boolean => p.has('SourcingPlannerTables:01')
+
+/** The planner-data page (and its menu leaf) opens with any one of the three planner grants. */
+export const canOpenSourcingPlanner = (p: Permissions): boolean =>
+  canEditPlannerBuffer(p) || canEditPlannerRules(p) || canEditPlannerTables(p)
+
+/**
  * Whether the simulator reads the stored run it is handed (`?run=`, `simulatorRunPath`). It does not yet: opening a
  * stored run as it was is a read door of its own, not an advise call (BackOffice 4281 decision 11), and neither that
  * door nor the simulator's reading of the parameter is built. Turn this on in the change that builds them.

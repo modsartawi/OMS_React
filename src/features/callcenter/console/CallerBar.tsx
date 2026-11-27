@@ -312,15 +312,17 @@ function Found({ member, actions: { onAttach, busy } }: { member: LoyaltyMember;
   const { t } = useTranslation('callcenter')
   return (
     <div
-      className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card-2 py-1 ps-2.5 pe-1"
+      // 989: the name takes its own line in the narrow caller column; the mobile and
+      // Attach sit under it.
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-card-2 p-2"
       data-cc-lookup-found
     >
       {/* Server-supplied, passed through as data. */}
-      <bdi className="min-w-0 truncate text-sm font-semibold">{member.fullName}</bdi>
+      <bdi className="w-full min-w-0 truncate text-sm font-semibold">{member.fullName}</bdi>
       <span className="shrink-0 font-mono text-xs text-muted-foreground" data-numeric>
         <Ltr>{member.mobile}</Ltr>
       </span>
-      <Button onClick={() => onAttach(member)} disabled={busy} data-cc-attach className="shrink-0">
+      <Button onClick={() => onAttach(member)} disabled={busy} data-cc-attach className="ms-auto shrink-0">
         {busy ? t('callerBar.attaching') : t('callerBar.attach')}
       </Button>
     </div>
@@ -329,8 +331,8 @@ function Found({ member, actions: { onAttach, busy } }: { member: LoyaltyMember;
 
 /**
  * The attached caller, as the caller column's card (989): `barFields` in their fixed
- * order — name and tier, then the numbers — the requests chip, and the icon-only ✕ at
- * the inline end of the first line (379 §3).
+ * order — the name, then the tier and the numbers — the requests chip, and the icon-only
+ * ✕ at the inline end of the first line (379 §3).
  */
 function Attached({
   customer,
@@ -354,11 +356,11 @@ function Attached({
 }) {
   const { t } = useTranslation('callcenter')
   const fields = barFields(customer, member)
-  const who = fields.filter((field) => field.id === 'name' || field.id === 'tier')
-  const numbers = fields.filter((field) => field.id !== 'name' && field.id !== 'tier')
+  const who = fields.filter((field) => field.id === 'name')
+  const numbers = fields.filter((field) => field.id !== 'name')
   return (
-    // 989: a card at the top of the caller column — who (name, tier) with ✕ at the inline
-    // end, then the numbers the agent reads back, then the requests chip. Never points (D2).
+    // 989: a card at the top of the caller column — the name with ✕ at the inline end, then
+    // the tier and the numbers the agent reads back, then the requests chip. Never points (D2).
     <div className="flex min-w-0 flex-col gap-1.5 border-b border-divider bg-card px-4 py-3" data-cc-caller>
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -445,8 +447,8 @@ function Attached({
  * member id are machine values in `Ltr` and mono. Every value is server-supplied, passed
  * through as data.
  *
- * 🚩 In the narrow caller column (989) a long caller has to give somewhere: the name
- * clamps beside the tier, and the email clamps on its own line. Each clamps on its OWN
+ * 🚩 In the narrow caller column (989) a long caller has to give somewhere: the name has
+ * its own line beside ✕ and clamps only past it, and the email clamps last. Each clamps on its OWN
  * isolate, so the ellipsis lands at the value's end in either script
  * — clamped from outside, an Arabic name under LTR (or an email under RTL) would lose
  * its first letters instead.

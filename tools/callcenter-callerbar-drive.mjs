@@ -5,6 +5,11 @@
 //   1. run the app:  npx vite --port 5280 --strictPort
 //   2. DRIVE_PORT=5280 node tools/callcenter-callerbar-drive.mjs
 //
+// Retargeted by 989 (spec 983 D1/D2): the bar now heads the CALLER column (288px at 1280),
+// the attached caller is a card there (name + tier + ✕, then the numbers) and never shows
+// points. "Same pixels across the attach" now means the bar's top, the centre's width and
+// the sentence's top; the phone row keeps its height while a lookup's outcome opens under it.
+//
 // Asserts ticket 409's Proof, in light, dark and RTL at 1280 (English strings under
 // dir="rtl" and an Arabic stub caller — there is no Arabic locale file):
 //   1. two columns plus a bar: no customer rail; the caller bar is the first thing in the
@@ -178,16 +183,20 @@ async function open({ theme, dir }, { openState = OPENED } = {}) {
   return { context, page, errors, wire }
 }
 
-/** The furniture: the bar's row, the sentence's top and the centre's width. */
+/** The furniture (989): the caller column's width, the bar's top in it, the phone row's
+ *  height (lookup state only), the centre's width and the sentence's top. */
 const furniture = (page) =>
   page.evaluate(() => {
+    const col = document.querySelector('[data-cc-col="caller"]').getBoundingClientRect()
     const centre = document.querySelector('[data-cc-centre]').getBoundingClientRect()
-    const row = document.querySelector('[data-cc-caller-bar] > :first-child').getBoundingClientRect()
+    const bar = document.querySelector('[data-cc-caller-bar]').getBoundingClientRect()
+    const phoneRow = document.querySelector('[data-cc-caller-lookup] > :first-child')?.getBoundingClientRect()
     const sentence = document.querySelector('[data-cc-chips]').getBoundingClientRect()
     return {
+      colWidth: Math.round(col.width),
       centreWidth: Math.round(centre.width),
-      rowTop: Math.round(row.top - centre.top),
-      rowHeight: Math.round(row.height),
+      rowTop: Math.round(bar.top - col.top),
+      rowHeight: phoneRow ? Math.round(phoneRow.height) : null,
       sentenceTop: Math.round(sentence.top - centre.top),
     }
   })
@@ -220,13 +229,19 @@ for (const mode of MODES) {
     ok((await page.evaluate(() => document.documentElement.dir || 'ltr')) === mode.dir, `${at}: the document is ${mode.dir}`)
 
     // 1. Two columns plus a bar.
-    ok((await page.locator('[data-cc-rail]').count()) === 0, `${at}: the customer rail is gone`)
+    // `data-cc-rail` is 984's STEP rail now; the customer rail was the one that held the caller.
     ok(
-      await page.evaluate(() => document.querySelector('[data-cc-centre]')?.firstElementChild?.matches('[data-cc-caller-bar]')),
-      `${at}: the caller bar is the first thing in the centre`,
+      (await page.locator('[data-cc-rail] [data-cc-caller-bar], [data-cc-rail] [data-cc-rail-field]').count()) === 0,
+      `${at}: the customer rail is gone`,
+    )
+    ok(
+      await page.evaluate(() =>
+        document.querySelector('[data-cc-col="caller"]')?.firstElementChild?.matches('[data-cc-caller-bar]'),
+      ),
+      `${at}: the caller bar is the first thing in the caller column`,
     )
     const opened = await furniture(page)
-    ok(opened.centreWidth === 904, `${at}: the centre is 904px at 1280`, `${opened.centreWidth}px`)
+    ok(opened.colWidth === 288, `${at}: the caller column is 288px at 1280`, `${opened.colWidth}px`)
 
     // 9. The rail's address doors went with it.
     ok(
@@ -252,7 +267,7 @@ for (const mode of MODES) {
     )
     ok(!wire.includes('CallCenterWeb/AttachCustomer'), `${at}: finding is not attaching`)
     const found = await furniture(page)
-    ok(found.rowHeight === opened.rowHeight, `${at}: the found member does not grow the bar`, `${found.rowHeight}px`)
+    ok(found.rowHeight === opened.rowHeight, `${at}: the found member does not grow the phone row`, `${found.rowHeight}px`)
     await page.screenshot({ path: `${SHOTS}/${mode.theme}-${mode.dir}-found.png` })
 
     // 4. 🚩 The attach moves no furniture.
@@ -261,9 +276,9 @@ for (const mode of MODES) {
     await page.locator('[data-cc-request-offer]').waitFor({ timeout: 10_000 })
     const attached = await furniture(page)
     ok(
-      attached.rowTop === opened.rowTop && attached.rowHeight === opened.rowHeight,
-      `${at}: the bar takes the same pixels before and after attach (${opened.rowHeight}px)`,
-      `${opened.rowHeight}px → ${attached.rowHeight}px`,
+      attached.rowTop === opened.rowTop && attached.colWidth === opened.colWidth,
+      `${at}: the bar keeps its place at the top of the caller column across the attach`,
+      `${opened.rowTop}px → ${attached.rowTop}px`,
     )
     ok(attached.centreWidth === opened.centreWidth, `${at}: the centre's width is unchanged across the attach`)
     ok(attached.sentenceTop === opened.sentenceTop, `${at}: the sentence has not moved`)
@@ -277,11 +292,14 @@ for (const mode of MODES) {
       const parts = [...fields, row.querySelector('[data-cc-request-offer]'), row.querySelector('[data-cc-remove-caller]')]
       const mid = (el) => box(el).top + box(el).height / 2
       const name = row.querySelector('[data-cc-rail-field="name"]')
+      const tier = row.querySelector('[data-cc-rail-field="tier"]')
       const remove = row.querySelector('[data-cc-remove-caller]')
       const mono = (sel) => getComputedStyle(row.querySelector(sel)).fontFamily
       return {
         ids: fields.map((f) => f.dataset.ccRailField),
-        oneLine: parts.every((el) => el && Math.abs(mid(el) - mid(row)) < 3),
+        // 989: the name and ✕ share the card's first line; the tier leads the line under it.
+        oneLine: [name, remove].every((el) => el && Math.abs(mid(el) - mid(name)) < 3) && box(tier).top >= box(name).bottom - 1,
+        pointsText: /points/i.test(row.innerText),
         inside: parts.every((el) => box(el).left >= rowBox.left - 0.5 && box(el).right <= rowBox.right + 0.5),
         nameIsolate: name.querySelector('bdi')?.getAttribute('dir') ?? 'auto',
         mobileLtr: !!row.querySelector('[data-cc-rail-field="mobile"] bdi[dir="ltr"]'),
@@ -304,17 +322,18 @@ for (const mode of MODES) {
       }
     })
     ok(
-      line.ids.join(',') === 'name,tier,points,mobile,member,email',
-      `${at}: railFields' six, in the bar's order`,
+      line.ids.join(',') === 'name,tier,mobile,member,email',
+      `${at}: railFields less the points, in the bar's order`,
       line.ids.join(','),
     )
-    ok(line.oneLine, `${at}: name · tier · points · mobile · member · email · chip · ✕ on ONE line at 1280`)
-    ok(line.inside, `${at}: and nothing is clipped off the bar`)
+    ok(!line.ids.includes('points') && !line.pointsText, `${at}: 🚩 no points anywhere on the caller (983 D2), though the member has 4120`)
+    ok(line.oneLine, `${at}: name · ✕ on the card's first line, the tier under it`)
+    ok(line.inside, `${at}: and nothing is clipped off the card`)
     ok(line.nameIsolate === 'auto', `${at}: the name is in a <bdi> (dir auto)`)
     ok(line.mobileLtr && line.memberLtr, `${at}: the mobile and the member id are in Ltr`)
     ok(line.mobileMono && line.memberMono, `${at}: and set in mono`)
     ok(line.nameText.includes(MEMBER.fullName), `${at}: the Arabic name is whole`, line.nameText)
-    ok(!line.nameClamped, `${at}: and drawn whole at 1280 — the email gives first`)
+    ok(!line.nameClamped, `${at}: and drawn whole in the caller column`)
     ok(line.removeAtEnd, `${at}: ✕ is at the inline end${mode.dir === 'rtl' ? ' — the left, under RTL' : ''}`)
     ok(!!line.removeLabel && line.removeText === '', `${at}: ✕ is icon-only, with its aria label`, line.removeLabel)
 
@@ -352,7 +371,7 @@ for (const mode of MODES) {
     ok(await caretOnPhone(page), `${at}: the caret is back on cc-phone after ✕`)
     const removed = await furniture(page)
     ok(
-      removed.rowHeight === opened.rowHeight && removed.centreWidth === opened.centreWidth,
+      removed.rowHeight === opened.rowHeight && removed.rowTop === opened.rowTop && removed.centreWidth === opened.centreWidth,
       `${at}: and the bar and the centre are where they started`,
     )
     ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')

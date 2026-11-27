@@ -75,9 +75,22 @@ export default function AddressCards({
       )}
 
       {book.isError && (
-        <p className={NOTE.danger} data-cc-address-cards-error>
-          {apiErrorMessage(book.error, t('address.loadFailed'))}
-        </p>
+        <>
+          <p className={NOTE.danger} data-cc-address-cards-error>
+            {apiErrorMessage(book.error, t('address.loadFailed'))}
+          </p>
+          {/* Never a dead end: the read is pure, so trying it again costs the order nothing.
+              `retry: false` keeps automatic retries off — this is the agent's hand on it. */}
+          <Button
+            variant="outlined"
+            onClick={() => void book.refetch()}
+            disabled={book.isFetching}
+            data-cc-address-cards-reload
+            className="self-start"
+          >
+            {t('actions.retry')}
+          </Button>
+        </>
       )}
 
       {book.isSuccess && cards.length === 0 && (

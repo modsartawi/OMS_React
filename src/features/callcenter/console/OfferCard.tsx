@@ -141,7 +141,13 @@ export default function OfferCard({
             className="min-h-10 tabular-nums"
             disabled={actions.pending !== null}
             onClick={() =>
-              actions.onAdd?.({ offerId: card.offerId, itemNumber: add.itemNumber, itemName: add.itemName ?? add.itemNumber, qty: add.qty })
+              actions.onAdd?.({
+                offerId: card.offerId,
+                itemNumber: add.itemNumber,
+                itemName: add.itemName ?? add.itemNumber,
+                qty: add.qty,
+                uom: add.uom,
+              })
             }
             data-cc-offer-add={add.qty}
           >

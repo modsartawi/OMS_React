@@ -3,11 +3,12 @@
 //   1. run the app:  npx vite --port 5211
 //   2. DRIVE_PORT=5211 node tools/callcenter-offer-sheet-drive.mjs
 //
-// 🚩 `OfferWhatIf` (C3) is BackOffice 4459, unbuilt, and the near-miss facts (C1/C2) are 859 + 4458:
-// the near-miss and the what-if here are stubs of exactly those shapes, filled with the owner's
-// walk case (tier S, 509366 × 1 at P721, bonus buy OMS000004571, buy 3 get 1 free at 98.00, phone
-// only, tiers P,G,S). The what-if's figures are the engine's answer that case should give
-// (saving 98.00, 98.00 → 294.00, 73.50 each) — stub figures, not a live price.
+// `OfferWhatIf` (C3) is BackOffice 4459 and the near-miss facts (C1/C2) are 859 + 4458, all built on
+// pricing2 610d7354a: the near-miss and the what-if here are stubs of exactly that wire shape, filled
+// with the owner's walk case (tier S, 509366 × 1 at P721, bonus buy OMS000004571, buy 3 get 1 free at
+// 98.00, phone only, tiers P,G,S). The what-if's figures are what the server's own tests give that
+// case (saving −98.00 — NEGATIVE, VAT-inclusive — 73.50 each), the fired promotion the engine's
+// ex-VAT −85.22 — stub figures, not a live price.
 //
 // Asserts ticket 997's proof, counting the real requests:
 //   1. 🚩 a closed card makes no OfferWhatIf call (whatIfIsReadOnlyOnOpen);
@@ -16,12 +17,15 @@
 //      the BBY chip *for support*;
 //   3. 🚩 a basket change with the sheet open (a + on another line) → exactly ONE re-read
 //      (basketChangeMakesTheWhatIfStale);
-//   4. Add 3 from the sheet → ONE AddItem of 509366 × 3 → the offer fires → the sheet says
-//      *Applied* and closes to card D, which takes focus; no read after it fired;
+//   4. Add 3 from the sheet → 509366 × 1 is on the order, so ONE ChangeQty of L10 to 4 and no
+//      AddItem → the offer fires → the sheet says *Applied* (before VAT) and closes to card D,
+//      which takes focus; no read after it fired;
 //   5. 🚩 a failed read shows the definition (*100% off 1*) and *Couldn't price this right now*,
 //      never a figure (failedWhatIfShowsTheDefinitionNotAFigure);
 //   6. Escape closes it and focus returns to the card's title; *Open* opens it too;
-//   7. below 1280 px it is a full-height overlay.
+//   7. below 1280 px it is a full-height overlay;
+//   8. 🚩 an ITEM_NOT_FOUND refusal is a stale card, not "couldn't price": the sheet says so,
+//      re-reads the order once, and closes when the near-miss is gone from it.
 //
 // Review fixes (997 code review):
 //   R1. an offer that had already fired once, one step from a second round: its near-miss going
@@ -87,10 +91,11 @@ const RESOLUTION = {
 }
 
 const WHAT_IF = {
+  contractVersion: '1.14',
   offerId: OWNER.offerId,
-  adds: [{ itemNumber: '509366', qty: 3 }],
+  adds: [{ itemNumber: '509366', qty: 3, uom: 'EA' }],
   fires: true,
-  saving: 98,
+  saving: -98,
   payableBefore: 108,
   payableAfter: 304,
   unitAfter: 73.5,
@@ -104,7 +109,8 @@ const AFTER = {
   ...MOVED,
   version: PRICED.version + 2,
   lines: [{ ...LINE, qty: 4, lineTotal: { net: 255.65, gross: 294 } }, MOVED.lines[1]],
-  firedPromotions: [{ offerId: OWNER.offerId, description: '3+1', amount: -98, lineIds: ['L10'] }],
+  // `TotalDiscountValue`, EX-VAT (4459): not the what-if's VAT-inclusive −98.00.
+  firedPromotions: [{ offerId: OWNER.offerId, description: '3+1', amount: -85.22, lineIds: ['L10'] }],
   nearMisses: [],
 }
 
@@ -113,15 +119,24 @@ const check = (name, pass, detail = '') => {
   results.push({ name, pass })
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
-const envelope = (data, status = 200) => ({
+const envelope = (data, status = 200, errorCode = null, message = 'boom') => ({
   status,
   contentType: 'application/json',
-  body: JSON.stringify({ statusCode: status, success: status < 400, message: status < 400 ? '' : 'boom', errors: [], data }),
+  body: JSON.stringify({
+    statusCode: status,
+    success: status < 400,
+    message: status < 400 ? '' : message,
+    errors: errorCode ? [{ errorCode, internalErrorCode: '', errorMessage: message }] : [],
+    data,
+  }),
 })
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function open(browser, { state = BEFORE, whatIfFails = false, width = 1440, whatIf = WHAT_IF, qtyAnswer = MOVED, addAnswer = AFTER } = {}) {
-  const calls = { whatIf: [], add: [], qty: [] }
+async function open(
+  browser,
+  { state = BEFORE, whatIfFails = false, whatIfRefusal = null, stateAfter = null, width = 1440, whatIf = WHAT_IF, qtyAnswer = MOVED, addAnswer = AFTER } = {},
+) {
+  const calls = { whatIf: [], add: [], qty: [], state: 0 }
   const context = await browser.newContext({ viewport: { width, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -138,12 +153,15 @@ async function open(browser, { state = BEFORE, whatIfFails = false, width = 1440
     const p = url.split('/api/')[1].split('?')[0]
     if (p === 'CallCenterWeb/OfferWhatIf') {
       calls.whatIf.push(url)
+      if (whatIfRefusal) return route.fulfill(envelope(null, 404, whatIfRefusal, 'That offer is not a near-miss on this order any more.'))
       return route.fulfill(whatIfFails ? envelope(null, 500) : envelope(whatIf))
     }
     if (p === 'CallCenterWeb/ResolvePrereq') return route.fulfill(envelope(RESOLUTION))
     if (p === 'CallCenterWeb/ChangeQty') {
-      calls.qty.push(JSON.parse(route.request().postData() ?? '{}'))
-      return route.fulfill(envelope(qtyAnswer))
+      const body = JSON.parse(route.request().postData() ?? '{}')
+      calls.qty.push(body)
+      // The offer's own line growing is the Add (4459); any other line is the basket moving.
+      return route.fulfill(envelope(body.lineId === 'L10' ? addAnswer : qtyAnswer))
     }
     if (p === 'CallCenterWeb/AddItem') {
       calls.add.push(JSON.parse(route.request().postData() ?? '{}'))
@@ -156,7 +174,10 @@ async function open(browser, { state = BEFORE, whatIfFails = false, width = 1440
     if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ ...OPEN_RESULT, outcome: 'opened', state, existing: null }))
-    if (p === 'CallCenterWeb/State') return route.fulfill(envelope(state))
+    if (p === 'CallCenterWeb/State') {
+      calls.state += 1
+      return route.fulfill(envelope(stateAfter && calls.whatIf.length > 0 ? stateAfter : state))
+    }
     if (p === 'CallCenterWeb/ItemSearch') return route.fulfill(envelope({ truncated: false, atpAvailable: true, rows: [] }))
     return route.fulfill(envelope([]))
   })
@@ -203,7 +224,7 @@ async function run() {
     )
     check('the header says Offer · phone orders only', (await text(page, `${SHEET} header`)).startsWith('Offer · phone orders only'), await text(page, `${SHEET} header`))
     check('the headline and the item', (await text(page, `${SHEET} [data-cc-offer-sheet-headline]`)) === 'Buy 3, get the 4th free' && /509366 · OWNER CASE ITEM 509366/.test(await text(page, `${SHEET} [data-cc-offer-sheet-item]`)), await text(page, `${SHEET} [data-cc-offer-sheet-item]`))
-    check('Saves is the engine’s saving', /^98\.00\s*SAR$/.test(await text(page, `${SHEET} [data-cc-offer-sheet-figure="saves"] dd`)), await text(page, `${SHEET} [data-cc-offer-sheet-figure="saves"] dd`))
+    check('Saves is the size of the engine’s (negative) saving, incl. VAT', /^98\.00\s*SAR incl\. VAT$/.test(await text(page, `${SHEET} [data-cc-offer-sheet-figure="saves"] dd`)), await text(page, `${SHEET} [data-cc-offer-sheet-figure="saves"] dd`))
     check('Each works out is the engine’s unitAfter (never divided)', /^73\.50\s*SAR$/.test(await text(page, `${SHEET} [data-cc-offer-sheet-figure="each"] dd`)), await text(page, `${SHEET} [data-cc-offer-sheet-figure="each"] dd`))
     const ends = await text(page, `${SHEET} [data-cc-offer-sheet-figure="ends"] dd`)
     check('Ends: the day and 6 days left', /^\w{3} \d{1,2} \w{3} 6 days left$/.test(ends), ends)
@@ -218,7 +239,8 @@ async function run() {
     const sayAr = await text(page, `${SHEET} [data-cc-say-ar]`)
     check('the script, in English, ends with the engine’s saving', /Take 3 more and you get 1 of them free\./.test(sayEn) && /Your membership qualifies/.test(sayEn) && /You’d save 98\.00 SAR, and the order comes to 304\.00 SAR\./.test(sayEn), sayEn)
     check('and in Arabic', /ستوفّر/.test(sayAr) && /عضويتك/.test(sayAr), sayAr)
-    check('the BBY number is a chip, for support', /OMS000004571\s*for support/.test(await text(page, `${SHEET} [data-cc-offer-sheet-bby]`)), await text(page, `${SHEET} [data-cc-offer-sheet-bby]`))
+    check('the offer number is a chip, for support', /OMS000004571\s*for support/.test(await text(page, `${SHEET} [data-cc-offer-sheet-bby]`)), await text(page, `${SHEET} [data-cc-offer-sheet-bby]`))
+    check('labelled as the offer’s number, not a bonus buy (offerId may be a marketing id)', /^Copy offer number/.test((await page.locator(`${SHEET} [data-cc-offer-sheet-bby]`).getAttribute('aria-label')) ?? ''))
     if (process.env.DRIVE_SHOTS) await page.screenshot({ path: `${process.env.DRIVE_SHOTS}/997-sheet.png` })
 
     // 3
@@ -232,8 +254,12 @@ async function run() {
     // 4
     await page.locator(`${SHEET} [data-cc-offer-sheet-add]`).click()
     await page.locator(`${SHEET} [data-cc-offer-sheet-applied]`).waitFor({ timeout: 5_000 })
-    check('one AddItem of 509366 × 3', calls.add.length === 1 && calls.add[0].itemNumber === '509366' && calls.add[0].qty === 3, JSON.stringify(calls.add[0] ?? {}))
-    check('the sheet says Applied with the engine’s amount', /^Applied — -?98\.00\s*SAR$/.test(await text(page, `${SHEET} [data-cc-offer-sheet-applied]`)), await text(page, `${SHEET} [data-cc-offer-sheet-applied]`))
+    check(
+      '🚩 509366 is on the order: ONE ChangeQty of L10 to 1 + 3 = 4, and no AddItem',
+      calls.add.length === 0 && calls.qty.length === 2 && calls.qty[1].lineId === 'L10' && calls.qty[1].newQty === 4,
+      JSON.stringify(calls.qty[1] ?? {}),
+    )
+    check('the sheet says Applied with the engine’s amount, before VAT', /^Applied — -?85\.22\s*SAR before VAT$/.test(await text(page, `${SHEET} [data-cc-offer-sheet-applied]`)), await text(page, `${SHEET} [data-cc-offer-sheet-applied]`))
     await page.locator(SHEET).waitFor({ state: 'detached', timeout: 5_000 })
     await wait(200)
     check('and closes to card D', (await page.locator(`[data-cc-applied-card="${OWNER.offerId}"]`).count()) === 1)
@@ -282,6 +308,31 @@ async function run() {
     await context.close()
   }
 
+  // 8 — ITEM_NOT_FOUND: the offer is no longer a near-miss — stale, not unpriceable.
+  {
+    const gone = { ...BEFORE, version: PRICED.version + 1, nearMisses: [] }
+    const { context, page, errors, calls } = await open(browser, { whatIfRefusal: 'ITEM_NOT_FOUND', stateAfter: gone })
+    await page.locator(`${CARD} [data-cc-offer-title]`).click()
+    const stale = await page.locator(`${SHEET} [data-cc-offer-sheet-stale]`).waitFor({ timeout: 5_000 }).then(() => true, () => false)
+    check('🚩 ITEM_NOT_FOUND says the offer is no longer one step away', stale)
+    check('and not "Couldn’t price this right now"', (await page.locator(`${SHEET} [data-cc-offer-sheet-failed]`).count()) === 0)
+    await page.locator(SHEET).waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+    check('the order is re-read, and the sheet closes with the near-miss gone', calls.state >= 1 && (await page.locator(SHEET).count()) === 0, `${calls.state} state read(s)`)
+    check('one what-if read only', calls.whatIf.length === 1, `${calls.whatIf.length}`)
+    check('no console errors (stale)', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // 8b — NO_PRICE_AT_PLANT: couldn't price, the card stays.
+  {
+    const { context, page, errors } = await open(browser, { whatIfRefusal: 'NO_PRICE_AT_PLANT' })
+    await page.locator(`${CARD} [data-cc-offer-title]`).click()
+    await page.locator(`${SHEET} [data-cc-offer-sheet-failed]`).waitFor({ timeout: 5_000 })
+    check('NO_PRICE_AT_PLANT: Couldn’t price this right now, the sheet stays', (await page.locator(SHEET).count()) === 1 && (await page.locator(`${SHEET} [data-cc-offer-sheet-stale]`).count()) === 0)
+    check('no console errors (no price)', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
   // R1 + R8 — fired once already; the second round's near-miss goes without a second fire.
   {
     const firedOnce = [{ offerId: OWNER.offerId, description: '3+1', amount: -98, lineIds: ['L10'] }]
@@ -316,7 +367,7 @@ async function run() {
   {
     const definition = { ...OWNER.definition, getSameItem: false }
     const state = { ...BEFORE, nearMisses: [{ ...OWNER, definition }] }
-    const whatIf = { ...WHAT_IF, adds: [{ itemNumber: '509366', qty: 2 }, { itemNumber: '100200', qty: 1 }], unitAfter: null }
+    const whatIf = { ...WHAT_IF, adds: [{ itemNumber: '509366', qty: 2, uom: 'EA' }, { itemNumber: '100200', qty: 1, uom: 'EA' }], unitAfter: null }
     const { context, page, errors } = await open(browser, { state, whatIf })
     await page.locator(`${CARD} [data-cc-offer-title]`).click()
     await page.locator(`${SHEET} [data-cc-offer-sheet-add-row="100200"]`).waitFor({ timeout: 5_000 })

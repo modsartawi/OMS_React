@@ -3,8 +3,8 @@
 //   1. run the app:  npx vite --port 5211
 //   2. DRIVE_PORT=5211 node tools/callcenter-offer-card-drive.mjs
 //
-// 🚩 The v1.14 near-miss fields (C1/C2) are BackOffice 859 + 4458, unbuilt: the near-miss here is
-// a stub of exactly 4458's shape, filled with the owner's walk case (tier S, 509366 × 1 at P721,
+// The v1.14 near-miss fields (C1/C2) are BackOffice 859 + 4458, built on pricing2 610d7354a; the
+// near-miss here is a stub of exactly that wire shape, filled with the owner's walk case (tier S, 509366 × 1 at P721,
 // bonus buy OMS000004571, buy 3 get 1 free, phone only, tiers P,G,S). The end date is six days
 // from the browser's own today, so "6 days left" holds on any day this is run.
 //
@@ -16,10 +16,13 @@
 //   4. the action says *Add 3 more, 1 of them free*, stock at the store beside it;
 //   5. 🚩 no figure formatted as money anywhere on the pitch card (D5);
 //   6. a Say line in English and in Arabic, with the phone clause;
-//   7. ONE click sends ONE AddItem of 509366 × 3 and no price;
-//   8. the next state (the engine fired −98.00 on the line, 4 × 98.00) draws card D: the amount,
+//   7. 🚩 509366 × 1 is already on the order, so ONE click is ONE ChangeQty of that line to 4 and
+//      no AddItem (a repeat add is refused ITEM_ALREADY_ON_ORDER; 4459's what-if grew the line);
+//   8. the next state (the engine fired −85.22 on the line — ex-VAT, 4459 — 4 × 98.00) draws card D: the amount
+//      and its basis (before VAT),
 //      Line 1 · 4 units, 4 × 98.00 = 392.00 · caller pays 294.00, the keep-all warning, a Say line;
-//   9. a v1.13 near-miss (no definition, no units) degrades: description headline, the old meter.
+//   9. a v1.13 near-miss (no definition, no units) degrades: description headline, the old meter;
+//  10. the item NOT on the order: ONE AddItem of 509366 × 3 in the offer's unit (EA).
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { permissions } from './permissions-stub.mjs'
@@ -53,7 +56,7 @@ const LINE = {
   promotions: [],
 }
 
-// The owner's case, on 4458's field names (stub).
+// The owner's case, on 4458's wire shape.
 const OWNER = {
   offerId: 'OMS000004571',
   description: '3+1',
@@ -89,7 +92,8 @@ const AFTER = {
   ...BEFORE,
   version: PRICED.version + 1,
   lines: [{ ...LINE, qty: 4, lineTotal: { net: 255.65, gross: 294 } }],
-  firedPromotions: [{ offerId: OWNER.offerId, description: '3+1', amount: -98, lineIds: ['L10'] }],
+  // `TotalDiscountValue` is EX-VAT (BackOffice 4459): 98.00 gross at 15% is 85.22.
+  firedPromotions: [{ offerId: OWNER.offerId, description: '3+1', amount: -85.22, lineIds: ['L10'] }],
   nearMisses: [],
 }
 
@@ -106,6 +110,7 @@ const envelope = (data, status = 200) => ({
 
 async function open(browser, state) {
   const addBodies = []
+  const qtyBodies = []
   const resolves = []
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
@@ -129,6 +134,10 @@ async function open(browser, state) {
       addBodies.push(JSON.parse(route.request().postData() ?? '{}'))
       return route.fulfill(envelope(AFTER))
     }
+    if (p === 'CallCenterWeb/ChangeQty') {
+      qtyBodies.push(JSON.parse(route.request().postData() ?? '{}'))
+      return route.fulfill(envelope(AFTER))
+    }
     if (p === 'Auth/Me')
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
@@ -143,7 +152,7 @@ async function open(browser, state) {
   await page.goto(`${BASE}/callcenter`)
   await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
   await page.locator('[data-cc-promotions]').waitFor({ timeout: 10_000 })
-  return { context, page, errors, addBodies, resolves }
+  return { context, page, errors, addBodies, qtyBodies, resolves }
 }
 
 const strip = (s) => s.replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ').trim()
@@ -161,7 +170,7 @@ async function run() {
   const browser = await chromium.launch()
 
   {
-    const { context, page, errors, addBodies, resolves } = await open(browser, BEFORE)
+    const { context, page, errors, addBodies, qtyBodies, resolves } = await open(browser, BEFORE)
     const card = `[data-cc-offer-card][data-cc-card="${OWNER.offerId}"]`
     await page.locator(card).waitFor({ timeout: 10_000 })
 
@@ -223,11 +232,11 @@ async function run() {
     // 7
     await page.locator(add).click()
     await page.locator('[data-cc-applied-card]').waitFor({ timeout: 10_000 })
-    check('one click sends ONE AddItem', addBodies.length === 1, `${addBodies.length}`)
-    const body = addBodies[0] ?? {}
+    check('🚩 the item is on the order: one click sends ONE ChangeQty and no AddItem', qtyBodies.length === 1 && addBodies.length === 0, `${qtyBodies.length} / ${addBodies.length}`)
+    const body = qtyBodies[0] ?? {}
     check(
-      'of 509366 × 3, and no price',
-      body.itemNumber === '509366' && body.qty === 3 && !Object.keys(body).some((key) => /price|amount|gross|net/i.test(key)),
+      'of line L10 to 1 + 3 = 4, and no price',
+      body.lineId === 'L10' && body.newQty === 4 && !Object.keys(body).some((key) => /price|amount|gross|net/i.test(key)),
       JSON.stringify(body),
     )
 
@@ -240,7 +249,8 @@ async function run() {
     // 8
     const d = `[data-cc-applied-card="${OWNER.offerId}"]`
     check('the pitch card is gone: the offer fired', (await page.locator(card).count()) === 0)
-    check('card D shows the engine’s amount', /98\.00/.test(await text(page, `${d} [data-cc-applied-amount]`)), await text(page, `${d} [data-cc-applied-amount]`))
+    check('card D shows the engine’s amount', /85\.22/.test(await text(page, `${d} [data-cc-applied-amount]`)), await text(page, `${d} [data-cc-applied-amount]`))
+    check('🚩 and says its basis: before VAT (not the sheet’s VAT-inclusive Saves)', (await text(page, `${d} [data-cc-applied-basis]`)) === 'before VAT', await text(page, `${d} [data-cc-applied-basis]`))
     check('the line it landed on, and the quantity', (await text(page, `${d} [data-cc-applied-line]`)) === 'Line 1 · 4 units', await text(page, `${d} [data-cc-applied-line]`))
     const sum = await text(page, `${d} [data-cc-applied-sum]`)
     check('the arithmetic off the line’s own figures', sum === '4 × 98.00 = 392.00 · caller pays 294.00', sum)
@@ -248,7 +258,7 @@ async function run() {
     const saidD = await text(page, `${d} [data-cc-say]`)
     check(
       'and a Say line with the engine’s saving',
-      /You save 98\.00 SAR: you pay 294\.00 SAR for 4\./.test(saidD) && /Keep all 4/.test(saidD) && (await page.locator(`${d} [data-cc-say-ar]`).count()) === 1,
+      /You save 85\.22 SAR: you pay 294\.00 SAR for 4\./.test(saidD) && /Keep all 4/.test(saidD) && (await page.locator(`${d} [data-cc-say-ar]`).count()) === 1,
       saidD,
     )
     if (process.env.DRIVE_SHOTS) await page.locator('[data-cc-promotions]').screenshot({ path: `${process.env.DRIVE_SHOTS}/996-card-d.png` })
@@ -266,6 +276,21 @@ async function run() {
     check('no units → no one-click add of a guessed quantity', (await page.locator(`${card} [data-cc-offer-add]`).count()) === 0)
     check('no audience → no badges', (await page.locator(`${card} [data-cc-offer-badge]`).count()) === 0)
     check('no console errors (degraded)', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // 10 — the item is not on the order: an AddItem, in the offer's unit.
+  {
+    const OTHER = { ...LINE, lineId: 'L20', itemNumber: '100200', description: 'OTHER ITEM 100200' }
+    const { context, page, errors, addBodies, qtyBodies } = await open(browser, { ...BEFORE, lines: [OTHER] })
+    const card = `[data-cc-offer-card][data-cc-card="${OWNER.offerId}"]`
+    await page.locator(card).waitFor({ timeout: 10_000 })
+    await page.locator(`${card} [data-cc-offer-add]`).click()
+    await page.locator('[data-cc-applied-card]').waitFor({ timeout: 10_000 })
+    const body = addBodies[0] ?? {}
+    check('not on the order: ONE AddItem and no ChangeQty', addBodies.length === 1 && qtyBodies.length === 0, `${addBodies.length} / ${qtyBodies.length}`)
+    check('of 509366 × 3 in the offer’s unit (EA)', body.itemNumber === '509366' && body.qty === 3 && body.uom === 'EA', JSON.stringify(body))
+    check('no console errors (add)', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
 

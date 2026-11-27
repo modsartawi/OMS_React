@@ -991,6 +991,7 @@
     }
   },
   "offer": {
+    "addOtherUnit": "This item is already on the order in {{uom}}. Change that line’s quantity in the basket.",
     "headline": {
       "nthFree_ordinal_one": "Buy {{buy}}, get the {{count}}st free",
       "nthFree_ordinal_two": "Buy {{buy}}, get the {{count}}nd free",
@@ -1067,14 +1068,18 @@
       "landed_one": "Line {{line}} · {{count}} unit",
       "landed_other": "Line {{line}} · {{count}} units",
       "pays": "caller pays {{after}}",
-      "removeWarn": "Removing one takes the free one away"
+      "removeWarn": "Removing one takes the free one away",
+      "basis": "before VAT"
     },
     "sheet": {
       "eyebrow": "Offer",
       "eyebrowPhone": "Offer · phone orders only",
       "close": "Close the offer",
       "applied": "Applied —",
+      "appliedBasis": "before VAT",
       "saves": "Saves",
+      "savesBasis": "incl. VAT",
+      "stale": "This offer is no longer one step away on this order. Refreshing the order…",
       "each": "Each works out",
       "total": "Total becomes",
       "ends": "Ends",
@@ -1089,7 +1094,7 @@
       "add_one": "Add {{count}}",
       "add_other": "Add {{count}}",
       "sayHeading": "What to say",
-      "copyBby": "Copy bonus buy {{number}}",
+      "copyBby": "Copy offer number {{number}}",
       "forSupport": "for support",
       "copied": "Copied",
       "copyFailed": "Couldn’t copy",

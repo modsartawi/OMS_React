@@ -30,11 +30,13 @@ const buy3get1: OfferDefinition = {
   discountValue: 100,
 }
 
+// The server's own answer on the owner's case (BackOffice 4459, CONTRACT.md §3.9): `saving` is NEGATIVE.
 const WHAT_IF: OfferWhatIf = {
+  contractVersion: '1.14',
   offerId: 'OMS000004571',
-  adds: [{ itemNumber: '509366', qty: 3 }],
+  adds: [{ itemNumber: '509366', qty: 3, uom: 'EA' }],
   fires: true,
-  saving: 98,
+  saving: -98,
   payableBefore: 98,
   payableAfter: 294,
   unitAfter: 73.5,
@@ -85,7 +87,7 @@ describe('failedWhatIfShowsTheDefinitionNotAFigure', () => {
     })
     expect(JSON.stringify(figures)).not.toMatch(/saving|payable|unitAfter|98/)
   })
-  it('when it answers: the engine’s figures verbatim', () => {
+  it('when it answers: the engine’s figures verbatim, the saving as its size (the wire’s is negative)', () => {
     expect(sheetFigures({ status: 'success', data: WHAT_IF }, buy3get1)).toEqual({
       kind: 'priced',
       saving: 98,
@@ -98,6 +100,17 @@ describe('failedWhatIfShowsTheDefinitionNotAFigure', () => {
   it('no `unitAfter` (several items): no per-unit figure — the client never divides', () => {
     const figures = sheetFigures({ status: 'success', data: { ...WHAT_IF, unitAfter: null } }, buy3get1)
     expect(figures.kind === 'priced' && figures.eachAfter).toBeNull()
+  })
+})
+
+describe('whatIfRefusalsAreReadByCode', () => {
+  const definition = { key: 'callcenter:offer.sheet.definition.percent', params: { value: 100, count: 1 } }
+  it('🚩 ITEM_NOT_FOUND: the offer is no longer a near-miss — stale, not "couldn’t price"', () => {
+    expect(sheetFigures({ status: 'error', code: 'ITEM_NOT_FOUND' }, buy3get1)).toEqual({ kind: 'stale', definition })
+  })
+  it('NO_PRICE_AT_PLANT (an unreadable record too) and ITEM_NOT_SELLABLE: couldn’t price, the card stays', () => {
+    expect(sheetFigures({ status: 'error', code: 'NO_PRICE_AT_PLANT' }, buy3get1)).toEqual({ kind: 'failed', definition })
+    expect(sheetFigures({ status: 'error', code: 'ITEM_NOT_SELLABLE' }, buy3get1)).toEqual({ kind: 'failed', definition })
   })
 })
 
@@ -219,21 +232,21 @@ describe('eachAddRowIsItsOwnItem', () => {
 
   it('names each row from its own item, and draws the prerequisite’s stock on its row only', () => {
     const adds = [
-      { itemNumber: '509366', qty: 3 },
-      { itemNumber: '100200', qty: 1 },
+      { itemNumber: '509366', qty: 3, uom: 'EA' },
+      { itemNumber: '100200', qty: 1, uom: null },
       { itemNumber: '777777', qty: 1 },
     ]
     expect(addRows(adds, basket, '509366')).toEqual([
-      { itemNumber: '509366', qty: 3, name: 'OWNER CASE ITEM 509366', stock: true },
-      { itemNumber: '100200', qty: 1, name: 'OTHER ITEM 100200', stock: false },
+      { itemNumber: '509366', qty: 3, uom: 'EA', name: 'OWNER CASE ITEM 509366', stock: true },
+      { itemNumber: '100200', qty: 1, uom: null, name: 'OTHER ITEM 100200', stock: false },
       // Not on the basket: no name to say, so the row is its number.
-      { itemNumber: '777777', qty: 1, name: null, stock: false },
+      { itemNumber: '777777', qty: 1, uom: null, name: null, stock: false },
     ])
   })
 
   it('with no material prerequisite no row draws its stock', () => {
-    expect(addRows([{ itemNumber: '509366', qty: 3 }], basket, '')).toEqual([
-      { itemNumber: '509366', qty: 3, name: 'OWNER CASE ITEM 509366', stock: false },
+    expect(addRows([{ itemNumber: '509366', qty: 3, uom: 'EA' }], basket, '')).toEqual([
+      { itemNumber: '509366', qty: 3, uom: 'EA', name: 'OWNER CASE ITEM 509366', stock: false },
     ])
   })
 })

@@ -105,6 +105,7 @@ import {
   type LineEdit,
 } from './line-edit'
 import { classifyAdd, type AddOutcome, type GuidanceAdd } from './add-outcome'
+import { guidanceAddPlan } from './guidance-add-plan'
 import {
   linkGate,
   linkedCard,
@@ -1483,7 +1484,7 @@ function ConsoleSession() {
       // thunk would let a busy retry look like the same item added twice, on the
       // verb the agent presses most.
       runGuarded(() =>
-        callCenterApi.addItem(transactionId!, add.requestId, add.itemNumber, add.qty, add.confirmToken),
+        callCenterApi.addItem(transactionId!, add.requestId, add.itemNumber, add.qty, add.confirmToken, add.uom ?? undefined),
       ),
     // The last add's unreadable-ask sentence belongs to the last add. Left
     // standing under the rows it would describe the one now in flight.
@@ -1665,6 +1666,12 @@ function ConsoleSession() {
         setEditAsk(asked)
         return
       }
+      // 995 reconcile: an offer's Add that grew its line is classified like any
+      // guidance add — what the engine did is a difference of two states.
+      if (correction.offerId && addedFrom && correction.offerId === addedFrom.offerId) {
+        setGuidanceOutcome(classifyAdd(addedFrom.before, fresh, addedFrom))
+        setAddedFrom(null)
+      }
       clearEdit()
     },
     onError: (err, correction) => {
@@ -1687,6 +1694,7 @@ function ConsoleSession() {
       if (correction.confirmToken !== undefined) return
       // The action is over — its failure is drawn on the line by `lineFailure`,
       // and nothing may keep pointing at an ask that is no longer being made.
+      if (correction.offerId) setAddedFrom(null)
       clearEdit()
     },
     retry: false,
@@ -2720,25 +2728,40 @@ function ConsoleSession() {
         guidance={{
           onAdd: session.data.capabilities.canAddItem
             ? (from) => {
+                // 1 from a prerequisite row; what the arm still needs from a
+                // reward row (415) — a count, never a price.
+                // 🚩 995 reconcile (BackOffice 4459): an item already on the order is
+                // that line's own `changeQty` — a repeat `addItem` is refused
+                // (`ITEM_ALREADY_ON_ORDER`), and the what-if priced the line growing.
+                const plan = guidanceAddPlan({ itemNumber: from.itemNumber, qty: from.qty ?? 1, uom: from.uom }, session.data.lines ?? [])
+                if (plan.kind === 'otherUnit') {
+                  toast.warning(t('offer.addOtherUnit', { uom: fsi(plan.lineUom) }))
+                  return
+                }
                 // The state BEFORE, held with the action: what the engine did is
                 // only legible as a difference, and by the time the answer
                 // arrives the cache holds the after.
                 setAddedFrom({ ...from, before: session.data })
-                // 1 from a prerequisite row; what the arm still needs from a
-                // reward row (415) — a count, never a price.
+                if (plan.kind === 'grow') {
+                  lineEdit.mutate(
+                    beginLineEdit({ kind: 'qty', lineId: plan.lineId, qty: plan.qty, description: from.itemName, offerId: from.offerId }),
+                  )
+                  return
+                }
                 addItem.mutate(
                   beginAdd({
                     itemNumber: from.itemNumber,
-                    qty: from.qty ?? 1,
+                    qty: plan.qty,
                     description: from.itemName,
                     offerId: from.offerId,
+                    uom: plan.uom ?? undefined,
                   }),
                 )
               }
             : null,
           // The row that launched it, and only that row, says *Adding…* — and it
           // does not move while it runs (the resolution is not re-fetched).
-          pending: addItem.isPending && addedFrom ? addedFrom : null,
+          pending: (addItem.isPending || (lineEdit.isPending && lineEdit.variables?.offerId)) && addedFrom ? addedFrom : null,
           outcome: guidanceOutcome,
           dismissOutcome: () => setGuidanceOutcome(null),
           // The route to the rest of a big set: the console's own search,

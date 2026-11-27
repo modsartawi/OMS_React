@@ -1,7 +1,8 @@
 /**
  * The applied card, card D (spec 995 D, ticket 996) — one fired promotion in the *Applied* column.
  *
- * - The engine's amount, verbatim.
+ * - The engine's amount, verbatim — EX-VAT (`AppliedBonusBuy.TotalDiscountValue`), and labelled so:
+ *   it is not the offer sheet's VAT-inclusive *Saves* (CONTRACT.md §3.9 rule 4).
  * - The one line it landed on and its quantity (*Line 1 · 4 units*).
  * - The arithmetic, `qty × unit gross = before · caller pays after`: `unit gross` is the line's
  *   `unitPrice.gross` and `after` its `lineTotal.gross`, both the server's. 🚩 The one client
@@ -68,10 +69,17 @@ export default function AppliedOfferCard({ card }: { card: AppliedCard }) {
           {/* Free server text, in either script: `<bdi>`, not `Ltr`. */}
           <bdi>{card.description}</bdi>
         </span>
-        <span className="shrink-0 text-base font-semibold tabular-nums text-success-800" data-cc-applied-amount>
-          <Ltr>
-            <Money value={card.amount} />
-          </Ltr>
+        <span className="shrink-0 text-end">
+          <span className="block text-base font-semibold tabular-nums text-success-800" data-cc-applied-amount>
+            <Ltr>
+              <Money value={card.amount} />
+            </Ltr>
+          </span>
+          {/* 🚩 `firedPromotions[].amount` is the engine's EX-VAT discount (BackOffice 4459): never the
+              offer sheet's VAT-inclusive *Saves*, so the basis is said. */}
+          <span className="block text-[11px] text-muted-foreground" data-cc-applied-basis>
+            {t('offer.applied.basis')}
+          </span>
         </span>
       </div>
 

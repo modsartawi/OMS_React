@@ -65,7 +65,7 @@ export interface OfferPitch {
    *  items are chosen: the sheet, 997), with no units, or where the wire named no material.
    *  `itemName` is that item's own name as the basket holds it (`null` when it is not on a line) —
    *  never the offer's description: the add's placeholder line and outcome name the item. */
-  add: (OfferAddQty & { itemNumber: string; itemName: string | null }) | null
+  add: (OfferAddQty & { itemNumber: string; itemName: string | null; uom: string | null }) | null
   /** A set prerequisite (grouping) with units to go: the agent CHOOSES the items (the sheet, 997). */
   choose: boolean
   badges: OfferBadge[]
@@ -142,7 +142,13 @@ function pitchOf(miss: NearMiss, now: Date, basket: SessionLine[]): OfferPitch {
   const material = miss.prereq?.kind === 'material' ? (miss.prereq.materialNumber ?? '') : ''
   const add =
     qty && material !== ''
-      ? { ...qty, itemNumber: material, itemName: basket.find((line) => line.itemNumber === material)?.description ?? null }
+      ? {
+          ...qty,
+          itemNumber: material,
+          itemName: basket.find((line) => line.itemNumber === material)?.description ?? null,
+          // The prerequisite's unit, as the what-if's own add names it (4459: `adds[].uom`).
+          uom: miss.definition?.buyUom ?? null,
+        }
       : null
   const badges = offerBadges(miss.audience, miss.endsOn, now)
   return {

@@ -501,18 +501,19 @@ export interface NearMissDiscount {
 /**
  * v1.14 (spec 995 C2, BackOffice 4458) — what the offer IS, as the bonus buy record states it:
  * buy `buyQty` (of `buyUom`), get `getQty` (of the same item or another) at `discountType` /
- * `discountValue`. The console words it as a headline (`offer-headline.ts`). 🚩 Field names are
- * 4458's; the server half is unbuilt, so this is a stub of exactly that shape.
+ * `discountValue`. The console words it as a headline (`offer-headline.ts`). Built on BackOffice
+ * pricing2 610d7354a (4458, contract 1.14); `null` when the bonus-buy record could not be read.
  */
 export interface OfferDefinition {
   /** The single prerequisite's required quantity; null with several prerequisites or a value threshold. */
   buyQty: number | null
   buyUom?: string | null
-  /** The get side's quantity (`Equal 1.00 EA` → 1); 0 or null where the discount is on the buy side. */
+  /** The FIRST get-side condition's scale quantity (`Equal 1.00 EA` → 1); null on a document discount. */
   getQty: number | null
-  /** Whether the get material is the buy material. */
+  /** Whether the get material is the buy material (the server sends a boolean; null is tolerated). */
   getSameItem: boolean | null
-  /** `(string & {})` because the list is the server's: an unknown type degrades to `description`. */
+  /** Free goods (`N`) arrive as `percent` 100. `null` (with `discountValue` null) for a type the
+   *  server does not name; `(string & {})` so an unknown one degrades to `description`. */
   discountType: 'percent' | 'amount' | 'price' | (string & {}) | null
   /** A percentage for `percent`; an amount for `amount` / `price`. Never a saving. */
   discountValue: number | null
@@ -520,7 +521,8 @@ export interface OfferDefinition {
 
 /** v1.14 (spec 995 C2) — who the offer is for. Server facts, never client rules (D4). */
 export interface OfferAudience {
-  /** The offer is limited to the call-center origin (`OriginFilter` matched by the seat's origin). */
+  /** The offer has an origin filter and EVERY code in it matches this seat's origin (`C` on `C000`).
+   *  `C,S` also runs in the stores, so it is false (BackOffice 4458 review). */
   channelOnly: boolean
   /** Loyalty tier codes (`P`, `G`, `S`); empty ⇒ every caller. */
   tiers: string[]
@@ -530,30 +532,56 @@ export interface OfferAudience {
 
 /**
  * v1.14 (spec 995 C3, BackOffice 4459) — `GET CallCenterWeb/OfferWhatIf?transactionId=&offerId=`
- * (CONTRACT.md §3.9): the order's basket priced AS IF the offer's missing quantity were added, in
- * one claim-free engine run. It writes nothing.
+ * (CONTRACT.md §3.9): the order's basket priced AS IF the offer were completed, in one claim-free
+ * engine run that writes nothing. Built on BackOffice pricing2 610d7354a.
  *
  * 🚩 The one money the offers region may show (the owner's amendment of 574 US26), and only in the
- * offer sheet, read when the agent opens it. Every figure is the engine's, VAT-inclusive; the
- * client never sums, subtracts or divides them. Field names are 4459's; the server half is unbuilt.
+ * offer sheet, read when the agent opens it. The client never sums, subtracts or divides these.
+ *
+ * Refusals: the session's own and the price check's gate, plus `ITEM_NOT_FOUND` (the offer is no
+ * longer a near-miss on this order — the card is stale), `NO_PRICE_AT_PLANT` (the engine could not
+ * price it, or the bonus-buy record could not be read) and `ITEM_NOT_SELLABLE` (a unit or an article
+ * the engine refuses).
  */
 export interface OfferWhatIf {
+  /** The server's `CallCenterContract.Version` (`"1.14"`). */
+  contractVersion?: string
   offerId: string
-  /** What the run added: the missing buy quantity plus the free units (a material), or the top
-   *  ranked in-stock member (a grouping). */
-  adds: { itemNumber: string; qty: number }[]
-  /** The offer's bonus buy is among the applied ones in the run. */
+  /** What completes the offer: a material's missing buy units (`unitsNeed − unitsHave`) plus the get
+   *  quantity, merged into one row when the get item is the buy item; a different get material is its
+   *  own row; a grouping's top ranked in-stock member. Empty for a value threshold or a coupon gate.
+   *  `qty` counts the item's BASE unit; `uom` is the unit the bonus buy names, or null. An item
+   *  already on the order was priced as ITS line growing (what `changeQty` does). */
+  adds: OfferWhatIfAdd[]
+  /** The offer's bonus buy is among the applied ones after the adds. */
   fires: boolean
-  /** The VAT-inclusive sum of THAT offer's conditions in the run (positive). */
+  /**
+   * 🚩 NEGATIVE. The VAT-INCLUSIVE sum of THAT offer's own conditions in the run (`0` when it does
+   * not fire). ⚠ Not the basis of `firedPromotions[].amount`, which is the engine's EX-VAT
+   * `TotalDiscountValue`: on the owner's case the what-if says −98.00 and the fired promotion about
+   * −85.22. The sheet shows the size as *Saves*.
+   */
   saving: number
-  /** The basket gross before and after the adds, the delivery fee excluded. */
+  /** `totals.gross` now and with the adds, a delivery-fee line excluded from both. */
   payableBefore: number
   payableAfter: number
-  /** The offer item's VAT-inclusive price per unit after it fires; single-item offers only, else null. */
+  /** The offer item's VAT-inclusive price per unit after it fires — only for a firing offer whose get
+   *  item IS its buy item (`definition.getSameItem`), else null. */
   unitAfter: number | null
 }
 
+export interface OfferWhatIfAdd {
+  itemNumber: string
+  /** In the item's BASE unit (the engine counts a bonus buy there). */
+  qty: number
+  /** The bonus buy's unit for this side, or null when the record names none. */
+  uom: string | null
+}
+
 export interface NearMiss {
+  /** v1.14 (859, owner ruling) — never blank on a 1.14 server: `OfferId` when set, else the
+   *  BbyNumber (production's `OfferId` is blank on every live bonus buy). The BbyNumber itself is
+   *  not on the wire. A pre-1.14 server can still send `''`. */
   offerId: string
   description: string
   isReady: boolean
@@ -565,7 +593,7 @@ export interface NearMiss {
   progress: { have: number; need: number; unitsHave?: number | null; unitsNeed?: number | null }
   /** v1.14 (spec 995 C2) — absent or null ⇒ the card's headline is `description` (D2). */
   definition?: OfferDefinition | null
-  /** v1.14 — `BbyHeader.ValidTo` as a date (`2026-12-03`). */
+  /** v1.14 — the last valid day, `yyyy-MM-dd` (`BbyHeader.ValidTo`), a calendar date; null on a failed read. */
   endsOn?: string | null
   /** v1.14 — absent ⇒ no audience badges. */
   audience?: OfferAudience | null

@@ -95,3 +95,26 @@ Drive: `tools/callcenter-offer-card-drive.mjs` 29/29 on a v1.14 stub of the owne
 **Owed:** the live walk on the owner's case once 859 and 4458 deploy (tier S, 509366 × 1 at P721 →
 OMS000004571: *Buy 3, get the 4th free*, 1 of 4, phone only, Silver ✓, ends Thu 3 Dec; Add 3 → card D at the
 engine's −98.00).
+
+**2026-11-28 — reconciled to the BackOffice server half (pricing2 610d7354a: 859, 4458, contract 1.14).**
+Branch `t/995-reconcile`. The wire matched the stub's field names; what changed:
+- `audience.channelOnly` is true only when EVERY origin code matches the seat (`C,S` on `C000` is false) —
+  the badge reads it verbatim, so only the model doc and CONTRACT §3.1 changed.
+- `offerId` is `OfferId` else the BbyNumber; the BbyNumber is not on the wire. `endsOn` is `yyyy-MM-dd`;
+  `definition.discountType` null for a type the server does not name (free goods arrive as percent 100).
+- The card's add quantity matches the server's (`unitsNeed − unitsHave` + `getQty` when `getSameItem`), and it
+  now carries the prerequisite's unit (`definition.buyUom`), as the what-if's `adds[].uom` does.
+- 🚩 **An Add for an item already on the order is that line's `changeQty`** (to its qty + the add's), never an
+  `addItem`: the console refuses a repeat add (`ITEM_ALREADY_ON_ORDER`, any unit) and 4459 priced the line
+  growing. The owner's case (509366 × 1, *Add 3*) is one `ChangeQty` of L10 to 4. `guidanceAddPlan` decides it
+  for every guidance add (card, sheet, qualifying rows); its outcome is classified like an add. An item on a line
+  in ANOTHER unit than the add's is not sent (the client never converts units): a toast says to change that line.
+- 🚩 Card D's amount is `firedPromotions[].amount`, the engine's **ex-VAT** `TotalDiscountValue` (4459), so the
+  card now says *before VAT* under it. Its Say line (*You save X*) still quotes that ex-VAT figure.
+
+Gates: typecheck, vitest, lint; drives offer-card 34/34, offer-sheet 58/58, guidance 166/166 (+ callcenter,
+basket). **Live walk still owed** on a deployed 1.14 host.
+
+**Owner rulings owed:** (1) the Live line above expects card D at −98.00; on the engine it will read about
+−85.22 (ex-VAT), so either the check changes or `firedPromotions` gains a VAT-inclusive figure (a BackOffice
+ask); (2) whether card D's Say line may quote an ex-VAT figure as the caller's saving.

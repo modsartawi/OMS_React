@@ -108,3 +108,29 @@ the sheet's (`takesEscape` + focus in it); a blank-id sheet closes when the bask
 gone with focus in it hands focus to the card or *One step away*; card D's sum is `formatProduct` (new
 in `@/core/util/bidi`, named in the bidi + i18n rules), not a locale template; `offerWhatIf` moved above
 `priceCheck`'s JSDoc. Offer-sheet drive 50/50 (R1–R8 checks), offer-card 30/30, guidance 166/166.
+
+**2026-11-28 — reconciled to the BackOffice server half (pricing2 610d7354a: 4459, contract 1.14).**
+Branch `t/995-reconcile`. Differences from the stub, each resolved:
+- 🚩 **`saving` is NEGATIVE** (VAT-inclusive, the offer's own conditions; `0` when it does not fire). The model says
+  so; the sheet shows its size as *Saves* with *incl. VAT* under it, and the script says the size.
+- 🚩 **Basis:** `firedPromotions[].amount` is the engine's ex-VAT `TotalDiscountValue` — on the owner's case about
+  −85.22 where `saving` is −98.00. *Applied* in the sheet and card D now say *before VAT*; nothing implies the two
+  are one figure. **The Live check "the fired amount equals the what-if saving" cannot hold literally** — owner
+  ruling owed (compare `saving` ≈ `amount × 1.15`, or ask BackOffice for a VAT-inclusive fired figure).
+- `adds[]` carries `uom` (the bonus buy's unit, or null; `qty` in base units): passed through to `addItem`.
+- 🚩 **Add for an item already on the order is a `changeQty`** of its line to qty + add (a repeat `addItem` is
+  refused `ITEM_ALREADY_ON_ORDER`; the server's what-if grew the line). Drive: one `ChangeQty` of L10 to 4, no
+  `AddItem`. A line in a different unit is not sent (toast) — the server would price a new base-unit line there,
+  which the console cannot place.
+- **Refusals by code** (`apiErrorCode`): `ITEM_NOT_FOUND` = stale — *This offer is no longer one step away…*, the
+  order is re-read once and the sheet closes when the near-miss is gone; `NO_PRICE_AT_PLANT` (also an unreadable
+  record) and `ITEM_NOT_SELLABLE` = *Couldn't price this right now* plus the server's sentence, the card stays.
+- `unitAfter` only for a firing single-item (`getSameItem`) offer — already drawn as given, *Total becomes* when null.
+  `contractVersion` ("1.14") is on the model. The support chip shows `offerId` (a marketing OfferId when one is
+  set, else the BbyNumber); its label is now *Copy offer number*, not *bonus buy*.
+- CONTRACT.md §3.1/§3.9/§10 aligned with the server's stated bases, adds rule and refusal table (BackOffice keeps no
+  copy of its own: the oms-react CONTRACT.md is the one source); "unbuilt / stubbed" wording removed.
+
+Gates: typecheck, vitest, lint; drives offer-sheet 58/58 (new: ITEM_NOT_FOUND stale, NO_PRICE_AT_PLANT), offer-card
+34/34, guidance 166/166 (+ callcenter, basket). Stubs stay in the drives, on the real shapes. **Live walk still
+owed** on a deployed 1.14 host.

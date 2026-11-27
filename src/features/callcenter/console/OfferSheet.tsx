@@ -18,17 +18,20 @@
  * - **Add to the order:** a material offer is one row, *Add N* (the what-if's `adds`, or the
  *   card's own add before it answers); a grouping is `ResolvePrereq`'s ranked, stock-checked rows,
  *   added one at a time — both through the console's ordinary add and its refusals (D6).
- * - **Who gets it**, **What to say** (the longer script, in English and Arabic), and the BBY
- *   number as a copyable chip *for support* (D8).
+ * - **Who gets it**, **What to say** (the longer script, in English and Arabic), and the offer's
+ *   number (`offerId`: in production the BbyNumber) as a copyable chip *for support* (D8).
  *
  * When the offer fires, the near-miss is gone: the sheet says *Applied* with the engine's amount
- * and closes to card D.
+ * (ex-VAT, and labelled so: not the same figure as *Saves*) and closes to card D.
+ *
+ * An Add for an item already on the order is that line's `changeQty` (the page's `guidanceAddPlan`),
+ * because a repeat `addItem` is refused and the what-if priced the line growing (4459).
  */
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, Loader2 } from 'lucide-react'
-import { apiErrorMessage, ApiError } from '@/core/api'
+import { apiErrorCode, apiErrorMessage, ApiError } from '@/core/api'
 import { takesEscape } from '@/core/commands/key-layer'
 import type { NearMiss, SessionLine } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
@@ -37,7 +40,7 @@ import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { copyText } from '@/core/util/copy-text'
 import { formatMoney } from '@/core/util/number-format'
-import { callCenterApi } from './api'
+import { callCenterApi, sessionKey } from './api'
 import type { GuidanceActions } from './GuidanceStrip'
 import { Qualifying } from './GuidanceStrip'
 import type { GuidanceCard, GuidancePhrase } from './guidance-view'
@@ -162,7 +165,11 @@ export default function OfferSheet({
             <span className="font-semibold">{t('offer.sheet.applied')}</span>{' '}
             <Ltr>
               <Money value={appliedAmount} />
-            </Ltr>
+            </Ltr>{' '}
+            {/* 🚩 The engine's fired amount is EX-VAT; *Saves* above was VAT-inclusive (§3.9 rule 4). */}
+            <span className="text-[11px]" data-cc-offer-sheet-applied-basis>
+              {t('offer.sheet.appliedBasis')}
+            </span>
           </p>
         ) : null}
       </div>
@@ -197,9 +204,21 @@ function OfferBody({
     staleTime: Infinity,
     retry: false,
   })
-  const read: WhatIfRead =
-    whatIf.isSuccess ? { status: 'success', data: whatIf.data } : whatIf.isError || !query.enabled ? { status: 'error' } : { status: 'pending' }
+  const read: WhatIfRead = whatIf.isSuccess
+    ? { status: 'success', data: whatIf.data }
+    : whatIf.isError
+      ? { status: 'error', code: apiErrorCode(whatIf.error) }
+      : !query.enabled
+        ? { status: 'error' }
+        : { status: 'pending' }
   const figures = sheetFigures(read, miss.definition)
+  // 🚩 `ITEM_NOT_FOUND` says the card is stale: the order is re-read once, and the sheet closes on
+  // its own when the near-miss is gone from it (ConsoleShell's `sheetGone`).
+  const queryClient = useQueryClient()
+  const stale = figures.kind === 'stale'
+  useEffect(() => {
+    if (stale) void queryClient.invalidateQueries({ queryKey: sessionKey(transactionId) })
+  }, [stale, queryClient, transactionId])
   const how = howItWorks(miss.definition, miss.progress)
   const who = whoGetsIt(miss.audience)
   const ends = offerEnds(miss.endsOn, now)
@@ -213,7 +232,7 @@ function OfferBody({
     whatIf.isSuccess && whatIf.data.adds.length > 0
       ? whatIf.data.adds
       : pitch.add
-        ? [{ itemNumber: pitch.add.itemNumber, qty: pitch.add.qty }]
+        ? [{ itemNumber: pitch.add.itemNumber, qty: pitch.add.qty, uom: pitch.add.uom }]
         : []
   const material = pitch.add !== null
   const prereqMaterial = miss.prereq?.kind === 'material' ? (miss.prereq.materialNumber ?? '') : ''
@@ -223,6 +242,7 @@ function OfferBody({
     <>
       <section data-cc-offer-sheet-figures={figures.kind}>
         <dl className="grid grid-cols-3 gap-2">
+          {/* VAT-inclusive, the what-if's basis — not the fired promotion's ex-VAT amount (§3.9 rule 4). */}
           <Figure label={t('offer.sheet.saves')} data="saves">
             <SavesValue figures={figures} />
           </Figure>
@@ -260,10 +280,15 @@ function OfferBody({
             {t('offer.sheet.pricing')}
           </p>
         )}
+        {figures.kind === 'stale' && (
+          <p className="mt-1.5 text-xs text-attention-800" role="status" data-cc-offer-sheet-stale>
+            {t('offer.sheet.stale')}
+          </p>
+        )}
         {figures.kind === 'failed' && (
           <p className="mt-1.5 text-xs text-danger-800" role="status" data-cc-offer-sheet-failed>
             {t('offer.sheet.priceFailed')}
-            {/* A business refusal says why in the server's words (`ITEM_NOT_FOUND`: no longer a near-miss). */}
+            {/* A business refusal says why in the server's words (`NO_PRICE_AT_PLANT`, `ITEM_NOT_SELLABLE`). */}
             {whatIf.error instanceof ApiError && whatIf.error.kind === 'business' && (
               <span className="block text-[11px]" data-cc-server-text>
                 <bdi>{apiErrorMessage(whatIf.error, t('offer.sheet.priceFailed'))}</bdi>
@@ -333,7 +358,7 @@ function OfferBody({
                   className="min-h-10 tabular-nums"
                   disabled={actions.pending !== null}
                   onClick={() =>
-                    actions.onAdd?.({ offerId, itemNumber: add.itemNumber, itemName: add.name ?? add.itemNumber, qty: add.qty })
+                    actions.onAdd?.({ offerId, itemNumber: add.itemNumber, itemName: add.name ?? add.itemNumber, qty: add.qty, uom: add.uom })
                   }
                   data-cc-offer-sheet-add={add.qty}
                 >
@@ -384,11 +409,16 @@ function SavesValue({ figures }: { figures: SheetFigures }) {
   const { t } = useTranslation('callcenter')
   if (figures.kind === 'priced')
     return (
-      <span className="text-success-800" data-cc-offer-sheet-saving>
-        <Ltr>
-          <Money value={figures.saving} size="lg" />
-        </Ltr>
-      </span>
+      <>
+        <span className="text-success-800" data-cc-offer-sheet-saving>
+          <Ltr>
+            <Money value={figures.saving} size="lg" />
+          </Ltr>
+        </span>
+        <span className="block text-[11px] text-muted-foreground" data-cc-offer-sheet-saving-basis>
+          {t('offer.sheet.savesBasis')}
+        </span>
+      </>
     )
   // 🚩 Not a figure: the definition, until (or instead of) the engine's answer.
   return figures.definition ? (
@@ -443,7 +473,11 @@ function SheetItem({ offer }: { offer: OfferSheetOffer }) {
   return offer.card.set ? <span data-cc-offer-sheet-item="">{t(offer.card.set.key, offer.card.set.params)}</span> : null
 }
 
-/** The BBY number, for support (D8): copied, never navigated to. */
+/**
+ * The offer's address, for support (D8): copied, never navigated to. It is `offerId` — the marketing
+ * `OfferId` when set, else the BbyNumber (859); the BbyNumber itself is not on the wire, so the chip
+ * says *offer number*, not *bonus buy*.
+ */
 function SupportChip({ offerId, container }: { offerId: string; container: RefObject<HTMLDivElement | null> }) {
   const { t } = useTranslation('callcenter')
   const [copied, setCopied] = useState<'copied' | 'failed' | null>(null)

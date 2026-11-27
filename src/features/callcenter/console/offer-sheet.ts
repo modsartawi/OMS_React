@@ -6,8 +6,11 @@
  *   only while the sheet is open on an addressable offer. A closed card asks nothing; a basket
  *   change is a new key, so the open sheet re-reads it once.
  * - **The figures**: until the read answers, and when it fails, the sheet shows the DEFINITION
- *   (*100% off 1*). Once it answers, the engine's own `saving`, `unitAfter` and payable before and
- *   after, verbatim.
+ *   (*100% off 1*). Once it answers, the engine's own `saving` (its size: the wire's is negative),
+ *   `unitAfter` and payable before and after, verbatim.
+ * - **The refusals**, by code: `ITEM_NOT_FOUND` means the offer is no longer a near-miss — the card
+ *   is stale, not unpriceable; anything else (`NO_PRICE_AT_PLANT`, `ITEM_NOT_SELLABLE`, a network
+ *   failure) is *Couldn't price this right now* and the card stays.
  *
  * 🚩 **No figure is computed here.** `unitAfter` is the server's per-unit price; where it is null
  * (an offer over several items) there is no per-unit figure, because the client never divides.
@@ -39,13 +42,23 @@ export function whatIfQuery({
 }
 
 /** What the read has done so far, as the sheet sees it. */
-export type WhatIfRead = { status: 'pending' } | { status: 'error' } | { status: 'success'; data: OfferWhatIf }
+export type WhatIfRead =
+  | { status: 'pending' }
+  /** `code` is `apiErrorCode`'s, where the server refused with one. */
+  | { status: 'error'; code?: string | null }
+  | { status: 'success'; data: OfferWhatIf }
+
+/** The one code on this read that means the card is stale (CONTRACT.md §3.9). */
+export const WHAT_IF_STALE = 'ITEM_NOT_FOUND'
 
 export type SheetFigures =
   | { kind: 'pending'; definition: GuidancePhrase | null }
   | { kind: 'failed'; definition: GuidancePhrase | null }
+  /** `ITEM_NOT_FOUND`: no longer a near-miss on this order. The sheet says so and re-reads the order. */
+  | { kind: 'stale'; definition: GuidancePhrase | null }
   | {
       kind: 'priced'
+      /** The size of the engine's (negative, VAT-inclusive) `saving` — presentation, not arithmetic. */
       saving: number
       /** `unitAfter`, verbatim; null ⇒ no per-unit figure. */
       eachAfter: number | null
@@ -58,13 +71,14 @@ export function sheetFigures(read: WhatIfRead, definition: OfferDefinition | nul
   if (read.status === 'success')
     return {
       kind: 'priced',
-      saving: read.data.saving,
+      saving: Math.abs(read.data.saving),
       eachAfter: read.data.unitAfter ?? null,
       payableBefore: read.data.payableBefore,
       payableAfter: read.data.payableAfter,
       fires: read.data.fires,
     }
-  return { kind: read.status === 'error' ? 'failed' : 'pending', definition: definitionFigure(definition) }
+  const kind = read.status === 'pending' ? 'pending' : read.code === WHAT_IF_STALE ? 'stale' : 'failed'
+  return { kind, definition: definitionFigure(definition) }
 }
 
 const KEY = 'callcenter:offer.sheet.definition'
@@ -173,7 +187,10 @@ export function sheetSay({
 /** One *Add to the order* row: its own item, never the offer's. */
 export interface AddRow {
   itemNumber: string
+  /** In the item's base unit, as the what-if (or the card) states it. */
   qty: number
+  /** The bonus buy's unit for this row, or null: carried to the add. */
+  uom: string | null
   /** The item's name as the basket holds it; `null` when it is not on a line (the row is its number). */
   name: string | null
   /** The prerequisite material's row: `ResolvePrereq`'s top-row stock is about this item only. */
@@ -186,13 +203,14 @@ export interface AddRow {
  * on the prerequisite's row.
  */
 export function addRows(
-  adds: readonly { itemNumber: string; qty: number }[],
+  adds: readonly { itemNumber: string; qty: number; uom?: string | null }[],
   basket: readonly { itemNumber: string; description: string }[],
   prereqMaterial: string,
 ): AddRow[] {
-  return adds.map(({ itemNumber, qty }) => ({
+  return adds.map(({ itemNumber, qty, uom }) => ({
     itemNumber,
     qty,
+    uom: uom ?? null,
     name: basket.find((line) => line.itemNumber === itemNumber)?.description || null,
     stock: prereqMaterial !== '' && itemNumber === prereqMaterial,
   }))

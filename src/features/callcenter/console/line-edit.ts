@@ -35,6 +35,9 @@ export type LineEditIntent = {
   /** Display only, so the acceptance sheet can name what the agent is holding
    *  rather than a line id. Never sent — the wire carries the line id. */
   description?: string
+  /** The guidance card an offer's Add came from, when that Add grew this line by `changeQty`
+   *  (995 reconcile) — held to classify what the engine did. Never sent. */
+  offerId?: string
 } & (
   | { kind: 'qty'; qty: number }
   | { kind: 'uom'; uom: string }

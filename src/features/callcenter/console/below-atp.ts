@@ -57,12 +57,15 @@ export interface ItemAdd extends ConfirmableAction {
    * quantity (law 1). The engine decides what fires; the console does not ask.
    */
   offerId?: string
+  /** The unit to add in (§10 v1.2, `ScanOptions.Uom`) — an offer's add names the bonus buy's own
+   *  (4459 `adds[].uom`). Absent ⇒ the engine's default unit. */
+  uom?: string
 }
 
 /** What the agent asked for. The ONLY place an add's id is minted — a second
  *  call site is how a busy retry starts looking like a second add. */
 export function beginAdd(
-  intent: { itemNumber: string; qty: number; description?: string; offerId?: string },
+  intent: { itemNumber: string; qty: number; description?: string; offerId?: string; uom?: string },
   mint: () => string = newRequestId,
 ): ItemAdd {
   return { ...intent, requestId: mint() }

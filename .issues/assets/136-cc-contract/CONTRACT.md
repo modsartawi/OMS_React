@@ -1,4 +1,4 @@
-# The web call-center session API — frozen contract v1.14 (v1.12's shortfall half and v1.14's near-miss facts and offer what-if proposed)
+# The web call-center session API — frozen contract v1.14 (v1.12's shortfall half proposed)
 
 > Asset of [136](../../136-session-api-contract.md), map [126](../../126-web-call-center.md).
 > Frozen 2026-07-27 at v1.0; **v1.1** adds the fulfilment-mode axis
@@ -26,7 +26,7 @@
 > and the attached caller's last orders and usual items
 > ([983](../../983-the-console-is-built-around-the-caller-spec.md) C2, additive — see
 > [§3.8](#38-customerhistory--the-callers-last-orders-and-usual-items-v113)).
-> **v1.14** (proposed, server half unbuilt) gives each near-miss the offer's own facts — its
+> **v1.14** (built, BackOffice pricing2 610d7354a) gives each near-miss the offer's own facts — its
 > definition, units, end date and audience — and rules that `nearMisses[].offerId` is never blank
 > ([995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C1/C2, additive plus an owner
 > ruling — see [§3.1](#31-two-surfaces-one-pass) and [§10](#10-amendments)).
@@ -116,7 +116,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | priceCheck | `GET CallCenterWeb/PriceCheck` | `?transactionId=&itemNumber=` | `PriceCheckResult` (v1.6, [§3.4](#34-pricecheck--what-an-item-costs-without-adding-it)) |
 | stockElsewhere | `GET CallCenterWeb/StockElsewhere` | `?transactionId=&itemNumber=` | `StockElsewhereResult` (v1.7, [§3.5](#35-stockelsewhere--who-else-has-it-read-only)) |
 | customerHistory | `GET CallCenterWeb/CustomerHistory` | `?transactionId=` | `CustomerHistory` (v1.13, [§3.8](#38-customerhistory--the-callers-last-orders-and-usual-items-v113)) |
-| offerWhatIf | `GET CallCenterWeb/OfferWhatIf` | `?transactionId=&offerId=` | `OfferWhatIf` (v1.14 proposed, [§3.9](#39-offerwhatif--the-basket-priced-as-if-the-offer-were-completed-v114)) |
+| offerWhatIf | `GET CallCenterWeb/OfferWhatIf` | `?transactionId=&offerId=` | `OfferWhatIf` (v1.14, [§3.9](#39-offerwhatif--the-basket-priced-as-if-the-offer-were-completed-v114)) |
 | access | `GET CallCenterWeb/Access` | — | `{ canOpenConsole: boolean }` |
 
 **Ruled out of phase 1** (map note 5): `replaceLine`, placeholder/text lines, prescription controls.
@@ -762,36 +762,40 @@ it does not count toward the top bar's *offers within reach*, and it is answered
 [996](../../996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md)). Server half: BackOffice
 [859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) (C1) and
 [4458](C:\Work\DMSCO\BackOffice\.issues\4458-near-miss-offers-carry-their-definition-units-end-date-and-audience.md)
-(C2) — **not yet built**; the console builds against a stub of exactly this shape, and the field
-names are 4458's.
+(C2) — **built** (BackOffice pricing2 610d7354a, `CallCenterContract.Version` 1.14).
 
 ```jsonc
 {
-  "offerId": "OMS000004571",        // C1: OfferId when set, otherwise the BbyNumber — never blank (§10, 1.14)
+  "offerId": "OMS000004571",        // C1: OfferId when set, otherwise the BbyNumber — never blank (§10, 1.14).
+                                    //     The BbyNumber itself is NOT on the wire: offerId is the one address
   "progress": {
     "have": 0, "need": 1,           // unchanged: PREREQUISITES met — the guidance strip still reads them
-    "unitsHave": 1, "unitsNeed": 3  // C2: the driving prerequisite's FoundQty / RequiredQty; null on a value
-  },                                //     threshold or with several prerequisites
+    "unitsHave": 1, "unitsNeed": 3  // C2: the driving prerequisite's found / required QUANTITY; null for a
+  },                                //     value threshold. Engine facts: they project even when the record read fails
   "definition": {                   // C2: null when the bonus-buy record could not be read
-    "buyQty": 3, "buyUom": "EA",    // the single prerequisite's RequiredQty / UoM; null otherwise
-    "getQty": 1, "getSameItem": true, // the get-side condition scale; whether the get material is the buy material
-    "discountType": "percent",      // percent | amount | price — an unknown value degrades to `description`
+    "buyQty": 3, "buyUom": "EA",    // the single quantity prerequisite; null with several, or with a value threshold
+    "getQty": 1, "getSameItem": true, // the FIRST get-side condition's scale (null on a document discount);
+                                    //   whether its materials are the buy prerequisite's
+    "discountType": "percent",      // percent | amount | price; free goods (N) read as percent 100;
+                                    //   null (with discountValue null) for a type the server does not name
     "discountValue": 100            // a percentage for percent; an amount for amount / price. Never a saving.
   },
-  "endsOn": "2026-12-03",           // C2: BbyHeader.ValidTo as a date
-  "audience": {                     // C2
-    "channelOnly": true,            // OriginFilter non-empty and matched by the seat's origin
+  "endsOn": "2026-12-03",           // C2: BbyHeader.ValidTo, yyyy-MM-dd — a calendar date, no time, no zone; or null
+  "audience": {                     // C2: or null on a failed read
+    "channelOnly": true,            // the offer has an origin filter AND EVERY code in it matches this seat
+                                    //   (C on C000 is true; C,S also runs in the stores, so it is false)
     "tiers": ["P", "G", "S"],       // LoyTiers, split; [] ⇒ every caller
-    "callerQualifies": true         // the header's tier is in `tiers`; true when `tiers` is empty
+    "callerQualifies": true         // the order's tier is in `tiers` (the engine's own tier gate); true when `tiers` is empty
   }
 }
 ```
 
 Rules: every new field is optional, and a client ignores what it does not know (§9). The card's
 headline is built from `definition`, never from `description` (995 D2); progress is units; the badges
-are these server facts and never client rules (D4). A failed bonus-buy read leaves the new fields null
-and the near-miss still projected. **No money**: nothing here is a saving or a price (574 US26 holds on
-the card; see the 1.14 amendment for the sheet).
+are these server facts and never client rules (D4). A failed bonus-buy read leaves `definition`,
+`endsOn` and `audience` null and the near-miss still projected; the units do not wait on that read.
+**No money**: nothing here is a saving or a price (574 US26 holds on the card; see the 1.14 amendment
+for the sheet). Still **no `wouldSave`**.
 
 ### 3.2 `skipReason`
 
@@ -1121,40 +1125,85 @@ exactly as it gates every add.
 
 ### 3.9 `OfferWhatIf` — the basket priced as if the offer were completed (v1.14)
 
-**v1.14, additive, proposed** ([995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md)
-C3/D5, client [997](../../997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md)). Server
-half: BackOffice [4459](C:\Work\DMSCO\BackOffice\.issues\4459-callcenter-offer-what-if-read.md) — **not
-yet built**; the console builds against a stub of exactly this shape. The field names are 4459's.
+**v1.14, additive** ([995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C3/D5,
+the owner's amendment of 574 US26; client
+[997](../../997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md)). Server half: BackOffice
+[4459](C:\Work\DMSCO\BackOffice\.issues\4459-callcenter-offer-what-if-read.md) — **built** (pricing2
+610d7354a; `CallCenterOfferWhatIfService`, tests `CallCenterOfferWhatIfTests`). Read **on demand**, once
+per offer-sheet open and once per basket change while it is open; the client never prefetches.
 
 ```
 GET CallCenterWeb/OfferWhatIf?transactionId=…&offerId=OMS000004571
 → {
-    "offerId": "OMS000004571",
-    "adds": [ { "itemNumber": "509366", "qty": 3 } ],   // what the run added
-    "fires": true,                     // the offer's bonus buy is among the applied ones in the run
-    "saving": 98.00,                   // VAT-incl., positive, THAT offer's conditions only
-    "payableBefore": 98.00,            // basket gross before the adds, delivery fee excluded
-    "payableAfter": 294.00,            // … and after
-    "unitAfter": 73.50                 // VAT-incl. per unit of the offer's item; single-item offers only, else null
+    "contractVersion": "1.14",
+    "offerId": "OMS000004571",          // the near-miss address (§3.1), echoed
+    "adds": [ { "itemNumber": "509366", "qty": 3, "uom": "EA" } ],   // qty in the item's BASE unit; uom = the bonus buy's, or null
+    "fires": true,                      // the offer's bonus buy is applied after the adds
+    "saving": -98.00,                   // NEGATIVE, VAT-INCLUSIVE, the offer's OWN conditions only — NOT firedPromotions[].amount's basis (rule 4)
+    "payableBefore": 98.00,             // basket gross now, delivery fee excluded
+    "payableAfter": 294.00,             // basket gross with the adds, delivery fee excluded
+    "unitAfter": 73.50                  // VAT-inclusive per unit of the offer's item; null unless single-item and firing
   }
 ```
 
 **The rules.**
 
-1. **One claim-free engine run, and it writes nothing** — the price check's sibling (§3.4) widened
-   from one item to the basket: the persisted lines plus `adds`, priced with the order's own header
-   (plant, origin, tier, groups, procedure). It never resumes or claims the session, so it does not
-   queue behind the §6.1 lease and the client does not ride the busy schedule.
-2. **`adds` is the server's.** A material prerequisite: the missing buy quantity plus `getQty` of the
-   get material. A grouping: the top-ranked, in-stock member (`ResolvePrereq`'s ranking).
-3. **Read on demand, never fanned out** (D5). The client asks only while the offer sheet is open, keyed
-   by transaction, offer **and basket `version`**: any basket change makes it a different question,
-   and the open sheet re-reads it once. A closed card never asks.
-4. **The figures are drawn as given** (law 4). The client never sums, subtracts or divides them; with
-   `unitAfter: null` there is no per-unit figure. Until the read answers, and when it fails, the
-   sheet shows the offer's definition and never a client figure.
-5. **Refusals:** the session's own (`NO_CUSTOMER_ATTACHED`, `STORE_NOT_CHOSEN`, …) plus `ITEM_NOT_FOUND`
-   when the offer is no longer a near-miss on this order. A blank `offerId` is never sent (859).
+1. **One claim-free engine run, and it writes nothing.** The order's own pricing header (plant, seat,
+   tier, groups, procedure) and its persisted lines and conditions are read as columns — never resumed —
+   and priced in a throwaway context, the price check's sibling (§3.4) widened to the basket. It never
+   answers `SESSION_BUSY`, never moves the order's `version`, and the client does not ride the busy
+   schedule.
+2. **The client sends `transactionId` and `offerId` and nothing else.** Items, quantities and money are
+   the server's. A blank `offerId` is never sent (859).
+3. **`adds[]`** is what completes the offer. A `material` prerequisite: the missing buy quantity
+   (`unitsNeed − unitsHave`) plus the get quantity of the get material, merged into one row when the get
+   item is the buy item (*Buy 3, get the 4th free* with 1 in the basket ⇒ `509366 × 3`); a different
+   single get material is its own row. A `grouping`: the top-ranked, in-stock member by `resolvePrereq`'s
+   own ranking (§3.3). A value threshold or a coupon gate has nothing to add: `adds: []`, `fires: false`,
+   `saving: 0`, `payableAfter = payableBefore`. **`qty` counts the item's base unit**, because that is
+   what the engine counts a bonus buy in (`BonusBuySession.GetBaseQuantity`); `uom` is the unit the bonus
+   buy names for that side (its prerequisite's or its get condition's), or `null` when the record names
+   none. **An item already on the order is priced as its own line growing** (what `changeQty` does, since
+   `addItem` refuses a repeat add with `ITEM_ALREADY_ON_ORDER`, any unit), **converted into that line's own
+   unit** by the engine's conversion (`1 unit = numerator / denominator × base`) — and only when that is a
+   whole quantity of the line's unit and the line may grow: a free-goods line, a `Frozen`, `ReplaceOnly`
+   or `Limited` line, or one at its `MaxQuantity` cap is never grown. Otherwise the add is priced as a new
+   line in the base unit (3 EA beside 1 BOX of 10 is a new EA line, never 4 BOX).
+   *Client:* the sheet's and the card's *Add* follow the same rule — an item on a line in the add's unit
+   is that line's `changeQty` to its quantity plus the add's; an item not on the order is an `addItem`
+   carrying `uom`. 🚩 An item on a line in **another** unit is not sent: a real `addItem` would be
+   refused and the client never converts units, so the console says to change that line in the basket.
+4. **`saving`** sums only the conditions carrying the offer's own bonus-buy number, carried to
+   VAT-inclusive at each line's own VAT rate, read off the line's tax condition while it still had a
+   taxable base (so the line the offer makes free saves its whole gross: *buy 2, get another item at
+   100.00 free* is `-100.00`, not the ex-VAT `-86.96`), rounded to the currency's minor unit. **Negative**;
+   `0` when the offer still does not fire. A coupon or another offer on another line is never counted.
+   ⚠ **Basis: `saving` is VAT-inclusive; `firedPromotions[].amount` is NOT.** That field is the engine's
+   `AppliedBonusBuy.TotalDiscountValue`, the raw sum of the same conditions' values, which the engine
+   prices **ex-VAT** (a discount posts into the line's net; `MWST` is a separate condition on top). On the
+   owner's case the state's `firedPromotions[].amount` after the add reads about `-85.22` where `saving`
+   reads `-98.00`. The two are not expected to be equal; `saving` ≈ `amount × (1 + VAT rate)`.
+   *Client:* the sheet shows the size as *Saves · incl. VAT*; *Applied* and card D show the fired amount
+   as *before VAT*.
+5. **`payableBefore` / `payableAfter`** are `totals.gross` for the basket now and with the adds; a
+   delivery-fee line is excluded from both, and the delivery-fee quote (§2) is never in them.
+   **`unitAfter`** is only for a firing offer whose get item **is** the buy item
+   (`definition.getSameItem`) on a material prerequisite, and `null` when the item's lines are in
+   different units.
+6. **Read on demand, never fanned out** (D5). The client asks only while the offer sheet is open, keyed
+   by transaction, offer **and basket `version`**: any basket change makes it a different question, and
+   the open sheet re-reads it once. A closed card never asks.
+7. **The figures are drawn as given** (law 4). The client never sums, subtracts or divides them; with
+   `unitAfter: null` there is no per-unit figure. Until the read answers, and when it fails, the sheet
+   shows the offer's definition and *"Couldn't price this right now"*, never a client figure (995 D5).
+
+**Refusals:** the session's own (§7) and the price check's opening gate (§2.3), plus:
+
+| Code | When | Client |
+|---|---|---|
+| `ITEM_NOT_FOUND` | *"That offer is not a near-miss on this order any more"*: `offerId` is not among the basket's near-misses. Nothing is priced. **The only code on this read that means the card is stale.** | says the offer is no longer one step away and re-reads the order; the sheet closes when the near-miss is gone |
+| `NO_PRICE_AT_PLANT` | The engine could not price the basket or the adds (the price check's mapping, §3.4). Also when the offer's bonus-buy record cannot be read: without its definition the get quantity is unknown, so an incomplete add is never priced (*"This offer's details could not be read right now…"*). | keeps the card, *"Couldn't price this right now"* and the server's sentence |
+| `ITEM_NOT_SELLABLE` | The engine refuses a unit of measure the item does not carry (`InvalidUom`, the price check's mapping), or an add's item is not in the article catalogue (its own message, naming the item). | keeps the card, *"Couldn't price this right now"* and the server's sentence |
 
 **No new error code, no new capability** — the door is `ResolvePrereq`'s.
 
@@ -1561,9 +1610,9 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 
 | 1.13 | 2026-11-27 | **The receipt's original amount and discount** ([§2.1](#21-field-rules)). `totals` gains `beforeDiscount` and `discount` (positive), from the same simulation header as `net`, with `beforeDiscount − discount = net` held by the server and the delivery fee in neither. No new verb, code or capability. Server half: BackOffice [4454](C:\Work\DMSCO\BackOffice\.issues\4454-callcenter-session-totals-carry-before-discount-and-discount.md) (done; `CallCenterContract.Version` 1.13). ⚠ The server's own 1.12 is the location link (2482), while this document's 1.12 row is 412's shortfall; both sides call this addition 1.13. A session opened before the server bump still reports the `contractVersion` it opened under. | **minor — additive** — a v1.12 client ignores both fields | [983](../../983-the-console-is-built-around-the-caller-spec.md) C1 · [986](../../986-the-receipt-shows-original-discount-vat-fee-and-total.md) |
 | 1.13 | 2026-11-27 | **The caller's last orders and usual items** ([§3.8](#38-customerhistory--the-callers-last-orders-and-usual-items-v113)). One new read, `GET CallCenterWeb/CustomerHistory?transactionId=` → `{ orders[] \| null, usual[] \| null }`, scoped to the attached customer; field names per BackOffice 4455. No new verb that writes, no new code, no new capability; *Reorder all* is N ordinary `addItem`s. Server half: BackOffice [4455](C:\Work\DMSCO\BackOffice\.issues\4455-callcenter-customer-history-read.md) (**open**). | **minor — additive** — a client that never calls it is unchanged | [983](../../983-the-console-is-built-around-the-caller-spec.md) C2 · [990](../../990-last-orders-reorder-all-and-usual-items.md) |
-| 1.14 | 2026-11-27 | **A near-miss carries the offer's own facts** ([§3.1](#31-two-surfaces-one-pass)). `nearMisses[]` gains `definition { buyQty, buyUom, getQty, getSameItem, discountType, discountValue }`, `progress.unitsHave` / `unitsNeed`, `endsOn` and `audience { channelOnly, tiers[], callerQualifies }`, all from the bonus-buy record and the engine's found quantities. `have` / `need` are unchanged. No new verb, code or capability. Server half: BackOffice [4458](C:\Work\DMSCO\BackOffice\.issues\4458-near-miss-offers-carry-their-definition-units-end-date-and-audience.md) (**open**). (The spec's C3, the `OfferWhatIf` read, is the next row.) | **minor — additive** — a v1.13 client ignores every field | [995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C2 · [996](../../996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) |
+| 1.14 | 2026-11-27 | **A near-miss carries the offer's own facts** ([§3.1](#31-two-surfaces-one-pass)). `nearMisses[]` gains `definition { buyQty, buyUom, getQty, getSameItem, discountType, discountValue }`, `progress.unitsHave` / `unitsNeed`, `endsOn` and `audience { channelOnly, tiers[], callerQualifies }`, all from the bonus-buy record and the engine's found quantities. `have` / `need` are unchanged. No new verb, code or capability. Server half: BackOffice [4458](C:\Work\DMSCO\BackOffice\.issues\4458-near-miss-offers-carry-their-definition-units-end-date-and-audience.md) (done, pricing2 610d7354a). (The spec's C3, the `OfferWhatIf` read, is the next row.) | **minor — additive** — a v1.13 client ignores every field | [995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C2 · [996](../../996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) |
 | 1.14 | 2026-11-27 | **Owner ruling: `nearMisses[].offerId` is never blank (C1), and the offer sheet may show the engine's money (574 US26 amended).** (1) `offerId` is `BbyHeader.OfferId` when it is set, otherwise the **BbyNumber**, the key `CallCenterPrereqResolver` already looks the offer up by (`GetBonusBuyByNumber`). Production has `OfferId` blank on all 962 live bonus buys (859's answer), so every card said *"This offer arrived without an id"*. The field keeps its name; a client that displayed `offerId` would now show a BBY number, which is why this is a ruling and not a silent fallback. (2) US26 and 138's promise said the offers region carries the definition and never a figure formatted as money. Amended: the offer **sheet** may show money, and only the engine's own what-if, read on demand when the agent opens the offer. The **card** stays definition-only, and no client arithmetic produces a saving anywhere. | **amendment — owner ruling**, kept at the minor: no client mis-renders money, and a blank id addressed nothing anyway | owner, 2026-11-27 · [995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C1 · BackOffice [859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) |
-| 1.14 | 2026-11-27 | **The offer what-if** ([§3.9](#39-offerwhatif--the-basket-priced-as-if-the-offer-were-completed-v114)). One new read, `GET CallCenterWeb/OfferWhatIf?transactionId=&offerId=`, answering `{ offerId, adds[] { itemNumber, qty }, fires, saving, payableBefore, payableAfter, unitAfter }`: the basket priced as if the offer's missing quantity were added, in one claim-free engine run that writes nothing. Read only by the open offer sheet, keyed by the basket version; the figures are drawn as given and never derived. Refusals are the session's plus the existing `ITEM_NOT_FOUND`. No new code or capability. Server half: BackOffice [4459](C:\Work\DMSCO\BackOffice\.issues\4459-callcenter-offer-what-if-read.md) (**open**). | **minor — additive** — a v1.13 client never calls it | [995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C3 · [997](../../997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) |
+| 1.14 | 2026-11-27 | **The offer what-if** ([§3.9](#39-offerwhatif--the-basket-priced-as-if-the-offer-were-completed-v114)). One new read, `GET CallCenterWeb/OfferWhatIf?transactionId=&offerId=`, answering `{ contractVersion, offerId, adds[] { itemNumber, qty, uom }, fires, saving (negative, VAT-inclusive), payableBefore, payableAfter, unitAfter }`: the basket priced as if the offer's missing quantity were added, in one claim-free engine run that writes nothing. Read only by the open offer sheet, keyed by the basket version; the figures are drawn as given and never derived. Refusals are the session's and the price check's gate, plus the existing `ITEM_NOT_FOUND` (stale card), `NO_PRICE_AT_PLANT` and `ITEM_NOT_SELLABLE`. No new code or capability. Server half: BackOffice [4459](C:\Work\DMSCO\BackOffice\.issues\4459-callcenter-offer-what-if-read.md) (done, pricing2 610d7354a). | **minor — additive** — a v1.13 client never calls it | [995](../../995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) C3 · [997](../../997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) |
 
 **Why 1.12 and not 2.0.** Four new fields, all optional, and one changed *answer*: `isReady` is now
 `false` on a get-side shortfall. That reads like a changed meaning, and it is the opposite — v1.11's
@@ -1682,7 +1731,7 @@ rather than as the contract promises — an honest fixture that goes red the day
 
 | Fixture | Leg | Blocked by |
 |---|---|---|
-| `03` | `resolvePrereq` answers **404**: `nearMisses[].offerId` is blank, and §3.3 addresses an offer by exactly that field | [859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) |
+| `03` | `resolvePrereq` answers **404**: `nearMisses[].offerId` is blank, and §3.3 addresses an offer by exactly that field (fixed in v1.14, BackOffice 859; re-capture owed) | [859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) |
 | `04`, `05` | The **commit** half of both two-phase verbs is a no-op: the ask's own claim advances the engine version past the ledger's reservation, so the confirming retry (same `requestId`, as §0 law 3 requires) resolves as "already applied" and never touches the engine | [858](C:\Work\DMSCO\BackOffice\.issues\858-confirm-retry-swallowed-as-replay.md) |
 | `07` | The retry gets `SESSION_CLOSED`, not §8.3's `alreadySubmitted` success — the session's liveness gate refuses before the once-only path runs, so a client that lost the first response cannot recover the `documentNo` | [860](C:\Work\DMSCO\BackOffice\.issues\860-already-submitted-replay-unreachable.md) |
 

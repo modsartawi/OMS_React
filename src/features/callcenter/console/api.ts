@@ -555,11 +555,12 @@ export const callCenterApi = {
   },
 
   /**
-   * `GET CallCenterWeb/OfferWhatIf` — the basket priced as if the offer's missing quantity were
-   * added (§3.9, v1.14, BackOffice 4459, **unbuilt: stubbed**). One claim-free engine run, the
-   * price check's sibling widened to the basket: it writes nothing, takes no claim and so does not
-   * ride `withBusyRetry`. Refuses the session's own codes, plus `ITEM_NOT_FOUND` when the offer is
-   * no longer a near-miss.
+   * `GET CallCenterWeb/OfferWhatIf` — the basket priced as if the offer were completed (§3.9,
+   * v1.14, BackOffice 4459, built on pricing2 610d7354a). One claim-free engine run, the price
+   * check's sibling widened to the basket: it writes nothing, takes no claim and so does not ride
+   * `withBusyRetry`. Refuses the session's own codes and the price check's gate, plus
+   * `ITEM_NOT_FOUND` (no longer a near-miss: the card is stale), `NO_PRICE_AT_PLANT` (could not be
+   * priced, or the offer's record could not be read) and `ITEM_NOT_SELLABLE`.
    */
   offerWhatIf(transactionId: string, offerId: string): Promise<OfferWhatIf> {
     return api.get<OfferWhatIf>('CallCenterWeb/OfferWhatIf', { transactionId, offerId })

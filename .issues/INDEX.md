@@ -1645,6 +1645,6 @@ From the 2026-11-27 production walk: three columns with the caller first, a step
 ## The agent reads an offer the way the caller hears it (spec 995, 2026-11-27)
 
 - [995](995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) — The agent reads an offer the way the caller hears it (spec) · **ready** · contract v1.14; canvas *Call center offer card for agents*
-- [996](996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) — The offer card and the applied card say the offer plainly · **open — built on spec/995-offer-card, stubbed; live walk owed** · blocked by: 859, 4458 (BackOffice)
-- [997](997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) — The offer sheet shows what the caller would save, from the engine · **open — built on spec/995-offer-card, stubbed; live walk owed** · blocked by: 996, 4459 (BackOffice)
+- [996](996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) — The offer card and the applied card say the offer plainly · **open — built on spec/995-offer-card, reconciled to BO pricing2 610d7354a; live walk owed** · 859, 4458 built · 🚩 Add of an item on the order is a `changeQty`; card D's amount is ex-VAT (ruling owed)
+- [997](997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) — The offer sheet shows what the caller would save, from the engine · **open — built on spec/995-offer-card, reconciled to BO pricing2 610d7354a; live walk owed** · 4459 built · 🚩 `saving` negative + VAT-incl. vs fired ex-VAT: the "fired = saving" live check needs an owner ruling
 

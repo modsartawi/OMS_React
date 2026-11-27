@@ -42,6 +42,9 @@ export interface GuidanceAdd {
   /** How many to add. Absent ⇒ 1, the prerequisite row's add. A reward arm's
    *  add sends what the arm still needs, `need − have` (415, spec 412 W9). */
   qty?: number
+  /** The bonus buy's unit for this add (4459 `adds[].uom`, or the definition's `buyUom`), or
+   *  null/absent. Sent on an `addItem`; compared with the line's unit before a line grows. */
+  uom?: string | null
 }
 
 export interface AddOutcome {

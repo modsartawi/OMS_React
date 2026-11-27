@@ -121,6 +121,7 @@ import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
 import { rePinAfterEdit } from './address-book'
 import type { AddressFormValues } from './address-capture'
+import AddressCards from './AddressCards'
 import AddressPicker from './AddressPicker'
 import { showsCheck } from './short-address-check'
 import BelowAtpConfirm from './BelowAtpConfirm'
@@ -2438,6 +2439,26 @@ function ConsoleSession() {
                 : undefined
             }
           />
+        }
+        // 989 — the caller column's address book: the same book, the same one-click
+        // rebind as the dialog, while the order delivers. *Manage* opens the dialog
+        // for edit, delete and add. A refusal is said here only while the dialog is
+        // shut — open, the dialog says it, and twice in two places is once too many.
+        addressBook={
+          session.data.header.customer &&
+          session.data.capabilities.canOpenAddressBook &&
+          !isPickup(session.data.header) ? (
+            <AddressCards
+              customerId={session.data.header.customer.customerId}
+              orderAddress={session.data.header.address}
+              apply={{
+                pending: rebindOn('address').pending,
+                error: pickingAddress ? null : rebindOn('address').error,
+                onPick: (addressNumber) => rebind.mutate(beginStoreMove('address', addressNumber)),
+              }}
+              onManage={() => setPickingAddress(true)}
+            />
+          ) : null
         }
         // One open at a time (`openSection`), so this is the whole question the
         // sequence card needs answered before it stands down.

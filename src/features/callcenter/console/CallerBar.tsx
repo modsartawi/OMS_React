@@ -1,6 +1,7 @@
 /**
- * The caller bar — the first thing that happens on a call, at the top of the centre
- * column (ticket 409, spec 380 C7/C8; 379's variant C). It replaces 135's 260px
+ * The caller bar — the first thing that happens on a call, at the top of the caller
+ * column (ticket 409, spec 380 C7/C8; 379's variant C; moved there by spec 983's 984,
+ * and drawn as a card for the narrow column by 989). It replaces 135's 260px
  * customer rail, whose other jobs the sentence above the ledger now does: the address
  * word is the address book's only door, and the store word says "Collecting from".
  *
@@ -17,10 +18,10 @@
  *    itself would have to be removed from a real order, and the second key is
  *    cheaper than that.
  * 3. **The fields are `railFields`'s** (`caller-bar.ts`): 135's six-field cap and its
- *    sourcing rules hold here by construction, re-seated on one line.
- * 4. 🚩 **The bar takes the same pixels before and after the attach** (135's "the
- *    furniture doesn't move", 379 §1): one fixed-height row in both states. What
- *    opens from it — the sign-up, the linked request's detail, a failure — opens in
+ *    sourcing rules hold here by construction, re-seated — less the points (983 D2).
+ * 4. **What opens from it stays in the caller column.** Since 983 the bar is its own
+ *    column, so the attach can grow the card without moving the order or the summary
+ *    (379 §1's "the furniture doesn't move" now holds by the columns). What opens from it — the sign-up, the linked request's detail, a failure — opens in
  *    the flow UNDER it, never over the order (159, 175 §9).
  */
 import { useEffect, useRef, useState } from 'react'
@@ -91,8 +92,8 @@ export interface CallerRequests {
   onUnlink?: () => void
 }
 
-/** The bar's one row, the same height in both states (379 §1). */
-const ROW = 'flex h-12 items-center gap-3 overflow-hidden border-b border-divider bg-card px-4'
+/** The lookup's one row: the label and the phone box (379 §1). */
+const ROW = 'flex h-12 items-center gap-3 overflow-hidden bg-card px-4'
 
 export default function CallerBar({
   state,
@@ -194,7 +195,10 @@ export default function CallerBar({
           }
         />
       ) : (
-        <div className={ROW} data-cc-caller-lookup>
+        // 989: the caller column is narrow, so the lookup's outcome (found, miss, the
+        // hint) sits on its own line UNDER the phone box rather than beside it.
+        <div className="border-b border-divider bg-card" data-cc-caller-lookup>
+        <div className={ROW}>
           <label
             htmlFor="cc-phone"
             className="shrink-0 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground"
@@ -230,9 +234,10 @@ export default function CallerBar({
               )}
             </IconButton>
           </form>
-
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5 px-4 pb-3" data-cc-lookup-outcome>
           {lookup.isError && (
-            <span className="min-w-0 truncate text-xs text-danger-800" data-cc-lookup-error>
+            <span className="min-w-0 text-xs text-danger-800" data-cc-lookup-error>
               {apiErrorMessage(lookup.error, t('callerBar.lookupFailed'))}
             </span>
           )}
@@ -245,8 +250,8 @@ export default function CallerBar({
               said plainly, on no alarm ground, with the enrolment as the next
               ordinary thing rather than a recovery from a failure. */}
           {lookup.isSuccess && !lookup.data && (
-            <div className="flex min-w-0 items-center gap-2" data-cc-lookup-miss>
-              <span className="min-w-0 truncate text-xs text-muted-foreground" title={t('callerBar.notFound')}>
+            <div className="flex min-w-0 flex-wrap items-center gap-2" data-cc-lookup-miss>
+              <span className="min-w-0 text-xs text-muted-foreground">
                 {t('callerBar.notFound')}
               </span>
               {/* 🚩 Absent, not disabled: a bar with no signup wired offers no control. */}
@@ -264,8 +269,9 @@ export default function CallerBar({
           )}
 
           {lookup.isIdle && (
-            <span className="min-w-0 truncate text-[11px] text-muted-foreground">{t('callerBar.emptyHint')}</span>
+            <span className="min-w-0 text-[11px] text-muted-foreground">{t('callerBar.emptyHint')}</span>
           )}
+        </div>
         </div>
       )}
 
@@ -322,8 +328,9 @@ function Found({ member, actions: { onAttach, busy } }: { member: LoyaltyMember;
 }
 
 /**
- * The attached caller on one line: `barFields` in their fixed order, the requests
- * chip, and the icon-only ✕ at the inline end (379 §3).
+ * The attached caller, as the caller column's card (989): `barFields` in their fixed
+ * order — name and tier, then the numbers — the requests chip, and the icon-only ✕ at
+ * the inline end of the first line (379 §3).
  */
 function Attached({
   customer,
@@ -346,85 +353,101 @@ function Attached({
   onToggleRequest: () => void
 }) {
   const { t } = useTranslation('callcenter')
+  const fields = barFields(customer, member)
+  const who = fields.filter((field) => field.id === 'name' || field.id === 'tier')
+  const numbers = fields.filter((field) => field.id !== 'name' && field.id !== 'tier')
   return (
-    <div className={ROW} data-cc-caller>
-      {/* Everything but ✕, in one clipping cluster: whatever a long caller costs, the
-          way to remove them is never pushed off the bar. */}
-      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-        {barFields(customer, member).map((field) => (
-          <BarField key={field.id} field={field} />
-        ))}
+    // 989: a card at the top of the caller column — who (name, tier) with ✕ at the inline
+    // end, then the numbers the agent reads back, then the requests chip. Never points (D2).
+    <div className="flex min-w-0 flex-col gap-1.5 border-b border-divider bg-card px-4 py-3" data-cc-caller>
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {who.map((field) => (
+            <BarField key={field.id} field={field} />
+          ))}
+        </div>
+        {/* 🚩 Removing the caller clears the address and KEEPS the derived store — both
+            the server's doing (§6.3), arriving in the projection. */}
+        <IconButton
+          variant="danger"
+          size="compact"
+          onClick={onRemove}
+          disabled={busy}
+          data-cc-remove-caller
+          label={t('callerBar.remove')}
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <X className="h-3 w-3" aria-hidden />}
+        </IconButton>
+      </div>
+      {numbers.length > 0 && (
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {numbers.map((field) => (
+            <BarField key={field.id} field={field} />
+          ))}
+        </div>
+      )}
+      {(linked || (openCount !== null && onViewRequests)) && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {linked && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-card-2 text-xs"
+              data-cc-request-card
+            >
+              {/* 🚩 The chip opens the request's detail IN FLOW under the bar (379 §2) —
+                  never a tooltip, which keyboard and touch never see. */}
+              <button
+                type="button"
+                onClick={onToggleRequest}
+                aria-expanded={showingRequest}
+                title={t('linkedRequest.show')}
+                data-cc-request-chip
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 hover:bg-accent"
+              >
+                <span className="text-muted-foreground">{t('linkedRequest.chip')}</span>
+                <span className="font-mono font-semibold">
+                  <Ltr>{linked.documentNo}</Ltr>
+                </span>
+              </button>
+              <RequestLink href={linked.href} marker={{ 'data-cc-request-chip-open': '' }} />
+            </span>
+          )}
 
-        {linked && (
-          <span
-            className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-card-2 text-xs"
-            data-cc-request-card
-          >
-            {/* 🚩 The chip opens the request's detail IN FLOW under the bar (379 §2) —
-                never a tooltip, which keyboard and touch never see. */}
+          {!linked && openCount !== null && onViewRequests && (
+            // 🚩 An unnoticed request is the failure 194 exists to prevent, so the bar
+            // volunteers it — on attention ground — and opens 194's picker unchanged.
             <button
               type="button"
-              onClick={onToggleRequest}
-              aria-expanded={showingRequest}
-              title={t('linkedRequest.show')}
-              data-cc-request-chip
-              className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 hover:bg-accent"
+              onClick={onViewRequests}
+              title={t('request.title')}
+              data-cc-request-offer={String(openCount)}
+              data-cc-request-view
+              // Prose, so it reads in its own language's direction — an English key that
+              // an Arabic locale falls back to keeps its count at its start (408's ruling
+              // for the sentence).
+              dir="auto"
+              className="shrink-0 rounded-full border border-attention-border bg-attention-050 px-2 py-0.5 text-xs font-medium text-attention-800 hover:opacity-80"
             >
-              <span className="text-muted-foreground">{t('linkedRequest.chip')}</span>
-              <span className="font-mono font-semibold">
-                <Ltr>{linked.documentNo}</Ltr>
-              </span>
+              <Trans t={t} ns="callcenter" i18nKey={OPEN_REQUESTS_SHORT} count={openCount} components={{ n: <Ltr /> }} />
             </button>
-            <RequestLink href={linked.href} marker={{ 'data-cc-request-chip-open': '' }} />
-          </span>
-        )}
-
-        {!linked && openCount !== null && onViewRequests && (
-          // 🚩 An unnoticed request is the failure 194 exists to prevent, so the bar
-          // volunteers it — on attention ground — and opens 194's picker unchanged.
-          <button
-            type="button"
-            onClick={onViewRequests}
-            title={t('request.title')}
-            data-cc-request-offer={String(openCount)}
-            data-cc-request-view
-            // Prose, so it reads in its own language's direction — an English key that
-            // an Arabic locale falls back to keeps its count at its start (408's ruling
-            // for the sentence).
-            dir="auto"
-            className="shrink-0 rounded-full border border-attention-border bg-attention-050 px-2 py-0.5 text-xs font-medium text-attention-800 hover:opacity-80"
-          >
-            <Trans t={t} ns="callcenter" i18nKey={OPEN_REQUESTS_SHORT} count={openCount} components={{ n: <Ltr /> }} />
-          </button>
-        )}
-      </div>
-      {/* 🚩 Removing the caller clears the address and KEEPS the derived store — both
-          the server's doing (§6.3), arriving in the projection. */}
-      <IconButton
-        variant="danger"
-        size="compact"
-        onClick={onRemove}
-        disabled={busy}
-        data-cc-remove-caller
-        label={t('callerBar.remove')}
-      >
-        {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <X className="h-3 w-3" aria-hidden />}
-      </IconButton>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
 /**
- * One of the caller's fields. Points and member carry their label on screen, as 379's
- * capture draws them; the rest say who they are to a screen reader only.
+ * One of the caller's fields. Member carries its label on screen, as 379's capture draws
+ * it; the rest say who they are to a screen reader only. Points are never drawn (spec 983
+ * D2): `barFields` never hands this one a points field.
  *
  * Bidi (C7, 359): the name and the tier are free text in `<bdi>`; the mobile and the
- * member id are machine values in `Ltr` and mono; points are a quantity, so `Ltr` in
- * sans. Every value is server-supplied, passed through as data.
+ * member id are machine values in `Ltr` and mono. Every value is server-supplied, passed
+ * through as data.
  *
- * 🚩 One line at 1280 means something gives on a long caller: the email, which is the
- * only field that shrinks; the name never shrinks and clamps only past 16rem. Each
- * clamps on its OWN isolate, so the ellipsis lands at the value's end in either script
+ * 🚩 In the narrow caller column (989) a long caller has to give somewhere: the name
+ * clamps beside the tier, and the email clamps on its own line. Each clamps on its OWN
+ * isolate, so the ellipsis lands at the value's end in either script
  * — clamped from outside, an Arabic name under LTR (or an email under RTL) would lose
  * its first letters instead.
  */
@@ -435,7 +458,7 @@ function BarField({ field }: { field: RailField }) {
   switch (field.id) {
     case 'name':
       return (
-        <span {...handle} className="flex min-w-0 max-w-[16rem] shrink-0 text-[15px] font-semibold leading-tight">
+        <span {...handle} className="flex min-w-0 shrink text-[15px] font-semibold leading-tight">
           <span className="sr-only">{label} </span>
           <bdi className="min-w-0 truncate">{field.value}</bdi>
         </span>
@@ -449,15 +472,6 @@ function BarField({ field }: { field: RailField }) {
           <Star className="h-3 w-3" aria-hidden />
           <span className="sr-only">{label} </span>
           <bdi>{field.value}</bdi>
-        </span>
-      )
-    case 'points':
-      return (
-        <span {...handle} className="shrink-0 text-xs text-muted-foreground">
-          {label}{' '}
-          <span className="text-foreground">
-            <Ltr>{field.value}</Ltr>
-          </span>
         </span>
       )
     case 'member':

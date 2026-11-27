@@ -828,6 +828,11 @@
       "malformed": "SPL refused this as malformed. A Short Address is four letters followed by four digits, e.g. RIMA6904."
     }
   },
+  "callerColumn": {
+    "addresses": "Addresses",
+    "manageAddresses": "Manage",
+    "pinApplied": "pin applied"
+  },
   "rail": {
     "label": "Order steps",
     "steps": {

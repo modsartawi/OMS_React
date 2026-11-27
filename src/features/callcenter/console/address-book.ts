@@ -22,7 +22,7 @@
  * a surface the projection already answers would be the second derivation this
  * file exists to avoid.
  */
-import type { CustomerAddressBookEntry } from '@/core/models/callcenter'
+import type { CustomerAddressBookEntry, SessionAddress } from '@/core/models/callcenter'
 
 export interface AddressChoice {
   /** What `setAddress` is given — the entry's identity on the wire. */
@@ -86,6 +86,33 @@ export function addressChoices(
     nationalAddress: text(entry.address?.shortAddress),
     isDefault: Boolean(entry.isDefault),
     isCurrent: entry.addressNumber === currentAddressNumber,
+  }))
+}
+
+/** One card of the caller column's address book (989): a choice, and whether it carries the
+ *  order's applied pin. */
+export interface AddressCard extends AddressChoice {
+  pinned: boolean
+}
+
+/**
+ * The caller column's address book (989, spec 983 D10): the book's choices, with the
+ * address the order holds selected — and 🚩 **an applied pin shows on that selected
+ * address and nowhere else**.
+ *
+ * The pin is read off the ORDER (`header.address.gpsLat/gpsLon`, which `ApplyLocation`
+ * writes), never off the book row: a pin applied to this order is a fact about the order,
+ * and a book row's own coordinates say nothing about what this delivery will use. Both
+ * halves must be present — the server answers its 0/0 as `null`.
+ */
+export function bookCards(
+  entries: CustomerAddressBookEntry[] | null | undefined,
+  orderAddress: SessionAddress | null,
+): AddressCard[] {
+  const pinned = orderAddress != null && orderAddress.gpsLat != null && orderAddress.gpsLon != null
+  return addressChoices(entries, orderAddress?.addressNumber ?? null).map((choice) => ({
+    ...choice,
+    pinned: pinned && choice.isCurrent,
   }))
 }
 

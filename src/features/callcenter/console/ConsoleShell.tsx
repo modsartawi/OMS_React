@@ -40,6 +40,7 @@ import { paletteCommands } from './palette-model'
 import { capabilityGate, feeLine, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions } from './CallerBar'
+import CallerColumn from './CallerColumn'
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
 import HeaderSentence from './HeaderSentence'
 import { guidanceView } from './guidance-view'
@@ -147,6 +148,8 @@ export default function ConsoleShell({
   headerSection = null,
   headerSectionOpen = false,
   locationLink = null,
+  addressBook = null,
+  history = null,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -261,8 +264,12 @@ export default function ConsoleShell({
    *  the agent to open it. */
   headerSectionOpen?: boolean
   /** The location link (574): the page's panel, which owns its own calls. The shell owns
-   *  only where it lands — the address's row, under the header sentence. */
+   *  only where it lands — the caller column, under the address book (983 D10, 989). */
   locationLink?: ReactNode
+  /** The caller column's address book cards (989). The page's, like the link. */
+  addressBook?: ReactNode
+  /** 990 — the caller's last orders and usual items, between the caller and the book. */
+  history?: ReactNode
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
@@ -375,16 +382,18 @@ export default function ConsoleShell({
         className="grid min-h-0 flex-1 auto-rows-max grid-cols-1 overflow-y-auto xl:auto-rows-[minmax(0,1fr)] xl:grid-cols-[288px_minmax(0,1fr)_320px] xl:overflow-hidden"
         data-cc-columns
       >
-        {/* The caller column (start). 989 fills it — tier, last orders, usual items,
-            the address book and the location link (D10) land here, under the bar. */}
-        <div
-          className="flex min-w-0 flex-col border-b border-border bg-card xl:min-h-0 xl:overflow-y-auto xl:border-e xl:border-b-0"
-          data-cc-col="caller"
-        >
-          {/* 🚩 The caller bar (379, C7): the call's opening move, at the top of the
-              caller column, the same pixels before and after the attach. */}
-          <CallerBar state={state} customerActions={customerActions} signup={signup} requests={requests} />
-        </div>
+        {/* The caller column (start, 989): the caller (tier, never points — D2), 990's
+            last orders and usual items, the address book, and the location link (D10). */}
+        <CallerColumn
+          // 🚩 The caller bar (379, C7): the call's opening move, at the top of the
+          // caller column.
+          caller={
+            <CallerBar state={state} customerActions={customerActions} signup={signup} requests={requests} />
+          }
+          history={history}
+          addressBook={addressBook}
+          locationLink={locationLink}
+        />
         {/* Not a `<main>`: the console sits inside the shell's (407), and a page has one. */}
         <div
           className="flex min-w-0 flex-col border-b border-border xl:min-h-0 xl:border-e xl:border-b-0"
@@ -413,10 +422,6 @@ export default function ConsoleShell({
               note: onChangeNote,
             }}
           />
-          {/* 574 — the delivery address's own row: *Send location link* beside the
-              address word. D10 moves it to the caller column (989); until then it
-              stays under the sentence it answers. */}
-          {locationLink}
           {/* 🚩 175 §9: **the section a word opens, in the flow, immediately under
               the sentence that opened it** — still in the centre column (984 moves
               where the header lives, not where its sections open). */}

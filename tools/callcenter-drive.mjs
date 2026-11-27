@@ -2959,6 +2959,8 @@ async function run() {
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
     const L1 = PRIOR_STATE.lines[0]
+    // 985: the why sits in the line's pricing detail, opened under the line.
+    await page.locator(`[data-cc-line-expand="${L1.lineId}"]`).click()
     const why = (await page.locator(`[data-cc-line-why="${L1.lineId}"]`).innerText()).replace(/\s+/g, ' ')
     // 🚩 The store price and VAT as SEPARATE things — VAT is its own condition,
     // and it is the fact that explains why the line reads above the estimate.
@@ -2969,19 +2971,21 @@ async function run() {
     )
     check(
       '🚩 and VAT as a condition of its own, not folded into the price',
-      (await page.locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-condition="MWST"]`).count()) === 1 &&
+      (await page.locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-pricing-row="vat"]`).count()) === 1 &&
         why.includes(L1.conditions[2].value.toFixed(2)),
       why,
     )
     // 🚩 Scoped to the LINE. The capture ships every `offerId` blank (859), so a
     // global `[data-cc-line-promo=""]` matches every promotion in the basket — the
     // same identity gap that made the guidance strip draw one card for two offers.
+    // 985: the offer is on the line's second row, always in view — not in the detail.
+    const row = (await page.locator(`[data-cc-line="${L1.lineId}"]`).innerText()).replace(/\s+/g, ' ')
     check(
       'and the promotion that fired on it, in the offer’s own words',
       (await page
-        .locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-line-promo]`)
-        .count()) === L1.promotions.length && why.includes(L1.promotions[0].description),
-      why,
+        .locator(`[data-cc-line="${L1.lineId}"] [data-cc-line-promo]`)
+        .count()) === L1.promotions.length && row.includes(L1.promotions[0].description),
+      row,
     )
     check(
       'the line total is the projection’s own figure',

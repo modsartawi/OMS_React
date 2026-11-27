@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FiredPromotion, SessionLine, SessionTotals } from '@/core/models/callcenter'
 import { ATTACHED_SESSION } from './__fixtures__/payloads'
-import { basketLineView, basketLineViews, receiptView } from './basket-view'
+import { basketLineView, basketLineViews, lineNumbers, linePricing, receiptView } from './basket-view'
 
 /** A priced engine line, with only what a case is about varied. */
 const line = (over: Partial<SessionLine> = {}): SessionLine => ({
@@ -199,5 +199,93 @@ describe('theReceiptIsEngineTruth', () => {
     const view = receiptView(ATTACHED_SESSION.totals)
     expect(view.payable).toBe(ATTACHED_SESSION.totals.payable)
     expect(view.delivery?.amount).toBe(ATTACHED_SESSION.totals.deliveryFee.amount)
+  })
+})
+
+describe('linesAreNumberedByPositionAfterAVoid', () => {
+  const basket = (ids: string[]) => ({
+    ...ATTACHED_SESSION,
+    lines: ids.map((lineId, i) => line({ lineId, itemNumber: `10000${i}` })),
+  })
+
+  it('numbers lines 1-based in the engine’s own order', () => {
+    expect(basketLineViews(basket(['L10', 'L20', 'L30', 'L40'])).map((v) => [v.lineId, v.lineNumber])).toEqual([
+      ['L10', 1],
+      ['L20', 2],
+      ['L30', 3],
+      ['L40', 4],
+    ])
+  })
+
+  it('🚩 voiding line 2 of 4 renumbers 3→2 and 4→3 — the number is a position, not an id', () => {
+    // The state the void returns: L20 is gone, the engine keeps the rest in order.
+    expect(basketLineViews(basket(['L10', 'L30', 'L40'])).map((v) => [v.lineId, v.lineNumber])).toEqual([
+      ['L10', 1],
+      ['L30', 2],
+      ['L40', 3],
+    ])
+  })
+
+  it('names a line by the same number for the promotions panel (D4), and nothing for a line not in the basket', () => {
+    const numbers = lineNumbers(basket(['L10', 'L30', 'L40']))
+    expect(numbers.get('L30')).toBe(2)
+    expect(numbers.get('L20')).toBeUndefined()
+  })
+})
+
+describe('vatReadsAsRateAndAmount', () => {
+  /** The live shape (fixture 02, and the NOV10 walk): the engine's MWST
+   *  condition says "Vat %" and carries the AMOUNT — the "Vat % 20.32" D5 fixes. */
+  const taxed = line({
+    qty: 2,
+    lineTotal: { net: 23.14, gross: 26.61 },
+    conditions: [
+      { type: 'VKP0', description: 'Basic Price', value: 25.72, isStatistical: false },
+      { type: 'ZB03', description: '10% Coupon', value: -2.58, isStatistical: false },
+      { type: 'MWST', description: 'Vat %', value: 3.47, isStatistical: false },
+    ],
+  })
+  const medicine = line({
+    itemNumber: '101685',
+    qty: 1,
+    lineTotal: { net: 9.5, gross: 9.5 },
+    conditions: [
+      { type: 'VKP0', description: 'Basic Price', value: 9.5, isStatistical: false },
+      { type: 'MWST', description: 'Vat %', value: 0, isStatistical: false },
+    ],
+  })
+
+  it('🚩 a 15% line shows the rate AND the amount, never the amount under a percent sign', () => {
+    const vat = linePricing(taxed).find((row) => row.kind === 'vat')
+    expect(vat).toEqual({ kind: 'vat', rate: 15, value: 3.47 })
+  })
+
+  it('a medicine line shows 0%', () => {
+    expect(linePricing(medicine).find((row) => row.kind === 'vat')).toEqual({ kind: 'vat', rate: 0, value: 0 })
+    expect(basketLineView(medicine, []).vatRate).toBe(0)
+  })
+
+  it('reads the rate from the condition’s own words where the server wrote one', () => {
+    const worded = line({
+      lineTotal: { net: 24, gross: 27.6 },
+      conditions: [{ type: 'MWST', description: 'VAT 15%', value: 3.6, isStatistical: false }],
+    })
+    expect(basketLineView(worded, []).vatRate).toBe(15)
+  })
+
+  it('the detail runs basic price · each condition by name · net · VAT · total, every figure the server’s', () => {
+    expect(linePricing(taxed)).toEqual([
+      { kind: 'condition', type: 'VKP0', description: 'Basic Price', value: 25.72, isStatistical: false },
+      { kind: 'condition', type: 'ZB03', description: '10% Coupon', value: -2.58, isStatistical: false },
+      { kind: 'net', value: 23.14 },
+      { kind: 'vat', rate: 15, value: 3.47 },
+      { kind: 'total', value: 26.61 },
+    ])
+  })
+
+  it('a line with no VAT condition says nothing about VAT rather than inventing 0%', () => {
+    const bare = line({ conditions: [{ type: 'VKP0', description: 'Basic Price', value: 24, isStatistical: false }] })
+    expect(linePricing(bare).some((row) => row.kind === 'vat')).toBe(false)
+    expect(basketLineView(bare, []).vatRate).toBeNull()
   })
 })

@@ -26,7 +26,7 @@
  * (D3), which reads the same `step-rail.ts` model as the summary's *Before you place it*
  * checklist, so the rail, the checklist and *Place order* cannot disagree.
  */
-import { useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, CircleDashed, Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
 import { useCommands } from '@/core/commands/registry'
@@ -43,8 +43,9 @@ import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions } from './CallerBar'
 import CallerColumn from './CallerColumn'
 import type { GuidanceActions } from './GuidanceStrip'
+import OfferSheet, { type OfferSheetOffer } from './OfferSheet'
 import PromotionsPanel from './PromotionsPanel'
-import { promotionsPanel, rememberDefinitions } from './promotions-panel'
+import { promotionsPanel, rememberDefinitions, type PromotionsPanel as PromotionsPanelView } from './promotions-panel'
 import HeaderSentence from './HeaderSentence'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
@@ -294,6 +295,44 @@ export default function ConsoleShell({
   definitions.current = rememberDefinitions(definitions.current, state.nearMisses)
   const promotions = promotionsPanel(state, { remembered: definitions.current })
   const guidance = promotions.guidance
+  // 997 (D1): the offer sheet, opened from a pitch card's title, *Open* or *Choose the items*. It
+  // is keyed by the card, and re-found on every state: once the offer fires its near-miss is gone,
+  // the sheet says *Applied* and closes to card D.
+  const [sheet, setSheet] = useState<{ cardId: string; offerId: string } | null>(null)
+  const sheetOffer = sheet ? offerOnSheet(state, promotions, sheet.cardId) : null
+  const sheetFired = sheet && sheet.offerId !== '' ? (state.firedPromotions ?? []).find((fired) => fired.offerId === sheet.offerId) : undefined
+  const closedTo = useRef<{ selector: string } | null>(null)
+  const closeSheet = useCallback(
+    (reason: 'closed' | 'applied') => {
+      if (sheet && sheet.offerId !== '')
+        closedTo.current = {
+          selector:
+            reason === 'applied'
+              ? `[data-cc-applied-card="${CSS.escape(sheet.offerId)}"]`
+              : `[data-cc-card="${CSS.escape(sheet.offerId)}"] [data-cc-offer-title]`,
+        }
+      setSheet(null)
+    },
+    [sheet],
+  )
+  // Focus goes back to the card (Esc, close), or to card D once the offer fired — after the
+  // dialog has closed and given focus back to its opener, so this is the last word.
+  useEffect(() => {
+    if (sheet || !closedTo.current) return
+    const target = closedTo.current.selector
+    closedTo.current = null
+    const frame = requestAnimationFrame(() => document.querySelector<HTMLElement>(target)?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [sheet])
+  // Gone without firing (the basket moved it out of reach, or a better offer won): nothing to show.
+  const sheetGone = sheet !== null && !sheetOffer && !sheetFired
+  useEffect(() => {
+    if (sheetGone) setSheet(null)
+  }, [sheetGone])
+  const panelActions: GuidanceActions = {
+    ...guidanceActions,
+    onOpenOffer: (card) => setSheet({ cardId: card.cardId, offerId: card.offerId }),
+  }
   // 🚩 One model for the rail and the checklist (D3): two reads would be two chances to
   // disagree with *Place order*.
   const rail = stepRail(state)
@@ -466,13 +505,41 @@ export default function ConsoleShell({
             view={promotions}
             transactionId={state.transactionId}
             plant={state.header.plant}
-            actions={guidanceActions}
+            actions={panelActions}
           />
         </div>
         <Receipt state={state} submit={submit} checklist={beforeYouPlace(state)} />
       </div>
+      {sheet && !sheetGone && (
+        <OfferSheet
+          key={sheet.cardId}
+          offerId={sheet.offerId}
+          offer={sheetOffer}
+          applied={sheetFired ? { amount: sheetFired.amount } : null}
+          transactionId={state.transactionId}
+          version={state.version}
+          actions={panelActions}
+          now={new Date()}
+          onClose={closeSheet}
+        />
+      )}
     </div>
   )
+}
+
+/**
+ * The offer an open sheet is about, re-found on this state by its card (997). `null` once it is no
+ * longer one step away. `guidanceView` keeps the wire's order, so a card's index in `cards` is its
+ * near-miss's index on the wire.
+ */
+function offerOnSheet(state: SessionState, promotions: PromotionsPanelView, cardId: string): OfferSheetOffer | null {
+  const card = promotions.oneStepAway.find((candidate) => candidate.cardId === cardId)
+  const pitch = promotions.pitch.get(cardId)
+  const miss = state.nearMisses?.[promotions.guidance.cards.findIndex((candidate) => candidate.cardId === cardId)]
+  if (!card || !pitch || !miss) return null
+  const material = miss.prereq?.kind === 'material' ? miss.prereq.materialNumber : undefined
+  const line = material ? (state.lines ?? []).find((candidate) => candidate.itemNumber === material) : undefined
+  return { card, pitch, miss, itemName: line?.description ?? null }
 }
 
 /** The two boxes a palette row hands focus back to. */

@@ -58,6 +58,8 @@ export default function AppliedOfferCard({ card }: { card: AppliedCard }) {
   return (
     <li
       className="rounded-md border border-success-border bg-card p-2.5"
+      // 997: the offer sheet closes to this card once the offer fires, so it takes focus.
+      tabIndex={-1}
       data-cc-applied-card={card.offerId}
       data-cc-applied-lines={card.lines.join(',')}
     >

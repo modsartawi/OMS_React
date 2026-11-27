@@ -11,8 +11,10 @@
  * - a Say line, in the console's language and in Arabic.
  *
  * 🚩 No money on this card (D5). For a grouping there is no one item to add: the action opens
- * the offer (`onOpenOffer`, the sheet's hook for 997) or, until the sheet exists, the card's own
- * qualifying list.
+ * the offer (`onOpenOffer`, the sheet, 997) or, with no sheet, the card's own qualifying list.
+ *
+ * 997 (D1): the title and *Open* open the offer sheet (`OfferSheet`); the chevron beside them is
+ * the card's own disclosure (its stock pill, its list, the BBY link), as the title was before.
  *
  * Degrading: with no definition the headline is the 161 discount phrase where the wire sent one,
  * else the description; with no `unitsHave` the strip is hidden and the old meter and *add N
@@ -21,7 +23,9 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { ChevronDown } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { callCenterApi, prereqKey } from './api'
@@ -61,6 +65,7 @@ export default function OfferCard({
   const { t } = useTranslation('callcenter')
   const add = pitch.add
   const say = add || !fallbackSay ? pitch.say : [fallbackSay, ...pitch.say.slice(1)]
+  const openSheet = actions.onOpenOffer ? () => actions.onOpenOffer?.(card) : null
   return (
     <div
       data-cc-card={card.offerId}
@@ -69,25 +74,51 @@ export default function OfferCard({
       data-cc-offer-card
       className="rounded-md border border-primary-border bg-card p-2.5"
     >
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-start">
-        <span className="min-w-0 flex-1">
-          <Headline card={card} pitch={pitch} />
-          {/* The author's own words, as data: the subtitle under a headline, the headline where none resolved. */}
-          {headlineResolved(card, pitch) && (
-            <span
-              className={`block text-xs text-muted-foreground ${open ? '' : 'truncate'}`}
-              data-cc-card-desc
-              data-cc-server-text
+      <div className="flex items-start gap-1">
+        {/* 997: the title opens the offer sheet (D1); with no sheet it is the disclosure, as before. */}
+        <button
+          type="button"
+          onClick={openSheet ?? onToggle}
+          aria-expanded={openSheet ? undefined : open}
+          aria-haspopup={openSheet ? 'dialog' : undefined}
+          className="flex min-w-0 flex-1 items-start gap-2 text-start"
+          data-cc-offer-title
+        >
+          <span className="min-w-0 flex-1">
+            <Headline card={card} pitch={pitch} />
+            {/* The author's own words, as data: the subtitle under a headline, the headline where none resolved. */}
+            {headlineResolved(card, pitch) && (
+              <span
+                className={`block text-xs text-muted-foreground ${open ? '' : 'truncate'}`}
+                data-cc-card-desc
+                data-cc-server-text
+              >
+                <bdi>{card.description}</bdi>
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 text-[11px] font-medium text-primary-800" data-cc-card-mark>
+            <span aria-hidden>○ </span>
+            {t('guidance.withinReach')}
+          </span>
+        </button>
+        {openSheet && (
+          <>
+            <Button variant="ghost" className="min-h-10 shrink-0" onClick={openSheet} aria-haspopup="dialog" data-cc-offer-open>
+              {t('offer.action.open')}
+            </Button>
+            <IconButton
+              label={t(open ? 'offer.action.collapse' : 'offer.action.expand')}
+              onClick={onToggle}
+              aria-expanded={open}
+              className="mt-1.5"
+              data-cc-offer-toggle
             >
-              <bdi>{card.description}</bdi>
-            </span>
-          )}
-        </span>
-        <span className="shrink-0 text-[11px] font-medium text-primary-800" data-cc-card-mark>
-          <span aria-hidden>○ </span>
-          {t('guidance.withinReach')}
-        </span>
-      </button>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+            </IconButton>
+          </>
+        )}
+      </div>
 
       {pitch.badges.length > 0 && <Badges badges={pitch.badges} />}
 
@@ -258,7 +289,7 @@ function Strip({ strip }: { strip: OfferStrip }) {
  * ATP-filtered by the server, read on demand while the card is open (the same cache entry the
  * qualifying list reads). A blank `offerId` (859) cannot be resolved, so nothing is asked.
  */
-function TopRowStock({ offerId, transactionId }: { offerId: string; transactionId: string }) {
+export function TopRowStock({ offerId, transactionId }: { offerId: string; transactionId: string }) {
   const { t } = useTranslation('callcenter')
   const resolved = useQuery({
     queryKey: prereqKey(transactionId, offerId),

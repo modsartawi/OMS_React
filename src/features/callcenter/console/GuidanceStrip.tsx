@@ -635,7 +635,7 @@ function BbyDetailsLink({ offerId }: { offerId: string }) {
  * calls `.slice()`, which is what keeps the three the drive counts the same three
  * the engine ranked (138 finding 1, and `prereq-view.ts`'s first ruling).
  */
-function Qualifying({
+export function Qualifying({
   card,
   transactionId,
   actions,

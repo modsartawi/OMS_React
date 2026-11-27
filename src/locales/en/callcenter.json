@@ -305,7 +305,8 @@
     "loadFailed": "Your document sources could not be read. Nothing has changed on this order — try again.",
     "noneForYou": "No document sources are assigned to your account, so this order cannot be traced to one yet. Ask an administrator to assign you a source.",
     "applyFailed": "The source could not be saved. Nothing has changed on this order — try again.",
-    "refusedReferenceRequired": "That source needs a reference, so nothing was saved. Enter the campaign, ticket or system reference and save again."
+    "refusedReferenceRequired": "That source needs a reference, so nothing was saved. Enter the campaign, ticket or system reference and save again.",
+    "defaultNeedsReference": "Your usual source, {{source}}, needs a reference before it can be set on this order. Enter the campaign, ticket or system reference and save."
   },
   "search": {
     "label": "Search the catalogue",

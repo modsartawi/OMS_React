@@ -62,6 +62,7 @@ import {
   callCenterApi,
   canOpenCallCenter,
   customerRequestsKey,
+  MY_SOURCES_KEY,
   newRequestId,
   openKey,
   sessionKey,
@@ -146,6 +147,8 @@ import PaymentPicker from './PaymentPicker'
 import RequestPicker from './RequestPicker'
 import SlotPicker from './SlotPicker'
 import SourceForm from './SourceForm'
+import { afterDefaultRefused, defaultSourceToApply } from './default-source'
+import { fsi } from '@/core/util/bidi'
 import type { PreviewReissue } from './ConfirmSheet'
 import StoreMoveConfirm from './StoreMoveConfirm'
 import StorePicker from './StorePicker'
@@ -949,6 +952,55 @@ function ConsoleSession() {
     },
     retry: false,
   })
+
+  /**
+   * 993 (spec 983 D14) — the agent's default source, applied ONCE per order when it
+   * opens with none (`default-source.ts` holds the rules). The list is the form's own
+   * query (same key, read once a shift), fetched here only while it could matter.
+   *
+   * 🚩 The order is marked tried BEFORE the verb is sent, on a ref: a StrictMode
+   * double effect, a re-render while it is in flight, or the same order re-opened in
+   * this tab all find it already tried.
+   */
+  const defaultTried = useRef(new Set<string>())
+  /** The default the server wanted a reference for — the source section's cue to
+   *  word why it opened and put the caret in the reference box. */
+  const [defaultNeedsReference, setDefaultNeedsReference] = useState<string | null>(null)
+  const sourceMissing = session.data?.status === 'open' && !session.data.header.documentSource
+  const mySources = useQuery({
+    queryKey: MY_SOURCES_KEY,
+    queryFn: () => callCenterApi.myDocumentSources(),
+    staleTime: Infinity,
+    retry: false,
+    enabled: sourceMissing,
+  })
+  const defaultToApply = defaultSourceToApply({
+    transactionId: session.data?.transactionId ?? null,
+    status: session.data?.status ?? null,
+    currentSource: session.data?.header.documentSource ?? null,
+    sources: mySources.data,
+    tried: defaultTried.current,
+  })
+  useEffect(() => {
+    const id = session.data?.transactionId
+    if (!defaultToApply || !id || defaultTried.current.has(id)) return
+    defaultTried.current.add(id)
+    documentSource.mutate(
+      { documentSource: defaultToApply, sourceReference: '' },
+      {
+        onError: (err) => {
+          if (afterDefaultRefused(defaultToApply, apiErrorCode(err)).kind !== 'askReference') return
+          openSection('source')
+          setDefaultNeedsReference(defaultToApply)
+        },
+      },
+    )
+    // `documentSource` / `openSection` are fresh each render; the guard is the ref.
+  },[defaultToApply, session.data?.transactionId])
+  // The cue is spent once the section closes, by any road.
+  useEffect(() => {
+    if (!editingSource) setDefaultNeedsReference(null)
+  }, [editingSource])
 
   /**
    * What the caller told the agent (183, v1.3) — `setOrderNote`, the loosest
@@ -2276,10 +2328,13 @@ function ConsoleSession() {
             ? apiErrorCode(documentSource.error) === 'SOURCE_REFERENCE_REQUIRED'
               ? t('source.refusedReferenceRequired')
               : apiErrorMessage(documentSource.error, t('source.applyFailed'))
-            : null,
+            : defaultNeedsReference
+              ? t('source.defaultNeedsReference', { source: fsi(defaultNeedsReference) })
+              : null,
           onApply: (source, reference) =>
             documentSource.mutate({ documentSource: source, sourceReference: reference }),
         }}
+        askReference={defaultNeedsReference !== null}
         onClose={() => {
           setEditingSource(false)
           documentSource.reset()

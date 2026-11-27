@@ -81,6 +81,18 @@ export type PaletteVerb =
   | 'attachCaller'
   | 'removeCaller'
   | 'refresh'
+  /**
+   * 992 (spec 983 D13) — the caller-first console's five shortcuts. Each is an act a
+   * surface already does, reached in one row: the caller's last order again (990's
+   * history), the location link (574), the OTHER fulfilment mode (the row names where
+   * it goes), the next free window at the order's store, and a coupon the caller
+   * already holds. Like every verb, enabled exactly when handed a handler.
+   */
+  | 'reorderLast'
+  | 'sendLocationLink'
+  | 'switchFulfilment'
+  | 'nextFreeSlot'
+  | 'applyHeldCoupon'
 
 /** The two acts that end a call: `terminal` commands, so sorted last and never auto-aimed. */
 export type PaletteTerminal = 'place' | 'abandon'
@@ -128,11 +140,16 @@ const REASON_FAMILY: Partial<Record<PaletteVerb, { capability: string; family: s
   addressBook: { capability: 'canOpenAddressBook', family: 'palette.reason' },
   changeStore: { capability: 'canChangeStore', family: 'palette.reason' },
   fulfilment: { capability: 'canChangeFulfilment', family: 'fulfilment.locked' },
+  // The switch is the same flip by another route, so it says the same refusal.
+  switchFulfilment: { capability: 'canChangeFulfilment', family: 'fulfilment.locked' },
   payment: { capability: 'canChangePaymentType', family: 'payment.locked' },
   // 🚩 `coupon` is deliberately absent. A shut apply-gate is not a shut row
   // (189): the modal opens on the OPEN rule alone, because the order may hold a
   // coupon the agent has to read out, and the modal is where the shut gate is
   // stated. A reason here would name a refusal the row does not carry.
+  // 🚩 A HELD coupon's row is the opposite case: it applies, so the apply gate is
+  // exactly what shuts it, and the modal's own `coupon.shut.*` sentence says why.
+  applyHeldCoupon: { capability: 'canApplyCoupon', family: 'coupon.shut' },
 }
 
 /** The delivery store readout's own sentence (its title, 408), borrowed for the
@@ -158,18 +175,32 @@ export const VAGUE_REASON = `${NS}palette.reason.unknown`
  */
 const NEEDS_CALLER = `${NS}palette.reason.NO_CUSTOMER_ATTACHED`
 
+/** 992 — the same fact-guarded shape for the reorder row: with no caller on the order
+ *  there is no last order to repeat, whatever else is also true. */
+const NO_CALLER_HISTORY = `${NS}palette.reason.NO_CALLER_HISTORY`
+
+/** 992 — and for the slot row: a collection order has no slot to book (the fulfilment
+ *  picker's own consequence sentence), a fact `pickup` carries. */
+const COLLECTION_HAS_NO_SLOT = `${NS}palette.reason.COLLECTION_HAS_NO_SLOT`
+
 /** The order the verbs are listed in. `attachCaller`/`removeCaller` is one slot
  *  holding whichever of the two the order's state makes true. */
 const VERB_ORDER: PaletteVerb[] = [
   'searchItems',
+  // 992's shortcuts sit beside the verb whose subject they share.
+  'reorderLast',
   'addressBook',
+  'sendLocationLink',
   'changeStore',
   'slot',
+  'nextFreeSlot',
   'source',
   'note',
   'fulfilment',
+  'switchFulfilment',
   'payment',
   'coupon',
+  'applyHeldCoupon',
   'attachCaller',
   'removeCaller',
   'refresh',
@@ -248,7 +279,7 @@ export function paletteCommands({
     if (verb === 'removeCaller' && !hasCaller) continue
     commands.push({
       id: `verb:${verb}`,
-      label: `${NS}palette.verb.${verb}`,
+      label: labelOf(verb, pickup),
       run: actions.verbs[verb] ?? null,
       reason: said(refusalOf(verb, capabilities, hasCaller, pickup)),
     })
@@ -263,6 +294,16 @@ export function paletteCommands({
     terminal('abandon', actions.abandon ?? null, null),
   )
   return commands
+}
+
+/**
+ * A verb's label key. Only the switch varies: it is named by where it GOES — *Switch
+ * to collect* on a delivery order, *Switch to deliver* on a collection one — never a
+ * toggle word that leaves the direction to be guessed (176's ruling against a toggle).
+ */
+function labelOf(verb: PaletteVerb, pickup: boolean): string {
+  if (verb === 'switchFulfilment') return `${NS}palette.verb.switchFulfilment.${pickup ? 'toDeliver' : 'toCollect'}`
+  return `${NS}palette.verb.${verb}`
 }
 
 /** A terminal act: `terminal`, and never `keys` (the core registry would refuse them). */
@@ -309,6 +350,8 @@ function refusalOf(
   // with the SAME sentence the chip row uses, per the families rule above: two
   // surfaces, one refusal, no way for them to drift apart.
   if (verb === 'changeStore' && !pickup) return { key: STORE_FOLLOWS_ADDRESS }
+  if (verb === 'reorderLast' && !hasCaller) return { key: NO_CALLER_HISTORY }
+  if (verb === 'nextFreeSlot' && pickup) return { key: COLLECTION_HAS_NO_SLOT }
   return { key: VAGUE_REASON }
 }
 

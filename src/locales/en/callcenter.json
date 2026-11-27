@@ -695,7 +695,15 @@
       "coupon": "Apply coupon",
       "attachCaller": "Attach caller",
       "removeCaller": "Remove caller",
-      "refresh": "Refresh this order"
+      "refresh": "Refresh this order",
+      "reorderLast": "Reorder last order",
+      "sendLocationLink": "Send location link",
+      "switchFulfilment": {
+        "toCollect": "Switch to collect",
+        "toDeliver": "Switch to deliver"
+      },
+      "nextFreeSlot": "Next free slot",
+      "applyHeldCoupon": "Apply a held coupon"
     },
     "terminal": {
       "place": "Place order",
@@ -705,6 +713,8 @@
       "NO_CUSTOMER_ATTACHED": "Attach the caller first — their address book opens with them.",
       "STORE_NOT_CHOSEN": "Choose the store first — this act is about the store the order ships from.",
       "SESSION_CLOSED": "This order is no longer open.",
+      "NO_CALLER_HISTORY": "Attach the caller first — their last order comes with them.",
+      "COLLECTION_HAS_NO_SLOT": "A collection order has no delivery slot to book.",
       "unknown": "This can't be done on this order right now."
     }
   },

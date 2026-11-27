@@ -205,5 +205,21 @@
       "more_many": "+<n>{{count}}</n> أخرى",
       "more_other": "+<n>{{count}}</n> أخرى"
     }
+  },
+  "palette": {
+    "verb": {
+      "reorderLast": "إعادة طلب آخر طلب",
+      "sendLocationLink": "إرسال رابط الموقع",
+      "switchFulfilment": {
+        "toCollect": "التحويل إلى استلام من الفرع",
+        "toDeliver": "التحويل إلى توصيل"
+      },
+      "nextFreeSlot": "أقرب موعد متاح",
+      "applyHeldCoupon": "تطبيق قسيمة لدى العميل"
+    },
+    "reason": {
+      "NO_CALLER_HISTORY": "اربط المتصل أولًا — آخر طلب له يأتي معه.",
+      "COLLECTION_HAS_NO_SLOT": "طلب الاستلام من الفرع ليس له موعد توصيل."
+    }
   }
 }

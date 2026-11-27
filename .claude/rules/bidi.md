@@ -19,11 +19,13 @@ signs and counts through (`15:00–18:00` → `18:00–15:00`, `-5.00` → `5.00
 
 ## Isolate the whole value, never its parts
 
-A range, a `code · name` pair or `n / m` is **formatted to one string and isolated once**.
+A range, a `code · name` pair, `n / m` or a `qty × unit = total` product is **formatted to one
+string and isolated once**.
 Isolating each end separately reverses it: the two isolates are laid out right-to-left.
 
-- Build them with `formatRange`, `formatPair` and `formatCount` from `@/core/util/bidi`. Never
-  `` `${from}–${to}` ``, never `{{a}} / {{b}}` in a locale template.
+- Build them with `formatRange`, `formatPair`, `formatCount` and `formatProduct` from
+  `@/core/util/bidi`. Never `` `${from}–${to}` ``, never `{{a}} / {{b}}` or `{{qty}} × {{unit}} =
+  {{total}}` in a locale template.
 - A range **written with words** ("from {{from}} to {{to}}") needs each value isolated and
   nothing more, because the words carry the order.
 

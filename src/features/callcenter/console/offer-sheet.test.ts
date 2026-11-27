@@ -6,9 +6,20 @@
  * `tools/callcenter-offer-sheet-drive.mjs` by counting the real requests.
  */
 import { describe, expect, it } from 'vitest'
-import type { OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
+import type { FiredPromotion, OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
 import type { GuidancePhrase } from './guidance-view'
-import { definitionFigure, howItWorks, offerEnds, sheetSay, sheetFigures, whatIfQuery, whoGetsIt } from './offer-sheet'
+import {
+  addRows,
+  definitionFigure,
+  firedTotal,
+  howItWorks,
+  offerEnds,
+  sheetApplied,
+  sheetSay,
+  sheetFigures,
+  whatIfQuery,
+  whoGetsIt,
+} from './offer-sheet'
 
 const buy3get1: OfferDefinition = {
   buyQty: 3,
@@ -197,5 +208,59 @@ describe('sheetSay', () => {
   it('🚩 no saving clause until the what-if answers, and no membership clause where it does not apply', () => {
     expect(sheetSay({ pitch, who: { tiers: ['S'], qualifies: false, phoneOnly: true }, priced: null })).toEqual(pitch)
     expect(sheetSay({ pitch, who: null, priced: null })).toEqual(pitch)
+  })
+})
+
+describe('eachAddRowIsItsOwnItem', () => {
+  const basket = [
+    { itemNumber: '509366', description: 'OWNER CASE ITEM 509366' },
+    { itemNumber: '100200', description: 'OTHER ITEM 100200' },
+  ]
+
+  it('names each row from its own item, and draws the prerequisite’s stock on its row only', () => {
+    const adds = [
+      { itemNumber: '509366', qty: 3 },
+      { itemNumber: '100200', qty: 1 },
+      { itemNumber: '777777', qty: 1 },
+    ]
+    expect(addRows(adds, basket, '509366')).toEqual([
+      { itemNumber: '509366', qty: 3, name: 'OWNER CASE ITEM 509366', stock: true },
+      { itemNumber: '100200', qty: 1, name: 'OTHER ITEM 100200', stock: false },
+      // Not on the basket: no name to say, so the row is its number.
+      { itemNumber: '777777', qty: 1, name: null, stock: false },
+    ])
+  })
+
+  it('with no material prerequisite no row draws its stock', () => {
+    expect(addRows([{ itemNumber: '509366', qty: 3 }], basket, '')).toEqual([
+      { itemNumber: '509366', qty: 3, name: 'OWNER CASE ITEM 509366', stock: false },
+    ])
+  })
+})
+
+describe('appliedOnlyWhenTheOfferFiredAgain', () => {
+  const fired = (amount: number, offerId = 'OMS000004571'): FiredPromotion => ({ offerId, description: '3+1', amount, lineIds: ['L10'] })
+
+  it('totals what the offer gave when the sheet opened (nothing ⇒ 0, a blank id ⇒ 0)', () => {
+    expect(firedTotal([], 'OMS000004571')).toBe(0)
+    expect(firedTotal([fired(-98), fired(-5, 'OTHER')], 'OMS000004571')).toBe(98)
+    expect(firedTotal([fired(-98, '')], '')).toBe(0)
+  })
+
+  it('first fire: Applied with the engine’s amount', () => {
+    expect(sheetApplied(0, [fired(-98)], 'OMS000004571')).toBe(-98)
+  })
+
+  it('🚩 an offer that had already fired once and fires a second round: Applied', () => {
+    expect(sheetApplied(98, [fired(-196)], 'OMS000004571')).toBe(-196)
+  })
+
+  it('🚩 an offer that had already fired, its second round only moved out of reach: not Applied', () => {
+    expect(sheetApplied(98, [fired(-98)], 'OMS000004571')).toBeNull()
+    expect(sheetApplied(98, [], 'OMS000004571')).toBeNull()
+  })
+
+  it('a blank id is never Applied: nothing addresses it', () => {
+    expect(sheetApplied(0, [fired(-98, '')], '')).toBeNull()
   })
 })

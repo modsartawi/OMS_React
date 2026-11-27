@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { GridApi } from 'ag-grid-community'
 
 import { formatDateTime } from './date-format'
-import { FSI, PDI, formatCount, formatPair, formatRate, formatParts, formatRange, fsi, stripIsolates } from './bidi'
+import { FSI, PDI, formatCount, formatPair, formatProduct, formatRate, formatParts, formatRange, fsi, stripIsolates } from './bidi'
 import { gridSheet } from './grid-xlsx'
 
 const ISOLATES = /[⁦-⁩]/
@@ -56,6 +56,16 @@ describe('formatCount', () => {
   it('is one `n / m` string', () => {
     expect(formatCount(40, 200)).toBe('40 / 200')
     expect(formatCount(0, 0)).toBe('0 / 0')
+  })
+})
+
+describe('formatProduct', () => {
+  it('is one `qty × unit = total` string', () => {
+    expect(formatProduct(4, '98.00', '392.00')).toBe('4 × 98.00 = 392.00')
+  })
+
+  it('a blank total leaves just the product', () => {
+    expect(formatProduct(3, '24.50', '')).toBe('3 × 24.50')
   })
 })
 

@@ -62,8 +62,10 @@ export interface OfferPitch {
   /** `null` with no `unitsHave` — the card keeps the old have/need meter. */
   strip: OfferStrip | null
   /** One `addItem` of the missing quantity of the offer's MATERIAL. `null` for a grouping (its
-   *  items are chosen: the sheet, 997), with no units, or where the wire named no material. */
-  add: (OfferAddQty & { itemNumber: string }) | null
+   *  items are chosen: the sheet, 997), with no units, or where the wire named no material.
+   *  `itemName` is that item's own name as the basket holds it (`null` when it is not on a line) —
+   *  never the offer's description: the add's placeholder line and outcome name the item. */
+  add: (OfferAddQty & { itemNumber: string; itemName: string | null }) | null
   /** A set prerequisite (grouping) with units to go: the agent CHOOSES the items (the sheet, 997). */
   choose: boolean
   badges: OfferBadge[]
@@ -113,7 +115,7 @@ export function promotionsPanel(state: SessionState, options: PanelOptions = {})
     // near-miss's index on the wire.
     pitch: new Map(
       guidance.cards.flatMap((card, index) =>
-        guidance.withinReach.includes(card) && misses[index] ? [[card.cardId, pitchOf(misses[index], now)] as const] : [],
+        guidance.withinReach.includes(card) && misses[index] ? [[card.cardId, pitchOf(misses[index], now, state.lines ?? [])] as const] : [],
       ),
     ),
   }
@@ -135,10 +137,13 @@ export function rememberDefinitions(
   return next
 }
 
-function pitchOf(miss: NearMiss, now: Date): OfferPitch {
+function pitchOf(miss: NearMiss, now: Date, basket: SessionLine[]): OfferPitch {
   const qty = offerAdd(miss.progress, miss.definition)
   const material = miss.prereq?.kind === 'material' ? (miss.prereq.materialNumber ?? '') : ''
-  const add = qty && material !== '' ? { ...qty, itemNumber: material } : null
+  const add =
+    qty && material !== ''
+      ? { ...qty, itemNumber: material, itemName: basket.find((line) => line.itemNumber === material)?.description ?? null }
+      : null
   const badges = offerBadges(miss.audience, miss.endsOn, now)
   return {
     headline: offerHeadline(miss.definition, miss.description ?? ''),

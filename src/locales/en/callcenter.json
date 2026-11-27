@@ -1066,7 +1066,6 @@
     "applied": {
       "landed_one": "Line {{line}} · {{count}} unit",
       "landed_other": "Line {{line}} · {{count}} units",
-      "sum": "{{qty}} × {{unit}} = {{before}}",
       "pays": "caller pays {{after}}",
       "removeWarn": "Removing one takes the free one away"
     },

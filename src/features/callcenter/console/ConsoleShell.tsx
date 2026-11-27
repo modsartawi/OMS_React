@@ -44,6 +44,7 @@ import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions
 import CallerColumn from './CallerColumn'
 import type { GuidanceActions } from './GuidanceStrip'
 import OfferSheet, { type OfferSheetOffer } from './OfferSheet'
+import { firedTotal, sheetApplied as appliedOnSheet } from './offer-sheet'
 import PromotionsPanel from './PromotionsPanel'
 import { promotionsPanel, rememberDefinitions, type PromotionsPanel as PromotionsPanelView } from './promotions-panel'
 import HeaderSentence from './HeaderSentence'
@@ -298,18 +299,22 @@ export default function ConsoleShell({
   // 997 (D1): the offer sheet, opened from a pitch card's title, *Open* or *Choose the items*. It
   // is keyed by the card, and re-found on every state: once the offer fires its near-miss is gone,
   // the sheet says *Applied* and closes to card D.
-  const [sheet, setSheet] = useState<{ cardId: string; offerId: string } | null>(null)
+  // The sheet remembers what the offer had already given when it opened (`firedBefore`), so an offer
+  // that fired once and was one step from a second round is *Applied* only if it gives more — not
+  // when its near-miss merely disappears. And the basket `version` it opened on: a blank-id offer
+  // (859) is found by position only, so once the basket moves it may be another offer.
+  const [sheet, setSheet] = useState<{ cardId: string; offerId: string; firedBefore: number; version: number } | null>(null)
   const sheetOffer = sheet ? offerOnSheet(state, promotions, sheet.cardId) : null
-  const sheetFired = sheet && sheet.offerId !== '' ? (state.firedPromotions ?? []).find((fired) => fired.offerId === sheet.offerId) : undefined
-  const closedTo = useRef<{ selector: string } | null>(null)
+  const sheetApplied = sheet ? appliedOnSheet(sheet.firedBefore, state.firedPromotions, sheet.offerId) : null
+  const closedTo = useRef<{ selectors: string[] } | null>(null)
   const closeSheet = useCallback(
     (reason: 'closed' | 'applied') => {
-      if (sheet && sheet.offerId !== '')
+      if (sheet)
         closedTo.current = {
-          selector:
-            reason === 'applied'
-              ? `[data-cc-applied-card="${CSS.escape(sheet.offerId)}"]`
-              : `[data-cc-card="${CSS.escape(sheet.offerId)}"] [data-cc-offer-title]`,
+          selectors:
+            reason === 'applied' && sheet.offerId !== ''
+              ? [`[data-cc-applied-card="${CSS.escape(sheet.offerId)}"]`]
+              : sheetFallbackFocus(sheet.offerId),
         }
       setSheet(null)
     },
@@ -319,19 +324,50 @@ export default function ConsoleShell({
   // dialog has closed and given focus back to its opener, so this is the last word.
   useEffect(() => {
     if (sheet || !closedTo.current) return
-    const target = closedTo.current.selector
+    const targets = closedTo.current.selectors
     closedTo.current = null
-    const frame = requestAnimationFrame(() => document.querySelector<HTMLElement>(target)?.focus())
+    const frame = requestAnimationFrame(() => {
+      for (const target of targets) {
+        const element = document.querySelector<HTMLElement>(target)
+        if (element) return element.focus()
+      }
+    })
     return () => cancelAnimationFrame(frame)
   }, [sheet])
   // Gone without firing (the basket moved it out of reach, or a better offer won): nothing to show.
-  const sheetGone = sheet !== null && !sheetOffer && !sheetFired
+  // A blank-id sheet is gone once the basket moves: its position may name another offer now.
+  const sheetGone =
+    sheet !== null && ((!sheetOffer && sheetApplied === null) || (sheet.offerId === '' && state.version !== sheet.version))
+  // Where focus last landed while the sheet was open. The sheet is already gone from the DOM when
+  // the effect below runs, so focus that was in it has fallen to the body without a `focusin`.
+  const focusInSheet = useRef(false)
+  const sheetOpen = sheet !== null
   useEffect(() => {
-    if (sheetGone) setSheet(null)
-  }, [sheetGone])
+    if (!sheetOpen) return
+    // The sheet focused itself on mount, before this (the parent's) effect ran.
+    focusInSheet.current = document.activeElement?.closest('[data-cc-offer-sheet]') != null
+    const onFocusIn = (event: FocusEvent) => {
+      focusInSheet.current = event.target instanceof Element && event.target.closest('[data-cc-offer-sheet]') !== null
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [sheetOpen])
+  useEffect(() => {
+    if (!sheetGone || !sheet) return
+    // Focus was in the sheet (it fell to the body): back to the card, or the column's heading.
+    // Focus the agent had elsewhere (the basket) stays where it is.
+    if (focusInSheet.current) closedTo.current = { selectors: sheetFallbackFocus(sheet.offerId) }
+    setSheet(null)
+  }, [sheetGone, sheet])
   const panelActions: GuidanceActions = {
     ...guidanceActions,
-    onOpenOffer: (card) => setSheet({ cardId: card.cardId, offerId: card.offerId }),
+    onOpenOffer: (card) =>
+      setSheet({
+        cardId: card.cardId,
+        offerId: card.offerId,
+        firedBefore: firedTotal(state.firedPromotions, card.offerId),
+        version: state.version,
+      }),
   }
   // 🚩 One model for the rail and the checklist (D3): two reads would be two chances to
   // disagree with *Place order*.
@@ -515,7 +551,7 @@ export default function ConsoleShell({
             key={sheet.cardId}
             offerId={sheet.offerId}
             offer={sheetOffer}
-            applied={sheetFired ? { amount: sheetFired.amount } : null}
+            appliedAmount={sheetApplied}
             transactionId={state.transactionId}
             version={state.version}
             actions={panelActions}
@@ -540,7 +576,15 @@ function offerOnSheet(state: SessionState, promotions: PromotionsPanelView, card
   if (!card || !pitch || !miss) return null
   const material = miss.prereq?.kind === 'material' ? miss.prereq.materialNumber : undefined
   const line = material ? (state.lines ?? []).find((candidate) => candidate.itemNumber === material) : undefined
-  return { card, pitch, miss, itemName: line?.description ?? null }
+  return { card, pitch, miss, itemName: line?.description ?? null, basket: state.lines ?? [] }
+}
+
+/** Where focus goes when a sheet closes without card D: its card's title, else *One step away*. */
+function sheetFallbackFocus(offerId: string): string[] {
+  return [
+    ...(offerId !== '' ? [`[data-cc-card="${CSS.escape(offerId)}"] [data-cc-offer-title]`] : []),
+    '[data-cc-one-step-heading]',
+  ]
 }
 
 /** The two boxes a palette row hands focus back to. */

@@ -335,6 +335,9 @@
       "LOCATION_LINK_UNAVAILABLE": "روابط الموقع غير مفعّلة، فلا يمكن إرسال رابط على هذا الطلب."
     }
   },
+  "money": {
+    "currency": "ر.س"
+  },
   "offer": {
     "headline": {
       "nthFree_ordinal_other": "اشترِ {{buy}} واحصل على القطعة رقم {{count}} مجانًا",
@@ -449,7 +452,6 @@
       "landed_few": "السطر {{line}} · {{count}} قطع",
       "landed_many": "السطر {{line}} · {{count}} قطعة",
       "landed_other": "السطر {{line}} · {{count}} قطعة",
-      "sum": "{{qty}} × {{unit}} = {{before}}",
       "pays": "يدفع المتصل {{after}}",
       "removeWarn": "إزالة قطعة واحدة تُلغي القطعة المجانية"
     },

@@ -231,6 +231,12 @@ async function run() {
       JSON.stringify(body),
     )
 
+    // Review fix (997 review 4): the add names its own item — the basket line's name — never the offer's.
+    const outcome = page.locator('[data-cc-outcome]')
+    await outcome.waitFor({ timeout: 5_000 }).catch(() => {})
+    const said = (await outcome.count()) ? await text(page, '[data-cc-outcome]') : ''
+    check('the add’s outcome names the item, not the offer', /OWNER CASE ITEM 509366/.test(said), said)
+
     // 8
     const d = `[data-cc-applied-card="${OWNER.offerId}"]`
     check('the pitch card is gone: the offer fired', (await page.locator(card).count()) === 0)

@@ -555,6 +555,17 @@ export const callCenterApi = {
   },
 
   /**
+   * `GET CallCenterWeb/OfferWhatIf` — the basket priced as if the offer's missing quantity were
+   * added (§3.9, v1.14, BackOffice 4459, **unbuilt: stubbed**). One claim-free engine run, the
+   * price check's sibling widened to the basket: it writes nothing, takes no claim and so does not
+   * ride `withBusyRetry`. Refuses the session's own codes, plus `ITEM_NOT_FOUND` when the offer is
+   * no longer a near-miss.
+   */
+  offerWhatIf(transactionId: string, offerId: string): Promise<OfferWhatIf> {
+    return api.get<OfferWhatIf>('CallCenterWeb/OfferWhatIf', { transactionId, offerId })
+  },
+
+  /**
    * `GET CallCenterWeb/PriceCheck` — *"how much is that?"*, answered before the
    * item is in the basket (§3.4, v1.6, BackOffice 875). A **pure read**, so it
    * carries no `requestId`.
@@ -579,17 +590,6 @@ export const callCenterApi = {
    * ex-VAT estimate: this number is read out loud with nothing beside it to
    * correct it (`price-check-view.ts`).
    */
-  /**
-   * `GET CallCenterWeb/OfferWhatIf` — the basket priced as if the offer's missing quantity were
-   * added (§3.9, v1.14, BackOffice 4459, **unbuilt: stubbed**). One claim-free engine run, the
-   * price check's sibling widened to the basket: it writes nothing, takes no claim and so does not
-   * ride `withBusyRetry`. Refuses the session's own codes, plus `ITEM_NOT_FOUND` when the offer is
-   * no longer a near-miss.
-   */
-  offerWhatIf(transactionId: string, offerId: string): Promise<OfferWhatIf> {
-    return api.get<OfferWhatIf>('CallCenterWeb/OfferWhatIf', { transactionId, offerId })
-  },
-
   priceCheck(transactionId: string, itemNumber: string): Promise<PriceCheckResult> {
     return api.get<PriceCheckResult>('CallCenterWeb/PriceCheck', { transactionId, itemNumber })
   },

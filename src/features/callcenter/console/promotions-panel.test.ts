@@ -129,13 +129,19 @@ describe('oneStepAwayCarriesThePitch', () => {
       phrase: { key: 'callcenter:offer.headline.nthFree', params: { buy: 3, count: 4, ordinal: true } },
     })
     expect(pitch?.strip).toEqual({ slots: ['in', 'add', 'add', 'free'], have: 1, total: 4 })
-    expect(pitch?.add).toEqual({ qty: 3, free: 1, itemNumber: '509366' })
+    expect(pitch?.add).toEqual({ qty: 3, free: 1, itemNumber: '509366', itemName: null })
     expect(pitch?.badges.map((badge) => badge.kind)).toEqual(['phoneOnly', 'tier', 'ends'])
     expect(pitch?.say.map((phrase) => phrase.key)).toEqual([
       'callcenter:offer.say.addFree',
       'callcenter:offer.say.phoneOnly',
       'callcenter:offer.say.ends',
     ])
+  })
+
+  it('the add names its own item as the basket holds it, never the offer', () => {
+    const basket = [line('L10'), { ...line('L20'), itemNumber: '509366', description: 'OWNER CASE ITEM 509366' }]
+    const pitch = promotionsPanel(walk({ lines: basket, nearMisses: [owner] }), { now: WALK }).pitch.get('OMS000004571')
+    expect(pitch?.add).toEqual({ qty: 3, free: 1, itemNumber: '509366', itemName: 'OWNER CASE ITEM 509366' })
   })
 
   it('a grouping prerequisite has no one item to add: the card opens the items instead', () => {

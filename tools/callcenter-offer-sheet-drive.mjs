@@ -22,6 +22,14 @@
 //      never a figure (failedWhatIfShowsTheDefinitionNotAFigure);
 //   6. Escape closes it and focus returns to the card's title; *Open* opens it too;
 //   7. below 1280 px it is a full-height overlay.
+//
+// Review fixes (997 code review):
+//   R1. an offer that had already fired once, one step from a second round: its near-miss going
+//       without a second fire is NOT *Applied* — the sheet closes, focus to *One step away* (R8);
+//   R3. a get item that is not the buy item: each add row names its own item, and only the
+//       prerequisite's row draws its stock;
+//   R6. Escape with focus in the basket leaves the sheet open;
+//   R7. a sheet on a blank-id offer closes once the basket moves.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { permissions } from './permissions-stub.mjs'
@@ -112,7 +120,7 @@ const envelope = (data, status = 200) => ({
 })
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function open(browser, { state = BEFORE, whatIfFails = false, width = 1440 } = {}) {
+async function open(browser, { state = BEFORE, whatIfFails = false, width = 1440, whatIf = WHAT_IF, qtyAnswer = MOVED, addAnswer = AFTER } = {}) {
   const calls = { whatIf: [], add: [], qty: [] }
   const context = await browser.newContext({ viewport: { width, height: 900 } })
   const page = await context.newPage()
@@ -130,16 +138,16 @@ async function open(browser, { state = BEFORE, whatIfFails = false, width = 1440
     const p = url.split('/api/')[1].split('?')[0]
     if (p === 'CallCenterWeb/OfferWhatIf') {
       calls.whatIf.push(url)
-      return route.fulfill(whatIfFails ? envelope(null, 500) : envelope(WHAT_IF))
+      return route.fulfill(whatIfFails ? envelope(null, 500) : envelope(whatIf))
     }
     if (p === 'CallCenterWeb/ResolvePrereq') return route.fulfill(envelope(RESOLUTION))
     if (p === 'CallCenterWeb/ChangeQty') {
       calls.qty.push(JSON.parse(route.request().postData() ?? '{}'))
-      return route.fulfill(envelope(MOVED))
+      return route.fulfill(envelope(qtyAnswer))
     }
     if (p === 'CallCenterWeb/AddItem') {
       calls.add.push(JSON.parse(route.request().postData() ?? '{}'))
-      return route.fulfill(envelope(AFTER))
+      return route.fulfill(envelope(addAnswer))
     }
     if (p === 'Auth/Me')
       return route.fulfill(
@@ -271,6 +279,83 @@ async function run() {
     const box = await page.locator(SHEET).boundingBox()
     check('below 1280 px the sheet is a full-height overlay', box.x <= 1 && box.width >= 1020 && box.y <= 1 && box.height >= 898, JSON.stringify(box))
     check('no console errors (narrow)', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // R1 + R8 — fired once already; the second round's near-miss goes without a second fire.
+  {
+    const firedOnce = [{ offerId: OWNER.offerId, description: '3+1', amount: -98, lineIds: ['L10'] }]
+    const state = { ...BEFORE, firedPromotions: firedOnce }
+    const gone = { ...state, version: PRICED.version + 1, firedPromotions: firedOnce, nearMisses: [] }
+    const { context, page, errors, calls } = await open(browser, { state, qtyAnswer: gone })
+    await page.locator(`${CARD} [data-cc-offer-title]`).click()
+    await page.locator(`${SHEET} [data-cc-offer-sheet-add]`).waitFor({ timeout: 5_000 })
+    await page.evaluate(() => {
+      window.__sawApplied = false
+      new MutationObserver(() => {
+        if (document.querySelector('[data-cc-offer-sheet-applied]')) window.__sawApplied = true
+      }).observe(document.body, { subtree: true, childList: true })
+    })
+    // A basket change (a unit removed) made while focus stays in the sheet: a script click moves no focus.
+    await page.locator(SHEET).focus()
+    await page.evaluate(() => document.querySelector('[data-cc-line-more="L11"]').click())
+    await page.locator(SHEET).waitFor({ state: 'detached', timeout: 5_000 })
+    await wait(300)
+    check('R1 one ChangeQty', calls.qty.length === 1, `${calls.qty.length}`)
+    check('🚩 R1 fired once already, gone without a second fire: never says Applied', !(await page.evaluate(() => window.__sawApplied)))
+    check(
+      'R8 the sheet closed with focus in it: focus goes to One step away, not the body',
+      await page.evaluate(() => document.activeElement?.hasAttribute('data-cc-one-step-heading') === true),
+      await page.evaluate(() => document.activeElement?.tagName ?? ''),
+    )
+    check('no console errors (R1)', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // R3 + R6 — a get item that is not the buy item; Escape in the basket.
+  {
+    const definition = { ...OWNER.definition, getSameItem: false }
+    const state = { ...BEFORE, nearMisses: [{ ...OWNER, definition }] }
+    const whatIf = { ...WHAT_IF, adds: [{ itemNumber: '509366', qty: 2 }, { itemNumber: '100200', qty: 1 }], unitAfter: null }
+    const { context, page, errors } = await open(browser, { state, whatIf })
+    await page.locator(`${CARD} [data-cc-offer-title]`).click()
+    await page.locator(`${SHEET} [data-cc-offer-sheet-add-row="100200"]`).waitFor({ timeout: 5_000 })
+    await wait(400)
+    const buy = `${SHEET} [data-cc-offer-sheet-add-row="509366"]`
+    const get = `${SHEET} [data-cc-offer-sheet-add-row="100200"]`
+    check('R3 the buy row names its own item', (await text(page, `${buy} [data-cc-offer-sheet-add-name]`)) === LINE.description, await text(page, buy))
+    check('R3 the get row names ITS own item, not the buy item', (await text(page, `${get} [data-cc-offer-sheet-add-name]`)) === OTHER.description, await text(page, get))
+    check(
+      'R3 the prerequisite’s stock is on its row only',
+      (await page.locator(`${buy} [data-cc-offer-stock]`).count()) === 1 && (await page.locator(`${get} [data-cc-offer-stock]`).count()) === 0,
+    )
+    await page.locator('[data-cc-line-more="L11"]').focus()
+    await page.keyboard.press('Escape')
+    await wait(300)
+    check('R6 Escape with focus in the basket leaves the sheet open', (await page.locator(SHEET).count()) === 1)
+    await page.locator(SHEET).focus()
+    await page.keyboard.press('Escape')
+    await page.locator(SHEET).waitFor({ state: 'detached', timeout: 5_000 })
+    check('R6 Escape in the sheet still closes it', true)
+    check('no console errors (R3)', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // R7 — a blank-id offer (859): found by position only, so the sheet closes when the basket moves.
+  {
+    const blank = { ...OWNER, offerId: '' }
+    const state = { ...BEFORE, nearMisses: [blank] }
+    const moved = { ...MOVED, nearMisses: [blank] }
+    const { context, page, errors, calls } = await open(browser, { state, qtyAnswer: moved })
+    const card = '[data-cc-offer-card][data-cc-card=""]'
+    await page.locator(`${card} [data-cc-offer-title]`).click()
+    await page.locator('[data-cc-offer-sheet=""]').waitFor({ timeout: 5_000 })
+    check('R7 a blank id is never asked a what-if', calls.whatIf.length === 0, `${calls.whatIf.length}`)
+    await page.locator('[data-cc-line-more="L11"]').click()
+    await page.locator('[data-cc-offer-sheet=""]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+    check('R7 the basket moved: the blank-id sheet closes', calls.qty.length === 1 && (await page.locator('[data-cc-offer-sheet=""]').count()) === 0)
+    check('R7 focus the agent had in the basket is not taken to One step away', await page.evaluate(() => !document.activeElement?.hasAttribute('data-cc-one-step-heading')), await page.evaluate(() => document.activeElement?.tagName ?? ''))
+    check('no console errors (R7)', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
 

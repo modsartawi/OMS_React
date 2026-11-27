@@ -12,7 +12,7 @@
  * 🚩 **No figure is computed here.** `unitAfter` is the server's per-unit price; where it is null
  * (an offer over several items) there is no per-unit figure, because the client never divides.
  */
-import type { NearMiss, OfferAudience, OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
+import type { FiredPromotion, NearMiss, OfferAudience, OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
 import { offerWhatIfKey } from './api'
 import type { GuidancePhrase } from './guidance-view'
 import { offerStrip } from './offer-strip'
@@ -168,4 +168,52 @@ export function sheetSay({
   // `currency` is a word SayLine says in each sentence's own language.
   if (priced) phrases.push({ key: `${SAY}.wouldSave`, params: { amount: priced.saving, after: priced.after, currency: true } })
   return phrases
+}
+
+/** One *Add to the order* row: its own item, never the offer's. */
+export interface AddRow {
+  itemNumber: string
+  qty: number
+  /** The item's name as the basket holds it; `null` when it is not on a line (the row is its number). */
+  name: string | null
+  /** The prerequisite material's row: `ResolvePrereq`'s top-row stock is about this item only. */
+  stock: boolean
+}
+
+/**
+ * The sheet's add rows (997). A get item that is not the buy item (`getSameItem: false`) is a
+ * different item: it is named from its own basket line, and the prerequisite's stock is drawn only
+ * on the prerequisite's row.
+ */
+export function addRows(
+  adds: readonly { itemNumber: string; qty: number }[],
+  basket: readonly { itemNumber: string; description: string }[],
+  prereqMaterial: string,
+): AddRow[] {
+  return adds.map(({ itemNumber, qty }) => ({
+    itemNumber,
+    qty,
+    name: basket.find((line) => line.itemNumber === itemNumber)?.description || null,
+    stock: prereqMaterial !== '' && itemNumber === prereqMaterial,
+  }))
+}
+
+/**
+ * What the offer has given so far on this basket (the size of its fired amounts), taken when the
+ * sheet opens. A blank id (859) addresses nothing, so it has given nothing the sheet can know of.
+ */
+export function firedTotal(fired: readonly FiredPromotion[] | null | undefined, offerId: string): number {
+  if (offerId === '') return 0
+  return (fired ?? []).filter((promotion) => promotion.offerId === offerId).reduce((sum, promotion) => sum + Math.abs(promotion.amount), 0)
+}
+
+/**
+ * The engine's amount once the open sheet's offer FIRED, else `null` (997). It fired only if it
+ * gives more than it did when the sheet opened: an offer that had already fired once and was one
+ * step from a second round has not fired again when that near-miss merely disappears (a unit
+ * removed) — that is the offer gone, not applied.
+ */
+export function sheetApplied(before: number, fired: readonly FiredPromotion[] | null | undefined, offerId: string): number | null {
+  if (offerId === '' || firedTotal(fired, offerId) <= before) return null
+  return (fired ?? []).filter((promotion) => promotion.offerId === offerId).reduce((sum, promotion) => sum + promotion.amount, 0)
 }

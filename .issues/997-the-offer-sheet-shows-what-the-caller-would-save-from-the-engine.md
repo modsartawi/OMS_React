@@ -98,3 +98,13 @@ how it works, who gets it, the longer script) with its vitest; `OfferSheet.tsx`;
 **Owed:** the live walk once 859, 4458 and 4459 deploy — the owner's case (OMS000004571, 1 × 509366 at
 P721): Saves = the engine's what-if, and after Add 3 the fired amount equals that saving (−98.00). 4459's
 timing target (< 500 ms warm) is recorded there.
+
+**2026-11-27 — code-review fixes (branch `t/995-review`).** *Applied* only when the offer gives more than
+it did when the sheet opened (`sheetApplied`/`firedTotal`), so a second round's near-miss going is *gone*,
+not *Applied*; each add row names its own item and only the prerequisite's row draws stock (`addRows`);
+the pitch card's add names the basket item, not the offer; Arabic `money.currency` (ر.س); `applied` is a
+primitive (`appliedAmount`) so re-renders don't postpone the 1.5 s close; Escape only when the press is
+the sheet's (`takesEscape` + focus in it); a blank-id sheet closes when the basket version moves; a sheet
+gone with focus in it hands focus to the card or *One step away*; card D's sum is `formatProduct` (new
+in `@/core/util/bidi`, named in the bidi + i18n rules), not a locale template; `offerWhatIf` moved above
+`priceCheck`'s JSDoc. Offer-sheet drive 50/50 (R1–R8 checks), offer-card 30/30, guidance 166/166.

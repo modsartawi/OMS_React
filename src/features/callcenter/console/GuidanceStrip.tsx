@@ -124,7 +124,10 @@ export default function GuidanceStrip({
           thing an agent needs after an add. */}
       <div className="px-4 py-1.5" data-cc-guidance-head>
         <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-          <span>{t('promotions.oneStep.heading')}</span>
+          {/* 997: an offer sheet that closes on a gone offer gives focus back here. */}
+          <span tabIndex={-1} data-cc-one-step-heading>
+            {t('promotions.oneStep.heading')}
+          </span>
           {view.withinReachCount > 0 && (
             <span data-cc-guidance-strip-count>{t('guidance.topCount', { count: view.withinReachCount })}</span>
           )}

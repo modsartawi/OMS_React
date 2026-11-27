@@ -15,7 +15,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
-import { fsi } from '@/core/util/bidi'
+import { formatProduct, fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
 import { formatMoney } from '@/core/util/number-format'
 import type { GuidancePhrase } from './guidance-view'
@@ -81,11 +81,8 @@ export default function AppliedOfferCard({ card }: { card: AppliedCard }) {
           <div className="text-muted-foreground" data-cc-applied-sum>
             {/* The arithmetic is one machine value, isolated once and laid out left to right. */}
             <Ltr>
-              {t('offer.applied.sum', {
-                qty: landed.qty,
-                unit: formatMoney(landed.unitGross),
-                before: formatMoney(Math.round(landed.qty * landed.unitGross * 100) / 100),
-              })}
+              {/* Separators only, so not a locale template (bidi rule): built once, isolated once. */}
+              {formatProduct(landed.qty, formatMoney(landed.unitGross), formatMoney(Math.round(landed.qty * landed.unitGross * 100) / 100))}
             </Ltr>
             <span aria-hidden> · </span>
             <span data-cc-applied-pays>{t('offer.applied.pays', { after: fsi(formatMoney(landed.lineGross)) })}</span>

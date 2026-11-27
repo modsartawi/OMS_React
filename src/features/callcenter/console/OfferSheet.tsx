@@ -29,7 +29,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Copy, Loader2 } from 'lucide-react'
 import { apiErrorMessage, ApiError } from '@/core/api'
-import type { NearMiss } from '@/core/models/callcenter'
+import { takesEscape } from '@/core/commands/key-layer'
+import type { NearMiss, SessionLine } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
@@ -44,6 +45,7 @@ import Money from './Money'
 import { formatOfferDay, tierPhrase } from './offer-badges'
 import { TopRowStock } from './OfferCard'
 import {
+  addRows,
   howItWorks,
   offerEnds,
   sheetFigures,
@@ -65,12 +67,14 @@ export interface OfferSheetOffer {
   miss: NearMiss
   /** The item's name as the basket holds it, where the offer is one material already on a line. */
   itemName: string | null
+  /** The basket's lines, so each add row names its own item. */
+  basket: readonly Pick<SessionLine, 'itemNumber' | 'description'>[]
 }
 
 export default function OfferSheet({
   offerId,
   offer,
-  applied,
+  appliedAmount,
   transactionId,
   version,
   actions,
@@ -80,8 +84,8 @@ export default function OfferSheet({
   offerId: string
   /** `null` once the offer is no longer one step away. */
   offer: OfferSheetOffer | null
-  /** The fired promotion's engine amount, once the offer fired. */
-  applied: { amount: number } | null
+  /** The fired promotion's engine amount, once the offer fired (a primitive: it gates the close timer). */
+  appliedAmount: number | null
   transactionId: string
   version: number
   actions: GuidanceActions
@@ -94,17 +98,20 @@ export default function OfferSheet({
   const body = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (offer || !applied) return
+    if (offer || appliedAmount === null) return
     const timer = window.setTimeout(() => onClose('applied'), APPLIED_CLOSE_MS)
     return () => window.clearTimeout(timer)
-  }, [offer, applied, onClose])
+  }, [offer, appliedAmount, onClose])
 
-  // Escape closes it — unless a modal (the below-ATP confirm an add can raise) is over it: that
-  // Escape is the modal's.
+  // Escape closes it — when the press is the sheet's: focus is in it (or nowhere), and no modal
+  // (the below-ATP confirm an add can raise) is over it. Not modal, so the basket keeps its own
+  // Escape: abandoning a quantity edit there leaves the sheet open.
   const frame = useRef<HTMLElement>(null)
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return
+      if (!takesEscape(event, frame.current)) return
+      const target = event.target instanceof Node ? event.target : null
+      if (target && target !== document.body && !frame.current?.contains(target)) return
       event.preventDefault()
       onClose('closed')
     }
@@ -146,7 +153,7 @@ export default function OfferSheet({
             actions={actions}
             now={now}
           />
-        ) : applied ? (
+        ) : appliedAmount !== null ? (
           <p
             className="rounded-md border border-success-border bg-success-050 px-3 py-2 text-success-800"
             role="status"
@@ -154,7 +161,7 @@ export default function OfferSheet({
           >
             <span className="font-semibold">{t('offer.sheet.applied')}</span>{' '}
             <Ltr>
-              <Money value={applied.amount} />
+              <Money value={appliedAmount} />
             </Ltr>
           </p>
         ) : null}
@@ -209,6 +216,8 @@ function OfferBody({
         ? [{ itemNumber: pitch.add.itemNumber, qty: pitch.add.qty }]
         : []
   const material = pitch.add !== null
+  const prereqMaterial = miss.prereq?.kind === 'material' ? (miss.prereq.materialNumber ?? '') : ''
+  const rows = addRows(adds, offer.basket, prereqMaterial)
 
   return (
     <>
@@ -303,24 +312,28 @@ function OfferBody({
 
       <Section title={t('offer.sheet.addHeading')} data="add">
         {material ? (
-          adds.map((add) => (
+          rows.map((add) => (
             <div key={add.itemNumber} className="flex flex-wrap items-center gap-2" data-cc-offer-sheet-add-row={add.itemNumber}>
+              {/* Each row is its own item: a get item that is not the buy item has its own name. */}
               <span className="min-w-0 flex-1 text-xs">
-                <span className="block truncate" data-cc-server-text>
-                  <bdi>{offer.itemName ?? add.itemNumber}</bdi>
-                </span>
-                <span className="block text-[11px] text-muted-foreground" data-numeric>
+                {add.name !== null && (
+                  <span className="block truncate" data-cc-server-text data-cc-offer-sheet-add-name>
+                    <bdi>{add.name}</bdi>
+                  </span>
+                )}
+                <span className={add.name !== null ? 'block text-[11px] text-muted-foreground' : 'block'} data-numeric>
                   <Ltr>{add.itemNumber}</Ltr>
                 </span>
               </span>
-              <TopRowStock offerId={offerId} transactionId={transactionId} />
+              {/* `ResolvePrereq`'s top row is the prerequisite's stock: on its own row only. */}
+              {add.stock && <TopRowStock offerId={offerId} transactionId={transactionId} />}
               {actions.onAdd && (
                 <Button
                   variant="primary"
                   className="min-h-10 tabular-nums"
                   disabled={actions.pending !== null}
                   onClick={() =>
-                    actions.onAdd?.({ offerId, itemNumber: add.itemNumber, itemName: offer.itemName ?? card.description, qty: add.qty })
+                    actions.onAdd?.({ offerId, itemNumber: add.itemNumber, itemName: add.name ?? add.itemNumber, qty: add.qty })
                   }
                   data-cc-offer-sheet-add={add.qty}
                 >

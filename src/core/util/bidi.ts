@@ -4,8 +4,9 @@
  *
  * Two kinds of helper, and they never mix:
  *
- * - **Formatters** (`formatRange`, `formatPair`, `formatCount`, `formatRate`) build a range, a
- *   `code · name` pair, an `n / m` or a `SAR / 4 EA` rate as ONE plain string, so the caller can isolate it
+ * - **Formatters** (`formatRange`, `formatPair`, `formatCount`, `formatRate`, `formatProduct`) build a
+ *   range, a `code · name` pair, an `n / m`, a `SAR / 4 EA` rate or a `4 × 98.00 = 392.00` product as
+ *   ONE plain string, so the caller can isolate it
  *   once. Isolating each end separately reverses it under RTL: the two isolates are laid
  *   out right-to-left, and `18:00–21:00` reads `21:00–18:00`. Their output is plain text
  *   and is safe for grid values and exports.
@@ -79,6 +80,16 @@ export function formatCount(count: Part, of: Part): string {
 export function formatRate(amount: Part, quantity: Part, unit: Part): string {
   const per = [text(quantity), text(unit)].filter((side) => side !== '').join(' ')
   return `${text(amount)} / ${per}`
+}
+
+/**
+ * A product as one string, a quantity times a unit amount and what it comes to:
+ * `4 × 98.00 = 392.00`. Separators only, so it never lives in a locale template (the
+ * words around it do). A blank total leaves just `qty × unit`.
+ */
+export function formatProduct(qty: Part, unit: Part, total: Part): string {
+  const product = `${text(qty)} × ${text(unit)}`
+  return text(total) === '' ? product : `${product} = ${text(total)}`
 }
 
 /**

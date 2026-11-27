@@ -20,8 +20,8 @@ retrofit (a known map item) is a data change, not a code sweep.
 Route paths, API endpoint strings, CSS class names, `data-*` keys, log/console text, test names,
 machine codes matched against the envelope (`LAST_ADMIN`, `SYSTEM_ROLE`). These are not localized.
 
-The three separators of `@/core/util/bidi` are also allowed: the range's `–`, the pair's ` · ` and
-`n / m`'s ` / `. They are punctuation between machine values, not copy, and a locale template that
+The separators of `@/core/util/bidi` are also allowed: the range's `–`, the pair's ` · `,
+`n / m`'s ` / ` and `formatProduct`'s ` × ` and ` = `. They are punctuation between machine values, not copy, and a locale template that
 glued two values with one would break under RTL ([bidi](bidi.md)). Words around a value (`Showing
 {{range}} of {{total}}`, "from {{from}} to {{to}}") stay in the locale.
 

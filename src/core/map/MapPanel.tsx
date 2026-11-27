@@ -4,7 +4,7 @@ import { documentDirection } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { googleEngine } from './google-engine'
 import { placeCard } from './map-drawing'
-import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapLine, type MapPlace, type MapPoint, type MapsAccess } from './map-panel'
+import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapLine, type MapPin, type MapPlace, type MapPoint, type MapRing, type MapsAccess } from './map-panel'
 
 /**
  * The map panel (ticket 879, BackOffice spec 3630; ticket 908, ADR 0139): given points, it draws them on Google's road
@@ -36,6 +36,15 @@ export interface MapPanelProps {
    * Stable, like `points`. Absent: none, and the map is drawn exactly as before.
    */
   lines?: readonly MapLine[]
+  /** Rings round a place (964: the customer's 5 km and 10 km). Stable, like `points`. Absent: none. */
+  rings?: readonly MapRing[]
+  /** The customer's pin (964), above every point. Stable, like `points`. Absent or null: none. */
+  pin?: MapPin | null
+  /**
+   * The pin was dragged and dropped here (964): told on the drop, never while dragging. Changing the handler does not
+   * restart the map. Absent: the pin is drawn but cannot be dragged.
+   */
+  onPinMoved?: (place: MapPlace) => void
   /** The model's `maps` part (BackOffice 3986): Google's key, and the map ID when served. Absent: "cannot draw" (`no-key`). */
   maps?: MapsAccess | null
   /** The map's accessible name, in the caller's words. */
@@ -59,6 +68,9 @@ export default function MapPanel({
   grouping = null,
   groupNearby = true,
   lines,
+  rings,
+  pin = null,
+  onPinMoved,
   maps = null,
   ariaLabel,
   onDrawn,
@@ -72,8 +84,10 @@ export default function MapPanel({
   const [state, setState] = useState<MapPanelState>('drawing')
   const [card, setCard] = useState<MapCardState>(null)
   // The callers' latest handlers, without restarting the map when they change identity.
-  const handlers = useRef({ onDrawn, onCannotDraw, onPlace })
-  handlers.current = { onDrawn, onCannotDraw, onPlace }
+  const handlers = useRef({ onDrawn, onCannotDraw, onPlace, onPinMoved })
+  handlers.current = { onDrawn, onCannotDraw, onPlace, onPinMoved }
+  // Whether a drag moves the pin: a fact of the map as started, so only its change restarts the map.
+  const movable = !!onPinMoved
   const lang = i18n.language?.split('-')[0] === 'ar' ? 'ar' : 'en'
   // The key's own value, not the part's identity: a model read again must not restart a drawn map.
   const key = maps?.key ?? ''
@@ -92,6 +106,9 @@ export default function MapPanel({
       grouping,
       groupNearby,
       lines,
+      rings,
+      pin,
+      ...(movable ? { onPinMoved: (place: MapPlace) => handlers.current.onPinMoved?.(place) } : {}),
       inkOf: (token) => tokenOf(container, token),
       onCard: setCard,
       onPlace: (place) => handlers.current.onPlace?.(place),
@@ -107,7 +124,7 @@ export default function MapPanel({
       },
     })
     return () => panel.close()
-  }, [points, grouping, groupNearby, lines, lang, key, mapId])
+  }, [points, grouping, groupNearby, lines, rings, pin, movable, lang, key, mapId])
   const shown = card ? points.find((p) => p.id === card.id) : undefined
 
   return (

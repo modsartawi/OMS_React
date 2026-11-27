@@ -2,6 +2,7 @@ import { useState, type ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AdviseCartRequest, AdvisePlan, AdviseReply, PlanGoal } from '@/core/models/sourcing-run'
 import Chip from '@/core/ui/Chip'
+import MapTab from './MapTab'
 import SolverPanel from './SolverPanel'
 import { SIMULATOR_TABS, type SimulatorTab } from './tabs'
 import WhatTheRunUsed from './WhatTheRunUsed'
@@ -19,6 +20,7 @@ export interface SimulatorTabProps {
  * Each tab's panel, by the ticket that builds it: 964 registers `map`, 965 `why` and `used`, 966 `solver`.
  */
 const TAB_PANELS: Partial<Record<SimulatorTab, ComponentType<SimulatorTabProps>>> = {
+  map: MapTab,
   why: WhyThisPlan,
   used: WhatTheRunUsed,
   solver: SolverPanel,

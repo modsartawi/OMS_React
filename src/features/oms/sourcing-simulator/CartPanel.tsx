@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, MapPin, Play, Plus, Trash2 } from 'lucide-react'
 import LazyMapPanel from '@/core/map/LazyMapPanel'
 import type { MapPlace, MapPoint, MapsAccess } from '@/core/map/map-panel'
+import type { AdviseReply } from '@/core/models/sourcing-run'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
 import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
@@ -11,8 +13,12 @@ import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { pointText, SIMULATOR_CHANNELS, type CartForm, type CartProblem } from './cart'
+import { START_KINDS, type ReplayForm, type ReplayProblem, type StartKind } from './replay'
+import ReplayStart from './ReplayStart'
 
-const PROBLEM_KEY: Record<CartProblem, string> = {
+const PROBLEM_KEY: Record<CartProblem | ReplayProblem, string> = {
+  noOrder: 'replay.needs',
+  badOrder: 'replay.badOrder',
   noLines: 'run.needs',
   noPoint: 'run.needs',
   badLine: 'run.badLine',
@@ -23,6 +29,7 @@ const PROBLEM_KEY: Record<CartProblem, string> = {
 /**
  * The left column (ticket 962): start a run. The channel, the time of day, the cart's lines and the customer, placed by
  * a click on the map panel (or typed, when the map cannot be drawn). It runs on the Run button, never on a change.
+ * 964: a two-way switch first (SIMT decision 6) — replay an order (`./ReplayStart`) or build a cart.
  */
 export default function CartPanel({
   form,
@@ -31,13 +38,25 @@ export default function CartPanel({
   problem,
   running,
   onRun,
+  start = 'build',
+  onStart,
+  replay,
+  onReplay,
+  reply = null,
 }: {
   form: CartForm
   onChange: (form: CartForm) => void
   maps: MapsAccess | null
-  problem: CartProblem | null
+  problem: CartProblem | ReplayProblem | null
   running: boolean
   onRun: () => void
+  /** 964: how the run is started; absent builds a cart, as before. */
+  start?: StartKind
+  onStart?: (start: StartKind) => void
+  replay?: ReplayForm
+  onReplay?: (form: ReplayForm) => void
+  /** The latest reply, for the replayed order's lines, channel and time. */
+  reply?: AdviseReply | null
 }) {
   const { t } = useTranslation('sourcing-simulator')
   const [cannotDraw, setCannotDraw] = useState(false)
@@ -62,6 +81,18 @@ export default function CartPanel({
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" data-sim-cart="">
       <h2 className="text-sm font-semibold">{t('cart.title')}</h2>
+      {onStart && (
+        <div role="group" aria-label={t('replay.startLabel')} className="flex gap-1" data-sim-start={start}>
+          {START_KINDS.map((k) => (
+            <Chip key={k} on={start === k} onClick={() => onStart(k)} data-sim-start-switch={k}>
+              {t(`replay.start.${k}`)}
+            </Chip>
+          ))}
+        </div>
+      )}
+      {start === 'replay' && replay && onReplay && <ReplayStart form={replay} onChange={onReplay} reply={reply} />}
+      {/* 964: the cart's own fields, shown only when building a cart (left at their indent to keep the change small). */}
+      {start === 'build' && (<>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('cart.channel')}>
           <Select className="w-full" value={form.channel} onChange={(e) => set({ channel: e.target.value })} data-sim-field="channel">
@@ -132,6 +163,7 @@ export default function CartPanel({
           </p>
         )}
       </div>
+      </>)}
 
       {problem && (
         <p className="text-xs text-muted-foreground" data-sim-needs={problem}>

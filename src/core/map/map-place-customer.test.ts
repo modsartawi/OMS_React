@@ -5,7 +5,7 @@
  * adapter's own `click` → place is in `google-engine.test.ts`.
  */
 import { describe, expect, it } from 'vitest'
-import { markerHits } from './map-markers'
+import { markerHits, pinDrag } from './map-markers'
 import { openMapPanel, type MapEngine, type MapEngineEvents, type MapPlace } from './map-panel'
 
 const MAPS = { key: 'planted-test-key' }
@@ -128,5 +128,119 @@ describe('the Google adapter’s hits carry the place of a click on the map', ()
     hits.mapClick({ lon: 46.7386, lat: 24.7741 })
     expect(taps).toHaveLength(1)
     expect(taps[0].place).toBeUndefined()
+  })
+})
+
+// Ticket 964 (spec 4354 §12, §19: "the customer's pin can be moved — click places, drag moves; the run plans again on
+// the drop"). The panel draws the caller's customer pin and hands the caller the place it was dropped at; the adapter's
+// drag is `pinDrag`, pure: a press that does not move is no drag, and nothing is reported while dragging, only on the drop.
+describe('the customer pin is drawn where the caller says, and a drag moves it', () => {
+  const PIN = { lon: 46.7386, lat: 24.7741, ink: '--map-customer', label: 'The customer' }
+
+  function withPin(onPinMoved?: (p: MapPlace) => void, over: Partial<Parameters<typeof openMapPanel>[0]> = {}) {
+    let started: Parameters<MapEngine['start']>[0] | null = null
+    let events: MapEngineEvents | null = null
+    const engine: MapEngine = {
+      start(s, ev) {
+        started = s
+        events = ev
+        return { destroy() {}, zoomTo() {}, fit() {}, project: (x, y) => ({ x, y }) }
+      },
+    }
+    const panel = openMapPanel({
+      engine,
+      container: null,
+      points: [STORE],
+      lang: 'en',
+      dir: 'ltr',
+      maps: MAPS,
+      inkOf: (t) => `ink(${t})`,
+      pin: PIN,
+      onDrawn() {},
+      onCannotDraw() {},
+      ...(onPinMoved ? { onPinMoved } : {}),
+      ...over,
+    })
+    if (!started || !events) throw new Error('the engine was not started')
+    return { start: started as Parameters<MapEngine['start']>[0], events: events as MapEngineEvents, panel }
+  }
+
+  it('the engine is handed the pin at its place, its colour resolved, its words, and draggable when the caller moves it', () => {
+    const { start } = withPin(() => {})
+    expect(start.pin).toEqual({ lon: 46.7386, lat: 24.7741, fill: 'ink(--map-customer)', stroke: 'ink(--map-ring)', label: 'The customer', draggable: true })
+  })
+
+  it('a pin whose caller takes no move is drawn but cannot be dragged', () => {
+    const { start } = withPin()
+    expect(start.pin?.draggable).toBe(false)
+  })
+
+  it('no pin given: the engine is handed none (every map before 964)', () => {
+    const { start } = withPin(undefined, { pin: null })
+    expect(start.pin).toBeUndefined()
+  })
+
+  it('the view opens on the stores and the pin together', () => {
+    const { start } = withPin(undefined, { points: [{ ...STORE, lon: 46.7611, lat: 24.7902 }] })
+    expect(start.view).toEqual({ kind: 'bounds', west: 46.7386, south: 24.7741, east: 46.7611, north: 24.7902 })
+  })
+
+  it('a drop hands the caller the place the pin was dropped at', () => {
+    const moved: MapPlace[] = []
+    const { events } = withPin((p) => moved.push(p))
+    events.pinMoved?.({ lon: 46.75, lat: 24.78 })
+    expect(moved).toEqual([{ lon: 46.75, lat: 24.78 }])
+  })
+
+  it('nothing is moved once the panel is closed', () => {
+    const moved: MapPlace[] = []
+    const { events, panel } = withPin((p) => moved.push(p))
+    panel.close()
+    events.pinMoved?.({ lon: 46.75, lat: 24.78 })
+    expect(moved).toEqual([])
+  })
+})
+
+describe('the adapter’s drag of the pin (pinDrag)', () => {
+  // The stand-in projection: a pixel is a thousandth of a degree from (46, 24).
+  const toPlace = (x: number, y: number): MapPlace => ({ lon: 46 + x / 1000, lat: 24 + y / 1000 })
+
+  it('press, move and release: the pin follows the pointer, and the drop is reported once, at the last place', () => {
+    const drops: MapPlace[] = []
+    const drag = pinDrag(toPlace, (p) => drops.push(p))
+    drag.down(100, 100)
+    expect(drag.move(120, 110)).toEqual({ x: 120, y: 110 })
+    expect(drag.move(150, 130)).toEqual({ x: 150, y: 130 })
+    expect(drops).toEqual([])
+    expect(drag.up()).toBe(true)
+    expect(drops).toEqual([{ lon: 46.15, lat: 24.13 }])
+  })
+
+  it('a press released where it was (or within a jitter of a few pixels) is no drag: nothing moves', () => {
+    const drops: MapPlace[] = []
+    const drag = pinDrag(toPlace, (p) => drops.push(p))
+    drag.down(100, 100)
+    expect(drag.move(101, 101)).toBeNull()
+    expect(drag.up()).toBe(false)
+    expect(drops).toEqual([])
+  })
+
+  it('a move with no press first moves nothing', () => {
+    const drops: MapPlace[] = []
+    const drag = pinDrag(toPlace, (p) => drops.push(p))
+    expect(drag.move(150, 130)).toBeNull()
+    expect(drag.up()).toBe(false)
+    expect(drops).toEqual([])
+  })
+
+  it('a second drag starts afresh', () => {
+    const drops: MapPlace[] = []
+    const drag = pinDrag(toPlace, (p) => drops.push(p))
+    drag.down(0, 0)
+    drag.move(50, 0)
+    drag.up()
+    drag.down(50, 0)
+    drag.up()
+    expect(drops).toEqual([{ lon: 46.05, lat: 24 }])
   })
 })

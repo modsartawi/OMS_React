@@ -11,11 +11,12 @@
  * with the mark `READ_AFRESH`, and the screen says so.
  */
 import { apiErrorCode } from '@/core/api'
-import type { AdviseCartRequest, AdvisePin, AdviseReply, AdviseRerunRequest, AdviseWeightSetRef } from '@/core/models/sourcing-run'
+import type { AdviseCartRequest, AdvisePin, AdviseReplayRequest, AdviseReply, AdviseRerunRequest, AdviseWeightSetRef } from '@/core/models/sourcing-run'
 
 /** What the user asks to run: the cart (without pins or set), the pins and the weight set. */
 export interface RunAsk {
-  cart: AdviseCartRequest
+  /** The cart, or (964) the order to replay. */
+  cart: AdviseCartRequest | AdviseReplayRequest
   pins: AdvisePin[]
   /** Null while no set is read: the door then plans on the candidate set. */
   weightSet: AdviseWeightSetRef | null
@@ -27,14 +28,18 @@ export interface LastRun {
   runId: string
 }
 
-export type SimulatorRequest = AdviseCartRequest | AdviseRerunRequest
+export type SimulatorRequest = AdviseCartRequest | AdviseReplayRequest | AdviseRerunRequest
 
 export const isRerun = (r: SimulatorRequest): r is AdviseRerunRequest => 'basedOnRun' in r
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
-/** The cart form, carrying the pins and the set. */
-export function cartRequest(ask: RunAsk): AdviseCartRequest {
+/**
+ * The cart form (or, 964, the order form), carrying the pins and the set. A replay sends them beside `orderNumber` as a
+ * cart does: pins apply to every run (spec 4354 §3). A choice to confirm with BackOffice 4381 (4281 decision 11 says
+ * "`orderNumber` alone").
+ */
+export function cartRequest(ask: RunAsk): AdviseCartRequest | AdviseReplayRequest {
   return {
     ...ask.cart,
     ...(ask.pins.length ? { pins: ask.pins } : {}),
@@ -58,7 +63,7 @@ export function runRequest(ask: RunAsk, last: LastRun | null): SimulatorRequest 
 }
 
 /** On a refusal: the cart to run again when planning again found the held copy gone (`ADVISE-404`); else null. */
-export function cartAgain(sent: SimulatorRequest, err: unknown, ask: RunAsk): AdviseCartRequest | null {
+export function cartAgain(sent: SimulatorRequest, err: unknown, ask: RunAsk): AdviseCartRequest | AdviseReplayRequest | null {
   return isRerun(sent) && apiErrorCode(err) === 'ADVISE-404' ? cartRequest(ask) : null
 }
 

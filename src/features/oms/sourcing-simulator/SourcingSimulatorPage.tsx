@@ -2,14 +2,15 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import type { AdvisePin, AdviseReply, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+import type { MapPlace } from '@/core/map/map-panel'
+import type { AdviseCartRequest, AdvisePin, AdviseReplayRequest, AdviseReply, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { usePermissions } from '@/core/permissions'
 import { canRunSourcingAdvisor, canSaveWeightSets } from '@/core/sourcing-advisor/access'
 import Chip from '@/core/ui/Chip'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { toIsoDate } from '@/core/util/date-format'
 import { simulatorApi, weightSetsQuery, weightSetVersionQuery, workbenchQuery } from './api'
-import { adviseRequest, cartProblem, SIMULATOR_CHANNELS, type CartForm } from './cart'
+import { adviseRequest, cartProblem, pointText, SIMULATOR_CHANNELS, type CartForm } from './cart'
 import CartPanel from './CartPanel'
 import { openDraft, setValue, weightSetRef, type WeightDraft } from './draft-model'
 import { addPin, pinChips, pinsClash, pinsCost, removePin, storesSeen } from './pins-model'
@@ -19,11 +20,15 @@ import { planNotes } from './plans-list-model'
 import PlanNotes from './PlanNotes'
 import PlansTable from './PlansTable'
 import { cartAgain, cartRequest, runBasis, runRequest, sameAsk, type LastRun, type RunAsk, type SimulatorRequest } from './replan-model'
+import { cartRequestOf, replayProblem, replayRequest, type ReplayForm, type StartKind } from './replay'
+import ReplayBanner from './ReplayBanner'
 import RunBasisNotes from './RunBasisNotes'
+import { SimulatorRunContext, type SimulatorRun } from './run-context'
 import RunRefusal from './RunRefusal'
 import RunSummary from './RunSummary'
 import SimulatorTabs from './SimulatorTabs'
 import WeightSetPanel from './WeightSetPanel'
+import { whatHappened } from './what-happened-model'
 
 /**
  * OMS ▸ Sourcing simulator (ticket 962, BackOffice spec 4354 §19; SIMT decisions 1, 6, 12; the prototype
@@ -83,6 +88,9 @@ function Workbench() {
   const { t } = useTranslation('sourcing-simulator')
   const [form, setForm] = useState<CartForm>(firstForm)
   const [view, setView] = useState<PlansView>('cards')
+  // 964: a run starts from a cart or from an order to replay.
+  const [start, setStart] = useState<StartKind>('build')
+  const [replay, setReplay] = useState<ReplayForm>({ orderNumber: '', withPoint: false, movedTo: null })
   const workbench = useQuery(workbenchQuery())
   const queryClient = useQueryClient()
   const permissions = usePermissions()
@@ -98,8 +106,8 @@ function Workbench() {
   const base = version.data && chosen && version.data.name === chosen.name && version.data.version === chosen.version ? version.data : null
   const draft = base ? (edited && edited.base.name === base.name && edited.base.version === base.version ? edited : openDraft(base)) : null
 
-  const cart = adviseRequest(form)
-  const problem = cartProblem(form)
+  const cart = start === 'build' ? adviseRequest(form) : replayRequest(replay)
+  const problem = start === 'build' ? cartProblem(form) : replayProblem(replay)
   const ask: RunAsk | null = cart ? { cart, pins, weightSet: draft ? weightSetRef(draft) : null } : null
   const [last, setLast] = useState<LastRun | null>(null)
   const run = useMutation({
@@ -118,6 +126,7 @@ function Workbench() {
   const ran = run.data
   const reply = ran?.reply
   const notes = useMemo(() => (reply ? planNotes(reply) : null), [reply])
+  const happened = useMemo(() => (reply ? whatHappened(reply) : null), [reply])
   const stale = !!ran && (!ask || !sameAsk(ran.ask, ask))
   // A chip carries the refusal of the run that was sent with it; a pin added since has none yet.
   const chips = useMemo(() => pinChips(pins, ran ? ran.reply : null).map((c) => (ran && ran.ask.pins.some((p) => JSON.stringify(p) === JSON.stringify(c.pin)) ? c : { ...c, refusal: null })), [pins, ran])
@@ -125,6 +134,35 @@ function Workbench() {
   const clash = useMemo(() => (ran ? pinsClash(ran.reply, ran.ask.pins) : null), [ran])
   const basis = ran ? runBasis(ran.reply, { heldGone: ran.heldGone }) : null
   const pinning = { pins, onPin: (pin: AdvisePin) => setPins((ps) => addPin(ps, pin)), cost }
+
+  // 964: the map tab moves the customer and the run plans again from there, as a new run with its own read — the cart's
+  // point, or a replay's point placed by hand (kind REPLAY_MOVED_POINT); "Back to the order's point" plans the replay
+  // from the order's own point again.
+  const runWith = (next: AdviseCartRequest | AdviseReplayRequest | null) => {
+    if (!next) return
+    const a: RunAsk = { cart: next, pins, weightSet: draft ? weightSetRef(draft) : null }
+    run.mutate({ ask: a, request: runRequest(a, last) })
+  }
+  const moveCustomer = (place: MapPlace) => {
+    const lat = Number(pointText(place.lat))
+    const lng = Number(pointText(place.lon))
+    if (!ran) return
+    if ('lines' in ran.ask.cart) {
+      const next = { ...form, lat: pointText(lat), lng: pointText(lng) }
+      setForm(next)
+      runWith(adviseRequest(next))
+    } else {
+      const next = { ...replay, movedTo: { lat, lng } }
+      setReplay(next)
+      runWith(replayRequest(next))
+    }
+  }
+  const backToOrder = () => {
+    const next = { ...replay, movedTo: null }
+    setReplay(next)
+    runWith(replayRequest(next))
+  }
+  const runContext: SimulatorRun = { moveCustomer }
 
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-sourcing-simulator="">
@@ -137,6 +175,11 @@ function Workbench() {
             problem={problem}
             running={run.isPending}
             onRun={() => ask && run.mutate({ ask, request: runRequest(ask, last) })}
+            start={start}
+            onStart={setStart}
+            replay={replay}
+            onReplay={setReplay}
+            reply={reply ?? null}
           />
           <PinsPanel
             pins={pins}
@@ -194,6 +237,7 @@ function Workbench() {
 
           {reply && notes && !run.isPending ? (
             <>
+              <ReplayBanner reply={reply} onBack={backToOrder} busy={run.isPending} />
               <RunSummary reply={reply} notes={notes} />
               {basis && <RunBasisNotes weightSet={reply.weightSet} basis={basis} clash={clash} />}
               {reply.plans.length === 0 ? (
@@ -201,12 +245,14 @@ function Workbench() {
                   {t('plans.noShown')}
                 </p>
               ) : view === 'cards' ? (
-                <PlanCards plans={reply.plans} pinning={pinning} />
+                <PlanCards plans={reply.plans} pinning={pinning} happened={happened} />
               ) : (
-                <PlansTable plans={reply.plans} pinsCost={cost} />
+                <PlansTable plans={reply.plans} pinsCost={cost} happened={happened} />
               )}
               <PlanNotes notes={notes} />
-              <SimulatorTabs reply={reply} request={ran ? cartRequest(ran.ask) : null} />
+              <SimulatorRunContext.Provider value={runContext}>
+                <SimulatorTabs reply={reply} request={ran ? cartRequestOf(cartRequest(ran.ask)) : null} />
+              </SimulatorRunContext.Provider>
             </>
           ) : (
             !run.isPending &&

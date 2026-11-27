@@ -7,6 +7,8 @@ import { shortFigures } from './short-figure'
 import PlanHead from './PlanHead'
 import { PinsCostLine, ShipmentPins, type PlanPinning } from './PlanPins'
 import { usePlanWords } from './use-plan-words'
+import WhatHappenedCard from './WhatHappenedCard'
+import type { WhatHappenedCard as Happened } from './what-happened-model'
 
 /**
  * The plans as cards (ticket 962, SIMT decision 1): per plan its label and tags, the server's promise sentence in both
@@ -14,12 +16,14 @@ import { usePlanWords } from './use-plan-words'
  * total, then its shipments and the lines not on it. With `pinning` (ticket 963) each shipment carries its pin
  * buttons and each plan what the pins cost it.
  */
-export default function PlanCards({ plans, pinning }: { plans: readonly AdvisePlan[]; pinning?: PlanPinning }) {
+export default function PlanCards({ plans, pinning, happened = null }: { plans: readonly AdvisePlan[]; pinning?: PlanPinning; happened?: Happened | null }) {
   return (
     <div className="grid gap-3 xl:grid-cols-2" data-plan-cards="">
       {plans.map((p) => (
         <PlanCard key={p.goal} plan={p} pinning={pinning} />
       ))}
+      {/* 964: on a replay, "What happened" beside the plans, as a dashed card. */}
+      {happened && <WhatHappenedCard card={happened} />}
     </div>
   )
 }

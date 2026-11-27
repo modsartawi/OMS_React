@@ -329,7 +329,15 @@ export interface MapLine {
    * strong, a little wider, its words above theirs. Absent: an ordinary line, stacked in the order given.
    */
   strong?: boolean
+  /**
+   * How it is stroked (964, spec 4354 §19): `dashed` (a pick-up leg), `dotted` (the line joining one plan's stores).
+   * Absent: solid, as every line before 964.
+   */
+  dash?: 'dashed' | 'dotted'
 }
+
+/** How a line is stroked (964). */
+export type LineDash = 'solid' | 'dashed' | 'dotted'
 
 /** A line as the engine draws it: its colour resolved, its words given or empty. */
 export interface MapLineFeature {
@@ -339,6 +347,8 @@ export interface MapLineFeature {
   stroke: string
   label: string
   strong: boolean
+  /** 964: absent is read as solid. */
+  dash?: LineDash
 }
 
 /** How wide a line is drawn, in pixels. */
@@ -349,7 +359,119 @@ export const STRONG_LINE_WIDTH = 4
 
 /** The lines the engine draws, in the order given, each colour token resolved by `inkOf`. */
 export function lineFeatures(lines: readonly MapLine[], inkOf: (token: string) => string): MapLineFeature[] {
-  return lines.map((l) => ({ id: l.id, from: l.from, to: l.to, stroke: inkOf(l.tone), label: l.label ?? '', strong: l.strong === true }))
+  return lines.map((l) => ({ id: l.id, from: l.from, to: l.to, stroke: inkOf(l.tone), label: l.label ?? '', strong: l.strong === true, ...(l.dash ? { dash: l.dash } : {}) }))
+}
+
+/** How opaque a line's colour is drawn. */
+export const LINE_OPACITY = 0.9
+
+/**
+ * A dashed or dotted line's strokes (964), in pixels: each stroke's half-length (the symbol's scale on a path two units
+ * long) and the distance from one stroke's start to the next.
+ */
+const DASH = { dashed: { scale: 4, repeat: 16 }, dotted: { scale: 1, repeat: 7 } } as const
+
+/** One repeated stroke along a line: Google's `IconSequence`, a short vertical path turned along the line. */
+export interface LineDashIcon {
+  icon: { path: string; strokeColor: string; strokeOpacity: number; strokeWeight: number; scale: number }
+  offset: string
+  repeat: string
+}
+
+/** What a line is stroked with on Google's map: its colour, opacity and width, and for a dashed one its strokes. */
+export interface LineStroke {
+  strokeColor: string
+  strokeOpacity: number
+  strokeWeight: number
+  icons?: LineDashIcon[]
+}
+
+/**
+ * How the engine strokes a line (964). Google draws no dashed polyline of its own: a dashed or dotted line is drawn with
+ * its own stroke hidden and a short stroke of its colour repeated along it.
+ */
+export function lineStroke(line: MapLineFeature): LineStroke {
+  const weight = line.strong ? STRONG_LINE_WIDTH : LINE_WIDTH
+  const dash = line.dash ?? 'solid'
+  if (dash === 'solid') return { strokeColor: line.stroke, strokeOpacity: LINE_OPACITY, strokeWeight: weight }
+  const d = DASH[dash]
+  return {
+    strokeColor: line.stroke,
+    strokeOpacity: 0,
+    strokeWeight: weight,
+    icons: [{ icon: { path: 'M 0,-1 0,1', strokeColor: line.stroke, strokeOpacity: LINE_OPACITY, strokeWeight: weight, scale: d.scale }, offset: '0', repeat: `${d.repeat}px` }],
+  }
+}
+
+/** The Earth's mean radius, in km. */
+const EARTH_KM = 6371.0088
+
+const rad = (deg: number) => (deg * Math.PI) / 180
+const deg = (r: number) => (r * 180) / Math.PI
+
+/**
+ * The distance between two places on the ground, in km: the straight line (great circle, haversine). The simulator's
+ * "straight line" and the distance between two stores (964) are read with it.
+ */
+export function kmBetween(a: { lon: number; lat: number }, b: { lon: number; lat: number }): number {
+  const dLat = rad(b.lat - a.lat)
+  const dLon = rad(b.lon - a.lon)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2
+  return 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/** The place `km` from `from` on a bearing in degrees (0 north, 90 east). */
+function placeAt(from: { lon: number; lat: number }, km: number, bearing: number): { lon: number; lat: number } {
+  const d = km / EARTH_KM
+  const b = rad(bearing)
+  const lat1 = rad(from.lat)
+  const lon1 = rad(from.lon)
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(b))
+  const lon2 = lon1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2))
+  return { lon: deg(lon2), lat: deg(lat2) }
+}
+
+/** How many sides a ring is drawn with: round to the eye at every zoom it is read at. */
+const RING_STEPS = 72
+
+/** A ring's path (964): the places `km` round `centre` on the ground, from due north clockwise, closed. */
+export function ringPath(centre: { lon: number; lat: number }, km: number): { lon: number; lat: number }[] {
+  const path = Array.from({ length: RING_STEPS }, (_, i) => placeAt(centre, km, (360 * i) / RING_STEPS))
+  return [...path, path[0]]
+}
+
+/**
+ * A ring round a place (964, spec 4354 §19: "the 5 km and 10 km rings" round the customer): drawn dashed, beneath the
+ * points, its words at its top. A ring does not widen the view the map opens on.
+ */
+export interface MapRing {
+  id: string
+  centre: { lon: number; lat: number }
+  km: number
+  /** Its colour, as a token name. */
+  tone: string
+  /** Its words ("5 km"), drawn at its top. Absent: none. */
+  label?: string
+}
+
+/** A ring as the engine draws it: its path, its colour resolved, its words and where they stand. */
+export interface MapRingFeature {
+  id: string
+  path: { lon: number; lat: number }[]
+  stroke: string
+  label: string
+  labelAt: { lon: number; lat: number }
+}
+
+/** How wide a ring is drawn, in pixels: thinner than a leg, so it reads as a measure, not a route. */
+export const RING_LINE_WIDTH = 1.5
+
+/** The rings the engine draws, each colour token resolved by `inkOf`. */
+export function ringFeatures(rings: readonly MapRing[], inkOf: (token: string) => string): MapRingFeature[] {
+  return rings.map((r) => {
+    const path = ringPath(r.centre, r.km)
+    return { id: r.id, path, stroke: inkOf(r.tone), label: r.label ?? '', labelAt: path[0] }
+  })
 }
 
 /** Where the engine reports a pointer or a tap: the feature under it, and the place on the panel in pixels. */

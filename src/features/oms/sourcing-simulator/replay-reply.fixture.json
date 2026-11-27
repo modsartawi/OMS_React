@@ -1,0 +1,168 @@
+{
+  "runId": "01JDM4P2R7C1V9X3T8B5N6W0QA",
+  "formatVersion": 1,
+  "engine": { "name": "plain-search", "version": "1.0.0" },
+  "kind": "REPLAY",
+  "level": "full",
+  "ranAt": "2026-11-27 19:42:03",
+  "plannedFor": "2026-11-27 19:42:03",
+  "madeBy": "msartawi",
+  "channel": "IOS",
+  "orderNumber": "4500718264",
+  "weightSet": { "name": "Baseline", "version": 1, "candidate": true, "trial": false, "draft": false },
+  "held": { "until": "2026-11-27 20:12:03" },
+  "solve": {
+    "ending": "PROVEN_BEST",
+    "plansChecked": 2210,
+    "workBudget": 200000,
+    "pairs": { "beforeCut": 52, "cut": 0, "offered": 21 },
+    "ms": { "waited": 0, "localReads": 14, "stockRead": 801, "roadDistance": 388, "coverage": 612, "slots": 0, "solve": 4, "total": 836 },
+    "stoodIn": [],
+    "marks": ["ASSUMED_RATES"]
+  },
+  "lines": [
+    { "lineNo": 1, "item": "100234", "quantity": 2, "unit": "EA", "namedStore": "1055", "namedBy": "DELIVERY" },
+    { "lineNo": 2, "item": "100871", "quantity": 1, "unit": "EA", "namedStore": "1055", "namedBy": "DELIVERY" },
+    { "lineNo": 3, "item": "104410", "quantity": 6, "unit": "EA", "namedStore": "1055", "namedBy": "DELIVERY" }
+  ],
+  "plans": [
+    {
+      "goal": "BALANCED",
+      "alsoGoals": ["FASTEST", "FEWEST"],
+      "label": { "en": "Recommended", "ar": "الأنسب" },
+      "promise": { "en": "Everything by 8:35 pm today", "ar": "كل طلبك يصلك اليوم قبل 8:35 م", "by": "2026-11-27 20:35:00" },
+      "bestFound": false,
+      "fallback": false,
+      "trialSet": false,
+      "totals": { "shipments": 1, "linesServed": 3, "fee": 16.0, "companyCost": 17.42 },
+      "shipments": [
+        {
+          "no": 1,
+          "store": "1090",
+          "storeName": "Store 1090",
+          "mode": "DAWAA_NOW",
+          "lines": [1, 2, 3],
+          "promise": { "kind": "BY", "by": "2026-11-27 20:35:00", "en": "By 8:35 pm today", "ar": "اليوم قبل 8:35 م" },
+          "fee": 16.0,
+          "feeSource": "ASSUMED",
+          "companyCost": 17.42,
+          "km": 2.1,
+          "kmKind": "ROAD"
+        }
+      ],
+      "lineMarks": [],
+      "missingLines": [],
+      "sum": { "companyCost": 17.42, "fees": 16.0, "waiting": 7.0, "cover": 0.0, "split": 0.0, "total": 40.42 }
+    },
+    {
+      "goal": "CHEAPEST",
+      "alsoGoals": [],
+      "label": { "en": "Cheapest", "ar": "الأقل تكلفة" },
+      "promise": { "en": "Everything today between 10:00 and 11:59 pm, in 2 deliveries", "ar": "كل طلبك يصلك اليوم بين 10:00 و11:59 م، في شحنتين", "by": "2026-11-27 23:59:00" },
+      "bestFound": false,
+      "fallback": false,
+      "trialSet": false,
+      "totals": { "shipments": 2, "linesServed": 3, "fee": 12.0, "companyCost": 24.1 },
+      "shipments": [
+        {
+          "no": 1,
+          "store": "1055",
+          "storeName": "Store 1055",
+          "mode": "SLOT",
+          "lines": [1, 3],
+          "promise": { "kind": "BETWEEN", "from": "2026-11-27 22:00:00", "by": "2026-11-27 23:59:00", "en": "Today between 10:00 and 11:59 pm", "ar": "اليوم بين 10:00 و11:59 م" },
+          "slotCode": "00022724",
+          "fee": 12.0,
+          "feeSource": "ASSUMED",
+          "companyCost": 13.05,
+          "km": 3.6,
+          "kmKind": "ROAD"
+        },
+        {
+          "no": 2,
+          "store": "1061",
+          "storeName": "Store 1061",
+          "mode": "SLOT",
+          "lines": [2],
+          "promise": { "kind": "BETWEEN", "from": "2026-11-27 22:00:00", "by": "2026-11-27 23:59:00", "en": "Today between 10:00 and 11:59 pm", "ar": "اليوم بين 10:00 و11:59 م" },
+          "slotCode": "00022725",
+          "fee": 0.0,
+          "feeSource": "ASSUMED",
+          "companyCost": 11.05,
+          "km": 1.8,
+          "kmKind": "ROAD"
+        }
+      ],
+      "lineMarks": [],
+      "missingLines": [],
+      "sum": { "companyCost": 24.1, "fees": 12.0, "waiting": 9.8, "cover": 0.0, "split": 4.0, "total": 49.9 }
+    },
+    {
+      "goal": "PICK_UP",
+      "alsoGoals": [],
+      "label": { "en": "Pick-up", "ar": "الاستلام من الصيدلية" },
+      "promise": { "en": "Ready to collect at Store 1061 in 30 minutes", "ar": "جاهز للاستلام من صيدلية 1061 خلال 30 دقيقة", "by": "2026-11-27 20:15:00" },
+      "bestFound": false,
+      "fallback": false,
+      "trialSet": false,
+      "totals": { "shipments": 1, "linesServed": 3, "fee": 0.0, "companyCost": 2.31 },
+      "shipments": [
+        {
+          "no": 1,
+          "store": "1061",
+          "storeName": "Store 1061",
+          "mode": "PICK_UP",
+          "lines": [1, 2, 3],
+          "promise": { "kind": "READY_BY", "by": "2026-11-27 20:15:00", "en": "Ready to collect in 30 minutes", "ar": "جاهز للاستلام خلال 30 دقيقة" },
+          "fee": 0.0,
+          "feeSource": "ASSUMED",
+          "companyCost": 2.31,
+          "km": 1.8,
+          "kmKind": "ROAD"
+        }
+      ],
+      "lineMarks": [],
+      "missingLines": [],
+      "sum": { "companyCost": 2.31, "fees": 0.0, "waiting": 45.0, "cover": 0.0, "split": 0.0, "total": 47.31 }
+    }
+  ],
+  "noPlan": [],
+  "hiddenPlans": [],
+  "refusedPins": [],
+  "inputs": {
+    "reads": [
+      { "read": "STOCK", "readAt": "2026-11-27 19:42:03", "fromCache": false, "stores": 33, "chunks": 1, "addedBack": true, "feeds": [{ "feed": "TILL", "ageSeconds": 37 }, { "feed": "SAP", "ageSeconds": 6 }] }
+    ],
+    "stores": [
+      { "store": "1090", "name": "Store 1090", "point": { "lat": 24.7801, "lng": 46.752 }, "km": 2.1, "kmKind": "ROAD", "deliveriesWaiting": 1 },
+      { "store": "1055", "name": "Store 1055", "point": { "lat": 24.7902, "lng": 46.7611 }, "km": 3.6, "kmKind": "ROAD", "deliveriesWaiting": 2 },
+      { "store": "1061", "name": "Store 1061", "point": { "lat": 24.765, "lng": 46.7301 }, "km": 1.8, "kmKind": "ROAD", "deliveriesWaiting": 0 },
+      { "store": "1203", "name": "Store 1203", "point": { "lat": 24.8302, "lng": 46.7105 }, "km": 8.4, "kmKind": "ROAD", "deliveriesWaiting": 3 }
+    ],
+    "storeLines": []
+  },
+  "filterSteps": [
+    { "step": 5, "code": "OUT_OF_REACH", "before": 64, "after": 52, "removed": [{ "store": "1203", "mode": "DAWAA_NOW", "km": 8.4, "kmKind": "ROAD", "reachKm": 5.0 }] }
+  ],
+  "used": [],
+  "search": { "counts": { "plansChecked": 2210, "cutByShipmentCap": 240, "cutByMixing": 101, "cutByPins": 0 }, "kept": [], "whyNot": [] },
+  "customerPoint": { "lat": 24.7741, "lng": 46.7386 },
+  "customerPointWithheld": null,
+  "whatHappened": {
+    "placedAt": "2026-11-26 19:42:00",
+    "deliveries": [
+      {
+        "delivery": "8100553201",
+        "store": "1055",
+        "storeName": "Store 1055",
+        "mode": "SLOT",
+        "promisedBy": "2026-11-26 22:00:00",
+        "deliveredAt": "2026-11-26 22:40:00",
+        "late": true,
+        "minutesLate": 40,
+        "fee": 12.0
+      }
+    ],
+    "totals": { "deliveries": 1, "fee": 12.0 }
+  }
+}

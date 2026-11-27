@@ -3,7 +3,7 @@
     "sourcingSimulator": "Sourcing simulator"
   },
   "title": "Sourcing simulator",
-  "lede": "Build a cart, place the customer and run it: the advisor answers with its plans, as cards or as one table. Nothing is sent to a channel from here.",
+  "lede": "Replay an order, or build a cart and place the customer, and run it: the advisor answers with its plans, as cards or as one table. Nothing is sent to a channel from here.",
   "access": {
     "checking": "Checking your access…",
     "deniedTitle": "No access to the sourcing simulator",
@@ -61,7 +61,7 @@
       "cards": "Cards",
       "table": "Table"
     },
-    "none": "Build a cart, place the customer and press Run. The plans appear here.",
+    "none": "Replay an order, or build a cart and place the customer, and press Run. The plans appear here.",
     "noShown": "The run shows no plan."
   },
   "goal": {
@@ -738,5 +738,105 @@
     "figuresFromRun": "Figures as read for run <run>{{run}}</run>.",
     "readAfresh": "This change needed figures the earlier run never read, so the cart was read afresh as a new run.",
     "heldGone": "The earlier run is no longer held (runs are held 30 minutes), so the cart ran again with a fresh read."
+  },
+  "replay": {
+    "startLabel": "How to start a run",
+    "start": {
+      "replay": "Replay an order",
+      "build": "Build a cart"
+    },
+    "orderNumber": "Order number",
+    "orderHint": "The order's lines, channel and customer are read on the server, and planned on today's figures.",
+    "withPoint": "Ask for the customer's point",
+    "withPointHint": "The server returns the order's real point only to a holder of the customer-point grant, and says why when it does not.",
+    "needs": "Type the number of the order to replay.",
+    "badOrder": "An order number is digits only.",
+    "order": {
+      "title": "The order",
+      "channel": "Channel",
+      "placed": "Placed",
+      "lines": "Lines",
+      "item": "Item",
+      "quantity": "Quantity",
+      "namedStore": "Delivered from",
+      "none": "Run the replay to see the order's lines, channel and time."
+    },
+    "todaysFigures": "Planned on today's figures, not the order's.",
+    "movedByHand": "Customer's point moved by hand",
+    "movedHint": "This is no longer the order's own point, so \"What happened\" is hidden.",
+    "backToOrder": "Back to the order's point"
+  },
+  "whatHappened": {
+    "title": "What happened",
+    "routing": "routing",
+    "chose": "Routing sent it to {{store}} by {{mode}}.",
+    "delivered": "Delivered",
+    "notDelivered": "Not delivered yet",
+    "deliveries": "Deliveries",
+    "fee": "Fee paid",
+    "late": "late",
+    "lateBy": "{{minutes}} min late",
+    "onTime": "on time",
+    "column": "What happened",
+    "notRecorded": "not recorded",
+    "duration": {
+      "hm": "{{h}} h {{m}} min",
+      "m": "{{m}} min"
+    },
+    "against": {
+      "sooner": "Recommended promises everything {{plan}} after planning: {{apart}} sooner than the order took ({{happened}}). Its fee is {{planFee}} against {{fee}} paid. An estimate, not an outcome.",
+      "later": "Recommended promises everything {{plan}} after planning: {{apart}} later than the order took ({{happened}}). Its fee is {{planFee}} against {{fee}} paid. An estimate, not an outcome.",
+      "same": "Recommended promises everything {{plan}} after planning, as long as the order took. Its fee is {{planFee}} against {{fee}} paid. An estimate, not an outcome.",
+      "notDelivered": "Recommended promises everything {{plan}} after planning. The order has no delivery yet to set it against. Its fee is {{planFee}} against {{fee}}."
+    }
+  },
+  "map": {
+    "scopeLabel": "Show on the map",
+    "scope": {
+      "all": "Every plan shown",
+      "plan": "The selected plan"
+    },
+    "mapLabel": "Map of the plans' stores and the customer",
+    "hint": "Click the map to place the customer, or drag the pin: the run plans again on the drop.",
+    "customer": "The customer",
+    "ring": "{{km}} km",
+    "legend": {
+      "label": "Legend",
+      "customer": "the customer",
+      "customerByHand": "the customer, placed by hand",
+      "mode": "delivers by {{mode}}",
+      "pickUp": "the pick-up store (dashed leg)",
+      "between": "dotted: the stores of one plan",
+      "rings": "dashed rings: 5 km and 10 km"
+    },
+    "cannotDraw": "The map cannot be drawn here. Type a point to plan from instead.",
+    "lat": "Latitude",
+    "lng": "Longitude",
+    "placeAt": "Plan from this point",
+    "unplaced": "Not on the map, no location: {{stores}}",
+    "withheld": {
+      "NO_GRANT": "The customer's point is withheld: you do not hold the customer-point grant. Every km is still exact.",
+      "NOT_A_REPLAY": "The customer's point is withheld: it is shown only on a replay. Every km is still exact.",
+      "NOT_FULL_LEVEL": "The customer's point is withheld: it is shown only at the full level. Every km is still exact.",
+      "NOT_ASKED": "The customer's point was not asked for. Every km is still exact.",
+      "unknown": "The customer's point is withheld. Every km is still exact."
+    },
+    "table": {
+      "store": "Store",
+      "mode": "Mode",
+      "plan": "In plan",
+      "planShipment": "{{goal}}, shipment {{n}}",
+      "road": "By road",
+      "straight": "Straight line",
+      "straightLineMark": "straight line"
+    },
+    "between": {
+      "title": "Between the stores",
+      "from": "From",
+      "to": "To",
+      "km": "Straight line",
+      "note": "A dotted line on the map joins the stores of one plan."
+    },
+    "noStores": "No plan's store to show."
   }
 }

@@ -369,7 +369,9 @@ export interface AdviseReply {
   used?: AdviseUsedFactor[]
   search?: AdviseSearch
   customerPoint?: AdvisePoint | null
-  customerPointWithheld?: 'NO_GRANT' | 'NOT_A_REPLAY' | 'NOT_FULL_LEVEL' | string | null
+  customerPointWithheld?: CustomerPointWithheld | string | null
+  /** On a replay (964): what routing did with the order. See {@link AdviseWhatHappened}. */
+  whatHappened?: AdviseWhatHappened | null
 }
 
 /**
@@ -663,4 +665,54 @@ export interface AdviseSearch {
   counts?: AdviseSearchCounts
   kept?: AdviseKeptPlan[]
   whyNot?: AdviseWhyNot[]
+}
+
+// ── The replay (ticket 964; BackOffice 4381) ────────────────────────────────────────────────────
+
+/**
+ * The order form of the request (4281 decision 11): `orderNumber` alone replays that order on today's figures; with
+ * `customer.point` beside it the replay plans from that point (kind `REPLAY_MOVED_POINT`). `withCustomerPoint` asks for
+ * the order's real point back (4281 decision 17).
+ */
+export interface AdviseReplayRequest {
+  orderNumber: string
+  customer?: { point: AdvisePoint }
+  level: 'plans' | 'reasons' | 'full'
+  allPlans?: boolean
+  withCustomerPoint?: boolean
+}
+
+/** Why the reply holds no customer's point (4281 decision 17). Never an error. */
+export const CUSTOMER_POINT_WITHHELD = ['NO_GRANT', 'NOT_A_REPLAY', 'NOT_FULL_LEVEL'] as const
+export type CustomerPointWithheld = (typeof CUSTOMER_POINT_WITHHELD)[number]
+
+/**
+ * "What happened" on a replay (BackOffice 4381: "the store and mode routing chose, when it was delivered, late or not,
+ * the fee"): the order's real deliveries, joined when shown (4244), with the totals sent beside their parts.
+ * PROVISIONAL (spec 4354: not specified) — 4381 names the facts in words only; every field name here is ours.
+ */
+export interface AdviseWhatHappened {
+  /** When the order was placed, local. PROVISIONAL (spec 4354: not specified). */
+  placedAt: string
+  deliveries: AdviseWhatHappenedDelivery[]
+  /** PROVISIONAL (spec 4354: not specified). */
+  totals: { deliveries: number; fee: number }
+}
+
+/** One real delivery of the replayed order. PROVISIONAL (spec 4354: not specified) — every field name is ours. */
+export interface AdviseWhatHappenedDelivery {
+  /** The delivery document's number. */
+  delivery: string
+  store: string
+  storeName: string
+  mode: DeliveryMode | string
+  /** The end of what it was promised by (a slot's end), local; null when none was recorded. */
+  promisedBy: string | null
+  /** When it was delivered, local; null while it is not. */
+  deliveredAt: string | null
+  /** Null while it is not delivered. */
+  late: boolean | null
+  minutesLate: number | null
+  /** The fee the customer paid for it. */
+  fee: number
 }

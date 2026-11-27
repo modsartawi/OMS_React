@@ -331,6 +331,15 @@
   --map-ring: #3d4450;
   --map-group: #4b5563;
   --map-group-ink: #ffffff;
+  /* The sourcing simulator's map tab (oms-react 964, BackOffice spec 4354 §19; the simulator prototype's mode colours):
+     each store and leg in the colour of the mode it ships by, the pick-up leg also dashed so it never reads by hue
+     alone, and the customer's pin a deep amber diamond edged in `--map-ring`. Light only, like every map ink; the gate
+     holds each against `--card` (tools/check-contrast.mjs, "map chart"). */
+  --map-mode-dawaa-now: #0f8b95;
+  --map-mode-slot: #3567b8;
+  --map-mode-carrier: #c4507f;
+  --map-mode-pick-up: #8160d6;
+  --map-customer: #a86b00;
 
   /* The sourcing advisor's comparison results page (oms-react 971, BackOffice spec 4354 §17, results ticket 4282
      decision 3; values from its prototype). A class has a colour of its own and the colours rank nothing: there is
@@ -640,6 +649,11 @@
   --color-map-ring: var(--map-ring);
   --color-map-group: var(--map-group);
   --color-map-group-ink: var(--map-group-ink);
+  --color-map-mode-dawaa-now: var(--map-mode-dawaa-now);
+  --color-map-mode-slot: var(--map-mode-slot);
+  --color-map-mode-carrier: var(--map-mode-carrier);
+  --color-map-mode-pick-up: var(--map-mode-pick-up);
+  --color-map-customer: var(--map-customer);
   --color-results-same: var(--results-same);
   --color-results-split: var(--results-split);
   --color-results-store: var(--results-store);

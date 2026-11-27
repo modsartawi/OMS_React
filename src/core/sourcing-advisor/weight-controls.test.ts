@@ -102,6 +102,38 @@ describe('the panel\'s controls over the real document', () => {
     expect(readSetting(withControl(allOff, control('storeRecord'), true, allOff), 'storeRecord.dawaaNow.late.on')).toBe(true)
   })
 
+  it('a mode switch on a document without the mode\'s row adds the row, so the switch stays on (review 3 #3)', () => {
+    const slotOnly = { modes: [{ mode: 'SLOT', on: true, reachWidened: false, marginMultiplier: 1.0 }] }
+    const on = withControl(slotOnly, control('carrierModes'), true)
+    expect(on.modes).toEqual([
+      { mode: 'SLOT', on: true, reachWidened: false, marginMultiplier: 1.0 },
+      { mode: 'CARRIER_SAME_DAY', on: true },
+      { mode: 'CARRIER_NEXT_DAY', on: true },
+    ])
+    expect(controlValue(on, control('carrierModes'))).toBe(true)
+    expect(withControl({}, control('widerSlotReach'), true)).toEqual({ modes: [{ mode: 'SLOT', reachWidened: true }] })
+  })
+
+  it('a setting of every mode on a document with no modes makes no empty list (review 3 #3)', () => {
+    expect(withControl({ prices: {} }, control('marginMultiplier'), 1.5)).toEqual({ prices: {} })
+  })
+
+  it('the margin slider moved back to the version\'s own value puts back each mode\'s own margin (review 3 #4)', () => {
+    const base = writeSetting(doc(), 'modes[SLOT].marginMultiplier', 1.25)
+    const moved = withControl(base, control('marginMultiplier'), 1.5, base)
+    expect(readSetting(moved, 'modes[SLOT].marginMultiplier')).toBe(1.5)
+    expect(withControl(moved, control('marginMultiplier'), 1.0, base)).toEqual(base)
+  })
+
+  it('a control put back on a setting the version never held takes the setting out again (review 3 #1)', () => {
+    const { limits: _limits, ...base } = doc()
+    const set = withControl(base, control('mostShipments'), 2, base)
+    expect(readSetting(set, 'limits.mostShipments')).toBe(2)
+    expect(withControl(set, control('mostShipments'), 3, base)).toEqual(base)
+    const carriers = withControl({}, control('carrierModes'), true, {})
+    expect(withControl(carriers, control('carrierModes'), false, {})).toEqual({})
+  })
+
   it('a setting the document does not hold reads at the control\'s starting value', () => {
     expect(controlValue({}, control('feeWeight'))).toBe(1)
     expect(controlValue({}, control('carrierModes'))).toBe(false)

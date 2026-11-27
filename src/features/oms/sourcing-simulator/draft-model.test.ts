@@ -59,6 +59,14 @@ describe('the draft', () => {
     expect(weightSetRef(back)).toEqual({ name: 'Baseline', version: 1 })
   })
 
+  it('a setting the version never held, set and put back, leaves nothing changed and names the version (review 3 #1)', () => {
+    const back = setValue(setValue(openDraft(baseline), 'mostShipments', 2), 'mostShipments', 3)
+    expect(isChanged(back)).toBe(false)
+    expect(weightSetRef(back)).toEqual({ name: 'Baseline', version: 1 })
+    const off = setValue(setValue(openDraft(baseline), 'feePerOrder', true), 'feePerOrder', false)
+    expect(isChanged(off)).toBe(false)
+  })
+
   it('a switch writes the document\'s own setting: the buffer is `stock.bufferOn`', () => {
     expect((setValue(openDraft(baseline), 'buffer', false).values.stock as { bufferOn: boolean }).bufferOn).toBe(false)
   })

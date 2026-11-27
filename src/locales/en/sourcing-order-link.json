@@ -17,6 +17,7 @@
   "openResults": "Open the comparison results",
   "stored": {
     "line": "Order <order>{{order}}</order> has a stored run, made <at>{{ranAt}}</at>.",
+    "lineUndated": "Order <order>{{order}}</order> has a stored run.",
     "needsRunGrant": "Opening it in the simulator needs the simulator's run grant."
   },
   "none": {

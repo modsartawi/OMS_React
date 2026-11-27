@@ -5,7 +5,22 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ResultsOrderRunReply } from '@/core/models/sourcing-order-run'
-import { askedNumber, oldOrderLinkAnswer } from './old-order-link-model'
+import en from '@/locales/en/sourcing-order-link.json'
+import ar from '@/locales/ar/sourcing-order-link.json'
+import { askedNumber, oldOrderLinkAnswer, storedLineKey } from './old-order-link-model'
+
+describe('the stored run\'s sentence (review 3 #5)', () => {
+  it('names when the run was made, and with no time leaves the "made …" clause out, in English and Arabic', () => {
+    expect(storedLineKey('2026-11-24T10:15:00')).toBe('stored.line')
+    const key = storedLineKey(null)
+    expect(key).toBe('stored.lineUndated')
+    for (const locale of [en, ar]) {
+      const line = (locale.stored as Record<string, string>)[key.split('.')[1]]
+      expect(line).toContain('<order>{{order}}</order>')
+      expect(line).not.toContain('ranAt')
+    }
+  })
+})
 
 const reply = (over: Partial<ResultsOrderRunReply> = {}): ResultsOrderRunReply => ({
   asked: '4500718264',

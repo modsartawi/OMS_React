@@ -23,6 +23,9 @@ export function askedNumber(raw: string | undefined): string | null {
   return n === '' ? null : n
 }
 
+/** The stored run's sentence: when the run was made, or, the door naming no time, without that clause. */
+export const storedLineKey = (ranAt: string | null) => (ranAt ? 'stored.line' : 'stored.lineUndated')
+
 export function oldOrderLinkAnswer(
   reply: ResultsOrderRunReply,
   can: { canOpenRun: boolean; canReplay: boolean },

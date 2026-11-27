@@ -17,6 +17,7 @@
   "openResults": "افتح نتائج المقارنة",
   "stored": {
     "line": "للطلب <order>{{order}}</order> تشغيل محفوظ، أُجري في <at>{{ranAt}}</at>.",
+    "lineUndated": "للطلب <order>{{order}}</order> تشغيل محفوظ.",
     "needsRunGrant": "فتحه في المحاكي يحتاج إلى صلاحية التشغيل في المحاكي."
   },
   "none": {

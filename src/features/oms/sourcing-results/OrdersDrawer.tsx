@@ -245,6 +245,8 @@ function OrderCard({ orderNumber }: { orderNumber: string }) {
   const { t } = useTranslation('sourcing-results')
   const navigate = useNavigate()
   const opensRun = canOpenStoredRun(usePermissions())
+  // The channel by its name, as the list row's `<Word family="CHANNEL">` words it (review 3 #6).
+  const word = useWordString()
   const card = useQuery({
     queryKey: ['sourcing-results', 'order', orderNumber],
     queryFn: () => sourcingResultsApi.order(orderNumber),
@@ -270,7 +272,7 @@ function OrderCard({ orderNumber }: { orderNumber: string }) {
         </b>
         <span className="text-xs text-muted-foreground">
           {/* A line led by a machine value (the landed time): isolated once, whole (bidi rule). */}
-          <Ltr>{formatParts([formatDateTime(c.landedAt), c.channel, c.city])}</Ltr>
+          <Ltr>{formatParts([formatDateTime(c.landedAt), word('CHANNEL', c.channel, `channels.${c.channel}`), c.city])}</Ltr>
         </span>
       </div>
       <p className="text-xs text-muted-foreground" data-card-run="">

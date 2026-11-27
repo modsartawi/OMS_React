@@ -897,5 +897,33 @@
       "slot": "Delivery slot chosen",
       "source": "Document source set"
     }
+  },
+  "promotions": {
+    "heading": "Promotions",
+    "applied": {
+      "heading": "Applied",
+      "none": "Nothing has fired on this basket yet.",
+      "lines_one": "Line {{lines}}",
+      "lines_other": "Lines {{lines}}",
+      "noLines": "Not tied to a line",
+      "notOn_one": "Not on line {{lines}}",
+      "notOn_other": "Not on lines {{lines}}",
+      "coupon": "Coupon {{code}}"
+    },
+    "oneStep": {
+      "heading": "One step away",
+      "none": "Nothing is one step away from this basket."
+    },
+    "say": {
+      "label": "Say",
+      "applied_one": "“<offer>{{offer}}</offer>” takes {{amount}} off line {{lines}}.",
+      "applied_other": "“<offer>{{offer}}</offer>” takes {{amount}} off lines {{lines}}.",
+      "appliedOrder": "“<offer>{{offer}}</offer>” takes {{amount}} off your order.",
+      "notOn_one": "It doesn’t apply to line {{lines}}.",
+      "notOn_other": "It doesn’t apply to lines {{lines}}.",
+      "add_one": "Add {{count}} more item and “<offer>{{offer}}</offer>” applies.",
+      "add_other": "Add {{count}} more items and “<offer>{{offer}}</offer>” applies.",
+      "reward": "You qualify for “<offer>{{offer}}</offer>” — add one of the reward items and it applies."
+    }
   }
 }

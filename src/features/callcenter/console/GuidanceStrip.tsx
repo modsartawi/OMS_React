@@ -11,8 +11,10 @@
  * measured over 135's density budget, and the ruling is only safe because these
  * were already in the prototype when it was measured:
  *
- *   1. an **open card spans both columns** (finding 3: a single open card in a
- *      2-up grid squeezes its rows beside ~500px of nothing);
+ *   1. an **open card spans the column** (finding 3: a single open card in a
+ *      2-up grid squeezes its rows beside ~500px of nothing). Since 987 the strip
+ *      is the promotions panel's *One step away* column and draws one card per
+ *      row, so every card has the column's width;
  *   2. the **body is clamped (18rem)** and the head — heading, count, and the
  *      outcome banner 172 hangs here — is **pinned outside** it (finding 2);
  *   3. the default-open card is the **top-ranked offer within reach by
@@ -39,10 +41,11 @@ import type { AddOutcome, GuidanceAdd } from './add-outcome'
 import { callCenterApi, prereqKey, rewardKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
-import type { GuidanceCard, GuidanceView, RewardArm } from './guidance-view'
+import type { GuidanceCard, GuidancePhrase, GuidanceView, RewardArm } from './guidance-view'
 import type { SearchRowView } from './item-search'
 import { prereqRows, restOfSet, rewardResolutionView } from './prereq-view'
 import IconButton from '@/core/ui/IconButton'
+import SayLine from './SayLine'
 
 /**
  * The half of the guidance surface that DOES something (ticket 172) — the add,
@@ -72,11 +75,14 @@ export interface GuidanceActions {
 
 export default function GuidanceStrip({
   view,
+  say,
   transactionId,
   plant,
   actions,
 }: {
   view: GuidanceView
+  /** 987 — the sentence to recommend each within-reach card, by `cardId` (`promotions-panel.ts`). */
+  say: Map<string, GuidancePhrase>
   /** Which order the qualifying items are resolved for — the set is ranked and
    *  ATP-filtered at THIS order's plant, server-side. */
   transactionId: string
@@ -103,13 +109,14 @@ export default function GuidanceStrip({
   const [showUnavailable, setShowUnavailable] = useState(false)
 
   return (
-    <section className="shrink-0 border-t border-border-strong bg-muted/30" data-cc-guidance>
+    // 987: the One step away column of the promotions panel. Its cards, verbs and order are 171–415's.
+    <section className="min-w-0 self-start" data-cc-guidance>
       {/* PINNED, outside the clamp — the heading, the coverage note, and (172)
           the outcome banner. Content that scrolled away here would be the one
           thing an agent needs after an add. */}
       <div className="px-4 py-1.5" data-cc-guidance-head>
         <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-          <span>{t('guidance.heading')}</span>
+          <span>{t('promotions.oneStep.heading')}</span>
           {view.withinReachCount > 0 && (
             <span data-cc-guidance-strip-count>{t('guidance.topCount', { count: view.withinReachCount })}</span>
           )}
@@ -137,7 +144,8 @@ export default function GuidanceStrip({
         // The clamp. It is the scroller, so everything above stays put.
         <div className="max-h-[18rem] overflow-auto px-4 pb-2" data-cc-guidance-scroll>
           {view.withinReachCount > 0 && (
-            <div className="grid grid-cols-2 gap-2">
+            // One card per row: the column is half the order column, too narrow for 171's 2-up grid.
+            <div className="grid gap-2">
               {/* 🚩 Spec 412 W8 — `withinReach` is already in rank order: a
                   get-side shortfall ABOVE every actionable card (it qualified,
                   and is the closest to paying out), server order within each. */}
@@ -148,6 +156,7 @@ export default function GuidanceStrip({
                     card={card}
                     open={open === card.cardId}
                     onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                    say={say.get(card.cardId) ?? null}
                     transactionId={transactionId}
                     plant={plant}
                     actions={actions}
@@ -158,6 +167,7 @@ export default function GuidanceStrip({
                     card={card}
                     open={open === card.cardId}
                     onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                    say={say.get(card.cardId) ?? null}
                     transactionId={transactionId}
                     actions={actions}
                   />
@@ -294,6 +304,7 @@ function ShortfallCard({
   card,
   open,
   onToggle,
+  say,
   transactionId,
   plant,
   actions,
@@ -301,6 +312,7 @@ function ShortfallCard({
   card: GuidanceCard
   open: boolean
   onToggle: () => void
+  say: GuidancePhrase | null
   transactionId: string
   plant: string
   actions: GuidanceActions
@@ -332,6 +344,7 @@ function ShortfallCard({
           {t(card.qualified.key, card.qualified.params)}
         </p>
       )}
+      <SayLine phrases={say ? [say] : []} />
 
       {/* 🚩 W7 — a STATEMENT, with no control. The code is spent at the coupon
           service the moment it was applied; removing it stays at the coupon
@@ -441,7 +454,7 @@ function CardShell({
       data-cc-card={card.offerId}
       data-cc-card-class={card.klass}
       data-cc-card-open={open ? 'open' : 'closed'}
-      className={`rounded-md border ${border} bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
+      className={`rounded-md border ${border} bg-card p-2.5`}
     >
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-start">
         <span className="min-w-0 flex-1">
@@ -474,12 +487,14 @@ function Card({
   card,
   open,
   onToggle,
+  say,
   transactionId,
   actions,
 }: {
   card: GuidanceCard
   open: boolean
   onToggle: () => void
+  say: GuidancePhrase | null
   transactionId: string
   actions: GuidanceActions
 }) {
@@ -516,6 +531,7 @@ function Card({
           {t(card.set.key, card.set.params)}
         </p>
       )}
+      <SayLine phrases={say ? [say] : []} />
 
       {/* 🚩 The prerequisite RESOLVED — on demand, and only while the card is
           open. Resolving every near-miss inline would pay a grouping expansion

@@ -40,9 +40,10 @@ import { paletteCommands } from './palette-model'
 import { capabilityGate, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions } from './CallerBar'
-import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
+import type { GuidanceActions } from './GuidanceStrip'
+import PromotionsPanel from './PromotionsPanel'
+import { promotionsPanel } from './promotions-panel'
 import HeaderSentence from './HeaderSentence'
-import { guidanceView } from './guidance-view'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
@@ -270,7 +271,9 @@ export default function ConsoleShell({
   // Read ONCE, here: the strip draws it, the top bar mirrors its count (US51)
   // and the palette lists it (192), and two reads would be two chances for them
   // to disagree about what is actionable.
-  const guidance = guidanceView(state.nearMisses)
+  // 987: the promotions panel reads it through `promotionsPanel`, so it is still one read.
+  const promotions = promotionsPanel(state)
+  const guidance = promotions.guidance
   // 🚩 One model for the rail and the checklist (D3): two reads would be two chances to
   // disagree with *Place order*.
   const rail = stepRail(state)
@@ -437,10 +440,10 @@ export default function ConsoleShell({
           />
           {/* 985 numbers the basket and adds each line's pricing detail, here. */}
           <BasketPanel state={state} refusedLines={refusedLines} actions={lineEdit} />
-          {/* Under the basket it is about — the offers the basket nearly qualifies
-              for (171, 172). D7's promotions panel takes this place. */}
-          <GuidanceStrip
-            view={guidance}
+          {/* Under the basket it is about — D7's promotions panel (987): what fired, and the
+              guidance strip's offers one step away (171, 172, 412–415). */}
+          <PromotionsPanel
+            view={promotions}
             transactionId={state.transactionId}
             plant={state.header.plant}
             actions={guidanceActions}

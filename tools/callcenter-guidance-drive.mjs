@@ -277,7 +277,9 @@ async function open(browser, nearMisses, opts = {}) {
   return { context, page, errors, requests, addBodies }
 }
 
-const text = async (page, selector) => (await page.locator(selector).first().innerText()).trim()
+// Isolates (FSI…PDI, the bidi rule) stripped: a check reads what the agent reads.
+const text = async (page, selector) =>
+  (await page.locator(selector).first().innerText()).replace(/[⁦-⁩]/g, '').trim()
 
 /**
  * 🚩 138's own finding, the hard way: a clamped region turns new content into
@@ -414,7 +416,7 @@ async function run() {
     await context.close()
   }
 
-  // ---- 2, 3. open by construction, and an open card spans both columns ----
+  // ---- 2, 3. open by construction; since 987 one card per row in the One step away column ----
   {
     const { context, page, errors } = await open(browser, SCENARIOS.reordered)
     check(
@@ -429,9 +431,12 @@ async function run() {
 
     const openBox = await page.locator(`[data-cc-card="${SECOND_ACTIONABLE.offerId}"]`).boundingBox()
     const closedBox = await page.locator(`[data-cc-card="${ACTIONABLE.offerId}"]`).boundingBox()
+    // 987: the strip is now the promotions panel's One step away column, half the order
+    // column wide, so it draws one card per row and every card already has the full width
+    // 138 finding 3 asked the open one to span.
     check(
-      'the open card spans BOTH columns',
-      openBox.width > closedBox.width * 1.8,
+      'the open card has the whole column — one card per row (987)',
+      Math.abs(openBox.width - closedBox.width) < 2 && closedBox.y !== openBox.y,
       `open ${Math.round(openBox.width)}px vs closed ${Math.round(closedBox.width)}px`,
     )
     check(
@@ -445,7 +450,11 @@ async function run() {
     // Closing it hands the width back — the span is the OPEN state's, not the card's.
     await page.locator(`[data-cc-card="${SECOND_ACTIONABLE.offerId}"] button[aria-expanded]`).first().click()
     const reclosed = await page.locator(`[data-cc-card="${SECOND_ACTIONABLE.offerId}"]`).boundingBox()
-    check('closing it hands the column back', reclosed.width < openBox.width * 0.6, `${Math.round(reclosed.width)}px`)
+    check(
+      'closing it keeps it in its row, and its body goes away',
+      Math.abs(reclosed.width - openBox.width) < 2 && reclosed.height < openBox.height,
+      `${Math.round(reclosed.height)}px vs ${Math.round(openBox.height)}px`,
+    )
 
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
@@ -728,6 +737,14 @@ async function run() {
       afterAdd: FIRED_803,
     })
     const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    const applied803 = `[data-cc-applied-card="${SHORTFALL.offerId}"]`
+    const say803 = await text(page, `${card} [data-cc-say]`)
+    check(
+      '987: the shortfall card in the panel says what to recommend',
+      /you qualify for/i.test(say803) && say803.includes(SHORTFALL.description),
+      say803,
+    )
+    check('987: and it is not in Applied yet', (await page.locator(applied803).count()) === 0)
     check('the shortfall card is on top, with the spent-coupon line', (await page.locator('[data-cc-card]').first().getAttribute('data-cc-card')) === SHORTFALL.offerId && (await page.locator(`${card} [data-cc-coupon-spent]`).count()) === 1)
     check(
       'each waiting arm of the open card offers to show its products',
@@ -790,6 +807,70 @@ async function run() {
       'the top bar counts what is left within reach',
       (await page.locator('[data-cc-guidance-count]').getAttribute('data-cc-guidance-count')) === '1',
     )
+    // 987 — the add completes it, and it moves to Applied, named by the basket's own number.
+    const rewardLineNo = String(FIRED_803.lines.length)
+    const on803 = (await page.locator(applied803).count()) ? await text(page, `${applied803} [data-cc-applied-on]`) : ''
+    check(
+      '🚩 987: the completed offer moves to Applied, on the reward line by its number',
+      (await page.locator(applied803).count()) === 1 &&
+        (await page.locator(applied803).getAttribute('data-cc-applied-lines')) === rewardLineNo &&
+        on803 === `Line ${rewardLineNo}`,
+      on803 || 'no applied card',
+    )
+    const said803 = (await page.locator(applied803).count()) ? await text(page, `${applied803} [data-cc-say]`) : ''
+    check(
+      '987: with the engine’s amount, and a sentence to say',
+      /10\.00/.test(await text(page, `${applied803} [data-cc-applied-amount]`)) &&
+        said803.includes(`takes 10.00 SAR off line ${rewardLineNo}`),
+      said803,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 987. the NOV10 walk: a coupon that skipped the medicine line, beside what is one step away ----
+  {
+    const MEDICINE = { ...PRICED.lines[0], lineId: 'L90', itemNumber: '238321', description: 'Medicine line' }
+    const lines = [...PRICED.lines, MEDICINE]
+    const fired = PRICED.firedPromotions[0]
+    const { context, page, errors } = await open(browser, [ACTIONABLE], {
+      stateOver: {
+        lines,
+        header: { ...PRICED.header, coupons: [{ code: 'NOV10', description: fired.description, amount: fired.amount }] },
+      },
+    })
+    const applied = '[data-cc-applied-card]'
+    const medicineNo = String(lines.length)
+    const on = await text(page, `${applied} [data-cc-applied-on]`)
+    // Fixture 02 holds two lines, and its fired coupon names both (its third lineId, L20, is
+    // not in the basket and is dropped rather than drawn as 0); the medicine line is line 3.
+    check('987: the fired coupon is in Applied, with its lines by number', on === 'Lines 1 and 2', on)
+    check(
+      '987: it names the coupon and the line it skipped',
+      /NOV10/.test(await text(page, `${applied} [data-cc-applied-coupon]`)) &&
+        (await text(page, `${applied} [data-cc-applied-not-on]`)).replace(/[⁦-⁩]/g, '') === `Not on line ${medicineNo}`,
+      await text(page, applied),
+    )
+    const say = (await text(page, `${applied} [data-cc-say]`)).replace(/[⁦-⁩]/g, '')
+    check(
+      '987: the sentence says the amount the engine sent and where it does not apply',
+      say.includes(fired.description) && say.includes(Math.abs(fired.amount).toFixed(2)) && say.includes(`line ${medicineNo}`),
+      say,
+    )
+    const appliedBox = await page.locator('[data-cc-applied]').boundingBox()
+    const awayBox = await page.locator('[data-cc-guidance]').boundingBox()
+    check(
+      '987: Applied and One step away sit side by side under the basket at 1440',
+      appliedBox.x + appliedBox.width <= awayBox.x + 1 && Math.abs(appliedBox.y - awayBox.y) < 2,
+      `applied ${Math.round(appliedBox.x)}+${Math.round(appliedBox.width)} · away ${Math.round(awayBox.x)}`,
+    )
+    const away = await text(page, `[data-cc-card="${ACTIONABLE.offerId}"] [data-cc-say]`)
+    check('987: the One step away card carries its recommendation', /add \d+ more item/i.test(away), away)
+    check(
+      '987: no Could still use column — nothing the console reads lists held coupons',
+      (await page.locator('[data-cc-could-use]').count()) === 0,
+    )
+    if (process.env.DRIVE_SHOTS) await page.locator('[data-cc-promotions]').screenshot({ path: `${process.env.DRIVE_SHOTS}/987-panel.png` })
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
@@ -917,9 +998,14 @@ async function run() {
   // ---- 177: the capture's own near-misses, blank offer ids and all ----
   {
     const { context, page, errors } = await open(browser, SCENARIOS.captured)
-    const cards = await page.locator('[data-cc-card]').count()
+    // Both captured offers are `prereq.kind: "coupon"` and unmet, so since 159 they are the
+    // needs-a-coupon class: drawn as rows, never as cards. The 859 property is the same — two
+    // offers under one blank id are two entries, not one de-duplicated by React.
+    const cards = await page
+      .locator('[data-cc-card],[data-cc-counted-item],[data-cc-needs-coupon-item],[data-cc-unavailable-item]')
+      .count()
     check(
-      '🚩 two offers sharing one blank offerId still draw two cards',
+      '🚩 two offers sharing one blank offerId still draw two entries',
       cards === CAPTURED_NEAR_MISSES.length,
       `${cards} of ${CAPTURED_NEAR_MISSES.length}`,
     )

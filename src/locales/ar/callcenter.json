@@ -200,5 +200,53 @@
       "more_many": "+<n>{{count}}</n> أخرى",
       "more_other": "+<n>{{count}}</n> أخرى"
     }
+  },
+  "promotions": {
+    "heading": "العروض",
+    "applied": {
+      "heading": "مطبّق",
+      "none": "لم يُطبَّق أي عرض على هذه السلة بعد.",
+      "lines_zero": "الأسطر {{lines}}",
+      "lines_one": "السطر {{lines}}",
+      "lines_two": "الأسطر {{lines}}",
+      "lines_few": "الأسطر {{lines}}",
+      "lines_many": "الأسطر {{lines}}",
+      "lines_other": "الأسطر {{lines}}",
+      "noLines": "غير مرتبط بسطر",
+      "notOn_zero": "ليس على الأسطر {{lines}}",
+      "notOn_one": "ليس على السطر {{lines}}",
+      "notOn_two": "ليس على الأسطر {{lines}}",
+      "notOn_few": "ليس على الأسطر {{lines}}",
+      "notOn_many": "ليس على الأسطر {{lines}}",
+      "notOn_other": "ليس على الأسطر {{lines}}",
+      "coupon": "قسيمة {{code}}"
+    },
+    "oneStep": {
+      "heading": "على بُعد خطوة",
+      "none": "لا عروض على بُعد خطوة من هذه السلة."
+    },
+    "say": {
+      "label": "قل للمتصل",
+      "applied_zero": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
+      "applied_one": "«<offer>{{offer}}</offer>» يخصم {{amount}} من السطر {{lines}}.",
+      "applied_two": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
+      "applied_few": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
+      "applied_many": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
+      "applied_other": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
+      "appliedOrder": "«<offer>{{offer}}</offer>» يخصم {{amount}} من طلبك.",
+      "notOn_zero": "لا ينطبق على الأسطر {{lines}}.",
+      "notOn_one": "لا ينطبق على السطر {{lines}}.",
+      "notOn_two": "لا ينطبق على الأسطر {{lines}}.",
+      "notOn_few": "لا ينطبق على الأسطر {{lines}}.",
+      "notOn_many": "لا ينطبق على الأسطر {{lines}}.",
+      "notOn_other": "لا ينطبق على الأسطر {{lines}}.",
+      "add_zero": "أضف {{count}} صنف آخر ليُطبَّق «<offer>{{offer}}</offer>».",
+      "add_one": "أضف صنفًا واحدًا آخر ليُطبَّق «<offer>{{offer}}</offer>».",
+      "add_two": "أضف صنفين آخرين ليُطبَّق «<offer>{{offer}}</offer>».",
+      "add_few": "أضف {{count}} أصناف أخرى ليُطبَّق «<offer>{{offer}}</offer>».",
+      "add_many": "أضف {{count}} صنفًا آخر ليُطبَّق «<offer>{{offer}}</offer>».",
+      "add_other": "أضف {{count}} صنف آخر ليُطبَّق «<offer>{{offer}}</offer>».",
+      "reward": "أنت مؤهل لـ«<offer>{{offer}}</offer>» — أضف أحد أصناف المكافأة ليُطبَّق."
+    }
   }
 }

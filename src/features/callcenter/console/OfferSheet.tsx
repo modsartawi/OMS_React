@@ -1,7 +1,12 @@
 /**
  * The offer sheet (spec 995 B, ticket 997) — one offer at full size, opened from its pitch card's
- * title or *Open*, docked over the summary column (a full-height overlay below 1280 px). It is
- * core's `SideSheet`, so Escape closes it and focus goes back to the card that opened it (D1).
+ * title or *Open*, docked over the summary column (a full-height overlay below 1280 px). Escape
+ * closes it and focus goes back to the card that opened it (D1).
+ *
+ * 🚩 **Not modal**, so not core's `SideSheet`: the sheet opens BESIDE the basket (spec 995 B) and
+ * the agent may still change the basket with it open — which is exactly the case D5's
+ * version-keyed re-read exists for. A modal would make the basket inert and that case unreachable.
+ * At 1280 px and up it covers only the summary column; below, it is a full-height overlay.
  *
  * - **Header:** *Offer · phone orders only*, the headline and the item.
  * - **Saves · Each works out · Ends.** The money is the engine's what-if (C3), read when the sheet
@@ -27,7 +32,6 @@ import { apiErrorMessage, ApiError } from '@/core/api'
 import type { NearMiss } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
-import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { copyText } from '@/core/util/copy-text'
@@ -95,13 +99,33 @@ export default function OfferSheet({
     return () => window.clearTimeout(timer)
   }, [offer, applied, onClose])
 
+  // Escape closes it — unless a modal (the below-ATP confirm an add can raise) is over it: that
+  // Escape is the modal's.
+  const frame = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return
+      event.preventDefault()
+      onClose('closed')
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  // Focus moves into the sheet when it opens, so Escape and Tab start there.
+  useEffect(() => {
+    frame.current?.focus()
+  }, [])
+
   const phoneOnly = offer?.miss.audience?.channelOnly === true
   return (
-    <SideSheet
-      onClose={() => onClose('closed')}
-      width="w-full xl:w-80"
+    <section
+      ref={frame}
+      role="dialog"
+      aria-modal="false"
       aria-labelledby={titleId}
+      tabIndex={-1}
       data-cc-offer-sheet={offerId}
+      className="fixed inset-0 z-40 flex flex-col border-s border-border-strong bg-card text-foreground shadow-lg outline-none xl:absolute xl:inset-y-0 xl:start-auto xl:end-0 xl:w-80"
     >
       <SideSheetHeader
         titleId={titleId}
@@ -136,7 +160,7 @@ export default function OfferSheet({
         ) : null}
       </div>
       {offerId !== '' && <SupportChip offerId={offerId} container={body} />}
-    </SideSheet>
+    </section>
   )
 }
 

@@ -436,7 +436,7 @@ export default function ConsoleShell({
           their content (`auto-rows-max`): an `auto` row in an overflowing grid falls to
           its min-content, which for the receipt's own scroller is zero. */}
       <div
-        className="grid min-h-0 flex-1 auto-rows-max grid-cols-1 overflow-y-auto xl:auto-rows-[minmax(0,1fr)] xl:grid-cols-[288px_minmax(0,1fr)_320px] xl:overflow-hidden"
+        className="relative grid min-h-0 flex-1 auto-rows-max grid-cols-1 overflow-y-auto xl:auto-rows-[minmax(0,1fr)] xl:grid-cols-[288px_minmax(0,1fr)_320px] xl:overflow-hidden"
         data-cc-columns
       >
         {/* The caller column (start, 989): the caller (tier, never points — D2), 990's
@@ -509,20 +509,21 @@ export default function ConsoleShell({
           />
         </div>
         <Receipt state={state} submit={submit} checklist={beforeYouPlace(state)} />
+        {/* 997: over the summary column (positioned in this grid at 1280 and up), a full-height overlay below. */}
+        {sheet && !sheetGone && (
+          <OfferSheet
+            key={sheet.cardId}
+            offerId={sheet.offerId}
+            offer={sheetOffer}
+            applied={sheetFired ? { amount: sheetFired.amount } : null}
+            transactionId={state.transactionId}
+            version={state.version}
+            actions={panelActions}
+            now={new Date()}
+            onClose={closeSheet}
+          />
+        )}
       </div>
-      {sheet && !sheetGone && (
-        <OfferSheet
-          key={sheet.cardId}
-          offerId={sheet.offerId}
-          offer={sheetOffer}
-          applied={sheetFired ? { amount: sheetFired.amount } : null}
-          transactionId={state.transactionId}
-          version={state.version}
-          actions={panelActions}
-          now={new Date()}
-          onClose={closeSheet}
-        />
-      )}
     </div>
   )
 }

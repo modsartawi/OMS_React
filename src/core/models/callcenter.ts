@@ -517,6 +517,26 @@ export interface OfferDefinition {
   discountType: 'percent' | 'amount' | 'price' | (string & {}) | null
   /** A percentage for `percent`; an amount for `amount` / `price`. Never a saving. */
   discountValue: number | null
+  /** BackOffice 4462 — EVERY get-side condition in condition order (the fields above describe only the
+   *  first). Absent on a server before 4462. */
+  getItems?: OfferGetItem[]
+  /** BackOffice 4462 — the get side is AND-linked over several conditions: every get item must be on the
+   *  order (a bundle, `offer-bundle.ts`). */
+  getAll?: boolean
+}
+
+/** BackOffice 4462 — one get-side condition of a near-miss offer. */
+export interface OfferGetItem {
+  /** The condition's material when it names exactly one; null for a grouping or several. */
+  itemNumber: string | null
+  /** The catalogue name; null when unknown. */
+  description: string | null
+  qty: number | null
+  uom: string | null
+  discountType: 'percent' | 'amount' | 'price' | (string & {}) | null
+  discountValue: number | null
+  /** How many of the item the order already holds (its live lines' quantity). */
+  have: number
 }
 
 /** v1.14 (spec 995 C2) — who the offer is for. Server facts, never client rules (D4). */

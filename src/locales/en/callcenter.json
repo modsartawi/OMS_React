@@ -1012,7 +1012,11 @@
       "price": "Buy {{buy}} for {{value}}",
       "percentOnly": "{{value}}% off",
       "amountOnly": "{{value}} off",
-      "priceOnly": "For {{value}}"
+      "priceOnly": "For {{value}}",
+      "bundlePercent_one": "{{value}}% off each, bought together",
+      "bundlePercent_other": "{{value}}% off each of {{count}}, bought together",
+      "bundle_one": "Buy these together",
+      "bundle_other": "Buy these {{count}} together"
     },
     "badge": {
       "phoneOnly": "Phone orders only",
@@ -1047,7 +1051,9 @@
       "stock": "Stock at this store",
       "open": "Open",
       "expand": "Show the card’s list",
-      "collapse": "Hide the card’s list"
+      "collapse": "Hide the card’s list",
+      "addItem_one": "Add {{item}}",
+      "addItem_other": "Add {{count}} × {{item}}"
     },
     "say": {
       "addFree": "Take {{count}} more and you get {{free}} of them free.",
@@ -1062,7 +1068,8 @@
       "keepAll_other": "Keep all {{count}} to keep the free one.",
       "arabic": "In Arabic",
       "qualifies": "Your membership qualifies for it.",
-      "wouldSave": "You’d save {{amount}} {{currency}}, and the order comes to {{after}} {{currency}}."
+      "wouldSave": "You’d save {{amount}} {{currency}}, and the order comes to {{after}} {{currency}}.",
+      "bundleAdd": "Add <offer>{{item}}</offer> as well and «<offer>{{offer}}</offer>» applies to both."
     },
     "applied": {
       "landed_one": "Line {{line}} · {{count}} unit",
@@ -1109,17 +1116,27 @@
         "heading": "How it works",
         "buy_one": "Buy {{count}} of this item",
         "buy_other": "Buy {{count}} of this item",
+        "buyGroup_one": "Buy {{count}} from this selection",
+        "buyGroup_other": "Buy any {{count}} from this selection",
         "getSameFree_one": "and get {{count}} more of it free",
         "getSameFree_other": "and get {{count}} more of it free",
         "getSamePercent_one": "and get {{count}} more of it at {{value}}% off",
         "getSamePercent_other": "and get {{count}} more of it at {{value}}% off",
+        "getGroupFree_one": "and get {{count}} more from the selection free",
+        "getGroupFree_other": "and get {{count}} more from the selection free",
+        "getGroupPercent_one": "and get {{count}} more from the selection at {{value}}% off",
+        "getGroupPercent_other": "and get {{count}} more from the selection at {{value}}% off",
         "getOtherFree_one": "and get {{count}} of the offer’s item free",
         "getOtherFree_other": "and get {{count}} of the offer’s items free",
         "getOtherPercent_one": "and get {{count}} of the offer’s item at {{value}}% off",
         "getOtherPercent_other": "and get {{count}} of the offer’s items at {{value}}% off",
         "buyPercent": "and get {{value}}% off what you buy",
         "buyAmount": "and get {{value}} off",
-        "buyPrice": "for {{value}} in all"
+        "buyPrice": "for {{value}} in all",
+        "bundlePercent_one": "Get {{value}}% off each of these when they are all on the order",
+        "bundlePercent_other": "Get {{value}}% off each of these {{count}} items when they are all on the order",
+        "bundle_one": "The discount applies when all of these are on the order",
+        "bundle_other": "The discount applies when all {{count}} of these are on the order"
       },
       "who": {
         "heading": "Who gets it",
@@ -1127,6 +1144,11 @@
         "phone": "Phone orders",
         "anyChannel": "Every channel"
       }
+    },
+    "bundle": {
+      "held": "on the order",
+      "missing_one": "add {{count}}",
+      "missing_other": "add {{count}}"
     }
   }
 }

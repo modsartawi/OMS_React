@@ -219,7 +219,7 @@ function OfferBody({
   useEffect(() => {
     if (stale) void queryClient.invalidateQueries({ queryKey: sessionKey(transactionId) })
   }, [stale, queryClient, transactionId])
-  const how = howItWorks(miss.definition, miss.progress)
+  const how = howItWorks(miss.definition, miss.progress, miss.prereq?.kind)
   const who = whoGetsIt(miss.audience)
   const ends = offerEnds(miss.endsOn, now)
   const say = sheetSay({
@@ -236,7 +236,12 @@ function OfferBody({
         : []
   const material = pitch.add !== null
   const prereqMaterial = miss.prereq?.kind === 'material' ? (miss.prereq.materialNumber ?? '') : ''
-  const rows = addRows(adds, offer.basket, prereqMaterial)
+  // A bundle's missing item is not on a line yet: its name comes from the near-miss (4462).
+  const named = [
+    ...offer.basket,
+    ...(how.bundle ?? []).flatMap((item) => (item.name ? [{ itemNumber: item.itemNumber, description: item.name }] : [])),
+  ]
+  const rows = addRows(adds, named, prereqMaterial)
 
   return (
     <>
@@ -315,6 +320,24 @@ function OfferBody({
         <Section title={t('offer.sheet.how.heading')} data="how">
           {how.buy && <p>{phrase(t, how.buy)}</p>}
           {how.get && <p>{phrase(t, how.get)}</p>}
+          {how.bundle && (
+            <ul className="mt-1 space-y-0.5" data-cc-offer-sheet-bundle>
+              {how.bundle.map((item) => (
+                <li key={item.itemNumber} className="flex items-center gap-2 text-xs" data-cc-offer-bundle-item={item.itemNumber}>
+                  <span className={item.held ? 'text-success' : 'text-muted-foreground'} aria-hidden>
+                    {item.held ? '✓' : '+'}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate" data-cc-server-text title={item.name ?? item.itemNumber}>
+                    {item.name ?? item.itemNumber}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">{item.itemNumber}</span>
+                  <span className={item.held ? 'text-success' : 'font-medium'} data-cc-offer-bundle-held={item.held}>
+                    {item.held ? t('offer.bundle.held') : t('offer.bundle.missing', { count: item.missing })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           {how.progress && (
             <div className="mt-1.5" data-cc-offer-sheet-progress>
               <div

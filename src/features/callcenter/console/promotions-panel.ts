@@ -19,6 +19,7 @@ import type { AppliedCoupon, FiredPromotion, NearMiss, OfferDefinition, SessionL
 import { lineNumbers } from './basket-view'
 import { guidanceView, type GuidanceCard, type GuidancePhrase, type GuidanceView } from './guidance-view'
 import { offerBadges, type OfferBadge } from './offer-badges'
+import { bundleNext, offerBundle, type OfferBundle } from './offer-bundle'
 import { offerHeadline, type OfferHeadline } from './offer-headline'
 import { pitchSay } from './offer-say'
 import { offerAdd, offerStrip, type OfferAddQty, type OfferStrip } from './offer-strip'
@@ -68,6 +69,9 @@ export interface OfferPitch {
   add: (OfferAddQty & { itemNumber: string; itemName: string | null; uom: string | null }) | null
   /** A set prerequisite (grouping) with units to go: the agent CHOOSES the items (the sheet, 997). */
   choose: boolean
+  /** BackOffice 4462 — several items bought together: each one held or still to add. `add` is then the
+   *  first missing one, named by its own item. */
+  bundle: OfferBundle | null
   badges: OfferBadge[]
   say: GuidancePhrase[]
 }
@@ -150,14 +154,26 @@ function pitchOf(miss: NearMiss, now: Date, basket: SessionLine[]): OfferPitch {
           uom: miss.definition?.buyUom ?? null,
         }
       : null
+  const bundle = offerBundle(miss.definition)
+  const next = add === null ? bundleNext(bundle) : null
+  const bundleAdd = next
+    ? {
+        qty: next.missing,
+        free: 0,
+        itemNumber: next.itemNumber,
+        itemName: basket.find((line) => line.itemNumber === next.itemNumber)?.description ?? next.name,
+        uom: next.uom,
+      }
+    : null
   const badges = offerBadges(miss.audience, miss.endsOn, now)
   return {
     headline: offerHeadline(miss.definition, miss.description ?? ''),
-    strip: offerStrip(miss.progress, miss.definition),
-    add,
+    strip: bundle ? null : offerStrip(miss.progress, miss.definition),
+    add: add ?? bundleAdd,
     choose: add === null && qty !== null && (miss.prereq?.kind === 'grouping' || miss.prereq?.kind === 'condition'),
+    bundle,
     badges,
-    say: pitchSay({ description: miss.description ?? '', add, badges }),
+    say: pitchSay({ description: miss.description ?? '', add: add ?? bundleAdd, badges, bundleItem: bundleAdd?.itemName ?? bundleAdd?.itemNumber ?? null }),
   }
 }
 

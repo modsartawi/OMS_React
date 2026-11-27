@@ -18,6 +18,7 @@
 import type { FiredPromotion, NearMiss, OfferAudience, OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
 import { offerWhatIfKey } from './api'
 import type { GuidancePhrase } from './guidance-view'
+import { type BundleItem, offerBundle } from './offer-bundle'
 import { offerStrip } from './offer-strip'
 
 export { offerEnds } from './offer-badges'
@@ -112,15 +113,36 @@ export interface HowItWorks {
   buy: GuidancePhrase | null
   /** *Get 1 more of it free*, or the discount on what is bought; null for a shape with no words. */
   get: GuidancePhrase | null
-  /** Units for the progress bar (`offer-strip.ts`'s count, free units included); null with no units. */
+  /** Units for the progress bar (`offer-strip.ts`'s count, free units included); null with no units.
+   *  For a bundle, the items held of the items needed. */
   progress: { have: number; total: number } | null
+  /** BackOffice 4462 — a bundle's items, each held or still to add; null for any other offer. */
+  bundle: BundleItem[] | null
 }
 
-/** The buy side and the get side in words, and the units for the bar (D3). Counts, never money. */
-export function howItWorks(definition: OfferDefinition | null | undefined, progress: NearMiss['progress']): HowItWorks {
+/** The buy side and the get side in words, and the units for the bar (D3). Counts, never money.
+ *  `prereqKind` is the near-miss's `prereq.kind`: a `grouping` buy side is any items from a selection,
+ *  so it is said as the selection and never as *this item* (999, owner 2026-11-28). */
+export function howItWorks(
+  definition: OfferDefinition | null | undefined,
+  progress: NearMiss['progress'],
+  prereqKind?: string | null,
+): HowItWorks {
   const strip = offerStrip(progress, definition)
   const bar = strip ? { have: strip.have, total: strip.total } : null
-  if (!definition) return { buy: null, get: null, progress: null }
+  if (!definition) return { buy: null, get: null, progress: null, bundle: null }
+  const bundle = offerBundle(definition)
+  if (bundle)
+    return {
+      buy: null,
+      get:
+        bundle.value !== null
+          ? { key: `${HOW}.bundlePercent`, params: { value: bundle.value, count: bundle.items.length } }
+          : { key: `${HOW}.bundle`, params: { count: bundle.items.length } },
+      progress: { have: bundle.items.filter((item) => item.held).length, total: bundle.items.length },
+      bundle: bundle.items,
+    }
+  const group = prereqKind === 'grouping'
   const buy = positive(definition.buyQty)
   const getQty = positive(definition.getQty)
   const value = positive(definition.discountValue)
@@ -128,18 +150,20 @@ export function howItWorks(definition: OfferDefinition | null | undefined, progr
   let get: GuidancePhrase | null = null
   if (value !== null && getQty !== null) {
     const same = definition.getSameItem === true
+    const side = same ? (group ? 'Group' : 'Same') : 'Other'
     if (type === 'percent')
       get =
         value >= 100
-          ? { key: `${HOW}.${same ? 'getSameFree' : 'getOtherFree'}`, params: { count: getQty } }
-          : { key: `${HOW}.${same ? 'getSamePercent' : 'getOtherPercent'}`, params: { count: getQty, value } }
+          ? { key: `${HOW}.get${side}Free`, params: { count: getQty } }
+          : { key: `${HOW}.get${side}Percent`, params: { count: getQty, value } }
   } else if (value !== null && (type === 'percent' || type === 'amount' || type === 'price')) {
     get = { key: `${HOW}.buy${type[0].toUpperCase()}${type.slice(1)}`, params: { value } }
   }
   return {
-    buy: buy === null ? null : { key: `${HOW}.buy`, params: { count: buy, uom: definition.buyUom ?? '' } },
+    buy: buy === null ? null : { key: `${HOW}.${group ? 'buyGroup' : 'buy'}`, params: { count: buy, uom: definition.buyUom ?? '' } },
     get,
     progress: bar,
+    bundle: null,
   }
 }
 

@@ -122,7 +122,23 @@ export default function OfferCard({
 
       {pitch.badges.length > 0 && <Badges badges={pitch.badges} />}
 
-      {pitch.strip ? (
+      {pitch.bundle ? (
+        <ul className="mt-2 space-y-0.5" data-cc-offer-bundle>
+          {pitch.bundle.items.map((item) => (
+            <li key={item.itemNumber} className="flex items-center gap-2 text-xs" data-cc-offer-bundle-item={item.itemNumber}>
+              <span className={item.held ? 'text-success' : 'text-muted-foreground'} aria-hidden>
+                {item.held ? '✓' : '+'}
+              </span>
+              <span className="min-w-0 flex-1 truncate" data-cc-server-text title={item.name ?? item.itemNumber}>
+                {item.name ?? item.itemNumber}
+              </span>
+              <span className={item.held ? 'text-success' : 'font-medium'} data-cc-offer-bundle-held={item.held}>
+                {item.held ? t('offer.bundle.held') : t('offer.bundle.missing', { count: item.missing })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : pitch.strip ? (
         <Strip strip={pitch.strip} />
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">{meter}</div>
@@ -153,7 +169,9 @@ export default function OfferCard({
           >
             {actions.pending?.offerId === card.offerId && actions.pending.itemNumber === add.itemNumber
               ? t('search.adding')
-              : add.free === add.qty
+              : pitch.bundle
+                ? t('offer.action.addItem', { count: add.qty, item: add.itemName ?? add.itemNumber })
+                : add.free === add.qty
                 ? t('offer.action.addFreeOnly', { count: add.qty })
                 : add.free > 0
                   ? t('offer.action.addFree', { count: add.qty, free: add.free })

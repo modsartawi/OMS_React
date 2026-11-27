@@ -22,13 +22,18 @@ export function pitchSay({
   description,
   add,
   badges,
+  bundleItem = null,
 }: {
   description: string
   add: OfferAddQty | null
   badges: OfferBadge[]
+  /** BackOffice 4462 — a bundle's missing item, by name: *add X as well and the offer applies*. */
+  bundleItem?: string | null
 }): GuidancePhrase[] {
   const phrases: GuidancePhrase[] = [
-    add === null
+    bundleItem
+      ? { key: `${KEY}.bundleAdd`, params: { item: bundleItem, offer: description } }
+      : add === null
       ? { key: `${KEY}.pitch`, params: { offer: description } }
       : add.free > 0
         ? { key: `${KEY}.addFree`, params: { count: add.qty, free: add.free } }

@@ -16,6 +16,7 @@
  */
 import type { OfferDefinition } from '@/core/models/callcenter'
 import type { GuidancePhrase } from './guidance-view'
+import { offerBundle } from './offer-bundle'
 
 export type OfferHeadline = { kind: 'phrase'; phrase: GuidancePhrase } | { kind: 'description'; text: string }
 
@@ -27,6 +28,12 @@ export function offerHeadline(definition: OfferDefinition | null | undefined, de
 }
 
 function phraseOf(definition: OfferDefinition): GuidancePhrase | null {
+  // BackOffice 4462: several items bought together (no buy side) — the first arm alone is half the offer.
+  const bundle = offerBundle(definition)
+  if (bundle)
+    return bundle.value !== null
+      ? { key: `${KEY}.bundlePercent`, params: { value: bundle.value, count: bundle.items.length } }
+      : { key: `${KEY}.bundle`, params: { count: bundle.items.length } }
   const value = positive(definition.discountValue)
   if (value === null) return null
   const type = definition.discountType

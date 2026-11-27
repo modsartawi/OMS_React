@@ -366,7 +366,19 @@
       "price": "اشترِ {{buy}} بسعر {{value}}",
       "percentOnly": "خصم {{value}}%",
       "amountOnly": "خصم {{value}}",
-      "priceOnly": "بسعر {{value}}"
+      "priceOnly": "بسعر {{value}}",
+      "bundlePercent_zero": "خصم {{value}}% على كل منها عند شرائها معًا",
+      "bundlePercent_one": "خصم {{value}}% على كل منها عند شرائها معًا",
+      "bundlePercent_two": "خصم {{value}}% على كل منها عند شرائها معًا",
+      "bundlePercent_few": "خصم {{value}}% على كل منها عند شرائها معًا",
+      "bundlePercent_many": "خصم {{value}}% على كل منها عند شرائها معًا",
+      "bundlePercent_other": "خصم {{value}}% على كل منها عند شرائها معًا",
+      "bundle_zero": "اشترِ هذه المنتجات معًا",
+      "bundle_one": "اشترِ هذه المنتجات معًا",
+      "bundle_two": "اشترِ هذه المنتجات معًا",
+      "bundle_few": "اشترِ هذه المنتجات معًا",
+      "bundle_many": "اشترِ هذه المنتجات معًا",
+      "bundle_other": "اشترِ هذه المنتجات معًا"
     },
     "badge": {
       "phoneOnly": "لطلبات الهاتف فقط",
@@ -417,7 +429,13 @@
       "stock": "المخزون في هذا الفرع",
       "open": "فتح",
       "expand": "أظهر قائمة البطاقة",
-      "collapse": "أخفِ قائمة البطاقة"
+      "collapse": "أخفِ قائمة البطاقة",
+      "addItem_zero": "أضف {{count}} × {{item}}",
+      "addItem_one": "أضف {{item}}",
+      "addItem_two": "أضف {{count}} × {{item}}",
+      "addItem_few": "أضف {{count}} × {{item}}",
+      "addItem_many": "أضف {{count}} × {{item}}",
+      "addItem_other": "أضف {{count}} × {{item}}"
     },
     "say": {
       "addFree": "خذ {{count}} أخرى واحصل على {{free}} منها مجانًا.",
@@ -444,7 +462,8 @@
       "keepAll_other": "أبقِ القطع الـ{{count}} كلها لتحتفظ بالقطعة المجانية.",
       "arabic": "بالعربية",
       "qualifies": "عضويتك تؤهلك لهذا العرض.",
-      "wouldSave": "ستوفّر {{amount}} {{currency}}، ويصبح إجمالي طلبك {{after}} {{currency}}."
+      "wouldSave": "ستوفّر {{amount}} {{currency}}، ويصبح إجمالي طلبك {{after}} {{currency}}.",
+      "bundleAdd": "أضف <offer>{{item}}</offer> أيضًا ويُطبَّق «<offer>{{offer}}</offer>» على الاثنين."
     },
     "applied": {
       "landed_zero": "السطر {{line}} · {{count}} قطعة",
@@ -511,6 +530,12 @@
         "buy_few": "اشترِ {{count}} من هذا الصنف",
         "buy_many": "اشترِ {{count}} من هذا الصنف",
         "buy_other": "اشترِ {{count}} من هذا الصنف",
+        "buyGroup_zero": "اشترِ {{count}} من هذه المجموعة",
+        "buyGroup_one": "اشترِ قطعة واحدة من هذه المجموعة",
+        "buyGroup_two": "اشترِ قطعتين من هذه المجموعة",
+        "buyGroup_few": "اشترِ أي {{count}} من هذه المجموعة",
+        "buyGroup_many": "اشترِ أي {{count}} من هذه المجموعة",
+        "buyGroup_other": "اشترِ أي {{count}} من هذه المجموعة",
         "getSameFree_zero": "واحصل على {{count}} قطع إضافية منه مجانًا",
         "getSameFree_one": "واحصل على قطعة إضافية منه مجانًا",
         "getSameFree_two": "واحصل على قطعتين إضافيتين منه مجانًا",
@@ -523,6 +548,18 @@
         "getSamePercent_few": "واحصل على {{count}} إضافية منه بخصم {{value}}%",
         "getSamePercent_many": "واحصل على {{count}} إضافية منه بخصم {{value}}%",
         "getSamePercent_other": "واحصل على {{count}} إضافية منه بخصم {{value}}%",
+        "getGroupFree_zero": "واحصل على {{count}} قطع إضافية من المجموعة مجانًا",
+        "getGroupFree_one": "واحصل على قطعة إضافية من المجموعة مجانًا",
+        "getGroupFree_two": "واحصل على قطعتين إضافيتين من المجموعة مجانًا",
+        "getGroupFree_few": "واحصل على {{count}} قطع إضافية من المجموعة مجانًا",
+        "getGroupFree_many": "واحصل على {{count}} قطعة إضافية من المجموعة مجانًا",
+        "getGroupFree_other": "واحصل على {{count}} قطعة إضافية من المجموعة مجانًا",
+        "getGroupPercent_zero": "واحصل على {{count}} إضافية من المجموعة بخصم {{value}}%",
+        "getGroupPercent_one": "واحصل على {{count}} إضافية من المجموعة بخصم {{value}}%",
+        "getGroupPercent_two": "واحصل على {{count}} إضافية من المجموعة بخصم {{value}}%",
+        "getGroupPercent_few": "واحصل على {{count}} إضافية من المجموعة بخصم {{value}}%",
+        "getGroupPercent_many": "واحصل على {{count}} إضافية من المجموعة بخصم {{value}}%",
+        "getGroupPercent_other": "واحصل على {{count}} إضافية من المجموعة بخصم {{value}}%",
         "getOtherFree_zero": "واحصل على {{count}} من صنف العرض مجانًا",
         "getOtherFree_one": "واحصل على {{count}} من صنف العرض مجانًا",
         "getOtherFree_two": "واحصل على {{count}} من صنف العرض مجانًا",
@@ -537,7 +574,19 @@
         "getOtherPercent_other": "واحصل على {{count}} من صنف العرض بخصم {{value}}%",
         "buyPercent": "واحصل على خصم {{value}}% على ما تشتريه",
         "buyAmount": "واحصل على خصم {{value}}",
-        "buyPrice": "بسعر {{value}} للجميع"
+        "buyPrice": "بسعر {{value}} للجميع",
+        "bundlePercent_zero": "احصل على خصم {{value}}% على كل منها عندما تكون كلها في الطلب",
+        "bundlePercent_one": "احصل على خصم {{value}}% على كل منها عندما تكون كلها في الطلب",
+        "bundlePercent_two": "احصل على خصم {{value}}% على كل منها عندما تكون كلها في الطلب",
+        "bundlePercent_few": "احصل على خصم {{value}}% على كل منها عندما تكون كلها في الطلب",
+        "bundlePercent_many": "احصل على خصم {{value}}% على كل منها عندما تكون كلها في الطلب",
+        "bundlePercent_other": "احصل على خصم {{value}}% على كل منها عندما تكون كلها في الطلب",
+        "bundle_zero": "يُطبَّق الخصم عندما تكون كل هذه المنتجات في الطلب",
+        "bundle_one": "يُطبَّق الخصم عندما تكون كل هذه المنتجات في الطلب",
+        "bundle_two": "يُطبَّق الخصم عندما تكون كل هذه المنتجات في الطلب",
+        "bundle_few": "يُطبَّق الخصم عندما تكون كل هذه المنتجات في الطلب",
+        "bundle_many": "يُطبَّق الخصم عندما تكون كل هذه المنتجات في الطلب",
+        "bundle_other": "يُطبَّق الخصم عندما تكون كل هذه المنتجات في الطلب"
       },
       "who": {
         "heading": "من يستفيد",
@@ -545,6 +594,15 @@
         "phone": "طلبات الهاتف",
         "anyChannel": "كل القنوات"
       }
+    },
+    "bundle": {
+      "held": "في الطلب",
+      "missing_zero": "أضف {{count}}",
+      "missing_one": "أضف {{count}}",
+      "missing_two": "أضف {{count}}",
+      "missing_few": "أضف {{count}}",
+      "missing_many": "أضف {{count}}",
+      "missing_other": "أضف {{count}}"
     }
   }
 }

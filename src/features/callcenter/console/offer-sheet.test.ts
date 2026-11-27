@@ -149,6 +149,7 @@ describe('howItWorks', () => {
       buy: { key: 'callcenter:offer.sheet.how.buy', params: { count: 3, uom: 'EA' } },
       get: { key: 'callcenter:offer.sheet.how.getSameFree', params: { count: 1 } },
       progress: { have: 1, total: 4 },
+      bundle: null,
     })
   })
   it('a get side at a percent, on another item', () => {
@@ -162,10 +163,26 @@ describe('howItWorks', () => {
       buy: { key: 'callcenter:offer.sheet.how.buy', params: { count: 3, uom: 'EA' } },
       get: { key: 'callcenter:offer.sheet.how.buyPercent', params: { value: 20 } },
       progress: null,
+      bundle: null,
     })
   })
+  it('a grouping buy side is the selection, never "this item" (999)', () => {
+    // OMS000004606 "2+1" on the 2026-11-28 sweep: any 2 from a range, the 3rd from the range free.
+    const how = howItWorks({ ...buy3get1, buyQty: 2 }, { have: 0, need: 1, unitsHave: 1, unitsNeed: 2 }, 'grouping')
+    expect(how.buy).toEqual({ key: 'callcenter:offer.sheet.how.buyGroup', params: { count: 2, uom: 'EA' } })
+    expect(how.get).toEqual({ key: 'callcenter:offer.sheet.how.getGroupFree', params: { count: 1 } })
+    expect(howItWorks({ ...buy3get1, discountValue: 30 }, { have: 0, need: 1 }, 'grouping').get).toEqual({
+      key: 'callcenter:offer.sheet.how.getGroupPercent',
+      params: { count: 1, value: 30 },
+    })
+    // a get side on another item stays "the offer's item"; a material buy side stays "this item"
+    expect(howItWorks({ ...buy3get1, getSameItem: false }, { have: 0, need: 1 }, 'grouping').get?.key).toBe(
+      'callcenter:offer.sheet.how.getOtherFree',
+    )
+    expect(howItWorks(buy3get1, { have: 0, need: 1 }, 'material').buy?.key).toBe('callcenter:offer.sheet.how.buy')
+  })
   it('no definition: nothing to say in words', () => {
-    expect(howItWorks(null, { have: 0, need: 1 })).toEqual({ buy: null, get: null, progress: null })
+    expect(howItWorks(null, { have: 0, need: 1 })).toEqual({ buy: null, get: null, progress: null, bundle: null })
   })
 })
 

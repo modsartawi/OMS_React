@@ -989,5 +989,81 @@
       "payOnCollection": "You pay when you collect.",
       "paidOnline": "You pay online."
     }
+  },
+  "offer": {
+    "headline": {
+      "nthFree_ordinal_one": "Buy {{buy}}, get the {{count}}st free",
+      "nthFree_ordinal_two": "Buy {{buy}}, get the {{count}}nd free",
+      "nthFree_ordinal_few": "Buy {{buy}}, get the {{count}}rd free",
+      "nthFree_ordinal_other": "Buy {{buy}}, get the {{count}}th free",
+      "nthPercent_ordinal_one": "Buy {{buy}}, get the {{count}}st at {{value}}% off",
+      "nthPercent_ordinal_two": "Buy {{buy}}, get the {{count}}nd at {{value}}% off",
+      "nthPercent_ordinal_few": "Buy {{buy}}, get the {{count}}rd at {{value}}% off",
+      "nthPercent_ordinal_other": "Buy {{buy}}, get the {{count}}th at {{value}}% off",
+      "moreFree_one": "Buy {{buy}}, get {{count}} more free",
+      "moreFree_other": "Buy {{buy}}, get {{count}} more free",
+      "getFree_one": "Buy {{buy}}, get {{count}} free",
+      "getFree_other": "Buy {{buy}}, get {{count}} free",
+      "getPercent_one": "Buy {{buy}}, get {{count}} at {{value}}% off",
+      "getPercent_other": "Buy {{buy}}, get {{count}} at {{value}}% off",
+      "percent": "Buy {{buy}}, {{value}}% off",
+      "amount": "Buy {{buy}}, {{value}} off",
+      "price": "Buy {{buy}} for {{value}}",
+      "percentOnly": "{{value}}% off",
+      "amountOnly": "{{value}} off",
+      "priceOnly": "For {{value}}"
+    },
+    "badge": {
+      "phoneOnly": "Phone orders only",
+      "tiers": "{{tiers}} members",
+      "qualifies": "caller qualifies",
+      "notQualifies": "caller doesn’t qualify",
+      "ends_one": "Ends {{date}} · {{count}} day left",
+      "ends_other": "Ends {{date}} · {{count}} days left",
+      "endsToday": "Ends today"
+    },
+    "tier": {
+      "P": "Platinum",
+      "G": "Gold",
+      "S": "Silver"
+    },
+    "strip": {
+      "label": "{{have}} of {{total}} in the basket",
+      "slot": {
+        "in": "in basket",
+        "add": "add",
+        "free": "FREE"
+      }
+    },
+    "action": {
+      "add_one": "Add {{count}} more",
+      "add_other": "Add {{count}} more",
+      "addFree_one": "Add {{count}} more, {{free}} of them free",
+      "addFree_other": "Add {{count}} more, {{free}} of them free",
+      "addFreeOnly_one": "Add {{count}} free",
+      "addFreeOnly_other": "Add {{count}} free",
+      "choose": "Choose the items",
+      "stock": "Stock at this store"
+    },
+    "say": {
+      "addFree": "Take {{count}} more and you get {{free}} of them free.",
+      "add_one": "Take {{count}} more and «<offer>{{offer}}</offer>» applies.",
+      "add_other": "Take {{count}} more and «<offer>{{offer}}</offer>» applies.",
+      "pitch": "There’s an offer on this: «<offer>{{offer}}</offer>».",
+      "phoneOnly": "It’s only for phone orders.",
+      "ends": "It ends on {{date}}.",
+      "saved_one": "You save {{amount}} {{currency}}: you pay {{after}} {{currency}} for {{count}}.",
+      "saved_other": "You save {{amount}} {{currency}}: you pay {{after}} {{currency}} for {{count}}.",
+      "keepAll_one": "Keep all {{count}} to keep the free one.",
+      "keepAll_other": "Keep all {{count}} to keep the free one.",
+      "arabic": "In Arabic"
+    },
+    "applied": {
+      "landed_one": "Line {{line}} · {{count}} unit",
+      "landed_other": "Line {{line}} · {{count}} units",
+      "sum": "{{qty}} × {{unit}} = {{before}}",
+      "pays": "caller pays {{after}}",
+      "removeWarn": "Removing one takes the free one away"
+    }
   }
 }

@@ -498,11 +498,52 @@ export interface NearMissDiscount {
   nthFree?: number | null
 }
 
+/**
+ * v1.14 (spec 995 C2, BackOffice 4458) — what the offer IS, as the bonus buy record states it:
+ * buy `buyQty` (of `buyUom`), get `getQty` (of the same item or another) at `discountType` /
+ * `discountValue`. The console words it as a headline (`offer-headline.ts`). 🚩 Field names are
+ * 4458's; the server half is unbuilt, so this is a stub of exactly that shape.
+ */
+export interface OfferDefinition {
+  /** The single prerequisite's required quantity; null with several prerequisites or a value threshold. */
+  buyQty: number | null
+  buyUom?: string | null
+  /** The get side's quantity (`Equal 1.00 EA` → 1); 0 or null where the discount is on the buy side. */
+  getQty: number | null
+  /** Whether the get material is the buy material. */
+  getSameItem: boolean | null
+  /** `(string & {})` because the list is the server's: an unknown type degrades to `description`. */
+  discountType: 'percent' | 'amount' | 'price' | (string & {}) | null
+  /** A percentage for `percent`; an amount for `amount` / `price`. Never a saving. */
+  discountValue: number | null
+}
+
+/** v1.14 (spec 995 C2) — who the offer is for. Server facts, never client rules (D4). */
+export interface OfferAudience {
+  /** The offer is limited to the call-center origin (`OriginFilter` matched by the seat's origin). */
+  channelOnly: boolean
+  /** Loyalty tier codes (`P`, `G`, `S`); empty ⇒ every caller. */
+  tiers: string[]
+  /** The order's tier is in `tiers` (true when `tiers` is empty). */
+  callerQualifies: boolean
+}
+
 export interface NearMiss {
   offerId: string
   description: string
   isReady: boolean
-  progress: { have: number; need: number }
+  /**
+   * `have` / `need` count PREREQUISITES met (the guidance strip still reads them). v1.14
+   * (spec 995 C2) adds `unitsHave` / `unitsNeed`, the driving prerequisite's UNITS — null on a
+   * value threshold or with several prerequisites, absent on a v1.13 server.
+   */
+  progress: { have: number; need: number; unitsHave?: number | null; unitsNeed?: number | null }
+  /** v1.14 (spec 995 C2) — absent or null ⇒ the card's headline is `description` (D2). */
+  definition?: OfferDefinition | null
+  /** v1.14 — `BbyHeader.ValidTo` as a date (`2026-12-03`). */
+  endsOn?: string | null
+  /** v1.14 — absent ⇒ no audience badges. */
+  audience?: OfferAudience | null
   /** `null` where the offer was never evaluated — fixture 03's `NOT_DISCOVERED`
    *  entry carries no prerequisite at all, because nothing loaded it. */
   prereq: NearMissPrereq | null

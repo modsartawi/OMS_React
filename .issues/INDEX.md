@@ -1624,3 +1624,9 @@ Server tickets are BackOffice 4422–4430 on `pricing2`.
 - [980](980-a-clickable-mock-of-the-copilots-opening-screen-for-the-owner-to-react-to.md) — A clickable mock of the copilot's opening screen, for the owner to react to · *(ticket · BackOffice spec 4412)* · **open** · blocked by: —
 - [981](981-the-copilot-opens-on-worth-a-look-today-right-now-start-with-and-recent-in-each-mornings-state.md) — The copilot opens on Worth a look today, Right now, Start with and Recent, in each morning's state · *(ticket · BackOffice spec 4412)* · **open** · blocked by: 980, BO 4429
 - [982](982-the-finding-cards-early-warning-form-in-the-brief-and-on-the-opening-screen.md) — The finding card's early-warning form, in the brief and on the opening screen · *(ticket · BackOffice spec 4412)* · **open** · blocked by: BO 4429
+
+## The agent reads an offer the way the caller hears it (spec 995, 2026-11-27)
+
+- [995](995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) — The agent reads an offer the way the caller hears it (spec) · **ready** · contract v1.14; canvas *Call center offer card for agents*
+- [996](996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) — The offer card and the applied card say the offer plainly · **open** · blocked by: 859, 4458 (BackOffice)
+- [997](997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) — The offer sheet shows what the caller would save, from the engine · **open** · blocked by: 996, 4459 (BackOffice)

@@ -1606,3 +1606,21 @@ Server tickets are BackOffice 4355–4398 on `pricing2`. Prototypes: BackOffice 
 - [972](972-the-results-pages-five-reading-tabs.md) — The results page’s five reading tabs · *(ticket · BackOffice spec 4354)* · **open** · blocked by: 971, BO 4393, BO 4391
 - [973](973-the-trials-tab-and-the-phase-2-bar-tab.md) — The Trials tab and the Phase 2 bar tab · *(ticket · BackOffice spec 4354)* · **open** · blocked by: 971, BO 4394, BO 4396
 - [974](974-the-old-advisor-pages-go-and-the-menu-opens-the-results-page.md) — The old advisor pages go, and the menu opens the results page · *(ticket · BackOffice spec 4354)* · **open** · blocked by: 971, BO 4397
+
+## The copilot investigates (BackOffice spec 4411), filed 2026-11-27
+
+Server tickets are BackOffice 4413–4421 on `pricing2`.
+
+- [975](975-a-clickable-mock-of-the-investigation-panel-for-the-owner-to-react-to.md) — A clickable mock of the investigation panel, for the owner to react to · *(ticket · BackOffice spec 4411)* · **open** · blocked by: —
+- [976](976-the-panel-shows-a-running-investigations-steps-lets-the-reader-leave-or-stop-and-shows-the-finished-answers-parts.md) — The panel shows a running investigation's steps, lets the reader leave or stop, and shows the finished answer's parts · *(ticket · BackOffice spec 4411)* · **open** · blocked by: 975, BO 4413
+- [977](977-chips-rerun-investigate-why-recent-run-again-continue-save-as-report-and-the-mark.md) — Chips rerun, "Investigate why", Recent investigations, Run again, Continue, Save as report and the mark · *(ticket · BackOffice spec 4411)* · **open** · blocked by: 976, BO 4415, BO 4418
+- [978](978-the-playbook-card-and-the-labelled-suggestion-and-curators-edit-playbooks-and-see-the-misses.md) — The playbook card and the labelled suggestion; curators edit playbooks and see the misses · *(ticket · BackOffice spec 4411)* · **open** · blocked by: 976, BO 4416
+- [979](979-the-profile-on-what-the-copilot-knows-about-me-and-the-follow-offer.md) — The profile on "What the copilot knows about me", and the Follow offer · *(ticket · BackOffice spec 4411)* · **open** · blocked by: BO 4417
+
+## The copilot warns early (BackOffice spec 4412), filed 2026-11-27
+
+Server tickets are BackOffice 4422–4430 on `pricing2`.
+
+- [980](980-a-clickable-mock-of-the-copilots-opening-screen-for-the-owner-to-react-to.md) — A clickable mock of the copilot's opening screen, for the owner to react to · *(ticket · BackOffice spec 4412)* · **open** · blocked by: —
+- [981](981-the-copilot-opens-on-worth-a-look-today-right-now-start-with-and-recent-in-each-mornings-state.md) — The copilot opens on Worth a look today, Right now, Start with and Recent, in each morning's state · *(ticket · BackOffice spec 4412)* · **open** · blocked by: 980, BO 4429
+- [982](982-the-finding-cards-early-warning-form-in-the-brief-and-on-the-opening-screen.md) — The finding card's early-warning form, in the brief and on the opening screen · *(ticket · BackOffice spec 4412)* · **open** · blocked by: BO 4429

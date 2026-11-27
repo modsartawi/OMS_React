@@ -68,6 +68,9 @@ The receipt matches the engine on a live NOV10 order with delivery, and agrees w
   - `tools/callcenter-drive.mjs` and `tools/fulfilment-176-drive.mjs` still read the
     `[data-cc-blockers]` that 984 removed. Both now read the checklist's missing rows.
     `fulfilment-176-drive.mjs` passes 121/121 and `callcenter-rail-drive.mjs` passes 100/100.
+  - `callcenter-drive.mjs` passes 529/530. The one failure is *the caller sits in the bar at
+    the top of the centre (409)*. It comes from 984's caller column, belongs to the
+    caller-column ticket (989), and is not in the receipt.
 - **Owed.**
   - Done-when, the live half: BackOffice 4454 is done but uncommitted, and its NOV10 `State` read
     is owed at this ticket's walk. On a live NOV10 order with delivery, the receipt has to agree

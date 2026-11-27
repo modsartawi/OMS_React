@@ -2401,6 +2401,7 @@ function ConsoleSession() {
       <StorePicker
         open={pickingStore}
         currentPlant={session.data.header.plant}
+        canConfirmSeededStore={session.data.capabilities.canConfirmSeededStore}
         pending={rebindOn('store').pending}
         error={
           rebindOn('store').error ? apiErrorMessage(rebindOn('store').error, t('store.applyFailed')) : null

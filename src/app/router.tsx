@@ -389,18 +389,15 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/ClosesPage')).default,
         }),
       },
-      // Sourcing advisor (ticket 738, spec 734 D21) — read-only, behind its own grant on the one permissions answer.
-      // The entry (739 puts the 30-day simulation there) and one order's explanation, which Delivery details links to.
-      {
-        path: 'oms/sourcing-advisor',
-        lazy: async () => ({
-          Component: (await import('@/features/oms/sourcing-advisor/SourcingAdvisorPage')).default,
-        }),
-      },
+      // The retired sourcing advisor (ticket 738's pages, removed by ticket 974 with BackOffice 4397): its entry's old
+      // address opens the comparison results page, and its order link (Delivery details' "Why this store?") opens that
+      // order's stored run in the simulator, or says it has none and offers a replay.
+      // (Its old filters are dropped: they are not the results page's.)
+      { path: 'oms/sourcing-advisor', loader: () => redirect('/oms/sourcing-results') },
       {
         path: 'oms/sourcing-advisor/order/:orderNo',
         lazy: async () => ({
-          Component: (await import('@/features/oms/sourcing-advisor/SourcingExplainPage')).default,
+          Component: (await import('@/features/oms/sourcing-order-link/OldOrderLinkPage')).default,
         }),
       },
       // Sourcing simulator (ticket 962, BackOffice spec 4354 §19) — the workbench: build a cart, run it, read the plans.
@@ -426,8 +423,8 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-record/SourcingRecordPage')).default,
         }),
       },
-      // The comparison results page (ticket 971, BackOffice spec 4354 §17) — under today's advisor view grant. The menu's
-      // "Sourcing advisor" entry is repointed here by ticket 974, which removes the old pages above.
+      // The comparison results page (ticket 971, BackOffice spec 4354 §17) — under the advisor view grant. The menu's
+      // "Sourcing advisor" entry opens it (ticket 974).
       {
         path: 'oms/sourcing-results',
         lazy: async () => ({

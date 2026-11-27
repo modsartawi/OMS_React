@@ -518,15 +518,22 @@ describe('the Serving lists leaf (ticket 567)', () => {
   })
 })
 
-describe('the Sourcing advisor leaf (ticket 738)', () => {
+describe('the Sourcing advisor leaf (ticket 738; ticket 974 points it at the results page)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
-  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-advisor:menu.sourcingAdvisor')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-results:menu.sourcingAdvisor')!
 
-  it('sits in the OMS group, lit alone on its own screen and its explanations', () => {
-    expect(leaf.routerLink).toBe('/oms/sourcing-advisor')
-    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-advisor/order/8000000253')).map((i) => i.labelKey)).toEqual([
-      'sourcing-advisor:menu.sourcingAdvisor',
-    ])
+  it('opens the comparison results page', () => {
+    expect(leaf.routerLink).toBe('/oms/sourcing-results')
+  })
+
+  it('is lit alone on the results page and on the retired advisor’s order link', () => {
+    for (const path of ['/oms/sourcing-results', '/oms/sourcing-advisor/order/8000000253']) {
+      expect((oms.items ?? []).filter((i) => isActive(i, path)).map((i) => i.labelKey)).toEqual(['sourcing-results:menu.sourcingAdvisor'])
+    }
+  })
+
+  it('the old advisor’s own label is gone with its namespace', () => {
+    expect((oms.items ?? []).some((i) => i.labelKey.startsWith('sourcing-advisor:'))).toBe(false)
   })
 
   it('🚩 reads its OWN key (SourcingAdvisor:01 — deliberately Create), and fails closed without it', () => {
@@ -543,7 +550,7 @@ describe('the Sourcing simulator leaf (ticket 962)', () => {
   const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-simulator:menu.sourcingSimulator')!
 
   it('sits in the OMS group right after the Sourcing advisor, lit alone on its own screen', () => {
-    expect(keys.indexOf('sourcing-simulator:menu.sourcingSimulator')).toBe(keys.indexOf('sourcing-advisor:menu.sourcingAdvisor') + 1)
+    expect(keys.indexOf('sourcing-simulator:menu.sourcingSimulator')).toBe(keys.indexOf('sourcing-results:menu.sourcingAdvisor') + 1)
     expect(leaf.routerLink).toBe('/oms/sourcing-simulator')
     expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-simulator')).map((i) => i.labelKey)).toEqual([
       'sourcing-simulator:menu.sourcingSimulator',

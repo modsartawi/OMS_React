@@ -1,4 +1,5 @@
 {
+  "menu": { "sourcingAdvisor": "Sourcing advisor" },
   "title": "Comparison results",
   "subtitle": "How the advisor's plans stand against what routing did, order by order. An estimate sits beside an outcome, and the page never says which was better.",
   "access": {

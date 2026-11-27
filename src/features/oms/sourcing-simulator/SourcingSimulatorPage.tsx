@@ -74,10 +74,12 @@ const firstForm = (): CartForm => ({
 
 /** The set the picker opens on: the candidate set's marked version, else the first set's latest. */
 const firstChoice = (sets: readonly WeightSetListItem[] | undefined): WeightSetVersionRef | null => {
-  const marked = sets?.find((s) => s.candidateVersion !== null)
-  if (marked) return { name: marked.name, version: marked.candidateVersion! }
+  for (const s of sets ?? []) {
+    const marked = s.versions.find((v) => v.candidate)
+    if (marked) return { name: s.name, version: marked.version }
+  }
   const first = sets?.find((s) => s.versions.length > 0)
-  return first ? { name: first.name, version: first.versions[first.versions.length - 1] } : null
+  return first ? { name: first.name, version: first.versions[first.versions.length - 1].version } : null
 }
 
 interface RunInput {

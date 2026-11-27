@@ -596,9 +596,13 @@ describe('the Sourcing planner data leaf (ticket 968)', () => {
     ])
   })
 
-  it('🚩 shows with any one of the three planner grants (provisional keys), not with the run grant, and fails closed', () => {
-    for (const k of ['SourcingPlannerBuffer:01', 'SourcingPlannerRules:01', 'SourcingPlannerTables:01']) expect(shows(leaf, k)).toBe(true)
-    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(false)
+  // The run grant under both its provisional key and the server's (`SourcingSimulator`, 03): its key is the simulator's to settle.
+  it('shows with the run grant and any one of the three planner grants (BO 4375, 4362, 4361), not with either alone, and fails closed', () => {
+    for (const k of ['SourcingPlannerStock:03', 'SourcingProductRules:03', 'SourcingPlannerTables:03']) {
+      expect(shows(leaf, k, 'SourcingAdvisorRun:06', 'SourcingSimulator:03')).toBe(true)
+      expect(shows(leaf, k)).toBe(false)
+    }
+    expect(shows(leaf, 'SourcingAdvisorRun:06', 'SourcingSimulator:03')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
@@ -615,9 +619,9 @@ describe('the Weight sets leaf (ticket 967)', () => {
     expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-sets')).map((i) => i.labelKey)).toEqual(['sourcing-sets:menu.sourcingSets'])
   })
 
-  it('🚩 opens to the run, save or mark grant (provisional keys), not to the view grant, and fails closed', () => {
-    for (const key of ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06']) expect(shows(leaf, key)).toBe(true)
-    expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
+  it('opens to the run grant, which reads the list (BO 4360), not to the save, mark or view grant alone, and fails closed', () => {
+    expect(shows(leaf, 'SourcingAdvisorRun:06', 'SourcingSimulator:03')).toBe(true)
+    for (const key of ['SourcingWeightSets:03', 'SourcingCandidateSet:03', 'SourcingAdvisor:01']) expect(shows(leaf, key)).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })

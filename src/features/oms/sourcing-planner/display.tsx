@@ -1,73 +1,42 @@
 /**
  * How a planner value reads (ticket 968): one string per value, so a grid cell, a native option and JSX all take it.
  * JSX callers isolate it (`Ltr` for a code-led value, `<bdi>` for free text — the bidi rule); a grid cell is isolated
- * by the base column definition.
+ * by the base column definition. Codes read as codes: no planner door names a store, an item or a category.
  */
 import { useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
-import { formatPair, formatRange } from '@/core/util/bidi'
-import type { PlannerChange, PlannerChangeAction, PlannerChoicesReply, PlannerCodeName, PlannerRow, PlannerTableKey, PlannerValue } from '@/core/models/sourcing-planner'
-import { plannerKeys, sourcingPlannerApi } from './api'
+import { formatRange } from '@/core/util/bidi'
 import { TABLES } from './tables'
+import type { PlannerChange, PlannerChangeAction, PlannerRow, PlannerTableKey, PlannerValue } from './wire'
 
 export const NS = 'sourcing-planner'
 
-/** The forms' choices (stores, categories, sub-categories), read once and kept. */
-export function useChoices() {
-  return useQuery({ queryKey: plannerKeys.choices, queryFn: () => sourcingPlannerApi.choices(), staleTime: 5 * 60_000 })
-}
+export type Format = (table: PlannerTableKey, field: string, value: PlannerValue) => string
 
-const nameIn = (list: readonly PlannerCodeName[] | undefined, code: string) => list?.find((x) => x.code === code)?.name
-
-export type Format = (table: PlannerTableKey, field: string, value: PlannerValue, row?: PlannerRow | null) => string
-
-/** The one formatter: codes read with their names (the row's own `names` first, then the choices), codes alone else. */
+/** The one formatter: a switch in words, a code's option label, a list of codes joined, a figure as sent. */
 export function useFormat(): Format {
   const { t } = useTranslation(NS)
-  const choices = useChoices().data
-  return useCallback<Format>((table, field, value, row) => format(t, choices, table, field, value, row), [t, choices])
+  return useCallback<Format>((table, field, value) => format(t, table, field, value), [t])
 }
 
-function format(
-  t: (k: string) => string,
-  choices: PlannerChoicesReply | undefined,
-  table: PlannerTableKey,
-  field: string,
-  value: PlannerValue,
-  row?: PlannerRow | null,
-): string {
+function format(t: (k: string) => string, table: PlannerTableKey, field: string, value: PlannerValue): string {
   if (value == null || value === '') return ''
   const f = TABLES[table].fields.find((x) => x.key === field)
   if (!f) return String(value)
-  const named = (list?: readonly PlannerCodeName[]) => {
-    const code = String(value)
-    const name = row?.names?.[field] ?? nameIn(list, code)
-    return name ? formatPair(code, name) : code
-  }
   switch (f.kind) {
     case 'bool':
       return value ? t('yes') : t('no')
     case 'select':
       return t(`opt.${f.optSet}.${String(value)}`)
-    case 'store':
-      return named(choices?.stores)
-    case 'category':
-      return named(choices?.categories)
-    case 'item':
-      return named()
-    case 'listCode':
-      return named(row?.values.kind === 'SUB_CATEGORY' ? choices?.subCategories : undefined)
-    case 'storeList':
+    case 'codeList':
       return Array.isArray(value) ? (value as readonly string[]).join(', ') : String(value)
     case 'number':
-      return table === 'confidence' ? Number(value).toFixed(2) : table === 'contracts' && field === 'rate' ? Number(value).toFixed(2) : String(value)
+      return table === 'confidence' || (table === 'contracts' && field === 'rate') ? Number(value).toFixed(2) : String(value)
     default:
-      if (table === 'rules' && field === 'group') return row?.names?.group ? formatPair(String(value), row.names.group) : String(value)
       return String(value)
   }
 }
@@ -77,7 +46,7 @@ export function RowLabel({ row, table }: { row: PlannerRow; table: PlannerTableK
   const { t } = useTranslation(NS)
   const fmt = useFormat()
   const v = row.values
-  const val = (field: string) => fmt(table, field, v[field] ?? null, row)
+  const val = (field: string) => fmt(table, field, v[field] ?? null)
   switch (table) {
     case 'overrides':
       return (
@@ -89,32 +58,34 @@ export function RowLabel({ row, table }: { row: PlannerRow; table: PlannerTableK
         />
       )
     case 'confidence':
-    case 'storeModes':
       return <Ltr>{val('store')}</Ltr>
     case 'restricted':
-      return <Ltr>{val('item')}</Ltr>
-    case 'bulky':
       return <Ltr>{val('code')}</Ltr>
+    case 'bulky':
+      return <Trans t={t} i18nKey="label.bulky" values={{ kind: val('kind'), code: val('code') }} components={{ v: <Ltr /> }} />
     case 'rules':
-      return <Trans t={t} i18nKey="label.rules" values={{ group: val('group'), mode: val('mode') }} components={{ v: <bdi /> }} />
+      return v.value ? (
+        <Trans t={t} i18nKey="label.rules" values={{ group: val('group'), value: val('value'), mode: val('mode') || t('label.anyMode') }} components={{ v: <bdi /> }} />
+      ) : (
+        <Trans t={t} i18nKey="label.rulesNoValue" values={{ group: val('group'), mode: val('mode') || t('label.anyMode') }} />
+      )
+    case 'storeModes':
+      return <Trans t={t} i18nKey="label.storeModes" values={{ store: val('store'), mode: val('mode') }} components={{ v: <Ltr /> }} />
     case 'contracts':
-      return <Trans t={t} i18nKey="label.contracts" values={{ courier: val('courier'), mode: val('mode') }} components={{ v: <Ltr /> }} />
+      return <Trans t={t} i18nKey="label.contracts" values={{ contract: val('contract'), mode: val('mode') }} components={{ v: <Ltr /> }} />
     case 'slots':
-      return (
-        <Trans
-          t={t}
-          i18nKey="label.slots"
-          values={{ slot: formatRange(String(v.from ?? ''), String(v.to ?? '')), day: val('day') }}
-          components={{ v: <Ltr /> }}
-        />
+      return v.kind === 'SLOT' ? (
+        <Trans t={t} i18nKey="label.slots" values={{ slot: formatRange(String(v.from ?? ''), String(v.to ?? '')) }} components={{ v: <Ltr /> }} />
+      ) : (
+        <Trans t={t} i18nKey="label.nextDayAfter" values={{ from: String(v.from ?? '') }} components={{ v: <Ltr /> }} />
       )
   }
 }
 
 const ACTION_SEV: Record<PlannerChangeAction, Severity> = { ADD: 'go', CHANGE: 'go', END: 'mute', SWITCH_ON: 'ok', SWITCH_OFF: 'warn' }
 
-/** One logged change: what was done, who, when, each field's old and new value, and the reason where one is kept. */
-export function ChangeCard({ table, change, row }: { table: PlannerTableKey; change: PlannerChange; row?: PlannerRow | null }) {
+/** One change: what was done, who, when, each field's old and new value, and the reason where one is kept. */
+export function ChangeCard({ table, change }: { table: PlannerTableKey; change: PlannerChange }) {
   const { t } = useTranslation(NS)
   const fmt = useFormat()
   const label = (field: string) => t(`fields.${table}.${field}`)
@@ -124,9 +95,7 @@ export function ChangeCard({ table, change, row }: { table: PlannerTableKey; cha
         <StatusBadge sev={ACTION_SEV[change.action] ?? 'mute'}>{t(`action.${change.action}`)}</StatusBadge>
         <span className="ms-auto flex items-baseline gap-2 text-muted-foreground">
           <Ltr>{change.at}</Ltr>
-          <span data-change-by="">
-            <Ltr>{change.by}</Ltr>
-          </span>
+          <span data-change-by="">{change.by ? <Ltr>{change.by}</Ltr> : t('seed')}</span>
         </span>
       </header>
       {change.diffs.length > 0 && (
@@ -137,14 +106,14 @@ export function ChangeCard({ table, change, row }: { table: PlannerTableKey; cha
                 <Trans
                   t={t}
                   i18nKey="diff.set"
-                  values={{ field: label(d.field), new: fmt(table, d.field, d.new, row) || t('blank') }}
+                  values={{ field: label(d.field), new: fmt(table, d.field, d.new) || t('blank') }}
                   components={{ v: <bdi className="font-medium" /> }}
                 />
               ) : (
                 <Trans
                   t={t}
                   i18nKey="diff.line"
-                  values={{ field: label(d.field), old: fmt(table, d.field, d.old, row) || t('blank'), new: fmt(table, d.field, d.new, row) || t('blank') }}
+                  values={{ field: label(d.field), old: fmt(table, d.field, d.old) || t('blank'), new: fmt(table, d.field, d.new) || t('blank') }}
                   components={{ o: <bdi className="text-muted-foreground line-through" />, v: <bdi className="font-medium" /> }}
                 />
               )}

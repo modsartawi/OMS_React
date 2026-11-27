@@ -9,9 +9,9 @@ import { Loader2 } from 'lucide-react'
 
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Chip from '@/core/ui/Chip'
-import type { PlannerRow, PlannerTableKey, PlannerValue } from '@/core/models/sourcing-planner'
 import { NS, useFormat } from './display'
 import { TABLES } from './tables'
+import type { PlannerRow, PlannerTableKey, PlannerValue } from './wire'
 
 export const PLANNER_DEFAULT_COL_DEF: ColDef<PlannerRow> = {
   ...OMS_GRID_BASE_COL_DEF,
@@ -66,14 +66,14 @@ export function usePlannerColumns(
         colId: f.key,
         headerName: header,
         valueGetter: (p) => (p.data?.values[f.key] ?? null) as PlannerValue,
-        valueFormatter: (p) => (p.data ? fmt(table, f.key, p.value as PlannerValue, p.data) : ''),
+        valueFormatter: (p) => (p.data ? fmt(table, f.key, p.value as PlannerValue) : ''),
         width:
           f.kind === 'bool'
             ? 104
-            : f.key === 'cities' || f.key === 'note' || f.key === 'group'
+            : f.key === 'cities' || f.key === 'note' || f.key === 'value' || f.key === 'onlyFrom'
               ? 200
-              : f.kind === 'store' || f.kind === 'item' || f.kind === 'category' || f.kind === 'listCode'
-                ? 210
+              : f.kind === 'select'
+                ? 160
                 : 130,
       })
     }

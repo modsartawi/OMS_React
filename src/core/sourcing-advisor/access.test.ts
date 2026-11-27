@@ -17,26 +17,33 @@ import {
   canViewSourcingAdvisor,
 } from './access'
 
-describe('the save grant (save weight sets, start trials)', () => {
-  it('grants on its own key, not on the view grant', () => {
-    expect(canSaveWeightSets(permissionsOf({ screens: ['SourcingAdvisorSave:01'] }))).toBe(true)
-    expect(canSaveWeightSets(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
+/**
+ * The run grant's key is the simulator reconciler's to settle (`canRunSourcingAdvisor`); these cases grant it under both
+ * the provisional key and the server's (`SourcingSimulatorGrants`: `SourcingSimulator`, 03), so they hold either way.
+ */
+const RUN = ['SourcingAdvisorRun:06', 'SourcingSimulator:03']
+const keys = (...k: string[]) => permissionsOf({ screens: k as never[] })
+
+describe('the save grant (save weight sets, start trials): BO 4360 `WeightSetGrants.Save`', () => {
+  it('grants on SourcingWeightSets:03, not on the view or run grant', () => {
+    expect(canSaveWeightSets(keys('SourcingWeightSets:03'))).toBe(true)
+    expect(canSaveWeightSets(keys('SourcingAdvisor:01', ...RUN))).toBe(false)
     expect(canSaveWeightSets(permissionsOf(null))).toBe(false)
   })
 })
 
-describe('the marking grant and the weight-set list (ticket 967, provisional keys)', () => {
-  it('marks the candidate set on its own key — the save grant does not mark', () => {
-    expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorMark:06'] }))).toBe(true)
-    expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorSave:01', 'SourcingAdvisorRun:06'] }))).toBe(false)
+describe('the marking grant and the weight-set list (BO 4360 `WeightSetGrants.Mark`)', () => {
+  it('marks the candidate set on SourcingCandidateSet:03 — the save grant does not mark', () => {
+    expect(canMarkCandidateSet(keys('SourcingCandidateSet:03'))).toBe(true)
+    expect(canMarkCandidateSet(keys('SourcingWeightSets:03', ...RUN))).toBe(false)
     expect(canMarkCandidateSet(permissionsOf(null))).toBe(false)
   })
 
-  it('the list opens to whoever runs, saves or marks sets — not to the view grant alone', () => {
-    for (const key of ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06'] as const) {
-      expect(canOpenWeightSets(permissionsOf({ screens: [key] }))).toBe(true)
-    }
-    expect(canOpenWeightSets(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
+  it('the list opens to the run grant, which every list, version and log read needs; save or mark alone reads nothing', () => {
+    expect(canOpenWeightSets(keys(...RUN))).toBe(true)
+    expect(canOpenWeightSets(keys('SourcingWeightSets:03'))).toBe(false)
+    expect(canOpenWeightSets(keys('SourcingCandidateSet:03'))).toBe(false)
+    expect(canOpenWeightSets(keys('SourcingAdvisor:01'))).toBe(false)
     expect(canOpenWeightSets(permissionsOf(null))).toBe(false)
   })
 })
@@ -76,22 +83,22 @@ describe('opening a stored run in the simulator (review 4354 #4)', () => {
   })
 })
 
-describe('the three planner grants (ticket 968, provisional keys)', () => {
-  const p = (...keys: string[]) => permissionsOf({ screens: keys as never[] })
-
+describe('the three planner grants (BO 4375, 4362, 4361: `PlannerStockGrants`, `ProductRuleGrants`, `PlannerTableGrants`)', () => {
   it('each opens its own tables only', () => {
-    expect(canEditPlannerBuffer(p('SourcingPlannerBuffer:01'))).toBe(true)
-    expect(canEditPlannerBuffer(p('SourcingPlannerRules:01', 'SourcingPlannerTables:01'))).toBe(false)
-    expect(canEditPlannerRules(p('SourcingPlannerRules:01'))).toBe(true)
-    expect(canEditPlannerRules(p('SourcingPlannerBuffer:01'))).toBe(false)
-    expect(canEditPlannerTables(p('SourcingPlannerTables:01'))).toBe(true)
-    expect(canEditPlannerTables(p('SourcingAdvisorRun:06'))).toBe(false)
+    expect(canEditPlannerBuffer(keys('SourcingPlannerStock:03'))).toBe(true)
+    expect(canEditPlannerBuffer(keys('SourcingProductRules:03', 'SourcingPlannerTables:03'))).toBe(false)
+    expect(canEditPlannerRules(keys('SourcingProductRules:03'))).toBe(true)
+    expect(canEditPlannerRules(keys('SourcingPlannerStock:03'))).toBe(false)
+    expect(canEditPlannerTables(keys('SourcingPlannerTables:03'))).toBe(true)
+    expect(canEditPlannerTables(keys(...RUN))).toBe(false)
   })
 
-  it('the planner page opens with any one of the three, and not with the run or view grant alone', () => {
-    for (const k of ['SourcingPlannerBuffer:01', 'SourcingPlannerRules:01', 'SourcingPlannerTables:01']) expect(canOpenSourcingPlanner(p(k))).toBe(true)
-    expect(canOpenSourcingPlanner(p('SourcingAdvisorRun:06', 'SourcingAdvisor:01'))).toBe(false)
+  it('the planner page opens with the run grant (every list reads under it) and any one of the three', () => {
+    for (const k of ['SourcingPlannerStock:03', 'SourcingProductRules:03', 'SourcingPlannerTables:03']) {
+      expect(canOpenSourcingPlanner(keys(k, ...RUN))).toBe(true)
+      expect(canOpenSourcingPlanner(keys(k))).toBe(false)
+    }
+    expect(canOpenSourcingPlanner(keys(...RUN, 'SourcingAdvisor:01'))).toBe(false)
     expect(canOpenSourcingPlanner(permissionsOf(null))).toBe(false)
   })
 })
-

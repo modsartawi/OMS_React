@@ -83,21 +83,18 @@ export const SCREEN_KEYS = [
   'ServingList:03',
   'ServingList:06',
   'SourcingAdvisor:01',
-  // Save weight sets and start trials (BackOffice spec 4354 §19: "the names are the build's"; seeded by BO 4360).
-  // PROVISIONAL (spec 4354: not specified) — the key. Reconcile with BO 4360 as seeded.
-  'SourcingAdvisorSave:01',
+  // Save weight sets and start trials: BackOffice 4360 `WeightSetGrants.Save` (`canSaveWeightSets`).
+  'SourcingWeightSets:03',
   // PROVISIONAL (spec 4354: not specified) — the sourcing advisor's run grant (spec 4354 §19: "a run grant opens the
   // simulator"). BackOffice 4355 seeds it but names none; this key is ours until it lands (`canRunSourcingAdvisor`).
   'SourcingAdvisorRun:06',
-  // PROVISIONAL (spec 4354: not specified) — the grant to mark the candidate set (spec 4354 §10, §19; seeded unnamed by
-  // BackOffice 4360). This key is ours until it lands (`canMarkCandidateSet`).
-  'SourcingAdvisorMark:06',
-  // PROVISIONAL (spec 4354: not specified) — the three planner grants (spec 4354 §19; seeded unnamed by BackOffice
-  // 4375, 4362 and 4361): buffer overrides + hand-set stock confidence; product rules + lists; the other planner
-  // tables. Ours until they land (`canEditPlannerBuffer` / `canEditPlannerRules` / `canEditPlannerTables`).
-  'SourcingPlannerBuffer:01',
-  'SourcingPlannerRules:01',
-  'SourcingPlannerTables:01',
+  // Mark the candidate set: BackOffice 4360 `WeightSetGrants.Mark` (`canMarkCandidateSet`).
+  'SourcingCandidateSet:03',
+  // The three planner grants: BackOffice 4375 `PlannerStockGrants`, 4362 `ProductRuleGrants`, 4361 `PlannerTableGrants`
+  // (`canEditPlannerBuffer` / `canEditPlannerRules` / `canEditPlannerTables`).
+  'SourcingPlannerStock:03',
+  'SourcingProductRules:03',
+  'SourcingPlannerTables:03',
   'StoreStage:02',
   'StoreStage:03',
   'StoreCountClose:02',

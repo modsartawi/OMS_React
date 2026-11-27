@@ -4,10 +4,11 @@
  * the most specific wins: store and item, item, merchandise category, store. A first day and an optional last day.
  * The reason is the sheet's (every BO 4375 change keeps one), not this form's.
  *
- * 🚩 PROVISIONAL (spec 4354: not specified) — the field names `level`, `store`, `item`, `category`, `keepUnits`,
- * `keepDays`, `firstDay`, `lastDay` and the level codes (`@/core/models/sourcing-planner`).
+ * The fields and level codes are BackOffice 4375's `BufferOverrideRequest` (pricing2 35a4e56be); the checks below are
+ * its `PlannerStockService.CheckedOverride`, read first so a refusal is rare.
  */
-import { OVERRIDE_LEVELS, type OverrideLevel, type PlannerRow, type PlannerValue, type PlannerValues } from '@/core/models/sourcing-planner'
+import { OVERRIDE_LEVELS, type OverrideLevel } from '@/core/models/sourcing-planner'
+import type { PlannerRow, PlannerValue, PlannerValues } from './wire'
 
 /** The form as typed: every field text, so a half-typed figure stays as typed. Dates are `yyyy-MM-dd`. */
 export interface OverrideForm {
@@ -30,6 +31,10 @@ export type OverrideProblem =
   | 'badDays'
   | 'needFirstDay'
   | 'lastBeforeFirst'
+  | 'lastPast'
+
+/** The most days of walk-in sales an override may keep (`PlannerStockService.MostKeepDays`). */
+const MOST_KEEP_DAYS = 365
 
 export const blankOverrideForm = (today: string): OverrideForm => ({
   level: 'STORE_ITEM',
@@ -72,8 +77,10 @@ export function overrideKeep(f: OverrideForm): 'UNITS' | 'DAYS' | 'BOTH' | null 
   return units && days ? 'BOTH' : units ? 'UNITS' : days ? 'DAYS' : null
 }
 
-/** What stops the form from saving, in the order the form reads. */
-export function overrideProblems(f: OverrideForm): OverrideProblem[] {
+const twoDecimals = (n: number) => Math.abs(Math.round(n * 100) - n * 100) < 1e-9
+
+/** What stops the form from saving, in the order the form reads. Given today, a last day before it is refused. */
+export function overrideProblems(f: OverrideForm, today?: string): OverrideProblem[] {
   const out: OverrideProblem[] = []
   if (needsStore(f.level) && f.store.trim() === '') out.push('needStore')
   if (needsItem(f.level) && f.item.trim() === '') out.push('needItem')
@@ -82,15 +89,16 @@ export function overrideProblems(f: OverrideForm): OverrideProblem[] {
   const days = figure(f.keepDays)
   if (units == null && days == null) out.push('unitsOrDays')
   if (units != null && !(Number.isInteger(units) && units >= 0)) out.push('badUnits')
-  if (days != null && !(Number.isFinite(days) && days >= 0)) out.push('badDays')
+  if (days != null && !(Number.isFinite(days) && days >= 0 && days <= MOST_KEEP_DAYS && twoDecimals(days))) out.push('badDays')
   if (f.firstDay === '') out.push('needFirstDay')
   else if (f.lastDay !== '' && f.lastDay < f.firstDay) out.push('lastBeforeFirst')
+  else if (f.lastDay !== '' && today && f.lastDay < today) out.push('lastPast')
   return out
 }
 
 /** The values the door is sent: only the target fields the level names, figures as numbers. Null while a problem stands. */
-export function overrideValues(f: OverrideForm): PlannerValues | null {
-  if (overrideProblems(f).length > 0) return null
+export function overrideValues(f: OverrideForm, today?: string): PlannerValues | null {
+  if (overrideProblems(f, today).length > 0) return null
   return {
     level: f.level,
     store: needsStore(f.level) ? f.store.trim() : null,

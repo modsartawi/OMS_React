@@ -1,6 +1,7 @@
 /**
  * One planner table's tab (ticket 968, the owner's variant A): what the table is, the rows in force as a list, and a
- * click on a row opening it in a side sheet (`./RowSheet`). A switch field is switched straight from the list.
+ * click on a row opening it in a side sheet (`./RowSheet`). A rule's switch is switched straight from the list. Ended
+ * rows are shown on asking where the table's door lists them (a planner table's door lists only its current rows).
  */
 import { useCallback, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,30 +18,31 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import type { PlannerRow, PlannerTableKey } from '@/core/models/sourcing-planner'
 import { plannerKeys, sourcingPlannerApi } from './api'
 import { PLANNER_DEFAULT_COL_DEF, SWITCH_COL, usePlannerColumns } from './columns'
 import { NS, useFormat } from './display'
 import OverrideProbe from './OverrideProbe'
 import RowSheet from './RowSheet'
-import { ruleGroups, ruleRows, switchEnded, switchRequest, switchStarted } from './rule-rows-model'
+import { ruleGroups, ruleRows, switchEnded, switchStarted } from './rule-rows-model'
 import { TABLES, todayIso } from './tables'
+import type { PlannerRow, PlannerTableKey } from './wire'
 
 export default function PlannerTab({ table }: { table: PlannerTableKey }) {
   const { t } = useTranslation(NS)
   const queryClient = useQueryClient()
   const fmt = useFormat()
-  const [showEnded, setShowEnded] = useState(false)
+  const [askedEnded, setShowEnded] = useState(false)
+  const showEnded = askedEnded && TABLES[table].listsEnded
   const [open, setOpen] = useState<{ row: PlannerRow | null } | null>(null)
   const today = todayIso()
 
   const query = useQuery({ queryKey: plannerKeys.rows(table, showEnded), queryFn: () => sourcingPlannerApi.rows(table, showEnded) })
-  const all = query.data?.rows ?? []
+  const all = query.data ?? []
   const live = all.filter((r) => !r.endedAt)
   const rows = table === 'rules' ? [...ruleRows(all).map((r) => r.row), ...all.filter((r) => r.endedAt)] : all
 
   const switchRow = useMutation({
-    mutationFn: (row: PlannerRow) => sourcingPlannerApi.change(table, switchRequest(row)),
+    mutationFn: (row: PlannerRow) => sourcingPlannerApi.switchRule(row),
     onSuccess: (_, row) => {
       toast.success(t(row.values[TABLES[table].switchField ?? 'on'] === true ? 'toast.switchedOff' : 'toast.switchedOn'))
       void queryClient.invalidateQueries({ queryKey: plannerKeys.table(table) })
@@ -92,8 +94,8 @@ export default function PlannerTab({ table }: { table: PlannerTableKey }) {
         <ul className="flex flex-wrap gap-2 text-xs" data-rule-groups="">
           {ruleGroups(live).map((g) => (
             <li key={g.key} className="rounded-md border border-border/60 bg-card px-2 py-1" data-rule-group={g.key}>
-              {g.groupName == null && <span className="text-muted-foreground">{t(`opt.groupKind.${g.groupKind}`)} </span>}
-              <bdi className="font-medium">{fmt('rules', 'group', g.group, g.rows[0]?.row)}</bdi>{' '}
+              <span className="text-muted-foreground">{fmt('rules', 'group', g.group)} </span>
+              {g.value && <bdi className="font-medium">{g.value}</bdi>}{' '}
               <span className="text-muted-foreground">{t('rules.counts', { on: fsi(String(g.on)), off: fsi(String(g.off)) })}</span>
             </li>
           ))}
@@ -104,10 +106,12 @@ export default function PlannerTab({ table }: { table: PlannerTableKey }) {
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('actions.add')}
         </Button>
-        <label className="flex items-center gap-2 text-xs">
-          <input type="checkbox" checked={showEnded} onChange={(e) => setShowEnded(e.target.checked)} data-show-ended="" />
-          {t('list.showEnded')}
-        </label>
+        {TABLES[table].listsEnded && (
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={showEnded} onChange={(e) => setShowEnded(e.target.checked)} data-show-ended="" />
+            {t('list.showEnded')}
+          </label>
+        )}
         <span className="ms-auto text-xs text-muted-foreground" data-row-count={live.length}>
           {t('list.count', { count: live.length, n: fsi(String(live.length)) })}
         </span>

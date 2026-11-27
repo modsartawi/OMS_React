@@ -18,8 +18,9 @@ type Tab = 'list' | 'log' | 'mark'
  * versions in a table, with what differs between two ticked versions; the candidate log as rows; marking as one long
  * form under the marking grant.
  *
- * Open to whoever runs, saves or marks sets (`canOpenWeightSets`, provisional). The tab and the version being marked
- * live in the URL (`?tab=mark&set=…&version=…`). 🚩 Built on stubs: BO 4360 and 4395 name no door (`./api`).
+ * Open to the simulator's run grant, which reads the list, a version and the candidate log (`canOpenWeightSets`; BO
+ * 4360); the marking tab to the mark grant. The tab and the version being marked live in the URL
+ * (`?tab=mark&set=…&version=…`). Doors: BO 4360 / 4395 `WeightSetEndpoints`, reconciled at pricing2 35a4e56be (`./api`).
  */
 export default function SourcingSetsPage() {
   const { t } = useTranslation(NS)

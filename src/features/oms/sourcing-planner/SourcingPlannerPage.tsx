@@ -1,12 +1,13 @@
 /**
  * Sourcing planner data (oms-react ticket 968, BackOffice spec 4354 §2, §5, §8, §19; server tickets BO 4361, 4362,
- * 4375 — all open, so the doors are stubs in the drive).
+ * 4375, reconciled at pricing2 35a4e56be — the doors in `./api`, their shapes in `./wire`).
  *
  * One home for the eight tables every advisor run reads as they stand, each under one of the three planner grants:
  * buffer overrides and a store's hand-set stock confidence; the product rule rows and the restricted and bulky lists;
  * the store-by-mode table, the carrier contracts and the slot rule table. The owner's pick (variant A, ticket 968
  * Comments): a tab shows only to the holder of its grant; a row opens in a side sheet with its form, a reason where the
- * server keeps one, and its own history.
+ * server keeps one, and its own history. The page opens with the simulator's run grant, which every list reads under,
+ * and any one planner grant (`canOpenSourcingPlanner`).
  */
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
@@ -15,10 +16,10 @@ import { usePermissions } from '@/core/permissions'
 import { canOpenSourcingPlanner } from '@/core/sourcing-advisor/access'
 import Chip from '@/core/ui/Chip'
 import ScreenGate from '@/core/ui/ScreenGate'
-import type { PlannerTableKey } from '@/core/models/sourcing-planner'
 import { NS } from './display'
 import PlannerTab from './PlannerTab'
 import { GRANT_GROUPS, visibleTables } from './tables'
+import type { PlannerTableKey } from './wire'
 
 export default function SourcingPlannerPage() {
   const { t } = useTranslation(NS)

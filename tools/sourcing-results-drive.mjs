@@ -1,30 +1,30 @@
-// Comparison results drive (ticket 971, BackOffice spec 4354 §17) — drives the REAL app against a STUBBED wire. The
-// results doors (BackOffice 4393) are not built and not specified: the stub serves the page's PROVISIONAL shapes
-// (`src/core/models/sourcing-results.ts`) with the summary reply the model tests read
-// (`src/features/oms/sourcing-results/stub-summary.json`, the results prototype's 14 days).
+// Comparison results drive (tickets 971, 972, 973; BackOffice spec 4354 §16–§18) — drives the REAL app against a
+// STUBBED wire in the shapes of the REAL doors (BackOffice 4393 results, 4394 trials, 4396 phase 2 bar, pricing2
+// 35a4e56be). The stubs are the replies the model tests read: `src/features/oms/sourcing-results/stub-first.json`
+// (Top, Panels, Differ), `stub-tabs.json` (the five reading tabs), `stub-trials.json`, `stub-bar.json`, and
+// `stub-codes.json` (the server's own code list, `Results/Codes`).
 //
 // Left to right and right to left (`oms.locale = 'ar'` sets dir="rtl"; the app's words stay English, as on every
 // screen, so the RTL pass proves the mirroring and the isolation), asserts:
-//   1. the page opens under today's advisor view grant, and says no access without it;
-//   2. the sentence, the six segments, the two brackets and the line under the bar, figures isolated LTR;
-//      under Arabic the first segment stands at the reading start (the right);
-//   3. the three panels: the promise check's words, the cost notice and no riyal figure, a mark with no orders greyed;
-//   4. "Where the plans differ": the rows per view, no estimate for "outside the rules", the view in the URL;
-//   5. a segment opens its orders in the drawer, the figure sent to the door; the list sorts and pages;
-//   6. one order opens its card, the advisor's plan beside what happened; "Open the stored run in the simulator" is not
-//      offered under the view grant alone (review 4354 #4: the view grant opens no simulator); with the run grant it is,
-//      and it opens the simulator on the stored run (`?run=`), which asks the stored-run read door (ticket 969);
-//   7. a mark's count opens its orders; a filter re-reads the summary; the seven tabs, the open one kept in the URL;
-//   8. no page error and no raw key;
-//   9. (ticket 973) Trials: the list newest first, a trial's result with its refusals in the spec order, the factor
-//      table; the start form refuses 31 days and starts a trial on 14 under the save grant; "open with this set beside
-//      it" re-reads the summary with `besideSet`, and the page draws the banner, the thin second bar (its first segment
-//      at the reading start), the plans that differ by kind and the promise check under that set; the set is removed;
-//  10. (ticket 973) Phase 2 bar: its own picker (28 days, channel group, who made the runs), the nine limits a to i
-//      with their state and why ("cannot be read yet" names its cause), the readings apart, a largest difference
-//      marked, a ruling written, and "accept this reading" offered only on a reading with nothing unreadable.
-//      The trial and bar doors (BackOffice 4394, 4396) are not specified either: the stubs serve
-//      `stub-trials.json` and `stub-bar.json`, the same replies the model tests read.
+//   1. the page opens under the advisor view grant (`SourcingAdvisor:01`), and says no access without it;
+//   2. the first screen reads Top, Panels and Differ with the filter bar's query names; the sentence, the seven segments
+//      ("breaks the nesting" first), the two brackets over the segments the server names, the line under the bar;
+//   3. the three panels: the promise check's pills, the express stamp, the cost notice in counts, rates worded by the
+//      code list, no riyal figure, a mark with no orders greyed and a mark's count opening through `mark=`;
+//   4. "Where the plans differ" per view (`Differ?view=`), a minus read as the advisor earlier, an ending opening its orders;
+//   5. a segment opens its orders (`segment=`, `page`, `pageSize`, `sort`, `desc`); the list sorts and pages;
+//   6. one order's card: the whole plan, the stores only and what happened, its riyal figures each with a source;
+//      "Open the stored run in the simulator" only under the run grant (`SourcingSimulator:03`), opening `?run=`;
+//   7. the filters re-read the doors (period, `runMark`, `shortFigure`, `set` + `version`); the seven tabs;
+//   8. Trials: the list, a result with its refusals in the server's order, the factor table's fifteen rows; the form
+//      refuses 31 days and starts a trial on 14 (`{name, version, from, to}`, days `yyyy-MM-dd 00:00:00`); the result
+//      opens beside the candidate's trial (`Trials/Beside?trialId=&otherId=`): banner, two thin bars, kinds, estimate,
+//      promise under the set; removed;
+//   9. Phase 2 bar: its picker (28 days, channel group, step), the nine limits with state and why (the server's words),
+//      figures isolated, read-only figures apart, a largest difference marked, a ruling written and the split check
+//      recorded through `Close`, the reading accepted with a note through `Accept`;
+//  10. the five reading tabs on their doors, every figure that opens orders sending the server's figure names;
+//  11. no page error and no raw key.
 //
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/sourcing-results-drive.mjs
@@ -39,15 +39,20 @@ const BASE = `http://localhost:${process.env.DRIVE_PORT || 5203}`
 const SHOTS = 'tools/.sourcing-results-shots'
 mkdirSync(SHOTS, { recursive: true })
 
-const SUMMARY = JSON.parse(readFileSync('src/features/oms/sourcing-results/stub-summary.json', 'utf8'))
-const TRIALS = JSON.parse(readFileSync('src/features/oms/sourcing-results/stub-trials.json', 'utf8'))
-const BAR = JSON.parse(readFileSync('src/features/oms/sourcing-results/stub-bar.json', 'utf8'))
-// The channel's own runs read with nothing unreadable, so "accept this reading" is offered there.
-const readableBar = () => ({
-  ...structuredClone(BAR),
-  runs: 'CHANNEL',
-  limits: BAR.limits.map((l) => (l.state === 'CANNOT_READ' ? { ...l, state: 'NOT_MET', causes: [], figures: [{ part: 'X', value: 1, unit: 'COUNT', meets: false }] } : l)),
-})
+const read = (name) => JSON.parse(readFileSync(`src/features/oms/sourcing-results/${name}`, 'utf8'))
+const FIRST = read('stub-first.json')
+const TABS = read('stub-tabs.json')
+const TRIALS = read('stub-trials.json')
+const BAR = read('stub-bar.json')
+const CODES = read('stub-codes.json')
+const TRIAL_SET = '01JE2A5M4N3B2V1C0X9Z8L7K6J'
+const CANDIDATE = '01JE1Z9Y8X7W6V5T4S3R2Q1P0N'
+const RUN_ID = '01JDQ7Y3K2M5N8P0R4S6T9V1WX'
+/** The grants (the save and mark keys are the weight-set screens' until their reconciliation names them). */
+const VIEW = 'SourcingAdvisor:01'
+const SAVE = 'SourcingAdvisorSave:01'
+const MARK = 'SourcingAdvisorMark:06'
+const RUN = 'SourcingSimulator:03'
 
 const results = []
 const check = (name, pass, detail = '') => {
@@ -61,62 +66,70 @@ const envelope = (data, { status = 200, success = true, message = '' } = {}) => 
   body: JSON.stringify({ statusCode: status, success, message, errors: [], data }),
 })
 
-// ── the orders behind a figure, and one order (PROVISIONAL shapes) ────────────────────────────────
+// ── the orders behind a figure, and one order (BO 4393 `OrderListRow`, `ResultsOrderCard`) ────────────────
 const CLASSES = ['SAME_PLAN', 'ANOTHER_STORE', 'ANOTHER_MODE', 'FEWER_SHIPMENTS', 'OUTSIDE_RULES']
-const CHANNELS = ['IOS', 'ROID', 'WEB', 'CALL_CENTRE']
+const CHANNELS = ['IOS', 'ROID', 'WEB', 'CC']
 const CITIES = ['Riyadh', 'Jeddah', 'الدمام', 'Makkah']
 const ENDINGS = ['ON_TIME', 'ON_TIME', 'LATE', 'RETURNED', 'CANCELLED', 'CUSTOMER_CANCELLED']
 const ORDER_TOTAL = 137
-const orderRows = (page, pageSize, figure) => {
-  const fixedClass = figure.startsWith('segment:ANOTHER_STORE') ? 'ANOTHER_STORE' : null
+const orderRows = (q) => {
+  const page = Number(q.page), pageSize = Number(q.pageSize)
   const from = (page - 1) * pageSize
   const rows = []
   for (let i = from; i < Math.min(ORDER_TOTAL, from + pageSize); i++) {
-    const cls = fixedClass ?? CLASSES[i % CLASSES.length]
+    const cls = q.segment === 'ANOTHER_STORE' ? 'ANOTHER_STORE' : CLASSES[i % CLASSES.length]
     rows.push({
       orderNumber: String(4500718000 + i),
-      landedAt: `2026-11-${String(12 + (i % 14)).padStart(2, '0')} ${String(8 + (i % 14)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`,
+      landedAt: `2026-11-${String(13 + (i % 14)).padStart(2, '0')}T${String(8 + (i % 14)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`,
       channel: CHANNELS[i % CHANNELS.length],
+      channelGroup: 'APP_SITE',
       city: CITIES[i % CITIES.length],
-      wholePlan: cls,
-      storesOnly: cls === 'ANOTHER_MODE' ? 'SAME_PLAN' : cls,
-      estimateMinutes: cls === 'OUTSIDE_RULES' || cls === 'SAME_PLAN' ? null : 6 + (i % 9) - 4,
+      wholeClass: cls,
+      storesClass: cls === 'ANOTHER_MODE' ? 'SAME_PLAN' : cls,
+      segment: q.segment ?? 'SAME_PLAN_BOTH',
+      wholeEstimate: cls === 'OUTSIDE_RULES' || cls === 'SAME_PLAN' ? null : -6 + (i % 9) - 4,
+      storesEstimate: cls === 'OUTSIDE_RULES' || cls === 'SAME_PLAN' ? null : -3,
       ending: ENDINGS[i % ENDINGS.length],
-      stockShortLine: i % 11 === 0,
+      marks: [],
+      shortFigure: i % 11 === 0,
+      runId: RUN_ID,
     })
   }
-  return { total: ORDER_TOTAL, page, pageSize, rows }
+  return { filter: FIRST.top.filter, total: ORDER_TOTAL, page, pageSize, sort: q.sort ?? 'LANDED', desc: q.desc === 'true', rows }
 }
+const shipment = (o) => ({
+  no: 1, deliveryNo: '', store: 'P901', mode: 'DAWAA_NOW', lines: [1, 2], slotFrom: null, slotTo: null, promisedBy: '2026-11-20T15:02:00',
+  matched: true, promiseChecked: true, withinPromise: true, handedOverAt: null, distanceBand: 'KM_2_4', ending: '', cancelledBy: '', late: false,
+  stockChecked: false, covered: false, failedPick: false, listFee: 15, feePaid: null, feeSource: 'RULE_TABLE', ...o,
+})
 const orderCard = (orderNumber) => ({
-  orderNumber,
-  runId: '01JDQ7Y3K2M5N8P0R4S6T9V1WX',
-  landedAt: '2026-11-20 14:10:00',
-  channel: 'IOS',
-  city: 'Riyadh',
-  wholePlan: 'ANOTHER_STORE',
-  storesOnly: 'ANOTHER_STORE',
-  estimateMinutes: 9,
-  ending: 'LATE',
-  plan: [{ mode: 'DAWAA_NOW', store: 'P901', storeName: 'Al Malqa 1', km: 2.1, lines: 2, when: { en: 'by 15:02', ar: 'بحلول 15:02' } }],
-  happened: [
-    {
-      mode: 'DAWAA_NOW',
-      store: 'P910',
-      storeName: 'An Nakheel 3',
-      km: 3.4,
-      lines: 2,
-      when: { en: 'delivered 15:21, stamp 15:20: late by 1 min', ar: 'سُلّم 15:21، الختم 15:20: متأخر دقيقة' },
-    },
-  ],
+  orderNumber, landedAt: '2026-11-20T14:10:00', channel: 'IOS', channelGroup: 'APP_SITE', city: 'Riyadh', runId: RUN_ID, madeBy: 'CHANNEL', ownRunReason: '',
+  ranAt: '2026-11-20T14:10:04', weightSetName: 'Baseline', weightSetVersion: 3, wholeClass: 'ANOTHER_STORE', storesClass: 'ANOTHER_STORE', segment: 'ANOTHER_STORE',
+  notComparableWhy: '', outsideCode: '', outsideStepCode: '', outsideRule: '', outsideLineNo: 0, outsideStore: '', outsideMode: '', wholeEstimate: -9, storesEstimate: -7,
+  ending: 'LATE', marks: ['ASSUMED_RATES'], shortFigureLines: 0, asItStands: false, halfCancelled: false, expressToFallback: false, handMoved: false, ownSplit: '',
+  laterSlotCheaper: false, pairsBeforeCut: 120, pairsCut: 20, feeCompared: 'SAME',
+  wholeListFee: { amount: 15, source: 'RULE_TABLE' }, realListFee: { amount: 15, source: 'RULE_TABLE' }, feePaid: { amount: 15, source: 'PAID' },
+  wholeCompanyCost: null, realCompanyCost: null,
+  wholePlan: [shipment({})],
+  storesOnly: [shipment({ store: 'P901' })],
+  deliveries: [shipment({ no: 1, deliveryNo: '8000000253', store: 'P910', handedOverAt: '2026-11-20T15:21:00', ending: 'DELIVERED', late: true, listFee: null, feePaid: 15, feeSource: 'PAID' })],
+})
+
+// ── the trial and bar doors' answers (BO 4394, 4396; record JSON) ──────────────────────────────────────
+const factorRowsIdle = () => TRIALS.factorTable.rows.map((r) => ({ ...r, trialId: '', state: '', compared: 0, plansChanged: 0, share: 0, kinds: {} }))
+const newTrial = (b, id) => ({
+  ...TRIALS.trials[0], trialId: id, name: b.name, version: b.version, from: b.from, to: b.to, state: 'WAITING', ahead: 1, startedBy: 'msartawi',
+  addedAt: '2026-11-27 09:00:00', repeat: false, trialSet: false, besideCandidate: 'Baseline', besideCandidateVersion: 3,
 })
 
 // ── helpers ─────────────────────────────────────────────────────────────────────────────────────────
 const isLtrIsolate = (locator) => locator.evaluate((el) => !!el.closest('bdi[dir="ltr"]') || !!el.querySelector('bdi[dir="ltr"]'))
 /** Text with its isolates (FSI…PDI, from `fsi()` in a `t()` sentence) taken out, to match words around a figure. */
 const plain = (text) => text.replace(/[⁦-⁩]/g, '')
-/** The same fields and values, whatever order they were written in. */
 const sameFields = (a, b) => !!a && JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
 const box = async (locator) => (await locator.boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 }
+/** The server's English words for a code (the app's language stays English). */
+const words = (family, code) => CODES.find((c) => c.family === family && c.code === code)?.en ?? code
 
 async function scenario(browser, lang) {
   const tag = `[${lang}]`
@@ -124,13 +137,6 @@ async function scenario(browser, lang) {
   await context.addInitScript((l) => {
     localStorage.setItem('oms.locale', l)
     localStorage.setItem('oms.railExpanded', 'false')
-    // Every client-side navigation, so a link to a route this branch does not have yet is still seen.
-    window.__navs = []
-    const push = history.pushState.bind(history)
-    history.pushState = (state, title, url) => {
-      window.__navs.push(String(url))
-      return push(state, title, url)
-    }
   }, lang)
   const page = await context.newPage()
   const errors = []
@@ -138,111 +144,95 @@ async function scenario(browser, lang) {
   page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()))
 
   const wire = {
-    summaries: [],
-    orders: [],
-    cards: [],
+    asks: {},
     grant: true,
-    // Ticket 969: the run grant, which opens the simulator and so "Open the stored run in the simulator".
     runGrant: false,
     opens: [],
     trials: structuredClone(TRIALS.trials),
     starts: [],
-    factorAsks: [],
+    tables: [],
+    besides: [],
     bars: [],
     bar: structuredClone(BAR),
-    marks: [],
-    rulings: [],
+    closes: [],
     accepts: [],
   }
+  const asked = (door, q) => ((wire.asks[door] ??= []).push(q), q)
+  const last = (door) => wire.asks[door]?.at(-1)
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
+    const q = Object.fromEntries(url.searchParams)
+    const body = () => JSON.parse(route.request().postData() || '{}')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Auth/Permissions') return route.fulfill(permissions(wire.grant ? ['SourcingAdvisor:01', 'SourcingAdvisorSave:01', ...(wire.runGrant ? ['SourcingSimulator:03'] : [])] : []))
-    // Ticket 969: the simulator a stored run's link opens — its read door (PROVISIONAL) answers the run is not there.
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(wire.grant ? [VIEW, SAVE, MARK, ...(wire.runGrant ? [RUN] : [])] : []))
+    // The simulator a stored run's link opens: its read door answers the run is not there.
     if (p === 'SourcingAdvisor/Runs/Open') {
-      wire.opens.push(url.searchParams.get('runId'))
+      wire.opens.push(q.runId)
       return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ statusCode: 404, success: false, message: 'Run not found', errors: [{ errorCode: 'ADVISE-404', internalErrorCode: '', errorMessage: 'Run not found' }], data: null }) })
     }
     if (p === 'SourcingAdvisor/WeightSets') return route.fulfill(envelope([]))
-    if (p === 'SourcingAdvisor/Results/Summary') {
-      wire.summaries.push(Object.fromEntries(url.searchParams))
-      return route.fulfill(envelope(url.searchParams.get('besideSet') ? { ...SUMMARY, beside: TRIALS.beside } : SUMMARY))
-    }
-    // ── ticket 973: the trial door and the bar's doors (PROVISIONAL shapes) ──
-    const body = () => JSON.parse(route.request().postData() || '{}')
-    if (p === 'SourcingAdvisor/Trials') {
-      const { factors: _f, beside: _b, ...reply } = TRIALS
-      return route.fulfill(envelope({ ...reply, trials: wire.trials }))
-    }
+    if (p === 'SourcingAdvisor/Results/Codes') return route.fulfill(envelope(CODES))
+    const echo = (reply) => ({ ...reply, filter: { ...reply.filter, period: q.period ?? 'DAYS_7', channelGroup: q.channelGroup ?? 'ALL' } })
+    if (p === 'SourcingAdvisor/Results/Top') return route.fulfill(envelope(echo(FIRST.top, asked('top', q))))
+    if (p === 'SourcingAdvisor/Results/Panels') return route.fulfill(envelope(echo(FIRST.panels, asked('panels', q))))
+    if (p === 'SourcingAdvisor/Results/Differ') return route.fulfill(envelope(echo(FIRST.differ[asked('differ', q).view ?? 'WHOLE_PLAN'])))
+    if (p === 'SourcingAdvisor/Results/Breakdown') return route.fulfill(envelope(TABS.breakdowns[asked('breakdown', q).by ?? 'MODE']))
+    if (p === 'SourcingAdvisor/Results/Outside') return route.fulfill(envelope(TABS.outside, asked('outside', q)))
+    if (p === 'SourcingAdvisor/Results/Checks') return route.fulfill(envelope(TABS.checks, asked('checks', q)))
+    if (p === 'SourcingAdvisor/Results/LaterSlots') return route.fulfill(envelope(TABS.laterSlots, asked('laterSlots', q)))
+    if (p === 'SourcingAdvisor/Results/NotRun') return route.fulfill(envelope(TABS.notRun, asked('notRun', q)))
+    if (p === 'SourcingAdvisor/Results/Orders') return route.fulfill(envelope(orderRows(asked('orders', q))))
+    if (p === 'SourcingAdvisor/Results/Order') return route.fulfill(envelope(orderCard(asked('order', q).orderNumber)))
+    // ── trials ──
+    if (p === 'SourcingAdvisor/Trials') return route.fulfill(envelope(wire.trials))
     if (p === 'SourcingAdvisor/Trials/Start') {
       const b = body()
       wire.starts.push(b)
-      const days = Math.round((Date.parse(b.to) - Date.parse(b.from)) / 86400000) + 1
-      const row = {
-        trialId: '01JE4NEWTRIAL0000000000000',
-        set: { name: b.weightSet, version: b.weightSetVersion },
-        period: { from: b.from, to: b.to },
-        days,
-        state: 'WAITING',
-        queuePosition: 2,
-        startedBy: 'msartawi',
-        startedAt: '2026-11-27 09:00:00',
-        endedAt: null,
-        orders: 0,
-        solved: 0,
-        refused: [],
-        failed: 0,
-        leftOutNoPlan: 0,
-        fromKept: false,
-      }
+      const row = newTrial(b, `01JE4NEWTRIAL${String(wire.starts.length).padStart(13, '0')}`)
       wire.trials.push(row)
       return route.fulfill(envelope(row))
     }
-    if (p === 'SourcingAdvisor/Trials/Factors') {
-      const id = url.searchParams.get('trialId')
-      wire.factorAsks.push(id)
-      return route.fulfill(envelope(id === TRIALS.factors.trialId ? TRIALS.factors : { trialId: id, state: 'NOT_STARTED', plans: 0, rows: [] }))
+    if (p === 'SourcingAdvisor/Trials/FactorTable') {
+      if (route.request().method() === 'POST') {
+        const b = body()
+        wire.tables.push(b)
+        return route.fulfill(envelope({ trial: TRIALS.trials[4], rows: factorRowsIdle().map((r) => ({ ...r, state: 'WAITING' })) }))
+      }
+      const trial = wire.trials.find((t) => t.trialId === q.trialId)
+      return route.fulfill(envelope(q.trialId === TRIAL_SET ? TRIALS.factorTable : { trial, rows: factorRowsIdle() }))
     }
-    if (p === 'SourcingAdvisor/Phase2Bar') {
-      const q = Object.fromEntries(url.searchParams)
+    if (p === 'SourcingAdvisor/Trials/Beside') {
+      wire.besides.push(q)
+      return route.fulfill(envelope(TRIALS.beside))
+    }
+    // ── the phase 2 bar ──
+    const barReply = (query) => {
+      const from = query.from ?? '2026-10-30'
+      const to = new Date(Date.parse(from) + 28 * 86400000).toISOString().slice(0, 10)
+      return { ...wire.bar, reading: { ...wire.bar.reading, from: `${from} 00:00:00`, to: `${to} 00:00:00`, channelGroup: query.channelGroup ?? 'APP_SITE', step: query.step ?? 'STORES_ONLY' } }
+    }
+    if (p === 'SourcingAdvisor/Results/Phase2Bar') {
       wire.bars.push(q)
-      const reply = q.runs === 'CHANNEL' ? readableBar() : wire.bar
-      const from = q.from ?? reply.period.from
-      const to = new Date(Date.parse(from) + 27 * 86400000).toISOString().slice(0, 10)
-      return route.fulfill(envelope({ ...reply, channelGroup: q.channelGroup, period: { from, to, days: 28 } }))
+      return route.fulfill(envelope(barReply(q)))
     }
-    if (p === 'SourcingAdvisor/Phase2Bar/Mark') {
+    if (p === 'SourcingAdvisor/Results/Phase2Bar/Close') {
       const b = body()
-      wire.marks.push(b)
-      const row = wire.bar.largest.find((r) => r.orderNumber === b.orderNumber)
-      if (row) Object.assign(row, { mark: b.mark, markedBy: 'msartawi', markedAt: '2026-11-27 09:10:00' })
-      return route.fulfill(envelope(wire.bar))
+      wire.closes.push(b)
+      const close = { kind: b.kind, key: b.key, mark: b.mark, text: b.text, by: 'msartawi', at: '2026-11-27 09:12:00' }
+      const r = wire.bar.reading
+      if (b.kind === 'ORDER') for (const o of r.largestDifferences.filter((x) => x.orderNumber === b.key)) Object.assign(o, { mark: b.mark, markedBy: 'msartawi', markedAt: close.at })
+      if (b.kind === 'SHELF_CHANCE') Object.assign(r.shelfChance.find((s) => `${s.mode}|${s.stockClass}` === b.key) ?? {}, { ruling: close })
+      if (b.kind === 'SPLIT_CHECK') r.splitCheck = close
+      return route.fulfill(envelope(barReply({ from: b.from, channelGroup: b.channelGroup })))
     }
-    if (p === 'SourcingAdvisor/Phase2Bar/Ruling') {
-      const b = body()
-      wire.rulings.push(b)
-      const ruling = wire.bar.rulings.find((r) => r.key === b.key)
-      if (ruling) ruling.ruling = { text: b.text, by: 'msartawi', at: '2026-11-27 09:12:00' }
-      return route.fulfill(envelope(wire.bar))
-    }
-    if (p === 'SourcingAdvisor/Phase2Bar/Accept') {
+    if (p === 'SourcingAdvisor/Results/Phase2Bar/Accept') {
       const b = body()
       wire.accepts.push(b)
-      const reply = readableBar()
-      return route.fulfill(envelope({ ...reply, accepted: { by: 'owner.dmsco', at: '2026-11-27 09:20:00', period: { from: b.from, to: b.to }, limits: reply.limits } }))
+      const kept = { id: '01JE5KEPT0000000000000000', from: `${b.from} 00:00:00`, to: '2026-11-27 00:00:00', channelGroup: b.channelGroup, step: b.step, candidateName: 'Baseline', candidateVersion: 3, met: false, note: b.note, readBy: 'owner.dmsco', readAt: '2026-11-27 09:20:00' }
+      wire.bar.kept = [...wire.bar.kept, kept]
+      return route.fulfill(envelope(kept))
     }
-    if (p === 'SourcingAdvisor/Results/Orders') {
-      const q = Object.fromEntries(url.searchParams)
-      wire.orders.push(q)
-      return route.fulfill(envelope(orderRows(Number(q.page), Number(q.pageSize), q.figure ?? '')))
-    }
-    if (p === 'SourcingAdvisor/Results/Order') {
-      wire.cards.push(url.searchParams.get('orderNumber'))
-      return route.fulfill(envelope(orderCard(url.searchParams.get('orderNumber'))))
-    }
-    const tabReply = readingTabReply(p, url, wire)
-    if (tabReply) return route.fulfill(envelope(tabReply))
     return route.fulfill(envelope({}))
   })
 
@@ -258,94 +248,84 @@ async function scenario(browser, lang) {
 
   await page.goto(`${BASE}/oms/sourcing-results`)
   await page.locator('[data-results-top]').waitFor({ timeout: 15000 })
+  await page.locator('[data-results-differ]').waitFor({ timeout: 15000 })
   await page.waitForTimeout(300)
-  check(`${tag} the page opens under the advisor view grant and reads the summary once`, wire.summaries.length >= 1, JSON.stringify(wire.summaries[0]))
+  const top0 = wire.asks.top?.[0]
   check(
-    `${tag} the first read asks for 14 days of all three channels`,
-    wire.summaries[0]?.period === '14' && wire.summaries[0]?.channelGroup === 'ALL',
-    JSON.stringify(wire.summaries[0]),
+    `${tag} the first screen reads Top, Panels and Differ: 14 days of all three channel groups, the whole plan`,
+    top0?.period === 'DAYS_14' && top0?.channelGroup === 'ALL' && wire.asks.panels?.[0]?.period === 'DAYS_14' && wire.asks.differ?.[0]?.view === 'WHOLE_PLAN',
+    JSON.stringify({ top: top0, differ: wire.asks.differ?.[0] }),
   )
   const dir = await page.evaluate(() => document.documentElement.dir)
   check(`${tag} the page direction`, dir === (lang === 'ar' ? 'rtl' : 'ltr'), dir)
+  check(`${tag} the period read, from the reply's echo`, (await page.locator('[data-results-period]').innerText()).includes('2026-11-26'))
 
   // 2. the sentence, the bar, the brackets
   const sentence = await page.locator('[data-results-sentence]').innerText()
-  check(
-    `${tag} the sentence carries the orders compared and the two shares`,
-    sentence.includes('39,870') && sentence.includes('77.6%') && sentence.includes('68.8%'),
-    sentence,
-  )
+  check(`${tag} the sentence carries the orders compared and the two brackets' shares`, sentence.includes('39,870') && sentence.includes('77.5%') && sentence.includes('68.8%'), sentence)
   check(`${tag} the sentence's figures are isolated LTR`, (await page.locator('[data-results-sentence] bdi[dir="ltr"]').count()) === 3)
   const segments = await page.locator('[data-segment]').evaluateAll((els) => els.map((e) => e.getAttribute('data-segment')))
   check(
-    `${tag} the bar draws the six segments in the spec's order`,
-    JSON.stringify(segments) === JSON.stringify(['SAME_PLAN', 'SAME_STORES_OTHER_WAY', 'ANOTHER_STORE', 'CALLOUT_FALLBACK', 'OUTSIDE_RULES', 'NOT_COMPARABLE']),
+    `${tag} the bar draws the seven segments, "breaks the nesting" first`,
+    JSON.stringify(segments) === JSON.stringify(['BREAKS_NESTING', 'SAME_PLAN_BOTH', 'SAME_STORES_OTHER_WAY', 'ANOTHER_STORE', 'CALLOUT_FALLBACK', 'OUTSIDE_RULES', 'NOT_COMPARABLE']),
     segments.join(','),
   )
-  const storesBracket = await page.locator('[data-bracket="stores"]').innerText()
-  const planBracket = await page.locator('[data-bracket="plan"]').innerText()
-  check(`${tag} the stores bracket reads same stores 77.6%`, storesBracket.includes('77.6%'), storesBracket)
-  check(`${tag} the plan bracket reads same plan 68.8%`, planBracket.includes('68.8%'), planBracket)
-  const first = await box(page.locator('[data-segment="SAME_PLAN"]'))
-  const second = await box(page.locator('[data-segment="SAME_STORES_OTHER_WAY"]'))
-  const last = await box(page.locator('[data-segment="NOT_COMPARABLE"]'))
-  const storesBox = await box(page.locator('[data-bracket="stores"]'))
+  const seg = async (s) => box(page.locator(`[data-segment="${s}"]`))
+  const [s1, s2, s3, sLast] = [await seg('BREAKS_NESTING'), await seg('SAME_PLAN_BOTH'), await seg('SAME_STORES_OTHER_WAY'), await seg('NOT_COMPARABLE')]
+  check(`${tag} the first segment stands at the reading start`, lang === 'ar' ? s1.x > sLast.x : s1.x < sLast.x, `first.x=${Math.round(s1.x)} last.x=${Math.round(sLast.x)}`)
+  const spanOf = (a, b) => Math.max(a.x + a.width, b.x + b.width) - Math.min(a.x, b.x)
   const planBox = await box(page.locator('[data-bracket="plan"]'))
+  const storesBox = await box(page.locator('[data-bracket="stores"]'))
   check(
-    `${tag} the first segment stands at the reading start`,
-    lang === 'ar' ? first.x > last.x : first.x < last.x,
-    `first.x=${Math.round(first.x)} last.x=${Math.round(last.x)}`,
-  )
-  const storesSpan = lang === 'ar' ? [second.x, first.x + first.width] : [first.x, second.x + second.width]
-  check(
-    `${tag} the stores bracket spans the first two segments, the plan bracket the first`,
-    Math.abs(storesBox.width - (storesSpan[1] - storesSpan[0])) < 3 && Math.abs(planBox.width - first.width) < 3,
-    `stores=${Math.round(storesBox.width)} vs ${Math.round(storesSpan[1] - storesSpan[0])}, plan=${Math.round(planBox.width)} vs ${Math.round(first.width)}`,
+    `${tag} the whole plan's bracket spans "breaks the nesting" and "same plan"; the stores only's, "same plan" and "same stores"`,
+    Math.abs(planBox.width - spanOf(s1, s2)) < 4 && Math.abs(storesBox.width - spanOf(s2, s3)) < 4,
+    `plan=${Math.round(planBox.width)} vs ${Math.round(spanOf(s1, s2))}, stores=${Math.round(storesBox.width)} vs ${Math.round(spanOf(s2, s3))}`,
   )
   const hatch = await page.locator('[data-segment="CALLOUT_FALLBACK"]').evaluate((el) => getComputedStyle(el).backgroundImage)
-  check(`${tag} the callout fallback is hatched`, hatch.includes('repeating-linear-gradient'), hatch.slice(0, 40))
+  check(`${tag} the callout fallback is hatched`, hatch.includes('repeating-linear-gradient'))
   const runs = await page.locator('[data-results-runs]').innerText()
-  check(`${tag} the line under the bar: landed, run and not ended yet, not run`, runs.includes('43,512') && runs.includes('2,310') && runs.includes('1,332'), runs)
+  check(`${tag} the line under the bar: landed, run and not ended yet, not run — plain counts`, runs.includes('43,512') && runs.includes('2,310') && runs.includes('1,332') && (await page.locator('[data-results-runs] [data-drill]').count()) === 0, runs)
   check(`${tag} the segments add up: no mismatch note`, (await page.locator('[data-results-mismatch]').count()) === 0)
   check(`${tag} a legend count is an LTR isolate`, await isLtrIsolate(page.locator('[data-drill="segment:ANOTHER_STORE"] bdi').first()))
 
   // 3. the panels
-  const states = await page.locator('[data-promise-row]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-promise-row')}=${e.getAttribute('data-promise-state')}`))
-  check(
-    `${tag} the promise check: Dawaa Now and slot inside the band, pick-up two rows with a target and no band`,
-    JSON.stringify(states) === JSON.stringify(['DAWAA_NOW=inside', 'SLOT=inside', 'PICK_UP:APP_SITE=target', 'PICK_UP:CALL_CENTRE=target']),
-    states.join(' '),
-  )
-  check(`${tag} pick-up rows draw no band`, (await page.locator('[data-promise-row^="PICK_UP"] [data-gauge-band]').count()) === 0)
+  const states = await page.locator('[data-results-panel="promise"] [data-promise-row]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-promise-row')}=${e.getAttribute('data-promise-state')}`))
+  check(`${tag} the promise check: Dawaa Now inside the band, pick-up two rows with a target and no band`, JSON.stringify(states) === JSON.stringify(['DAWAA_NOW=inside', 'PICK_UP:APP_SITE=target', 'PICK_UP:CALL_CENTRE=target']), states.join(' '))
+  check(`${tag} Dawaa Now carries the express stamp's own share`, (await page.locator('[data-results-panel="promise"] [data-promise-row="DAWAA_NOW"]').innerText()).includes('92.1%'))
   const notice = await page.locator('[data-cost-notice]').innerText()
-  check(`${tag} the cost notice says no riyal total, 5 of 6 rates assumed`, notice.includes('5') && notice.includes('6') && notice.includes('No riyal total'), notice)
-  const pageText = await page.locator('[data-sourcing-results]').innerText()
-  check(`${tag} no riyal figure anywhere on the page`, !/SAR\s*\d|\d\s*SAR|ر\.س/.test(pageText))
+  check(`${tag} the cost notice: no riyal total, 5 of 6 rates assumed`, notice.includes('No riyal total') && notice.includes('5') && notice.includes('6'), notice)
+  const rates = await page.locator('[data-cost-rates]').innerText()
+  check(`${tag} the rates in the code list's words, a real one with its source`, rates.includes(words('MONEY_ROW', 'DELIVERY_RATE')) && rates.includes(words('SOURCE', 'MEASURED')), rates.replace(/\s+/g, ' '))
+  const fee = await page.locator('[data-cost-fee]').innerText()
+  check(`${tag} the list fee compared order by order, in counts`, ['37,800', '1,474', '35,305', '1,021'].every((n) => fee.includes(n)), fee)
+  check(`${tag} no riyal figure anywhere on the page`, !/SAR\s*\d|\d\s*SAR|ر\.س/.test(await page.locator('[data-sourcing-results]').innerText()))
   check(`${tag} a mark with no orders in the period is greyed`, (await page.locator('[data-mark="NO_ROUTING_EQUIVALENT"][data-mark-none]').count()) === 1)
+  check(`${tag} the marks the server sends, its new ones worded`, (await page.locator('[data-mark="AS_IT_STANDS"]').innerText()).includes('Compared as it stands'))
 
   // 4. where the plans differ
   const wholeRows = await page.locator('[data-differ-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-differ-row')))
   check(
-    `${tag} the whole plan lists the differing classes, then same plan as the reference`,
-    JSON.stringify(wholeRows) === JSON.stringify(['ANOTHER_STORE', 'ANOTHER_MODE', 'FEWER_SHIPMENTS', 'MORE_SHIPMENTS', 'OUTSIDE_RULES', 'SAME_PLAN']),
+    `${tag} the whole plan's rows in the server's order, same plan last as the reference`,
+    JSON.stringify(wholeRows) === JSON.stringify(['ANOTHER_MODE', 'FEWER_SHIPMENTS', 'MORE_SHIPMENTS', 'ANOTHER_STORE', 'OUTSIDE_RULES', 'CALLOUT_FALLBACK', 'SAME_PLAN']),
     wholeRows.join(','),
   )
-  check(
-    `${tag} outside the rules has no estimate, and says why`,
-    (await page.locator('[data-differ-row="OUTSIDE_RULES"] [data-differ-estimate="none"]').count()) === 1,
-  )
+  check(`${tag} a minus reads as the advisor's plan arriving earlier`, /arrives 6 min earlier/.test(plain(await page.locator('[data-differ-row="ANOTHER_STORE"] [data-differ-estimate]').innerText())))
+  check(`${tag} a plus reads as later`, /arrives 40 min later/.test(plain(await page.locator('[data-differ-row="FEWER_SHIPMENTS"] [data-differ-estimate]').innerText())))
+  check(`${tag} outside the rules has no estimate, and says why`, (await page.locator('[data-differ-row="OUTSIDE_RULES"] [data-differ-estimate="none"]').count()) === 1)
   check(`${tag} the fixed note stands under the table`, (await page.locator('[data-differ-note]').innerText()).length > 80)
   const hatchedEnding = await page.locator('[data-differ-row="ANOTHER_STORE"] [data-ending="CUSTOMER_CANCELLED"]').evaluate((el) => getComputedStyle(el).backgroundImage)
   check(`${tag} the customer's own cancellation is hatched`, hatchedEnding.includes('repeating-linear-gradient'))
   await page.screenshot({ path: `${SHOTS}/${lang}-page.png`, fullPage: true })
+  await page.locator('[data-differ-row="ANOTHER_STORE"] [data-drill="class:WHOLE_PLAN:ANOTHER_STORE:LATE"]').click()
+  await page.locator('dialog[open][data-results-drawer="class:WHOLE_PLAN:ANOTHER_STORE:LATE"]').waitFor({ timeout: 10000 })
+  check(`${tag} an ending's count opens its orders by view, class and ending`, sameFields(pick(last('orders'), ['view', 'class', 'ending']), { view: 'WHOLE_PLAN', class: 'ANOTHER_STORE', ending: 'LATE' }), JSON.stringify(last('orders')))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(250)
   await page.locator('[data-differ-view="STORES_ONLY"]').click()
+  await page.locator('[data-results-differ="STORES_ONLY"]').waitFor({ timeout: 10000 })
   await page.waitForTimeout(300)
   const storesRows = await page.locator('[data-differ-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-differ-row')))
-  check(
-    `${tag} the stores only lists another store, the callout fallback, outside the rules, then same plan`,
-    JSON.stringify(storesRows) === JSON.stringify(['ANOTHER_STORE', 'CALLOUT_FALLBACK', 'OUTSIDE_RULES', 'SAME_PLAN']),
-    storesRows.join(','),
-  )
+  check(`${tag} the stores only reads its own door: another store, outside the rules, the callout fallback, same plan`, last('differ')?.view === 'STORES_ONLY' && JSON.stringify(storesRows) === JSON.stringify(['ANOTHER_STORE', 'OUTSIDE_RULES', 'CALLOUT_FALLBACK', 'SAME_PLAN']), storesRows.join(','))
   check(`${tag} the view is kept in the URL`, page.url().includes('view=STORES_ONLY'), page.url())
 
   // 5. a segment opens its orders
@@ -353,40 +333,36 @@ async function scenario(browser, lang) {
   const drawer = page.locator('dialog[open][data-results-drawer]')
   await drawer.waitFor({ timeout: 10000 })
   await drawer.locator('[data-order-row]').first().waitFor({ timeout: 10000 })
-  const firstAsk = wire.orders.at(-1)
   check(
-    `${tag} the segment opens its orders, the figure sent to the door`,
-    (await drawer.getAttribute('data-results-drawer')) === 'segment:ANOTHER_STORE' && firstAsk?.figure === 'segment:ANOTHER_STORE' && firstAsk?.period === '14',
-    JSON.stringify(firstAsk),
+    `${tag} the segment opens its orders: segment, the first page of 25, newest first`,
+    sameFields(pick(last('orders'), ['segment', 'page', 'pageSize', 'sort', 'desc', 'period']), { segment: 'ANOTHER_STORE', page: '1', pageSize: '25', sort: 'LANDED', desc: 'true', period: 'DAYS_14' }),
+    JSON.stringify(last('orders')),
   )
   check(`${tag} the drawer lists one page of 25`, (await drawer.locator('[data-order-row]').count()) === 25)
-  await drawer.locator('[data-sort="orderNumber"]').click()
+  check(`${tag} the class columns sort nothing: no sort button on them`, (await drawer.locator('[data-sort]').count()) === 6)
+  await drawer.locator('[data-sort="ORDER"]').click()
   await page.waitForTimeout(400)
-  check(`${tag} a column header sorts the list`, wire.orders.at(-1)?.sort === 'orderNumber' && wire.orders.at(-1)?.descending === 'false', JSON.stringify(wire.orders.at(-1)))
+  check(`${tag} a column header sorts the list`, last('orders')?.sort === 'ORDER' && last('orders')?.desc === 'false', JSON.stringify(last('orders')))
   await drawer.locator('nav button').last().click()
   await page.waitForTimeout(400)
-  check(`${tag} the pager asks for the next page`, wire.orders.at(-1)?.page === '2', JSON.stringify(wire.orders.at(-1)))
+  check(`${tag} the pager asks for the next page`, last('orders')?.page === '2', JSON.stringify(last('orders')))
   check(`${tag} an order number is an LTR isolate`, await isLtrIsolate(drawer.locator('[data-order] bdi').first()))
 
   // 6. one order
   const orderNo = await drawer.locator('[data-order]').first().getAttribute('data-order')
   await drawer.locator('[data-order]').first().click()
   await drawer.locator('[data-order-card]').waitFor({ timeout: 10000 })
-  const plan = await drawer.locator('[data-card-side="plan"]').innerText()
+  check(`${tag} the card reads the chosen order`, last('order')?.orderNumber === orderNo, `${orderNo}`)
+  const plan = await drawer.locator('[data-card-side="whole-plan"]').innerText()
   const happened = await drawer.locator('[data-card-side="happened"]').innerText()
-  check(`${tag} the card reads the chosen order`, wire.cards.at(-1) === orderNo, `${orderNo}`)
-  check(
-    `${tag} the advisor's plan beside what happened, in the server's words`,
-    plan.includes('P901') && plan.includes('by 15:02') && happened.includes('P910') && happened.includes('delivered 15:21'),
-    `${plan.replace(/\n/g, ' ')} | ${happened.replace(/\n/g, ' ')}`,
-  )
+  check(`${tag} the advisor's plan beside what happened, the stores only between`, plan.includes('P901') && happened.includes('P910') && (await drawer.locator('[data-card-side="stores-only"]').count()) === 1, `${plan.replace(/\n/g, ' ')} | ${happened.replace(/\n/g, ' ')}`)
   const dashed = await drawer.locator('[data-card-side="happened"]').evaluate((el) => getComputedStyle(el).borderStyle)
   check(`${tag} what happened sits in a dashed box`, dashed.includes('dashed'), dashed)
+  const money = await drawer.locator('[data-card-money]').innerText()
+  check(`${tag} the order's riyal figures each with its source, unknown ones said so`, money.includes('15.00') && money.includes(words('MONEY_SOURCE', 'PAID')) && money.includes('not known'), money.replace(/\s+/g, ' '))
   await page.screenshot({ path: `${SHOTS}/${lang}-drawer.png` })
-  // Review 4354 #4: this context holds the view grant, not the run grant: the view grant opens no simulator.
   check(`${tag} "Open the stored run in the simulator" is not offered under the view grant alone`, (await drawer.locator('[data-open-simulator]').count()) === 0)
 
-  // Ticket 969: the simulator reads the stored run now, so a holder of the run grant is offered it, and it opens there.
   wire.runGrant = true
   await page.goto(`${BASE}/oms/sourcing-results`)
   await page.locator('[data-results-top]').waitFor({ timeout: 15000 })
@@ -395,383 +371,268 @@ async function scenario(browser, lang) {
   await drawer.locator('[data-order]').first().click()
   await drawer.locator('[data-order-card]').waitFor({ timeout: 10000 })
   const opener = drawer.locator('[data-open-simulator]')
-  check(`${tag} with the run grant "Open the stored run in the simulator" is offered, naming the order's run`, (await opener.getAttribute('data-open-simulator')) === '01JDQ7Y3K2M5N8P0R4S6T9V1WX')
+  check(`${tag} with the run grant (${RUN}) it is offered, naming the order's run`, (await opener.getAttribute('data-open-simulator')) === RUN_ID)
   await opener.click()
-  await page.waitForURL(/\/oms\/sourcing-simulator\?run=01JDQ7Y3K2M5N8P0R4S6T9V1WX$/, { timeout: 10000 })
+  await page.waitForURL(new RegExp(`/oms/sourcing-simulator\\?run=${RUN_ID}$`), { timeout: 10000 })
   await page.locator('[data-stored-gone]').waitFor({ timeout: 15000 })
-  check(`${tag} it opens the simulator on the stored run, which asks the stored-run read door for it`, wire.opens.at(-1) === '01JDQ7Y3K2M5N8P0R4S6T9V1WX', JSON.stringify(wire.opens))
+  check(`${tag} it opens the simulator on the stored run, which asks Runs/Open for it`, wire.opens.at(-1) === RUN_ID, JSON.stringify(wire.opens))
   wire.runGrant = false
 
-  // 7. a mark's count, a filter, the tabs
+  // 7. a mark's count, the filters, the tabs
   await page.goto(`${BASE}/oms/sourcing-results`)
   await page.locator('[data-results-top]').waitFor({ timeout: 15000 })
   await page.locator('[data-drill="mark:RANGE_NOT_CONFIRMED"]').click()
   await page.locator('dialog[open][data-results-drawer="mark:RANGE_NOT_CONFIRMED"]').waitFor({ timeout: 10000 })
-  check(`${tag} a mark's count opens its orders`, wire.orders.at(-1)?.figure === 'mark:RANGE_NOT_CONFIRMED', JSON.stringify(wire.orders.at(-1)))
+  check(`${tag} a mark's count opens its orders through the filter's own mark`, last('orders')?.mark === 'RANGE_NOT_CONFIRMED' && last('orders')?.segment === undefined, JSON.stringify(last('orders')))
   await page.keyboard.press('Escape')
   await page.waitForTimeout(300)
   check(`${tag} Escape closes the drawer`, (await page.locator('dialog[open][data-results-drawer]').count()) === 0)
-
-  const before = wire.summaries.length
-  await page.locator('[data-period="30"]').click()
-  await page.locator('[data-run-mark="ROAD_NOT_MEASURED"]').click()
-  await page.locator('[data-filter="stock-short-line"]').click()
+  const before = wire.asks.top.length
+  await page.locator('[data-period="DAYS_30"]').click()
+  await page.locator('[data-filter="run-mark"]').selectOption('ROAD_NOT_MEASURED')
+  await page.locator('[data-filter="short-figure"]').click()
   await page.waitForTimeout(600)
-  const ask = wire.summaries.at(-1)
+  const ask = last('top')
   check(
-    `${tag} the filters re-read the summary: 30 days, the run's mark, a line the stock figure could not cover`,
-    wire.summaries.length > before && ask?.period === '30' && ask?.marks === 'ROAD_NOT_MEASURED' && ask?.stockShortLine === 'true',
+    `${tag} the filters re-read the doors: 30 days, one run mark, a line the stock figure could not cover`,
+    wire.asks.top.length > before && ask?.period === 'DAYS_30' && ask?.runMark === 'ROAD_NOT_MEASURED' && ask?.shortFigure === 'true' && last('panels')?.runMark === 'ROAD_NOT_MEASURED',
     JSON.stringify(ask),
   )
-  await page.locator('[data-filter="set"]').selectOption({ index: 1 })
+  const setOptions = await page.locator('[data-filter="set"] option').evaluateAll((els) => els.map((e) => e.value))
+  check(`${tag} the set picker offers the cost panel's set and the trials' sets`, setOptions.includes('Baseline@3') && setOptions.includes('Dawaa Now reach 8 km@1'), setOptions.join(','))
+  await page.locator('[data-filter="set"]').selectOption('Baseline@3')
   await page.waitForTimeout(500)
-  check(`${tag} the candidate set by name and version`, wire.summaries.at(-1)?.weightSet === 'Baseline' && wire.summaries.at(-1)?.weightSetVersion === '2', JSON.stringify(wire.summaries.at(-1)))
-
+  check(`${tag} the candidate set by name and version`, last('top')?.set === 'Baseline' && last('top')?.version === '3', JSON.stringify(last('top')))
   const tabs = await page.locator('[data-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tab')))
-  check(
-    `${tag} the seven tabs in the spec's order`,
-    JSON.stringify(tabs) === JSON.stringify(['breakdowns', 'outside-rules', 'checks', 'later-slots', 'not-run', 'trials', 'phase-2-bar']),
-    tabs.join(','),
-  )
-  await page.locator('[data-tab="trials"]').click()
-  await page.waitForTimeout(300)
-  check(`${tag} a tab opens its panel, and the tab is kept in the URL`, (await page.locator('[data-tab-panel="trials"]').count()) === 1 && page.url().includes('tab=trials'), page.url())
+  check(`${tag} the seven tabs in the spec's order`, JSON.stringify(tabs) === JSON.stringify(['breakdowns', 'outside-rules', 'checks', 'later-slots', 'not-run', 'trials', 'phase-2-bar']), tabs.join(','))
 
-  // 9. Trials (ticket 973)
+  // 8. Trials (ticket 973)
   await page.goto(`${BASE}/oms/sourcing-results?tab=trials`)
   await page.locator('[data-trials-list]').waitFor({ timeout: 15000 })
-  const trialIds = await page.locator('[data-trial]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-trial-state')}`))
-  check(`${tag} the trials list newest first: waiting, running, done, done`, JSON.stringify(trialIds) === JSON.stringify(['WAITING', 'RUNNING', 'DONE', 'DONE']), trialIds.join(','))
+  const trialStates = await page.locator('[data-trial]').evaluateAll((els) => els.map((e) => e.getAttribute('data-trial-state')))
+  check(`${tag} the trials newest first: waiting, running, done, done, stopped`, JSON.stringify(trialStates) === JSON.stringify(['WAITING', 'RUNNING', 'DONE', 'DONE', 'FAILED']), trialStates.join(','))
   check(`${tag} the queue line names the running trial and one waiting`, /One trial is running; 1 waits/.test(plain(await page.locator('[data-trials-queue]').innerText())))
-  check(`${tag} a trial's period is one LTR isolate`, await isLtrIsolate(page.locator('[data-trial="01JE2A5M4N3B2V1C0X9Z8L7K6J"] td').nth(1).locator('bdi').first()))
-  check(
-    `${tag} "open with this set beside it" only on a done trial`,
-    (await page.locator('[data-trial-state="DONE"] [data-trial-beside]').count()) === 2 && (await page.locator('[data-trial-state="RUNNING"] [data-trial-beside]').count()) === 0,
-  )
-  const result = page.locator('[data-trial-result="01JE2A5M4N3B2V1C0X9Z8L7K6J"]')
+  check(`${tag} a trial's period is one LTR isolate`, await isLtrIsolate(page.locator(`[data-trial="${TRIAL_SET}"] td`).nth(1).locator('bdi').first()))
+  const result = page.locator(`[data-trial-result="${TRIAL_SET}"]`)
   await result.waitFor({ timeout: 10000 })
   const refusals = await result.locator('[data-trial-refusal]').evaluateAll((els) => els.map((e) => e.getAttribute('data-trial-refusal')))
-  check(`${tag} the trial set's result opens first, refusals in the spec order`, JSON.stringify(refusals) === JSON.stringify(['REACH_WIDER_THAN_READ', 'STORE_NEVER_READ']), refusals.join(','))
+  check(`${tag} the trial set's result opens first, refusals in the server's order`, JSON.stringify(refusals) === JSON.stringify(['NEEDS_WIDER_READ', 'STORE_NOT_READ']), refusals.join(','))
   const counts = await result.locator('[data-trial-counts]').innerText()
-  check(`${tag} orders solved, refused, failed, left out`, ['39,870', '38,372', '1,420', '12', '66'].every((n) => counts.includes(n)), counts.replace(/\n/g, ' '))
+  check(`${tag} orders, solved, refused, no plan, failed`, ['39,870', '38,372', '1,420', '66', '12'].every((n) => counts.includes(n)), counts.replace(/\n/g, ' '))
   check(`${tag} a trial set's result stands under its banner`, (await result.locator('[data-trial-set-banner]').count()) === 1)
   await result.locator('[data-factor="SLOT_LOAD"]').waitFor({ timeout: 10000 })
   const factors = await result.locator('[data-factor]').evaluateAll((els) => els.map((e) => e.getAttribute('data-factor')))
-  check(`${tag} the factor table: eleven rows, the store record's measures together`, factors.length === 11 && factors[2] === 'STORE_RECORD:LATE' && factors[10] === 'COUNT_FACTOR', factors.join(','))
-  check(`${tag} a factor that changes no plan says so`, (await result.locator('[data-factor="SLOT_TIMING"] [data-factor-none]').count()) === 1)
-  check(`${tag} the factor table asked for the shown trial`, wire.factorAsks.includes('01JE2A5M4N3B2V1C0X9Z8L7K6J'), wire.factorAsks.join(','))
+  check(`${tag} the factor table: fifteen rows in the server's order`, factors.length === 15 && factors[2] === 'RECORD_SLOT_LATE' && factors[14] === 'COUNT_FACTOR_ON', factors.join(','))
+  check(`${tag} a factor that changes no plan says so; one still running says so`, (await result.locator('[data-factor="NAMED_STORE_STAYS"] [data-factor-none]').count()) === 1 && (await result.locator('[data-factor="COUNT_FACTOR_ON"][data-factor-state="RUNNING"]').count()) === 1)
+  // a done trial with no factor table yet: the candidate's
+  await page.locator(`[data-trial="${CANDIDATE}"] [data-trial-show]`).click()
+  await page.locator(`[data-trial-result="${CANDIDATE}"] [data-factor-start]`).click()
+  await page.waitForTimeout(400)
+  check(`${tag} the factor table starts on the version and period, as the server reads them`, sameFields(wire.tables.at(-1), { name: 'Baseline', version: 3, from: '2026-11-12 00:00:00', to: '2026-11-25 00:00:00' }), JSON.stringify(wire.tables.at(-1)))
+  check(`${tag} the candidate set's own trial offers nothing beside it`, (await page.locator(`[data-trial-result="${CANDIDATE}"] [data-trial-result-beside]`).count()) === 0)
+  await page.locator(`[data-trial="${TRIAL_SET}"] [data-trial-show]`).click()
 
   // start a trial: 31 days refused, 14 started
-  await page.locator('[data-trial-version]').selectOption('Margin ×1.1@1')
+  await page.locator('[data-trial-name]').fill('Margin ×1.1')
+  await page.locator('[data-trial-version]').fill('1')
   await page.locator('[data-trial-from]').fill('2026-10-26')
   await page.locator('[data-trial-to]').fill('2026-11-25')
   await page.waitForTimeout(200)
-  check(
-    `${tag} the form refuses a period of 31 days`,
-    (await page.locator('[data-trial-problem="TOO_LONG"]').count()) === 1 && (await page.locator('[data-trial-start]').isDisabled()),
-    await page.locator('[data-trial-days]').innerText(),
-  )
+  check(`${tag} the form refuses a period of 31 days`, (await page.locator('[data-trial-problem="TOO_LONG"]').count()) === 1 && (await page.locator('[data-trial-start]').isDisabled()))
   await page.locator('[data-trial-from]').fill('2026-11-12')
   await page.waitForTimeout(200)
-  check(`${tag} 14 whole days, of at most 30`, /14 whole local days, of at most 30/.test(await page.locator('[data-trial-days]').innerText()), await page.locator('[data-trial-days]').innerText())
   await page.locator('[data-trial-start]').click()
   await page.locator('[data-trial-started]').waitFor({ timeout: 10000 })
-  check(
-    `${tag} the trial starts on a saved version by name and number over the period`,
-    sameFields(wire.starts.at(-1), { weightSet: 'Margin ×1.1', weightSetVersion: 1, from: '2026-11-12', to: '2026-11-25' }),
-    JSON.stringify(wire.starts.at(-1)),
-  )
-  check(`${tag} it waits its turn, and the list re-reads with it`, /waits its turn, 2 in line/.test(plain(await page.locator('[data-trial-started]').innerText())))
-  await page.locator('[data-trial="01JE4NEWTRIAL0000000000000"]').waitFor({ timeout: 10000 })
+  check(`${tag} the trial starts: a saved version by name and number, whole days`, sameFields(wire.starts.at(-1), { name: 'Margin ×1.1', version: 1, from: '2026-11-12 00:00:00', to: '2026-11-25 00:00:00' }), JSON.stringify(wire.starts.at(-1)))
+  check(`${tag} it waits its turn, and says how many wait before it`, /waits its turn; 1 waits before it/.test(plain(await page.locator('[data-trial-started]').innerText())), plain(await page.locator('[data-trial-started]').innerText()))
   await page.screenshot({ path: `${SHOTS}/${lang}-trials.png`, fullPage: true })
 
-  // open the trial set's result beside the candidate set
+  // open the trial set beside the candidate set's trial
   await result.locator('[data-trial-result-beside]').click()
   await page.locator('[data-beside-banner]').waitFor({ timeout: 15000 })
-  const besideAsk = wire.summaries.at(-1)
-  check(
-    `${tag} "open with this set beside it" re-reads the summary with the set beside it, on the candidate set`,
-    besideAsk?.besideSet === 'Dawaa Now reach 8 km' && besideAsk?.besideSetVersion === '1' && besideAsk?.weightSet === undefined && page.url().includes('beside='),
-    JSON.stringify(besideAsk),
-  )
-  check(`${tag} "Set beside it" shows the tried set`, (await page.locator('[data-filter="beside"]').inputValue()) === 'Dawaa Now reach 8 km@1')
+  check(`${tag} "open with this set beside it" reads the two trials side by side, the candidate's first`, sameFields(wire.besides.at(-1), { trialId: CANDIDATE, otherId: TRIAL_SET }) && page.url().includes(`against=${CANDIDATE}`) && page.url().includes(`beside=${TRIAL_SET}`), JSON.stringify(wire.besides.at(-1)))
   const banner = await page.locator('[data-beside-banner]').innerText()
-  check(`${tag} the banner names the trial set, its period, and the orders left out of both`, /trial set/.test(banner) && banner.includes('Dawaa Now reach 8 km') && banner.includes('1,420') && banner.includes('2026-11-12'), banner.replace(/\n/g, ' '))
-  const thin = await page.locator('[data-beside-bar] [data-share-segment]').evaluateAll((els) => els.map((e) => e.getAttribute('data-share-segment')))
-  const firstThin = await box(page.locator('[data-beside-bar] [data-share-segment="SAME_PLAN"]'))
-  const lastThin = await box(page.locator('[data-beside-bar] [data-share-segment="NOT_COMPARABLE"]'))
-  const mainBar = await box(page.locator('[data-segment="SAME_PLAN"]'))
-  const thinBar = await box(page.locator('[data-beside-bar] [data-chart="share-bar"]'))
-  check(`${tag} the thin second bar draws the six segments of the set against what happened`, thin.length === 6, thin.join(','))
-  check(`${tag} the thin bar is thinner than the page's bar`, thinBar.height > 0 && thinBar.height < mainBar.height, `${thinBar.height} < ${mainBar.height}`)
-  check(`${tag} the thin bar's first segment stands at the reading start`, lang === 'ar' ? firstThin.x > lastThin.x : firstThin.x < lastThin.x, `first.x=${Math.round(firstThin.x)} last.x=${Math.round(lastThin.x)}`)
-  const besideSentence = await page.locator('[data-beside-bar] p').innerText()
-  check(`${tag} under the set beside it: same stores 75.4%, same plan 65.3%`, besideSentence.includes('75.4%') && besideSentence.includes('65.3%'), besideSentence)
+  check(`${tag} the banner names both sets, the orders compared and those left out of both`, /trial set/.test(banner) && banner.includes('Dawaa Now reach 8 km') && banner.includes('Baseline') && banner.includes('38,300') && banner.includes('1,570'), banner.replace(/\n/g, ' '))
+  check(`${tag} the filter bar names the set beside it`, (await page.locator('[data-filter="beside"]').innerText()).includes('Dawaa Now reach 8 km'))
+  const thinBars = await page.locator('[data-beside-bar]').count()
+  const firstThin = await box(page.locator('[data-beside-bar="beside"] [data-share-segment="SAME_PLAN"]'))
+  const lastThin = await box(page.locator('[data-beside-bar="beside"] [data-share-segment="NOT_COMPARABLE"]'))
+  const thinBar = await box(page.locator('[data-beside-bar="beside"] [data-chart="share-bar"]'))
+  const mainBar = await box(page.locator('[data-segment="SAME_PLAN_BOTH"]'))
+  check(`${tag} a thin bar for each set against what happened, thinner than the page's`, thinBars === 2 && thinBar.height > 0 && thinBar.height < mainBar.height, `${thinBars} ${thinBar.height} < ${mainBar.height}`)
+  check(`${tag} the thin bar's first segment stands at the reading start`, lang === 'ar' ? firstThin.x > lastThin.x : firstThin.x < lastThin.x)
+  check(`${tag} under the set beside it: the same plan for 26,180 of 38,300`, (await page.locator('[data-beside-bar="beside"] p').innerText()).includes('26,180'))
   const kinds = await page.locator('[data-beside-kind]').evaluateAll((els) => els.map((e) => e.getAttribute('data-beside-kind')))
   check(`${tag} the plans that differ between the two sets, by kind`, JSON.stringify(kinds) === JSON.stringify(['ANOTHER_STORE', 'ANOTHER_MODE', 'FEWER_SHIPMENTS', 'MORE_SHIPMENTS']), kinds.join(','))
-  check(`${tag} the estimate between the sets is a range in words`, /arrives 4 min earlier/.test(plain(await page.locator('[data-beside-estimate]').innerText())))
-  const besidePromise = page.locator('[data-beside-promise]')
-  check(`${tag} the promise check under that set is labelled as the spec says`, /the real deliveries, as this set would have promised them/.test(await besidePromise.innerText()))
-  check(
-    `${tag} the promise check under that set: Dawaa Now 86.9%, inside the band`,
-    (await besidePromise.locator('[data-promise-row="DAWAA_NOW"][data-promise-state="inside"]').innerText()).includes('86.9%'),
-  )
-  check(`${tag} the promise counts under that set are plain, not drills`, (await besidePromise.locator('[data-drill]').count()) === 0)
+  check(`${tag} the estimate between the sets: a minus is the set beside it earlier`, /promises 4 min earlier/.test(plain(await page.locator('[data-beside-estimate]').innerText())))
+  check(`${tag} the promise check under that set`, (await page.locator('[data-beside-promise-row="DAWAA_NOW"]').innerText()).includes('85.5%'))
   check(`${tag} still no riyal figure with a set beside it`, !/SAR\s*\d|\d\s*SAR|ر\.س/.test(await page.locator('[data-sourcing-results]').innerText()))
   await page.screenshot({ path: `${SHOTS}/${lang}-beside.png`, fullPage: true })
-  // the breakdowns' one more column under the set beside it
-  await page.locator('[data-tab="breakdowns"]').click()
-  await page.locator('[data-breakdowns-table="MODE"] th[data-col="besideSamePlan"]').waitFor({ timeout: 10000 })
-  check(`${tag} Breakdowns asks its door with the set beside it`, wire.tabs?.breakdowns?.at(-1)?.besideSet === 'Dawaa Now reach 8 km', JSON.stringify(wire.tabs?.breakdowns?.at(-1)))
-  const besideCols = await page.locator('[data-breakdowns-table] th[data-col]').evaluateAll((els) => els.map((e) => e.getAttribute('data-col')))
-  check(`${tag} Breakdowns gains one more column, after the two same-plan columns`, besideCols.length === 10 && besideCols[3] === 'besideSamePlan', besideCols.join(','))
-  const besideTotal = await page.locator('[data-breakdown-total] td').nth(4).innerText()
-  check(`${tag} the total row's figure under the set beside it, as sent, isolated LTR`, besideTotal.includes('65.3%') && (await isLtrIsolate(page.locator('[data-breakdown-total] td').nth(4).locator('bdi').first())), besideTotal)
   await page.locator('[data-beside-clear]').click()
   await page.waitForTimeout(400)
   check(`${tag} removing the set beside it clears the banner and the URL`, (await page.locator('[data-beside-banner]').count()) === 0 && !page.url().includes('beside='), page.url())
-  check(`${tag} without a set beside it, Breakdowns has its nine columns again`, (await page.locator('[data-breakdowns-table] th[data-col="besideSamePlan"]').count()) === 0)
 
-  // 10. Phase 2 bar (ticket 973)
+  // 9. Phase 2 bar (ticket 973)
   await page.locator('[data-tab="phase-2-bar"]').click()
   await page.locator('[data-bar-limits]').waitFor({ timeout: 15000 })
-  check(`${tag} the bar's first read: the app and the site, OMS runs, the last 28 days`, wire.bars[0]?.channelGroup === 'APP_SITE' && wire.bars[0]?.runs === 'OMS' && wire.bars[0]?.from === undefined, JSON.stringify(wire.bars[0]))
+  check(`${tag} the bar's first read: the app and the site, step 1, the last 28 days`, sameFields(wire.bars[0], { channelGroup: 'APP_SITE', step: 'STORES_ONLY' }), JSON.stringify(wire.bars[0]))
   const limits = await page.locator('[data-bar-limit]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-bar-limit')}=${e.getAttribute('data-bar-state')}`))
   check(
     `${tag} the nine limits a to i, each with its state`,
     JSON.stringify(limits) ===
-      JSON.stringify([
-        'STOP_FINDINGS=MET',
-        'ORDERS_RUN=MET',
-        'DAWAA_NOW_PROMISE=NOT_MET',
-        'DISTANCE_BANDS=NOT_MET',
-        'SHELF_CHANCE=NOT_MET',
-        'SPLIT_CHECK=CANNOT_READ',
-        'LARGEST_DIFFERENCES=NOT_MET',
-        'OUTSIDE_RULES=MET',
-        'RATES=CANNOT_READ',
-      ]),
+      JSON.stringify(['STOP_FINDINGS=MET', 'ORDERS_RUN=MET', 'DAWAA_NOW_PROMISE=NOT_MET', 'DISTANCE_BANDS=NOT_MET', 'SHELF_CHANCE=NOT_MET', 'SPLIT_CHECK=CANNOT_READ_YET', 'LARGEST_DIFFERENCES=NOT_MET', 'OUTSIDE_RULES=MET', 'RATES=CANNOT_READ_YET']),
     limits.join(' '),
   )
-  check(`${tag} the tally: 3 met, 4 not met, 2 cannot be read yet`, /3 limits met, 4 not met, 2 that cannot be read yet/.test(await page.locator('[data-bar-tally]').innerText()))
-  check(`${tag} "cannot be read yet" names the cause`, /split check has not been done/.test(await page.locator('[data-bar-limit="SPLIT_CHECK"] [data-bar-why]').innerText()))
-  check(`${tag} the rates' step waits for finance's rates`, /waits for finance's rates/.test(await page.locator('[data-bar-limit="RATES"] [data-bar-why]').innerText()))
-  const promiseWhy = await page.locator('[data-bar-limit="DAWAA_NOW_PROMISE"] [data-bar-why]').innerText()
-  check(`${tag} a limit not met says which figure does not keep it`, promiseWhy.includes('the second half') && promiseWhy.includes('84.1%'), promiseWhy)
-  check(`${tag} a limit figure is an LTR isolate`, await isLtrIsolate(page.locator('[data-bar-limit="DISTANCE_BANDS"] [data-bar-figure="BAND_6_PLUS"] bdi').first()))
+  check(`${tag} the tally: 3 met, 4 not met, 2 cannot be read yet; the bar not met`, /3 limits met, 4 not met, 2 that cannot be read yet/.test(await page.locator('[data-bar-tally]').innerText()) && (await page.locator('[data-bar-state="NOT_MET"]').count()) >= 1)
+  check(`${tag} "cannot be read yet" says why, in the server's words`, (await page.locator('[data-bar-limit="SPLIT_CHECK"] [data-bar-why]').innerText()).includes(words('PHASE2_WHY', 'SPLIT_CHECK_NOT_RECORDED')))
+  check(`${tag} a limit not met says why`, (await page.locator('[data-bar-limit="DAWAA_NOW_PROMISE"] [data-bar-why]').innerText()).includes(words('PHASE2_WHY', 'HALF_OUTSIDE_BAND')))
+  const bandFigure = page.locator('[data-bar-limit="DISTANCE_BANDS"] [data-bar-figure="KM_6_UP.percent"]')
+  check(`${tag} a band's figure in words, its value an LTR isolate`, (await bandFigure.innerText()).includes('6 km or more') && (await bandFigure.innerText()).includes('74.0%') && (await isLtrIsolate(bandFigure.locator('bdi').first())))
   check(`${tag} the bar's period is one LTR isolate`, await isLtrIsolate(page.locator('[data-bar-period] bdi').first()))
-  check(`${tag} the readings stand apart, four of them`, (await page.locator('[data-bar-readings] [data-bar-reading]').count()) === 4)
-  check(`${tag} accept is not offered while a limit cannot be read yet`, await page.locator('[data-bar-accept-button]').isDisabled())
-  check(`${tag} the date of the last change to a figure`, (await page.locator('[data-bar-last-changed]').innerText()).includes('2026-11-26 12:00:00'))
+  check(`${tag} the readings stand apart, five of them`, (await page.locator('[data-bar-readings] [data-bar-reading]').count()) === 5)
   const groups = await page.locator('[data-largest-group]').evaluateAll((els) => els.map((e) => e.textContent))
-  check(`${tag} the largest differences in four lists, each with its marked count`, groups.length === 4 && groups[0].includes('2 / 3'), groups.join(' | '))
-  await page.locator('[data-largest-row="4500718405"] [data-largest-select]').selectOption('WRONG_RULE')
-  await page.waitForTimeout(400)
+  check(`${tag} the largest differences in four lists, each with its marked count`, groups.length === 4 && groups[0].includes('1 / 2'), groups.join(' | '))
+  await page.locator('[data-largest-row="0081734455"] [data-largest-select]').selectOption('WRONG_RULE')
+  await page.locator('[data-largest-row="0081734455"][data-largest-mark="WRONG_RULE"]').waitFor({ timeout: 10000 })
   check(
-    `${tag} a largest difference is marked`,
-    sameFields(wire.marks.at(-1), { channelGroup: 'APP_SITE', runs: 'OMS', from: '2026-10-29', orderNumber: '4500718405', mark: 'WRONG_RULE', view: 'WHOLE_PLAN', direction: 'EARLIER' }),
-    JSON.stringify(wire.marks.at(-1)),
+    `${tag} a largest difference is marked through Close`,
+    sameFields(wire.closes.at(-1), { from: '2026-10-30', channelGroup: 'APP_SITE', kind: 'ORDER', key: '0081734455', mark: 'WRONG_RULE', text: '' }),
+    JSON.stringify(wire.closes.at(-1)),
   )
-  check(
-    `${tag} the mark stands; the order is no link to a stored run without the run grant (review 4354 #4)`,
-    (await page.locator('[data-largest-row="4500718405"]').getAttribute('data-largest-mark')) === 'WRONG_RULE' && (await page.locator('[data-largest-row="4500718405"] a').count()) === 0,
-  )
-  await page.locator('[data-bar-ruling-due="BOOK_AT_ZERO:DAWAA_NOW"] [data-bar-ruling-text]').fill('Counts too few at zero book; keep the figure.')
-  await page.locator('[data-bar-ruling-due="BOOK_AT_ZERO:DAWAA_NOW"] [data-bar-ruling-save]').click()
-  await page.locator('[data-bar-ruling-written="BOOK_AT_ZERO:DAWAA_NOW"]').waitFor({ timeout: 10000 })
-  check(`${tag} a ruling is written`, wire.rulings.at(-1)?.key === 'BOOK_AT_ZERO:DAWAA_NOW' && wire.rulings.at(-1)?.subject === 'SHELF_CHANCE_FIGURE', JSON.stringify(wire.rulings.at(-1)))
+  check(`${tag} without the run grant an order opens no stored run`, (await page.locator('[data-largest-open]').count()) === 0)
+  const due = page.locator('[data-bar-ruling-due="SLOT|BOOK_AT_ZERO"]')
+  await due.locator('[data-bar-ruling-text]').fill('Counts few at zero book; keep the figure.')
+  await due.locator('[data-bar-ruling-save]').click()
+  await page.locator('[data-bar-ruling-written="SLOT|BOOK_AT_ZERO"]').waitFor({ timeout: 10000 })
+  check(`${tag} a ruling is written through Close`, sameFields(wire.closes.at(-1), { from: '2026-10-30', channelGroup: 'APP_SITE', kind: 'SHELF_CHANCE', key: 'SLOT|BOOK_AT_ZERO', mark: 'RULED', text: 'Counts few at zero book; keep the figure.' }), JSON.stringify(wire.closes.at(-1)))
+  await page.locator('[data-bar-split-mark]').selectOption('WITHIN_LIMIT')
+  await page.locator('[data-bar-split-text]').fill('Read 40 split orders; none of no named cause.')
+  await page.locator('[data-bar-split-save]').click()
+  await page.locator('[data-bar-split-done="WITHIN_LIMIT"]').waitFor({ timeout: 10000 })
+  check(`${tag} the split check is recorded through Close`, wire.closes.at(-1)?.kind === 'SPLIT_CHECK' && wire.closes.at(-1)?.key === '' && wire.closes.at(-1)?.mark === 'WITHIN_LIMIT', JSON.stringify(wire.closes.at(-1)))
   await page.screenshot({ path: `${SHOTS}/${lang}-bar.png`, fullPage: true })
+  await page.locator('[data-bar-step="WHOLE_PLAN"]').click()
   await page.locator('[data-bar-channel]').selectOption('CALL_CENTRE')
   await page.locator('[data-bar-from]').fill('2026-10-01')
-  await page.waitForTimeout(500)
-  check(`${tag} the picker re-reads the bar: the call centre from 2026-10-01`, wire.bars.at(-1)?.channelGroup === 'CALL_CENTRE' && wire.bars.at(-1)?.from === '2026-10-01', JSON.stringify(wire.bars.at(-1)))
+  await page.waitForTimeout(600)
+  check(`${tag} the picker re-reads the bar: step 2, the call centre, from 2026-10-01`, sameFields(wire.bars.at(-1), { from: '2026-10-01', channelGroup: 'CALL_CENTRE', step: 'WHOLE_PLAN' }), JSON.stringify(wire.bars.at(-1)))
   check(`${tag} the 28 days run to 2026-10-28`, (await page.locator('[data-bar-period]').innerText()).includes('2026-10-28'))
-  await page.locator('[data-bar-runs="CHANNEL"]').click()
-  // The channel's runs read with nothing unreadable: wait for that reading to replace the one kept on screen.
-  await page.locator('[data-bar-limit="RATES"][data-bar-state="NOT_MET"]').waitFor({ timeout: 10000 })
-  check(`${tag} the channel's runs are read apart`, wire.bars.at(-1)?.runs === 'CHANNEL', JSON.stringify(wire.bars.at(-1)))
-  check(`${tag} with nothing unreadable, accept is offered`, !(await page.locator('[data-bar-accept-button]').isDisabled()))
+  await page.locator('[data-bar-accept-note]').fill('Read with finance; rates still assumed.')
   await page.locator('[data-bar-accept-button]').click()
-  await page.locator('[data-bar-accepted]').waitFor({ timeout: 10000 })
+  await page.locator('[data-bar-kept-row]').first().waitFor({ timeout: 10000 })
   check(
-    `${tag} the accepted reading is kept with who, when and the period`,
-    wire.accepts.at(-1)?.to === '2026-10-28' && (await page.locator('[data-bar-accepted]').innerText()).includes('owner.dmsco'),
+    `${tag} the reading is accepted through Accept, with its step and a note, and kept`,
+    sameFields(wire.accepts.at(-1), { from: '2026-10-01', channelGroup: 'CALL_CENTRE', step: 'WHOLE_PLAN', note: 'Read with finance; rates still assumed.' }) && (await page.locator('[data-bar-kept]').innerText()).includes('owner.dmsco'),
     JSON.stringify(wire.accepts.at(-1)),
   )
 
-  // 7b. the five reading tabs (ticket 972)
-  await readingTabs(page, tag, lang, wire)
+  // 10. the five reading tabs (ticket 972)
+  await readingTabs(page, tag, lang, wire, last)
 
-  // 8. no error, no raw key
+  // 11. no error, no raw key
   const all = await page.locator('main').innerText()
   check(`${tag} no raw i18n key on the page`, !/\b(top|promise|cost|marks|differ|tabs|drawer|card|filters|trials|bar|beside)\.[a-zA-Z]+/.test(all))
   check(`${tag} no page error`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
 }
 
-// ── the five reading tabs (ticket 972) ───────────────────────────────────────────────────────────────
-// Their doors (PROVISIONAL, like every results door) serve `stub-tabs.json`, the reply the model tests read.
-const TABS = JSON.parse(readFileSync('src/features/oms/sourcing-results/stub-tabs.json', 'utf8'))
-const TAB_DOORS = {
-  'SourcingAdvisor/Results/Breakdowns': 'breakdowns',
-  'SourcingAdvisor/Results/OutsideRules': 'outsideRules',
-  'SourcingAdvisor/Results/Checks': 'checks',
-  'SourcingAdvisor/Results/LaterSlots': 'laterSlots',
-  'SourcingAdvisor/Results/NotRun': 'notRun',
-}
-function readingTabReply(p, url, wire) {
-  const door = TAB_DOORS[p]
-  if (!door) return null
-  const q = Object.fromEntries(url.searchParams)
-  ;(wire.tabs ??= {})[door] = [...(wire.tabs[door] ?? []), q]
-  if (door !== 'breakdowns') return TABS[door]
-  const { byRows, ...rest } = TABS.breakdowns
-  const rows = byRows[q.by]?.rows ?? []
-  if (!q.besideSet) return { by: q.by, rows, ...rest }
-  // Under "Set beside it" (ticket 973) each row carries its same-plan share under that set (a stub figure).
-  const beside = (f) => ({ samePlan: { count: Math.round(f.orders * (f.samePlanWhole - 3.5) / 100), percent: Math.round((f.samePlanWhole - 3.5) * 10) / 10 } })
-  return { by: q.by, rows: rows.map((r) => ({ ...r, beside: beside(r) })), ...rest, total: { ...rest.total, beside: { samePlan: { count: 25110, percent: 65.3 } } } }
+function pick(o, keys) {
+  return o ? Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]])) : o
 }
 
-async function readingTabs(page, tag, lang, wire) {
+async function readingTabs(page, tag, lang, wire, last) {
   const drawerFor = async (figure) => {
     await page.locator(`[data-drill="${figure}"]`).first().click()
     await page.locator(`dialog[open][data-results-drawer="${figure}"]`).waitFor({ timeout: 10000 })
-    const asked = wire.orders.at(-1)?.figure
+    const q = last('orders')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(250)
-    return asked
+    return q
   }
   const tab = async (name) => {
     await page.locator(`[data-tab="${name}"]`).click()
     await page.locator(`[data-tab-panel="${name}"] [data-reading-tab="${name}"]`).waitFor({ timeout: 10000 })
     await page.waitForTimeout(300)
   }
-  const ltr = (sel) => isLtrIsolate(page.locator(sel).first())
 
   // Breakdowns: the default tab
   await page.goto(`${BASE}/oms/sourcing-results`)
   await page.locator('[data-breakdowns-table="MODE"]').waitFor({ timeout: 15000 })
-  const firstAsk = wire.tabs.breakdowns.at(-1)
-  check(`${tag} Breakdowns opens first and reads its door by mode, with the page's filters`, firstAsk?.by === 'MODE' && firstAsk?.period === '14', JSON.stringify(firstAsk))
-  const modeRows = await page.locator('[data-breakdown-row]:not([data-breakdown-group])').evaluateAll((els) => els.map((e) => e.getAttribute('data-breakdown-row')))
-  check(
-    `${tag} Breakdowns by mode: the order's four modes in the spec's order`,
-    JSON.stringify(modeRows) === JSON.stringify(['SLOT_ONLY', 'DAWAA_NOW_ONLY', 'SLOT_AND_DAWAA_NOW', 'BEYOND_BORDER']),
-    modeRows.join(','),
-  )
-  const cols = await page.locator('[data-breakdowns-table] th[data-col]').count()
-  check(`${tag} Breakdowns: nine figure columns beside the row name`, cols === 9, String(cols))
+  check(`${tag} Breakdowns opens first and reads its door by mode, with the page's filters`, last('breakdown')?.by === 'MODE' && last('breakdown')?.period === 'DAYS_14', JSON.stringify(last('breakdown')))
+  const modeRows = await page.locator('[data-breakdown-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-breakdown-row')))
+  check(`${tag} Breakdowns by mode: the rows in the order sent`, JSON.stringify(modeRows) === JSON.stringify(['SLOT_ONLY', 'PICK_UP_ONLY', 'DAWAA_NOW_ONLY', 'SLOT_AND_DAWAA_NOW', 'BEYOND_BORDER', 'OTHER']), modeRows.join(','))
+  check(`${tag} Breakdowns: eleven count columns beside the row name`, (await page.locator('[data-breakdowns-table] th[data-col]').count()) === 11)
   const total = await page.locator('[data-breakdown-total]').innerText()
-  check(`${tag} Breakdowns: the total row as sent`, total.includes('39,870') && total.includes('68.8%') && total.includes('77.6%'), total.replace(/\s+/g, ' '))
-  check(
-    `${tag} Breakdowns: a line the stock figure could not cover (6 rows) and the channel's own split (3 parts)`,
-    (await page.locator('[data-breakdown-group="stock-short"]').count()) === 6 && (await page.locator('[data-breakdown-group="channel-split"]').count()) === 3,
-  )
-  check(`${tag} Breakdowns: a share is an LTR isolate`, await ltr('[data-breakdown-total] td:nth-child(3) bdi'))
+  check(`${tag} Breakdowns: the total row as sent`, total.includes('39,870') && total.includes('27,429') && total.includes('1,236'), total.replace(/\s+/g, ' '))
+  check(`${tag} Breakdowns: a count is an LTR isolate`, await isLtrIsolate(page.locator('[data-breakdown-total] td:nth-child(3) bdi').first()))
   const nameCell = await box(page.locator('[data-breakdowns-table] thead th').first())
   const ordersCell = await box(page.locator('[data-breakdowns-table] th[data-col="orders"]'))
   check(`${tag} Breakdowns: the row name stands at the reading start`, lang === 'ar' ? nameCell.x > ordersCell.x : nameCell.x < ordersCell.x)
-  check(`${tag} Breakdowns: who made the run, pairs cut by the cap per city, the own store passed over`,
-    (await page.locator('[data-made-by="OMS"]').count()) === 1 &&
-      (await page.locator('[data-pairs-cut-city="Dhahran"]').count()) === 1 &&
-      (await page.locator('[data-breakdowns-card="store-passed-over"]').innerText()).includes('1,186'))
-  check(`${tag} Breakdowns: a mode row's orders open them`, (await drawerFor('breakdown:MODE:SLOT_ONLY')) === 'breakdown:MODE:SLOT_ONLY')
-  check(`${tag} Breakdowns: a stock-short row's orders open them`, (await drawerFor('stockShort:BOOK_AT_ZERO:SLOT')) === 'stockShort:BOOK_AT_ZERO:SLOT')
-  check(`${tag} Breakdowns: a city's pairs cut open them`, (await drawerFor('pairsCut:Dammam')) === 'pairsCut:Dammam')
+  check(`${tag} Breakdowns: a mode row's orders open them by grouping and key`, sameFields(pick(await drawerFor('breakdown:MODE:SLOT_ONLY'), ['by', 'key']), { by: 'MODE', key: 'SLOT_ONLY' }))
   await page.screenshot({ path: `${SHOTS}/${lang}-tab-breakdowns.png`, fullPage: true })
-
   await page.locator('[data-breakdown-by="CITY"]').click()
   await page.locator('[data-breakdowns-table="CITY"]').waitFor({ timeout: 10000 })
-  check(`${tag} Breakdowns by city asks the door by city`, wire.tabs.breakdowns.at(-1)?.by === 'CITY')
-  const arabicCity = page.locator('[data-breakdown-row="الدمام والخبر"] bdi').first()
-  check(`${tag} Breakdowns by city: a city name is free text in <bdi>`, (await arabicCity.count()) === 1 && (await arabicCity.getAttribute('dir')) !== 'ltr')
-  check(`${tag} Breakdowns by city: "Other cities" in words`, (await page.locator('[data-breakdown-row="OTHER"]:not([data-breakdown-group])').innerText()).includes('Other cities'))
-  await page.locator('[data-breakdown-by="CHANNEL"]').click()
-  await page.locator('[data-breakdowns-table="CHANNEL"]').waitFor({ timeout: 10000 })
-  check(`${tag} Breakdowns by channel: the channels named`, (await page.locator('[data-breakdown-row="IOS"]').innerText()).includes('App, iPhone'))
+  check(`${tag} Breakdowns by city asks the door by city; a city is free text`, last('breakdown')?.by === 'CITY' && (await page.locator('[data-breakdown-row="Riyadh"] bdi').first().getAttribute('dir')) !== 'ltr')
+  await page.locator('[data-breakdown-by="MADE_BY"]').click()
+  await page.locator('[data-breakdowns-table="MADE_BY"]').waitFor({ timeout: 10000 })
+  check(`${tag} Breakdowns by who made the run: the channel, or OMS and why`, (await page.locator('[data-breakdown-row="NO_CHECKOUT_RUN"]').innerText()).includes(words('OWN_RUN', 'NO_CHECKOUT_RUN')) && (await page.locator('[data-breakdown-row="CHANNEL"]').count()) === 1)
   await page.locator('[data-breakdown-by="DAY"]').click()
   await page.locator('[data-breakdowns-table="DAY"]').waitFor({ timeout: 10000 })
-  const days = await page.locator('[data-breakdown-row]:not([data-breakdown-group])').evaluateAll((els) => els.map((e) => e.getAttribute('data-breakdown-row')))
-  check(`${tag} Breakdowns by day: 14 days, oldest first`, days.length === 14 && days[0] === '2026-11-12' && days[13] === '2026-11-25', `${days.length} ${days[0]}..${days.at(-1)}`)
-  check(`${tag} Breakdowns by day: a date is an LTR isolate`, await ltr('[data-breakdown-row="2026-11-12"] td:first-child bdi'))
+  const days = await page.locator('[data-breakdown-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-breakdown-row')))
+  check(`${tag} Breakdowns by day: 14 days, oldest first, a date an LTR isolate`, days.length === 14 && days[0] === '2026-11-13' && (await isLtrIsolate(page.locator('[data-breakdown-row="2026-11-13"] td:first-child bdi').first())), `${days.length} ${days[0]}`)
 
   // Outside the advisor's rules
   await tab('outside-rules')
-  check(`${tag} Outside the rules: the tab is kept in the URL and reads its door`, page.url().includes('tab=outside-rules') && wire.tabs.outsideRules?.length >= 1)
   const reasons = await page.locator('[data-outside-reason]').evaluateAll((els) => els.map((e) => e.getAttribute('data-outside-reason')))
-  check(`${tag} Outside the rules: one row per reason`, JSON.stringify(reasons) === JSON.stringify(['NO_STOCK', 'OUT_OF_REACH', 'PRODUCT_RULE', 'BOOK_NEVER_HELD']), reasons.join(','))
-  check(`${tag} Outside the rules: the line saying they are a group of their own`, /group of their own/.test(await page.locator('[data-outside-rules-group]').innerText()))
-  check(`${tag} Outside the rules: a share bar per reason`, (await page.locator('[data-outside-reason] [data-chart="share-bar"]').count()) === 4)
-  check(`${tag} Outside the rules: the Dawaa Now short-figure reason in words`, (await page.locator('[data-outside-reason="NO_STOCK"]').innerText()).includes('by Dawaa Now'))
-  check(`${tag} Outside the rules: a reason with no orders opens nothing`, (await page.locator('[data-drill="outsideRules:BOOK_NEVER_HELD"]').count()) === 0)
-  check(`${tag} Outside the rules: a reason's orders open them`, (await drawerFor('outsideRules:OUT_OF_REACH')) === 'outsideRules:OUT_OF_REACH')
+  check(`${tag} Outside the rules: one row per refused pin and step`, reasons.length === 6 && reasons[0] === 'PIN_PAIR_REMOVED|OUT_OF_REACH', reasons.join(','))
+  const firstReason = await page.locator('[data-outside-reason="PIN_PAIR_REMOVED|OUT_OF_REACH"]').innerText()
+  check(`${tag} Outside the rules: the pin and the step in words`, firstReason.includes(words('PIN', 'PIN_PAIR_REMOVED')) && firstReason.includes('A store out of reach for the mode'), firstReason.replace(/\s+/g, ' '))
+  check(`${tag} Outside the rules: the group line and the total`, /group of their own/.test(await page.locator('[data-outside-rules-group]').innerText()) && (await page.locator('[data-outside-rules-total]').innerText()).includes('1,240'))
+  check(`${tag} Outside the rules: a reason's orders open them by pin and step`, sameFields(pick(await drawerFor('outside:PIN_PAIR_REMOVED|OUT_OF_REACH'), ['outside', 'outsideStep']), { outside: 'PIN_PAIR_REMOVED', outsideStep: 'OUT_OF_REACH' }))
+  const noStep = await drawerFor('outside:PIN_NO_STOCK|')
+  check(`${tag} Outside the rules: a reason with no step asks by the pin alone`, noStep?.outside === 'PIN_NO_STOCK' && noStep?.outsideStep === undefined, JSON.stringify(noStep))
   await page.screenshot({ path: `${SHOTS}/${lang}-tab-outside-rules.png`, fullPage: true })
 
   // Promise and stock checks
   await tab('checks')
-  check(`${tag} Checks: the promise check's four rows`, (await page.locator('[data-reading-tab="checks"] [data-promise-row]').count()) === 4)
-  const bands = await page.locator('[data-distance-band]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-distance-band')}=${e.getAttribute('data-promise-state')}`))
-  check(
-    `${tag} Checks: Dawaa Now by distance band, 6 km or more under the band`,
-    JSON.stringify(bands) === JSON.stringify(['KM_0_2=inside', 'KM_2_4=inside', 'KM_4_6=inside', 'KM_6_PLUS=under']),
-    bands.join(' '),
-  )
-  check(`${tag} Checks: the express stamp's own share`, (await page.locator('[data-express-stamp]').innerText()).includes('81.9%'))
-  check(`${tag} Checks: the stock check's two rows`, (await page.locator('[data-stock-check]').count()) === 2)
-  check(`${tag} Checks: a distance band's shipments open them`, (await drawerFor('distanceBand:KM_6_PLUS')) === 'distanceBand:KM_6_PLUS')
-  check(`${tag} Checks: covered deliveries ended for no stock open them`, (await drawerFor('stockCheck:COVERED:NO_STOCK')) === 'stockCheck:COVERED:NO_STOCK')
-  check(`${tag} Checks: the shelf chance table holds 36 cells`, (await page.locator('[data-shelf-cell]:not([data-shelf-cell="none"])').count()) === 36)
-  await page.locator('[data-shelf-mode="SLOT"]').click()
-  await page.waitForTimeout(200)
-  const cell = await page.locator('[data-shelf-cell="1:L0"]').innerText()
-  check(`${tag} Checks: a cell carries the table's chance and its picks`, cell.includes('9.40%') && cell.includes('575 / 5,096') && cell.includes('11.3%'), cell.replace(/\s+/g, ' '))
-  check(`${tag} Checks: a cell's figures are LTR isolates`, await ltr('[data-shelf-cell="1:L0"] [data-shelf-picks] bdi'))
-  const few = page.locator('[data-shelf-cell="6:L10_PLUS"]')
-  check(`${tag} Checks: "too few" where the figure expects under 50 failed lines`, (await few.getAttribute('data-reading')) === 'TOO_FEW' && (await few.innerText()).includes('too few'))
-  const readings = await page.locator('[data-shelf-cell][data-reading]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('data-reading')))].sort())
-  check(`${tag} Checks: other cells read inside what chance gives or enough to change`, readings.includes('INSIDE_CHANCE') && readings.includes('ENOUGH_TO_CHANGE'), readings.join(','))
-  await page.locator('[data-shelf-second="HALVES"]').click()
-  await page.waitForTimeout(200)
-  const halves = await page.locator('[data-shelf-cell="1:L0"]').innerText()
-  check(`${tag} Checks: "Counts by half-year" shows the three half-years`, halves.includes('13.35%') && halves.includes('9.12%') && halves.includes('8.93%'), halves.replace(/\s+/g, ' '))
-  const shortRows = await page.locator('[data-short-row]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-short-row')}=${e.getAttribute('data-reading')}`))
-  check(`${tag} Checks: the eight short-figure rows`, shortRows.length === 8, shortRows.join(' '))
-  check(`${tag} Checks: pick-up's book-at-zero row reads not steady`, shortRows.includes('PICK_UP:BOOK_AT_ZERO=NOT_STEADY'))
-  check(`${tag} Checks: each row marked from deliveries`, (await page.locator('[data-short-row] [data-row-source]').count()) === 8)
-  const slotZero = await page.locator('[data-short-row="SLOT:BOOK_AT_ZERO"]').innerText()
-  check(`${tag} Checks: a row's two ratios and the lines behind them`, slotZero.includes('0.88') && slotZero.includes('0.67') && slotZero.includes('840') && slotZero.includes('2,710'), slotZero.replace(/\s+/g, ' '))
-  check(`${tag} Checks: the lines per channel group`, (await page.locator('[data-short-row="SLOT:BOOK_AT_ZERO"] [data-row-group]').count()) === 3)
-  check(`${tag} Checks: the fixed note on the two ratios`, (await page.locator('[data-ratio-note]').innerText()).includes('about 0.9 there is a row that fits'))
+  await page.locator('[data-shelf-table]').waitFor({ timeout: 10000 })
+  check(`${tag} Checks: the promise check's three rows, from the checks door`, (await page.locator('[data-reading-tab="checks"] [data-promise-row]').count()) === 3 && !!last('checks'))
+  const bands = await page.locator('[data-distance-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-distance-band')))
+  check(`${tag} Checks: Dawaa Now by distance band`, JSON.stringify(bands) === JSON.stringify(['KM_0_2', 'KM_2_4', 'KM_4_6', 'KM_6_UP']), bands.join(','))
+  check(`${tag} Checks: a band's express stamp share`, (await page.locator('[data-distance-band="KM_0_2"]').innerText()).includes('95.2%'))
+  check(`${tag} Checks: the stock check by mode`, (await page.locator('[data-stock-check]').count()) === 3 && (await page.locator('[data-stock-check="SLOT"]').innerText()).includes('288'))
+  const shelf = await page.locator('[data-shelf-row]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-shelf-row')}=${e.getAttribute('data-verdict')}`))
+  check(`${tag} Checks: the shelf chance rows from the phase 2 bar's reading, each with the server's verdict`, shelf.length === 8 && shelf[0] === 'DAWAA_NOW|BOOK_BELOW_ZERO=ENOUGH_TO_CHANGE' && shelf.includes('SLOT|HELD_BY_DELIVERIES=TOO_FEW'), shelf.join(' '))
+  check(`${tag} Checks: a row waiting for a ruling says so`, (await page.locator('[data-shelf-row="SLOT|BOOK_AT_ZERO"]').innerText()).includes('waits for a written ruling') || (await page.locator('[data-shelf-row="SLOT|BOOK_AT_ZERO"]').innerText()).includes('ruled'))
+  check(`${tag} Checks: a row's figures are LTR isolates`, await isLtrIsolate(page.locator('[data-shelf-row="SLOT|BOOK_BELOW_ZERO"] td:nth-child(3) bdi').first()))
   const fleet = await page.locator('[data-fleet-ratios]').innerText()
-  check(`${tag} Checks: each mode's fleet ratio, the window and the number of counts`, fleet.includes('0.84') && fleet.includes('1.12') && fleet.includes('0.97') && fleet.includes('982'), fleet.replace(/\s+/g, ' '))
+  check(`${tag} Checks: each mode's fleet ratio, none where there is none`, fleet.includes('0.84') && fleet.includes('0.93') && fleet.includes('—'), fleet.replace(/\s+/g, ' '))
   await page.screenshot({ path: `${SHOTS}/${lang}-tab-checks.png`, fullPage: true })
 
   // Later slots
   await tab('later-slots')
   const sentence = await page.locator('[data-later-slots-sentence]').innerText()
-  check(`${tag} Later slots: one sentence with the count and its share`, sentence.includes('2,447') && sentence.includes('8.9%') && sentence.includes('27,550'), sentence.replace(/\s+/g, ' '))
-  check(`${tag} Later slots: labelled evidence for phase 2`, (await page.locator('[data-phase2-evidence]').innerText()).includes('evidence for phase 2'))
-  check(`${tag} Later slots: no riyal in the sentence`, !/SAR|ر\.س|riyal/i.test(sentence))
+  check(`${tag} Later slots: one sentence with the count and its share`, sentence.includes('1,318') && sentence.includes('8.0%') && sentence.includes('16,536'), sentence.replace(/\s+/g, ' '))
+  check(`${tag} Later slots: labelled evidence for phase 2, no riyal`, (await page.locator('[data-phase2-evidence]').innerText()).includes('evidence for phase 2') && !/SAR|ر\.س|riyal/i.test(sentence))
   await page.locator('[data-later-slots-chart] [data-chart="bar"] svg').first().waitFor({ timeout: 10000 })
-  const bars = await page.locator('[data-later-slots-chart] .recharts-bar-rectangle').count()
-  check(`${tag} Later slots: a bar per hour`, bars === 24 || bars === 23, String(bars))
-  check(`${tag} Later slots: the count opens its orders`, (await drawerFor('laterSlot')) === 'laterSlot')
+  const bars = page.locator('[data-later-slots-chart] .recharts-bar-rectangle')
+  check(`${tag} Later slots: a bar per hour with orders`, (await bars.count()) >= 18, String(await bars.count()))
+  await bars.nth(12).click()
+  await page.locator('dialog[open][data-results-drawer^="laterSlot:"]').waitFor({ timeout: 10000 })
+  check(`${tag} Later slots: an hour's bar opens its orders by hour`, /^\d+$/.test(last('orders')?.hour ?? ''), JSON.stringify(last('orders')))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(250)
   await page.screenshot({ path: `${SHOTS}/${lang}-tab-later-slots.png`, fullPage: true })
 
   // Orders not run
   await tab('not-run')
   const notRun = await page.locator('[data-not-run-reason]').evaluateAll((els) => els.map((e) => e.getAttribute('data-not-run-reason')))
-  check(
-    `${tag} Orders not run: the reasons, the stock read that failed three times among them`,
-    JSON.stringify(notRun) === JSON.stringify(['WORKER_OFF', 'TOO_LATE', 'NO_RUN_AFTER_ATTEMPTS', 'STOCK_READ_FAILED']),
-    notRun.join(','),
-  )
-  check(`${tag} Orders not run: the total as sent and what is not counted`, (await page.locator('[data-not-run-total]').innerText()).includes('1,332') && (await page.locator('[data-not-run-not-counted]').innerText()).includes('pick-up-only'))
-  check(`${tag} Orders not run: a reason's orders open them`, (await drawerFor('notRun:STOCK_READ_FAILED')) === 'notRun:STOCK_READ_FAILED')
+  check(`${tag} Orders not run: the server's four reasons`, JSON.stringify(notRun) === JSON.stringify(['TOO_LATE', 'THREE_FAILED', 'OUTSIDE_SHARE', 'PICK_UP_ONLY']), notRun.join(','))
+  const ownRun = await page.locator('[data-own-run-reason]').evaluateAll((els) => els.map((e) => e.getAttribute('data-own-run-reason')))
+  check(`${tag} Orders not run: the orders OMS ran itself, by why`, JSON.stringify(ownRun) === JSON.stringify(['NO_CHECKOUT_RUN', 'CART_CHANGED', 'RUN_HAD_PINS']), ownRun.join(','))
+  check(`${tag} Orders not run: an own-run reason opens its orders as a breakdown row`, sameFields(pick(await drawerFor('breakdown:MADE_BY:CART_CHANGED'), ['by', 'key']), { by: 'MADE_BY', key: 'CART_CHANGED' }))
   await page.screenshot({ path: `${SHOTS}/${lang}-tab-not-run.png`, fullPage: true })
 
-  // every reading tab: built, no raw key, no riyal
   let pending = 0
   let raw = ''
   for (const name of ['breakdowns', 'outside-rules', 'checks', 'later-slots', 'not-run']) {

@@ -6,13 +6,16 @@
  */
 import type { Permissions } from '@/core/permissions'
 
-/** `SourcingAdvisor:01` (deliberately Create, not 03) — every reader takes THIS predicate. */
+/**
+ * `SourcingAdvisor:01` (deliberately Create, not 03): BackOffice 4397 `SourcingAdvisorViewGrants`, the retired advisor's
+ * grant kept as seeded, now opening the comparison results page, its trial and phase 2 bar reads, and the old order
+ * link (pricing2 35a4e56be). Every reader takes THIS predicate.
+ */
 export const canViewSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisor:01')
 
 /**
  * The grant to save weight sets and start trials (spec 4354 §18–§19, BO 4283 decision 4: "no new grant"). The results
- * page's Trials tab starts a trial under it, and its Phase 2 bar tab writes marks, rulings and the accepted reading
- * under it until a grant is named for those. The simulator's "Save as a named set" (ticket 963) reads it too.
+ * page's Trials tab starts a trial and a factor table under it (BO 4394). The simulator's "Save as a named set" (ticket 963) reads it too.
  * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorSave:01`; BO 4360 seeds the grant unnamed.
  */
 export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdvisorSave:01')

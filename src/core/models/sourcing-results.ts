@@ -835,8 +835,8 @@ export interface ResultsChecksReply {
  * `GET SourcingAdvisor/Results/LaterSlots` + `ResultsQuery` (results ticket decision 12): orders with a later slot the
  * weight set prices lower than the earliest, their share of orders with a slot delivery, and the count by the hour
  * the order came in. Read, never a limit. No riyal: riyals appear on one order only (decision 4).
- * PROVISIONAL (spec 4354: not specified) — the path and every field, and `middleLaterMinutes` (decision 12's "middle
- * difference" names no unit; the riyal reading is refused by decision 4).
+ * PROVISIONAL (spec 4354: not specified) — the path and every field. The unit of decision 12's "middle difference" is
+ * minutes later (`middleLaterMinutes`), confirmed by the owner 2026-11-27; the riyal reading is refused by decision 4.
  */
 export interface ResultsLaterSlotsReply {
   orders: number

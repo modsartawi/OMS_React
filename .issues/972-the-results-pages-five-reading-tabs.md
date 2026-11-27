@@ -78,7 +78,7 @@ these to match:
     - The readings are `TOO_FEW`, `INSIDE_CHANCE`, `ENOUGH_TO_CHANGE` and `NOT_STEADY`.
   - `ResultsLaterSlotsReply{orders, slotOrders, percent, middleLaterMinutes, byHour[{hour, orders}]}`. Decision 12's
     "middle difference" names no unit. The prototype shows it in riyals, but decision 4 says riyals appear on one order
-    only. So the page reads it as minutes later (`middleLaterMinutes`). **The owner should confirm the unit.**
+    only. So the page reads it as minutes later (`middleLaterMinutes`). **Owner confirmed minutes, 2026-11-27.**
   - `ResultsNotRunReply{orders, reasons[{reason, orders}]}`, with the codes `WORKER_OFF`, `TOO_LATE`,
     `NO_RUN_AFTER_ATTEMPTS` and `STOCK_READ_FAILED`.
 - **Figure encoding** (`src/features/oms/sourcing-results/reading-figure.ts`, `ResultsReadingFigure`):

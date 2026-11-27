@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ResultsQuery, ResultsSummaryReply } from '@/core/models/sourcing-results'
+import type { ResultsQuery } from '@/core/models/sourcing-results'
 import Chip from '@/core/ui/Chip'
 import BarTab from './BarTab'
 import { RESULTS_TABS, type ResultsTab } from './tabs'
@@ -11,10 +11,9 @@ import LaterSlotsTab from './LaterSlotsTab'
 import NotRunTab from './NotRunTab'
 import OutsideRulesTab from './OutsideRulesTab'
 
-/** What every tab's panel is handed: the filters as the door takes them, and the summary already read. */
+/** What every tab's panel is handed: the filters as the doors take them. */
 export interface ResultsTabProps {
   query: ResultsQuery
-  summary: ResultsSummaryReply
 }
 
 /**

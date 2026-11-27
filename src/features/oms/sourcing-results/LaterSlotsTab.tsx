@@ -3,8 +3,8 @@ import { Trans, useTranslation } from 'react-i18next'
 import VerticalBarChart from '@/core/charts/VerticalBarChart'
 import type { ResultsLaterSlotsReply } from '@/core/models/sourcing-results'
 import { fsi } from '@/core/util/bidi'
-import { readingTabsApi } from './api'
-import Drill, { useDrill } from './Drill'
+import { sourcingResultsApi } from './api'
+import { useDrill } from './Drill'
 import Fig from './Fig'
 import { laterSlots } from './later-slots-model'
 import { PILL } from './Panels'
@@ -13,13 +13,15 @@ import TabRead from './TabRead'
 import { countText, percentText } from './text'
 
 /**
- * Later slots (ticket 972, results ticket decision 12): one sentence and a bar per hour the order came in, marked
- * "evidence for phase 2". The count changes no plan and is read, never a limit (spec 4354 §18). No riyal figure.
+ * Later slots (ticket 972, results ticket decision 12; BO 4393 `Results/LaterSlots`): one sentence and a bar per hour
+ * the order came in, marked "evidence for phase 2". The count changes no plan and is read, never a limit (spec 4354
+ * §18). An hour's bar opens its orders; the period's whole count has no figure of its own on the orders door, so it is
+ * plain. No riyal figure.
  */
 export default function LaterSlotsTab({ query }: ResultsTabProps) {
   const read = useQuery({
     queryKey: ['sourcing-results', 'later-slots', query],
-    queryFn: () => readingTabsApi.laterSlots(query),
+    queryFn: () => sourcingResultsApi.laterSlots(query),
     placeholderData: keepPreviousData,
     retry: false,
   })
@@ -41,13 +43,12 @@ function LaterSlots({ reply }: { reply: ResultsLaterSlotsReply }) {
       <p className="max-w-[78ch] text-sm" data-later-slots-sentence="">
         <Trans
           t={t}
-          i18nKey={s.middleLaterMinutes == null ? 'laterSlots.sentenceNoMiddle' : 'laterSlots.sentence'}
+          i18nKey="laterSlots.sentence"
           components={{
             b: <b />,
-            orders: <Drill figure={{ kind: 'laterSlot', hour: null }} count={s.orders} />,
+            orders: <Fig value={countText(s.cheaper)} />,
             share: <Fig value={percentText(s.percent)} />,
-            slot: <Fig value={countText(s.slotOrders)} />,
-            minutes: <Fig value={String(s.middleLaterMinutes ?? '')} />,
+            slot: <Fig value={countText(s.withSlot)} />,
           }}
         />{' '}
         <span className={`${PILL} border-primary/30 bg-primary-050 text-primary-800`} data-phase2-evidence="">
@@ -62,7 +63,7 @@ function LaterSlots({ reply }: { reply: ResultsLaterSlotsReply }) {
       ) : (
         <div data-later-slots-chart="">
           <VerticalBarChart
-            points={model.hours.map((h) => ({ member: String(h.hour), label: h.label, value: h.orders, slot: null }))}
+            points={model.hours.map((h) => ({ member: String(h.hour), label: h.label, value: h.cheaper, slot: null }))}
             colourBy="single"
             unit="count"
             measureLabel={t('laterSlots.measure')}

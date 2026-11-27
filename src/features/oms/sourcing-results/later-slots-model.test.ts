@@ -3,47 +3,35 @@ import type { ResultsLaterSlotsReply } from '@/core/models/sourcing-results'
 import stub from './stub-tabs.json'
 import { laterSlots } from './later-slots-model'
 
-// The drive's stub: the results prototype's later-slot count, most orders coming in at night.
-const reply = (over: Partial<ResultsLaterSlotsReply> = {}): ResultsLaterSlotsReply => ({ ...stub.laterSlots, ...over })
+// `GET SourcingAdvisor/Results/LaterSlots` (BO 4393): orders with a slot, those with a later slot priced lower, all 24 hours.
+const reply = stub.laterSlots as unknown as ResultsLaterSlotsReply
 
 describe('laterSlots — the count by hour', () => {
-  it('reads the sentence off the reply as sent', () => {
-    expect(laterSlots(reply()).sentence).toEqual({ orders: 2447, slotOrders: 27550, percent: 8.9, middleLaterMinutes: 120 })
+  it('reads the sentence as sent: orders with a later slot cheaper, of the orders with a slot, and the share', () => {
+    expect(laterSlots(reply).sentence).toEqual({ cheaper: 1318, withSlot: 16536, percent: 8.0 })
   })
 
-  it('gives every hour of the day a bar, 00 to 23, an hour the reply left out at nought', () => {
-    const { hours } = laterSlots(reply())
-    expect(hours.map((h) => h.hour)).toEqual([...Array(24).keys()])
-    expect(hours.map((h) => h.label).slice(0, 3)).toEqual(['00', '01', '02'])
-    expect(hours[5]).toEqual({ hour: 5, label: '05', orders: 0 })
-    expect(hours[0].orders).toBe(210)
-    expect(hours[23].orders).toBe(195)
+  it('draws a bar per hour, 00 to 23, of the orders that had a later slot cheaper', () => {
+    const hours = laterSlots(reply).hours
+    expect(hours).toHaveLength(24)
+    expect(hours[18]).toEqual({ hour: 18, label: '18', cheaper: 141, withSlot: 1732 })
+    expect(hours[0]).toEqual({ hour: 0, label: '00', cheaper: 0, withSlot: 0 })
   })
 
-  it('puts hours sent out of order back in order', () => {
-    const { hours } = laterSlots(reply({ byHour: [...stub.laterSlots.byHour].reverse() }))
-    expect(hours.slice(20).map((h) => h.orders)).toEqual([67, 119, 158, 195])
+  it('gives an hour the reply left out a bar at nought', () => {
+    const short = { ...reply, byHour: reply.byHour.filter((h) => h.hour !== 3) }
+    expect(laterSlots(short).hours[3]).toEqual({ hour: 3, label: '03', cheaper: 0, withSlot: 0 })
   })
 
-  it('names the busiest hour', () => {
-    expect(laterSlots(reply()).peak).toBe(0)
-    expect(laterSlots(reply({ byHour: [{ hour: 14, orders: 9 }, { hour: 22, orders: 30 }] })).peak).toBe(22)
+  it('names the busiest hour and checks the hours add up to the count', () => {
+    const m = laterSlots(reply)
+    expect(m.peak).toBe(18)
+    expect(m.addsUp).toBe(true)
+    expect(laterSlots({ ...reply, laterSlotCheaper: 1319 }).addsUp).toBe(false)
   })
 
-  it('says whether the hours add up to the count', () => {
-    expect(laterSlots(reply()).addsUp).toBe(true)
-    expect(laterSlots(reply({ orders: 2448 })).addsUp).toBe(false)
-  })
-
-  it('ignores an hour outside the day', () => {
-    const { hours } = laterSlots(reply({ byHour: [{ hour: 24, orders: 5 }, { hour: -1, orders: 3 }, { hour: 9, orders: 4 }], orders: 4 }))
-    expect(hours.reduce((n, h) => n + h.orders, 0)).toBe(4)
-  })
-
-  it('draws no bar and names no busiest hour when no order had a cheaper later slot', () => {
-    const empty = laterSlots(reply({ orders: 0, percent: 0, byHour: [] }))
-    expect(empty.empty).toBe(true)
-    expect(empty.peak).toBeNull()
-    expect(empty.hours.every((h) => h.orders === 0)).toBe(true)
+  it('reads a period with no later slot cheaper as empty', () => {
+    const none = { ...reply, laterSlotCheaper: 0, percent: 0, byHour: reply.byHour.map((h) => ({ ...h, laterSlotCheaper: 0 })) }
+    expect(laterSlots(none)).toMatchObject({ empty: true, peak: null })
   })
 })

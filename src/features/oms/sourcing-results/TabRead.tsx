@@ -42,10 +42,10 @@ export function Pct({ value }: { value: number | null | undefined }) {
   return value == null ? <span className="text-muted-foreground">{t('dash')}</span> : <Ltr>{percentText(value)}</Ltr>
 }
 
-/** Minutes against what happened, in words; + = the advisor's plan earlier. */
+/** Minutes against what happened, in words; minus = the advisor's plan earlier (the wire's sign). */
 export function Minutes({ value }: { value: number | null | undefined }) {
   const { t } = useTranslation('sourcing-results')
   if (value == null) return <span className="text-muted-foreground">{t('dash')}</span>
   if (value === 0) return <>{t('reading.minutes.same')}</>
-  return <Trans t={t} i18nKey={value > 0 ? 'reading.minutes.earlier' : 'reading.minutes.later'} components={{ m: <Fig value={String(Math.abs(value))} /> }} />
+  return <Trans t={t} i18nKey={value < 0 ? 'reading.minutes.earlier' : 'reading.minutes.later'} components={{ m: <Fig value={String(Math.abs(value))} /> }} />
 }

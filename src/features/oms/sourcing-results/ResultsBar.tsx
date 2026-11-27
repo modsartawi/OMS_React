@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from 'react-i18next'
-import type { ResultsSegment, ResultsTop } from '@/core/models/sourcing-results'
+import type { ResultsSegment, ResultsTopReply } from '@/core/models/sourcing-results'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import Drill, { useDrill } from './Drill'
@@ -9,20 +9,20 @@ import { resultsBar } from './results-bar-model'
 import { countText, percentText } from './text'
 
 /**
- * The top (ticket 971, spec 4354 §17): the sentence, the bar of six segments with its two brackets, the legend with a
+ * The top (ticket 971, spec 4354 §17): the sentence, the bar of seven segments with its two brackets, the legend with a
  * count per segment, and the line of orders landed, run and not ended yet, not run. Every segment opens its orders.
  *
  * The bar is a grid that follows the page's direction: under Arabic the first segment, and both brackets, stand at
  * the right, where the reading starts. Widths are geometry from the counts as sent.
  */
-export default function ResultsBar({ top }: { top: ResultsTop }) {
+export default function ResultsBar({ top }: { top: ResultsTopReply }) {
   const { t } = useTranslation('sourcing-results')
   const open = useDrill()
   const bar = resultsBar(top)
   const columns = bar.segments.map((s) => `minmax(4px, ${s.count}fr)`).join(' ')
   const segmentName = (segment: ResultsSegment) => t(`top.segments.${segment}`)
-  const storesSpan = `1 / ${bar.brackets.stores.columns + 1}`
-  const planSpan = `1 / ${bar.brackets.plan.columns + 1}`
+  const span = (b: { start: number; columns: number }) => `${b.start} / span ${b.columns}`
+  const { stores, plan } = bar.brackets
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4" data-results-top="">
@@ -44,12 +44,12 @@ export default function ResultsBar({ top }: { top: ResultsTop }) {
         </p>
       ) : (
         <div className="grid gap-y-1" style={{ gridTemplateColumns: columns }} role="group" aria-label={t('top.barLabel')} data-results-bar="">
-          {bar.brackets.stores.columns > 0 && (
+          {stores && (
             <>
-              <div className="text-xs font-semibold whitespace-nowrap" style={{ gridColumn: storesSpan, gridRow: 1 }} data-bracket="stores">
-                <Trans t={t} i18nKey="top.storesBracket" components={{ p: <Fig value={percentText(bar.brackets.stores.percent)} /> }} />
+              <div className="text-xs font-semibold whitespace-nowrap" style={{ gridColumn: span(stores), gridRow: 1 }} data-bracket="stores">
+                <Trans t={t} i18nKey="top.storesBracket" components={{ p: <Fig value={percentText(stores.percent)} /> }} />
               </div>
-              <div className="h-2 rounded-t-md border border-b-0 border-input" style={{ gridColumn: storesSpan, gridRow: 2 }} aria-hidden />
+              <div className="h-2 rounded-t-md border border-b-0 border-input" style={{ gridColumn: span(stores), gridRow: 2 }} aria-hidden />
             </>
           )}
           {bar.segments.map((s, i) => (
@@ -68,11 +68,11 @@ export default function ResultsBar({ top }: { top: ResultsTop }) {
               onClick={() => open({ kind: 'segment', segment: s.segment })}
             />
           ))}
-          {bar.brackets.plan.columns > 0 && (
+          {plan && (
             <>
-              <div className="h-2 rounded-b-md border border-t-0 border-input" style={{ gridColumn: planSpan, gridRow: 4 }} aria-hidden />
-              <div className="text-xs font-semibold whitespace-nowrap" style={{ gridColumn: planSpan, gridRow: 5 }} data-bracket="plan">
-                <Trans t={t} i18nKey="top.planBracket" components={{ p: <Fig value={percentText(bar.brackets.plan.percent)} /> }} />
+              <div className="h-2 rounded-b-md border border-t-0 border-input" style={{ gridColumn: span(plan), gridRow: 4 }} aria-hidden />
+              <div className="text-xs font-semibold whitespace-nowrap" style={{ gridColumn: span(plan), gridRow: 5 }} data-bracket="plan">
+                <Trans t={t} i18nKey="top.planBracket" components={{ p: <Fig value={percentText(plan.percent)} /> }} />
               </div>
             </>
           )}
@@ -106,8 +106,9 @@ export default function ResultsBar({ top }: { top: ResultsTop }) {
           i18nKey="top.runs"
           components={{
             landed: <Fig value={countText(top.landed)} />,
-            open: <Drill figure={{ kind: 'runNotEnded' }} count={top.runNotEnded} />,
-            notRun: <Drill figure={{ kind: 'notRun' }} count={top.notRun} />,
+            // SERVER GAP (spec 4354): no orders door answers these two figures (they are not on the summary rows), so they open nothing.
+            open: <Fig value={countText(top.runNotEnded)} />,
+            notRun: <Fig value={countText(top.notRun)} />,
           }}
         />
       </p>

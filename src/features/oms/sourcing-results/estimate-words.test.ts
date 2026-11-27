@@ -15,9 +15,9 @@ describe('an estimate in words', () => {
     expect(estimateWords(t, 0)).toBe('drawer.estimate.same')
   })
 
-  it('a plus is the advisor earlier, a minus later, each by its whole minutes', () => {
-    expect(estimateWords(t, 12)).toBe(`drawer.estimate.earlier(${fsi(12)})`)
-    expect(estimateWords(t, -7)).toBe(`drawer.estimate.later(${fsi(7)})`)
+  it('a minus is the advisor earlier, a plus later, each by its whole minutes (BO 4393 ResultsMath.Estimate)', () => {
+    expect(estimateWords(t, -12)).toBe(`drawer.estimate.earlier(${fsi(12)})`)
+    expect(estimateWords(t, 7)).toBe(`drawer.estimate.later(${fsi(7)})`)
   })
 
   it('no estimate is a dash', () => {

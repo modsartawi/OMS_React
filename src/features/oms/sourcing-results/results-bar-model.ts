@@ -1,24 +1,14 @@
 /**
- * The top of the results page (ticket 971, spec 4354 §17, results ticket decision 1): one sentence and one bar of six
- * segments, a bracket above the first two ("the stores only: same stores") and one under the first ("the whole plan:
- * same plan"), so the two figures are two readings of one bar.
+ * The top of the results page (ticket 971, spec 4354 §17, results ticket decision 1): one sentence and one bar, a
+ * bracket above for "the stores only: same stores" and one under for "the whole plan: same plan", so the two figures
+ * are two readings of one bar. BO 4393 sends seven segments, "breaks the nesting" (whole plan the same, stores only not)
+ * first, and names the segments each bracket spans.
  *
  * Pure. Every count and share is the reply's as sent: the model never recomputes a share, it only checks that the parts
  * add up to the whole the server sent (`addsUp`, `bracketsMatch`), which the page says when they do not.
  */
-import type { ResultsSegment, ResultsTop } from '@/core/models/sourcing-results'
+import { RESULTS_SEGMENTS, type ResultsBracket, type ResultsSegment, type ResultsTopReply } from '@/core/models/sourcing-results'
 import { segmentInk } from './inks'
-
-/** The spec's order (§17); the orders that break the nesting, when there are any, come last. */
-export const SEGMENT_ORDER: readonly ResultsSegment[] = [
-  'SAME_PLAN',
-  'SAME_STORES_OTHER_WAY',
-  'ANOTHER_STORE',
-  'CALLOUT_FALLBACK',
-  'OUTSIDE_RULES',
-  'NOT_COMPARABLE',
-  'BREAKS_NESTING',
-]
 
 export interface BarSegment {
   segment: ResultsSegment
@@ -30,39 +20,47 @@ export interface BarSegment {
   hatched: boolean
 }
 
+/** A bracket over the drawn segments: its first column (1-based), how many it spans, and the figure as sent. */
+export interface BarBracket {
+  start: number
+  columns: number
+  orders: number
+  percent: number
+}
+
 export interface ResultsBar {
   sentence: { orders: number; storesPercent: number; planPercent: number }
-  /** Only the segments with orders, in the spec's order. */
+  /** Only the segments with orders, in the bar's order. */
   segments: BarSegment[]
-  /** How many leading drawn segments each bracket spans, and the share it reads. */
-  brackets: { stores: { columns: number; percent: number }; plan: { columns: number; percent: number } }
+  /** Null where none of the bracket's segments is drawn. */
+  brackets: { stores: BarBracket | null; plan: BarBracket | null }
   addsUp: boolean
   bracketsMatch: boolean
   empty: boolean
 }
 
-export function resultsBar(top: ResultsTop): ResultsBar {
-  const sent = new Map(top.segments.map((s) => [s.segment, s]))
-  const segments: BarSegment[] = SEGMENT_ORDER.flatMap((segment) => {
+export function resultsBar(top: ResultsTopReply): ResultsBar {
+  const sent = new Map(top.segments.map((s) => [s.code, s]))
+  const segments: BarSegment[] = RESULTS_SEGMENTS.flatMap((segment) => {
     const s = sent.get(segment)
-    if (!s || !(s.count > 0)) return []
-    return [{ segment, count: s.count, percent: s.percent, ink: segmentInk(segment), hatched: segment === 'CALLOUT_FALLBACK' }]
+    if (!s || !(s.orders > 0)) return []
+    return [{ segment, count: s.orders, percent: s.percent, ink: segmentInk(segment), hatched: segment === 'CALLOUT_FALLBACK' }]
   })
-  const countOf = (segment: ResultsSegment) => sent.get(segment)?.count ?? 0
-  const sum = top.segments.reduce((total, s) => total + (s.count > 0 ? s.count : 0), 0)
-  const storesColumns = segments.filter((s) => s.segment === 'SAME_PLAN' || s.segment === 'SAME_STORES_OTHER_WAY').length
-  const planColumns = segments.some((s) => s.segment === 'SAME_PLAN') ? 1 : 0
+
+  const bracket = (b: ResultsBracket): BarBracket | null => {
+    const at = segments.flatMap((s, i) => (b.segments.includes(s.segment) ? [i] : []))
+    if (at.length === 0) return null
+    return { start: Math.min(...at) + 1, columns: at.length, orders: b.orders, percent: b.percent }
+  }
+  const matches = (b: ResultsBracket) => b.segments.reduce((n, code) => n + (sent.get(code)?.orders ?? 0), 0) === b.orders
+  const sum = top.segments.reduce((total, s) => total + (s.orders > 0 ? s.orders : 0), 0)
+
   return {
-    sentence: { orders: top.ordersCompared, storesPercent: top.sameStores.percent, planPercent: top.samePlan.percent },
+    sentence: { orders: top.ordersCompared, storesPercent: top.storesOnly.percent, planPercent: top.wholePlan.percent },
     segments,
-    brackets: {
-      stores: { columns: storesColumns, percent: top.sameStores.percent },
-      plan: { columns: planColumns, percent: top.samePlan.percent },
-    },
+    brackets: { stores: bracket(top.storesOnly), plan: bracket(top.wholePlan) },
     addsUp: sum === top.ordersCompared,
-    bracketsMatch:
-      top.samePlan.count === countOf('SAME_PLAN') &&
-      top.sameStores.count === countOf('SAME_PLAN') + countOf('SAME_STORES_OTHER_WAY'),
+    bracketsMatch: matches(top.storesOnly) && matches(top.wholePlan),
     empty: segments.length === 0,
   }
 }

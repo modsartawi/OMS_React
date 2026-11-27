@@ -1,8 +1,9 @@
 /**
- * The Trials tab and "Set beside it" (ticket 973, spec 4354 §18, BO 4283 decisions 1–18, BO 4394): the list of
- * trials, a trial's result (orders solved, refused by reason, failed), the factor table, the form that starts a
- * trial, and the tried set read beside the candidate set — the banner, the thin second bar, the plans that differ
- * between the two sets and the promise check under the set beside it.
+ * The Trials tab and "Set beside it" (ticket 973, spec 4354 §18, BO 4283 decisions 3–18), on BO 4394's trial doors: the
+ * list of trials, a trial's result (orders solved, refused by reason, no plan, failed), the factor table, the form that
+ * starts a trial, and a set read beside the candidate set — two finished trials over the same period
+ * (`Trials/Beside?trialId=<candidate>&otherId=<set>`): the plans that differ, each set against what happened, the estimate
+ * between them, and the promise check under the set beside it.
  *
  * Pure. Every count and share is the reply's as sent: the model orders, filters and checks that parts add up, and
  * never recomputes a share. No riyal anywhere (spec §18: "no riyal sum").
@@ -11,39 +12,48 @@ import {
   TRIAL_CHANGE_KINDS,
   TRIAL_FACTORS,
   TRIAL_REFUSALS,
-  type FactorRow,
   type FactorTableReply,
-  type ResultsBeside,
-  type ResultsShare,
-  type ResultsWeightSet,
   type TrialChangeKind,
-  type TrialRefusal,
-  type TrialRow,
+  type TrialFactor,
+  type TrialReply,
+  type TrialSide,
   type TrialStartRequest,
-  type TrialsReply,
+  type TrialState,
+  type TrialsBeside,
 } from '@/core/models/sourcing-results'
-import { promisePanel, type PromisePanelRow } from './promise-panel-model'
-import { resultsBar, type ResultsBar } from './results-bar-model'
+
+const inOrder = (order: readonly string[], key: string): number => {
+  const i = order.indexOf(key)
+  return i < 0 ? order.length : i
+}
+
+const counted = <K extends string>(order: readonly K[], map: Record<string, number>) =>
+  Object.entries(map)
+    .filter(([, n]) => n > 0)
+    .sort(([a], [b]) => inOrder(order, a) - inOrder(order, b))
 
 // ── The list ────────────────────────────────────────────────────────────────────────────────────────
 
-export interface TrialListRow extends TrialRow {
-  /** A done trial's result opens the results page with its set in "Set beside it" (BO 4283 decision 18). */
+export interface TrialListRow extends TrialReply {
+  /** A done trial of a set other than its candidate opens beside the candidate's trial (BO 4283 decision 18). */
   canOpenBeside: boolean
 }
 
 export interface TrialsList {
-  /** Newest first, by when each was started. */
+  /** Newest first, by when each was added. */
   rows: TrialListRow[]
   /** One trial runs at a time (BO 4283 decision 10). */
-  running: TrialRow | null
+  running: TrialReply | null
   waiting: number
 }
 
-export function trialsList(reply: TrialsReply): TrialsList {
-  const rows = [...reply.trials]
-    .sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0))
-    .map((t) => ({ ...t, canOpenBeside: t.state === 'DONE' }))
+const isCandidateItself = (t: TrialReply) => t.name === t.besideCandidate && t.version === t.besideCandidateVersion
+
+export function trialsList(trials: readonly TrialReply[]): TrialsList {
+  const rows = trials
+    .filter((t) => !t.factorOff)
+    .sort((a, b) => (a.addedAt < b.addedAt ? 1 : a.addedAt > b.addedAt ? -1 : 0))
+    .map((t) => ({ ...t, canOpenBeside: t.state === 'DONE' && !!t.besideCandidate && !isCandidateItself(t) }))
   return {
     rows,
     running: rows.find((t) => t.state === 'RUNNING') ?? null,
@@ -51,43 +61,52 @@ export function trialsList(reply: TrialsReply): TrialsList {
   }
 }
 
+/** The done trial of the candidate set `trial` ran beside, over the very same period; null when it has none. */
+export function candidateTrialFor(trial: TrialReply, trials: readonly TrialReply[]): TrialReply | null {
+  return (
+    trials.find(
+      (t) =>
+        !t.factorOff &&
+        t.state === 'DONE' &&
+        t.name === trial.besideCandidate &&
+        t.version === trial.besideCandidateVersion &&
+        t.from === trial.from &&
+        t.to === trial.to,
+    ) ?? null
+  )
+}
+
 // ── One trial's result ──────────────────────────────────────────────────────────────────────────────
 
 export interface TrialResult {
   orders: number
   solved: number
+  /** Of the solved, the runs made on this very version, used as stored. */
+  asStored: number
+  noPlan: number
+  notEnded: number
   failed: number
-  leftOutNoPlan: number
-  /** By reason, in the spec's order; a reason with no order left out. */
-  refused: { reason: TrialRefusal; count: number }[]
+  /** By reason, in the server's order; a reason with no order left out. */
+  refused: { reason: string; count: number }[]
   refusedTotal: number
-  /** Solved + refused + failed + left out = the orders of the period, as the server sent them. */
+  /** Solved + refused + no plan + not ended + failed = the orders of the period, as the server sent them. */
   addsUp: boolean
   /** Only a done trial's counts are its result; a running one's are progress. */
   done: boolean
 }
 
-const inOrder = <K extends string>(order: readonly K[], key: K): number => {
-  const i = order.indexOf(key)
-  return i < 0 ? order.length : i
-}
-
-export function trialResult(t: TrialRow): TrialResult {
-  const refused = t.refused
-    .filter((r) => r.count > 0)
-    .sort((a, b) => inOrder(TRIAL_REFUSALS, a.reason) - inOrder(TRIAL_REFUSALS, b.reason))
-    .map(({ reason, count }) => ({ reason, count }))
-  const refusedTotal = refused.reduce((sum, r) => sum + r.count, 0)
-  const counted = t.solved + refusedTotal + t.failed + t.leftOutNoPlan
+export function trialResult(t: TrialReply): TrialResult {
+  const sum = t.solved + t.refused + t.noPlan + t.notEnded + t.failed
   return {
     orders: t.orders,
     solved: t.solved,
+    asStored: t.asStored,
+    noPlan: t.noPlan,
+    notEnded: t.notEnded,
     failed: t.failed,
-    leftOutNoPlan: t.leftOutNoPlan,
-    refused,
-    refusedTotal,
-    // A trial still running has solved part of its orders: its counts add up to no more than the whole.
-    addsUp: t.state === 'DONE' ? counted === t.orders : counted <= t.orders,
+    refused: counted(TRIAL_REFUSALS, t.refusedBy).map(([reason, count]) => ({ reason, count })),
+    refusedTotal: t.refused,
+    addsUp: t.state === 'DONE' ? sum === t.orders : sum <= t.orders,
     done: t.state === 'DONE',
   }
 }
@@ -95,55 +114,59 @@ export function trialResult(t: TrialRow): TrialResult {
 // ── The factor table ────────────────────────────────────────────────────────────────────────────────
 
 export interface FactorView {
-  /** `FACTOR` or `STORE_RECORD:<MEASURE>`. */
-  key: string
-  factor: FactorRow['factor']
-  measure: string | null
-  switched: FactorRow['switched']
-  changed: ResultsShare
+  factor: TrialFactor
+  /** '' until the row's trial is started. */
+  state: TrialState | ''
+  compared: number
+  changed: number
+  /** Percent of the plans compared, as sent. */
+  share: number
   /** In the comparison's order; a kind with no plan left out. */
-  kinds: { kind: TrialChangeKind; count: number }[]
+  kinds: { kind: string; count: number }[]
   /** "A factor that changes no plan earns nothing in that period" (BO 4283 decision 16). */
   changesNone: boolean
 }
 
 export interface FactorTable {
-  state: FactorTableReply['state']
-  plans: number
   rows: FactorView[]
+  /** Whether any row's trial was started. */
+  started: boolean
 }
 
 export function factorTable(reply: FactorTableReply): FactorTable {
-  const rows = reply.rows
-    .map((r, sent) => ({ r, sent }))
-    // Stable: the store record's measures keep the order sent, together under the factor.
-    .sort((a, b) => inOrder(TRIAL_FACTORS, a.r.factor) - inOrder(TRIAL_FACTORS, b.r.factor) || a.sent - b.sent)
-    .map(({ r }) => ({
-      key: r.measure ? `${r.factor}:${r.measure}` : r.factor,
+  const rows = [...reply.rows]
+    .sort((a, b) => inOrder(TRIAL_FACTORS, a.factor) - inOrder(TRIAL_FACTORS, b.factor))
+    .map((r) => ({
       factor: r.factor,
-      measure: r.measure,
-      switched: r.switched,
-      changed: r.changed,
-      kinds: r.kinds
-        .filter((k) => k.count > 0)
-        .sort((a, b) => inOrder(TRIAL_CHANGE_KINDS, a.kind) - inOrder(TRIAL_CHANGE_KINDS, b.kind))
-        .map(({ kind, count }) => ({ kind, count })),
-      changesNone: !(r.changed.count > 0),
+      state: r.state,
+      compared: r.compared,
+      changed: r.plansChanged,
+      share: r.share,
+      kinds: counted(TRIAL_CHANGE_KINDS, r.kinds).map(([kind, count]) => ({ kind, count })),
+      changesNone: r.state === 'DONE' && !(r.plansChanged > 0),
     }))
-  return { state: reply.state, plans: reply.plans, rows }
+  return { rows, started: rows.some((r) => r.state !== '') }
 }
 
 // ── The form that starts a trial ────────────────────────────────────────────────────────────────────
 
+/**
+ * SERVER GAP (spec 4354) — the trial doors send neither the longest period nor how long the run records are kept
+ * (`TrialSettings` 30 and 90 days); the form checks against these defaults and the server refuses past its own.
+ */
+export const TRIAL_LONGEST_DAYS = 30
+export const RECORD_KEPT_DAYS = 90
+
 export interface TrialStartForm {
-  set: Pick<ResultsWeightSet, 'name' | 'version'> | null
+  name: string
+  version: number
   /** Local dates `yyyy-MM-dd`, both ends included. */
   from: string
   to: string
 }
 
 /** Why the form cannot start a trial yet; each has its own words. */
-export type TrialStartProblem = 'NO_VERSION' | 'NO_PERIOD' | 'ENDS_BEFORE_START' | 'BEFORE_KEPT' | 'NOT_ENDED' | 'TOO_LONG'
+export type TrialStartProblem = 'NO_VERSION' | 'NO_PERIOD' | 'ENDS_BEFORE_START' | 'NOT_ENDED' | 'TOO_LONG' | 'BEFORE_KEPT'
 
 export interface TrialStart {
   request: TrialStartRequest | null
@@ -159,60 +182,70 @@ const dayNumber = (d: string): number | null => {
   return Number.isFinite(ms) ? Math.round(ms / 86_400_000) : null
 }
 
-export function trialStart(form: TrialStartForm, reply: Pick<TrialsReply, 'maxDays' | 'earliestDay' | 'latestDay'>): TrialStart {
+/** The server reads a day as `yyyy-MM-dd HH:mm:ss`, whole (`RecordJson`, strict). */
+export const wireDay = (day: string): string => `${day} 00:00:00`
+
+/** `today` is the local `yyyy-MM-dd`: the last day of a period must have ended. */
+export function trialStart(form: TrialStartForm, today: string): TrialStart {
   const from = dayNumber(form.from)
   const to = dayNumber(form.to)
+  const now = dayNumber(today) ?? Number.POSITIVE_INFINITY
   const days = from != null && to != null ? to - from + 1 : null
   const refuse = (problem: TrialStartProblem): TrialStart => ({ request: null, days, problem })
-  if (!form.set) return refuse('NO_VERSION')
+  if (!form.name.trim() || !(form.version >= 1)) return refuse('NO_VERSION')
   if (from == null || to == null || days == null) return refuse('NO_PERIOD')
   if (days < 1) return refuse('ENDS_BEFORE_START')
-  if (form.from < reply.earliestDay) return refuse('BEFORE_KEPT')
-  if (form.to > reply.latestDay) return refuse('NOT_ENDED')
-  if (days > reply.maxDays) return refuse('TOO_LONG')
-  return {
-    request: { weightSet: form.set.name, weightSetVersion: form.set.version, from: form.from, to: form.to },
-    days,
-    problem: null,
-  }
+  if (to >= now) return refuse('NOT_ENDED')
+  if (days > TRIAL_LONGEST_DAYS) return refuse('TOO_LONG')
+  if (from < now - RECORD_KEPT_DAYS) return refuse('BEFORE_KEPT')
+  return { request: { name: form.name.trim(), version: form.version, from: wireDay(form.from), to: wireDay(form.to) }, days, problem: null }
 }
 
 // ── Set beside it ───────────────────────────────────────────────────────────────────────────────────
 
 export interface BesideView {
-  set: ResultsWeightSet
-  /** A trial set is shown under its banner (spec §10). */
-  trialSet: boolean
-  period: { from: string; to: string }
+  set: Pick<TrialSide, 'trialId' | 'name' | 'version' | 'trialSet'>
+  candidate: Pick<TrialSide, 'trialId' | 'name' | 'version' | 'trialSet'>
+  orders: number
+  compared: number
   leftOut: number
-  /** The set against what happened: the thin second bar, read like the page's own bar. */
-  bar: ResultsBar
+  leftOutBy: { reason: string; count: number }[]
   /** The plans that differ between the two sets, by kind in the comparison's order. */
-  differ: { orders: number; share: ResultsShare; kinds: { kind: TrialChangeKind; count: number; percent: number }[] }
-  estimate: ResultsBeside['estimate']
-  shipments: ResultsBeside['shipments']
-  listFee: ResultsBeside['listFee']
+  differ: { count: number; share: number; kinds: { kind: string; count: number }[] }
+  /** Each set against what happened: orders whose plan is the same, and whose stores are. */
+  against: { candidate: { samePlan: number; sameStores: number }; beside: { samePlan: number; sameStores: number } }
+  /** The set beside it minus the candidate, minutes; null when no plan was compared. */
+  estimate: { middle: number; low: number; high: number } | null
+  shipments: { candidate: number; beside: number }
+  fee: { lower: number; same: number; higher: number }
   /** "The real deliveries, as this set would have promised them." */
-  promise: PromisePanelRow[]
+  promise: TrialSide['promise']
 }
 
-export function besideView(b: ResultsBeside): BesideView {
+const LEFT_OUT_ORDER: readonly string[] = [...TRIAL_REFUSALS, 'NO_PLAN', 'NOT_ENDED', 'FAILED', 'MISSING']
+const sideOf = ({ trialId, name, version, trialSet }: TrialSide) => ({ trialId, name, version, trialSet })
+const againstOf = (s: TrialSide) => ({ samePlan: s.wholeClasses.SAME_PLAN ?? 0, sameStores: s.storesClasses.SAME_PLAN ?? 0 })
+
+export function besideView(b: TrialsBeside): BesideView {
   return {
-    set: b.set,
-    trialSet: !!b.set.trial,
-    period: b.period,
+    set: sideOf(b.second),
+    candidate: sideOf(b.first),
+    orders: b.orders,
+    compared: b.compared,
     leftOut: b.leftOut,
-    bar: resultsBar(b.top),
+    leftOutBy: counted(LEFT_OUT_ORDER, b.leftOutBy).map(([reason, count]) => ({ reason, count })),
     differ: {
-      orders: b.differ.orders,
-      share: b.differ.differ,
-      kinds: b.differ.kinds
-        .filter((k) => k.count > 0)
-        .sort((x, y) => inOrder(TRIAL_CHANGE_KINDS, x.kind) - inOrder(TRIAL_CHANGE_KINDS, y.kind)),
+      count: b.plansDiffer,
+      share: b.plansDifferShare,
+      kinds: counted<TrialChangeKind>(TRIAL_CHANGE_KINDS, b.differBy).map(([kind, count]) => ({ kind, count })),
     },
-    estimate: b.estimate,
-    shipments: b.shipments,
-    listFee: b.listFee,
-    promise: promisePanel(b.promise),
+    against: { candidate: againstOf(b.first), beside: againstOf(b.second) },
+    estimate:
+      b.minutesMiddle != null
+        ? { middle: b.minutesMiddle, low: b.minutesMiddleHalfFrom ?? b.minutesMiddle, high: b.minutesMiddleHalfTo ?? b.minutesMiddle }
+        : null,
+    shipments: { candidate: b.first.shipments, beside: b.second.shipments },
+    fee: { lower: b.feeLower, same: b.feeSame, higher: b.feeHigher },
+    promise: b.second.promise,
   }
 }

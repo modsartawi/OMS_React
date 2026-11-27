@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react'
 import type { ResultsFigure } from '@/core/models/sourcing-results'
 import Ltr from '@/core/ui/Ltr'
 import { formatFigure } from '@/core/util/number-format'
-import { encodeFigure } from './figure'
+import { figureKey } from './figure'
 
 /**
  * An underlined figure that opens its orders in the drawer (ticket 971, results ticket decision 5: "every underlined
@@ -29,7 +29,7 @@ export default function Drill({ figure, count, label }: { figure: ResultsFigure;
       className="cursor-pointer font-semibold text-foreground underline decoration-dotted underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       onClick={() => open(figure)}
       aria-label={label}
-      data-drill={encodeFigure(figure)}
+      data-drill={figureKey(figure)}
     >
       <Ltr>{formatFigure(count)}</Ltr>
     </button>

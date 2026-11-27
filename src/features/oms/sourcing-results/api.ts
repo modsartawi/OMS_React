@@ -1,138 +1,92 @@
 /**
- * The comparison results page's server calls (ticket 971, spec 4354 §17; doors BackOffice 4393, unbuilt — every
- * drive stubs exactly this wire). Read-only, under today's advisor view grant (`SourcingAdvisor:01`).
+ * The comparison results page's server calls (tickets 971–973), reconciled with BackOffice 4393, 4394 and 4396 at
+ * pricing2 35a4e56be. Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its.
  *
- * Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its.
- *
- * 🚩 PROVISIONAL (spec 4354: not specified) — every path below, and every query name. BO 4393 names the content of
- * the replies and no door; reconcile with it as built. Tickets 972 and 973 add their tabs' doors here.
+ * - The results doors (`ResultsEndpoints`): GET, under the advisor view grant `BackOfficeScreen[SourcingAdvisor, 01]`.
+ *   Each takes the filter bar (`ResultsQuery`); a bad value is `RESULTS-400`, an order with no summary `RESULTS-404`.
+ *   (`Results/OrderRun`, the old order link's door, is `features/oms/sourcing-order-link`'s, ticket 974.)
+ * - The trial doors (`TrialEndpoints`): reading under the view grant; starting a trial or a factor table under the save
+ *   grant `[SourcingWeightSets, 03]`. Refusals are `WEIGHTSET-4xx`.
+ * - The phase 2 bar (`Phase2BarEndpoints`): reading under the view grant; Close and Accept under the candidate-mark grant
+ *   `[SourcingCandidateSet, 03]`.
  */
 import { api } from '@/core/api'
 import type {
-  BarDirection,
-  BarMark,
+  AdvisorCode,
+  BarAcceptRequest,
+  BarCloseRequest,
+  BarKeptReading,
   BarQuery,
   BarReply,
-  BarRuling,
   FactorTableReply,
-  ResultsView,
-  TrialRow,
-  TrialStartRequest,
-  TrialsReply,
   ResultsBreakdownBy,
-  ResultsBreakdownsReply,
+  ResultsBreakdownReply,
   ResultsChecksReply,
+  ResultsDifferReply,
   ResultsLaterSlotsReply,
   ResultsNotRunReply,
-  ResultsOutsideRulesReply,
   ResultsOrderCard,
-  ResultsOrderSort,
   ResultsOrdersReply,
+  ResultsOutsideReply,
+  ResultsPanelsReply,
   ResultsQuery,
-  ResultsSummaryReply,
+  ResultsTopReply,
+  ResultsView,
+  TrialReply,
+  TrialStartRequest,
+  TrialsBeside,
 } from '@/core/models/sourcing-results'
+import type { ResultsOrdersRequest } from './figure'
 
-export interface ResultsOrdersQuery extends ResultsQuery {
-  /** The figure behind the drawer, encoded by `./figure`. */
-  figure: string
-  page: number
-  pageSize: number
-  sort: ResultsOrderSort
-  descending: boolean
-}
+/** The trials list's cache key: the page's set picker and the Trials tab share it. */
+export const TRIALS_KEY = ['sourcing-results', 'trials'] as const
 
 export const sourcingResultsApi = {
-  /** `GET SourcingAdvisor/Results/Summary` — the top, the three panels and "where the plans differ". */
-  summary(query: ResultsQuery): Promise<ResultsSummaryReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsSummaryReply>('SourcingAdvisor/Results/Summary', { ...query })
-  },
-  /** `GET SourcingAdvisor/Results/Orders` — the orders behind a figure, paged and sorted. */
-  orders(query: ResultsOrdersQuery): Promise<ResultsOrdersReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsOrdersReply>('SourcingAdvisor/Results/Orders', { ...query })
-  },
+  /** `GET SourcingAdvisor/Results/Top` — the sentence, the bar, its brackets and the line under it. */
+  top: (query: ResultsQuery) => api.get<ResultsTopReply>('SourcingAdvisor/Results/Top', { ...query }),
+  /** `GET SourcingAdvisor/Results/Panels` — the promise check, cost (counts only) and the marks in force. */
+  panels: (query: ResultsQuery) => api.get<ResultsPanelsReply>('SourcingAdvisor/Results/Panels', { ...query }),
+  /** `GET SourcingAdvisor/Results/Differ?view=` — "where the plans differ" in one view. */
+  differ: (query: ResultsQuery, view: ResultsView) => api.get<ResultsDifferReply>('SourcingAdvisor/Results/Differ', { ...query, view }),
+  /** `GET SourcingAdvisor/Results/Orders` — the orders behind a figure, paged and sorted (`./figure`). */
+  orders: (request: ResultsOrdersRequest) => api.get<ResultsOrdersReply>('SourcingAdvisor/Results/Orders', { ...request }),
   /** `GET SourcingAdvisor/Results/Order?orderNumber=` — one order's card. */
-  order(orderNumber: string): Promise<ResultsOrderCard> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsOrderCard>('SourcingAdvisor/Results/Order', { orderNumber })
-  },
+  order: (orderNumber: string) => api.get<ResultsOrderCard>('SourcingAdvisor/Results/Order', { orderNumber }),
+  /** `GET SourcingAdvisor/Results/Codes` — the advisor's code list with its words, under the view grant. */
+  codes: () => api.get<AdvisorCode[]>('SourcingAdvisor/Results/Codes'),
 
-  // ── Trials (ticket 973; BO 4394 "a door of its own", unbuilt) ──────────────────────────────────────
+  // ── The five reading tabs (ticket 972) ─────────────────────────────────────────────────────────────
 
-  /** `GET SourcingAdvisor/Trials` — the list of trials and what the start form may pick. */
-  trials(): Promise<TrialsReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<TrialsReply>('SourcingAdvisor/Trials')
-  },
-  /** `POST SourcingAdvisor/Trials/Start` — under the save grant; a repeat is answered from the kept trial. */
-  startTrial(body: TrialStartRequest): Promise<TrialRow> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<TrialRow>('SourcingAdvisor/Trials/Start', body)
-  },
-  /** `GET SourcingAdvisor/Trials/Factors?trialId=` — the factor table of one trial's version and period. */
-  factors(trialId: string): Promise<FactorTableReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<FactorTableReply>('SourcingAdvisor/Trials/Factors', { trialId })
-  },
-  /** `POST SourcingAdvisor/Trials/Factors` — starts the factor table's job (the save grant's). */
-  startFactors(trialId: string): Promise<FactorTableReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<FactorTableReply>('SourcingAdvisor/Trials/Factors', { trialId })
-  },
-
-  // ── The phase 2 bar (ticket 973; BO 4396 "SIS.Api doors", unbuilt) ─────────────────────────────────
-
-  /** `GET SourcingAdvisor/Phase2Bar` — one reading of the bar for 28 days and a channel group. */
-  bar(query: BarQuery): Promise<BarReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<BarReply>('SourcingAdvisor/Phase2Bar', { ...query })
-  },
-  /** `POST SourcingAdvisor/Phase2Bar/Mark` — a person marks one of the largest differences. Answers the reading. */
-  markLargest(query: BarQuery, body: { orderNumber: string; view: ResultsView; direction: BarDirection; mark: BarMark }): Promise<BarReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<BarReply>('SourcingAdvisor/Phase2Bar/Mark', { ...query, ...body })
-  },
-  /** `POST SourcingAdvisor/Phase2Bar/Ruling` — a written ruling (a reason outside the rules, a shelf chance figure). */
-  writeRuling(query: BarQuery, body: { subject: BarRuling['subject']; key: string; text: string }): Promise<BarReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<BarReply>('SourcingAdvisor/Phase2Bar/Ruling', { ...query, ...body })
-  },
-  /** `POST SourcingAdvisor/Phase2Bar/Accept` — the owner accepts this reading; it is kept with who, when, each figure. */
-  acceptBar(query: BarQuery & { to: string }): Promise<BarReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<BarReply>('SourcingAdvisor/Phase2Bar/Accept', query)
-  },
-}
-
-/**
- * The five reading tabs' doors (ticket 972): each tab reads its own when it opens, with the page's filters.
- * 🚩 PROVISIONAL (spec 4354: not specified) — every path, and the query name `by`. BO 4393 names the content only.
- */
-export const readingTabsApi = {
-  /** `GET SourcingAdvisor/Results/Breakdowns` + `by` — the Breakdowns tab. */
-  breakdowns(query: ResultsQuery, by: ResultsBreakdownBy): Promise<ResultsBreakdownsReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsBreakdownsReply>('SourcingAdvisor/Results/Breakdowns', { ...query, by })
-  },
-  /** `GET SourcingAdvisor/Results/OutsideRules` — outside the advisor's rules, by reason. */
-  outsideRules(query: ResultsQuery): Promise<ResultsOutsideRulesReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsOutsideRulesReply>('SourcingAdvisor/Results/OutsideRules', { ...query })
-  },
-  /** `GET SourcingAdvisor/Results/Checks` — Dawaa Now by distance band, the stock check, the shelf chance evidence. */
-  checks(query: ResultsQuery): Promise<ResultsChecksReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsChecksReply>('SourcingAdvisor/Results/Checks', { ...query })
-  },
+  /** `GET SourcingAdvisor/Results/Breakdown?by=` — one grouping of the Breakdowns tab. */
+  breakdown: (query: ResultsQuery, by: ResultsBreakdownBy) => api.get<ResultsBreakdownReply>('SourcingAdvisor/Results/Breakdown', { ...query, by }),
+  /** `GET SourcingAdvisor/Results/Outside` — outside the advisor's rules, by reason. */
+  outside: (query: ResultsQuery) => api.get<ResultsOutsideReply>('SourcingAdvisor/Results/Outside', { ...query }),
+  /** `GET SourcingAdvisor/Results/Checks` — the promise check, Dawaa Now by distance band, the stock check. */
+  checks: (query: ResultsQuery) => api.get<ResultsChecksReply>('SourcingAdvisor/Results/Checks', { ...query }),
   /** `GET SourcingAdvisor/Results/LaterSlots` — the later-slot count by hour. */
-  laterSlots(query: ResultsQuery): Promise<ResultsLaterSlotsReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsLaterSlotsReply>('SourcingAdvisor/Results/LaterSlots', { ...query })
-  },
-  /** `GET SourcingAdvisor/Results/NotRun` — the orders not run, by reason. */
-  notRun(query: ResultsQuery): Promise<ResultsNotRunReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<ResultsNotRunReply>('SourcingAdvisor/Results/NotRun', { ...query })
-  },
+  laterSlots: (query: ResultsQuery) => api.get<ResultsLaterSlotsReply>('SourcingAdvisor/Results/LaterSlots', { ...query }),
+  /** `GET SourcingAdvisor/Results/NotRun` — orders not run, and orders OMS ran itself, by reason. */
+  notRun: (query: ResultsQuery) => api.get<ResultsNotRunReply>('SourcingAdvisor/Results/NotRun', { ...query }),
+
+  // ── Trials (ticket 973; BO 4394) ────────────────────────────────────────────────────────────────
+
+  /** `GET SourcingAdvisor/Trials` — every trial but the factor tables' own rows. */
+  trials: () => api.get<TrialReply[]>('SourcingAdvisor/Trials'),
+  /** `POST SourcingAdvisor/Trials/Start` — the save grant's; a repeat answers the kept trial (`repeat`). */
+  startTrial: (body: TrialStartRequest) => api.post<TrialReply>('SourcingAdvisor/Trials/Start', body),
+  /** `GET SourcingAdvisor/Trials/FactorTable?trialId=` — the factor table of a trial of a version as saved. */
+  factorTable: (trialId: string) => api.get<FactorTableReply>('SourcingAdvisor/Trials/FactorTable', { trialId }),
+  /** `POST SourcingAdvisor/Trials/FactorTable` — the save grant's: starts every row of the table not yet run. */
+  startFactorTable: (body: TrialStartRequest) => api.post<FactorTableReply>('SourcingAdvisor/Trials/FactorTable', body),
+  /** `GET SourcingAdvisor/Trials/Beside?trialId=&otherId=` — two finished trials over the same period, side by side. */
+  beside: (trialId: string, otherId: string) => api.get<TrialsBeside>('SourcingAdvisor/Trials/Beside', { trialId, otherId }),
+
+  // ── The phase 2 bar (ticket 973; BO 4396) ─────────────────────────────────────────────────────────
+
+  /** `GET SourcingAdvisor/Results/Phase2Bar` — one reading for 28 days, a channel group and a step, and those kept. */
+  bar: (query: BarQuery) => api.get<BarReply>('SourcingAdvisor/Results/Phase2Bar', { ...query }),
+  /** `POST SourcingAdvisor/Results/Phase2Bar/Close` — the candidate-mark grant's; answers the reading (the stores only's step). */
+  closeOnBar: (body: BarCloseRequest) => api.post<BarReply>('SourcingAdvisor/Results/Phase2Bar/Close', body),
+  /** `POST SourcingAdvisor/Results/Phase2Bar/Accept` — the candidate-mark grant's; keeps the reading as it reads now. */
+  acceptBar: (body: BarAcceptRequest) => api.post<BarKeptReading>('SourcingAdvisor/Results/Phase2Bar/Accept', body),
 }

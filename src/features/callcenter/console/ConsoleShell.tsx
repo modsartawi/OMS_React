@@ -48,6 +48,7 @@ import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
 import OpeningSteps from './OpeningSteps'
+import ReadBack from './ReadBack'
 import { openingSteps } from './opening-steps'
 import type { RebindRefusal } from './store-move'
 import StepRail from './StepRail'
@@ -854,6 +855,9 @@ function Receipt({
             same model the rail's Review step reads. Gone once the order is placed —
             `ALREADY_SUBMITTED` beside the order number would read as a problem. */}
         {!placed && <BeforeYouPlace checklist={checklist} />}
+        {/* The read-back (D8): what the agent says aloud before *Place order*, from the
+            same state — so it changes with every answer the order gets. */}
+        {!placed && <ReadBack state={state} />}
       </div>
       <div className="space-y-2 border-t border-divider p-4">
         {placed ? (

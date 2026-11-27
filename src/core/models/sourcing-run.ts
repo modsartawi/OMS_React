@@ -716,3 +716,53 @@ export interface AdviseWhatHappenedDelivery {
   /** The fee the customer paid for it. */
   fee: number
 }
+
+// ── Stored and kept runs (oms-react ticket 969, BackOffice spec 4354 §12, BackOffice 4380) ───────────────────────
+
+/**
+ * A run its user kept and named (spec 4354 §12: "a simulator run is stored for good only when its user keeps and names
+ * it"). The full record is stored, with a link any holder of the run grant can open; only its keeper may delete it.
+ * In `@/core/models/` beside the record because the simulator keeps, lists and opens runs, and the comparison results
+ * page links to stored runs. ⚠ BackOffice 4380 names the doors (keep, list, open, delete) and no field.
+ * PROVISIONAL (spec 4354: not specified) — every field name.
+ */
+export interface KeptRun {
+  runId: string
+  name: string
+  /** The keeper's user id. */
+  keptBy: string
+  /** Kept by the caller: only then may it be deleted. */
+  mine: boolean
+  keptAt: string
+  ranAt: string
+  kind: AdviseReply['kind']
+  channel: string
+  orderNumber: string | null
+  weightSet: { name: string; version: number; draft: boolean }
+  /** The engine version that answered the run. */
+  engine: string
+}
+
+/** Keep the held run under a name. PROVISIONAL (spec 4354: not specified) — the body's field names. */
+export interface KeepRunRequest {
+  runId: string
+  name: string
+}
+
+/** The state of a stored run (BackOffice 4380: "each row with a state: held, comparison or kept"). PROVISIONAL (spec 4354: not specified) — the codes. */
+export type StoredRunState = 'HELD' | 'COMPARISON' | 'KEPT'
+
+/**
+ * A stored run opened by its link — "a read door of the simulator's build, which solves again from the stored copy"
+ * (BackOffice 4281 decision 11), not an advise call. The stored plans stay the truth; the reply says when a newer
+ * engine answers differently (spec 4354 §12). PROVISIONAL (spec 4354: not specified) — every field name.
+ */
+export interface StoredRun {
+  state: StoredRunState
+  /** Set for a kept run. */
+  kept: KeptRun | null
+  /** The stored record as it was answered: its plans are the truth. */
+  record: AdviseReply
+  /** Set when today's engine, solving again from the stored copy, answers differently: today's engine version. */
+  engineNow: string | null
+}

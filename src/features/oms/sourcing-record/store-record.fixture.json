@@ -1,0 +1,1639 @@
+{
+ "builtAt": "2026-11-27 02:14:09",
+ "windowFrom": "2026-08-29",
+ "windowTo": "2026-11-26",
+ "pairs": [
+  {
+   "store": "P901",
+   "storeName": "Al Malqa 1",
+   "mode": "SLOT",
+   "band": "FROM_300",
+   "deliveries": 612,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.287,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0314,
+     "ownRate": 0.031,
+     "likeStores": 0.0377,
+     "count": 612,
+     "bad": 19,
+     "price": 10,
+     "cost": -0.063,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0099,
+     "ownRate": 0.0098,
+     "likeStores": 0.012,
+     "count": 612,
+     "bad": 6,
+     "price": 25,
+     "cost": -0.052,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0183,
+     "ownRate": 0.018,
+     "likeStores": 0.024,
+     "count": 612,
+     "bad": 11,
+     "price": 30,
+     "cost": -0.172,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 7,
+    "regularHours": [
+     {
+      "from": "10:00",
+      "to": "12:00"
+     },
+     {
+      "from": "16:00",
+      "to": "18:00"
+     },
+     {
+      "from": "18:00",
+      "to": "20:00"
+     },
+     {
+      "from": "20:00",
+      "to": "22:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.58,
+    "likeStores": 0.52,
+    "moves": 41
+   }
+  },
+  {
+   "store": "P901",
+   "storeName": "Al Malqa 1",
+   "mode": "PICK_UP",
+   "band": "FROM_100",
+   "deliveries": 288,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.239,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0325,
+     "ownRate": 0.0313,
+     "likeStores": 0.044,
+     "count": 288,
+     "bad": 9,
+     "price": 30,
+     "cost": -0.346,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0498,
+     "ownRate": 0.0521,
+     "likeStores": 0.028,
+     "count": 288,
+     "bad": 15,
+     "price": 30,
+     "cost": 0.654,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.1555,
+     "ownRate": 0.1514,
+     "likeStores": 0.19,
+     "count": 251,
+     "bad": 38,
+     "price": 2,
+     "cost": -0.069,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P901",
+   "storeName": "Al Malqa 1",
+   "mode": "DAWAA_NOW",
+   "band": "FROM_100",
+   "deliveries": 140,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 6,
+   "cost": -0.025,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": 0.0813,
+     "ownRate": 0.0786,
+     "likeStores": 0.094,
+     "count": 140,
+     "bad": 11,
+     "price": 2,
+     "cost": -0.025,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P901",
+   "storeName": "Al Malqa 1",
+   "mode": "CARRIER_SAME_DAY",
+   "band": null,
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P901",
+   "storeName": "Al Malqa 1",
+   "mode": "CARRIER_NEXT_DAY",
+   "band": null,
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P901",
+   "storeName": "Al Malqa 1",
+   "mode": "BEYOND_BORDER",
+   "band": null,
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P902",
+   "storeName": "Hittin",
+   "mode": "SLOT",
+   "band": "FROM_300",
+   "deliveries": 431,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.278,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0589,
+     "ownRate": 0.0603,
+     "likeStores": 0.0377,
+     "count": 431,
+     "bad": 26,
+     "price": 10,
+     "cost": 0.212,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0181,
+     "ownRate": 0.0186,
+     "likeStores": 0.012,
+     "count": 431,
+     "bad": 8,
+     "price": 25,
+     "cost": 0.153,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0211,
+     "ownRate": 0.0209,
+     "likeStores": 0.024,
+     "count": 431,
+     "bad": 9,
+     "price": 30,
+     "cost": -0.087,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 5,
+    "regularHours": [
+     {
+      "from": "16:00",
+      "to": "18:00"
+     },
+     {
+      "from": "18:00",
+      "to": "20:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.71,
+    "likeStores": 0.52,
+    "moves": 28
+   }
+  },
+  {
+   "store": "P902",
+   "storeName": "Hittin",
+   "mode": "PICK_UP",
+   "band": "FROM_100",
+   "deliveries": 117,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.561,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0226,
+     "ownRate": 0.0171,
+     "likeStores": 0.044,
+     "count": 117,
+     "bad": 2,
+     "price": 30,
+     "cost": -0.642,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0329,
+     "ownRate": 0.0342,
+     "likeStores": 0.028,
+     "count": 117,
+     "bad": 4,
+     "price": 30,
+     "cost": 0.148,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.1563,
+     "ownRate": 0.1458,
+     "likeStores": 0.19,
+     "count": 96,
+     "bad": 14,
+     "price": 2,
+     "cost": -0.067,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P902",
+   "storeName": "Hittin",
+   "mode": "DAWAA_NOW",
+   "band": "FROM_30",
+   "deliveries": 92,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 2,
+   "cost": -0.093,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": 0.0586,
+     "ownRate": 0.0435,
+     "likeStores": 0.105,
+     "count": 92,
+     "bad": 4,
+     "price": 2,
+     "cost": -0.093,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P903",
+   "storeName": "An Narjis",
+   "mode": "SLOT",
+   "band": "FROM_300",
+   "deliveries": 355,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.075,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0263,
+     "ownRate": 0.0254,
+     "likeStores": 0.0377,
+     "count": 355,
+     "bad": 9,
+     "price": 10,
+     "cost": -0.114,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0087,
+     "ownRate": 0.0085,
+     "likeStores": 0.012,
+     "count": 355,
+     "bad": 3,
+     "price": 25,
+     "cost": -0.082,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.033,
+     "ownRate": 0.0338,
+     "likeStores": 0.024,
+     "count": 355,
+     "bad": 12,
+     "price": 30,
+     "cost": 0.271,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 4,
+    "regularHours": [
+     {
+      "from": "10:00",
+      "to": "12:00"
+     },
+     {
+      "from": "18:00",
+      "to": "20:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.44,
+    "likeStores": 0.52,
+    "moves": 19
+   }
+  },
+  {
+   "store": "P903",
+   "storeName": "An Narjis",
+   "mode": "PICK_UP",
+   "band": "FROM_30",
+   "deliveries": 64,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.965,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0698,
+     "ownRate": 0.0781,
+     "likeStores": 0.052,
+     "count": 64,
+     "bad": 5,
+     "price": 30,
+     "cost": 0.534,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0424,
+     "ownRate": 0.0469,
+     "likeStores": 0.033,
+     "count": 64,
+     "bad": 3,
+     "price": 30,
+     "cost": 0.283,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.2841,
+     "ownRate": 0.3269,
+     "likeStores": 0.21,
+     "count": 52,
+     "bad": 17,
+     "price": 2,
+     "cost": 0.148,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P903",
+   "storeName": "An Narjis",
+   "mode": "DAWAA_NOW",
+   "band": "UNDER_30",
+   "deliveries": 0,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": null,
+     "ownRate": null,
+     "likeStores": 0.12,
+     "count": 0,
+     "bad": 0,
+     "price": 2,
+     "cost": 0,
+     "neutral": "NO_DELIVERIES",
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P904",
+   "storeName": "Al Yasmin",
+   "mode": "SLOT",
+   "band": "FROM_100",
+   "deliveries": 198,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.557,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0361,
+     "ownRate": 0.0354,
+     "likeStores": 0.041,
+     "count": 198,
+     "bad": 7,
+     "price": 10,
+     "cost": -0.049,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0061,
+     "ownRate": 0.0051,
+     "likeStores": 0.013,
+     "count": 198,
+     "bad": 1,
+     "price": 25,
+     "cost": -0.173,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0168,
+     "ownRate": 0.0152,
+     "likeStores": 0.028,
+     "count": 198,
+     "bad": 3,
+     "price": 30,
+     "cost": -0.335,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 3,
+    "regularHours": [
+     {
+      "from": "18:00",
+      "to": "20:00"
+     },
+     {
+      "from": "20:00",
+      "to": "22:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.5,
+    "likeStores": 0.52,
+    "moves": 9
+   }
+  },
+  {
+   "store": "P904",
+   "storeName": "Al Yasmin",
+   "mode": "PICK_UP",
+   "band": "FROM_300",
+   "deliveries": 342,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 1.896,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0596,
+     "ownRate": 0.0614,
+     "likeStores": 0.039,
+     "count": 342,
+     "bad": 21,
+     "price": 30,
+     "cost": 0.618,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0611,
+     "ownRate": 0.0643,
+     "likeStores": 0.024,
+     "count": 342,
+     "bad": 22,
+     "price": 30,
+     "cost": 1.112,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.2532,
+     "ownRate": 0.2613,
+     "likeStores": 0.17,
+     "count": 310,
+     "bad": 81,
+     "price": 2,
+     "cost": 0.166,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P904",
+   "storeName": "Al Yasmin",
+   "mode": "DAWAA_NOW",
+   "band": "FROM_100",
+   "deliveries": 211,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 13,
+   "cost": 0.059,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": 0.1237,
+     "ownRate": 0.128,
+     "likeStores": 0.094,
+     "count": 211,
+     "bad": 27,
+     "price": 2,
+     "cost": 0.059,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P905",
+   "storeName": "As Sahafa",
+   "mode": "SLOT",
+   "band": "FROM_300",
+   "deliveries": 520,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.094,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0293,
+     "ownRate": 0.0288,
+     "likeStores": 0.0377,
+     "count": 520,
+     "bad": 15,
+     "price": 10,
+     "cost": -0.084,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.017,
+     "ownRate": 0.0173,
+     "likeStores": 0.012,
+     "count": 520,
+     "bad": 9,
+     "price": 25,
+     "cost": 0.125,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0195,
+     "ownRate": 0.0192,
+     "likeStores": 0.024,
+     "count": 520,
+     "bad": 10,
+     "price": 30,
+     "cost": -0.135,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 6,
+    "regularHours": [
+     {
+      "from": "10:00",
+      "to": "12:00"
+     },
+     {
+      "from": "16:00",
+      "to": "18:00"
+     },
+     {
+      "from": "18:00",
+      "to": "20:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.62,
+    "likeStores": 0.52,
+    "moves": 33
+   }
+  },
+  {
+   "store": "P905",
+   "storeName": "As Sahafa",
+   "mode": "PICK_UP",
+   "band": "UNDER_30",
+   "deliveries": 23,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.137,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0534,
+     "ownRate": 0.0435,
+     "likeStores": 0.061,
+     "count": 23,
+     "bad": 1,
+     "price": 30,
+     "cost": -0.228,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0421,
+     "ownRate": 0.0435,
+     "likeStores": 0.041,
+     "count": 23,
+     "bad": 1,
+     "price": 30,
+     "cost": 0.032,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.2694,
+     "ownRate": 0.3158,
+     "likeStores": 0.24,
+     "count": 19,
+     "bad": 6,
+     "price": 2,
+     "cost": 0.059,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P905",
+   "storeName": "As Sahafa",
+   "mode": "DAWAA_NOW",
+   "band": "FROM_30",
+   "deliveries": 66,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 4,
+   "cost": 0.043,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": 0.1266,
+     "ownRate": 0.1364,
+     "likeStores": 0.105,
+     "count": 66,
+     "bad": 9,
+     "price": 2,
+     "cost": 0.043,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P906",
+   "storeName": "Al Aqiq",
+   "mode": "SLOT",
+   "band": "FROM_30",
+   "deliveries": 74,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.222,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0613,
+     "ownRate": 0.0676,
+     "likeStores": 0.046,
+     "count": 74,
+     "bad": 5,
+     "price": 10,
+     "cost": 0.153,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0238,
+     "ownRate": 0.027,
+     "likeStores": 0.016,
+     "count": 74,
+     "bad": 2,
+     "price": 25,
+     "cost": 0.196,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0288,
+     "ownRate": 0.027,
+     "likeStores": 0.033,
+     "count": 74,
+     "bad": 2,
+     "price": 30,
+     "cost": -0.127,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 2,
+    "regularHours": [
+     {
+      "from": "18:00",
+      "to": "20:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.33,
+    "likeStores": 0.52,
+    "moves": 6
+   }
+  },
+  {
+   "store": "P906",
+   "storeName": "Al Aqiq",
+   "mode": "PICK_UP",
+   "band": "FROM_100",
+   "deliveries": 155,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.242,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0288,
+     "ownRate": 0.0258,
+     "likeStores": 0.044,
+     "count": 155,
+     "bad": 4,
+     "price": 30,
+     "cost": -0.457,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.037,
+     "ownRate": 0.0387,
+     "likeStores": 0.028,
+     "count": 155,
+     "bad": 6,
+     "price": 30,
+     "cost": 0.269,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.1629,
+     "ownRate": 0.1571,
+     "likeStores": 0.19,
+     "count": 140,
+     "bad": 22,
+     "price": 2,
+     "cost": -0.054,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P906",
+   "storeName": "Al Aqiq",
+   "mode": "DAWAA_NOW",
+   "band": "FROM_30",
+   "deliveries": 38,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 1,
+   "cost": -0.059,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": 0.0757,
+     "ownRate": 0.0526,
+     "likeStores": 0.105,
+     "count": 38,
+     "bad": 2,
+     "price": 2,
+     "cost": -0.059,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P907",
+   "storeName": "King Fahd Road",
+   "mode": "SLOT",
+   "band": "FROM_300",
+   "deliveries": 702,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.06,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0439,
+     "ownRate": 0.0442,
+     "likeStores": 0.0377,
+     "count": 702,
+     "bad": 31,
+     "price": 10,
+     "cost": 0.062,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0101,
+     "ownRate": 0.01,
+     "likeStores": 0.012,
+     "count": 702,
+     "bad": 7,
+     "price": 25,
+     "cost": -0.049,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0256,
+     "ownRate": 0.0256,
+     "likeStores": 0.024,
+     "count": 702,
+     "bad": 18,
+     "price": 30,
+     "cost": 0.047,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 9,
+    "regularHours": [
+     {
+      "from": "10:00",
+      "to": "12:00"
+     },
+     {
+      "from": "12:00",
+      "to": "14:00"
+     },
+     {
+      "from": "16:00",
+      "to": "18:00"
+     },
+     {
+      "from": "18:00",
+      "to": "20:00"
+     },
+     {
+      "from": "20:00",
+      "to": "22:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.66,
+    "likeStores": 0.52,
+    "moves": 52
+   }
+  },
+  {
+   "store": "P907",
+   "storeName": "King Fahd Road",
+   "mode": "PICK_UP",
+   "band": "FROM_300",
+   "deliveries": 410,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.191,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0299,
+     "ownRate": 0.0293,
+     "likeStores": 0.039,
+     "count": 410,
+     "bad": 12,
+     "price": 30,
+     "cost": -0.272,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0403,
+     "ownRate": 0.0415,
+     "likeStores": 0.024,
+     "count": 410,
+     "bad": 17,
+     "price": 30,
+     "cost": 0.488,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.1575,
+     "ownRate": 0.1565,
+     "likeStores": 0.17,
+     "count": 377,
+     "bad": 59,
+     "price": 2,
+     "cost": -0.025,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P907",
+   "storeName": "King Fahd Road",
+   "mode": "DAWAA_NOW",
+   "band": "FROM_100",
+   "deliveries": 188,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 9,
+   "cost": -0.034,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": 0.0772,
+     "ownRate": 0.0745,
+     "likeStores": 0.094,
+     "count": 188,
+     "bad": 14,
+     "price": 2,
+     "cost": -0.034,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P907",
+   "storeName": "King Fahd Road",
+   "mode": "CARRIER_SAME_DAY",
+   "band": null,
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P907",
+   "storeName": "King Fahd Road",
+   "mode": "CARRIER_NEXT_DAY",
+   "band": null,
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P907",
+   "storeName": "King Fahd Road",
+   "mode": "BEYOND_BORDER",
+   "band": null,
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P908",
+   "storeName": "Al Qirawan",
+   "mode": "SLOT",
+   "band": "FROM_30",
+   "deliveries": 41,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": -0.083,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": 0.0335,
+     "ownRate": 0.0244,
+     "likeStores": 0.046,
+     "count": 41,
+     "bad": 1,
+     "price": 10,
+     "cost": -0.125,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": 0.0068,
+     "ownRate": 0,
+     "likeStores": 0.016,
+     "count": 41,
+     "bad": 0,
+     "price": 25,
+     "cost": -0.231,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0421,
+     "ownRate": 0.0488,
+     "likeStores": 0.033,
+     "count": 41,
+     "bad": 2,
+     "price": 30,
+     "cost": 0.273,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 2,
+    "regularHours": [
+     {
+      "from": "16:00",
+      "to": "18:00"
+     }
+    ]
+   },
+   "tillMoves": {
+    "customerShare": 0.25,
+    "likeStores": 0.52,
+    "moves": 4
+   }
+  },
+  {
+   "store": "P908",
+   "storeName": "Al Qirawan",
+   "mode": "PICK_UP",
+   "band": "UNDER_30",
+   "deliveries": 9,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.134,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0726,
+     "ownRate": 0.1111,
+     "likeStores": 0.061,
+     "count": 9,
+     "bad": 1,
+     "price": 30,
+     "cost": 0.347,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0315,
+     "ownRate": 0,
+     "likeStores": 0.041,
+     "count": 9,
+     "bad": 0,
+     "price": 30,
+     "cost": -0.284,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.2757,
+     "ownRate": 0.4286,
+     "likeStores": 0.24,
+     "count": 7,
+     "bad": 3,
+     "price": 2,
+     "cost": 0.071,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P911",
+   "storeName": "Al Arid",
+   "mode": "SLOT",
+   "band": "UNDER_30",
+   "deliveries": 0,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [
+    {
+     "measure": "late",
+     "rate": null,
+     "ownRate": null,
+     "likeStores": 0.052,
+     "count": 0,
+     "bad": 0,
+     "price": 10,
+     "cost": 0,
+     "neutral": "NO_DELIVERIES",
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "returned",
+     "rate": null,
+     "ownRate": null,
+     "likeStores": 0.019,
+     "count": 0,
+     "bad": 0,
+     "price": 25,
+     "cost": 0,
+     "neutral": "NO_DELIVERIES",
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": null,
+     "ownRate": null,
+     "likeStores": 0.041,
+     "count": 0,
+     "bad": 0,
+     "price": 30,
+     "cost": 0,
+     "neutral": "NO_DELIVERIES",
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": {
+    "usual": 0,
+    "regularHours": []
+   },
+   "tillMoves": {
+    "customerShare": 0,
+    "likeStores": 0.52,
+    "moves": 0
+   }
+  },
+  {
+   "store": "P911",
+   "storeName": "Al Arid",
+   "mode": "PICK_UP",
+   "band": "UNDER_30",
+   "deliveries": 4,
+   "countedFrom": "2026-08-29",
+   "fallbackLeftOut": 0,
+   "cost": 0.54,
+   "measures": [
+    {
+     "measure": "neverMadeReady",
+     "rate": 0.0538,
+     "ownRate": 0,
+     "likeStores": 0.061,
+     "count": 4,
+     "bad": 0,
+     "price": 30,
+     "cost": -0.215,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "cancelled",
+     "rate": 0.0656,
+     "ownRate": 0.25,
+     "likeStores": 0.041,
+     "count": 4,
+     "bad": 1,
+     "price": 30,
+     "cost": 0.738,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    },
+    {
+     "measure": "readyLate",
+     "rate": 0.2485,
+     "ownRate": 0.3333,
+     "likeStores": 0.24,
+     "count": 3,
+     "bad": 1,
+     "price": 2,
+     "cost": 0.017,
+     "neutral": null,
+     "channels": [
+      "APP",
+      "SITE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  },
+  {
+   "store": "P911",
+   "storeName": "Al Arid",
+   "mode": "DAWAA_NOW",
+   "band": "UNDER_30",
+   "deliveries": 0,
+   "countedFrom": "2026-11-02",
+   "fallbackLeftOut": 0,
+   "cost": 0,
+   "measures": [
+    {
+     "measure": "calloutIgnored",
+     "rate": null,
+     "ownRate": null,
+     "likeStores": 0.12,
+     "count": 0,
+     "bad": 0,
+     "price": 2,
+     "cost": 0,
+     "neutral": "NO_DELIVERIES",
+     "channels": [
+      "APP",
+      "SITE",
+      "CALL_CENTRE"
+     ]
+    }
+   ],
+   "slot": null,
+   "tillMoves": null
+  }
+ ],
+ "shown": [
+  {
+   "store": "P901",
+   "lastCount": "2026-10-14",
+   "countFactor": 1.08,
+   "donorRefusals": 3
+  },
+  {
+   "store": "P902",
+   "lastCount": "2026-06-02",
+   "countFactor": 0.94,
+   "donorRefusals": 0
+  },
+  {
+   "store": "P903",
+   "lastCount": "2026-11-09",
+   "countFactor": 1.21,
+   "donorRefusals": 7
+  },
+  {
+   "store": "P904",
+   "lastCount": null,
+   "countFactor": 1,
+   "donorRefusals": 1
+  },
+  {
+   "store": "P905",
+   "lastCount": "2026-09-21",
+   "countFactor": 0.88,
+   "donorRefusals": 12
+  },
+  {
+   "store": "P906",
+   "lastCount": "2026-10-30",
+   "countFactor": 1.02,
+   "donorRefusals": 2
+  },
+  {
+   "store": "P907",
+   "lastCount": "2026-08-17",
+   "countFactor": 0.97,
+   "donorRefusals": 5
+  },
+  {
+   "store": "P908",
+   "lastCount": "2026-11-18",
+   "countFactor": 1,
+   "donorRefusals": 0
+  },
+  {
+   "store": "P911",
+   "lastCount": null,
+   "countFactor": 1,
+   "donorRefusals": 0
+  }
+ ]
+}

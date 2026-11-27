@@ -12,7 +12,8 @@
 //   4. "Where the plans differ": the rows per view, no estimate for "outside the rules", the view in the URL;
 //   5. a segment opens its orders in the drawer, the figure sent to the door; the list sorts and pages;
 //   6. one order opens its card, the advisor's plan beside what happened; "Open the stored run in the simulator" is not
-//      offered (review 4354 #4: the simulator does not read the stored run yet, and the view grant opens no simulator);
+//      offered under the view grant alone (review 4354 #4: the view grant opens no simulator); with the run grant it is,
+//      and it opens the simulator on the stored run (`?run=`), which asks the stored-run read door (ticket 969);
 //   7. a mark's count opens its orders; a filter re-reads the summary; the seven tabs, the open one kept in the URL;
 //   8. no page error and no raw key;
 //   9. (ticket 973) Trials: the list newest first, a trial's result with its refusals in the spec order, the factor
@@ -141,6 +142,9 @@ async function scenario(browser, lang) {
     orders: [],
     cards: [],
     grant: true,
+    // Ticket 969: the run grant, which opens the simulator and so "Open the stored run in the simulator".
+    runGrant: false,
+    opens: [],
     trials: structuredClone(TRIALS.trials),
     starts: [],
     factorAsks: [],
@@ -154,7 +158,13 @@ async function scenario(browser, lang) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Auth/Permissions') return route.fulfill(permissions(wire.grant ? ['SourcingAdvisor:01', 'SourcingAdvisorSave:01'] : []))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(wire.grant ? ['SourcingAdvisor:01', 'SourcingAdvisorSave:01', ...(wire.runGrant ? ['SourcingAdvisorRun:06'] : [])] : []))
+    // Ticket 969: the simulator a stored run's link opens — its read door (PROVISIONAL) answers the run is not there.
+    if (p === 'SourcingAdvisor/Runs/Open') {
+      wire.opens.push(url.searchParams.get('runId'))
+      return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ statusCode: 404, success: false, message: 'Run not found', errors: [{ errorCode: 'ADVISE-404', internalErrorCode: '', errorMessage: 'Run not found' }], data: null }) })
+    }
+    if (p === 'SourcingAdvisor/WeightSets') return route.fulfill(envelope([]))
     if (p === 'SourcingAdvisor/Results/Summary') {
       wire.summaries.push(Object.fromEntries(url.searchParams))
       return route.fulfill(envelope(url.searchParams.get('besideSet') ? { ...SUMMARY, beside: TRIALS.beside } : SUMMARY))
@@ -373,8 +383,24 @@ async function scenario(browser, lang) {
   const dashed = await drawer.locator('[data-card-side="happened"]').evaluate((el) => getComputedStyle(el).borderStyle)
   check(`${tag} what happened sits in a dashed box`, dashed.includes('dashed'), dashed)
   await page.screenshot({ path: `${SHOTS}/${lang}-drawer.png` })
-  // Review 4354 #4: the simulator does not read `?run=` yet, and this context holds the view grant, not the run grant.
-  check(`${tag} "Open the stored run in the simulator" is not offered while the simulator cannot open it`, (await drawer.locator('[data-open-simulator]').count()) === 0)
+  // Review 4354 #4: this context holds the view grant, not the run grant: the view grant opens no simulator.
+  check(`${tag} "Open the stored run in the simulator" is not offered under the view grant alone`, (await drawer.locator('[data-open-simulator]').count()) === 0)
+
+  // Ticket 969: the simulator reads the stored run now, so a holder of the run grant is offered it, and it opens there.
+  wire.runGrant = true
+  await page.goto(`${BASE}/oms/sourcing-results`)
+  await page.locator('[data-results-top]').waitFor({ timeout: 15000 })
+  await page.locator('[data-segment="ANOTHER_STORE"]').click()
+  await drawer.locator('[data-order]').first().waitFor({ timeout: 10000 })
+  await drawer.locator('[data-order]').first().click()
+  await drawer.locator('[data-order-card]').waitFor({ timeout: 10000 })
+  const opener = drawer.locator('[data-open-simulator]')
+  check(`${tag} with the run grant "Open the stored run in the simulator" is offered, naming the order's run`, (await opener.getAttribute('data-open-simulator')) === '01JDQ7Y3K2M5N8P0R4S6T9V1WX')
+  await opener.click()
+  await page.waitForURL(/\/oms\/sourcing-simulator\?run=01JDQ7Y3K2M5N8P0R4S6T9V1WX$/, { timeout: 10000 })
+  await page.locator('[data-stored-gone]').waitFor({ timeout: 15000 })
+  check(`${tag} it opens the simulator on the stored run, which asks the stored-run read door for it`, wire.opens.at(-1) === '01JDQ7Y3K2M5N8P0R4S6T9V1WX', JSON.stringify(wire.opens))
+  wire.runGrant = false
 
   // 7. a mark's count, a filter, the tabs
   await page.goto(`${BASE}/oms/sourcing-results`)
@@ -547,7 +573,7 @@ async function scenario(browser, lang) {
     JSON.stringify(wire.marks.at(-1)),
   )
   check(
-    `${tag} the mark stands; the order is no link to a stored run the simulator cannot open (review 4354 #4)`,
+    `${tag} the mark stands; the order is no link to a stored run without the run grant (review 4354 #4)`,
     (await page.locator('[data-largest-row="4500718405"]').getAttribute('data-largest-mark')) === 'WRONG_RULE' && (await page.locator('[data-largest-row="4500718405"] a').count()) === 0,
   )
   await page.locator('[data-bar-ruling-due="BOOK_AT_ZERO:DAWAA_NOW"] [data-bar-ruling-text]').fill('Counts too few at zero book; keep the figure.')

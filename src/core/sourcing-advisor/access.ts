@@ -41,11 +41,11 @@ export const canOpenSourcingPlanner = (p: Permissions): boolean =>
   canEditPlannerBuffer(p) || canEditPlannerRules(p) || canEditPlannerTables(p)
 
 /**
- * Whether the simulator reads the stored run it is handed (`?run=`, `simulatorRunPath`). It does not yet: opening a
- * stored run as it was is a read door of its own, not an advise call (BackOffice 4281 decision 11), and neither that
- * door nor the simulator's reading of the parameter is built. Turn this on in the change that builds them.
+ * Whether the simulator reads the stored run it is handed (`?run=`, `simulatorRunPath`). It does since ticket 969:
+ * opening a stored run as it was is a read door of its own, not an advise call (BackOffice 4281 decision 11); the
+ * simulator reads it through that door (BackOffice 4380 "open", PROVISIONAL path `SourcingAdvisor/Runs/Open`).
  */
-export const SIMULATOR_READS_RUN: boolean = false
+export const SIMULATOR_READS_RUN: boolean = true
 
 /**
  * "Open the stored run in the simulator" (the results page's orders drawer and largest differences, ticket 971;

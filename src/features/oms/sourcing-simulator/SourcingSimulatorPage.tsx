@@ -1,16 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { MapPlace } from '@/core/map/map-panel'
-import type { AdvisePin, AdviseReply, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+import type { AdviseCartRequest, AdvisePin, AdviseReply, StoredRun, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { usePermissions } from '@/core/permissions'
 import { canRunSourcingAdvisor, canSaveWeightSets } from '@/core/sourcing-advisor/access'
+import { KEPT_RUNS_PATH, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
 import Chip from '@/core/ui/Chip'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
-import { simulatorApi, weightSetsQuery, weightSetVersionQuery, workbenchQuery } from './api'
+import { simulatorApi, storedRunQuery, weightSetsQuery, weightSetVersionQuery, workbenchQuery } from './api'
 import { adviseRequest, cartProblem, pointText, SIMULATOR_CHANNELS, type CartForm } from './cart'
 import CartPanel from './CartPanel'
+import KeepRun from './KeepRun'
+import { openedSetting, runToOpen } from './kept-runs-model'
 import { openDraft, setValue, waitsForSet, weightSetRef, type WeightDraft } from './draft-model'
 import { addHeld, dropSent, holdPin, isHeld, keepHeld, pinsNow, runLines, toggleHeld, type HeldPin, type PinScope, type RunLines } from './line-pins'
 import { pinChips, pinsClash, pinsCost, storesSeen } from './pins-model'
@@ -27,6 +33,7 @@ import { SimulatorRunContext, type SimulatorRun } from './run-context'
 import RunRefusal from './RunRefusal'
 import RunSummary from './RunSummary'
 import SimulatorTabs from './SimulatorTabs'
+import StoredRunBanner from './StoredRunBanner'
 import WeightSetPanel from './WeightSetPanel'
 import { whatHappened } from './what-happened-model'
 
@@ -39,7 +46,8 @@ import { whatHappened } from './what-happened-model'
  * Opens under the run grant (`canRunSourcingAdvisor`, a provisional key). Ticket 963 adds the pins and the weight set
  * under the cart: a changed weight or pin plans again on the same figures (`./replan-model`). Later tickets add replay
  * and the map tab (964), "why this plan" and "what the run used" (965), the solver tab (966); the tabs
- * register their panels in `./SimulatorTabs`.
+ * register their panels in `./SimulatorTabs`. Ticket 969 keeps and names the run on screen (`./KeepRun`) and opens a
+ * stored run by its link (`?run=<id>`) through the stored-run read door; its kept runs are `./KeptRunsPage`.
  *
  * ⚠ Built on a stub of BackOffice 4281's worked example: the door is BackOffice 4355–4357, still open.
  */
@@ -84,6 +92,28 @@ interface RunOutput {
   lines: RunLines
   /** Planning again found the held copy gone, so the cart ran again. */
   heldGone: boolean
+  /** Ticket 969: a stored run opened by its link (`?run=`), not a run of this page. */
+  stored?: StoredRun
+}
+
+/**
+ * What the simulator holds as asked of a stored run opened by its link (ticket 969): its cart without the customer's
+ * point, which is never stored (spec 4354 §12), or the order it replayed. Moving the customer on the map plans it
+ * afresh from there.
+ */
+function storedAsk(record: AdviseReply): RunAsk {
+  const setting = openedSetting(record)
+  const weightSet = { name: record.weightSet.name, version: record.weightSet.version }
+  if (setting.start === 'replay') return { cart: replayRequest(setting.replay)!, pins: [], weightSet }
+  const cart: AdviseCartRequest = {
+    channel: record.channel,
+    lines: record.lines.map((l) => ({ lineNo: l.lineNo, item: l.item, quantity: l.quantity, unit: l.unit })),
+    customer: {},
+    plannedFor: record.plannedFor,
+    level: 'full',
+    allPlans: true,
+  }
+  return { cart, pins: [], weightSet }
 }
 
 function Workbench() {
@@ -134,6 +164,33 @@ function Workbench() {
   // Review 4354 #2: the reply on screen is kept here, not read off the mutation (a new run clears its data), so the
   // plans, the tabs and what is open in them stay mounted — dimmed — while the next run plans.
   const [shown, setShown] = useState<RunOutput | null>(null)
+  // Ticket 969: a stored run's link (`?run=<id>`, `simulatorRunPath`) opens it here straight away (owner, on the 969
+  // prototype), through the stored-run read door — not an advise call (BackOffice 4281 decision 11, 4380 "open"). Its
+  // plans show as stored, its cart or order is set back on the left, and a run made from here drops the link.
+  const [params, setParams] = useSearchParams()
+  const openId = runToOpen(params)
+  const opened = useQuery(storedRunQuery(openId))
+  const [openedFor, setOpenedFor] = useState<string | null>(null)
+  useEffect(() => {
+    if (!openId) {
+      if (openedFor) setOpenedFor(null)
+      return
+    }
+    const data = opened.data
+    if (!data || openedFor === openId) return
+    setOpenedFor(openId)
+    const setting = openedSetting(data.record)
+    const next: PinScope = setting.start === 'build' ? { start: 'build', form: setting.form, replay } : { start: 'replay', form, replay: setting.replay }
+    if (setting.start === 'build') setForm(setting.form)
+    else setReplay(setting.replay)
+    setStart(setting.start)
+    setHeld([])
+    const ask = storedAsk(data.record)
+    // A changed pin or weight then plans again on the stored run's own figures (`basedOnRun`).
+    setLast({ ask, runId: data.record.runId })
+    setShown({ reply: data.record, ask, lines: runLines(next), heldGone: false, stored: data })
+  }, [openId, opened.data, openedFor, form, replay])
+  const openGone = opened.isError && apiErrorCode(opened.error) === 'ADVISE-404'
   const run = useMutation({
     mutationFn: async ({ ask, request, lines }: RunInput): Promise<RunOutput> => {
       try {
@@ -148,6 +205,16 @@ function Workbench() {
     onSuccess: (out) => {
       setShown(out)
       setLast({ ask: out.ask, runId: out.reply.runId })
+      // The address no longer names the run on screen.
+      if (params.has(SIMULATOR_RUN_PARAM))
+        setParams(
+          (prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete(SIMULATOR_RUN_PARAM)
+            return next
+          },
+          { replace: true },
+        )
     },
     // A refused run shows its refusal in place of the plans, as before; "try again" then plans from nothing on screen.
     onError: () => setShown(null),
@@ -156,7 +223,8 @@ function Workbench() {
   const reply = ran?.reply
   const notes = useMemo(() => (reply ? planNotes(reply) : null), [reply])
   const happened = useMemo(() => (reply ? whatHappened(reply) : null), [reply])
-  const stale = !!ran && (!ask || !sameAsk(ran.ask, ask))
+  // A stored run opened by its link was not asked from this page's form: it is never "stale".
+  const stale = !!ran && !ran.stored && (!ask || !sameAsk(ran.ask, ask))
   // A chip carries the refusal of the run that was sent with it; a pin added since has none yet.
   const chips = useMemo(() => pinChips(pins, ran ? ran.reply : null).map((c) => (ran && ran.ask.pins.some((p) => JSON.stringify(p) === JSON.stringify(c.pin)) ? c : { ...c, refusal: null })), [pins, ran])
   const cost = useMemo(() => (reply ? pinsCost(reply) : {}), [reply])
@@ -251,6 +319,9 @@ function Workbench() {
         <div className="flex flex-col gap-3" data-sim-plans="">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">{t('plans.title')}</h2>
+            <Link to={KEPT_RUNS_PATH} className="me-auto text-xs text-primary underline underline-offset-2" data-kept-runs-link="">
+              {t('kept.link')}
+            </Link>
             <div role="group" aria-label={t('plans.viewLabel')} className="flex gap-1" data-plans-view={view}>
               {VIEWS.map((v) => (
                 <Chip key={v} on={view === v} onClick={() => setView(v)} data-plans-view-switch={v}>
@@ -266,6 +337,19 @@ function Workbench() {
               {t('run.planning')}
             </p>
           )}
+          {openId && opened.isPending && (
+            <p className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground" role="status" data-stored-opening="">
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+              {t('stored.opening')}
+            </p>
+          )}
+          {openId && openGone && !reply && (
+            <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border bg-card p-6 text-sm" data-stored-gone={openId}>
+              <p className="font-semibold">{t('stored.gone.title')}</p>
+              <p className="text-muted-foreground">{t('stored.gone.hint')}</p>
+            </div>
+          )}
+          {openId && opened.isError && !openGone && !reply && <ErrorBanner className="px-3 py-2" message={apiErrorMessage(opened.error, t('stored.failed'))} />}
           {run.isError && !run.isPending && (
             <RunRefusal error={run.error} retrying={run.isPending} onRetry={() => run.variables && run.mutate(run.variables)} />
           )}
@@ -281,8 +365,10 @@ function Workbench() {
               aria-busy={run.isPending}
               data-run-earlier={run.isPending ? '' : undefined}
             >
+              {ran?.stored && <StoredRunBanner stored={ran.stored} />}
               <ReplayBanner reply={reply} onBack={backToOrder} busy={run.isPending} />
               <RunSummary reply={reply} notes={notes} />
+              <KeepRun key={reply.runId} reply={reply} stored={!!ran?.stored} />
               {basis && <RunBasisNotes weightSet={reply.weightSet} basis={basis} clash={clash} />}
               {reply.plans.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-run-no-plans="">
@@ -300,7 +386,8 @@ function Workbench() {
             </div>
           ) : (
             !run.isPending &&
-            !run.isError && (
+            !run.isError &&
+            !(openId && (opened.isPending || opened.isError)) && (
               <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-run-none="">
                 {t('plans.none')}
               </p>

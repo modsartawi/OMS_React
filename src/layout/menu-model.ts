@@ -80,6 +80,7 @@ import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Me
 import { CalendarClock, Smartphone } from 'lucide-react'
 import { canViewMiniPos } from '@/core/mini-pos/access'
 import { FileDown } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { MY_EXPORTS_OFFER } from '@/core/inquiry-export/api'
 import { canOpenMiniPosScorecard } from '@/features/mini-pos/scorecard/access'
 
@@ -366,6 +367,16 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/oms/sourcing-planner',
         activePrefix: '/oms/sourcing-planner',
         requires: canOpenSourcingPlanner,
+      },
+      {
+        // Store record (ticket 969, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and
+        // kept runs") — read only, the run grant (provisional key); fails closed. After the planner data, before Pick
+        // support, so Pick support and Delivery statistics keep the last two places.
+        labelKey: 'sourcing-record:menu.sourcingRecord',
+        icon: ClipboardList,
+        routerLink: '/oms/sourcing-record',
+        activePrefix: '/oms/sourcing-record',
+        requires: canRunSourcingAdvisor,
       },
       {
         // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport:03`, placed before Delivery statistics

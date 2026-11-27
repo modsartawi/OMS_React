@@ -44,7 +44,12 @@ describe('the sourcing advisor run grant (ticket 962, provisional key)', () => {
 
 describe('opening a stored run in the simulator (review 4354 #4)', () => {
   it('is never offered while the simulator does not read the run it is handed, whatever the grant', () => {
-    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingAdvisorRun:06'] }))).toBe(false)
+    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingAdvisorRun:06'] }), false)).toBe(false)
+  })
+
+  it('is offered to a holder of the run grant now that the simulator reads the run (ticket 969)', () => {
+    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingAdvisorRun:06'] }))).toBe(true)
+    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
   })
 
   it('once the simulator reads it, only a holder of the run grant is offered it — the view grant opens no simulator', () => {

@@ -556,6 +556,31 @@ describe('the Sourcing simulator leaf (ticket 962)', () => {
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
+
+  it('stays lit on its kept runs (ticket 969)', () => {
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-simulator/kept')).map((i) => i.labelKey)).toEqual([
+      'sourcing-simulator:menu.sourcingSimulator',
+    ])
+  })
+})
+
+describe('the Store record leaf (ticket 969)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const keys = (oms.items ?? []).map((i) => i.labelKey)
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-record:menu.sourcingRecord')!
+
+  it('sits in the OMS group right after the Sourcing planner data (which follows the simulator), lit alone on its own screen', () => {
+    expect(keys.indexOf('sourcing-record:menu.sourcingRecord')).toBe(keys.indexOf('sourcing-planner:menu.sourcingPlanner') + 1)
+    expect(leaf.routerLink).toBe('/oms/sourcing-record')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-record')).map((i) => i.labelKey)).toEqual(['sourcing-record:menu.sourcingRecord'])
+  })
+
+  it('🚩 reads the run grant (spec 4354 §19: it opens the store record list), and fails closed without it', () => {
+    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
+    expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
+  })
 })
 
 describe('the Sourcing planner data leaf (ticket 968)', () => {

@@ -390,8 +390,9 @@ export interface LineStroke {
  * How the engine strokes a line (964). Google draws no dashed polyline of its own: a dashed or dotted line is drawn with
  * its own stroke hidden and a short stroke of its colour repeated along it.
  */
-export function lineStroke(line: MapLineFeature): LineStroke {
-  const weight = line.strong ? STRONG_LINE_WIDTH : LINE_WIDTH
+export function lineStroke(line: MapLineFeature, width?: number): LineStroke {
+  // A caller's own width (a ring's thinner stroke) reaches the repeated icon too: on a dashed line it is the visible one.
+  const weight = width ?? (line.strong ? STRONG_LINE_WIDTH : LINE_WIDTH)
   const dash = line.dash ?? 'solid'
   if (dash === 'solid') return { strokeColor: line.stroke, strokeOpacity: LINE_OPACITY, strokeWeight: weight }
   const d = DASH[dash]

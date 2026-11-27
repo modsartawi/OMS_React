@@ -37,6 +37,7 @@ export default function CartPanel({
   maps,
   problem,
   running,
+  waiting = false,
   onRun,
   start = 'build',
   onStart,
@@ -49,6 +50,8 @@ export default function CartPanel({
   maps: MapsAccess | null
   problem: CartProblem | ReplayProblem | null
   running: boolean
+  /** Review 4354 #7: the weight set is still being read; Run waits for it. */
+  waiting?: boolean
   onRun: () => void
   /** 964: how the run is started; absent builds a cart, as before. */
   start?: StartKind
@@ -165,12 +168,18 @@ export default function CartPanel({
       </div>
       </>)}
 
-      {problem && (
+      {problem ? (
         <p className="text-xs text-muted-foreground" data-sim-needs={problem}>
           {t(PROBLEM_KEY[problem])}
         </p>
+      ) : (
+        waiting && (
+          <p className="text-xs text-muted-foreground" data-sim-waits-for-set="">
+            {t('run.readingSet')}
+          </p>
+        )
       )}
-      <Button variant="primary" className="self-start" disabled={!!problem || running} onClick={onRun} data-sim-run="">
+      <Button variant="primary" className="self-start" disabled={!!problem || running || waiting} onClick={onRun} data-sim-run="">
         {running ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
         {running ? t('run.planning') : t('run.action')}
       </Button>

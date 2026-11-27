@@ -11,7 +11,7 @@
  * with the mark `READ_AFRESH`, and the screen says so.
  */
 import { apiErrorCode } from '@/core/api'
-import type { AdviseCartRequest, AdvisePin, AdviseReplayRequest, AdviseReply, AdviseRerunRequest, AdviseWeightSetRef } from '@/core/models/sourcing-run'
+import type { AdviseCartRequest, AdvisePin, AdvisePoint, AdviseReplayRequest, AdviseReply, AdviseRerunRequest, AdviseWeightSetRef } from '@/core/models/sourcing-run'
 
 /** What the user asks to run: the cart (without pins or set), the pins and the weight set. */
 export interface RunAsk {
@@ -45,6 +45,20 @@ export function cartRequest(ask: RunAsk): AdviseCartRequest | AdviseReplayReques
     ...(ask.pins.length ? { pins: ask.pins } : {}),
     ...(ask.weightSet ? { weightSet: ask.weightSet } : {}),
   }
+}
+
+/**
+ * The run on screen with the customer moved (964; review 4354 #3): a click or a drag on the map tab plans that run
+ * again from the new point — its cart or order, time, pins and set as they were sent — never from the form as it is
+ * now, which may have changed since or be unable to run. A cart's point is replaced; a replay's point is placed, or with
+ * `null` taken away again ("back to the order's point"). A moved customer is always a new run with its own read.
+ */
+export function movedAsk(ask: RunAsk, point: AdvisePoint | null): RunAsk {
+  if ('lines' in ask.cart) return point ? { ...ask, cart: { ...ask.cart, customer: { point } } } : ask
+  // The point beside the order number, where `replayRequest` puts it: asks are compared as sent, so the form moved the
+  // same way makes the same ask and the plans do not read as stale.
+  const { orderNumber, customer: _was, ...rest } = ask.cart
+  return { ...ask, cart: { orderNumber, ...(point ? { customer: { point } } : {}), ...rest } }
 }
 
 /** Whether two asks differ (the "stale plans" note compares what was run with what is set now). */

@@ -17,7 +17,7 @@ import {
   type BarRuns,
 } from '@/core/models/sourcing-results'
 import { usePermissions } from '@/core/permissions'
-import { canSaveWeightSets } from '@/core/sourcing-advisor/access'
+import { canOpenStoredRun, canSaveWeightSets } from '@/core/sourcing-advisor/access'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -29,6 +29,7 @@ import Textarea from '@/core/ui/Textarea'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatCount, formatRange, fsi } from '@/core/util/bidi'
 import { sourcingResultsApi } from './api'
+import { estimateWords } from './estimate-words'
 import { barPeriodEnd, barReading, type BarLargestGroup, type BarLimitView, type BarWhy } from './bar-model'
 import Fig from './Fig'
 import type { ResultsTabProps } from './ResultsTabs'
@@ -285,6 +286,7 @@ function Reading({ reply, query, queryKey }: { reply: BarReply; query: BarQuery;
 
 function Largest({ groups, query, may, onSaved }: { groups: BarLargestGroup[]; query: BarQuery; may: boolean; onSaved: (r: BarReply) => void }) {
   const { t } = useTranslation('sourcing-results')
+  const opensRun = canOpenStoredRun(usePermissions())
   const [open, setOpen] = useState(0)
   const group = groups[open]
   const mark = useMutation({
@@ -322,14 +324,17 @@ function Largest({ groups, query, may, onSaved }: { groups: BarLargestGroup[]; q
                 {group.rows.map((r) => (
                   <tr key={r.orderNumber} className="border-b border-border/60" data-largest-row={r.orderNumber} data-largest-mark={r.mark ?? ''}>
                     <td className={TD}>
-                      <Link to={simulatorRunPath(r.runId)} className="underline decoration-dotted underline-offset-2 hover:text-primary" data-largest-open="">
+                      {/* Review 4354 #4: a link only once the simulator reads the stored run, and only under the run grant. */}
+                      {opensRun ? (
+                        <Link to={simulatorRunPath(r.runId)} className="underline decoration-dotted underline-offset-2 hover:text-primary" data-largest-open="">
+                          <Ltr>{r.orderNumber}</Ltr>
+                        </Link>
+                      ) : (
                         <Ltr>{r.orderNumber}</Ltr>
-                      </Link>
+                      )}
                     </td>
                     <td className={`${TD} text-end`}>
-                      {r.estimateMinutes > 0
-                        ? t('drawer.estimate.earlier', { minutes: fsi(r.estimateMinutes) })
-                        : t('drawer.estimate.later', { minutes: fsi(-r.estimateMinutes) })}
+{estimateWords(t, r.estimateMinutes)}
                     </td>
                     <td className={TD}>
                       <Select

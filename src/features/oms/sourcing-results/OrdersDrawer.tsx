@@ -24,8 +24,11 @@ import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { fsi, formatPair, formatParts } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import { usePermissions } from '@/core/permissions'
+import { canOpenStoredRun } from '@/core/sourcing-advisor/access'
 import { simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
 import { sourcingResultsApi } from './api'
+import { estimateWords } from './estimate-words'
 import { encodeFigure } from './figure'
 import { readingFigureTitle } from './reading-figure'
 import { HATCH, classInk, modeInk } from './inks'
@@ -53,13 +56,6 @@ export function figureTitle(t: TFunction<'sourcing-results'>, f: ResultsFigure):
     default:
       return readingFigureTitle(t, f)
   }
-}
-
-/** Minutes against what happened, in words; + = the advisor's plan earlier. */
-export function estimateWords(t: TFunction<'sourcing-results'>, minutes: number | null): string {
-  if (minutes == null) return t('dash')
-  if (minutes === 0) return t('drawer.estimate.same')
-  return t(minutes > 0 ? 'drawer.estimate.earlier' : 'drawer.estimate.later', { minutes: fsi(Math.abs(minutes)) })
 }
 
 /**
@@ -205,6 +201,7 @@ function OrderRow({ row, chosen, onChoose }: { row: ResultsOrderRow; chosen: boo
 function OrderCard({ orderNumber }: { orderNumber: string }) {
   const { t } = useTranslation('sourcing-results')
   const navigate = useNavigate()
+  const opensRun = canOpenStoredRun(usePermissions())
   const card = useQuery({
     queryKey: ['sourcing-results', 'order', orderNumber],
     queryFn: () => sourcingResultsApi.order(orderNumber),
@@ -243,12 +240,15 @@ function OrderCard({ orderNumber }: { orderNumber: string }) {
       <p className="text-xs text-muted-foreground" data-card-ending="">
         {t('card.ended', { ending: t(`endings.${c.ending}`) })}
       </p>
-      <div>
-        <Button variant="primary" onClick={() => navigate(simulatorRunPath(c.runId))} data-open-simulator={c.runId}>
-          <PlayCircle className="h-4 w-4" aria-hidden />
-          {t('card.openSimulator')}
-        </Button>
-      </div>
+      {/* Review 4354 #4: hidden until the simulator reads the stored run, and then only under the run grant. */}
+      {opensRun && (
+        <div>
+          <Button variant="primary" onClick={() => navigate(simulatorRunPath(c.runId))} data-open-simulator={c.runId}>
+            <PlayCircle className="h-4 w-4" aria-hidden />
+            {t('card.openSimulator')}
+          </Button>
+        </div>
+      )}
     </section>
   )
 }

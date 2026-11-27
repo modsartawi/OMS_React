@@ -3,6 +3,7 @@
  * cart form, `level: "full"` and `allPlans`). Pure.
  */
 import type { AdviseCartRequest } from '@/core/models/sourcing-run'
+import { toIsoDate } from '@/core/util/date-format'
 
 /**
  * The channels the picker offers (the order source codes the order door takes).
@@ -29,10 +30,8 @@ export interface CartLineDraft {
 
 export interface CartForm {
   channel: string
-  /** `HH:mm`, local; empty plans for now. */
+  /** `HH:mm`, local, planned on the day the request is built (review 4354 #6); empty plans for now. */
   time: string
-  /** Today, `yyyy-MM-dd`: the day a time of day is planned on. */
-  today: string
   /** Riyals as typed; empty sends none. */
   goodsTotal: string
   lines: CartLineDraft[]
@@ -67,8 +66,12 @@ export function cartProblem(form: CartForm): CartProblem | null {
   return null
 }
 
-/** The request Run sends, or null while the cart cannot run (`cartProblem` says why). */
-export function adviseRequest(form: CartForm): AdviseCartRequest | null {
+/**
+ * The request Run sends, or null while the cart cannot run (`cartProblem` says why). A time of day is planned on the day
+ * of `now` — read when the request is built, never kept in the form, so a page left open past midnight plans on the new
+ * day (review 4354 #6).
+ */
+export function adviseRequest(form: CartForm, now: Date = new Date()): AdviseCartRequest | null {
   if (cartProblem(form)) return null
   const lines = form.lines
     .filter((l) => l.item.trim() !== '')
@@ -79,7 +82,7 @@ export function adviseRequest(form: CartForm): AdviseCartRequest | null {
     lines,
     customer: { point: { lat: Number(form.lat), lng: Number(form.lng) } },
     ...(total !== null ? { goodsTotal: total } : {}),
-    ...(form.time ? { plannedFor: `${form.today} ${form.time}:00` } : {}),
+    ...(form.time ? { plannedFor: `${toIsoDate(now)} ${form.time}:00` } : {}),
     level: 'full',
     allPlans: true,
   }

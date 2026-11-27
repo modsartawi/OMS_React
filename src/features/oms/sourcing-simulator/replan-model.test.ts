@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { AdviseCartRequest, AdvisePin, AdviseReply } from '@/core/models/sourcing-run'
 import fixture from './advise-reply.fixture.json'
-import { cartAgain, runBasis, runRequest, type RunAsk } from './replan-model'
+import { cartAgain, movedAsk, runBasis, runRequest, sameAsk, type RunAsk } from './replan-model'
+import { replayRequest } from './replay'
 
 const reply = fixture as unknown as AdviseReply
 
@@ -98,5 +99,38 @@ describe('what the run stands on', () => {
   it('a fresh cart run says nothing of an earlier run; one run after the held copy was gone says so', () => {
     expect(runBasis(reply, { heldGone: false })).toEqual({ figuresFrom: null, readAfresh: null, heldGone: false })
     expect(runBasis(reply, { heldGone: true }).heldGone).toBe(true)
+  })
+})
+
+describe('moving the customer on the map plans the run on screen again (review 4354 #3)', () => {
+  const planned: AdviseCartRequest = { ...cart, plannedFor: '2026-11-27 14:30:00' }
+  const onScreen: RunAsk = { cart: planned, pins: [pin], weightSet: draft }
+  const to = { lat: 24.7012, lng: 46.6911 }
+
+  it('a cart keeps every line, its time, its pins and its set; only the point changes', () => {
+    expect(movedAsk(onScreen, to)).toEqual({ cart: { ...planned, customer: { point: to } }, pins: [pin], weightSet: draft })
+  })
+
+  it('so a form edited since — even one that cannot run — changes nothing of what is moved', () => {
+    // The ask is built from the run on screen alone: there is no form to read, so nothing can come back empty.
+    expect(movedAsk(onScreen, to).cart).toMatchObject({ lines: cart.lines, channel: 'IOS' })
+  })
+
+  it('a replay is planned from the point placed, and back from the order’s own point', () => {
+    const replayed: RunAsk = { cart: { orderNumber: '4500718405', level: 'full', allPlans: true, withCustomerPoint: true }, pins: [], weightSet: null }
+    const moved = movedAsk(replayed, to)
+    expect(moved.cart).toEqual({ ...replayed.cart, customer: { point: to } })
+    expect(movedAsk(moved, null).cart).toEqual(replayed.cart)
+  })
+
+  it('the moved run is the same ask the form, moved the same way, now makes: the plans do not read as stale', () => {
+    const order = { orderNumber: '4500718405', withPoint: true, movedTo: null }
+    const replayed: RunAsk = { cart: replayRequest(order)!, pins: [], weightSet: baseline }
+    expect(sameAsk(movedAsk(replayed, to), { ...replayed, cart: replayRequest({ ...order, movedTo: to })! })).toBe(true)
+    expect(sameAsk(movedAsk(movedAsk(replayed, to), null), replayed)).toBe(true)
+  })
+
+  it('a moved run is a new run with its own read, never a plan again on the earlier figures', () => {
+    expect(runRequest(movedAsk(first, to), last)).not.toHaveProperty('basedOnRun')
   })
 })

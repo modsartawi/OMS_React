@@ -6,6 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { googleEngine } from './google-engine'
+import { RING_LINE_WIDTH } from './map-drawing'
 import { createGoogleLoader, type LoaderPage } from './google-loader'
 import type { MapEngineEvents, MapEngineStart, MapFeature, MapLineFeature, MapPinFeature, MapRingFeature, MapTarget } from './map-panel'
 
@@ -493,6 +494,8 @@ describe('964: a dashed line, the rings and the customer pin on Google’s map',
     expect(ring?.options.path).toEqual(RING.path.map((q) => ({ lat: q.lat, lng: q.lon })))
     expect(ring?.options.strokeOpacity).toBe(0)
     expect(ring?.options.icons).toHaveLength(1)
+    // The visible stroke of a dashed line is the repeated icon's: it carries the ring's own, thinner width.
+    expect((ring?.options.icons as { icon: { strokeWeight: number } }[])[0].icon.strokeWeight).toBe(RING_LINE_WIDTH)
     expect(ring?.options.clickable).toBe(false)
     const leg = google.polylines.find((p) => p !== ring)
     expect(Number(ring?.options.zIndex)).toBeLessThan(Number(leg?.options.zIndex))

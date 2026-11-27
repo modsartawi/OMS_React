@@ -1,44 +1,133 @@
 {
   "goal": "FASTEST",
   "alsoGoals": [],
-  "label": { "en": "Fastest", "ar": "الأسرع" },
-  "promise": { "en": "Everything by 8:30 pm today, in 2 deliveries", "ar": "كل طلبك يصلك اليوم قبل 8:30 م، في شحنتين", "by": "2026-11-26 20:30:00" },
+  "label": {
+    "en": "Fastest",
+    "ar": "الأسرع"
+  },
+  "promise": {
+    "en": "Everything by 8:30 pm today, in 2 deliveries",
+    "ar": "كل طلبك يصلك اليوم قبل 8:30 م، في شحنتين",
+    "by": "2026-11-26 20:30:00"
+  },
   "bestFound": false,
   "fallback": false,
   "trialSet": false,
-  "totals": { "shipments": 2, "linesServed": 3, "fee": 32.0, "companyCost": 34.72 },
+  "totals": {
+    "shipments": 2,
+    "linesServed": 3,
+    "fee": 32,
+    "companyCost": 34.72,
+    "companyNet": 2.72
+  },
   "shipments": [
     {
       "no": 1,
       "store": "1090",
       "storeName": "Store 1090",
       "mode": "DAWAA_NOW",
-      "lines": [1, 2],
-      "promise": { "kind": "BY", "by": "2026-11-26 20:25:00", "en": "By 8:25 pm today", "ar": "اليوم قبل 8:25 م" },
-      "fee": 16.0,
+      "lines": [
+        1,
+        2
+      ],
+      "promise": {
+        "kind": "BY",
+        "by": "2026-11-26 20:25:00",
+        "en": "By 8:25 pm today",
+        "ar": "اليوم قبل 8:25 م"
+      },
+      "fee": 16,
       "feeSource": "ASSUMED",
       "companyCost": 17.42,
       "km": 4.1,
       "kmKind": "ROAD",
       "costParts": [
-        { "part": "DELIVERY_RATE", "amount": 15.0, "source": "MEASURED" },
-        { "part": "HANDLING", "amount": 2.0, "source": "ASSUMED" },
-        { "part": "STORE_RECORD", "amount": 0.42, "source": "STEADIED" }
+        {
+          "part": "DELIVERY_RATE",
+          "amount": 15,
+          "source": "MEASURED"
+        },
+        {
+          "part": "HANDLING",
+          "amount": 2,
+          "source": "ASSUMED"
+        },
+        {
+          "part": "STORE_RECORD",
+          "amount": 0.42,
+          "source": "STEADIED"
+        }
       ],
       "promiseParts": {
         "pickEnd": "2026-11-26 20:01:00",
-        "pickEndRule": "CAUTIOUS_MADE_READY",
-        "usualBy": "2026-11-26 20:08:00",
-        "madeReady": { "usual": 10, "cautious": 19, "source": "STORES_OWN" },
-        "courierWait": { "usual": 6, "cautious": 9, "source": "STEADIED" },
-        "travel": { "usual": 10, "cautious": 14, "source": "ROAD" },
-        "margin": { "minutes": 15, "source": "WEIGHT_SET" },
+        "madeReady": {
+          "usual": 10,
+          "cautious": 19,
+          "source": "STORES_OWN"
+        },
+        "courierWait": {
+          "usual": 6,
+          "cautious": 9,
+          "source": "STEADIED"
+        },
+        "travel": {
+          "usual": 10,
+          "cautious": 14,
+          "source": "ROAD",
+          "km": 4.1,
+          "kmKind": "ROAD",
+          "fixed": 4,
+          "perKm": 2.2,
+          "runOver": 4
+        },
+        "margin": 15,
+        "marginMultiplier": 1,
+        "unroundedMinutes": 41,
+        "minutes": 45,
         "lengtheners": [
-          { "name": "DELIVERIES_WAITING", "band": "1 to 2", "usual": 0, "cautious": 0 },
-          { "name": "BASKET_LINES", "band": "1 to 3", "usual": 0, "cautious": 0 },
-          { "name": "HOUR_OF_DAY", "band": "19 to 21", "usual": 0, "cautious": 3 }
-        ],
-        "slot": null
+          {
+            "lengthener": "DELIVERIES_WAITING",
+            "value": 1,
+            "bandFrom": 1,
+            "usual": 0,
+            "cautious": 0,
+            "state": "NO_EFFECT"
+          },
+          {
+            "lengthener": "BASKET_LINES",
+            "value": 1,
+            "bandFrom": 1,
+            "usual": 0,
+            "cautious": 0,
+            "state": "NO_EFFECT"
+          },
+          {
+            "lengthener": "HOUR_OF_DAY",
+            "value": 19,
+            "bandFrom": 19,
+            "usual": 0,
+            "cautious": 3,
+            "state": "ADDS"
+          }
+        ]
+      },
+      "storeRecord": {
+        "cost": 0.42,
+        "steadyingCount": 60,
+        "lines": [
+          {
+            "measure": "CALLOUT_IGNORED",
+            "source": "STEADIED",
+            "badEndings": 69,
+            "deliveries": 238,
+            "storeRate": 0.29,
+            "likeRate": 0.08,
+            "expectedRate": 0.08,
+            "steadiedRate": 0.29,
+            "failurePrice": 2,
+            "cost": 0.42
+          }
+        ]
       }
     },
     {
@@ -46,32 +135,104 @@
       "store": "1061",
       "storeName": "Store 1061",
       "mode": "DAWAA_NOW",
-      "lines": [3],
-      "promise": { "kind": "BY", "by": "2026-11-26 20:30:00", "en": "By 8:30 pm today", "ar": "اليوم قبل 8:30 م" },
-      "fee": 16.0,
+      "lines": [
+        3
+      ],
+      "promise": {
+        "kind": "BY",
+        "by": "2026-11-26 20:30:00",
+        "en": "By 8:30 pm today",
+        "ar": "اليوم قبل 8:30 م"
+      },
+      "fee": 16,
       "feeSource": "ASSUMED",
       "companyCost": 17.3,
       "km": 3.6,
       "kmKind": "STRAIGHT_LINE",
       "costParts": [
-        { "part": "DELIVERY_RATE", "amount": 15.0, "source": "MEASURED" },
-        { "part": "HANDLING", "amount": 2.0, "source": "ASSUMED" },
-        { "part": "STORE_RECORD", "amount": 0.3, "source": "STEADIED" }
+        {
+          "part": "DELIVERY_RATE",
+          "amount": 15,
+          "source": "MEASURED"
+        },
+        {
+          "part": "HANDLING",
+          "amount": 2,
+          "source": "ASSUMED"
+        },
+        {
+          "part": "STORE_RECORD",
+          "amount": 0.3,
+          "source": "STEADIED"
+        }
       ],
       "promiseParts": {
         "pickEnd": "2026-11-26 20:04:00",
-        "pickEndRule": "CAUTIOUS_MADE_READY",
-        "usualBy": "2026-11-26 20:14:00",
-        "madeReady": { "usual": 15, "cautious": 22, "source": "STEADIED" },
-        "courierWait": { "usual": 7, "cautious": 10, "source": "STEADIED" },
-        "travel": { "usual": 10, "cautious": 13, "source": "STRAIGHT_LINE" },
-        "margin": { "minutes": 14, "source": "WEIGHT_SET" },
-        "lengtheners": [{ "name": "DELIVERIES_WAITING", "band": "3 to 5", "usual": 2, "cautious": 4 }],
-        "slot": null
+        "madeReady": {
+          "usual": 15,
+          "cautious": 22,
+          "source": "STEADIED"
+        },
+        "courierWait": {
+          "usual": 7,
+          "cautious": 10,
+          "source": "STEADIED"
+        },
+        "travel": {
+          "usual": 10,
+          "cautious": 13,
+          "source": "STRAIGHT_LINE",
+          "km": 3.6,
+          "kmKind": "STRAIGHT_LINE",
+          "fixed": 4,
+          "perKm": 2.2,
+          "runOver": 4
+        },
+        "margin": 14,
+        "marginMultiplier": 1,
+        "unroundedMinutes": 46,
+        "minutes": 50,
+        "lengtheners": [
+          {
+            "lengthener": "DELIVERIES_WAITING",
+            "value": 3,
+            "bandFrom": 3,
+            "usual": 2,
+            "cautious": 4,
+            "state": "ADDS"
+          }
+        ]
+      },
+      "storeRecord": {
+        "cost": 0.3,
+        "steadyingCount": 60,
+        "lines": [
+          {
+            "measure": "CALLOUT_IGNORED",
+            "source": "STEADIED",
+            "badEndings": 9,
+            "deliveries": 41,
+            "storeRate": 0.23,
+            "likeRate": 0.08,
+            "expectedRate": 0.08,
+            "steadiedRate": 0.23,
+            "failurePrice": 2,
+            "cost": 0.3
+          }
+        ]
       }
     }
   ],
   "lineMarks": [],
   "missingLines": [],
-  "sum": { "companyCost": 34.72, "fees": 32.0, "waiting": 6.5, "cover": 0.0, "split": 0.0, "total": 73.22 }
+  "sum": {
+    "companyCostWeight": 1,
+    "feeWeight": 1,
+    "companyCost": 34.72,
+    "fees": 32,
+    "waiting": 6.5,
+    "cover": 0,
+    "splitPenalty": 0,
+    "total": 73.22
+  }
 }

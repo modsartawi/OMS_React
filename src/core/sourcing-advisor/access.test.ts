@@ -14,6 +14,7 @@ import {
   canOpenWeightSets,
   canRunSourcingAdvisor,
   canSaveWeightSets,
+  canSeeCustomerPoint,
   canViewSourcingAdvisor,
 } from './access'
 
@@ -28,12 +29,12 @@ describe('the save grant (save weight sets, start trials)', () => {
 describe('the marking grant and the weight-set list (ticket 967, provisional keys)', () => {
   it('marks the candidate set on its own key — the save grant does not mark', () => {
     expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorMark:06'] }))).toBe(true)
-    expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorSave:01', 'SourcingAdvisorRun:06'] }))).toBe(false)
+    expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorSave:01', 'SourcingSimulator:03'] }))).toBe(false)
     expect(canMarkCandidateSet(permissionsOf(null))).toBe(false)
   })
 
   it('the list opens to whoever runs, saves or marks sets — not to the view grant alone', () => {
-    for (const key of ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06'] as const) {
+    for (const key of ['SourcingSimulator:03', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06'] as const) {
       expect(canOpenWeightSets(permissionsOf({ screens: [key] }))).toBe(true)
     }
     expect(canOpenWeightSets(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
@@ -52,26 +53,34 @@ describe('the sourcing advisor grant', () => {
   })
 })
 
-describe('the sourcing advisor run grant (ticket 962, provisional key)', () => {
-  it('grants on SourcingAdvisorRun:06 only — the view grant does not open the simulator', () => {
-    expect(canRunSourcingAdvisor(permissionsOf({ screens: ['SourcingAdvisorRun:06'] }))).toBe(true)
+describe('the sourcing advisor run grant (ticket 962; BackOffice 4355 SourcingSimulatorGrants)', () => {
+  it('grants on SourcingSimulator:03 only — the view grant does not open the simulator', () => {
+    expect(canRunSourcingAdvisor(permissionsOf({ screens: ['SourcingSimulator:03'] }))).toBe(true)
     expect(canRunSourcingAdvisor(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
     expect(canRunSourcingAdvisor(permissionsOf(null))).toBe(false)
   })
 })
 
+describe('the customer-point grant (ticket 964; BackOffice 4381 CustomerPointGrants)', () => {
+  it('grants on SourcingCustomerPoint:03 only — the run grant alone does not show the real point', () => {
+    expect(canSeeCustomerPoint(permissionsOf({ screens: ['SourcingCustomerPoint:03'] }))).toBe(true)
+    expect(canSeeCustomerPoint(permissionsOf({ screens: ['SourcingSimulator:03'] }))).toBe(false)
+    expect(canSeeCustomerPoint(permissionsOf(null))).toBe(false)
+  })
+})
+
 describe('opening a stored run in the simulator (review 4354 #4)', () => {
   it('is never offered while the simulator does not read the run it is handed, whatever the grant', () => {
-    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingAdvisorRun:06'] }), false)).toBe(false)
+    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingSimulator:03'] }), false)).toBe(false)
   })
 
   it('is offered to a holder of the run grant now that the simulator reads the run (ticket 969)', () => {
-    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingAdvisorRun:06'] }))).toBe(true)
+    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01', 'SourcingSimulator:03'] }))).toBe(true)
     expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
   })
 
   it('once the simulator reads it, only a holder of the run grant is offered it — the view grant opens no simulator', () => {
-    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisorRun:06'] }), true)).toBe(true)
+    expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingSimulator:03'] }), true)).toBe(true)
     expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01'] }), true)).toBe(false)
   })
 })
@@ -85,12 +94,12 @@ describe('the three planner grants (ticket 968, provisional keys)', () => {
     expect(canEditPlannerRules(p('SourcingPlannerRules:01'))).toBe(true)
     expect(canEditPlannerRules(p('SourcingPlannerBuffer:01'))).toBe(false)
     expect(canEditPlannerTables(p('SourcingPlannerTables:01'))).toBe(true)
-    expect(canEditPlannerTables(p('SourcingAdvisorRun:06'))).toBe(false)
+    expect(canEditPlannerTables(p('SourcingSimulator:03'))).toBe(false)
   })
 
   it('the planner page opens with any one of the three, and not with the run or view grant alone', () => {
     for (const k of ['SourcingPlannerBuffer:01', 'SourcingPlannerRules:01', 'SourcingPlannerTables:01']) expect(canOpenSourcingPlanner(p(k))).toBe(true)
-    expect(canOpenSourcingPlanner(p('SourcingAdvisorRun:06', 'SourcingAdvisor:01'))).toBe(false)
+    expect(canOpenSourcingPlanner(p('SourcingSimulator:03', 'SourcingAdvisor:01'))).toBe(false)
     expect(canOpenSourcingPlanner(permissionsOf(null))).toBe(false)
   })
 })

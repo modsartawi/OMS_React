@@ -3,7 +3,7 @@
  * page opened.
  */
 import { describe, expect, it } from 'vitest'
-import { adviseRequest, type CartForm } from './cart'
+import { adviseRequest, simulatorChannels, type CartForm } from './cart'
 
 const FORM: CartForm = {
   channel: 'WEB',
@@ -13,6 +13,22 @@ const FORM: CartForm = {
   lat: '24.7',
   lng: '46.7',
 }
+
+describe('the channels the picker offers (BackOffice 4381, `AdvisorChannels`: the app, the site and the call centre)', () => {
+  it('the app’s two sources and the site, then every order source of the call-centre category C, by its own code', () => {
+    const sources = [
+      { documentSource: 'IOS', description: 'iPhone app', documentSourceCategory: 'A' },
+      { documentSource: 'CC', description: 'Call centre', documentSourceCategory: 'C' },
+      { documentSource: 'HS', description: 'HungerStation', documentSourceCategory: 'P' },
+      { documentSource: 'CCW', description: 'Call centre (WhatsApp)', documentSourceCategory: ' c ' },
+    ]
+    expect(simulatorChannels(sources)).toEqual(['IOS', 'ROID', 'WEB', 'CC', 'CCW'])
+  })
+
+  it('before the order sources are read, the app and the site', () => {
+    expect(simulatorChannels(undefined)).toEqual(['IOS', 'ROID', 'WEB'])
+  })
+})
 
 describe('the day a time of day is planned on', () => {
   it('is the day the request is built: a page left open past midnight plans on the new day', () => {

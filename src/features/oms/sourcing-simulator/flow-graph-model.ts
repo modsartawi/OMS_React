@@ -4,10 +4,10 @@
  * `./FlowGraph` turns these into React Flow's nodes and edges, so the library stays in its own lazily loaded chunk.
  *
  * Four columns: the cart lines → the pairs that can serve a line → the selected plan's shipments → the plan.
- * - The pairs are the candidates the search worked out (`search.whyNot[]` rows with no `removedAt`), with the selected
- *   plan's own pairs first. A pair serves a line when its store's offered stock covers the quantity
- *   (`inputs.storeLines[]`) and no step removed that pair for that line; a chosen pair serves the lines its shipment
- *   carries, a figure-short line included.
+ * - The pairs are the candidates the search priced (`search.whyNot[]` rows with a plan through them), with the selected
+ *   plan's own pairs first. A pair serves a line when the offered stock worked for its store, the line's item and its
+ *   mode covers the quantity (`inputs.storeLines[].working[]`) and no step removed that pair for that line; a chosen
+ *   pair serves the lines its shipment carries, a figure-short line included.
  * - A line is chosen when it is on the selected plan's path; it takes its shipment's colour slot. Every other line is
  *   grey ("could have served").
  */
@@ -62,11 +62,11 @@ export function flowGraph(reply: Pick<AdviseReply, 'lines' | 'inputs' | 'plans' 
     }
   }
   plan.shipments.forEach((s) => add(s.store, s.mode))
-  for (const w of reply.search?.whyNot ?? []) if (w.removedAt === undefined && !w.code) add(w.store, w.mode)
+  for (const w of reply.search?.whyNot ?? []) if (w.removedAt === undefined && w.plan) add(w.store, w.mode)
 
-  const offered = new Map(storeLines.map((r) => [`${r.store}|${r.lineNo}`, r.offered]))
+  const offered = new Map(storeLines.flatMap((r) => (r.working ?? []).map((w) => [`${r.store}|${r.item}|${w.mode}`, w.offered] as const)))
   const removedForLine = new Set(
-    (reply.filterSteps ?? []).flatMap((s) => s.removed.filter((r) => r.lineNo !== undefined).map((r) => `${pairId(r.store, r.mode)}|${r.lineNo}`)),
+    (reply.filterSteps ?? []).flatMap((s) => (s.removed ?? []).filter((r) => r.lineNo !== undefined).map((r) => `${pairId(r.store, r.mode)}|${r.lineNo}`)),
   )
   /** The index of the selected plan's shipment from this pair carrying the line, or -1. */
   const shipmentFor = (store: string, mode: string, lineNo: number) => plan.shipments.findIndex((s) => s.store === store && s.mode === mode && s.lines.includes(lineNo))
@@ -79,7 +79,7 @@ export function flowGraph(reply: Pick<AdviseReply, 'lines' | 'inputs' | 'plans' 
     const served: FlowEdge[] = []
     for (const l of reply.lines) {
       const ship = shipmentFor(p.store, p.mode, l.lineNo)
-      const covers = (offered.get(`${p.store}|${l.lineNo}`) ?? 0) >= l.quantity && !removedForLine.has(`${id}|${l.lineNo}`)
+      const covers = (offered.get(`${p.store}|${l.item}|${p.mode}`) ?? 0) >= (l.stockQuantity ?? l.quantity) && !removedForLine.has(`${id}|${l.lineNo}`)
       if (ship < 0 && !covers) continue
       served.push({ id: `line:${l.lineNo}>${id}`, source: `line:${l.lineNo}`, target: id, chosen: ship >= 0, slot: ship >= 0 ? ship : null })
     }

@@ -2,8 +2,8 @@
  * Ticket 965 (BackOffice spec 4354 §7; 4281 decision 26, `promiseParts`): the promise of each shipment, in parts. A Dawaa
  * Now shipment is a bar of four parts — made ready, courier wait, travel, margin — each with its source, beside the pick
  * end and the usual time; a slot shipment lists the slots skipped and why, the rule that set its pick end and its next
- * two slots; lengtheners that add nothing are marked so. Fed the door's worked example (its slot shipment's parts are
- * 4281's own) and a split plan of two Dawaa Now shipments.
+ * two slots; lengtheners that add nothing are marked so. Fed a reply in the server's shape (BackOffice 4365, 4366, 4386:
+ * `InputPromiseParts`, `RecordSlotCosts`) and a split plan of two Dawaa Now shipments.
  */
 import { describe, expect, it } from 'vitest'
 import type { AdvisePlan, AdviseReply } from '@/core/models/sourcing-run'
@@ -24,7 +24,7 @@ describe('a Dawaa Now shipment is a bar of four parts', () => {
       { part: 'madeReady', minutes: 12, source: 'STORES_OWN' },
       { part: 'courierWait', minutes: 6, source: 'STEADIED' },
       { part: 'travel', minutes: 13, source: 'ROAD' },
-      { part: 'margin', minutes: 20, source: 'WEIGHT_SET' },
+      { part: 'margin', minutes: 20, source: null },
     ])
   })
 
@@ -33,18 +33,19 @@ describe('a Dawaa Now shipment is a bar of four parts', () => {
     expect(bar.segments[3].share).toBeCloseTo(20 / 51, 5)
   })
 
-  it('the pick end, the rule that set it, the usual time and the promise, as sent', () => {
+  it('the pick end, the promise in minutes and the promise time, as sent; the server sends no usual time and no pick-end rule', () => {
     expect(bar.pickEnd).toBe('2026-11-26 20:01:00')
-    expect(bar.pickEndRule).toBe('CAUTIOUS_MADE_READY')
-    expect(bar.usualBy).toBe('2026-11-26 20:13:00')
+    expect(bar.minutes).toBe(55)
     expect(bar.by).toBe('2026-11-26 20:35:00')
+    expect(bar.usualBy).toBeNull()
+    expect(bar.pickEndRule).toBeNull()
   })
 
   it('a lengthener that moves neither figure is marked "adds nothing"; one that moves the cautious figure is not', () => {
-    expect(bar.lengtheners.map((l) => [l.name, l.addsNothing])).toEqual([
-      ['DELIVERIES_WAITING', true],
-      ['BASKET_LINES', true],
-      ['HOUR_OF_DAY', false],
+    expect(bar.lengtheners.map((l) => [l.name, l.value, l.state, l.addsNothing])).toEqual([
+      ['DELIVERIES_WAITING', 1, 'NO_EFFECT', true],
+      ['BASKET_LINES', 1, 'NO_EFFECT', true],
+      ['HOUR_OF_DAY', 19, 'ADDS', false],
     ])
   })
 
@@ -65,10 +66,9 @@ describe('a slot shipment', () => {
   it('lists the slots skipped and why, and the rule that set its pick end', () => {
     expect(bar.skipped).toEqual([{ from: '2026-11-26 20:00:00', why: 'INSIDE_LEAD' }])
     expect(bar.pickEnd).toBe('2026-11-26 20:51:00')
-    expect(bar.pickEndRule).toBe('HALF_WAY_TO_SLOT')
   })
 
-  it('lists its next two slots with their sums, and the mark when a later one was cheaper', () => {
+  it('lists its next two slots with their sums (its slot costs), and the mark when a later one was cheaper', () => {
     expect(bar.next).toEqual([
       { code: '00022731', from: '2026-11-27 10:00:00', to: '2026-11-27 11:59:00', sum: 50.1 },
       { code: '00022732', from: '2026-11-27 12:00:00', to: '2026-11-27 13:59:00', sum: 52.4 },
@@ -87,7 +87,6 @@ describe('a pick-up shipment', () => {
     expect(bar.form).toBe('pickUp')
     expect(bar.target).toBe(30)
     expect(bar.madeReady).toEqual({ usual: 10, cautious: 16, source: 'STORES_OWN' })
-    expect(bar.pickEndRule).toBe('FOUR_HOURS')
   })
 })
 

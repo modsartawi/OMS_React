@@ -2,7 +2,8 @@
  * Ticket 965 (BackOffice spec 4354 §6; 4281 decision 26, `costParts` and `plans[].sum`; BackOffice 4363, 4386): the
  * money of a plan — a row per part, a column per shipment, every figure with its source as sent, the plan's own figures
  * in its column, and a banner naming the assumed ones — and how deliveries go at each shipment's store, a row per
- * measure against like stores. Fed the door's worked example (CHEAPEST's cost parts are 4281's own) and a split plan.
+ * measure against like stores (the shipment's `storeRecord`, BackOffice 4386). Fed a reply in the server's shape and a
+ * split plan.
  */
 import { describe, expect, it } from 'vitest'
 import type { AdvisePlan, AdviseReply } from '@/core/models/sourcing-run'
@@ -63,13 +64,13 @@ describe('the money of a split plan', () => {
 })
 
 describe('the money of one shipment', () => {
-  it('the door’s slot shipment: four cost parts as sent, and the fee, delivery rate and handling assumed', () => {
+  it('the slot shipment: four cost parts as sent, in the server’s money order, and the fee, delivery rate and handling assumed', () => {
     const money = moneyRows(plan('CHEAPEST'))
     expect(money.rows.filter((r) => r.kind === 'part').map((r) => [r.key, r.cells[0]])).toEqual([
       ['DELIVERY_RATE', { amount: 14.35, source: 'ASSUMED' }],
       ['HANDLING', { amount: 2, source: 'ASSUMED' }],
-      ['STORE_RECORD', { amount: -0.175, source: 'STEADIED' }],
       ['NO_STOCK', { amount: 6.775, source: 'WEIGHT_SET' }],
+      ['STORE_RECORD', { amount: -0.175, source: 'STEADIED' }],
     ])
     expect(money.assumed).toEqual(['fee', 'DELIVERY_RATE', 'HANDLING'])
   })
@@ -92,28 +93,28 @@ describe('the money of one shipment', () => {
 })
 
 describe('how deliveries go at this store', () => {
-  it('a row per measure against like stores, with the deliveries behind it and its cost or credit', () => {
-    const [rec] = storeRecords(plan('CHEAPEST'), reply)
+  it('a row per measure against like stores, with the bad endings and deliveries behind it, its price and its cost or credit', () => {
+    const [rec] = storeRecords(plan('CHEAPEST'))
     expect(rec).toMatchObject({ no: 1, store: '1055', mode: 'SLOT', read: true, cost: -0.175 })
     expect(rec.rows).toEqual([
-      { measure: 'late', rate: 0.031, likeStores: 0.038, count: 412, source: 'STEADIED', cost: -0.07, neutral: false },
-      { measure: 'returned', rate: 0.012, likeStores: 0.0162, count: 412, source: 'STEADIED', cost: -0.105, neutral: false },
-      { measure: 'cancelled', rate: 0.009, likeStores: 0.009, count: 0, source: 'NEUTRAL_DEFAULT', cost: 0, neutral: true },
+      { measure: 'LATE', rate: 0.031, likeStores: 0.038, expected: 0.038, bad: 13, count: 412, price: 10, source: 'STEADIED', cost: -0.07, neutral: false },
+      { measure: 'RETURNED', rate: 0.012, likeStores: 0.0162, expected: 0.0162, bad: 5, count: 412, price: 30, source: 'STEADIED', cost: -0.105, neutral: false },
+      { measure: 'CANCELLED', rate: 0.009, likeStores: 0.009, expected: 0.009, bad: 0, count: 0, price: 30, source: 'NEUTRAL_DEFAULT', cost: 0, neutral: true },
     ])
   })
 
   it('each shipment of a split plan reads its own store’s record for its own mode', () => {
-    const recs = storeRecords(splitPlan, reply)
+    const recs = storeRecords(splitPlan)
     expect(recs.map((r) => [r.store, r.mode, r.rows.map((m) => m.measure).join(), r.cost])).toEqual([
-      ['1090', 'DAWAA_NOW', 'calloutIgnored', 0.42],
-      ['1061', 'DAWAA_NOW', 'calloutIgnored', 0.3],
+      ['1090', 'DAWAA_NOW', 'CALLOUT_IGNORED', 0.42],
+      ['1061', 'DAWAA_NOW', 'CALLOUT_IGNORED', 0.3],
     ])
   })
 
-  it('a store the run did not read has no rows, and says so', () => {
+  it('a shipment with no store record (a mode with none, or the figures not read) has no rows, and says so', () => {
     const p = plan('CHEAPEST')
-    const elsewhere = { ...p, shipments: [{ ...p.shipments[0], store: '9999' }] }
-    const [rec] = storeRecords(elsewhere, reply)
+    const elsewhere = { ...p, shipments: [{ ...p.shipments[0], storeRecord: undefined }] }
+    const [rec] = storeRecords(elsewhere)
     expect(rec.read).toBe(false)
     expect(rec.rows).toEqual([])
   })

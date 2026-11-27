@@ -5,7 +5,7 @@ import { Link, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { MapPlace } from '@/core/map/map-panel'
-import type { AdvisePin, AdviseReply, StoredRun, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+import type { AdvisePin, AdviseReply, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { usePermissions } from '@/core/permissions'
 import { canRunSourcingAdvisor, canSaveWeightSets } from '@/core/sourcing-advisor/access'
 import { KEPT_RUNS_PATH, replayOrderOf, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
@@ -93,7 +93,7 @@ interface RunOutput {
   /** Planning again found the held copy gone, so the cart ran again. */
   heldGone: boolean
   /** Ticket 969: a stored run opened by its link (`?run=`), not a run of this page. */
-  stored?: StoredRun
+  stored?: boolean
 }
 
 function Workbench() {
@@ -166,20 +166,20 @@ function Workbench() {
     const data = opened.data
     if (!data || openedFor === openId) return
     setOpenedFor(openId)
-    const setting = openedSetting(data.record)
+    const setting = openedSetting(data)
     const next: PinScope = setting.start === 'build' ? { start: 'build', form: setting.form, replay } : { start: 'replay', form, replay: setting.replay }
     if (setting.start === 'build') setForm(setting.form)
     else setReplay(setting.replay)
     setStart(setting.start)
     setHeld([])
-    setOpenedRecord(data.record)
+    setOpenedRecord(data)
     // Review 2 #2: the weight set panel names the set the plans were made on.
-    setPicked(openedWeightSet(data.record))
+    setPicked(openedWeightSet(data))
     setEdited(null)
-    const ask = openedAsk(data.record)
+    const ask = openedAsk(data)
     // A changed pin or weight then plans again on the stored run's own figures (`basedOnRun`).
-    setLast({ ask, runId: data.record.runId })
-    setShown({ reply: data.record, ask, lines: runLines(next), heldGone: false, stored: data })
+    setLast({ ask, runId: data.runId })
+    setShown({ reply: data, ask, lines: runLines(next), heldGone: false, stored: true })
   }, [openId, opened.data, openedFor, form, replay])
   const openGone = opened.isError && apiErrorCode(opened.error) === 'ADVISE-404'
   const run = useMutation({
@@ -357,7 +357,7 @@ function Workbench() {
               aria-busy={run.isPending}
               data-run-earlier={run.isPending ? '' : undefined}
             >
-              {ran?.stored && <StoredRunBanner stored={ran.stored} />}
+              {ran?.stored && <StoredRunBanner record={ran.reply} />}
               <ReplayBanner reply={reply} onBack={backToOrder} busy={run.isPending} />
               <RunSummary reply={reply} notes={notes} />
               <KeepRun key={reply.runId} reply={reply} stored={!!ran?.stored} />

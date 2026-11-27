@@ -6,6 +6,7 @@ import { ArrowLeft, ExternalLink, Loader2, Trash2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type { KeptRun } from '@/core/models/sourcing-run'
 import { notify } from '@/core/services/notify'
+import { useSession } from '@/core/session'
 import { canRunSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { SIMULATOR_PATH, simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
 import Button from '@/core/ui/Button'
@@ -14,18 +15,17 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { TD, TH } from '@/core/ui/sheet-table'
-import { fsi } from '@/core/util/bidi'
 import { keptRunsQuery, simulatorApi, storedRunQuery } from './api'
 import CopyRunLink from './CopyRunLink'
 import { canDelete, keptRunsList } from './kept-runs-model'
 
 /**
- * OMS ▸ Sourcing simulator ▸ Kept runs (ticket 969, BackOffice spec 4354 §12 and §19; BackOffice 4380). The caller's own
- * kept runs, newest first: a run's link opens the simulator on it straight away (owner, on the 969 prototype), any
- * holder of the run grant may open it, and only its keeper may delete it. §12 says nothing of listing another keeper's
- * runs, so they are reached by their link only.
+ * OMS ▸ Sourcing simulator ▸ Kept runs (ticket 969, BackOffice spec 4354 §12 and §19; BackOffice 4380). Every kept run,
+ * newest first, with its keeper: a run's link opens the simulator on it straight away (owner, on the 969 prototype), any
+ * holder of the run grant may open it, and only its keeper may delete it.
  *
- * Opens under the run grant. ⚠ Built on stubs: the doors are BackOffice 4380, still open.
+ * Opens under the run grant. SERVER GAP (spec 4354): a kept run's row (`KeptRunAnswer`) carries no order number and no
+ * weight set; the run itself shows them once opened.
  */
 export default function KeptRunsPage() {
   const { t } = useTranslation('sourcing-simulator')
@@ -43,6 +43,7 @@ function KeptRuns() {
   const list = useQuery(keptRunsQuery())
   const runs = useMemo(() => keptRunsList(list.data ?? []), [list.data])
   const [deleting, setDeleting] = useState<KeptRun | null>(null)
+  const userId = useSession((s) => s.userId)
   const remove = useMutation({
     mutationFn: (runId: string) => simulatorApi.deleteKeptRun(runId),
     onSuccess: (_, runId) => {
@@ -53,11 +54,6 @@ function KeptRuns() {
       queryClient.removeQueries({ queryKey: storedRunQuery(runId).queryKey })
     },
   })
-  // Review 2 #6: the set's name and version are data in a sentence, each isolated whole.
-  const weightSet = (r: KeptRun) => {
-    const values = { name: fsi(r.weightSet.name), version: fsi(r.weightSet.version) }
-    return r.weightSet.draft ? t('kept.list.draft', values) : t('runInfo.weightSetName', values)
-  }
 
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-kept-runs="">
@@ -87,8 +83,7 @@ function KeptRuns() {
                 <th className={TH}>{t('kept.list.col.name')}</th>
                 <th className={TH}>{t('kept.list.col.kind')}</th>
                 <th className={TH}>{t('kept.list.col.channel')}</th>
-                <th className={TH}>{t('kept.list.col.order')}</th>
-                <th className={TH}>{t('kept.list.col.weightSet')}</th>
+                <th className={TH}>{t('kept.list.col.keptBy')}</th>
                 <th className={TH}>{t('kept.list.col.ranAt')}</th>
                 <th className={TH}>{t('kept.list.col.keptAt')}</th>
                 <th className={TH}>{t('kept.list.col.engine')}</th>
@@ -108,9 +103,8 @@ function KeptRuns() {
                   </td>
                   <td className={TD}>{t(`kept.kind.${r.kind}`, { defaultValue: r.kind })}</td>
                   <td className={TD}>{t(`cart.channels.${r.channel}`, { defaultValue: r.channel })}</td>
-                  <td className={TD}>{r.orderNumber ? <Ltr>{r.orderNumber}</Ltr> : <span className="text-muted-foreground">{t('dash')}</span>}</td>
-                  <td className={`${TD} whitespace-normal`}>
-                    <bdi>{weightSet(r)}</bdi>
+                  <td className={TD} data-kept-by={r.keptBy}>
+                    <bdi>{r.keptBy}</bdi>
                   </td>
                   <td className={TD}>
                     <Ltr>{r.ranAt}</Ltr>
@@ -119,7 +113,7 @@ function KeptRuns() {
                     <Ltr>{r.keptAt}</Ltr>
                   </td>
                   <td className={TD}>
-                    <Ltr>{r.engine}</Ltr>
+                    <Ltr>{r.engineVersion}</Ltr>
                   </td>
                   <td className={TD}>
                     <span className="flex items-center justify-end gap-1">
@@ -128,7 +122,7 @@ function KeptRuns() {
                         {t('kept.list.open')}
                       </Button>
                       <CopyRunLink runId={r.runId} variant="ghost" />
-                      {canDelete(r) && (
+                      {canDelete(r, userId) && (
                         <Button
                           variant="danger-outlined"
                           onClick={() => {

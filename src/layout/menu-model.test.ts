@@ -557,8 +557,8 @@ describe('the Sourcing simulator leaf (ticket 962)', () => {
     ])
   })
 
-  it('🚩 reads the run grant (provisional SourcingAdvisorRun:06), not the view grant, and fails closed without it', () => {
-    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
+  it('🚩 reads the run grant (SourcingSimulator:03, BackOffice 4355), not the view grant, and fails closed without it', () => {
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(true)
     expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
@@ -583,7 +583,7 @@ describe('the Store record leaf (ticket 969)', () => {
   })
 
   it('🚩 reads the run grant (spec 4354 §19: it opens the store record list), and fails closed without it', () => {
-    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(true)
     expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
@@ -605,7 +605,7 @@ describe('the Sourcing planner data leaf (ticket 968)', () => {
 
   it('🚩 shows with any one of the three planner grants (provisional keys), not with the run grant, and fails closed', () => {
     for (const k of ['SourcingPlannerBuffer:01', 'SourcingPlannerRules:01', 'SourcingPlannerTables:01']) expect(shows(leaf, k)).toBe(true)
-    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(false)
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
@@ -623,7 +623,7 @@ describe('the Weight sets leaf (ticket 967)', () => {
   })
 
   it('🚩 opens to the run, save or mark grant (provisional keys), not to the view grant, and fails closed', () => {
-    for (const key of ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06']) expect(shows(leaf, key)).toBe(true)
+    for (const key of ['SourcingSimulator:03', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06']) expect(shows(leaf, key)).toBe(true)
     expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)

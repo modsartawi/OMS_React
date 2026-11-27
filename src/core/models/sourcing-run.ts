@@ -1,18 +1,16 @@
 /**
- * The advise door's wire (BackOffice spec 4354 §11; the wire is BackOffice ticket 4281, "what the advise door takes and
- * answers"). `POST SourcingAdvisor/Advise` on the user's route: the simulator sends a cart (or, later, an order or an
- * earlier run) and the reply's `data` is the run record cut to the level asked. camelCase, as ASP.NET Core emits.
+ * The advise door's wire (BackOffice spec 4354 §11; the door ticket 4281; built by BackOffice 4355–4381).
+ * `POST SourcingAdvisor/Advise` on the user's route: the simulator sends a cart, an order to replay or an earlier run,
+ * and the reply's `data` is the run record cut to the level asked (`RunRecord`, `Services/SIS.Api/SourcingAdvisor/Record`).
  *
- * ⚠ The server does not exist yet (BackOffice 4355–4357 open). These types are 4281's tables and worked example, read
- * field by field; ticket 962 (oms-react) builds on a stub of that example. Reconcile here when the door lands.
- * Fields 4281 does not name are marked `PROVISIONAL (spec 4354: not specified)`.
+ * Reconciled with BackOffice 4355–4381 at pricing2 35a4e56be: every name here is the server's (`[JsonPropertyName]` on
+ * `RunRecord`, `RunRecordParts`, `RunInputs`, `AdviseRequest`). The record is written with `RecordJson.Options`: camelCase,
+ * a null is LEFT OUT (so every nullable field is optional here), and every time is local wall clock
+ * `yyyy-MM-dd HH:mm:ss` with no zone. A filter step is a number on the wire, or `"CUT"`.
  *
- * In `@/core/models/` because the simulator (962–966) and the comparison results page (971–973) both read run records,
- * and a feature may never import another. Tickets 963–966 extend these shapes (pins, weight sets, replay, the middle
- * and full levels' parts); a field of a lower level never changes its name or place at a higher one (4281 decision 20).
- *
- * Every time is local wall clock `yyyy-MM-dd HH:mm:ss` (no zone), every amount riyals to three decimals, every distance
- * km to one decimal. Every total is sent with its parts, as rounded: no reader adds up for itself (4281 decision 28).
+ * In `@/core/models/` because the simulator (962–969) and the comparison results page (971–973) both read run records,
+ * and a feature may never import another. Every amount is riyals to three decimals, every distance km to one decimal.
+ * Every total is sent with its parts, as rounded: no reader adds up for itself (4281 decision 28).
  */
 
 /** A sentence the server writes in both languages (the promise, a line not available, a goal with no plan). */
@@ -21,28 +19,28 @@ export interface Bilingual {
   ar: string
 }
 
-/** The five plan goals, in the order the screen lists them (spec 4354 §3). */
+/** The five plan goals, in the order the screen lists them (spec 4354 §3; server `PlanGoals`). */
 export const PLAN_GOALS = ['BALANCED', 'FASTEST', 'FEWEST', 'CHEAPEST', 'PICK_UP'] as const
 export type PlanGoal = (typeof PLAN_GOALS)[number]
 
-/** The delivery modes (4281 decision 15). */
+/** The delivery modes, in the server's order (`DeliveryModes.All`). */
 export const DELIVERY_MODES = ['DAWAA_NOW', 'SLOT', 'CARRIER_SAME_DAY', 'CARRIER_NEXT_DAY', 'BEYOND_BORDER', 'PICK_UP'] as const
 export type DeliveryMode = (typeof DELIVERY_MODES)[number]
 
-/** How a solve ended (4281 decision 50). Each is a normal reply. */
+/** How a solve ended (`SolveEndings`). Each is a normal reply. */
 export const SOLVE_ENDINGS = ['PROVEN_BEST', 'BEST_FOUND', 'NO_PLAN_POSSIBLE', 'FALLBACK_ANSWERED'] as const
 export type SolveEnding = (typeof SOLVE_ENDINGS)[number]
 
-/** Why a plan is not shown (4281 decision 29, plan family). The screen writes the sentence. */
+/** Why a plan is not shown (`PlanCodes`, plan family). The screen writes the sentence. */
 export const HIDDEN_PLAN_CODES = ['NEARLY_SAME', 'WORSE_ON_EVERYTHING', 'OVER_MOST_SHOWN'] as const
 export type HiddenPlanCode = (typeof HIDDEN_PLAN_CODES)[number]
 
-/** Why a goal has no plan (4281 decision 29). The server writes the sentence too. */
+/** Why a goal has no plan (`PlanCodes`). The server writes the sentence too. */
 export const NO_PLAN_CODES = ['GOAL_OFF', 'NO_PAIR_FOR_GOAL', 'NO_SINGLE_STORE', 'PINS_CLASH', 'FALLBACK_ANSWERED'] as const
 export type NoPlanCode = (typeof NO_PLAN_CODES)[number]
 
 /**
- * The door's error codes (4281 decision 51), each with its true HTTP status. The messages are English for developers
+ * The door's fifteen errors (`AdviseErrors`), each with its true HTTP status. The messages are English for developers
  * and nobody is shown one: the screen writes its own text per code, in both languages. `ADVISE-401` never reaches a
  * screen — `@/core/api`'s 401 handler signs the user out first.
  */
@@ -65,14 +63,16 @@ export const ADVISE_ERROR_CODES = [
 ] as const
 export type AdviseErrorCode = (typeof ADVISE_ERROR_CODES)[number]
 
-// ── The request ──────────────────────────────────────────────────────────────────────────────────
+export type ReplyLevel = 'plans' | 'reasons' | 'full'
+
+// ── The request (`AdviseRequest`, read strictly: a field it does not know is `ADVISE-400`) ──────────────────────
 
 export interface AdvisePoint {
   lat: number
   lng: number
 }
 
-/** One cart line (4281 decision 10). `lineNo` is unique in the request; `quantity` is above zero. */
+/** One cart line. `lineNo` is unique in the request; `quantity` is above zero; `unit` is required. */
 export interface AdviseCartLine {
   lineNo: number
   item: string
@@ -88,8 +88,8 @@ export interface AdviseCustomer {
 }
 
 /**
- * The cart form of the request (4281 decision 11): `channel`, `lines` and `customer`, with the user route's own
- * fields. The order form (`orderNumber`, 964) and the earlier-run form (`basedOnRun`, 963) are added by their tickets.
+ * The cart form of the request: `channel`, `lines` and a place to plan for (the customer's point, a district or a store
+ * to collect from; none is `ADVISE-422`), with the user route's own fields.
  */
 export interface AdviseCartRequest {
   channel: string
@@ -99,17 +99,18 @@ export interface AdviseCartRequest {
   collectFrom?: string
   /** The local time to plan for, `yyyy-MM-dd HH:mm:ss`. Absent means now. */
   plannedFor?: string
-  level: 'plans' | 'reasons' | 'full'
+  level: ReplyLevel
   allPlans?: boolean
-  /** The pins (4281 decision 15, ticket 963). Each applies to every goal of the run. */
+  /** The pins (BackOffice 4359). Each applies to every goal of the run. */
   pins?: AdvisePin[]
-  /** The weight set (4281 decision 16, ticket 963): a saved version or the simulator's draft in full. Absent: the candidate set. */
+  /** The weight set (BackOffice 4360): a saved version or the simulator's draft in full. Absent: the candidate set. */
   weightSet?: AdviseWeightSetRef
 }
 
 /**
- * The five pins (4281 decision 15; BackOffice 4359). A pin applies to every goal of the run, is never loosened silently
- * and never overrides a filter or a rule; one that cannot hold is refused before the solve and listed in `refusedPins`.
+ * The five pins (`PinKinds`; BackOffice 4359), each with exactly the fields its kind takes. A pin applies to every
+ * goal of the run, is never loosened silently and never overrides a filter or a rule; one that cannot hold is refused
+ * before the solve and listed in `refusedPins`.
  */
 export type AdvisePin =
   | { kind: 'LINE_STORE'; lineNo: number; store: string }
@@ -136,19 +137,20 @@ export interface WeightSetVersionRef {
 export type AdviseWeightSetRef = WeightSetVersionRef | { draft: { basedOn: WeightSetVersionRef; values: WeightSetValues } }
 
 /**
- * The earlier-run form (4281 decisions 11 and 13, ticket 963): plan again on the figures of a held run, under the weight
- * set and the pins now sent. No outside read and no stock read; a change that needs a figure the run never read is read
- * afresh as a new run (`READ_AFRESH`). Mixed with the cart's fields it is refused (`ADVISE-400`).
+ * The earlier-run form (BackOffice 4380, `AdviseRequestCheck.CheckBasedOnRun`): plan again on the figures of a held
+ * (the caller's own) or stored run, with only `weightSet`, `pins`, `level` and `allPlans` beside it. No outside read and
+ * no stock read; a change that needs a figure the run never read is read afresh as a new run (`READ_AFRESH`, with
+ * `readAfresh` in the reply). A cart's field beside it is `ADVISE-400`.
  */
 export interface AdviseRerunRequest {
   basedOnRun: string
   weightSet?: AdviseWeightSetRef
   pins?: AdvisePin[]
-  level: 'plans' | 'reasons' | 'full'
+  level: ReplyLevel
   allPlans?: boolean
 }
 
-// ── The reply ────────────────────────────────────────────────────────────────────────────────────
+// ── The reply (`RunRecord`) ──────────────────────────────────────────────────────────────────────
 
 export interface AdviseWeightSetUsed {
   name: string
@@ -156,10 +158,11 @@ export interface AdviseWeightSetUsed {
   candidate: boolean
   trial: boolean
   draft: boolean
-  basedOn?: { name: string; version: number }
+  /** For a draft only: the saved version it was changed from. */
+  basedOn?: WeightSetVersionRef
 }
 
-/** The time of each stage, in milliseconds (4281 decision 22). */
+/** The time of each stage, in whole milliseconds. */
 export interface AdviseStageTimes {
   waited: number
   localReads: number
@@ -174,22 +177,27 @@ export interface AdviseStageTimes {
 /** The order the stage times are listed in. */
 export const STAGE_NAMES = ['waited', 'localReads', 'stockRead', 'roadDistance', 'coverage', 'slots', 'solve', 'total'] as const satisfies readonly (keyof AdviseStageTimes)[]
 
+/** One assumed money row a run used (BackOffice 4363): its part (`MoneyRowCodes`), the mode or channel, its source. */
+export interface AdviseAssumedRow {
+  part: string
+  mode?: string
+  channel?: string
+  source: string
+}
+
 export interface AdviseSolve {
   ending: SolveEnding
   /** For the fallback: what failed in the search. */
-  why?: string | null
+  why?: string
   plansChecked: number
   workBudget: number
   pairs: { beforeCut: number; cut: number; offered: number }
   ms: AdviseStageTimes
-  stoodIn: { read: string; why: 'LATE' | 'FAILED' | 'EMPTY' | string; standIn: string }[]
+  stoodIn: { read: string; why: string; standIn: string }[]
+  /** The run's marks (`RunMarks`): `ROAD_NOT_MEASURED`, `ASSUMED_RATES`, `READ_AFRESH`, `NOT_HELD`, … */
   marks: string[]
-  /**
-   * With the mark `READ_AFRESH`: why the change needed a figure the earlier run never read (4281 decision 13: "the
-   * reply says so with the mark `READ_AFRESH` and why").
-   * PROVISIONAL (spec 4354: not specified) — 4281 gives the "why" no field; `readAfreshWhy` is ours.
-   */
-  readAfreshWhy?: string | null
+  /** Every assumed money row the shown plans stand on, once each; absent when none (BackOffice 4363). */
+  assumed?: AdviseAssumedRow[]
 }
 
 export interface AdvisePromise extends Bilingual {
@@ -198,12 +206,21 @@ export interface AdvisePromise extends Bilingual {
 }
 
 export interface AdviseShipmentPromise extends Bilingual {
+  /** `PromiseKinds`: `BY`, `BETWEEN`, `READY_BY`. */
   kind: 'BY' | 'BETWEEN' | 'READY_BY' | string
   from?: string
   by: string
 }
 
 export type FeeSource = 'MEASURED' | 'FINANCE' | 'ASSUMED' | string
+
+/** A carrier shipment's contract row (BackOffice 4361), and whether the row is an assumption. */
+export interface AdviseShipmentContract {
+  contract: string
+  courier: string
+  cutOff: string
+  assumed: boolean
+}
 
 export interface AdviseShipment {
   no: number
@@ -217,20 +234,47 @@ export interface AdviseShipment {
   fee: number
   feeSource: FeeSource
   companyCost: number
-  km: number | null
-  kmKind: 'ROAD' | 'STRAIGHT_LINE' | string | null
-  /** The middle level and up: each part of the company's cost (4281 decision 26). */
+  /** Absent when the store or the customer has no point. */
+  km?: number
+  /** `ROAD`, `CALLOUT_KM` or `STRAIGHT_LINE`. */
+  kmKind: string
+  contract?: AdviseShipmentContract
+  /** `ShipmentMarks`: `NO_LOCATION`, `NO_TOTAL`, `LATER_SLOT_CHEAPER`. Absent when none. */
+  marks?: string[]
+  /** The middle level and up: each part of the company's cost, with its source; they add up to `companyCost`. */
   costParts?: AdviseCostPart[]
-  /** The middle level and up: each part of the promise (4281 decision 26). */
+  /** The middle level and up: the promise in its parts (`InputPromiseParts`). */
   promiseParts?: AdvisePromiseParts
+  /** The middle level and up (BackOffice 4376): the no-stock cost, part of `companyCost`. */
+  noStockCost?: number
+  /** The middle level and up (BackOffice 4386): the store record cost with a line per measure. */
+  storeRecord?: AdviseStoreRecordCost
+  /** The middle level and up (BackOffice 4386): slot delivery's slot taken and the store's next listed slots. */
+  slotCosts?: AdviseSlotCosts
+  /** The middle-level parts no screen reads yet (`shelfChances`, `storeCount`). */
+  shelfChances?: unknown[]
+  storeCount?: unknown
 }
 
+/** The six figures behind a mark. The two held figures are absent when the stock service could not split them. */
+export interface AdviseLineFigures {
+  tillStock: number
+  sapStock?: number
+  heldByOrders?: number
+  heldByDeliveries?: number
+  shown: number
+  asked: number
+  splitUnknown?: boolean
+}
+
+/** A line planned with a mark (`LineCodes`; today `FIGURE_SHORT`), at every level. */
 export interface AdviseLineMark {
   lineNo: number
   code: 'FIGURE_SHORT' | string
   store: string
+  mode: string
   stockClass: string
-  figures: { tillStock: number; sapStock: number; heldByOrders: number; heldByDeliveries: number; shown: number; asked: number }
+  figures: AdviseLineFigures
   row: number
   factor: number
   chance: number
@@ -241,25 +285,35 @@ export interface AdviseLineMark {
 export interface AdviseMissingLine extends Bilingual {
   lineNo: number
   code: string
-  bestStore?: string | null
-  bestStoreUnits?: number | null
+  bestStore?: string
+  bestStoreUnits?: number
   asked?: number
   stockClass?: string
   pairsCut?: number
 }
 
 /**
- * The balanced sum in parts (4281 decision 26, the middle level): the company's cost, the customer's fees, the price
- * of waiting, the cover cost, the split penalty, and the balanced total they add to.
- * PROVISIONAL (spec 4354: not specified) — 4281 names the parts in words only; these field names are ours.
+ * The balanced sum in its parts (`RecordSum`, the middle level): the company's cost and the customer's fees, each held
+ * as it counts (times its weight), the price of waiting, the cover cost, the split penalty, and the total they add to.
  */
 export interface AdvisePlanSum {
+  companyCostWeight: number
+  feeWeight: number
   companyCost: number
   fees: number
   waiting: number
   cover: number
-  split: number
+  splitPenalty: number
   total: number
+}
+
+export interface AdvisePlanTotals {
+  shipments: number
+  linesServed: number
+  fee: number
+  companyCost: number
+  /** The company's cost less the customer's fees, shown and ranking nothing (BackOffice 4363). */
+  companyNet: number
 }
 
 export interface AdvisePlan {
@@ -271,7 +325,9 @@ export interface AdvisePlan {
   bestFound: boolean
   fallback: boolean
   trialSet: boolean
-  totals: { shipments: number; linesServed: number; fee: number; companyCost: number }
+  /** The plan's marks (BackOffice 4362), e.g. `RANGE_NOT_CONFIRMED`. Absent when none. */
+  marks?: string[]
+  totals: AdvisePlanTotals
   shipments: AdviseShipment[]
   lineMarks: AdviseLineMark[]
   missingLines: AdviseMissingLine[]
@@ -282,7 +338,7 @@ export interface AdvisePlan {
 export interface AdviseNoPlan extends Bilingual {
   goal: PlanGoal
   code: NoPlanCode | string
-  /** For the pick-up goal: the lines no single store holds together. */
+  /** With `NO_SINGLE_STORE`: the lines no single store holds together. */
   lines?: number[]
 }
 
@@ -293,34 +349,38 @@ export interface AdviseHiddenPlan {
   as?: PlanGoal
   minutesApart?: number
   riyalsApart?: number
-  /** With `allPlans`: the plan itself. PROVISIONAL (spec 4354: not specified) — 4281 says "each also holds the plan itself" without a field name. */
+  /** With `allPlans`: the plan itself. */
   plan?: AdvisePlan
 }
 
 /**
- * A pin the run refused before the solve (4281 decision 24; BackOffice 4359): the pin as sent, its code (`PIN_PAIR_REMOVED`,
- * `PIN_NO_STOCK`, `PIN_NO_STOCK_ROW`, `PINS_CLASH`) and the figures behind it — for a removed pair the filter step and its
- * code and the rule; for pins that clash together, the pins and the rule they break.
+ * A pin the run refused before the solve, or pins that clash together on some goals (`RecordRefusedPin`): the pin as
+ * sent (`pin`) or the pins that clash (`pins`), its code (`PinCodes`) and the figures behind it — for a removed pair the
+ * filter step (absent at the cut) and its code, the pair, a product rule's id and sentence; for no stock the units
+ * offered and asked; for a clash the rule they break and the goals left without a plan.
  */
 export interface AdviseRefusedPin {
   pin?: AdvisePin
-  /**
-   * For `PINS_CLASH`: the pins that clash together.
-   * PROVISIONAL (spec 4354: not specified) — 4281 says a clash carries "the pins and the rule they break" without a field
-   * name; `pins` is ours.
-   */
   pins?: AdvisePin[]
   code: 'PIN_PAIR_REMOVED' | 'PIN_NO_STOCK' | 'PIN_NO_STOCK_ROW' | 'PINS_CLASH' | string
-  step?: number | string | null
-  stepCode?: string | null
-  rule?: string | null
+  step?: number
+  stepCode?: string
+  store?: string
+  mode?: string
+  units?: number
+  asked?: number
+  rule?: string
+  goals?: string[]
+  en?: string
+  ar?: string
 }
 
-/** The same run without its pins, at the plans-only level (4281 decision 24), only when pins were sent. */
+/** The same run without its pins, at the plans-only level, only when pins were sent. */
 export interface AdviseWithoutPins {
+  solve: AdviseSolve
   plans: AdvisePlan[]
-  noPlan?: AdviseNoPlan[]
-  hiddenPlans?: AdviseHiddenPlan[]
+  noPlan: AdviseNoPlan[]
+  missingLines?: AdviseMissingLine[]
 }
 
 export interface AdviseReplyLine {
@@ -328,32 +388,55 @@ export interface AdviseReplyLine {
   item: string
   quantity: number
   unit: string
-  namedStore?: string | null
-  namedBy?: string | null
+  /** The quantity in the stock read's unit, when it differs (a part-pack line, BackOffice 4381). */
+  stockQuantity?: number
+  namedStore?: string
+  /** `NamedByCodes`: `REQUEST`, `COLLECT_FROM`, `DELIVERY`, `PIN`. */
+  namedBy?: string
+}
+
+/** A run asked as `basedOnRun` whose change needed a figure that run never read, so it was read afresh (BackOffice 4380). */
+export interface AdviseReadAfresh {
+  /** The run named in `basedOnRun`. */
+  fromRun: string
+  /** Each change that needed a new read (`AfreshReasons`): `MODE_SWITCHED_ON`, `REACH_WIDENED`, `PAIR_CAP_RAISED`, `PIN_ONTO_CUT_PAIR`. */
+  why: string[]
+}
+
+/** Only on a stored run opened again (BackOffice 4380): the engine that solved it again, and whether it plans the same. */
+export interface AdviseOpenedAgain {
+  engine: { name: string; version: string }
+  /** False when today's engine answers with other plans than the stored ones (the stored plans are shown). */
+  samePlans: boolean
 }
 
 /**
- * The reply's `data`: the run record at the level asked. The middle and full levels' parts (`inputs`, `filterSteps`,
- * `used`, `search`) are typed as their tickets read them (963–966); 962 reads the header, `solve`, the plans and what
- * stands beside them.
+ * The reply's `data`: the run record at the level asked. `inputs`, `filterSteps` and `used` come from the middle level
+ * up, `search` at the full level only.
  */
 export interface AdviseReply {
   runId: string
   formatVersion: number
   engine: { name: string; version: string }
   kind: 'HAND_BUILT' | 'REPLAY' | 'REPLAY_MOVED_POINT' | 'CHECKOUT' | 'COMPARISON' | string
-  level: 'plans' | 'reasons' | 'full'
+  level: ReplyLevel
   ranAt: string
   plannedFor: string
   madeBy: string
   channel: string
-  orderNumber?: string | null
-  orderRef?: string | null
-  cartRef?: string | null
+  orderNumber?: string
+  orderRef?: string
+  cartRef?: string
   weightSet: AdviseWeightSetUsed
-  basedOnRun?: string | null
-  figuresReadAt?: string | null
-  held?: { until: string } | null
+  /** On a run planned again on the same figures: the run whose figures it solved, and when they were read. */
+  basedOnRun?: string
+  figuresReadAt?: string
+  /** A `basedOnRun` read afresh instead (with the solve mark `READ_AFRESH`). */
+  readAfresh?: AdviseReadAfresh
+  /** When the door stops holding the run; absent when it is not held. */
+  held?: { until: string }
+  /** Only on a stored run opened again. */
+  openedAgain?: AdviseOpenedAgain
   solve: AdviseSolve
   lines: AdviseReplyLine[]
   plans: AdvisePlan[]
@@ -361,23 +444,26 @@ export interface AdviseReply {
   hiddenPlans: AdviseHiddenPlan[]
   refusedPins: AdviseRefusedPin[]
   /** Only when pins were sent: the run without them, at the plans-only level. */
-  withoutPins?: AdviseWithoutPins | null
+  withoutPins?: AdviseWithoutPins
   /** On `NO_PLAN_POSSIBLE`: a reason for every line. */
   missingLines?: AdviseMissingLine[]
   inputs?: AdviseInputs
   filterSteps?: AdviseFilterStep[]
   used?: AdviseUsedFactor[]
   search?: AdviseSearch
-  customerPoint?: AdvisePoint | null
-  customerPointWithheld?: CustomerPointWithheld | string | null
-  /** On a replay (964): what routing did with the order. See {@link AdviseWhatHappened}. */
-  whatHappened?: AdviseWhatHappened | null
+  /** Reply only (BackOffice 4381): the customer's real point (a replay, the full level, the customer-point grant), or the pin moved by hand. */
+  customerPoint?: AdvisePoint
+  /** Reply only: why the point asked for is not given. Never an error. */
+  customerPointWithheld?: CustomerPointWithheld | string
+  /** Reply only, on a replay of the order's own point (BackOffice 4381): its deliveries as they happened. */
+  whatHappened?: AdviseWhatHappened[]
 }
 
 /**
  * What the simulator's workbench reads before a run: Google's key for the map the customer is placed on.
- * PROVISIONAL (spec 4354: not specified) — no key source is decided for the advisor (the advise reply carries no
- * `maps` part); `GET SourcingAdvisor/Workbench` is our name for a door that would carry one.
+ * SERVER GAP (spec 4354) — the server has no key door for the advisor: BackOffice serves the browser key only inside
+ * the analytics and insurance models (`AnalyticsMapsInfo`), each behind its own grant. `GET SourcingAdvisor/Workbench`
+ * does not exist; until BackOffice adds a door the map cannot draw and the screen shows its table.
  */
 export interface SimulatorWorkbench {
   maps?: { key: string; mapId?: string } | null
@@ -442,190 +528,269 @@ export interface WeightSetSaveRequest {
   values: WeightSetValues
 }
 
-// ── The middle and full levels' parts "why this plan" and "what the run used" read (ticket 965) ────────────────────
-// 4281 decisions 26 and 27 and its worked example name what is not marked. BackOffice 4363 (money), 4366 (promise),
-// 4386 (store record, slot costs) and 4379 (levels, `used[]`) build them; reconcile here when they land.
+// ── The middle and full levels' parts (BackOffice 4363, 4365, 4366, 4376, 4379, 4386) ───────────────────────────
 
-/** One part of a shipment's company's cost (4281 decision 26): `DELIVERY_RATE`, `HANDLING`, `STORE_RECORD`, `NO_STOCK`, `SLOT_LOAD`, `SLOT_TIMING`. */
+/** One part of a shipment's company's cost (`CostPartCodes`), with its source (`SourceCodes`). */
 export interface AdviseCostPart {
   part: string
   amount: number
-  /** A source code: `MEASURED`, `FINANCE`, `ASSUMED`, `STEADIED`, `WEIGHT_SET`, … */
   source: string
 }
 
-/** A promise figure in minutes, usual and cautious, with its source (4281's `madeReady`). */
+/** A promise figure in minutes, usual and cautious, with its source (`InputPromisePart`). */
 export interface AdvisePromiseFigure {
   usual: number
   cautious: number
   source: string
 }
 
-/** A lengthener (4366): its band and the minutes it adds to the usual and to the cautious figure. */
-export interface AdviseLengthener {
-  /** `DELIVERIES_WAITING` (4281); `BASKET_LINES` and `HOUR_OF_DAY` are PROVISIONAL (spec 4354: not specified). */
-  name: string
-  band: string
-  usual: number
-  cautious: number
+/** Dawaa Now's travel part: the figure, and the line it stands on (km, its kind, fixed + per km, the run-over). */
+export interface AdviseTravelFigure extends AdvisePromiseFigure {
+  km: number
+  kmKind: string
+  fixed: number
+  perKm: number
+  runOver: number
 }
 
+/** The lengtheners (`Solver.Lengtheners`). */
+export const LENGTHENERS = ['DELIVERIES_WAITING', 'BASKET_LINES', 'HOUR_OF_DAY'] as const
+
 /**
- * One of the store's next two listed slots, worked out beside the slot a plan takes (4386).
- * PROVISIONAL (spec 4354: not specified) — 4386 names the content (slot load, slot timing, the price of waiting to its
- * end), no field names.
+ * One lengthener as the promise read it (BackOffice 4366): the value read and the start of its band, the minutes it
+ * added to the usual and the cautious figure, and its state — `ADDS`, `NO_EFFECT`, `NO_BANDS`, `OFF` or `NOT_READ`.
  */
-export interface AdviseNextSlot {
-  code: string
+export interface AdviseLengthener {
+  lengthener: string
+  value?: number
+  bandFrom?: number
+  usual: number
+  cautious: number
+  state: string
+}
+
+/** A listed slot not taken: `INACTIVE`, `INSIDE_LEAD` or `BEFORE_READY`. */
+export interface AdviseSkippedSlot {
+  code?: string
+  from: string
+  why: string
+}
+
+/** The slot a slot delivery promises, and the listed slots it skipped (BackOffice 4364). */
+export interface AdviseSlotTaken {
+  code?: string
   from: string
   to: string
-  /** The balanced sum the plan would have had on this slot. */
+  /** `HYBRIS` or `RULE_TABLE`. */
+  source: string
+  skipped: AdviseSkippedSlot[]
+}
+
+/** The promise in its parts (`InputPromiseParts`; the wire's `shipments[].promiseParts`). */
+export interface AdvisePromiseParts {
+  /** Not rounded. */
+  pickEnd: string
+  madeReady?: AdvisePromiseFigure
+  courierWait?: AdvisePromiseFigure
+  travel?: AdviseTravelFigure
+  /** The one margin, after the multiplier, in minutes. */
+  margin: number
+  marginMultiplier: number
+  /** The usual figures added plus the margin, before rounding. */
+  unroundedMinutes: number
+  /** The promise: the unrounded minutes up to the next 5. */
+  minutes: number
+  /** Slot delivery only. */
+  slot?: AdviseSlotTaken
+  /** When the pick starts, when not at the time planned for (a store closed now). */
+  pickStart?: string
+  /** Pick-up only: the target, a system setting (30 minutes). */
+  target?: number
+  /** Absent on a record from before BackOffice 4366. */
+  lengtheners?: AdviseLengthener[]
+}
+
+/** One measure of a shipment's store record cost (`RecordStoreRecordLine`): failure price × (steadied − expected). */
+export interface AdviseStoreRecordLine {
+  /** `StoreRecordMeasures`: `LATE`, `RETURNED`, `CANCELLED`, `NEVER_READY`, `READY_LATE`, `CALLOUT_IGNORED`. */
+  measure: string
+  /** `STEADIED`, `NEUTRAL_DEFAULT` (no counted delivery: costs nothing) or `SWITCHED_OFF`. */
+  source: string
+  badEndings: number
+  deliveries: number
+  storeRate: number
+  likeRate: number
+  expectedRate: number
+  steadiedRate: number
+  failurePrice: number
+  /** Below zero, a credit. */
+  cost: number
+}
+
+/** A shipment's store record cost (BackOffice 4386): the sum of its measures' lines. */
+export interface AdviseStoreRecordCost {
+  cost: number
+  steadyingCount: number
+  lines: AdviseStoreRecordLine[]
+}
+
+/** One slot of a slot delivery's slot costs (`RecordSlotCost`). */
+export interface AdviseSlotCost {
+  code?: string
+  from: string
+  to: string
+  taken: boolean
+  standing?: number
+  usualSlot?: number
+  load?: number
+  loadPoints: number
+  loadCost: number
+  loadSource: string
+  hoursToSlot: number
+  hoursBand: string
+  place: string
+  returnedPoints: number
+  latePoints: number
+  timingCost: number
+  timingSource: string
+  /** The price of waiting to the slot's end. */
+  waiting: number
+  /** Slot load cost + slot timing cost + the price of waiting. */
   sum: number
 }
 
-export interface AdviseSlotTaken {
-  code: string
-  from: string
-  to: string
-  source: string
-  /** The earlier slots passed over and why (`INSIDE_LEAD`, 4281; `NOT_ACTIVE` is PROVISIONAL (spec 4354: not specified)). */
-  skipped: { from: string; why: string }[]
-  /** PROVISIONAL (spec 4354: not specified) — the next two listed slots (4386). */
-  next?: AdviseNextSlot[]
-  /** PROVISIONAL (spec 4354: not specified) — 4386's mark "a later slot's sum was lower"; no plan takes that slot. */
-  laterCheaper?: boolean
+/** Slot delivery's slot costs (BackOffice 4386): `slots[0]` is the slot taken, the rest the store's next listed slots. */
+export interface AdviseSlotCosts {
+  centre?: { returned: number; late: number }
+  channelGroup: string
+  slots: AdviseSlotCost[]
+  /** A later slot's sum was lower than the earliest slot's (no plan takes it). */
+  laterSlotCheaper: boolean
 }
 
-/** Each part of a shipment's promise (4281 decision 26: usual and cautious, with source; lengtheners; margin; pick end; slot). */
-export interface AdvisePromiseParts {
-  pickEnd: string
-  /**
-   * PROVISIONAL (spec 4354: not specified) — which rule set the pick end (spec §7): `CAUTIOUS_MADE_READY`,
-   * `HALF_WAY_TO_SLOT`, `SLOT_START`, `FOUR_HOURS`, `STORE_CLOSES`.
-   */
-  pickEndRule?: string
-  /** PROVISIONAL (spec 4354: not specified) — the usual time, shown and never planned on (model ticket 4243). */
-  usualBy?: string
-  madeReady?: AdvisePromiseFigure
-  /** PROVISIONAL (spec 4354: not specified) — Dawaa Now's courier wait (spec §7). */
-  courierWait?: AdvisePromiseFigure
-  /** PROVISIONAL (spec 4354: not specified) — Dawaa Now's travel; its source says road, callout km or straight line. */
-  travel?: AdvisePromiseFigure
-  /** PROVISIONAL (spec 4354: not specified) — the one margin for all three parts (4281 says "the margin"). */
-  margin?: { minutes: number; source: string }
-  /** PROVISIONAL (spec 4354: not specified) — pick-up's target in minutes (4366: 30, a system setting). */
-  target?: number
-  lengtheners: AdviseLengthener[]
-  slot?: AdviseSlotTaken | null
-}
-
-/**
- * One measure of a store's record for one mode (4281's `record.SLOT.late`). Measures other than `late` —
- * `returned`, `cancelled`, `neverMadeReady`, `calloutIgnored`, `readyLate` — are PROVISIONAL (spec 4354: not specified).
- */
-export interface AdviseRecordMeasure {
-  rate: number
-  likeStores: number
-  count: number
-  /** `STEADIED`, `STORES_OWN`, `LIKE_STORES` or `NEUTRAL_DEFAULT`. */
-  source: string
-  /** PROVISIONAL (spec 4354: not specified) — the measure's cost (a credit below zero), 4386's per-measure figure. */
-  cost?: number
-}
-
-/** A store the run read (4281 decision 26, `inputs.stores[]`). */
+/** A store the run read (`InputStore`). The record carries no store's point: the map reads the store list's. */
 export interface AdviseStoreInput {
   store: string
   name: string
-  point?: AdvisePoint | null
-  km?: number | null
-  kmKind?: string | null
-  deliveriesWaiting?: number
-  madeReady?: Record<string, AdvisePromiseFigure>
-  /** Per mode, per measure. */
-  record?: Record<string, Record<string, AdviseRecordMeasure>>
+  km?: number
+  kmKind: string
+  shortFigureFactor?: number
+  cities?: string[]
 }
 
-/** The run's inputs (4281 decision 26). The parts no screen reads yet stay untyped. */
+/** The stock working of one store, item and mode (`RecordStockWorking`, BackOffice 4375 and 4379), written after the solve. */
+export interface AdviseStockWorking {
+  mode: string
+  /** The stock read's figure after open demand, floored at zero. */
+  netted: number
+  confidence: number
+  confidenceSource: string
+  afterConfidence: number
+  walkInOff?: string
+  band: string
+  rate: number
+  pickEndMinutes?: number
+  hours: number
+  expected: number
+  /** Shown only; plans nothing. */
+  expectedAtPickEnd: number
+  computedBuffer: number
+  overrideUnits?: number
+  buffer: number
+  /** That figure × the confidence, less the buffer, never below zero. The solver plans on this. */
+  offered: number
+}
+
+/** Per store and item (`InputStoreLine`, the middle level): the stock read's figures as read, and the working per mode. */
+export interface AdviseStoreLine {
+  store: string
+  item: string
+  /** The stock read's figure after open demand (today's ATP), as read. */
+  afterOpenDemand: number
+  tillStock?: number
+  sapStock?: number
+  heldByOrders?: number
+  heldByDeliveries?: number
+  /** The units of the replayed order added back to this pair. */
+  addedBack?: number
+  working?: AdviseStockWorking[]
+}
+
+/** A store's made-ready time for one mode (`InputMadeReady`). */
+export interface AdviseMadeReady extends AdvisePromiseFigure {
+  store: string
+  mode: string
+}
+
+/** The run's inputs (`RunInputs`). The parts no screen reads stay untyped. */
 export interface AdviseInputs {
   stores?: AdviseStoreInput[]
   storeLines?: AdviseStoreLine[]
+  madeReady?: AdviseMadeReady[]
+  deliveriesWaiting?: { store: string; count: number }[]
   [part: string]: unknown
 }
 
-/**
- * How a factor ran (4281 decision 26). `REAL_DATA` and `SWITCHED_OFF` are 4281's; the other two states are named in
- * prose only — `NEUTRAL_DEFAULT` and `ASSUMED` are PROVISIONAL (spec 4354: not specified), taken from the source codes.
- */
-export const USED_STATES = ['REAL_DATA', 'NEUTRAL_DEFAULT', 'ASSUMED', 'SWITCHED_OFF'] as const
+/** How a factor ran (`UsedStates`). */
+export const USED_STATES = ['REAL_DATA', 'NEUTRAL_DEFAULT', 'ASSUMPTION', 'SWITCHED_OFF'] as const
 export type UsedState = (typeof USED_STATES)[number]
 
+/** One factor of the run (`RecordUsed`): what it ran on and where that came from. */
 export interface AdviseUsedFactor {
-  /** `DELIVERIES_WAITING`, `RIDERS_AVAILABLE` (4281); every other factor code is PROVISIONAL (spec 4354: not specified). */
+  /** `UsedFactors`: `MODES`, `STOCK`, `BUFFER`, `MADE_READY`, `DELIVERY_RATE`, … */
   factor: string
+  /** For a factor read per mode (a delivery rate, a fee). */
+  mode?: string
   state: UsedState | string
-  /** A source code, or the server's own words ("live count, 38 seconds old"). */
-  source: string
-  /**
-   * PROVISIONAL (spec 4354: not specified) — how the factor enters, the model ticket's "role":
-   * `FILTER`, `OFFERED_STOCK`, `PROMISE`, `COST`, `RULE`.
-   */
-  entersAs?: string
+  /** A source code (`SourceCodes`), when one names where the figure came from. */
+  source?: string
+  /** On real data for some stores and its neutral default for others: how many stores ran on the default. */
+  storesOnDefault?: number
 }
 
-// ── The middle and full levels' parts the solver tab reads (ticket 966; 4281 decisions 26–27, the run record 4242) ──
-
 /**
- * A pair a filter step removed (4281's worked example, middle level): the store and the mode, and the figures the rule
- * judged on — the distance and the reach for `OUT_OF_REACH`, the line, the offered stock and the quantity asked for a
- * stock step. Which figures come depends on the code.
+ * A pair a filter step removed (`RecordRemovedPair`): the pair, the line at a line step, the code when it is not the
+ * step's own, and the figures the rule judged on.
  */
 export interface AdviseRemovedPair {
   store: string
   mode: DeliveryMode | string
   lineNo?: number
+  code?: string
   km?: number
-  kmKind?: 'ROAD' | 'STRAIGHT_LINE' | string
+  kmKind?: string
   reachKm?: number
   offered?: number
   asked?: number
-  stockClass?: string
+  rule?: string
+  /** At the cut: `MOST_PAIRS` or `MOST_STORES`. */
+  cutBy?: string
+  readForTrials?: boolean
+}
+
+/** The whole-store steps (1, 2, 4, 5): per mode, the count and the nearest five removed. */
+export interface AdviseModeRemovals {
+  mode: string
+  count: number
+  nearest: AdviseRemovedPair[]
 }
 
 /**
- * One filter step, or the cut (`step: "CUT"`, code `OVER_PAIR_CAP`, with the `cap`), in the order the run took them
- * (spec 4354 §4): the pairs standing before and after, and each pair removed with its code and figures. The full level
- * lists every store out of reach, each with its km.
+ * One filter step, or the cut (`step: "CUT"`, code `OVER_PAIR_CAP`, with its `cap`), in the order the run took them:
+ * the pairs standing before and after, how many removals it made, and each removal with its figures. Steps 1 and 2 are
+ * never listed pair by pair; the whole-store steps carry `byMode`, and list every removal of 4 and 5 at the full level.
  */
 export interface AdviseFilterStep {
   step: number | 'CUT'
   code: string
   before: number
   after: number
-  /** On the cut only: the most pairs a run keeps (a weight-set value, 100). */
   cap?: number
-  removed: AdviseRemovedPair[]
-}
-
-/** Per store and line (the middle level, `inputs.storeLines[]`): the stock working the solver planned on (spec 4354 §5). */
-export interface AdviseStoreLine {
-  store: string
-  lineNo: number
-  tillStock: number
-  sapStock: number
-  heldByOrders: number
-  heldByDeliveries: number
-  /** The stock read's figure after open demand, floored at zero: the starting figure. */
-  atp: number
-  buffer: number
-  confidence: number
-  /** That figure × the confidence, rounded, less the buffer, never below zero. The solver plans on this. */
-  offered: number
-  /** Shown only; plans nothing. */
-  expectedAtPickEnd: number
-  stockClass: string
-  row: number
-  cost: number
+  mostStores?: number
+  removedCount: number
+  byMode?: AdviseModeRemovals[]
+  removed?: AdviseRemovedPair[]
+  readForTrials?: AdviseRemovedPair[]
 }
 
 /** One of a kept plan's shipments: the pair and the lines it carries. */
@@ -635,42 +800,44 @@ export interface AdviseKeptShipment {
   lines: number[]
 }
 
-/**
- * One of the best plans kept for a goal (the full level, `search.kept[]`; 50 per goal, a system setting): its rank,
- * its balanced total (`sum`), what it lost by against the goal's winner and the part that cost it most.
- * The run record (BackOffice 4242) says each kept plan also has its promise, fee, company's cost and price of waiting;
- * 4281's example shows none of them, so those four names are ours.
- */
-export interface AdviseKeptPlan {
+/** A plan as the search priced it (`RecordPricedPlan`). */
+export interface AdvisePricedPlan {
+  linesServed: number
+  /** The last shipment's promise time. */
+  by: string
+  fee: number
+  companyCost: number
+  waiting: number
+  /** The balanced sum. */
+  sum: number
+  shipments: AdviseKeptShipment[]
+}
+
+/** One of the best plans kept for a goal (`RecordKeptPlan`): rank 1 is the goal's own plan. */
+export interface AdviseKeptPlan extends AdvisePricedPlan {
   goal: PlanGoal
   rank: number
-  sum: number
   lostBy: number
-  /** A balanced-sum part (`WAITING` in 4281's example). Absent on the goal's winner. */
-  lostMostOn?: string | null
-  shipments: AdviseKeptShipment[]
-  /** PROVISIONAL (spec 4354: not specified) — the last shipment's promise time, `yyyy-MM-dd HH:mm:ss`. */
-  promiseBy?: string
-  /** PROVISIONAL (spec 4354: not specified) — the customer's fee for the whole plan. */
-  fee?: number
-  /** PROVISIONAL (spec 4354: not specified) — the company's cost for the whole plan. */
-  companyCost?: number
-  /** PROVISIONAL (spec 4354: not specified) — the price of waiting. */
-  waiting?: number
+  /** A sum part (`SumParts`); absent when no part is dearer than the winner's. */
+  lostMostOn?: string
 }
 
 /**
- * "Why not" for one pair and goal (4281 decision 27): the best plan through the pair and the difference part by part,
- * or the filter step that removed it and its code.
+ * "Why not" one pair (`RecordWhyNot`): for a pair the search was given, per goal, the best plan through it and its
+ * difference from the goal's plan part by part (or `SERVES_FEWER` / `NOT_REACHED`); for a pair a step after reach or the
+ * cut removed, the step and its code. A pair steps 1 to 5 removed is answered by `filterSteps`.
  */
 export interface AdviseWhyNot {
   store: string
   mode: DeliveryMode | string
   goal?: PlanGoal
-  sum?: number
-  difference?: { part: string; amount: number }[]
-  removedAt?: number | string
+  removedAt?: number | 'CUT'
   code?: string
+  /** The best plan through the pair is the goal's own plan. */
+  isPlan?: boolean
+  plan?: AdvisePricedPlan
+  lostBy?: number
+  difference?: { part: string; amount: number }[]
 }
 
 /** The search counts: plans checked; branches cut by the shipment cap, by mixing pick-up with delivery and by pins. */
@@ -681,109 +848,74 @@ export interface AdviseSearchCounts {
   cutByPins: number
 }
 
-/** The full level's search (4281 decision 27). */
+/** The full level's search. */
 export interface AdviseSearch {
-  counts?: AdviseSearchCounts
-  kept?: AdviseKeptPlan[]
-  whyNot?: AdviseWhyNot[]
+  counts: AdviseSearchCounts
+  kept: AdviseKeptPlan[]
+  whyNot: AdviseWhyNot[]
 }
 
-// ── The replay (ticket 964; BackOffice 4381) ────────────────────────────────────────────────────
+// ── The replay (BackOffice 4381) ────────────────────────────────────────────────────────────────
 
 /**
- * The order form of the request (4281 decision 11): `orderNumber` alone replays that order on today's figures; with
- * `customer.point` beside it the replay plans from that point (kind `REPLAY_MOVED_POINT`). `withCustomerPoint` asks for
- * the order's real point back (4281 decision 17).
+ * The order form of the request (`AdviseRequestCheck.CheckOrder`): `orderNumber`, the server reads the order's cart;
+ * beside it only the pin moved by hand (`customer.point`, kind `REPLAY_MOVED_POINT`), `weightSet`, `pins`, `level`,
+ * `allPlans`, `plannedFor` and `withCustomerPoint` (the order's real point back, decision 17).
  */
 export interface AdviseReplayRequest {
   orderNumber: string
   customer?: { point: AdvisePoint }
-  level: 'plans' | 'reasons' | 'full'
+  level: ReplyLevel
   allPlans?: boolean
   withCustomerPoint?: boolean
+  pins?: AdvisePin[]
+  weightSet?: AdviseWeightSetRef
 }
 
-/** Why the reply holds no customer's point (4281 decision 17). Never an error. */
+/** Why the reply holds no customer's point (`CustomerPointWithheld`). Never an error. */
 export const CUSTOMER_POINT_WITHHELD = ['NO_GRANT', 'NOT_A_REPLAY', 'NOT_FULL_LEVEL'] as const
 export type CustomerPointWithheld = (typeof CUSTOMER_POINT_WITHHELD)[number]
 
 /**
- * "What happened" on a replay (BackOffice 4381: "the store and mode routing chose, when it was delivered, late or not,
- * the fee"): the order's real deliveries, joined when shown (4244), with the totals sent beside their parts.
- * PROVISIONAL (spec 4354: not specified) — 4381 names the facts in words only; every field name here is ours.
+ * One delivery of a replayed order as it happened (`RecordWhatHappened`): the store routing chose, the advisor's mode
+ * its type reads as, the lines it carried, when it came in and was delivered, late or not, and the fee paid (a fact).
  */
 export interface AdviseWhatHappened {
-  /** When the order was placed, local. PROVISIONAL (spec 4354: not specified). */
-  placedAt: string
-  deliveries: AdviseWhatHappenedDelivery[]
-  /** PROVISIONAL (spec 4354: not specified). */
-  totals: { deliveries: number; fee: number }
-}
-
-/** One real delivery of the replayed order. PROVISIONAL (spec 4354: not specified) — every field name is ours. */
-export interface AdviseWhatHappenedDelivery {
-  /** The delivery document's number. */
-  delivery: string
+  deliveryNo: string
   store: string
-  storeName: string
-  mode: DeliveryMode | string
-  /** The end of what it was promised by (a slot's end), local; null when none was recorded. */
-  promisedBy: string | null
-  /** When it was delivered, local; null while it is not. */
-  deliveredAt: string | null
-  /** Null while it is not delivered. */
-  late: boolean | null
-  minutesLate: number | null
-  /** The fee the customer paid for it. */
+  /** Absent when no mode reads the delivery's type. */
+  mode?: DeliveryMode | string
+  lines: number[]
+  cameInAt: string
+  /** Absent while it is not delivered. */
+  deliveredAt?: string
+  /** Delivered after its promise; absent when either is not known. */
+  late?: boolean
   fee: number
 }
 
-// ── Stored and kept runs (oms-react ticket 969, BackOffice spec 4354 §12, BackOffice 4380) ───────────────────────
+// ── Kept runs (BackOffice 4380) ──────────────────────────────────────────────────────────────────
 
 /**
- * A run its user kept and named (spec 4354 §12: "a simulator run is stored for good only when its user keeps and names
- * it"). The full record is stored, with a link any holder of the run grant can open; only its keeper may delete it.
- * In `@/core/models/` beside the record because the simulator keeps, lists and opens runs, and the comparison results
- * page links to stored runs. ⚠ BackOffice 4380 names the doors (keep, list, open, delete) and no field.
- * PROVISIONAL (spec 4354: not specified) — every field name.
+ * A kept run as its doors answer it (`KeptRunAnswer`): the list's row, or what a keep wrote. The list holds every kept
+ * run (any holder of the run grant opens one); only its keeper may delete it (`keptBy` is the caller).
  */
 export interface KeptRun {
   runId: string
   name: string
   /** The keeper's user id. */
   keptBy: string
-  /** Kept by the caller: only then may it be deleted. */
-  mine: boolean
   keptAt: string
   ranAt: string
   kind: AdviseReply['kind']
   channel: string
-  orderNumber: string | null
-  weightSet: { name: string; version: number; draft: boolean }
+  madeBy: string
   /** The engine version that answered the run. */
-  engine: string
+  engineVersion: string
 }
 
-/** Keep the held run under a name. PROVISIONAL (spec 4354: not specified) — the body's field names. */
+/** Keep the held run under a name (`POST SourcingAdvisor/Runs/Keep`). */
 export interface KeepRunRequest {
   runId: string
   name: string
-}
-
-/** The state of a stored run (BackOffice 4380: "each row with a state: held, comparison or kept"). PROVISIONAL (spec 4354: not specified) — the codes. */
-export type StoredRunState = 'HELD' | 'COMPARISON' | 'KEPT'
-
-/**
- * A stored run opened by its link — "a read door of the simulator's build, which solves again from the stored copy"
- * (BackOffice 4281 decision 11), not an advise call. The stored plans stay the truth; the reply says when a newer
- * engine answers differently (spec 4354 §12). PROVISIONAL (spec 4354: not specified) — every field name.
- */
-export interface StoredRun {
-  state: StoredRunState
-  /** Set for a kept run. */
-  kept: KeptRun | null
-  /** The stored record as it was answered: its plans are the truth. */
-  record: AdviseReply
-  /** Set when today's engine, solving again from the stored copy, answers differently: today's engine version. */
-  engineNow: string | null
 }

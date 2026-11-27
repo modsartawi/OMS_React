@@ -11,7 +11,8 @@ const REFUSAL_CODES = new Set(['PIN_PAIR_REMOVED', 'PIN_NO_STOCK', 'PIN_NO_STOCK
  * whole (`fsi`, the bidi rule); the rule a refusal names is the server's text, shown beside as data.
  */
 export function usePinWords() {
-  const { t } = useTranslation('sourcing-simulator')
+  const { t, i18n } = useTranslation('sourcing-simulator')
+  const ar = i18n.language?.split('-')[0] === 'ar'
   const mode = (code: string) => t(`mode.${code}`, { defaultValue: code })
   return {
     t,
@@ -33,5 +34,10 @@ export function usePinWords() {
       REFUSAL_CODES.has(r.code)
         ? t(`pins.refused.${r.code}`, { step: fsi(r.step ?? '') })
         : t('pins.refused.unknown'),
+    /**
+     * The rule a refusal names (BackOffice 4359, `RecordRefusedPin`): a product rule's sentence in the screen's language
+     * when the server writes one, else the rule's id (a product rule row, or `R1`–`R7` for pins that clash).
+     */
+    rule: (r: PinRefusal): string | null => (r.en ? (ar ? r.ar || r.en : r.en) : (r.rule ?? null)),
   }
 }

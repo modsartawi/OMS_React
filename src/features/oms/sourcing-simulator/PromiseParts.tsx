@@ -157,9 +157,11 @@ function ShipmentPromise({ bar, shipment }: { bar: PromiseBarView; shipment: Adv
           {bar.lengtheners.map((l) => (
             <span key={l.name} className="flex flex-wrap items-center gap-1" data-why-lengthener={l.name} data-adds-nothing={l.addsNothing ? 'true' : 'false'}>
               <span>{t(`why.lengthener.${l.name}`, { defaultValue: l.name })}</span>
-              <span className="text-muted-foreground">
-                <Ltr>{l.band}</Ltr>
-              </span>
+              {l.value !== null && (
+                <span className="text-muted-foreground">
+                  <Ltr>{l.value}</Ltr>
+                </span>
+              )}
               {l.addsNothing ? (
                 <span className={MUTED_PILL}>{t('why.promise.addsNothing')}</span>
               ) : (

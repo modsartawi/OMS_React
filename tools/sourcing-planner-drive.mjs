@@ -196,7 +196,7 @@ async function scenario(browser, lang) {
   wire.grants = ['SourcingPlannerBuffer:01']
   await open()
   check(`${tag} the buffer grant alone shows the two buffer tabs only`, JSON.stringify(await tabs()) === JSON.stringify(['overrides', 'confidence']), JSON.stringify(await tabs()))
-  wire.grants = ['SourcingAdvisorRun:06']
+  wire.grants = ['SourcingSimulator:03']
   await open()
   check(`${tag} no planner grant: no access, no tab`, (await page.locator('[role="alert"]').count()) === 1 && (await page.locator('[data-tab]').count()) === 0)
   wire.grants = ALL

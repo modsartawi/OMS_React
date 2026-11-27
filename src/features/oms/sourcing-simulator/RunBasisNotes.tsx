@@ -73,7 +73,11 @@ export default function RunBasisNotes({
       {basis.readAfresh && (
         <p className={ATTENTION} data-run-read-afresh="">
           <span>{t('replan.readAfresh')}</span>
-          {basis.readAfresh.why && <bdi data-run-read-afresh-why="">{basis.readAfresh.why}</bdi>}
+          {basis.readAfresh.why.map((why) => (
+            <span key={why} data-run-read-afresh-why={why}>
+              {t(`replan.afresh.${why}`, { defaultValue: why })}
+            </span>
+          ))}
         </p>
       )}
       {basis.heldGone && (

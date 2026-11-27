@@ -3,13 +3,14 @@
  * by mode, the pick-up leg dashed, each leg labelled with its distance to the customer; a switch narrows it to one plan;
  * a dotted line joins one plan's stores. Under it two tables: each store with its mode, plan, road and straight-line
  * distance; and the distances between the stores. Without the customer's point (no grant) nothing that would show it is
- * drawn — no pin, no rings, no legs — and every km stays as the server sent it. Fed the replay stub; straight-line figures
- * are the ground distances worked out by hand from the fixture's points.
+ * drawn — no pin, no rings, no legs — and every km stays as the server sent it. Fed the replay reply in the server's
+ * shape; the run record carries no store's point, so the stores are placed from the store list (`SdDocument/StoreDetails`,
+ * its `latitude` and `longitude` as text). Straight-line figures are the ground distances worked out by hand.
  */
 import { describe, expect, it } from 'vitest'
 import type { AdviseReply } from '@/core/models/sourcing-run'
 import fixture from './replay-reply.fixture.json'
-import { mapPlans, type MapWords } from './map-plans-model'
+import { mapPlans, storePlaces, type MapWords } from './map-plans-model'
 
 const REPLAY = fixture as unknown as AdviseReply
 const reply = (over: Partial<AdviseReply> = {}): AdviseReply => ({ ...REPLAY, ...over })
@@ -19,7 +20,14 @@ const WORDS: MapWords = {
   ring: (km) => `ring:${km}`,
   customer: 'the customer',
 }
-const all = (r: AdviseReply = reply()) => mapPlans(r, { scope: 'all', goal: null, words: WORDS })
+const DETAILS = [
+  { storeCode: '1090', latitude: '24.7801', longitude: '46.752' },
+  { storeCode: '1055', latitude: '24.7902', longitude: '46.7611' },
+  { storeCode: '1061', latitude: '24.765', longitude: '46.7301' },
+  { storeCode: '1203', latitude: '24.8302', longitude: '46.7105' },
+]
+const PLACES = storePlaces(DETAILS)
+const all = (r: AdviseReply = reply(), places = PLACES) => mapPlans(r, { scope: 'all', goal: null, words: WORDS, places })
 const CUSTOMER = { lon: 46.7386, lat: 24.7741 }
 
 describe('every plan’s stores at once, by mode', () => {
@@ -90,7 +98,7 @@ describe('the two tables', () => {
 
 describe('the switch narrows the map to the selected plan', () => {
   it('Cheapest alone: its two stores, their legs, the dotted line between them and one pair', () => {
-    const v = mapPlans(reply(), { scope: 'plan', goal: 'CHEAPEST', words: WORDS })
+    const v = mapPlans(reply(), { scope: 'plan', goal: 'CHEAPEST', words: WORDS, places: PLACES })
     expect(v.points.map((p) => p.id)).toEqual(['1055', '1061'])
     expect(v.rows.map((r) => [r.store, r.goal])).toEqual([
       ['1055', 'CHEAPEST'],
@@ -101,14 +109,14 @@ describe('the switch narrows the map to the selected plan', () => {
   })
 
   it('a plan no longer in the reply shows nothing of its own', () => {
-    const v = mapPlans(reply(), { scope: 'plan', goal: 'FEWEST', words: WORDS })
+    const v = mapPlans(reply(), { scope: 'plan', goal: 'FEWEST', words: WORDS, places: PLACES })
     expect(v.points).toEqual([])
     expect(v.rows).toEqual([])
   })
 })
 
 describe('nothing drawn when the point is withheld', () => {
-  const withheld = reply({ customerPoint: null, customerPointWithheld: 'NO_GRANT' })
+  const withheld = reply({ customerPoint: undefined, customerPointWithheld: 'NO_GRANT' })
 
   it('no pin, no rings and no legs; it says why', () => {
     const v = all(withheld)
@@ -134,16 +142,26 @@ describe('nothing drawn when the point is withheld', () => {
   })
 
   it('a reply with no point and no reason (the point was not asked for) says so', () => {
-    expect(all(reply({ customerPoint: null, customerPointWithheld: null })).withheld).toBe('NOT_ASKED')
+    expect(all(reply({ customerPoint: undefined, customerPointWithheld: undefined })).withheld).toBe('NOT_ASKED')
+  })
+})
+
+describe('the store list’s points', () => {
+  it('reads each store’s latitude and longitude as sent, as text; a blank, zero or unreadable point is no point', () => {
+    const places = storePlaces([
+      ...DETAILS.slice(0, 1),
+      { storeCode: '2001', latitude: '', longitude: '46.7' },
+      { storeCode: '2002', latitude: '0', longitude: '0' },
+      { storeCode: '2003', latitude: 'n/a', longitude: '46.7' },
+    ])
+    expect([...places.entries()]).toEqual([['1090', { lat: 24.7801, lon: 46.752 }]])
+    expect(storePlaces(undefined).size).toBe(0)
   })
 })
 
 describe('a store with no location', () => {
   it('is in the table with its km as sent, listed as not drawn, and has no point, leg or pair', () => {
-    const inputs = REPLAY.inputs!
-    const stores = inputs.stores ?? []
-    const r = reply({ inputs: { ...inputs, stores: stores.map((s) => (s.store === '1055' ? { ...s, point: null } : s)) } })
-    const v = all(r)
+    const v = all(reply(), storePlaces(DETAILS.filter((d) => d.storeCode !== '1055')))
     expect(v.unplaced).toEqual(['1055'])
     expect(v.points.map((p) => p.id)).toEqual(['1090', '1061'])
     expect(v.rows.find((row) => row.store === '1055')).toMatchObject({ km: 3.6, straightKm: null })

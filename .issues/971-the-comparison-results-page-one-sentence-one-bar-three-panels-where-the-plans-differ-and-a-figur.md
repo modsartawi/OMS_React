@@ -90,3 +90,21 @@ the run grant (`canRunSourcingAdvisor`), since the results page opens under the 
 Ticket 969 made the simulator read `?run=` through the stored-run read door (PROVISIONAL `GET SourcingAdvisor/Runs/Open`,
 BO 4380) and turned `SIMULATOR_READS_RUN` on. The drive checks the button is absent under the view grant alone and, with
 the run grant, present and opening the simulator on the run.
+
+**2026-11-27 — Reconciled with BackOffice 4393 and 4397 at pricing2 35a4e56be** (branch `reconcile-results`). Every
+PROVISIONAL mark is gone from the page. The first screen reads three doors, `GET SourcingAdvisor/Results/Top`,
+`/Panels` and `/Differ?view=` (one view per read), not one Summary. The filter bar sends `period`
+(`YESTERDAY`|`DAYS_7`|`DAYS_14`|`DAYS_30`), `channelGroup` (adds the call centre's two groups), `set` + `version`,
+`shortFigure` and ONE `runMark`. The bar has seven segments, with `BREAKS_NESTING` first and `SAME_PLAN_BOTH`, and
+each bracket spans the segments the server names. "Where the plans differ" sends endings as counts, and an estimate's
+MINUS is the advisor's plan earlier (`ResultsMath.Estimate`), so the words and the axis were flipped. The orders door
+takes `segment` / `view`+`class`+`ending` / `outside`+`outsideStep` / `by`+`key` / `hour` and `page`,
+`pageSize`, `sort` (`LANDED|ORDER|CHANNEL|CITY|ESTIMATE|ENDING`), `desc`; a mark opens through the query's own
+`mark`. The order's card shows the whole plan, the stores only and the deliveries, plus its riyal figures each with a
+source. "Open the stored run in the simulator" uses the card's `runId` (Results/Order carries it; `Results/OrderRun`
+is the old link's door, 974's). Codes the page has no words for are worded from `Results/Codes`. The view grant is
+confirmed: `SourcingAdvisor:01` (BO 4397 `SourcingAdvisorViewGrants`). Stubs: `stub-first.json`, `stub-codes.json`
+(generated from the server's `AdvisorCodeList`).
+- SERVER GAP (spec 4354): no orders figure for a promise check row, "run and not ended yet" or "not run" (plain
+  counts); no results door lists the weight sets (the picker offers the cost panel's set and the trials' sets);
+  pick-up's target minutes are not sent.

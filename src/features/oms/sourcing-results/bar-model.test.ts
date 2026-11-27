@@ -1,127 +1,123 @@
 import { describe, expect, it } from 'vitest'
-import type { BarLimitReading, BarReply } from '@/core/models/sourcing-results'
+import type { BarLimitReading, BarReading, BarReply } from '@/core/models/sourcing-results'
 import stub from './stub-bar.json'
 import { barPeriodEnd, barReading } from './bar-model'
 
-// The drive's stub: 28 days of the app and the site — three limits met, four not met, two that cannot be read yet.
+// `GET SourcingAdvisor/Results/Phase2Bar` (BO 4396): 28 days of the app and the site, step 1 (the stores only) —
+// three limits met, four not met, two that cannot be read yet.
 const reply = stub as unknown as BarReply
-const withLimit = (limit: BarLimitReading): BarReply => ({ ...reply, limits: reply.limits.map((l) => (l.limit === limit.limit ? limit : l)) })
+const withReading = (over: Partial<BarReading>): BarReply => ({ ...reply, reading: { ...reply.reading, ...over } })
+const withLimit = (l: BarLimitReading): BarReply => withReading({ limits: reply.reading.limits.map((x) => (x.code === l.code ? l : x)) })
 const limitOf = (r: BarReply, code: string) => barReading(r).limits.find((l) => l.limit === code)!
 
 describe('barReading — each limit with its state and why', () => {
-  it('lists the nine limits a to i in the spec order, whatever order they were sent in', () => {
-    expect(barReading(reply).limits.map((l) => [l.letter, l.limit, l.state])).toEqual([
+  it('lists the nine limits a to i in the server order, whatever order they were sent in', () => {
+    const shuffled = withReading({ limits: [...reply.reading.limits].reverse() })
+    expect(barReading(shuffled).limits.map((l) => [l.letter, l.limit, l.state])).toEqual([
       ['a', 'STOP_FINDINGS', 'MET'],
       ['b', 'ORDERS_RUN', 'MET'],
       ['c', 'DAWAA_NOW_PROMISE', 'NOT_MET'],
       ['d', 'DISTANCE_BANDS', 'NOT_MET'],
       ['e', 'SHELF_CHANCE', 'NOT_MET'],
-      ['f', 'SPLIT_CHECK', 'CANNOT_READ'],
+      ['f', 'SPLIT_CHECK', 'CANNOT_READ_YET'],
       ['g', 'LARGEST_DIFFERENCES', 'NOT_MET'],
       ['h', 'OUTSIDE_RULES', 'MET'],
-      ['i', 'RATES', 'CANNOT_READ'],
+      ['i', 'RATES', 'CANNOT_READ_YET'],
     ])
   })
 
-  it('counts the limits met, not met and that cannot be read yet', () => {
-    expect(barReading(reply).tally).toEqual({ MET: 3, NOT_MET: 4, CANNOT_READ: 2 })
+  it('counts the limits met, not met and that cannot be read yet, and reads the bar\'s own state as sent', () => {
+    const view = barReading(reply)
+    expect(view.tally).toEqual({ MET: 3, NOT_MET: 4, CANNOT_READ_YET: 2 })
+    expect(view.state).toBe('NOT_MET')
   })
 
-  it('gives a met limit its figures and no why', () => {
+  it('gives a met limit its figures in the order sent and no why', () => {
     const b = limitOf(reply, 'ORDERS_RUN')
-    expect(b.figures.map((f) => [f.part, f.value, f.unit])).toEqual([
-      ['RUN_SHARE', 96.4, 'PERCENT'],
-      ['ERROR_OR_FALLBACK', 0.6, 'PER_THOUSAND'],
+    expect(b.figures.map((f) => [f.name, f.value])).toEqual([
+      ['landedWithDelivery', 43512],
+      ['run', 41950],
+      ['runPercent', 96.4],
+      ['doorErrors', 12],
+      ['doorErrorsPerThousand', 0.6],
+      ['fallbackAnswered', 13],
     ])
     expect(b.why).toEqual([])
   })
 
-  it('says why a limit is not met: the figures that do not keep it', () => {
-    expect(limitOf(reply, 'DAWAA_NOW_PROMISE').why).toEqual([{ kind: 'figure', part: 'SECOND_HALF', value: 84.1, unit: 'PERCENT', of: null }])
-    expect(limitOf(reply, 'DISTANCE_BANDS').why).toEqual([{ kind: 'figure', part: 'BAND_6_PLUS', value: 78.9, unit: 'PERCENT', of: 700 }])
+  it('says why a limit is not met, or cannot be read yet, by the server\'s codes', () => {
+    expect(limitOf(reply, 'DAWAA_NOW_PROMISE').why).toEqual(['HALF_OUTSIDE_BAND'])
+    expect(limitOf(reply, 'SPLIT_CHECK').why).toEqual(['SPLIT_CHECK_NOT_RECORDED'])
   })
 
-  it('"cannot be read yet" names the cause', () => {
-    expect(limitOf(reply, 'SPLIT_CHECK').why).toEqual([{ kind: 'cause', cause: 'SPLIT_CHECK_NOT_DONE' }])
-    expect(limitOf(reply, 'RATES').why).toEqual([{ kind: 'cause', cause: 'WAITS_FOR_FINANCE_RATES' }])
+  it('never leaves a limit that is not met without a why', () => {
+    expect(limitOf(withLimit({ code: 'RATES', state: 'NOT_MET', why: [], figures: {} }), 'RATES').why).toEqual(['UNSAID'])
   })
 
-  it('names the period\'s causes on a limit that cannot be read for them, each once, in the spec order', () => {
-    const r: BarReply = {
-      ...withLimit({ limit: 'DAWAA_NOW_PROMISE', state: 'CANNOT_READ', causes: ['RAMADAN_OR_EID'], figures: [] }),
-      causes: ['RAMADAN_OR_EID', 'DAY_BEFORE_FLAGS_OFF'],
-    }
-    expect(limitOf(r, 'DAWAA_NOW_PROMISE').why).toEqual([
-      { kind: 'cause', cause: 'DAY_BEFORE_FLAGS_OFF' },
-      { kind: 'cause', cause: 'RAMADAN_OR_EID' },
+  it('reads a limit the reply left out as one that cannot be read yet, and says so', () => {
+    const missing = withReading({ limits: reply.reading.limits.filter((l) => l.code !== 'RATES') })
+    expect(limitOf(missing, 'RATES')).toMatchObject({ state: 'CANNOT_READ_YET', why: ['UNSENT'] })
+  })
+
+  it('names the period\'s causes, each with its day or figure', () => {
+    const r = withReading({ state: 'CANNOT_READ_YET', cannotReadYet: [{ code: 'RAMADAN', detail: '2027-02-08' }, { code: 'READ_REACH_OFF', detail: '' }] })
+    expect(barReading(r).periodWhys).toEqual([
+      { code: 'RAMADAN', detail: '2027-02-08' },
+      { code: 'READ_REACH_OFF', detail: '' },
     ])
-    expect(barReading(r).periodCauses).toEqual(['DAY_BEFORE_FLAGS_OFF', 'RAMADAN_OR_EID'])
-  })
-
-  it('says so when the server gives no cause, rather than showing an empty why', () => {
-    const r = withLimit({ limit: 'SPLIT_CHECK', state: 'CANNOT_READ', causes: [], figures: [] })
-    expect(limitOf(r, 'SPLIT_CHECK').why).toEqual([{ kind: 'unsaid' }])
-    const n = withLimit({ limit: 'SHELF_CHANCE', state: 'NOT_MET', causes: [], figures: [{ part: 'AGAINST_EVIDENCE_NO_RULING', value: 2, unit: 'COUNT' }] })
-    expect(limitOf(n, 'SHELF_CHANCE').why).toEqual([{ kind: 'unsaid' }])
-  })
-
-  it('never shows a limit the reply left out as met: it cannot be read yet, and says it was not sent', () => {
-    const r = { ...reply, limits: reply.limits.filter((l) => l.limit !== 'STOP_FINDINGS') }
-    expect(limitOf(r, 'STOP_FINDINGS')).toMatchObject({ state: 'CANNOT_READ', figures: [], why: [{ kind: 'unsent' }] })
   })
 })
 
-describe('barReading — what is read and never a limit, the largest differences, the rulings', () => {
-  it('keeps the readings apart from the limits, in the spec order', () => {
-    expect(barReading(reply).readings.map((r) => r.reading)).toEqual(['SAME_PLAN', 'ESTIMATES', 'FLEET_RATIO', 'LATER_SLOTS'])
-  })
-
+describe('barReading — the largest differences, the rulings, the split check', () => {
   it('groups the largest differences by view and way, the largest first, with how many are marked', () => {
     const groups = barReading(reply).largest
-    expect(groups.map((g) => [g.view, g.direction, g.rows.map((r) => r.orderNumber), g.marked, g.wrongRule])).toEqual([
-      ['WHOLE_PLAN', 'EARLIER', ['4500718102', '4500718377', '4500718405'], 2, 1],
-      ['WHOLE_PLAN', 'LATER', ['4500718550', '4500718612'], 1, 0],
-      ['STORES_ONLY', 'EARLIER', ['4500718720', '4500718788'], 1, 0],
-      ['STORES_ONLY', 'LATER', ['4500718840', '4500718931'], 0, 0],
+    expect(groups.map((g) => [g.view, g.way, g.rows.map((r) => r.orderNumber), g.marked])).toEqual([
+      ['WHOLE_PLAN', 'ADVISOR_EARLIER', ['0081733012', '0081734455'], 1],
+      ['WHOLE_PLAN', 'ADVISOR_LATER', ['0081736620'], 0],
+      ['STORES_ONLY', 'ADVISOR_EARLIER', ['0081733012', '0081737781'], 1],
+      ['STORES_ONLY', 'ADVISOR_LATER', ['0081738904'], 0],
     ])
   })
 
-  it('splits the rulings into the ones still to write and the ones written', () => {
-    const { due, written } = barReading(reply).rulings
-    expect(due.map((r) => r.key)).toEqual(['BOOK_AT_ZERO:DAWAA_NOW', 'HELD_BY_ORDERS:SLOT'])
-    expect(written.map((r) => r.key)).toEqual(['NEVER_HELD'])
+  it('lists the reasons and the shelf chance figures that wait for a written ruling, and those ruled', () => {
+    const { rulings } = barReading(reply)
+    expect(rulings.due.map((r) => [r.kind, r.key])).toEqual([['SHELF_CHANCE', 'SLOT|BOOK_AT_ZERO']])
+    expect(rulings.written.map((r) => [r.kind, r.key])).toEqual([
+      ['OUTSIDE_REASON', 'PIN_PAIR_REMOVED|OUT_OF_REACH'],
+      ['SHELF_CHANCE', 'DAWAA_NOW|BOOK_BELOW_ZERO'],
+    ])
+  })
+
+  it('carries the split check as closed, or none', () => {
+    expect(barReading(reply).splitCheck).toBeNull()
+    const split = { kind: 'SPLIT_CHECK' as const, key: '', mark: 'WITHIN_LIMIT' as const, text: 'Read on 40 orders.', by: 'owner.dmsco', at: '2026-11-26 11:00:00' }
+    expect(barReading(withReading({ splitCheck: split })).splitCheck).toEqual(split)
+  })
+
+  it('lists the kept readings newest first', () => {
+    const kept = (id: string, readAt: string) => ({ ...keptRow, id, readAt })
+    const r = { ...reply, kept: [kept('A', '2026-11-20 08:00:00'), kept('B', '2026-11-26 08:00:00')] }
+    expect(barReading(r).kept.map((k) => k.id)).toEqual(['B', 'A'])
   })
 })
 
-describe('barReading — "accept this reading"', () => {
-  it('is not offered while a limit cannot be read yet', () => {
-    expect(barReading(reply).canAccept).toBe(false)
-  })
+const keptRow = {
+  id: '',
+  from: '2026-10-30 00:00:00',
+  to: '2026-11-27 00:00:00',
+  channelGroup: 'APP_SITE' as const,
+  step: 'STORES_ONLY' as const,
+  candidateName: 'Baseline',
+  candidateVersion: 3,
+  met: false,
+  note: '',
+  readBy: 'owner.dmsco',
+  readAt: '',
+}
 
-  it('is offered once every limit reads met or not met: the owner judges, the page does not', () => {
-    const r = {
-      ...reply,
-      limits: reply.limits.map((l) => (l.state === 'CANNOT_READ' ? { ...l, state: 'NOT_MET' as const, causes: [] } : l)),
-    }
-    expect(barReading(r).canAccept).toBe(true)
-  })
-
-  it('is not offered while the period itself holds a cause, nor once this reading is accepted', () => {
-    const readable = { ...reply, limits: reply.limits.map((l) => ({ ...l, state: 'MET' as const, causes: [] })) }
-    expect(barReading({ ...readable, causes: ['SHARE_UNDER_100'] }).canAccept).toBe(false)
-    const accepted = { by: 'owner', at: '2026-11-26 17:00:00', period: { from: '2026-10-29', to: '2026-11-25' }, limits: readable.limits }
-    expect(barReading({ ...readable, accepted }).canAccept).toBe(false)
-    expect(barReading({ ...readable, accepted }).accepted?.by).toBe('owner')
-  })
-})
-
-describe('barPeriodEnd — the 28 whole local days', () => {
-  it('ends 27 days after its first day, across a month', () => {
-    expect(barPeriodEnd('2026-10-29')).toBe('2026-11-25')
-    expect(barPeriodEnd('2026-02-01')).toBe('2026-02-28')
-  })
-
-  it('has no end without a first day', () => {
+describe('barPeriodEnd — the 28 days from the first', () => {
+  it('ends 27 days after the first day', () => {
+    expect(barPeriodEnd('2026-10-30')).toBe('2026-11-26')
     expect(barPeriodEnd('')).toBe('')
   })
 })

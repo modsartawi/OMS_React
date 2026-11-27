@@ -1,124 +1,131 @@
 /**
- * The Phase 2 bar tab (ticket 973, spec 4354 §18, BO 4283 decisions 31–33, BO 4396): each limit, a to i, in words
- * with its figure and "met", "not met" or "cannot be read yet" with why; the things read that are no limit, apart; the
- * 30 largest differences each way in each view to open and mark; the rulings to write; "accept this reading".
+ * The Phase 2 bar tab (ticket 973, spec 4354 §18, BO 4283 decisions 26–36, BO 4396): each limit, a to i, with its
+ * figures and "met", "not met" or "cannot be read yet" with why; the period's causes; the things read that are no
+ * limit, apart; the 30 largest differences each way in each view to open and mark; the reasons outside the rules and
+ * the shelf chance figures that wait for a written ruling; the split check; the readings kept.
  *
- * Pure. Every figure and every state is the reply's as sent: the page says what is met, the owner judges, and the
- * model never decides a limit itself. It only orders, groups, and refuses to show an empty why.
+ * Pure. Every figure, state and why is the reply's as sent: the server reads the bar, the owner judges, and the model
+ * never decides a limit itself. It only orders, groups, and refuses to show an empty why.
  */
 import {
-  BAR_CAUSES,
   BAR_LIMITS,
+  BAR_WAYS,
   RESULTS_VIEWS,
-  type BarCause,
-  type BarDirection,
-  type BarFigure,
-  type BarLargestRow,
+  type BarClose,
+  type BarKeptReading,
+  type BarLargestOrder,
   type BarLimit,
-  type BarReadingCode,
+  type BarReadOnly,
   type BarReply,
-  type BarRuling,
   type BarState,
+  type BarWay,
+  type BarWhy,
   type ResultsView,
 } from '@/core/models/sourcing-results'
-
-/** Why a limit stands where it does: a cause it cannot be read for, a figure that does not keep it, or neither said. */
-export type BarWhy =
-  | { kind: 'cause'; cause: BarCause }
-  | { kind: 'figure'; part: string; value: number; unit: BarFigure['unit']; of: number | null }
-  /** The server gave a state with no cause and no failing figure. */
-  | { kind: 'unsaid' }
-  /** The reply left the limit out. */
-  | { kind: 'unsent' }
 
 export interface BarLimitView {
   limit: BarLimit
   /** The tuning ticket's letter, a to i. */
   letter: string
   state: BarState
-  figures: BarFigure[]
-  /** Empty on a met limit. */
-  why: BarWhy[]
+  /** The limit's figures by name, in the order sent; a figure that cannot be read is null. */
+  figures: { name: string; value: number | null }[]
+  /** `Phase2BarWhys` codes; empty on a met limit. `UNSAID`: a state with no why; `UNSENT`: the reply left the limit out. */
+  why: string[]
 }
 
 export interface BarLargestGroup {
   view: ResultsView
-  direction: BarDirection
+  way: BarWay
   /** The largest estimated difference first. */
-  rows: BarLargestRow[]
+  rows: BarLargestOrder[]
   marked: number
   wrongRule: number
 }
 
-export interface BarReadingView {
-  limits: BarLimitView[]
-  tally: Record<BarState, number>
-  periodCauses: BarCause[]
-  readings: BarReply['readings']
-  largest: BarLargestGroup[]
-  rulings: { due: BarRuling[]; written: BarRuling[] }
-  /** Offered only on a reading whose every limit reads met or not met, not yet accepted. */
-  canAccept: boolean
-  accepted: BarReply['accepted']
-  lastChangedAt: string | null
+/** A reason outside the rules (limit h) or a shelf chance figure (limit e) that waits for, or has, a written ruling. */
+export interface BarRulingItem {
+  kind: 'OUTSIDE_REASON' | 'SHELF_CHANCE'
+  /** The key it is closed under: `CODE|STEP_CODE` or `MODE|STOCK_CLASS`. */
+  key: string
+  /** The reason's codes, or the figure's mode and stock class. */
+  parts: [string, string]
+  /** The reason's share of the orders compared; null for a shelf chance figure. */
+  percent: number | null
+  ruling: BarClose | null
 }
 
-const READING_ORDER: readonly BarReadingCode[] = ['SAME_PLAN', 'ESTIMATES', 'FLEET_RATIO', 'LATER_SLOTS']
-const DIRECTIONS: readonly BarDirection[] = ['EARLIER', 'LATER']
-
-const causesInOrder = (causes: Iterable<BarCause>): BarCause[] => {
-  const set = new Set(causes)
-  return BAR_CAUSES.filter((c) => set.has(c))
+export interface BarReadingView {
+  state: BarState
+  periodWhys: BarWhy[]
+  limits: BarLimitView[]
+  tally: Record<BarState, number>
+  largest: BarLargestGroup[]
+  rulings: { due: BarRulingItem[]; written: BarRulingItem[] }
+  splitCheck: BarClose | null
+  read: BarReadOnly
+  kept: BarKeptReading[]
+  figuresRuledOn: string
 }
 
 export function barReading(reply: BarReply): BarReadingView {
-  const periodCauses = causesInOrder(reply.causes)
-  const sent = new Map(reply.limits.map((l) => [l.limit, l]))
+  const r = reply.reading
+  const sent = new Map(r.limits.map((l) => [l.code, l]))
 
   const limits: BarLimitView[] = BAR_LIMITS.map((limit, i) => {
     const letter = String.fromCharCode(97 + i)
     const l = sent.get(limit)
-    if (!l) return { limit, letter, state: 'CANNOT_READ', figures: [], why: [{ kind: 'unsent' }] }
-    let why: BarWhy[] = []
-    if (l.state === 'CANNOT_READ') {
-      why = causesInOrder([...l.causes, ...periodCauses]).map((cause) => ({ kind: 'cause', cause }))
-    } else if (l.state === 'NOT_MET') {
-      why = l.figures
-        .filter((f) => f.meets === false)
-        .map((f) => ({ kind: 'figure', part: f.part, value: f.value, unit: f.unit, of: f.of ?? null }))
-    }
-    if (l.state !== 'MET' && why.length === 0) why = [{ kind: 'unsaid' }]
-    return { limit, letter, state: l.state, figures: l.figures, why }
+    if (!l) return { limit, letter, state: 'CANNOT_READ_YET', figures: [], why: ['UNSENT'] }
+    const why = l.state === 'MET' ? [] : l.why.length > 0 ? l.why : ['UNSAID']
+    return { limit, letter, state: l.state, figures: Object.entries(l.figures).map(([name, value]) => ({ name, value })), why }
   })
 
-  const tally: Record<BarState, number> = { MET: 0, NOT_MET: 0, CANNOT_READ: 0 }
+  const tally: Record<BarState, number> = { MET: 0, NOT_MET: 0, CANNOT_READ_YET: 0 }
   for (const l of limits) tally[l.state] += 1
 
   const largest = RESULTS_VIEWS.flatMap((view) =>
-    DIRECTIONS.map((direction) => {
-      const rows = reply.largest
-        .filter((r) => r.view === view && r.direction === direction)
-        .sort((a, b) => Math.abs(b.estimateMinutes) - Math.abs(a.estimateMinutes))
-      return {
-        view,
-        direction,
-        rows,
-        marked: rows.filter((r) => r.mark != null).length,
-        wrongRule: rows.filter((r) => r.mark === 'WRONG_RULE').length,
-      }
+    BAR_WAYS.map((way) => {
+      const rows = r.largestDifferences
+        .filter((o) => o.view === view && o.way === way)
+        .sort((a, b) => Math.abs(b.estimate) - Math.abs(a.estimate))
+      return { view, way, rows, marked: rows.filter((o) => o.mark != null).length, wrongRule: rows.filter((o) => o.mark === 'WRONG_RULE').length }
     }),
   )
 
+  const items: (BarRulingItem & { needs: boolean })[] = [
+    ...r.outsideReasons.map((o) => ({
+      kind: 'OUTSIDE_REASON' as const,
+      key: `${o.code}|${o.stepCode}`,
+      parts: [o.code, o.stepCode] as [string, string],
+      percent: o.percent,
+      ruling: o.ruling ?? null,
+      needs: o.needsRuling,
+    })),
+    ...r.shelfChance.map((s) => ({
+      kind: 'SHELF_CHANCE' as const,
+      key: `${s.mode}|${s.stockClass}`,
+      parts: [s.mode, s.stockClass] as [string, string],
+      percent: null,
+      ruling: s.ruling ?? null,
+      needs: s.needsRuling,
+    })),
+  ]
+  const strip = ({ needs: _needs, ...item }: BarRulingItem & { needs: boolean }): BarRulingItem => item
+
   return {
+    state: r.state,
+    periodWhys: r.cannotReadYet,
     limits,
     tally,
-    periodCauses,
-    readings: [...reply.readings].sort((a, b) => READING_ORDER.indexOf(a.reading) - READING_ORDER.indexOf(b.reading)),
     largest,
-    rulings: { due: reply.rulings.filter((r) => !r.ruling), written: reply.rulings.filter((r) => !!r.ruling) },
-    canAccept: tally.CANNOT_READ === 0 && periodCauses.length === 0 && !reply.accepted,
-    accepted: reply.accepted,
-    lastChangedAt: reply.lastChangedAt,
+    rulings: {
+      due: items.filter((x) => x.needs && !x.ruling).map(strip),
+      written: items.filter((x) => x.ruling).map(strip),
+    },
+    splitCheck: r.splitCheck ?? null,
+    read: r.read,
+    kept: [...reply.kept].sort((a, b) => (a.readAt < b.readAt ? 1 : a.readAt > b.readAt ? -1 : 0)),
+    figuresRuledOn: r.figuresRuledOn,
   }
 }
 

@@ -1,63 +1,59 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { sequentialFill } from '@/core/charts/sequential'
-import { RESULTS_LEFT_OVERS, type ResultsChecksReply, type ResultsPromiseMode, type ResultsRatio } from '@/core/models/sourcing-results'
-import Chip from '@/core/ui/Chip'
+import type { BarQuery, ResultsChecksReply } from '@/core/models/sourcing-results'
 import Ltr from '@/core/ui/Ltr'
-import { TD } from '@/core/ui/sheet-table'
-import { formatCount, formatParts, formatRange } from '@/core/util/bidi'
-import { readingTabsApi } from './api'
-import Drill from './Drill'
+import { formatCount, formatParts } from '@/core/util/bidi'
+import { sourcingResultsApi } from './api'
+import { Word } from './codes'
 import Fig from './Fig'
-import { Gauge, PILL, PromiseCheck, STATE_PILL } from './Panels'
+import { Gauge, PILL, PromiseCheck } from './Panels'
 import { promisePanel } from './promise-panel-model'
 import type { ResultsTabProps } from './ResultsTabs'
-import { shelfEvidence, type ShelfCellView } from './shelf-chance-evidence-model'
+import { shelfEvidence, type ShelfEvidenceRow } from './shelf-chance-evidence-model'
 import TabRead, { Pct, TD_NUM, TD_WRAP, TH_NUM, TH_WRAP } from './TabRead'
-import { countText, percentText } from './text'
+import { countText } from './text'
 
-const SHELF_MODES: readonly ResultsPromiseMode[] = ['DAWAA_NOW', 'SLOT', 'PICK_UP']
-type SecondLine = 'PICKS' | 'HALVES'
-
-/** A cell's shade: the sequential weight held under 55% of the hue, so its ink stays readable on it. */
-const cellFill = (heat: number) => sequentialFill(Math.round(heat * 0.55))
+/** The phase 2 bar's default reading: the shelf chance evidence rides on it, the same for every period and group. */
+export const DEFAULT_BAR_QUERY: BarQuery = { channelGroup: 'APP_SITE', step: 'STORES_ONLY' }
+export const barKey = (q: BarQuery) => ['sourcing-results', 'phase-2-bar', q] as const
 
 const ratioText = (r: number | null) => (r == null ? '' : r.toFixed(2))
 
 /**
  * Promise and stock checks (ticket 972, results ticket decisions 6 and 9 and their amendments): the promise check with
- * Dawaa Now by distance band and the express stamp's own share; the stock check; the shelf chance table — 36 cells,
- * a mode switch and a second switch, "Picks" or "Counts by half-year" — with the eight short-figure rows from
- * deliveries, their two ratios, the fixed note on them, each mode's fleet ratio, and the window and number of counts.
- * The promise check reads its rows off the summary; the rest off the checks door. In words; no green and no red.
+ * Dawaa Now by distance band and the express stamp's own share, and the stock check by mode (BO 4393 `Results/Checks`);
+ * then the shelf chance figures with their evidence and each mode's fleet ratio, which BO 4396 reads on the phase 2
+ * bar (`Results/Phase2Bar`). In words; no green and no red.
+ *
+ * SERVER GAP (spec 4354) — the orders door has no figure for a distance band or a stock check row, so their counts are
+ * plain; and see `./shelf-chance-evidence-model` for what the shelf chance evidence lacks.
  */
-export default function ChecksTab({ query, summary }: ResultsTabProps) {
+export default function ChecksTab({ query }: ResultsTabProps) {
   const { t } = useTranslation('sourcing-results')
   const read = useQuery({
     queryKey: ['sourcing-results', 'checks', query],
-    queryFn: () => readingTabsApi.checks(query),
+    queryFn: () => sourcingResultsApi.checks(query),
     placeholderData: keepPreviousData,
     retry: false,
   })
+  const bar = useQuery({ queryKey: barKey(DEFAULT_BAR_QUERY), queryFn: () => sourcingResultsApi.bar(DEFAULT_BAR_QUERY), retry: false })
   return (
-    <div className="flex flex-col gap-4" data-reading-tab="checks">
+    <div className="flex flex-col gap-6" data-reading-tab="checks">
       <TabRead read={read}>
         {(reply) => (
-          <div className="flex flex-col gap-6">
-            <div className="grid items-start gap-6 lg:grid-cols-2">
-              <Section title={t('checks.promiseTitle')} data="promise">
-                <PromiseCheck rows={summary.promise} />
-                <DistanceBands reply={reply} />
-              </Section>
-              <Section title={t('checks.stock.title')} data="stock">
-                <StockCheck reply={reply} />
-              </Section>
-            </div>
-            <ShelfTable shelf={reply.shelf} />
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            <Section title={t('checks.promiseTitle')} data="promise">
+              <PromiseCheck rows={reply.promiseCheck} />
+              <DistanceBands reply={reply} />
+            </Section>
+            <Section title={t('checks.stock.title')} data="stock">
+              <StockCheck reply={reply} />
+            </Section>
           </div>
         )}
       </TabRead>
+      <TabRead read={bar}>{(reply) => <ShelfEvidence rows={shelfEvidence(reply.reading)} />}</TabRead>
     </div>
   )
 }
@@ -73,15 +69,9 @@ function Section({ title, data, children }: { title: string; data: string; child
 
 function DistanceBands({ reply }: { reply: ResultsChecksReply }) {
   const { t } = useTranslation('sourcing-results')
-  const { dawaaNow } = reply
-  const rows = promisePanel(dawaaNow.bands.map((b) => ({ mode: 'DAWAA_NOW', channelGroup: null, count: b.count, percent: b.percent, band: dawaaNow.band })))
+  const band = reply.promiseCheck.find((p) => p.mode === 'DAWAA_NOW')
   return (
     <div className="flex flex-col gap-2" data-distance-bands="">
-      {dawaaNow.expressStampPercent != null && (
-        <p className="text-xs text-muted-foreground" data-express-stamp="">
-          <Trans t={t} i18nKey="checks.distance.expressStamp" components={{ p: <Fig value={percentText(dawaaNow.expressStampPercent)} /> }} />
-        </p>
-      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-xs text-muted-foreground">
@@ -89,27 +79,47 @@ function DistanceBands({ reply }: { reply: ResultsChecksReply }) {
               <th className={TH_WRAP}>{t('checks.distance.cols.band')}</th>
               <th className={TH_NUM}>{t('checks.distance.cols.shipments')}</th>
               <th className={TH_NUM}>{t('checks.distance.cols.within')}</th>
-              <th className={`${TH_WRAP} w-[36%]`} aria-hidden />
+              <th className={TH_NUM}>{t('checks.distance.cols.stamp')}</th>
+              <th className={`${TH_WRAP} w-[32%]`} aria-hidden />
             </tr>
           </thead>
           <tbody>
-            {dawaaNow.bands.map((b, i) => (
-              <tr key={b.band} className="border-b border-border/60" data-distance-band={b.band} data-promise-state={rows[i].state}>
-                <td className={TD_WRAP}>{t(`checks.distance.bands.${b.band}`)}</td>
-                <td className={TD_NUM}>
-                  <Drill figure={{ kind: 'distanceBand', band: b.band }} count={b.count} />
-                </td>
-                <td className={TD_NUM}>
-                  <span className="inline-flex items-center gap-2">
-                    <Ltr>{percentText(b.percent)}</Ltr>
-                    <span className={STATE_PILL[rows[i].state]}>{t(`checks.distance.states.${rows[i].state}`)}</span>
-                  </span>
-                </td>
-                <td className={TD_WRAP}>
-                  <Gauge row={rows[i]} />
-                </td>
-              </tr>
-            ))}
+            {reply.dawaaNowByBand.map((b) => {
+              // The band shaded on the gauge is Dawaa Now's (85% to 95%); the server judges no band against it.
+              const [row] = promisePanel([
+                {
+                  mode: 'DAWAA_NOW',
+                  channelGroup: null,
+                  checked: b.checked,
+                  within: b.within,
+                  percent: b.percent,
+                  pill: b.checked > 0 ? 'NO_BAND' : 'NONE_CHECKED',
+                  bandLow: band?.bandLow ?? null,
+                  bandHigh: band?.bandHigh ?? null,
+                  withinExpressStamp: b.withinExpressStamp,
+                  expressStampPercent: b.expressStampPercent,
+                },
+              ])
+              return (
+                <tr key={b.band} className="border-b border-border/60" data-distance-band={b.band}>
+                  <td className={TD_WRAP}>
+                    <Word k={`checks.distance.bands.${b.band}`} family="DISTANCE_BAND" code={b.band} />
+                  </td>
+                  <td className={TD_NUM}>
+                    <Ltr>{countText(b.checked)}</Ltr>
+                  </td>
+                  <td className={TD_NUM}>
+                    <Pct value={b.checked > 0 ? b.percent : null} />
+                  </td>
+                  <td className={TD_NUM}>
+                    <Pct value={b.checked > 0 ? b.expressStampPercent : null} />
+                  </td>
+                  <td className={TD_WRAP}>
+                    <Gauge row={row} />
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -120,10 +130,6 @@ function DistanceBands({ reply }: { reply: ResultsChecksReply }) {
 
 function StockCheck({ reply }: { reply: ResultsChecksReply }) {
   const { t } = useTranslation('sourcing-results')
-  const rows = [
-    { covered: true, row: reply.stock.covered },
-    { covered: false, row: reply.stock.notCovered },
-  ]
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">{t('checks.stock.lede')}</p>
@@ -131,24 +137,28 @@ function StockCheck({ reply }: { reply: ResultsChecksReply }) {
         <table className="w-full text-sm">
           <thead className="border-b border-border text-xs text-muted-foreground">
             <tr>
-              <th className={TH_WRAP}>{t('checks.stock.cols.read')}</th>
-              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.stock.cols.ended')}</th>
-              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.stock.cols.noStock')}</th>
-              <th className={TH_NUM}>{t('checks.stock.cols.share')}</th>
+              <th className={TH_WRAP}>{t('checks.stock.cols.mode')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.stock.cols.deliveries')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.stock.cols.stockChecked')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.stock.cols.covered')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.stock.cols.failedPicks')}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ covered, row }) => (
-              <tr key={String(covered)} className="border-b border-border/60" data-stock-check={covered ? 'covered' : 'not-covered'}>
-                <td className={TD_WRAP}>{t(covered ? 'checks.stock.coveredLong' : 'checks.stock.notCoveredLong')}</td>
+            {reply.stockCheck.map((r) => (
+              <tr key={r.mode} className="border-b border-border/60" data-stock-check={r.mode}>
+                <td className={TD_WRAP}>{t(`modes.${r.mode}`)}</td>
                 <td className={TD_NUM}>
-                  <Drill figure={{ kind: 'stockCheck', covered, noStock: false }} count={row.ended} />
+                  <Ltr>{countText(r.deliveries)}</Ltr>
                 </td>
                 <td className={TD_NUM}>
-                  <Drill figure={{ kind: 'stockCheck', covered, noStock: true }} count={row.noStock} />
+                  <Ltr>{countText(r.stockChecked)}</Ltr>
                 </td>
                 <td className={TD_NUM}>
-                  <Pct value={row.percent} />
+                  <Ltr>{countText(r.covered)}</Ltr>
+                </td>
+                <td className={TD_NUM}>
+                  <Ltr>{countText(r.failedPicks)}</Ltr>
                 </td>
               </tr>
             ))}
@@ -160,212 +170,85 @@ function StockCheck({ reply }: { reply: ResultsChecksReply }) {
   )
 }
 
-function ShelfTable({ shelf }: { shelf: ResultsChecksReply['shelf'] }) {
+function ShelfEvidence({ rows }: { rows: ReturnType<typeof shelfEvidence> }) {
   const { t } = useTranslation('sourcing-results')
-  const [mode, setMode] = useState<ResultsPromiseMode>('DAWAA_NOW')
-  const [line, setLine] = useState<SecondLine>('PICKS')
-  const view = shelfEvidence(shelf, mode)
   return (
-    <section className="flex flex-col gap-3" data-shelf={mode} data-shelf-line={line}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold">{t('checks.shelf.title')}</h3>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('checks.shelf.modeLabel')}>
-            {SHELF_MODES.map((m) => (
-              <Chip key={m} on={mode === m} onClick={() => setMode(m)} data-shelf-mode={m}>
-                {t(`modes.${m}`)}
-              </Chip>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('checks.shelf.lineLabel')}>
-            {(['PICKS', 'HALVES'] as const).map((l) => (
-              <Chip key={l} on={line === l} onClick={() => setLine(l)} data-shelf-second={l}>
-                {t(`checks.shelf.lines.${l}`)}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      </div>
-      <p className="max-w-[90ch] text-xs text-muted-foreground">
-        <Trans t={t} i18nKey="checks.shelf.bold" components={{ set: <bdi>{view.set.name}</bdi>, version: <Fig value={String(view.set.version)} /> }} />{' '}
-        {line === 'PICKS' ? (
-          t('checks.shelf.picksLine')
-        ) : (
-          <Trans
-            t={t}
-            i18nKey="checks.shelf.halvesLine"
-            components={{
-              h1: <Fig value={view.halves[0] ? formatRange(view.halves[0].from, view.halves[0].to) : ''} />,
-              h2: <Fig value={view.halves[1] ? formatRange(view.halves[1].from, view.halves[1].to) : ''} />,
-              h3: <Fig value={view.halves[2] ? formatRange(view.halves[2].from, view.halves[2].to) : ''} />,
-            }}
-          />
-        )}{' '}
-        {t('checks.shelf.tooFewRule')}
-      </p>
+    <section className="flex flex-col gap-3" data-shelf="">
+      <h3 className="text-sm font-semibold">{t('checks.shelf.title')}</h3>
+      <p className="max-w-[90ch] text-xs text-muted-foreground">{t('checks.shelf.lede')}</p>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[56rem] border-separate border-spacing-0.5 text-sm" data-shelf-table="">
-          <thead className="text-xs text-muted-foreground">
+        <table className="w-full min-w-[60rem] text-sm" data-shelf-table="">
+          <thead className="border-b border-border text-xs text-muted-foreground">
             <tr>
-              <th rowSpan={2} className={`${TH_WRAP} align-bottom`}>
-                {t('checks.shelf.asked')}
-              </th>
-              <th colSpan={RESULTS_LEFT_OVERS.length} className={`${TH_WRAP} text-center`}>
-                {t('checks.shelf.leftOverTitle')}
-              </th>
-            </tr>
-            <tr>
-              {RESULTS_LEFT_OVERS.map((lo) => (
-                <th key={lo} className={`${TH_WRAP} text-center`}>
-                  {t(`checks.shelf.leftOver.${lo}`)}
-                </th>
-              ))}
+              <th className={TH_WRAP}>{t('checks.shelf.cols.mode')}</th>
+              <th className={TH_WRAP}>{t('checks.shelf.cols.stockClass')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.shelf.cols.lines')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.shelf.cols.expected')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.shelf.cols.ratio')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.shelf.cols.halves')}</th>
+              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.shelf.cols.days')}</th>
+              <th className={TH_WRAP}>{t('checks.shelf.cols.verdict')}</th>
             </tr>
           </thead>
           <tbody>
-            {view.grid.map((r) => (
-              <tr key={r.asked}>
-                <th className={TH_WRAP} scope="row">
-                  {r.asked === 6 ? t('checks.shelf.sixOrMore') : <Ltr>{String(r.asked)}</Ltr>}
-                </th>
-                {r.cells.map((c, i) => (
-                  <ShelfCell key={c?.key ?? i} cell={c} line={line} />
-                ))}
-              </tr>
+            {rows.rows.map((r) => (
+              <ShelfRow key={r.key} row={r} />
             ))}
           </tbody>
         </table>
       </div>
+      <p className="max-w-[90ch] rounded-md border border-border bg-muted/40 px-3 py-2 text-xs" data-ratio-note="">
+        {t('checks.shelf.rule')}
+      </p>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs" data-fleet-ratios="">
         <span className="text-muted-foreground">{t('checks.shelf.fleetRatio')}</span>
-        {view.fleetRatios.map((f) => (
-          <span key={f.mode} className={f.mode === mode ? 'font-semibold' : ''} data-fleet-ratio={f.mode}>
-            {t(`modes.${f.mode}`)} <Ltr>{f.ratio == null ? t('dash') : ratioText(f.ratio)}</Ltr>
+        {rows.fleetRatios.map((f) => (
+          <span key={f.mode} data-fleet-ratio={f.mode}>
+            {t(`modes.${f.mode}`)} <Ltr>{f.ratio == null ? t('dash') : ratioText(f.ratio)}</Ltr>{' '}
+            <span className="text-muted-foreground">
+              <Trans t={t} i18nKey="checks.shelf.fleetLines" components={{ lines: <Fig value={countText(f.lines)} /> }} />
+            </span>
           </span>
         ))}
-        <span className="text-muted-foreground" data-shelf-window="">
-          <Trans
-            t={t}
-            i18nKey="checks.shelf.window"
-            components={{ counts: <Fig value={countText(view.window.counts)} />, from: <Fig value={view.window.from} />, to: <Fig value={view.window.to} /> }}
-          />
-        </span>
       </div>
-      <ShortFigureRows view={view} />
     </section>
   )
 }
 
-function ShelfCell({ cell, line }: { cell: ShelfCellView | null; line: SecondLine }) {
+function ShelfRow({ row: r }: { row: ShelfEvidenceRow }) {
   const { t } = useTranslation('sourcing-results')
-  if (!cell)
-    return (
-      <td className={`${TD} text-center text-muted-foreground`} data-shelf-cell="none">
-        {t('dash')}
+  return (
+    <tr className="border-b border-border/60" data-shelf-row={r.key} data-verdict={r.verdict}>
+      <td className={TD_WRAP}>{t(`modes.${r.mode}`)}</td>
+      <td className={TD_WRAP}>
+        <Word k={`stockClasses.${r.stockClass}`} family="STOCK_CLASS" code={r.stockClass} />
       </td>
-    )
-  return (
-    <td
-      className="rounded-sm px-2 py-1.5 text-center align-top"
-      style={{ background: cellFill(cell.heat) }}
-      data-shelf-cell={cell.key}
-      data-reading={cell.reading}
-    >
-      <b className="block">
-        <Ltr>{`${cell.chance.toFixed(2)}%`}</Ltr>
-      </b>
-      {line === 'PICKS' ? (
-        <>
-          <span className="block text-xs" data-shelf-picks="">
-            <Ltr>{formatParts([formatCount(countText(cell.failed), countText(cell.lines)), cell.failedPercent == null ? '' : percentText(cell.failedPercent)])}</Ltr>
-          </span>
-          <span className="block text-[11px] text-muted-foreground" data-shelf-reading="">
-            {t(`checks.reading.${cell.reading}`)}
-          </span>
-        </>
-      ) : (
-        <span className="block text-xs" data-shelf-halves="">
-          <Ltr>{formatParts(cell.halves.map((h) => (h == null ? t('dash') : `${h.toFixed(2)}%`)))}</Ltr>
+      <td className={TD_NUM}>
+        <Ltr>{formatCount(countText(r.failedLines), countText(r.lines))}</Ltr>
+      </td>
+      <td className={TD_NUM}>
+        <Ltr>{r.expected.toFixed(1)}</Ltr>
+      </td>
+      <td className={TD_NUM}>
+        {r.ratio == null ? t('dash') : <Ltr>{ratioText(r.ratio)}</Ltr>}
+        <div className="text-[11px] text-muted-foreground">
+          <Trans t={t} i18nKey="checks.shelf.fits" components={{ fits: <Fig value={ratioText(r.fits)} />, gap: <Fig value={r.chanceGap.toFixed(3)} /> }} />
+        </div>
+      </td>
+      <td className={TD_NUM}>
+        <Ltr>{formatParts([r.firstHalf, r.secondHalf].map((h) => (h == null ? t('dash') : ratioText(h))))}</Ltr>
+      </td>
+      <td className={TD_NUM}>
+        <Ltr>{countText(r.daysCounted)}</Ltr>
+      </td>
+      <td className={`${TD_WRAP} text-xs`}>
+        <span className={`${PILL} border-border bg-muted text-muted-foreground`}>
+          <Word k={`checks.reading.${r.verdict}`} family="SHELF_CHANCE_VERDICT" code={r.verdict} />
         </span>
-      )}
-    </td>
+        {r.awaitsRuling && <div className="mt-0.5 text-attention-800">{t('checks.shelf.awaitsRuling')}</div>}
+        {r.ruling && <div className="mt-0.5 text-muted-foreground">{t('checks.shelf.ruled')}</div>}
+      </td>
+    </tr>
   )
 }
 
-function RatioCell({ ratio }: { ratio: ResultsRatio }) {
-  const { t } = useTranslation('sourcing-results')
-  return (
-    <div className="flex flex-col items-end">
-      <b>
-        <Ltr>{ratio.ratio == null ? t('dash') : ratioText(ratio.ratio)}</Ltr>
-      </b>
-      <span className="text-[11px] text-muted-foreground">
-        <Trans t={t} i18nKey="checks.rows.linesBehind" components={{ lines: <Fig value={countText(ratio.lines)} />, failed: <Fig value={countText(ratio.failed)} /> }} />
-      </span>
-    </div>
-  )
-}
-
-function ShortFigureRows({ view }: { view: ReturnType<typeof shelfEvidence> }) {
-  const { t } = useTranslation('sourcing-results')
-  return (
-    <div className="flex flex-col gap-2" data-short-rows="">
-      <h4 className="text-sm font-semibold">{t('checks.rows.title')}</h4>
-      <p className="max-w-[90ch] rounded-md border border-border bg-muted/40 px-3 py-2 text-xs" data-ratio-note="">
-        {t('checks.rows.note')}
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[60rem] text-sm">
-          <thead className="border-b border-border text-xs text-muted-foreground">
-            <tr>
-              <th className={TH_WRAP}>{t('checks.rows.cols.row')}</th>
-              <th className={TH_WRAP}>{t('checks.rows.cols.mode')}</th>
-              <th className={TH_NUM}>{t('checks.rows.cols.figure')}</th>
-              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.rows.cols.oneLine')}</th>
-              <th className={`${TH_NUM} whitespace-normal`}>{t('checks.rows.cols.every')}</th>
-              <th className={TH_WRAP}>{t('checks.rows.cols.groups')}</th>
-              <th className={TH_WRAP}>{t('checks.rows.cols.reading')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {view.rows.map((r) => (
-              <tr key={r.key} className="border-b border-border/60" data-short-row={r.key} data-reading={r.reading}>
-                <td className={TD_WRAP}>
-                  {t(`stockClasses.${r.stockClass}`)}{' '}
-                  <span className={`${PILL} border-border bg-muted text-muted-foreground`} data-row-source="">
-                    {t('checks.rows.fromDeliveries')}
-                  </span>
-                </td>
-                <td className={TD_WRAP}>{t(`modes.${r.mode}`)}</td>
-                <td className={TD_NUM}>
-                  <Ltr>{percentText(r.chance)}</Ltr>
-                </td>
-                <td className={TD_NUM}>
-                  <RatioCell ratio={r.oneLine} />
-                </td>
-                <td className={TD_NUM}>
-                  <RatioCell ratio={r.everyDelivery} />
-                </td>
-                <td className={`${TD_WRAP} text-xs`}>
-                  <ul className="flex flex-col gap-0.5">
-                    {r.groups.map((g) => (
-                      <li key={g.group} data-row-group={g.group}>
-                        <Trans
-                          t={t}
-                          i18nKey="checks.rows.groupLine"
-                          values={{ group: t(`checks.rows.groups.${g.group}`) }}
-                          components={{ one: <Fig value={countText(g.oneLineLines)} />, every: <Fig value={countText(g.everyLines)} /> }}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-                <td className={`${TD_WRAP} text-xs`}>{t(`checks.reading.${r.reading}`)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}

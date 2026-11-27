@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import type { TFunction } from 'i18next'
@@ -7,13 +7,16 @@ import { ArrowDown, ArrowUp, Loader2, PlayCircle } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type {
   ResultsCardShipment,
-  ResultsClass,
   ResultsFigure,
   ResultsOrderCard,
   ResultsOrderRow,
   ResultsOrderSort,
   ResultsQuery,
+  ResultsSourcedMoney,
 } from '@/core/models/sourcing-results'
+import { usePermissions } from '@/core/permissions'
+import { canOpenStoredRun } from '@/core/sourcing-advisor/access'
+import { simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import GridPager from '@/core/ui/GridPager'
@@ -22,76 +25,111 @@ import { showsPager } from '@/core/ui/pager'
 import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import SideSheet from '@/core/ui/SideSheet'
 import SideSheetHeader from '@/core/ui/SideSheetHeader'
-import { fsi, formatPair, formatParts } from '@/core/util/bidi'
+import { fsi, formatParts, formatRange } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { usePermissions } from '@/core/permissions'
-import { canOpenStoredRun } from '@/core/sourcing-advisor/access'
-import { simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
+import { formatMoney } from '@/core/util/number-format'
 import { sourcingResultsApi } from './api'
+import { useWordString, Word } from './codes'
 import { estimateWords } from './estimate-words'
-import { encodeFigure } from './figure'
-import { readingFigureTitle } from './reading-figure'
-import { HATCH, classInk, modeInk } from './inks'
+import { figureKey, ordersRequest } from './figure'
+import { classInk, modeInk } from './inks'
 import { countText } from './text'
 
 export const ORDERS_PAGE_SIZE = 25
 
-const COLUMNS: ResultsOrderSort[] = ['orderNumber', 'landedAt', 'channel', 'wholePlan', 'storesOnly', 'estimateMinutes', 'ending']
+/** The list's columns; a column with a sort is one the door sorts by (BO 4393 `ResultSorts`). */
+const COLUMNS: { col: string; sort: ResultsOrderSort | null }[] = [
+  { col: 'order', sort: 'ORDER' },
+  { col: 'landed', sort: 'LANDED' },
+  { col: 'channel', sort: 'CHANNEL' },
+  { col: 'city', sort: 'CITY' },
+  { col: 'wholeClass', sort: null },
+  { col: 'storesClass', sort: null },
+  { col: 'estimate', sort: 'ESTIMATE' },
+  { col: 'ending', sort: 'ENDING' },
+]
 
-/** The drawer's title: the figure in words. */
-export function figureTitle(t: TFunction<'sourcing-results'>, f: ResultsFigure): string {
-  switch (f.kind) {
-    case 'segment':
-      return t(`top.segments.${f.segment}`)
-    case 'class':
-      return t('drawer.figures.class', { view: t(`views.${f.view}`), cls: t(`classes.${f.cls}`) })
-    case 'promise':
-      return t('drawer.figures.promise', { row: f.channelGroup ? t(`promise.pickUpGroups.${f.channelGroup}`) : t(`modes.${f.mode}`) })
-    case 'mark':
-      return t('drawer.figures.mark', { mark: t(`marks.names.${f.mark}`) })
-    case 'runNotEnded':
-      return t('drawer.figures.runNotEnded')
-    case 'notRun':
-      return t('drawer.figures.notRun')
+/** The drawer's title: the figure in words (a string sink: data values take `fsi`). */
+export function useFigureTitle(): (f: ResultsFigure) => string {
+  const { t } = useTranslation('sourcing-results')
+  const word = useWordString()
+  return (f) => {
+    switch (f.kind) {
+      case 'segment':
+        return t(`top.segments.${f.segment}`)
+      case 'class':
+        return f.ending
+          ? t('drawer.figures.classEnding', { view: t(`views.${f.view}`), cls: t(`classes.${f.cls}`), ending: t(`endings.${f.ending}`) })
+          : t('drawer.figures.class', { view: t(`views.${f.view}`), cls: t(`classes.${f.cls}`) })
+      case 'outside':
+        return t('outsideRules.figure', { reason: outsideWords(word, f.code, f.step) })
+      case 'breakdown':
+        return t('breakdowns.figure', { by: t(`breakdowns.by.${f.by}`), row: breakdownKeyWords(t, word, f.by, f.key) })
+      case 'laterSlot':
+        return t('laterSlots.figureHour', { hour: fsi(`${String(f.hour).padStart(2, '0')}:00`) })
+      case 'mark':
+        return t('drawer.figures.mark', { mark: word('COMPARISON_MARK', f.mark, `marks.names.${f.mark}`) })
+    }
+  }
+}
+
+/** An outside reason in words: the refused pin's code, and the step that removed the pair when there is one. */
+export function outsideWords(word: ReturnType<typeof useWordString>, code: string, step: string): string {
+  const pin = word('PIN', code)
+  return step ? `${pin}: ${word('FILTER', step, `outsideRules.steps.${step}`)}` : pin
+}
+
+/** A breakdown row's key in words, for a string sink. */
+export function breakdownKeyWords(t: TFunction<'sourcing-results'>, word: ReturnType<typeof useWordString>, by: string, key: string): string {
+  switch (by) {
+    case 'MODE':
+    case 'SHORT_FIGURE':
+      return word('MODE_MIX', key, `breakdowns.modeRows.${key}`)
+    case 'CHANNEL':
+      return word('CHANNEL', key, `channels.${key}`)
+    case 'MADE_BY':
+      return key === 'CHANNEL' || key === 'OMS' ? t(`breakdowns.madeBy.${key}`) : word('OWN_RUN', key)
+    case 'OWN_SPLIT':
+      return word('OWN_SPLIT', key, `breakdowns.splitParts.${key}`)
     default:
-      return readingFigureTitle(t, f)
+      return fsi(key)
   }
 }
 
 /**
- * The orders behind a figure (ticket 971, results ticket decision 5), from the side so the page keeps its width:
- * paged and sortable (export is not built, spec 4354 Further Notes), and a chosen order's card above the list — the
- * advisor's plan (Recommended) beside what happened (a dashed box), the estimate in one sentence, how it ended, and
- * "Open the stored run in the simulator".
+ * The orders behind a figure (ticket 971, results ticket decision 5; BO 4393 `Results/Orders`), from the side so the
+ * page keeps its width: paged and sortable (export is not built, spec 4354 Further Notes), and a chosen order's card
+ * above the list — the advisor's plan beside what happened, the estimate, how it ended, its riyal figures each with
+ * its source, and "Open the stored run in the simulator".
  */
 export default function OrdersDrawer({ figure, query, onClose }: { figure: ResultsFigure; query: ResultsQuery; onClose: () => void }) {
   const { t } = useTranslation('sourcing-results')
+  const title = useFigureTitle()
   const titleId = useId()
   const [page, setPage] = useState(1)
-  const [sort, setSort] = useState<{ by: ResultsOrderSort; descending: boolean }>({ by: 'landedAt', descending: true })
+  const [sort, setSort] = useState<{ by: ResultsOrderSort; desc: boolean }>({ by: 'LANDED', desc: true })
   const [chosen, setChosen] = useState<string | null>(null)
-  const encoded = encodeFigure(figure)
+  const key = figureKey(figure)
 
   const orders = useQuery({
-    queryKey: ['sourcing-results', 'orders', query, encoded, page, sort],
-    queryFn: () =>
-      sourcingResultsApi.orders({ ...query, figure: encoded, page, pageSize: ORDERS_PAGE_SIZE, sort: sort.by, descending: sort.descending }),
+    queryKey: ['sourcing-results', 'orders', query, key, page, sort],
+    queryFn: () => sourcingResultsApi.orders(ordersRequest(query, figure, { page, pageSize: ORDERS_PAGE_SIZE, sort: sort.by, desc: sort.desc })),
     placeholderData: keepPreviousData,
     retry: false,
   })
   const total = orders.data?.total ?? 0
 
   const sortBy = (by: ResultsOrderSort) => {
-    setSort((prev) => (prev.by === by ? { by, descending: !prev.descending } : { by, descending: false }))
+    setSort((prev) => (prev.by === by ? { by, desc: !prev.desc } : { by, desc: false }))
     setPage(1)
   }
 
   return (
-    <SideSheet onClose={onClose} width="w-[60rem]" aria-labelledby={titleId} data-results-drawer={encoded}>
+    <SideSheet onClose={onClose} width="w-[64rem]" aria-labelledby={titleId} data-results-drawer={key}>
       <SideSheetHeader
         titleId={titleId}
         eyebrow={t('drawer.eyebrow')}
-        title={figureTitle(t, figure)}
+        title={title(figure)}
         hint={orders.data ? t('drawer.count', { count: total, n: fsi(countText(total)) }) : undefined}
         closeLabel={t('drawer.close')}
         onClose={onClose}
@@ -116,17 +154,21 @@ export default function OrdersDrawer({ figure, query, onClose }: { figure: Resul
             <table className="w-full text-sm" data-drawer-orders="">
               <thead className="border-b border-border bg-muted/50 text-xs text-muted-foreground">
                 <tr>
-                  {COLUMNS.map((c) => (
-                    <th key={c} className={TH} aria-sort={sort.by === c ? (sort.descending ? 'descending' : 'ascending') : 'none'}>
-                      <button
-                        type="button"
-                        className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
-                        onClick={() => sortBy(c)}
-                        data-sort={c}
-                      >
-                        {t(`drawer.cols.${c}`)}
-                        {sort.by === c && (sort.descending ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUp className="h-3 w-3" aria-hidden />)}
-                      </button>
+                  {COLUMNS.map(({ col, sort: by }) => (
+                    <th key={col} className={TH} aria-sort={by && sort.by === by ? (sort.desc ? 'descending' : 'ascending') : undefined}>
+                      {by ? (
+                        <button
+                          type="button"
+                          className="inline-flex cursor-pointer items-center gap-1 font-medium hover:text-foreground"
+                          onClick={() => sortBy(by)}
+                          data-sort={by}
+                        >
+                          {t(`drawer.cols.${col}`)}
+                          {sort.by === by && (sort.desc ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUp className="h-3 w-3" aria-hidden />)}
+                        </button>
+                      ) : (
+                        t(`drawer.cols.${col}`)
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -147,17 +189,15 @@ export default function OrdersDrawer({ figure, query, onClose }: { figure: Resul
   )
 }
 
-function ClassPill({ cls }: { cls: ResultsClass }) {
+function ClassPill({ cls }: { cls: string }) {
   const { t } = useTranslation('sourcing-results')
   return (
     <span className="inline-flex items-center gap-1.5">
-      <i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: classInk(cls), backgroundImage: cls === 'CALLOUT_FALLBACK' ? HATCH : undefined }} aria-hidden />
-      {t(`classes.${cls}`)}
+      <i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: classInk(cls) }} aria-hidden />
+      {t(`classes.${cls}`, { defaultValue: fsi(cls) })}
     </span>
   )
 }
-
-const channelName = (t: TFunction<'sourcing-results'>, code: string) => t(`channels.${code}`, { defaultValue: code })
 
 function OrderRow({ row, chosen, onChoose }: { row: ResultsOrderRow; chosen: boolean; onChoose: () => void }) {
   const { t } = useTranslation('sourcing-results')
@@ -178,21 +218,24 @@ function OrderRow({ row, chosen, onChoose }: { row: ResultsOrderRow; chosen: boo
         <Ltr>{formatDateTime(row.landedAt)}</Ltr>
       </td>
       <td className={TD}>
-        <bdi>{channelName(t, row.channel)}</bdi>
-        <div className="text-xs text-muted-foreground">
-          <bdi>{row.city}</bdi>
-        </div>
+        <Word k={`channels.${row.channel}`} family="CHANNEL" code={row.channel} />
       </td>
       <td className={TD}>
-        <ClassPill cls={row.wholePlan} />
+        <bdi>{row.city}</bdi>
       </td>
       <td className={TD}>
-        <ClassPill cls={row.storesOnly} />
+        <ClassPill cls={row.wholeClass} />
       </td>
-      <td className={TD}>{estimateWords(t, row.estimateMinutes)}</td>
+      <td className={TD}>
+        <ClassPill cls={row.storesClass} />
+      </td>
+      <td className={TD}>
+        <div>{estimateWords(t, row.wholeEstimate)}</div>
+        <div className="text-xs text-muted-foreground">{t('drawer.storesEstimate', { words: estimateWords(t, row.storesEstimate) })}</div>
+      </td>
       <td className={TD}>
         {t(`endings.${row.ending}`)}
-        {row.stockShortLine && <div className="text-xs text-muted-foreground">{t('drawer.stockShortLine')}</div>}
+        {row.shortFigure && <div className="text-xs text-muted-foreground">{t('drawer.shortFigure')}</div>}
       </td>
     </tr>
   )
@@ -227,21 +270,41 @@ function OrderCard({ orderNumber }: { orderNumber: string }) {
         </b>
         <span className="text-xs text-muted-foreground">
           {/* A line led by a machine value (the landed time): isolated once, whole (bidi rule). */}
-          <Ltr>{formatParts([formatDateTime(c.landedAt), channelName(t, c.channel), c.city])}</Ltr>
+          <Ltr>{formatParts([formatDateTime(c.landedAt), c.channel, c.city])}</Ltr>
         </span>
       </div>
-      <div className="grid gap-2 md:grid-cols-2">
-        <Side title={t('card.plan')} shipments={c.plan} data="plan" />
-        <Side title={t('card.happened')} shipments={c.happened} data="happened" dashed />
+      <p className="text-xs text-muted-foreground" data-card-run="">
+        {t('card.ran', {
+          set: t('filters.set', { name: fsi(c.weightSetName), version: fsi(c.weightSetVersion) }),
+          at: fsi(formatDateTime(c.ranAt)),
+        })}
+      </p>
+      <div className="grid gap-2 md:grid-cols-3">
+        <Side title={t('card.plan')} shipments={c.wholePlan} data="whole-plan" />
+        <Side title={t('card.storesOnly')} shipments={c.storesOnly} data="stores-only" />
+        <Side title={t('card.happened')} shipments={c.deliveries} data="happened" dashed />
       </div>
       <p className="text-sm" data-card-estimate="">
-        {c.estimateMinutes == null ? t('card.noEstimate') : t('card.estimate', { words: estimateWords(t, c.estimateMinutes) })}
+        {c.wholeEstimate == null ? t('card.noEstimate') : t('card.estimate', { words: estimateWords(t, c.wholeEstimate) })}
       </p>
       <p className="text-xs text-muted-foreground" data-card-ending="">
         {t('card.ended', { ending: t(`endings.${c.ending}`) })}
+        {c.outsideCode && (
+          <>
+            {' · '}
+            {t('card.outside')} <Word family="PIN" code={c.outsideCode} />
+          </>
+        )}
+        {c.notComparableWhy && (
+          <>
+            {' · '}
+            <Word family="NOT_COMPARABLE_WHY" code={c.notComparableWhy} />
+          </>
+        )}
       </p>
+      <Money card={c} />
       {/* Review 4354 #4: hidden until the simulator reads the stored run, and then only under the run grant. */}
-      {opensRun && (
+      {opensRun && c.runId && (
         <div>
           <Button variant="primary" onClick={() => navigate(simulatorRunPath(c.runId))} data-open-simulator={c.runId}>
             <PlayCircle className="h-4 w-4" aria-hidden />
@@ -253,32 +316,76 @@ function OrderCard({ orderNumber }: { orderNumber: string }) {
   )
 }
 
+/** Riyals appear on one order only, each with its source (results ticket decision 4). */
+function Money({ card }: { card: ResultsOrderCard }) {
+  const { t } = useTranslation('sourcing-results')
+  const rows: [string, ResultsSourcedMoney | null][] = [
+    ['wholeListFee', card.wholeListFee],
+    ['realListFee', card.realListFee],
+    ['feePaid', card.feePaid],
+    ['wholeCompanyCost', card.wholeCompanyCost],
+    ['realCompanyCost', card.realCompanyCost],
+  ]
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5" data-card-money="">
+      {rows.map(([k, m]) => (
+        <div key={k} className="flex flex-col" data-card-money-row={k}>
+          <dt className="text-muted-foreground">{t(`card.money.${k}`)}</dt>
+          <dd>
+            {m ? (
+              <>
+                <Ltr>{formatMoney(m.amount)}</Ltr> <span className="text-muted-foreground">(<Word family="MONEY_SOURCE" code={m.source} />)</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">{t('card.money.unknown')}</span>
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 function Side({ title, shipments, data, dashed = false }: { title: string; shipments: ResultsCardShipment[]; data: string; dashed?: boolean }) {
-  const { t, i18n } = useTranslation('sourcing-results')
+  const { t } = useTranslation('sourcing-results')
+  const when = (s: ResultsCardShipment): ReactNode =>
+    s.handedOverAt ? (
+      t('card.handedOver', { at: fsi(formatDateTime(s.handedOverAt)) })
+    ) : s.slotFrom && s.slotTo ? (
+      <Ltr>{formatRange(formatDateTime(s.slotFrom), formatDateTime(s.slotTo).slice(11))}</Ltr>
+    ) : s.promisedBy ? (
+      t('card.promisedBy', { at: fsi(formatDateTime(s.promisedBy)) })
+    ) : null
   return (
     <div className={`flex flex-col gap-2 rounded-md border p-2.5 ${dashed ? 'border-dashed border-muted-foreground' : 'border-border'}`} data-card-side={data}>
       <h3 className="text-xs font-semibold">{title}</h3>
-      {shipments.map((s, i) => (
-        <div key={i} className="text-sm">
+      {shipments.length === 0 && <p className="text-xs text-muted-foreground">{t('dash')}</p>}
+      {shipments.map((s) => (
+        <div key={`${s.no}:${s.deliveryNo}`} className="text-sm" data-card-shipment={s.no}>
           <span className="inline-flex items-center gap-1.5 font-medium">
             <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: modeInk(s.mode) }} aria-hidden />
-            {t(`modes.${s.mode}`)}
+            {t(`modes.${s.mode}`, { defaultValue: fsi(s.mode) })}
           </span>{' '}
-          <span className="text-muted-foreground">{t('card.from')}</span>{' '}
-          <Ltr>{formatPair(s.store, s.storeName)}</Ltr>
-          {s.km != null ? (
+          <span className="text-muted-foreground">{t('card.from')}</span> <Ltr>{s.store}</Ltr>
+          {s.distanceBand && (
             <span className="text-muted-foreground">
               {' '}
-              (<Ltr>{t('card.km', { km: s.km.toFixed(1) })}</Ltr>)
+              (<Word k={`checks.distance.bands.${s.distanceBand}`} family="DISTANCE_BAND" code={s.distanceBand} />)
             </span>
-          ) : (
-            <span className="text-muted-foreground"> ({t('card.noLocation')})</span>
           )}
           <div className="text-xs text-muted-foreground">
-            {t('card.lines', { count: s.lines, n: fsi(s.lines) })} · <bdi>{(i18n.language === 'ar' && s.when.ar) || s.when.en}</bdi>
+            {t('card.lines', { count: s.lines.length, n: fsi(s.lines.length) })}
+            {when(s) != null && <> · {when(s)}</>}
+            {s.ending && (
+              <>
+                {' · '}
+                <Word family="DELIVERY_ENDING" code={s.ending} />
+              </>
+            )}
           </div>
         </div>
       ))}
     </div>
   )
 }
+

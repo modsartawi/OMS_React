@@ -120,3 +120,16 @@ these to match:
   `lint` are green.
 - `tools/sourcing-results-drive.mjs` passes 191/191 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), in LTR and RTL. Each
   of the five tabs opens and its figures open their orders.
+
+**2026-11-27 — Reconciled with BackOffice 4393 and 4396 at pricing2 35a4e56be** (branch `reconcile-results`). The
+doors are `Results/Breakdown?by=` (`MODE|CITY|CHANNEL|DAY|MADE_BY|OWN_SPLIT|SHORT_FIGURE`, one grouping per read,
+every figure a count, the total keyed `TOTAL`), `Results/Outside` (by the refused pin's code and the filter step that
+removed the pair), `Results/Checks` (the promise check, Dawaa Now by band with the express stamp, the stock check by
+mode), `Results/LaterSlots` (all 24 hours, with the count of later slots cheaper) and `Results/NotRun` (not run, and run
+by OMS itself, by reason). "Who made the run", the channel's own split and the short-figure orders are now groupings of
+the Breakdowns tab. The shelf chance evidence (rows by mode and stock class, the server's verdict, the halves and
+fleet ratios) rides on BO 4396's `Results/Phase2Bar` reading. Stubs: `stub-tabs.json`, `stub-bar.json`.
+- SERVER GAP (spec 4354): the 36 shelf chance cells, the every-delivery ratio, the lines per channel group, "Counts by
+  half-year" and the window's count of full counts; the short-figure rows by stock class; "of the runs with pairs cut,
+  those with a line not available"; "the order's own store passed over"; the later slots' middle difference; orders
+  figures for a distance band, a stock check row or a not-run reason (plain counts).

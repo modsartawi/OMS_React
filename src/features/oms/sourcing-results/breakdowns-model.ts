@@ -1,58 +1,37 @@
 /**
- * The Breakdowns tab (ticket 972, results ticket decision 10 and its amendments): one table with a switch for its
- * rows — mode, city, channel or day — the same columns in every grouping and a total row; under the rows "a line the
- * stock figure could not cover" by stock class and mode, and "the channel's own split" in its three parts.
+ * The Breakdowns tab (ticket 972, results ticket decision 10 and its amendments): one table with a switch for its rows
+ * — mode, city, channel, day, who made the run, the channel's own split, or the orders with a line the stock figure could
+ * not cover — the same columns in every grouping and a total row. BO 4393 answers one grouping per read
+ * (`Results/Breakdown?by=`), every figure a count of the row's orders.
  *
- * Pure. Every figure is the reply's as sent ("no reader recomputes"): the total row is never re-summed, and `addsUp`
- * only says whether the rows' orders reach it.
+ * Pure. Every figure is the reply's as sent ("no reader recomputes"): the rows keep the order sent, the total row is
+ * never re-summed, and `addsUp` only says whether the rows' orders reach it.
  */
-import {
-  RESULTS_CHANNEL_SPLIT_PARTS,
-  RESULTS_MODE_ROWS,
-  type ResultsBreakdownBy,
-  type ResultsBreakdownFigures,
-  type ResultsBreakdownsReply,
-  type ResultsChannelSplitPart,
-  type ResultsFigure,
-  type ResultsModeRow,
-  type ResultsShipMode,
-  type ResultsShortStockClass,
-} from '@/core/models/sourcing-results'
+import type { ResultsBreakdownBy, ResultsBreakdownReply, ResultsBreakdownRow, ResultsFigure } from '@/core/models/sourcing-results'
 
 export const BREAKDOWN_COLUMNS = [
   'orders',
   'samePlanWhole',
   'samePlanStores',
-  'estimateMiddle',
+  'middleEstimate',
   'promiseKept',
   'late',
   'returned',
   'cancelled',
-  'endedNoStock',
-] as const satisfies readonly (keyof ResultsBreakdownFigures)[]
+  'customerCancelled',
+  'noStock',
+  'pairsCut',
+] as const satisfies readonly (keyof ResultsBreakdownRow)[]
+export type BreakdownColumn = (typeof BREAKDOWN_COLUMNS)[number]
 
-/**
- * "Set beside it" adds one more column (ticket 973, BO 4283 decision 14): each row's same-plan share under the set
- * beside it, after the two same-plan columns. Drawn only when the reply's rows carry it.
- */
-export const BESIDE_COLUMN = 'besideSamePlan'
-export type BreakdownColumn = (typeof BREAKDOWN_COLUMNS)[number] | typeof BESIDE_COLUMN
-const WITH_BESIDE: readonly BreakdownColumn[] = [
-  ...BREAKDOWN_COLUMNS.slice(0, BREAKDOWN_COLUMNS.indexOf('samePlanStores') + 1),
-  BESIDE_COLUMN,
-  ...BREAKDOWN_COLUMNS.slice(BREAKDOWN_COLUMNS.indexOf('samePlanStores') + 1),
-]
-
-/** How the row's name is written: a mode row or a channel in the page's words, a city as free text, a day as a date. */
-// PROVISIONAL (spec 4354: not specified) — `OTHER` as the city key of "the other cities".
+/** How the row's name is written: a code in the page's (or the code list's) words, a city as free text, a day as a date. */
 export type BreakdownLabel =
-  | { kind: 'mode'; mode: ResultsModeRow }
+  | { kind: 'modeMix'; code: string }
   | { kind: 'text'; text: string }
-  | { kind: 'otherCities' }
   | { kind: 'channel'; code: string }
   | { kind: 'date'; day: string }
-  | { kind: 'stockShort'; stockClass: ResultsShortStockClass; mode: ResultsShipMode }
-  | { kind: 'channelSplit'; part: ResultsChannelSplitPart }
+  | { kind: 'madeBy'; code: string }
+  | { kind: 'ownSplit'; code: string }
 
 export interface BreakdownTableRow {
   key: string
@@ -63,66 +42,40 @@ export interface BreakdownTableRow {
 }
 
 export interface BreakdownsTable {
-  header: ResultsBreakdownBy
-  columns: readonly BreakdownColumn[]
+  by: ResultsBreakdownBy
   rows: BreakdownTableRow[]
   total: BreakdownTableRow
   addsUp: boolean
-  stockShort: BreakdownTableRow[]
-  channelSplit: BreakdownTableRow[]
 }
 
-const cellsOf = (f: ResultsBreakdownFigures): Record<BreakdownColumn, number | null> =>
-  ({
-    ...Object.fromEntries(BREAKDOWN_COLUMNS.map((c) => [c, f[c] ?? null])),
-    [BESIDE_COLUMN]: f.beside?.samePlan.percent ?? null,
-  }) as Record<BreakdownColumn, number | null>
+const cellsOf = (r: ResultsBreakdownRow) =>
+  Object.fromEntries(BREAKDOWN_COLUMNS.map((c) => [c, r[c] ?? null])) as Record<BreakdownColumn, number | null>
 
 function labelOf(by: ResultsBreakdownBy, key: string): BreakdownLabel {
   switch (by) {
     case 'MODE':
-      return { kind: 'mode', mode: key as ResultsModeRow }
+    case 'SHORT_FIGURE':
+      return { kind: 'modeMix', code: key }
     case 'CITY':
-      return key === 'OTHER' ? { kind: 'otherCities' } : { kind: 'text', text: key }
+      return { kind: 'text', text: key }
     case 'CHANNEL':
       return { kind: 'channel', code: key }
     case 'DAY':
       return { kind: 'date', day: key }
+    case 'MADE_BY':
+      return { kind: 'madeBy', code: key }
+    case 'OWN_SPLIT':
+      return { kind: 'ownSplit', code: key }
   }
 }
 
-const inOrder = <T>(list: readonly T[], value: T) => {
-  const i = list.indexOf(value)
-  return i < 0 ? list.length : i
-}
-
-export function breakdownsTable(reply: ResultsBreakdownsReply): BreakdownsTable {
+export function breakdownsTable(reply: ResultsBreakdownReply): BreakdownsTable {
   const { by } = reply
-  let rows = [...reply.rows]
-  if (by === 'MODE') rows.sort((a, b) => inOrder(RESULTS_MODE_ROWS, a.key as ResultsModeRow) - inOrder(RESULTS_MODE_ROWS, b.key as ResultsModeRow))
-  if (by === 'DAY') rows = rows.sort((a, b) => a.key.localeCompare(b.key))
-
-  const sum = rows.reduce((n, r) => n + r.orders, 0)
-  const hasBeside = reply.total.beside != null || rows.some((r) => r.beside != null)
+  const sum = reply.rows.reduce((n, r) => n + r.orders, 0)
   return {
-    header: by,
-    columns: hasBeside ? WITH_BESIDE : BREAKDOWN_COLUMNS,
-    rows: rows.map((r) => ({ key: r.key, label: labelOf(by, r.key), cells: cellsOf(r), figure: { kind: 'breakdown', by, key: r.key } })),
-    total: { key: 'ALL', label: { kind: 'text', text: '' }, cells: cellsOf(reply.total), figure: null },
+    by,
+    rows: reply.rows.map((r) => ({ key: r.key, label: labelOf(by, r.key), cells: cellsOf(r), figure: { kind: 'breakdown', by, key: r.key } })),
+    total: { key: reply.total.key, label: { kind: 'text', text: '' }, cells: cellsOf(reply.total), figure: null },
     addsUp: sum === reply.total.orders,
-    stockShort: reply.stockShort.map((r) => ({
-      key: `${r.stockClass}:${r.mode}`,
-      label: { kind: 'stockShort', stockClass: r.stockClass, mode: r.mode },
-      cells: cellsOf(r),
-      figure: { kind: 'stockShort', stockClass: r.stockClass, mode: r.mode },
-    })),
-    channelSplit: [...reply.channelSplit]
-      .sort((a, b) => inOrder(RESULTS_CHANNEL_SPLIT_PARTS, a.part) - inOrder(RESULTS_CHANNEL_SPLIT_PARTS, b.part))
-      .map((r) => ({
-        key: r.part,
-        label: { kind: 'channelSplit', part: r.part },
-        cells: cellsOf(r),
-        figure: { kind: 'channelSplit', part: r.part },
-      })),
   }
 }

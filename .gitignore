@@ -193,3 +193,5 @@ tools/.store-stages-shots/
 tools/.stock-fallback-shots/
 # Comparison results drive screenshots (tools/sourcing-results-drive.mjs, ticket 971)
 tools/.sourcing-results-shots/
+# Sourcing planner data drive screenshots (tools/sourcing-planner-drive.mjs, ticket 968)
+tools/.sourcing-planner-shots/

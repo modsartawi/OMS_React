@@ -12,13 +12,15 @@ const REPLY = reply as unknown as AdviseReply
 const REPLAY = replay as unknown as AdviseReply
 
 describe('the list of kept runs (ticket 969, spec 4354 §12)', () => {
-  it("lists the caller's own kept runs, newest first: another keeper's run opens by its link only", () => {
-    expect(keptRunsList(RUNS).map((r) => r.runId)).toEqual(['01JDQ7M4X9T2B6N8R3K5W1C0VA', '01JDP2Z8C4H6F1Q9Y7E3M5D2KB', '01JDM8T6B3W5N2X4Q9H7L1F0PD'])
+  it('lists every kept run, any keeper’s, newest first (BackOffice 4380: any holder of the run grant lists and opens them)', () => {
+    expect(keptRunsList(RUNS).map((r) => r.runId)).toEqual(['01JDQ7M4X9T2B6N8R3K5W1C0VA', '01JDN5R2V7K9P4T6A8G1J3S0WC', '01JDP2Z8C4H6F1Q9Y7E3M5D2KB', '01JDM8T6B3W5N2X4Q9H7L1F0PD'])
   })
 
-  it('lets only its keeper delete a kept run', () => {
-    expect(canDelete(RUNS[0])).toBe(true)
-    expect(canDelete(RUNS[1])).toBe(false)
+  it('lets only its keeper delete a kept run: the caller is its keeper when its user id is the run’s `keptBy`', () => {
+    expect(canDelete(RUNS[0], 'msartawi')).toBe(true)
+    expect(canDelete(RUNS[1], 'msartawi')).toBe(false)
+    expect(canDelete(RUNS[1], 'omar.h')).toBe(true)
+    expect(canDelete(RUNS[0], null)).toBe(false)
   })
 })
 
@@ -63,14 +65,15 @@ describe('what a kept run’s link opens', () => {
 describe('keeping the run on screen', () => {
   it('offers to keep a held run, not one the door could not hold, nor one already stored', () => {
     expect(keepOffer(REPLY, false)).toBe('keep')
-    expect(keepOffer({ ...REPLY, held: null }, false)).toBe('notHeld')
+    expect(keepOffer({ ...REPLY, held: undefined }, false)).toBe('notHeld')
     expect(keepOffer({ ...REPLY, solve: { ...REPLY.solve, marks: ['NOT_HELD'] } }, false)).toBe('notHeld')
     expect(keepOffer(REPLY, true)).toBe('stored')
   })
 
-  it('needs a name, of at most 80 characters', () => {
+  it('needs a name, of at most 200 characters (the stored run’s name column)', () => {
     expect(keepProblem('  ')).toBe('noName')
-    expect(keepProblem('x'.repeat(81))).toBe('tooLong')
+    expect(keepProblem('x'.repeat(200))).toBeNull()
+    expect(keepProblem('x'.repeat(201))).toBe('tooLong')
     expect(keepProblem(' Malqa replay ')).toBeNull()
   })
 })

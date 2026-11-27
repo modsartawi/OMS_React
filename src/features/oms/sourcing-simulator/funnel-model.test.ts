@@ -1,7 +1,7 @@
 /**
  * Ticket 966 (BackOffice spec 4354 §4, 4281 decisions 26–27): the funnel — every pair, then each filter step with the
- * pairs still standing, each step's removed pairs with their code and figures, and the cut. Fed the door's worked
- * example (4281, the full level), with step 1 put in front of it where a run would carry it.
+ * pairs still standing, each step's removed pairs with their code and figures, and the cut. Fed a full-level reply in
+ * the server's shape (`RecordFilterStep`, BackOffice 4379).
  */
 import { describe, expect, it } from 'vitest'
 import type { AdviseReply } from '@/core/models/sourcing-run'
@@ -15,19 +15,20 @@ const withCut: AdviseReply = {
   ...reply,
   solve: { ...reply.solve, pairs: { beforeCut: 120, cut: 20, offered: 31 } },
   filterSteps: [
-    { step: 5, code: 'OUT_OF_REACH', before: 140, after: 120, removed: [] },
+    { step: 5, code: 'OUT_OF_REACH', before: 140, after: 120, removedCount: 20, removed: [] },
     {
       step: 'CUT',
       code: 'OVER_PAIR_CAP',
       before: 120,
       after: 100,
       cap: 100,
+      removedCount: 20,
       removed: [
         { store: '1311', mode: 'SLOT', km: 9.6, kmKind: 'STRAIGHT_LINE' },
         { store: '1312', mode: 'SLOT', km: 9.9, kmKind: 'STRAIGHT_LINE' },
       ],
     },
-    { step: 11, code: 'NO_STOCK', before: 100, after: 31, removed: [] },
+    { step: 11, code: 'NO_STOCK', before: 100, after: 31, removedCount: 69, removed: [] },
   ],
 }
 
@@ -51,6 +52,12 @@ describe('the funnel', () => {
     const step11 = funnelOf(reply)!.rows.find((r) => r.step === 11)!
     expect(step11.removedCount).toBe(28)
     expect(step11.removed[0]).toMatchObject({ store: '1061', mode: 'PICK_UP', lineNo: 3, offered: 0, asked: 1 })
+  })
+
+  it('a whole-store step carries no list at the middle level: its nearest five per mode stand for it; step 1 is never listed pair by pair', () => {
+    const step1 = funnelOf(reply)!.rows.find((r) => r.step === 1)!
+    expect(step1.removedCount).toBe(3)
+    expect(step1.removed.map((r) => `${r.store} ${r.mode}`)).toEqual(['1055 CARRIER_SAME_DAY', '1061 CARRIER_SAME_DAY', '1090 CARRIER_SAME_DAY'])
   })
 
   it('draws each bar as the share of every pair still standing', () => {

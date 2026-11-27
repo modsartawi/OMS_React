@@ -48,8 +48,8 @@ const envelope = (data, { status = 200, success = true, message = '' } = {}) => 
   body: JSON.stringify({ statusCode: status, success, message, errors: [], data }),
 })
 
-// The run grant under the provisional key and the server's (`SourcingSimulator`, 03): its key is the simulator's to settle.
-const RUN = ['SourcingAdvisorRun:06', 'SourcingSimulator:03']
+// The run grant (BackOffice 4355 `SourcingSimulatorGrants`): every weight-set and planner list reads under it.
+const RUN = ['SourcingSimulator:03']
 const STOCK = 'SourcingPlannerStock:03'
 const RULES = 'SourcingProductRules:03'
 const TABLES = 'SourcingPlannerTables:03'

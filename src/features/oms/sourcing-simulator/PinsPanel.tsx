@@ -59,7 +59,7 @@ export default function PinsPanel({
                       <Ltr>{c.refusal.stepCode}</Ltr>
                     </code>
                   )}
-                  {c.refusal.rule && <bdi data-pin-rule="">{c.refusal.rule}</bdi>}
+                  {w.rule(c.refusal) && <bdi data-pin-rule={c.refusal.rule ?? ''}>{w.rule(c.refusal)}</bdi>}
                   <code className="font-mono text-[11px]">
                     <Ltr>{c.refusal.code}</Ltr>
                   </code>

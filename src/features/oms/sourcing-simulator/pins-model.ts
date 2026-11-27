@@ -16,7 +16,11 @@ export interface PinRefusal {
   code: string
   step: number | string | null
   stepCode: string | null
+  /** A product rule row's id, or `R1`–`R7` for pins that clash (BackOffice 4359). */
   rule: string | null
+  /** A product rule's sentence, in both languages, when the server writes one. */
+  en: string | null
+  ar: string | null
 }
 
 export interface PinChip {
@@ -78,7 +82,7 @@ export function pinChips(pins: readonly AdvisePin[], reply: Pick<AdviseReply, 'r
     return {
       key: pinKey(pin),
       pin,
-      refusal: r ? { code: r.code, step: r.step ?? null, stepCode: r.stepCode ?? null, rule: r.rule ?? null } : null,
+      refusal: r ? { code: r.code, step: r.step ?? null, stepCode: r.stepCode ?? null, rule: r.rule ?? null, en: r.en ?? null, ar: r.ar ?? null } : null,
     }
   })
 }

@@ -17,7 +17,7 @@
   "failed": "The store record could not be read.",
   "builtAt": "Built on the night of {{at}}",
   "window": "Window",
-  "costPerMeasure": "Each measure costs its failure price times the steadied rate less the like-store rate. Below like stores it earns a credit.",
+  "costPerMeasure": "A measure costs its failure price times the steadied rate less the expected rate; below like stores it earns a credit. The price is the weight set's, so the cost is worked out per run: a run's money shows it.",
   "notBuilt": {
     "title": "The store record has not been built yet",
     "hint": "The nightly pass has not run. Every pair runs on the neutral default and costs nothing."
@@ -35,17 +35,18 @@
     "BEYOND_BORDER": "Beyond the border"
   },
   "measure": {
-    "late": "Late",
-    "returned": "Returned by the driver",
-    "cancelled": "Cancelled, not by the customer",
-    "neverMadeReady": "Never made ready",
-    "readyLate": "Ready after 30 minutes",
-    "calloutIgnored": "Callout ignored"
+    "LATE": "Late",
+    "RETURNED": "Returned by the driver",
+    "CANCELLED": "Cancelled, not by the customer",
+    "NEVER_READY": "Never made ready",
+    "READY_LATE": "Ready after 30 minutes",
+    "CALLOUT_IGNORED": "Callout ignored"
   },
   "channel": {
-    "APP": "App",
-    "SITE": "Site",
-    "CALL_CENTRE": "Call centre"
+    "IOS": "App (iPhone)",
+    "ROID": "App (Android)",
+    "WEB": "Site",
+    "category_C": "Call centre"
   },
   "band": {
     "UNDER_30": "under 30 deliveries",
@@ -55,40 +56,28 @@
   },
   "neutral": {
     "mark": "neutral default",
-    "NO_DELIVERIES": "no deliveries in the window",
-    "NO_RECORD": "this mode keeps no record",
-    "SWITCHED_OFF": "switched off"
+    "NO_DELIVERIES": "no deliveries in the window"
   },
   "shared": {
     "countedFrom": "Counted from",
     "countedFromNote": "No earlier day counts.",
     "channels": "Channels counted",
-    "likeStores": "Like stores",
-    "price": "failure price"
+    "likeStores": "Like stores"
   },
   "col": {
     "store": "Store",
     "deliveries": "Deliveries",
     "thisStore": "This store",
     "badEndings": "Bad endings",
-    "cost": "Cost or credit",
-    "pairCost": "Record cost",
     "fallback": "Callout fallback left out",
     "usualSlot": "Usual slot",
     "regularHours": "Regular slot hours",
     "tillMoves": "Till moves marked \"Customer\""
   },
-  "credit": "credit",
   "noSlotHours": "None yet",
-  "tillNote": "Till moves marked \"Customer\": this store's share first, like stores' beside it. The reason is the store's own word.",
+  "tillNote": "Till moves marked \"Customer\" out of all this store's till moves. The reason is the store's own word.",
   "fallbackNote": "Deliveries that reached the store as the callout's fallback are left out of its record and counted apart.",
-  "shown": {
-    "title": "Shown, not charged",
-    "lead": "Worked out and shown. Switched off in the baseline set, so none of it costs.",
-    "lastCount": "Last full count",
-    "countFactor": "Count factor",
-    "donorRefusals": "A donor's refusals for no stock"
-  },
   "noStores": "No store has this mode in the record.",
-  "noRecordMode": "These modes keep no record. Each pair runs on the neutral default and costs nothing."
+  "noRecordMode": "These modes keep no record. Each pair runs on the neutral default and costs nothing.",
+  "rateNote": "Each measure: the steadied rate in bold, the like-store rate beneath, and the bad endings out of the deliveries behind it."
 }

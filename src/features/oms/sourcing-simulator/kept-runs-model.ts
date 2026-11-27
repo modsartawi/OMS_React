@@ -2,9 +2,9 @@
  * Kept runs (ticket 969, BackOffice spec 4354 §12, BackOffice 4380). Pure.
  *
  * A user keeps the run on screen under a name; the full record is then stored for good with a link that any holder of
- * the run grant can open, and only its keeper may delete it. The list shows the caller's own kept runs (§12 says
- * nothing of listing another keeper's: those open by their link). The link opens the simulator straight away on the run
- * (owner, on the 969 prototype), which reads it through the stored-run read door (BackOffice 4281 decision 11).
+ * the run grant can open, and only its keeper may delete it. The list is every kept run (BackOffice 4380's
+ * `GET SourcingAdvisor/Runs/Kept` lists them all, any keeper's). The link opens the simulator straight away on the run
+ * (owner, on the 969 prototype), which reads it through the stored-run read door (`GET SourcingAdvisor/Runs/Open`).
  */
 import type { AdviseCartRequest, AdviseReply, KeptRun, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { SIMULATOR_RUN_PARAM, simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
@@ -12,14 +12,14 @@ import { adviseRequest, type CartForm } from './cart'
 import type { RunAsk } from './replan-model'
 import { replayRequest, type ReplayForm } from './replay'
 
-/** The longest name a kept run takes. PROVISIONAL (spec 4354: not specified) — 80 characters is ours. */
-export const KEPT_NAME_MAX = 80
+/** The longest name a kept run takes: the stored run's name column (BackOffice 4380, `AdvisorStoredRun.Widths.Name`). */
+export const KEPT_NAME_MAX = 200
 
-/** The caller's own kept runs, newest first. */
-export const keptRunsList = (runs: readonly KeptRun[]): KeptRun[] => runs.filter((r) => r.mine).sort((a, b) => b.keptAt.localeCompare(a.keptAt))
+/** Every kept run, newest first. */
+export const keptRunsList = (runs: readonly KeptRun[]): KeptRun[] => [...runs].sort((a, b) => b.keptAt.localeCompare(a.keptAt))
 
-/** Only its keeper may delete a kept run (BackOffice 4380). */
-export const canDelete = (run: KeptRun): boolean => run.mine
+/** Only its keeper may delete a kept run (BackOffice 4380: the door refuses anyone else with `ADVISE-403`). */
+export const canDelete = (run: KeptRun, userId: string | null): boolean => !!userId && run.keptBy === userId
 
 /** The link to copy: the simulator, opened on the run. */
 export const keptRunLink = (runId: string, origin: string): string => `${origin}${simulatorRunPath(runId)}`

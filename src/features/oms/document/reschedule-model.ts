@@ -35,3 +35,15 @@ export function canSaveReschedule(state: {
 }): boolean {
   return state.ready && state.day !== null && state.time !== null && state.reasonCode.trim() !== ''
 }
+
+/**
+ * The server's refusal of a move sent with no reason (BackOffice 4384: `SdDocumentScheduleErrorCodes.
+ * RescheduleReasonRequired`, at both reschedule doors, before anything is written). Its own message is English
+ * only, so the page words this one code itself; every other refusal keeps the server's own words.
+ */
+export const RESCHEDULE_REASON_REQUIRED = 'SDS-00054'
+
+/** The `document` key that words a refusal code, or null to show the server's own message. */
+export function rescheduleRefusalKey(code: string | null): string | null {
+  return code === RESCHEDULE_REASON_REQUIRED ? 'reschedule.reasonRefused' : null
+}

@@ -5,10 +5,10 @@ import { Link, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { MapPlace } from '@/core/map/map-panel'
-import type { AdvisePin, AdviseReply, StoredRun, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+import type { AdvisePin, AdviseReply, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { usePermissions } from '@/core/permissions'
 import { canRunSourcingAdvisor, canSaveWeightSets } from '@/core/sourcing-advisor/access'
-import { KEPT_RUNS_PATH, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
+import { KEPT_RUNS_PATH, replayOrderOf, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -95,16 +95,18 @@ interface RunOutput {
   /** Planning again found the held copy gone, so the cart ran again. */
   heldGone: boolean
   /** Ticket 969: a stored run opened by its link (`?run=`), not a run of this page. */
-  stored?: StoredRun
+  stored?: boolean
 }
 
 function Workbench() {
   const { t } = useTranslation('sourcing-simulator')
   const [form, setForm] = useState<CartForm>(firstForm)
   const [view, setView] = useState<PlansView>('cards')
-  // 964: a run starts from a cart or from an order to replay.
-  const [start, setStart] = useState<StartKind>('build')
-  const [replay, setReplay] = useState<ReplayForm>({ orderNumber: '', withPoint: false, movedTo: null })
+  // 964: a run starts from a cart or from an order to replay. 974: the old order link's replay offer opens the page set
+  // to replay its order (`?replay=`, `simulatorReplayPath`); nothing runs until Run.
+  const [replayAsked] = useState(() => replayOrderOf(new URLSearchParams(window.location.search)))
+  const [start, setStart] = useState<StartKind>(replayAsked ? 'replay' : 'build')
+  const [replay, setReplay] = useState<ReplayForm>({ orderNumber: replayAsked, withPoint: false, movedTo: null })
   const workbench = useQuery(workbenchQuery())
   const queryClient = useQueryClient()
   const permissions = usePermissions()
@@ -166,20 +168,20 @@ function Workbench() {
     const data = opened.data
     if (!data || openedFor === openId) return
     setOpenedFor(openId)
-    const setting = openedSetting(data.record)
+    const setting = openedSetting(data)
     const next: PinScope = setting.start === 'build' ? { start: 'build', form: setting.form, replay } : { start: 'replay', form, replay: setting.replay }
     if (setting.start === 'build') setForm(setting.form)
     else setReplay(setting.replay)
     setStart(setting.start)
     setHeld([])
-    setOpenedRecord(data.record)
+    setOpenedRecord(data)
     // Review 2 #2: the weight set panel names the set the plans were made on.
-    setPicked(openedWeightSet(data.record))
+    setPicked(openedWeightSet(data))
     setEdited(null)
-    const ask = openedAsk(data.record)
+    const ask = openedAsk(data)
     // A changed pin or weight then plans again on the stored run's own figures (`basedOnRun`).
-    setLast({ ask, runId: data.record.runId })
-    setShown({ reply: data.record, ask, lines: runLines(next), heldGone: false, stored: data })
+    setLast({ ask, runId: data.runId })
+    setShown({ reply: data, ask, lines: runLines(next), heldGone: false, stored: true })
   }, [openId, opened.data, openedFor, form, replay])
   const openGone = opened.isError && apiErrorCode(opened.error) === 'ADVISE-404'
   const run = useMutation({
@@ -357,7 +359,7 @@ function Workbench() {
               aria-busy={run.isPending}
               data-run-earlier={run.isPending ? '' : undefined}
             >
-              {ran?.stored && <StoredRunBanner stored={ran.stored} />}
+              {ran?.stored && <StoredRunBanner record={ran.reply} />}
               <ReplayBanner reply={reply} onBack={backToOrder} busy={run.isPending} />
               <RunSummary reply={reply} notes={notes} />
               <KeepRun key={reply.runId} reply={reply} stored={!!ran?.stored} />

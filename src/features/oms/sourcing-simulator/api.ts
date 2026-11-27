@@ -1,15 +1,13 @@
 /**
  * The simulator's server calls (ticket 962, BackOffice spec 4354 §11), through `@/core/api`. Wrapped in TanStack Query
- * at the page. ⚠ Neither door exists yet (BackOffice 4355–4357 open): the drive stubs both.
+ * at the page. The advise and kept-run doors are BackOffice 4355–4381 (`AdviseEndpoints`, `StoredRunEndpoints`), each
+ * behind the run grant; every refusal is the door's `ADVISE-*` code at its true HTTP status.
  */
 import { api } from '@/core/api'
 import type {
   AdviseReply,
-  AdviseWhyNot,
   KeepRunRequest,
   KeptRun,
-  PlanGoal,
-  StoredRun,
   SimulatorWorkbench,
   WeightSetCopyRequest,
   WeightSetListItem,
@@ -25,8 +23,9 @@ export const simulatorApi = {
    */
   advise: (body: SimulatorRequest) => api.post<AdviseReply>('SourcingAdvisor/Advise', body),
   /**
-   * `GET SourcingAdvisor/Workbench` — Google's key for the map the customer is placed on.
-   * PROVISIONAL (spec 4354: not specified) — no key source is decided for the advisor; the door's name is ours.
+   * Google's key for the map the customer is placed on.
+   * SERVER GAP (spec 4354) — BackOffice has no such door: it serves the key only inside the analytics and insurance
+   * models. `GET SourcingAdvisor/Workbench` answers 404 until one is added, and the map shows its table.
    */
   workbench: () => api.get<SimulatorWorkbench>('SourcingAdvisor/Workbench'),
   /**
@@ -42,35 +41,24 @@ export const simulatorApi = {
    */
   saveWeightSet: (body: WeightSetCopyRequest) => api.post<WeightSetVersionRef>('SourcingAdvisor/WeightSets/Copy', body),
   /**
-   * `GET SourcingAdvisor/WhyNot` — "why not another store" (ticket 965, spec 4354 story 28): one store's rows of the
-   * held run's `search.whyNot[]` for one goal, in 4281's row shape (decision 27).
-   * PROVISIONAL (spec 4354: not specified) — the door, its path and its query `runId`, `store`, `goal` are ours. A run no
-   * longer held answers `ADVISE-404`, as the replan does.
-   */
-  whyNot: (runId: string, store: string, goal: PlanGoal) => api.get<AdviseWhyNot[]>('SourcingAdvisor/WhyNot', { runId, store, goal }),
-  /**
-   * Keep the held run under a name (ticket 969, spec 4354 §12; BackOffice 4380 "Doors: keep, list, open, delete"). The
-   * full record is stored for good. A run no longer held answers `ADVISE-404`, as the replan does.
-   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/Runs/Keep`, its body and reply are ours.
+   * `POST SourcingAdvisor/Runs/Keep { runId, name }` — keep a held run of the caller's under a name (BackOffice 4380):
+   * the full record is stored for good. A run no longer held (or not the caller's) answers `ADVISE-404`; one already
+   * kept, or a name over 200 characters, `ADVISE-400`.
    */
   keepRun: (body: KeepRunRequest) => api.post<KeptRun>('SourcingAdvisor/Runs/Keep', body),
-  /**
-   * The caller's kept runs (BackOffice 4380 "list").
-   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/Runs/Kept` and its reply are ours.
-   */
+  /** `GET SourcingAdvisor/Runs/Kept` — every kept run, any keeper's (at most the door's 500). */
   keptRuns: () => api.get<KeptRun[]>('SourcingAdvisor/Runs/Kept'),
   /**
-   * Delete one's own kept run (BackOffice 4380: "the keeper may delete"); its link stops opening.
-   * PROVISIONAL (spec 4354: not specified) — `DELETE SourcingAdvisor/Runs/Kept?runId=` is ours.
+   * `POST SourcingAdvisor/Runs/Delete { runId }` — delete a kept run; its link stops opening. Only its keeper may
+   * (`ADVISE-403` for anyone else); a run not kept answers `ADVISE-404`. The reply names the run deleted.
    */
-  deleteKeptRun: (runId: string) => api.del<null>('SourcingAdvisor/Runs/Kept', { runId }),
+  deleteKeptRun: (runId: string) => api.post<{ runId: string }>('SourcingAdvisor/Runs/Delete', { runId }),
   /**
-   * Open a stored run by its link (BackOffice 4380 "open"): "a read door of the simulator's build, which solves again
-   * from the stored copy" — not an advise call (BackOffice 4281 decision 11). The stored plans stay the truth; the reply
-   * says when a newer engine answers differently. A run not there (deleted, or never kept) answers `ADVISE-404`.
-   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/Runs/Open`, its query `runId` and reply are ours.
+   * `GET SourcingAdvisor/Runs/Open?runId=` — a kept or comparison run, opened by its link (BackOffice 4380): the stored
+   * record at the full level, solved again from its own copy. The stored plans are the truth; `openedAgain.samePlans` is
+   * false when today's engine plans differently. A held working copy, or a run not there, answers `ADVISE-404`.
    */
-  openRun: (runId: string) => api.get<StoredRun>('SourcingAdvisor/Runs/Open', { runId }),
+  openRun: (runId: string) => api.get<AdviseReply>('SourcingAdvisor/Runs/Open', { runId }),
 }
 
 export const keptRunsQuery = () => ({

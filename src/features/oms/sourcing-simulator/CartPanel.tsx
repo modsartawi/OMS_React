@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, MapPin, Play, Plus, Trash2 } from 'lucide-react'
 import LazyMapPanel from '@/core/map/LazyMapPanel'
 import type { MapPlace, MapPoint, MapsAccess } from '@/core/map/map-panel'
 import type { AdviseReply } from '@/core/models/sourcing-run'
+import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import Field from '@/core/ui/Field'
@@ -12,7 +14,7 @@ import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
-import { pointText, SIMULATOR_CHANNELS, type CartForm, type CartProblem } from './cart'
+import { pointText, simulatorChannels, type CartForm, type CartProblem } from './cart'
 import { START_KINDS, type ReplayForm, type ReplayProblem, type StartKind } from './replay'
 import ReplayStart from './ReplayStart'
 
@@ -63,6 +65,9 @@ export default function CartPanel({
 }) {
   const { t } = useTranslation('sourcing-simulator')
   const [cannotDraw, setCannotDraw] = useState(false)
+  // The call centre's channels are the order sources of category C (BackOffice 4381).
+  const sources = useQuery(lookupQueries.documentSources())
+  const channels = useMemo(() => simulatorChannels(sources.data), [sources.data])
   const set = (patch: Partial<CartForm>) => onChange({ ...form, ...patch })
   const setLine = (key: number, patch: { item?: string; quantity?: string }) =>
     set({ lines: form.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) })
@@ -99,9 +104,9 @@ export default function CartPanel({
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('cart.channel')}>
           <Select className="w-full" value={form.channel} onChange={(e) => set({ channel: e.target.value })} data-sim-field="channel">
-            {SIMULATOR_CHANNELS.map((c) => (
+            {channels.map((c) => (
               <option key={c} value={c}>
-                {t(`cart.channels.${c}`)}
+                {t(`cart.channels.${c}`, { defaultValue: t('cart.channels.callCentreSource', { code: fsi(c) }) })}
               </option>
             ))}
           </Select>

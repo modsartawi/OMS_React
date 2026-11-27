@@ -32,7 +32,7 @@
       "IOS": "App (iPhone)",
       "ROID": "App (Android)",
       "WEB": "Site",
-      "CALL_CENTRE": "Call centre"
+      "callCentreSource": "Call centre ({{code}})"
     },
     "time": "Time of day",
     "timeHint": "Today, local time. Empty plans for now.",
@@ -460,7 +460,10 @@
       "WAITING": "Price of waiting",
       "FEES": "Customer's fees",
       "COVER": "Cover cost",
-      "SPLIT": "Split penalty"
+      "SPLIT": "Split penalty",
+      "NO_STOCK_STORE": "The store's own no-stock cost",
+      "COMPANY_COST": "Company's cost",
+      "SPLIT_PENALTY": "Split penalty"
     },
     "records": {
       "title": "How deliveries go at this store",
@@ -470,16 +473,16 @@
       "measure": "Measure",
       "thisStore": "This store",
       "likeStores": "Like stores",
-      "deliveries": "Deliveries",
+      "deliveries": "Bad endings / deliveries",
       "cost": "Cost or credit"
     },
     "measure": {
-      "late": "Late",
-      "returned": "Returned by the driver",
-      "cancelled": "Cancelled, not by the customer",
-      "neverMadeReady": "Never made ready",
-      "calloutIgnored": "Callout ignored",
-      "readyLate": "Ready late"
+      "LATE": "Late",
+      "RETURNED": "Returned by the driver",
+      "CANCELLED": "Cancelled, not by the customer",
+      "NEVER_READY": "Never made ready",
+      "CALLOUT_IGNORED": "Callout ignored",
+      "READY_LATE": "Ready after 30 minutes"
     },
     "shortFigure": {
       "title": "Lines on a short stock figure",
@@ -511,9 +514,6 @@
       "title": "Why not another store?",
       "store": "Store",
       "choose": "Choose a store…",
-      "reading": "Reading what the run worked out…",
-      "notHeld": "The run is no longer held. Run the cart again to ask.",
-      "failed": "What the run worked out for this store could not be read.",
       "nothing": "The run worked out nothing for this store under this plan's goal.",
       "inPlan": "This plan already uses this store by this mode.",
       "removed": "Removed:",
@@ -521,7 +521,14 @@
       "bestThrough": "The best plan through this store has a balanced total of",
       "against": "against this plan's",
       "more": "{{amount}} more",
-      "less": "{{amount}} less"
+      "less": "{{amount}} less",
+      "notFull": "Only a run read at the full level says why not another store.",
+      "lostBy": "{{amount}} more in all",
+      "noPlan": {
+        "SERVES_FEWER": "Given to the search, but no plan through it serves as many lines.",
+        "NOT_REACHED": "Given to the search, but the search ran out of work before it reached a plan through it.",
+        "unknown": "Given to the search, with no plan through it."
+      }
     },
     "filter": {
       "MODE_OFF": "the mode is switched off",
@@ -547,7 +554,7 @@
     "count": {
       "REAL_DATA": "Real data",
       "NEUTRAL_DEFAULT": "Neutral default",
-      "ASSUMED": "Assumption",
+      "ASSUMPTION": "Assumption",
       "SWITCHED_OFF": "Switched off"
     },
     "marks": {
@@ -579,39 +586,52 @@
     "noneSent": "This reply lists no factors: they come at the middle level.",
     "column": {
       "factor": "Factor",
-      "entersAs": "Enters as",
+      "mode": "Mode",
       "ranOn": "Ran on",
       "source": "Source"
-    },
-    "entersAs": {
-      "FILTER": "Filter",
-      "OFFERED_STOCK": "Offered stock",
-      "PROMISE": "Promise time",
-      "COST": "Cost",
-      "RULE": "Rule inside the search"
     },
     "state": {
       "REAL_DATA": "real data",
       "NEUTRAL_DEFAULT": "neutral default",
-      "ASSUMED": "assumption",
+      "ASSUMPTION": "assumption",
       "SWITCHED_OFF": "switched off"
     },
     "factor": {
-      "STOCK_AFTER_OPEN_DEMAND": "Stock after open demand",
+      "MODES": "Modes switched on",
+      "STORES_OF_MODE": "Stores of each mode",
+      "LEFT_OUT": "Stores left out",
+      "LOCATION": "Locations",
+      "ROAD_DISTANCE": "Road distance",
+      "COVERAGE": "Coverage",
+      "DUTY_HOURS": "On duty until the pick ends",
+      "CARRIER_CONTRACTS": "Carrier contracts",
+      "SLOTS": "Slots",
+      "SLOT_CAPACITY": "Slot capacity",
+      "RIDERS_AVAILABLE": "Riders available now",
+      "PRODUCT_RULES": "Product rules",
+      "MIN_SHELF_LIFE": "Minimum shelf life",
+      "STOCK": "Stock after open demand",
       "STOCK_CONFIDENCE": "Stock confidence",
       "BUFFER": "Buffer",
-      "ON_DUTY": "On duty until the pick ends",
-      "PRODUCT_RULES": "Product rules",
-      "RIDERS_AVAILABLE": "Riders available now",
+      "BUFFER_OVERRIDES": "Buffer overrides",
+      "FEED_DELAY": "Stock feed delay",
+      "STOCK_ON_ITS_WAY": "Stock on its way",
       "MADE_READY": "Made-ready time",
-      "DELIVERIES_WAITING": "Deliveries waiting",
-      "ROAD_DISTANCE": "Road distance",
+      "LENGTHENERS": "Lengtheners",
+      "MARGIN": "Margin",
       "DELIVERY_RATE": "Delivery rate",
       "HANDLING": "Handling",
       "STORE_RECORD": "Store record",
-      "NO_STOCK": "No-stock cost",
-      "CUSTOMERS_FEE": "Customer's fee",
-      "MODE_FAILURE_COST": "A mode's own failure cost"
+      "SLOT_LOAD": "Slot load",
+      "SLOT_TIMING": "Slot timing",
+      "SHELF_CHANCE": "Shelf chance (no-stock cost)",
+      "MODE_FAILURE_COST": "A mode's own failure cost",
+      "FEE": "Customer's fee",
+      "WAITING": "Price of waiting",
+      "COVER_COST": "Cover cost",
+      "SAFETY_DAYS": "Safety days",
+      "SPLIT_PENALTY": "Split penalty",
+      "WEIGHT_LIMIT": "Weight limit"
     },
     "solveMark": {
       "COVERAGE_NOT_CONFIRMED": "Coverage not confirmed",
@@ -619,7 +639,9 @@
       "STOCK_FEED_OLD": "A stock feed was old",
       "READ_AFRESH": "Figures read afresh",
       "NOT_HELD": "The run could not be held"
-    }
+    },
+    "storesOnDefault_one": "{{n}} store on the default",
+    "storesOnDefault_other": "{{n}} stores on the default"
   },
   "pins": {
     "title": "Pins",
@@ -738,7 +760,13 @@
     "figuresFrom": "Figures as read at <time>{{time}}</time>, from run <run>{{run}}</run>.",
     "figuresFromRun": "Figures as read for run <run>{{run}}</run>.",
     "readAfresh": "This change needed figures the earlier run never read, so the cart was read afresh as a new run.",
-    "heldGone": "The earlier run is no longer held (runs are held 30 minutes), so the cart ran again with a fresh read."
+    "heldGone": "The earlier run is no longer held (runs are held 30 minutes), so the cart ran again with a fresh read.",
+    "afresh": {
+      "MODE_SWITCHED_ON": "a mode was switched on",
+      "REACH_WIDENED": "a reach was widened",
+      "PAIR_CAP_RAISED": "the cap on pairs was raised",
+      "PIN_ONTO_CUT_PAIR": "a pin named a pair the cut had removed"
+    }
   },
   "replay": {
     "startLabel": "How to start a run",
@@ -765,7 +793,8 @@
     "todaysFigures": "Planned on today's figures, not the order's.",
     "movedByHand": "Customer's point moved by hand",
     "movedHint": "This is no longer the order's own point, so \"What happened\" is hidden.",
-    "backToOrder": "Back to the order's point"
+    "backToOrder": "Back to the order's point",
+    "withPointNoGrant": "Your account does not hold the customer-point grant: the run plans from the order's point, and the reply will not show it."
   },
   "whatHappened": {
     "title": "What happened",
@@ -776,7 +805,6 @@
     "deliveries": "Deliveries",
     "fee": "Fee paid",
     "late": "late",
-    "lateBy": "{{minutes}} min late",
     "onTime": "on time",
     "column": "What happened",
     "notRecorded": "not recorded",
@@ -880,15 +908,13 @@
         "run": "Run",
         "kind": "Kind",
         "channel": "Channel",
-        "order": "Order",
-        "weightSet": "Weight set",
+        "keptBy": "Kept by",
         "ranAt": "Ran",
         "keptAt": "Kept",
         "engine": "Engine"
       },
       "open": "Open in the simulator",
       "delete": "Delete",
-      "draft": "{{name}}, version {{version}}, changed, not saved",
       "deleteDialog": {
         "title": "Delete this kept run?",
         "body": "Its link stops opening for everyone. This cannot be undone.",
@@ -909,8 +935,7 @@
   "stored": {
     "title": {
       "KEPT": "A kept run, opened by its link",
-      "COMPARISON": "A comparison run, opened by its link",
-      "HELD": "A held run, opened by its link"
+      "COMPARISON": "A comparison run, opened by its link"
     },
     "keptBy": "Kept by",
     "keptAt": "Kept",

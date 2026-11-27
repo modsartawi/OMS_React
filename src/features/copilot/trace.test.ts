@@ -13,7 +13,7 @@ describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () =>
       'sap_posting_backlog',
       'store_lookup',
       'sourcing_explain',
-      'sourcing_savings',
+      'sourcing_comparison',
     ]
     const rows = traceRows([
       ...tools.map((tool) => ({ tool, input: {}, rows: 1, ms: 10, ok: true })),
@@ -31,7 +31,7 @@ describe('the "How I got this" trace (spec 734 D2, D11, D21; ticket 736)', () =>
       'trace.tools.sap_posting_backlog',
       'trace.tools.store_lookup',
       'trace.tools.sourcing_explain',
-      'trace.tools.sourcing_savings',
+      'trace.tools.sourcing_comparison',
     ])
     // An unknown tool has no label and keeps its raw name.
     expect(rows[9]).toMatchObject({ labelKey: null, tool: 'weather_now', inputs: [{ key: 'city', value: 'Riyadh' }], rows: 0, failed: false })

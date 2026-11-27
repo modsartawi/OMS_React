@@ -518,15 +518,22 @@ describe('the Serving lists leaf (ticket 567)', () => {
   })
 })
 
-describe('the Sourcing advisor leaf (ticket 738)', () => {
+describe('the Sourcing advisor leaf (ticket 738; ticket 974 points it at the results page)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
-  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-advisor:menu.sourcingAdvisor')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-results:menu.sourcingAdvisor')!
 
-  it('sits in the OMS group, lit alone on its own screen and its explanations', () => {
-    expect(leaf.routerLink).toBe('/oms/sourcing-advisor')
-    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-advisor/order/8000000253')).map((i) => i.labelKey)).toEqual([
-      'sourcing-advisor:menu.sourcingAdvisor',
-    ])
+  it('opens the comparison results page', () => {
+    expect(leaf.routerLink).toBe('/oms/sourcing-results')
+  })
+
+  it('is lit alone on the results page and on the retired advisor’s order link', () => {
+    for (const path of ['/oms/sourcing-results', '/oms/sourcing-advisor/order/8000000253']) {
+      expect((oms.items ?? []).filter((i) => isActive(i, path)).map((i) => i.labelKey)).toEqual(['sourcing-results:menu.sourcingAdvisor'])
+    }
+  })
+
+  it('the old advisor’s own label is gone with its namespace', () => {
+    expect((oms.items ?? []).some((i) => i.labelKey.startsWith('sourcing-advisor:'))).toBe(false)
   })
 
   it('🚩 reads its OWN key (SourcingAdvisor:01 — deliberately Create), and fails closed without it', () => {
@@ -543,15 +550,15 @@ describe('the Sourcing simulator leaf (ticket 962)', () => {
   const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-simulator:menu.sourcingSimulator')!
 
   it('sits in the OMS group right after the Sourcing advisor, lit alone on its own screen', () => {
-    expect(keys.indexOf('sourcing-simulator:menu.sourcingSimulator')).toBe(keys.indexOf('sourcing-advisor:menu.sourcingAdvisor') + 1)
+    expect(keys.indexOf('sourcing-simulator:menu.sourcingSimulator')).toBe(keys.indexOf('sourcing-results:menu.sourcingAdvisor') + 1)
     expect(leaf.routerLink).toBe('/oms/sourcing-simulator')
     expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-simulator')).map((i) => i.labelKey)).toEqual([
       'sourcing-simulator:menu.sourcingSimulator',
     ])
   })
 
-  it('🚩 reads the run grant (provisional SourcingAdvisorRun:06), not the view grant, and fails closed without it', () => {
-    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
+  it('🚩 reads the run grant (SourcingSimulator:03, BackOffice 4355), not the view grant, and fails closed without it', () => {
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(true)
     expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
@@ -576,7 +583,7 @@ describe('the Store record leaf (ticket 969)', () => {
   })
 
   it('🚩 reads the run grant (spec 4354 §19: it opens the store record list), and fails closed without it', () => {
-    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(true)
     expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
@@ -596,13 +603,12 @@ describe('the Sourcing planner data leaf (ticket 968)', () => {
     ])
   })
 
-  // The run grant under both its provisional key and the server's (`SourcingSimulator`, 03): its key is the simulator's to settle.
   it('shows with the run grant and any one of the three planner grants (BO 4375, 4362, 4361), not with either alone, and fails closed', () => {
     for (const k of ['SourcingPlannerStock:03', 'SourcingProductRules:03', 'SourcingPlannerTables:03']) {
-      expect(shows(leaf, k, 'SourcingAdvisorRun:06', 'SourcingSimulator:03')).toBe(true)
+      expect(shows(leaf, k, 'SourcingSimulator:03')).toBe(true)
       expect(shows(leaf, k)).toBe(false)
     }
-    expect(shows(leaf, 'SourcingAdvisorRun:06', 'SourcingSimulator:03')).toBe(false)
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })
@@ -620,7 +626,7 @@ describe('the Weight sets leaf (ticket 967)', () => {
   })
 
   it('opens to the run grant, which reads the list (BO 4360), not to the save, mark or view grant alone, and fails closed', () => {
-    expect(shows(leaf, 'SourcingAdvisorRun:06', 'SourcingSimulator:03')).toBe(true)
+    expect(shows(leaf, 'SourcingSimulator:03')).toBe(true)
     for (const key of ['SourcingWeightSets:03', 'SourcingCandidateSet:03', 'SourcingAdvisor:01']) expect(shows(leaf, key)).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)

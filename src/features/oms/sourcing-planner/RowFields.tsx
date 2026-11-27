@@ -1,7 +1,8 @@
 /**
  * A planner row's fields in its side sheet (ticket 968): the override form (`./override-form-model`) and the generic
  * form every other table uses (`./tables`). Identity fields are fixed once the row exists — a different store or item
- * is a new row, not a change. Codes are typed as codes: no planner door names a store, item or category.
+ * is a new row, not a change. Codes are typed as codes. SERVER GAP (spec 4354): no planner door names a store, item,
+ * merchandise category or sub-category to pick from.
  */
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'

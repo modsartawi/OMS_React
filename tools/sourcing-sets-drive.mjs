@@ -36,8 +36,8 @@ const SHOTS = 'tools/.sourcing-sets-shots'
 mkdirSync(SHOTS, { recursive: true })
 
 const STUB = JSON.parse(readFileSync('src/features/oms/sourcing-sets/stub-sets.json', 'utf8'))
-// The run grant under the provisional key and the server's (`SourcingSimulator`, 03): its key is the simulator's to settle.
-const RUN = ['SourcingAdvisorRun:06', 'SourcingSimulator:03']
+// The run grant (BackOffice 4355 `SourcingSimulatorGrants`): every weight-set and planner list reads under it.
+const RUN = ['SourcingSimulator:03']
 const SAVE = 'SourcingWeightSets:03'
 const MARK = 'SourcingCandidateSet:03'
 const ALL_GRANTS = [...RUN, SAVE, MARK]

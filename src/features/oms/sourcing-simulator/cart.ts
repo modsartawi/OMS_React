@@ -2,19 +2,27 @@
  * The cart the simulator builds, and the request it sends on Run (ticket 962, BackOffice 4281 decisions 10–11: the
  * cart form, `level: "full"` and `allPlans`). Pure.
  */
+import type { DocumentSourceModel } from '@/core/models/lookups'
 import type { AdviseCartRequest } from '@/core/models/sourcing-run'
 import { toIsoDate } from '@/core/util/date-format'
 
 /**
- * The channels the picker offers (the order source codes the order door takes).
- * PROVISIONAL (spec 4354: not specified) — 4281 names `IOS`, `ROID`, `WEB` and "a call-centre source" without its code;
- * `CALL_CENTRE` is ours.
+ * The channels the advisor serves (BackOffice 4381, `AdvisorChannels`): the app (`IOS`, `ROID`), the site (`WEB`) and
+ * the call centre — any order source of category `C`, as the store record counts it. The request's `channel` is that
+ * order source code; any other is refused (`ADVISE-421`).
  */
-export const SIMULATOR_CHANNELS = ['IOS', 'ROID', 'WEB', 'CALL_CENTRE'] as const
+export const SIMULATOR_CHANNELS = ['IOS', 'ROID', 'WEB'] as const
+
+/** The picker's channels: the app and the site, then the call centre's own order sources, read off the source list. */
+export const simulatorChannels = (sources: readonly DocumentSourceModel[] | undefined): string[] => [
+  ...SIMULATOR_CHANNELS,
+  ...(sources ?? []).filter((s) => s.documentSourceCategory?.trim().toUpperCase() === 'C').map((s) => s.documentSource.trim()),
+]
 
 /**
- * The unit every hand-built line is sent in.
- * PROVISIONAL (spec 4354: not specified) — the simulator's unit picker is not specified; every line goes as each.
+ * The unit every hand-built line is sent in. The door converts a line to the stock read's unit through the item's units
+ * of measure, and refuses a unit the item does not have (`ADVISE-400` on `lines[i].unit`). SERVER GAP (spec 4354): no
+ * door lists an item's units, so the simulator has no unit picker and every line goes as each.
  */
 export const LINE_UNIT = 'EA'
 

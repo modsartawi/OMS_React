@@ -12,13 +12,17 @@
  * against like stores, with the deliveries behind it and its cost or credit. "How deliveries go at this store" — never
  * a word that blames the store (spec story 91).
  */
-import type { AdvisePlan, AdviseReply } from '@/core/models/sourcing-run'
+import type { AdvisePlan } from '@/core/models/sourcing-run'
 
-/** The parts of the company's cost, in the order spec §6 lists them. A part not listed follows, in the order sent. */
-export const COST_PARTS = ['DELIVERY_RATE', 'HANDLING', 'STORE_RECORD', 'NO_STOCK', 'SLOT_LOAD', 'SLOT_TIMING'] as const
+/** The parts of the company's cost, in the server's money order (`MoneyRowCodes.Order`). A part not listed follows, in the order sent. */
+export const COST_PARTS = ['DELIVERY_RATE', 'HANDLING', 'NO_STOCK', 'NO_STOCK_STORE', 'STORE_RECORD', 'SLOT_LOAD', 'SLOT_TIMING'] as const
 
-/** The plan's own parts of the balanced sum, under the company's cost. */
-const PLAN_PARTS = ['waiting', 'cover', 'split'] as const
+/** The plan's own parts of the balanced sum, under the company's cost, each read off `sum` (`RecordSum`). */
+const PLAN_PARTS = [
+  ['waiting', 'waiting'],
+  ['cover', 'cover'],
+  ['split', 'splitPenalty'],
+] as const
 
 export interface MoneyCell {
   amount: number
@@ -65,7 +69,7 @@ export function moneyRows(plan: AdvisePlan): MoneyTable {
   ]
   if (plan.sum) {
     const sum = plan.sum
-    for (const k of PLAN_PARTS) rows.push({ key: k, kind: 'plan', cells: none(), plan: { amount: sum[k], source: null } })
+    for (const [k, part] of PLAN_PARTS) rows.push({ key: k, kind: 'plan', cells: none(), plan: { amount: sum[part], source: null } })
     rows.push({ key: 'balanced', kind: 'plan', cells: none(), plan: { amount: sum.total, source: null } })
   }
   const assumed = rows.filter((r) => r.cells.some((c) => c?.source === 'ASSUMED')).map((r) => r.key)
@@ -73,13 +77,20 @@ export function moneyRows(plan: AdvisePlan): MoneyTable {
 }
 
 export interface RecordRow {
+  /** `LATE`, `RETURNED`, `CANCELLED`, `NEVER_READY`, `READY_LATE`, `CALLOUT_IGNORED`. */
   measure: string
+  /** The steadied rate the cost is worked on. */
   rate: number
   likeStores: number
+  /** The rate expected of the store: the like-store rate, or slot timing's shifted one for "late". */
+  expected: number
+  bad: number
   count: number
+  /** The failure price, riyals. */
+  price: number
   source: string
-  cost: number | null
-  /** Ran on the neutral default (the like-store rate, costing nothing: 4386). */
+  cost: number
+  /** Ran on the neutral default (no counted delivery: costs nothing) or switched off. */
   neutral: boolean
 }
 
@@ -88,33 +99,34 @@ export interface StoreRecordView {
   store: string
   storeName: string
   mode: string
-  /** The run read this store (it is in `inputs.stores`). */
+  /** The shipment carries a store record (BackOffice 4386: absent for a mode with none, or the figures not read). */
   read: boolean
-  /** The shipment's store record cost, as sent in its cost parts. */
+  /** The shipment's store record cost, as sent. */
   cost: number | null
   rows: RecordRow[]
 }
 
-export function storeRecords(plan: AdvisePlan, reply: AdviseReply): StoreRecordView[] {
-  const stores = reply.inputs?.stores ?? []
+export function storeRecords(plan: AdvisePlan): StoreRecordView[] {
   return plan.shipments.map((s) => {
-    const input = stores.find((x) => x.store === s.store)
-    const measures = input?.record?.[s.mode] ?? {}
+    const record = s.storeRecord
     return {
       no: s.no,
       store: s.store,
       storeName: s.storeName,
       mode: s.mode,
-      read: !!input,
-      cost: s.costParts?.find((c) => c.part === 'STORE_RECORD')?.amount ?? null,
-      rows: Object.entries(measures).map(([measure, m]) => ({
-        measure,
-        rate: m.rate,
-        likeStores: m.likeStores,
-        count: m.count,
+      read: !!record,
+      cost: record?.cost ?? s.costParts?.find((c) => c.part === 'STORE_RECORD')?.amount ?? null,
+      rows: (record?.lines ?? []).map((m) => ({
+        measure: m.measure,
+        rate: m.steadiedRate,
+        likeStores: m.likeRate,
+        expected: m.expectedRate,
+        bad: m.badEndings,
+        count: m.deliveries,
+        price: m.failurePrice,
         source: m.source,
-        cost: m.cost ?? null,
-        neutral: m.source === 'NEUTRAL_DEFAULT',
+        cost: m.cost,
+        neutral: m.source === 'NEUTRAL_DEFAULT' || m.source === 'SWITCHED_OFF',
       })),
     }
   })

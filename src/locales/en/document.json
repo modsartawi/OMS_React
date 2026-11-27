@@ -572,7 +572,8 @@
     "reason": "Reason",
     "reasonPlaceholder": "Choose a reason",
     "reasonNeeded": "Choose why this move is made before you save it.",
-    "doneDetail": "The document has been rescheduled successfully!"
+    "doneDetail": "The document has been rescheduled successfully!",
+    "reasonRefused": "The move was refused: a reschedule needs a reason. Choose why the delivery moves and save again ({{code}})."
   },
   "changeStore": {
     "titlePick": "Change Store — pick a store",

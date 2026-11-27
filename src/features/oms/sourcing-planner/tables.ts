@@ -38,7 +38,10 @@ export interface TableSpec {
   changeable: boolean
   /** A row may be ended (a rule may not: it is switched off). */
   endable: boolean
-  /** The list door can list ended rows (a planner table's lists only its current rows; its history is per row). */
+  /**
+   * The list door can list ended rows. SERVER GAP (spec 4354): a planner table's (BO 4361) lists only its current rows,
+   * so a key ended with no successor is not listed; its history still reads by key.
+   */
   listsEnded: boolean
   /** A boolean field switched straight from the list. */
   switchField?: string

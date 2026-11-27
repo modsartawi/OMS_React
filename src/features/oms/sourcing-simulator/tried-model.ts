@@ -25,10 +25,11 @@ export interface TriedRow {
   shipments: AdviseKeptShipment[]
   deliveries: number
   pickUp: boolean
-  promiseBy: string | null
-  fee: number | null
-  companyCost: number | null
-  waiting: number | null
+  linesServed: number
+  promiseBy: string
+  fee: number
+  companyCost: number
+  waiting: number
   sum: number
   lostBy: number
   lostMostOn: string | null
@@ -61,10 +62,11 @@ export function triedFor(reply: Pick<AdviseReply, 'search'>, goal: PlanGoal, sho
       shipments: k.shipments,
       deliveries: k.shipments.length,
       pickUp: isPickUp(k.shipments),
-      promiseBy: k.promiseBy ?? null,
-      fee: k.fee ?? null,
-      companyCost: k.companyCost ?? null,
-      waiting: k.waiting ?? null,
+      linesServed: k.linesServed,
+      promiseBy: k.by,
+      fee: k.fee,
+      companyCost: k.companyCost,
+      waiting: k.waiting,
       sum: k.sum,
       lostBy: k.lostBy,
       lostMostOn: k.lostMostOn ?? null,
@@ -121,10 +123,10 @@ export function tradeOffPoints(reply: Pick<AdviseReply, 'search' | 'plans' | 'pl
   }
   const points = new Map<string, TradeOffPoint>()
   for (const k of reply.search?.kept ?? ([] as AdviseKeptPlan[])) {
-    const end = wallMinutes(k.promiseBy)
-    if (end === null || typeof k.fee !== 'number' || typeof k.companyCost !== 'number') continue
+    const end = wallMinutes(k.by)
+    if (end === null) continue
     const key = keyOf(k.shipments)
-    const id = `${key}@${k.promiseBy}`
+    const id = `${key}@${k.by}`
     if (points.has(id)) continue
     const goals = shownGoals.get(id)
     points.set(id, {
@@ -134,7 +136,7 @@ export function tradeOffPoints(reply: Pick<AdviseReply, 'search' | 'plans' | 'pl
       fee: k.fee,
       companyCost: k.companyCost,
       money: k.fee + k.companyCost,
-      promiseBy: k.promiseBy!,
+      promiseBy: k.by,
       deliveries: k.shipments.length,
       shape: shapeOf(k.shipments),
       shown: goals ? PLAN_GOALS.filter((g) => goals.has(g)) : [],

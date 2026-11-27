@@ -339,13 +339,14 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenExpiredApprovalPicks,
       },
       {
-        // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,
-        // on its own predicate in `@/core/` (Delivery details' "Why this store?" link reads it too); fails closed.
+        // Sourcing advisor (ticket 738, spec 734 D21; ticket 974) — opens the comparison results page (ticket 971), under
+        // the advisor view grant, `BackOfficeScreen[SourcingAdvisor, 01]`, on its own predicate in `@/core/` (Delivery
+        // details' "Why this store?" link reads it too); fails closed. Also lit on the retired advisor's order link.
         // Before Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
-        labelKey: 'sourcing-advisor:menu.sourcingAdvisor',
+        labelKey: 'sourcing-results:menu.sourcingAdvisor',
         icon: Route,
-        routerLink: '/oms/sourcing-advisor',
-        activePrefix: '/oms/sourcing-advisor',
+        routerLink: '/oms/sourcing-results',
+        activePrefix: ['/oms/sourcing-results', '/oms/sourcing-advisor'],
         requires: canViewSourcingAdvisor,
       },
       {

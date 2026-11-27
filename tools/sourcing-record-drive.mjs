@@ -1,29 +1,28 @@
 // Store record list and kept runs drive (ticket 969, BackOffice spec 4354 §6, §12, §14, §19) — open the list, keep a
 // run, open it by its link.
 //
-// Drives the REAL app against STUBS of doors BackOffice has not built (4373, the store record's read door; 4380, keep,
-// list, open and delete). Neither ticket names a path or a field, so the stubs serve the app's PROVISIONAL shapes
-// (`src/core/models/sourcing-store-record.ts`, the kept-run types in `src/core/models/sourcing-run.ts`) with the
-// fixtures the model tests read:
-//   GET    Auth/Permissions                → the run grant `SourcingAdvisorRun:06` (PROVISIONAL key) held or not
-//   GET    SourcingAdvisor/StoreRecord     → `src/features/oms/sourcing-record/store-record.fixture.json`, or not built
+// Drives the REAL app against stubs of BackOffice's doors as built (4373, the store record's read door; 4380, keep,
+// list, open and delete; reconciled at pricing2 35a4e56be), serving the server's shapes with the fixtures the model
+// tests read:
+//   GET    Auth/Permissions                → the run grant `SourcingSimulator:03` held or not
+//   GET    SourcingAdvisor/StoreRecords    → `src/features/oms/sourcing-record/store-record.fixture.json`, or not built
 //   POST   SourcingAdvisor/Advise          → the simulator's `advise-reply.fixture.json` (a held run)
-//   POST   SourcingAdvisor/Runs/Keep       → the run kept under its name
+//   POST   SourcingAdvisor/Runs/Keep       → the run kept under its name (`KeptRunAnswer`)
 //   GET    SourcingAdvisor/Runs/Kept       → `kept-runs.fixture.json` (one of them another keeper's) + the runs kept here
-//   DELETE SourcingAdvisor/Runs/Kept       → the run gone from the list
-//   GET    SourcingAdvisor/Runs/Open       → a stored run (its record the advise or replay fixture), or ADVISE-404
+//   POST   SourcingAdvisor/Runs/Delete     → `{ runId }`: the run gone from the list
+//   GET    SourcingAdvisor/Runs/Open       → the stored record (the advise or replay fixture) with `openedAgain`, or ADVISE-404
 // Left to right and right to left (`oms.locale = 'ar'` sets dir="rtl"; the app's words stay English, as on every
 // screen, so the RTL pass proves the mirroring and the isolation), it asserts:
 //   1. without the run grant: no "Store record" leaf and the denied card;
 //   2. the list: "how deliveries go at each store", built when, a tab per mode (slot delivery first), the counted-from
 //      date, the channels each measure counts and the like-store rates said once per mode; a row per store with the
-//      rate, like stores, deliveries behind it and cost or credit as sent; the neutral-default mark; the usual slot,
-//      regular hours and till moves; "shown, not charged"; pick-up's "Ready after 30 minutes" counts the app and the
+//      steadied rate, like stores and the bad endings out of the deliveries behind it, as sent; the neutral-default
+//      mark; the usual slot, regular hours and till moves; pick-up's "Ready after 30 minutes" counts the app and the
 //      site only; Dawaa Now counts from 2026-11-02; the carrier modes keep no record; never "fault", "performance" or
 //      "rating"; figures are LTR isolates; a record never built says so;
 //   3. keep a run: the simulator runs a cart; "Keep and name this run" needs a name, then posts the run's number and
-//      the name; the strip says it is kept and offers its link; the kept runs list shows the caller's own runs only,
-//      newest first, the new one on top; deleting one's own asks first, then sends its number and drops it;
+//      the name; the strip says it is kept and offers its link; the kept runs list shows every kept run with its
+//      keeper, newest first, the new one on top; only one's own offers delete, which asks first, then posts its number;
 //   4. open it by its link: the list's "Open in the simulator" goes to `/oms/sourcing-simulator?run=<id>`, which asks
 //      the stored-run read door (never the advise door), shows the stored plans with the run's name, keeper and engine,
 //      sets its order back on the left and offers no keep; another keeper's hand-built run says a newer engine answers
@@ -48,7 +47,7 @@ const RECORD = json('../src/features/oms/sourcing-record/store-record.fixture.js
 const REPLY = json('../src/features/oms/sourcing-simulator/advise-reply.fixture.json')
 const REPLAY = json('../src/features/oms/sourcing-simulator/replay-reply.fixture.json')
 const KEPT = json('../src/features/oms/sourcing-simulator/kept-runs.fixture.json')
-const RUN_GRANT = 'SourcingAdvisorRun:06'
+const RUN_GRANT = 'SourcingSimulator:03'
 const MALQA = '01JDQ7M4X9T2B6N8R3K5W1C0VA' // mine, a replay
 const OMAR = '01JDN5R2V7K9P4T6A8G1J3S0WC' // another keeper's, hand-built
 const DELETED = '01JD00DELETEDRUN0000000000'
@@ -90,13 +89,20 @@ const readsLtr = (locator) =>
     return box(at).left < box(at + t.length - 1).left
   })
 
-/** The stored run the read door gives for a kept run: its record is the fixture's, under the run's number. */
+/** The stored record the open door gives for a kept run: the fixture's, under the run's number, solved again on 2.3.1. */
 const storedOf = (runId, kept) => {
   const run = kept.find((r) => r.runId === runId)
   if (!run) return null
-  const base = run.orderNumber ? REPLAY : REPLY
-  const record = { ...structuredClone(base), runId, ranAt: run.ranAt, engine: { name: 'plain-search', version: run.engine }, held: null }
-  return { state: 'KEPT', kept: run, record, engineNow: run.engine === '2.3.1' ? null : '2.3.1' }
+  const base = run.kind.startsWith('REPLAY') ? REPLAY : REPLY
+  const { held: _held, ...record } = structuredClone(base)
+  return {
+    ...record,
+    runId,
+    ranAt: run.ranAt,
+    level: 'full',
+    engine: { name: 'plain-search', version: run.engineVersion },
+    openedAgain: { engine: { name: 'plain-search', version: '2.3.1' }, samePlans: run.engineVersion === '2.3.1' },
+  }
 }
 
 const browser = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {})
@@ -119,7 +125,7 @@ async function open(dir, { granted = true, built = true } = {}) {
     wire.calls.push(`${method} ${p}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'Auth/Permissions') return route.fulfill(permissions(['DocumentList:03', ...(granted ? [RUN_GRANT] : [])]))
-    if (p === 'SourcingAdvisor/StoreRecord') return route.fulfill(envelope(built ? RECORD : { builtAt: null, windowFrom: null, windowTo: null, pairs: [], shown: [] }))
+    if (p === 'SourcingAdvisor/StoreRecords') return route.fulfill(envelope(built ? RECORD : { builtAt: null, windowFrom: null, windowTo: null, pairs: [] }))
     if (p === 'SourcingAdvisor/Workbench') return route.fulfill(envelope({ maps: null }))
     if (p === 'SourcingAdvisor/WeightSets') return route.fulfill(envelope([]))
     if (p === 'SourcingAdvisor/Advise') {
@@ -133,24 +139,22 @@ async function open(dir, { granted = true, built = true } = {}) {
         runId: body.runId,
         name: body.name,
         keptBy: 'msartawi',
-        mine: true,
         keptAt: '2026-11-27 10:15:02',
         ranAt: REPLY.ranAt,
         kind: REPLY.kind,
         channel: REPLY.channel,
-        orderNumber: null,
-        weightSet: { name: 'Baseline', version: 1, draft: false },
-        engine: REPLY.engine.version,
+        madeBy: 'msartawi',
+        engineVersion: REPLY.engine.version,
       }
       wire.kept.push(run)
       return route.fulfill(envelope(run))
     }
     if (p === 'SourcingAdvisor/Runs/Kept' && method === 'GET') return route.fulfill(envelope(wire.kept))
-    if (p === 'SourcingAdvisor/Runs/Kept' && method === 'DELETE') {
-      const runId = url.searchParams.get('runId')
+    if (p === 'SourcingAdvisor/Runs/Delete' && method === 'POST') {
+      const { runId } = JSON.parse(route.request().postData() || '{}')
       wire.deletes.push(runId)
       wire.kept = wire.kept.filter((r) => r.runId !== runId)
-      return route.fulfill(envelope(null))
+      return route.fulfill(envelope({ runId }))
     }
     if (p === 'SourcingAdvisor/Runs/Open') {
       const runId = url.searchParams.get('runId')
@@ -181,23 +185,22 @@ async function recordDrive(dir) {
   await page.goto(`${BASE}/oms/sourcing-record`)
   await page.locator('[data-mode-board="SLOT"]').waitFor({ timeout: 15000 })
   check(`${L} the run grant shows the "Store record" leaf`, (await page.locator('a[href="/oms/sourcing-record"]').count()) > 0)
-  check(`${L} the record is read from its door`, wire.calls.includes('GET SourcingAdvisor/StoreRecord'))
+  check(`${L} the record is read from its door`, wire.calls.includes('GET SourcingAdvisor/StoreRecords'))
   check(`${L} the page says how deliveries go at each store`, (await text(page.locator("main h1").first())) === "How deliveries go at each store")
   check(`${L} it says when the record was built`, (await page.locator('[data-record-built]').getAttribute('data-record-built')) === '2026-11-27 02:14:09')
   const tabs = await page.locator('[data-mode-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-mode-tab')))
   check(`${L} a tab per mode, slot delivery open first`, JSON.stringify(tabs) === JSON.stringify(['SLOT', 'PICK_UP', 'DAWAA_NOW', 'CARRIERS']) && (await page.locator('[data-mode-tab="SLOT"]').getAttribute('aria-selected')) === 'true', tabs.join(','))
   const slot = page.locator('[data-mode-board="SLOT"]')
   check(`${L} the counted-from date said once for the mode`, (await slot.locator('[data-counted-from]').getAttribute('data-counted-from')) === '2026-08-29' && (await slot.locator('[data-counted-from]').count()) === 1)
-  check(`${L} "late" counts the app, the site and the call centre`, (await slot.locator('[data-measure-channels="late"] [data-channels]').getAttribute('data-channels')) === 'APP SITE CALL_CENTRE')
+  check(`${L} "late" counts the app, the site and the call centre, as the door names them`, (await slot.locator('[data-measure-channels="LATE"] [data-channels]').getAttribute('data-channels')) === 'IOS|ROID|WEB|category C')
   const like300 = await text(slot.locator('[data-like-stores] [data-band="FROM_300"]'))
   check(`${L} the like-store rates per band said once: 300 or more, late 3.77% (review 2 #7: two decimals)`, like300.includes('300 deliveries or more') && like300.includes('3.77%') && like300.includes('1.20%') && like300.includes('2.40%'), like300)
   const p901 = slot.locator('[data-store-row="P901"]')
-  const late901 = await text(p901.locator('[data-measure-cell="late"]'))
+  const late901 = await text(p901.locator('[data-measure-cell="LATE"]'))
   const row901 = await text(p901)
-  check(`${L} P901's late: steadied 3.14% beside like stores 3.77%`, late901 === '3.14%3.77%' && (await p901.locator('[data-measure-cell="late"] b').innerText()) === '3.14%', late901)
-  check(`${L} the deliveries behind it and the cost or credit, as sent`, row901.includes('19 / 612') && row901.includes('SAR -0.063') && row901.includes('credit') && row901.includes('SAR -0.287'), row901)
-  check(`${L} the usual slot, the regular hours and the till moves`, row901.includes('10:00–12:00') && row901.includes('58.00%') && row901.includes('52.00%'), row901)
-  check(`${L} shown, not charged: last count, count factor, a donor's refusals`, row901.includes('2026-10-14') && row901.includes('1.08'), row901)
+  check(`${L} P901's late: steadied 3.14% beside like stores 3.77%`, late901 === '3.14%3.77%' && (await p901.locator('[data-measure-cell="LATE"] b').innerText()) === '3.14%', late901)
+  check(`${L} the bad endings out of the deliveries behind it, as sent; its city beside its code`, row901.includes('19 / 612') && row901.includes('RUH') && !row901.includes('SAR'), row901)
+  check(`${L} the usual slot, the regular hours and the till moves marked "Customer"`, row901.includes('10:0012:0016:00') && row901.includes('24 / 41'), row901)
   const p911 = slot.locator('[data-store-row="P911"]')
   check(
     `${L} a store with no slot deliveries runs on the neutral default, marked with why`,
@@ -205,7 +208,7 @@ async function recordDrive(dir) {
   )
   check(`${L} a store pair is one LTR isolate`, await isLtrIsolate(p901.locator('td').first().locator('bdi').first()))
   check(`${L} a range of slot hours reads left to right`, await readsLtr(p901.locator('[data-slot-hours] bdi').first()))
-  check(`${L} a count of bad endings reads left to right`, await readsLtr(p901.locator('[data-measure-cell="late"] + td bdi').first()))
+  check(`${L} a count of bad endings reads left to right`, await readsLtr(p901.locator('[data-measure-cell="LATE"] + td bdi').first()))
   if (dir === 'rtl') check(`${L} the page runs right to left`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
   await page.screenshot({ path: `${SHOTS}/${dir}-slot.png`, fullPage: true })
 
@@ -215,7 +218,7 @@ async function recordDrive(dir) {
   check(`${L} the tab is kept in the URL`, page.url().includes('mode=PICK_UP'), page.url())
   check(
     `${L} pick-up's "Ready after 30 minutes" counts the app and the site only`,
-    (await text(pickUp.locator('[data-measure-channels="readyLate"]'))).startsWith('Ready after 30 minutes') && (await pickUp.locator('[data-measure-channels="readyLate"] [data-channels]').getAttribute('data-channels')) === 'APP SITE',
+    (await text(pickUp.locator('[data-measure-channels="READY_LATE"]'))).startsWith('Ready after 30 minutes') && (await pickUp.locator('[data-measure-channels="READY_LATE"] [data-channels]').getAttribute('data-channels')) === 'IOS|ROID|WEB',
   )
   await page.locator('[data-mode-tab="DAWAA_NOW"]').click()
   const dn = page.locator('[data-mode-board="DAWAA_NOW"]')
@@ -225,7 +228,7 @@ async function recordDrive(dir) {
   await page.locator('[data-mode-tab="CARRIERS"]').click()
   const carriers = page.locator('[data-mode-board="CARRIERS"]')
   await carriers.waitFor({ timeout: 5000 })
-  check(`${L} the carrier modes keep no record: six pairs on the neutral default`, (await carriers.locator('[data-carrier-pair]').count()) === 6 && (await carriers.locator('[data-neutral="NO_RECORD"]').count()) === 6)
+  check(`${L} the carrier modes keep no record (the door lists none of their pairs)`, (await text(carriers)).includes('These modes keep no record'))
   for (const tab of ['SLOT', 'PICK_UP', 'DAWAA_NOW']) {
     await page.locator(`[data-mode-tab="${tab}"]`).click()
     await page.locator(`[data-mode-board="${tab}"]`).waitFor({ timeout: 5000 })
@@ -286,13 +289,15 @@ async function keptDrive(dir) {
   await page.locator('[data-kept-table]').waitFor({ timeout: 15000 })
   const listed = await page.locator('[data-kept-run]').evaluateAll((els) => els.map((e) => e.getAttribute('data-kept-run')))
   check(
-    `${L} the kept runs list: the caller's own, newest first, the new one on top; another keeper's is not listed`,
-    JSON.stringify(listed) === JSON.stringify([REPLY.runId, MALQA, '01JDP2Z8C4H6F1Q9Y7E3M5D2KB', '01JDM8T6B3W5N2X4Q9H7L1F0PD']) && !listed.includes(OMAR),
+    `${L} the kept runs list: every kept run, newest first, the new one on top`,
+    JSON.stringify(listed) === JSON.stringify([REPLY.runId, MALQA, OMAR, '01JDP2Z8C4H6F1Q9Y7E3M5D2KB', '01JDM8T6B3W5N2X4Q9H7L1F0PD']),
     listed.join(','),
   )
   check(`${L} a run number in the list is an LTR isolate`, await isLtrIsolate(page.locator(`[data-kept-run="${MALQA}"] td`).first().locator('bdi[dir="ltr"]').first()))
-  const draftRow = await text(page.locator('[data-kept-run="01JDM8T6B3W5N2X4Q9H7L1F0PD"]'))
-  check(`${L} a run kept on a draft says so`, draftRow.includes('changed, not saved'), draftRow)
+  check(
+    `${L} another keeper's run is listed with its keeper, and offers no delete`,
+    (await page.locator(`[data-kept-run="${OMAR}"] [data-kept-by="omar.h"]`).count()) === 1 && (await page.locator(`[data-kept-delete="${OMAR}"]`).count()) === 0 && (await page.locator(`[data-kept-delete="${MALQA}"]`).count()) === 1,
+  )
   await page.screenshot({ path: `${SHOTS}/${dir}-list.png`, fullPage: true })
 
   await page.locator('[data-kept-delete="01JDM8T6B3W5N2X4Q9H7L1F0PD"]').click()
@@ -300,7 +305,7 @@ async function keptDrive(dir) {
   check(`${L} delete asks first, and nothing is sent yet`, (await page.locator('dialog[open]').innerText()).includes('Its link stops opening for everyone') && wire.deletes.length === 0)
   await page.locator('dialog[open] [data-kept-delete-confirm]').click()
   await page.locator('[data-kept-run="01JDM8T6B3W5N2X4Q9H7L1F0PD"]').waitFor({ state: 'detached', timeout: 10000 })
-  check(`${L} delete sends the run's number, and the run leaves the list`, wire.deletes.at(-1) === '01JDM8T6B3W5N2X4Q9H7L1F0PD' && (await page.locator('[data-kept-run]').count()) === 3)
+  check(`${L} delete posts the run's number, and the run leaves the list`, wire.deletes.at(-1) === '01JDM8T6B3W5N2X4Q9H7L1F0PD' && (await page.locator('[data-kept-run]').count()) === 4)
 
   // 4. open it by its link
   const advisesBefore = wire.advises.length

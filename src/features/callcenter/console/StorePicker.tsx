@@ -32,6 +32,7 @@ import Button from '@/core/ui/Button'
 import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 import Input from '@/core/ui/Input'
+import { storeOption } from './store-move'
 
 /** How many rows are drawn at once. The estate runs to hundreds and a modal is
  *  not a grid; the count of what is NOT drawn is stated rather than silently
@@ -41,6 +42,9 @@ const SHOWN = 40
 export default function StorePicker({
   open,
   currentPlant,
+  /** The server's `canConfirmSeededStore` (§2.3 item 4): the store the order holds was only
+   *  seeded, so choosing it is a real act — and the one way to open the gate there (994). */
+  canConfirmSeededStore,
   /** The store code currently being applied, if any. */
   pending,
   /** The failed override, already turned into agent-facing text by the caller. */
@@ -50,6 +54,7 @@ export default function StorePicker({
 }: {
   open: boolean
   currentPlant: string | null
+  canConfirmSeededStore: boolean | undefined
   pending: string | null
   error: string | null
   onPick: (storeCode: string) => void
@@ -120,7 +125,8 @@ export default function StorePicker({
         )}
 
         {matches.slice(0, SHOWN).map((store) => {
-          const isCurrent = store.storeCode === currentPlant
+          const option = storeOption(store.storeCode, currentPlant, canConfirmSeededStore)
+          const isCurrent = option === 'current'
           return (
             <button
               key={store.storeCode}
@@ -128,6 +134,7 @@ export default function StorePicker({
               onClick={() => onPick(store.storeCode)}
               disabled={busy || isCurrent}
               data-cc-store-option={store.storeCode}
+              data-cc-store-option-kind={option}
               className="flex w-full items-start gap-2 rounded-md border border-border bg-card p-2.5 text-start hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-card"
             >
               <div className="min-w-0 flex-1">
@@ -146,6 +153,13 @@ export default function StorePicker({
                 >
                   <Check className="h-3 w-3" aria-hidden />
                   {t('store.onThisOrder')}
+                </span>
+              )}
+              {option === 'confirm' && (
+                // 🚩 994: the store the order was opened at, not yet chosen. Offered, and
+                // named as what it is: choosing it is how the caller collects here.
+                <span className="shrink-0 text-[11px] text-attention-800" data-cc-store-confirm>
+                  {t('store.collectHere')}
                 </span>
               )}
               {pending === store.storeCode && (

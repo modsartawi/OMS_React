@@ -15,6 +15,7 @@ import {
   rebindRefusal,
   repreviewingStoreMove,
   storeMovePreview,
+  storeOption,
   unpriceableLines,
 } from './store-move'
 import { newRequestId } from './api'
@@ -276,5 +277,27 @@ describe('the atomic refusal names the line twice', () => {
     // A row with no line identity cannot tint a line and cannot name one.
     expect(unpriceableLines({ unpriceableLines: [{ itemNumber: '300921' }] })).toBeNull()
     expect(rebindRefusal('…', null, null).lines).toEqual([])
+  })
+})
+
+describe('storeOption — what the picker offers on each row (994)', () => {
+  // 🚩 The stuck state: a collection order still on the store `open` seeded has its gate shut
+  // (STORE_NOT_CHOSEN), and the ONE way out at that store is `setStore` carrying the store the
+  // order already holds (§2.3 item 4, capture 10 `pickupConfirmSeededStore`). A picker that
+  // greys the current row out as "on this order" leaves the agent no way to open the gate.
+  it('offers the seeded store as a choice when the server says it can be confirmed', () => {
+    expect(storeOption('1001', '1001', true)).toBe('confirm')
+  })
+
+  it('marks the store the order already holds, chosen, as current and not offered', () => {
+    expect(storeOption('1001', '1001', false)).toBe('current')
+    // Absent on a pre-v1.3 server: no confirm the server never promised.
+    expect(storeOption('1001', '1001', undefined)).toBe('current')
+  })
+
+  it('offers every other store as a move', () => {
+    expect(storeOption('1204', '1001', true)).toBe('move')
+    expect(storeOption('1204', '1001', false)).toBe('move')
+    expect(storeOption('1204', null, undefined)).toBe('move')
   })
 })

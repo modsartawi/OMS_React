@@ -33,7 +33,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { ChevronDown, Loader2, Search, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { apiErrorMessage } from '@/core/api'
@@ -42,6 +42,8 @@ import { callCenterApi, itemSearchKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
 import ItemPanel from './ItemPanel'
+import { createSettle, NEARBY_SETTLE_MS, nearbyLine, nearbyStockQuery } from './nearby-stock'
+import { stockView } from './stock-view'
 import { NO_HIGHLIGHT, highlightMoveOf, highlightedIndex, moveHighlight } from '@/core/commands/highlight'
 import {
   MIN_QUERY_LENGTH,
@@ -314,6 +316,34 @@ export default function ItemSearchPanel({
   // including the console's `overflow-hidden` frame, which then sits shifted with the header
   // off-screen and no scrollbar to bring it back (seen on the 2026-11-27 walk).
   const highlightedItem = highlighted === null ? null : (rows[highlighted]?.itemNumber ?? null)
+
+  /**
+   * 🚩 Nearby stock, on demand (ticket 991, spec 983 D12). The row the keyboard OR the
+   * mouse is on is *aimed*; only a row still aimed at `NEARBY_SETTLE_MS` later is
+   * *settled*, and only the settled row asks `StockElsewhere` — never every row in the
+   * list (the read is a remote hop, `stock-view.ts`). The rule is `nearby-stock.ts`'s.
+   */
+  const [aimed, setAimed] = useState<string | null>(null)
+  const [settled, setSettled] = useState<string | null>(null)
+  const settle = useRef<ReturnType<typeof createSettle<string>> | null>(null)
+  if (settle.current === null) settle.current = createSettle<string>(NEARBY_SETTLE_MS, setSettled)
+  useEffect(() => {
+    setAimed(highlightedItem)
+  }, [highlightedItem])
+  useEffect(() => {
+    settle.current?.aim(aimed)
+  }, [aimed])
+  useEffect(() => () => settle.current?.cancel(), [])
+  // A new question: nothing in the old list is aimed at any more.
+  useEffect(() => {
+    setAimed(null)
+    setSettled(null)
+  }, [term])
+  // Drawn only while the settled row is STILL the aimed one: arrowing away takes the
+  // line with it at once, rather than leaving a stock line on a row nobody is on.
+  const nearbyItem = settled !== null && settled === aimed ? settled : null
+  // 🚩 Also re-run when the settled row grows its nearby-stock line (991): the line
+  // lands after the row was scrolled in, and would otherwise sit clipped under the cap.
   useEffect(() => {
     if (highlightedItem === null) return
     const list = document.getElementById(LIST_ID)
@@ -324,7 +354,7 @@ export default function ItemSearchPanel({
     const bottom = top + row.offsetHeight
     if (top < list.scrollTop) list.scrollTop = top
     else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight
-  }, [highlightedItem])
+  }, [highlightedItem, nearbyItem])
 
   return (
     <div className="shrink-0 border-b border-divider bg-card-2 px-4 py-3" data-cc-search>
@@ -452,6 +482,8 @@ export default function ItemSearchPanel({
           id={LIST_ID}
           role="listbox"
           data-cc-search-results
+          // The mouse leaves the list: the aim goes back to the keyboard's row.
+          onMouseLeave={() => setAimed(highlightedItem)}
         >
           {search.isPending && (
             <p className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground" data-cc-search-loading>
@@ -488,7 +520,7 @@ export default function ItemSearchPanel({
             // entirely and the row below it stays a direct `option` of the
             // listbox. A plain `div` between the two would break the combobox
             // binding `aria-activedescendant` depends on (153).
-            <div key={row.itemNumber} role="presentation">
+            <div key={row.itemNumber} role="presentation" onMouseEnter={() => setAimed(row.itemNumber)}>
               <Row
                 row={row}
                 add={add}
@@ -499,6 +531,9 @@ export default function ItemSearchPanel({
                 // worse than no control.
                 onExpand={canPriceCheck ? () => setExpanded(expanded === row.itemNumber ? null : row.itemNumber) : null}
                 expanded={expanded === row.itemNumber}
+                nearby={
+                  nearbyItem === row.itemNumber && canPriceCheck ? <NearbyStock state={state} row={row} /> : null
+                }
               />
               {/* Under the row it is about, inside the same list — the panel is
                   an expansion of the row and not a surface of its own. The row
@@ -519,6 +554,7 @@ function Row({
   highlighted,
   onExpand,
   expanded,
+  nearby,
 }: {
   row: SearchRowView
   add: AddItemActions
@@ -527,6 +563,8 @@ function Row({
    *  `capabilities.canPriceCheck` is false — the row simply carries no expander. */
   onExpand: (() => void) | null
   expanded: boolean
+  /** The settled row's nearby-stock line (991), under the price; `null` on every other row. */
+  nearby: React.ReactNode
 }) {
   const { t } = useTranslation('callcenter')
   const adding = add.pending === row.itemNumber
@@ -573,6 +611,7 @@ function Row({
             </span>
           ))}
         </div>
+        {nearby}
       </div>
       {/* 🚩 The end edge: availability, and the one action. No figure that could
           be read as money is drawn here. LIVE availability — the same pill on a
@@ -616,3 +655,78 @@ function Row({
   )
 }
 
+
+/**
+ * The settled row's third line (ticket 991, spec 983 D12): *N here · Malqa 2 · Yasmin 5*.
+ *
+ * Mounted only on the settled row, so its query runs for that one item; the cache is per
+ * item AND plant (`nearby-stock.ts`). Every state is `stock-view.ts`'s: 🚩 an outage says
+ * *could not check*, never *nobody has it*, and a refusal says why in the agent's words.
+ *
+ * Bidi: each count is a machine value (`Ltr`, through a `<Trans>` slot where it sits in a
+ * sentence); each store name is free text (`<bdi>`), its count isolated beside it. The
+ * stores are a list, not a pair, so laying them out right-to-left under RTL is correct.
+ */
+function NearbyStock({ state, row }: { state: SessionState; row: SearchRowView }) {
+  const { t } = useTranslation('callcenter')
+  const stock = useQuery(
+    nearbyStockQuery(callCenterApi.stockElsewhere, state.transactionId, state.header.plant, row.itemNumber),
+  )
+  const line = nearbyLine(
+    row.availability,
+    stockView({ canPriceCheck: true, result: stock.data, error: stock.error, pending: stock.isPending }),
+  )
+  if (line.kind === 'shut') return null
+
+  const here = (count: number | null) =>
+    count === null ? (
+      <span data-cc-nearby-here="unknown">{t('search.nearby.hereUnknown')}</span>
+    ) : (
+      <span data-cc-nearby-here={count}>
+        <Trans t={t} ns="callcenter" i18nKey="search.nearby.here" count={count} components={{ n: <Ltr /> }} />
+      </span>
+    )
+
+  return (
+    <div
+      className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground"
+      data-cc-nearby={row.itemNumber}
+      data-cc-nearby-kind={line.kind}
+    >
+      {line.kind === 'pending' && (
+        <span className="flex items-center gap-1.5">
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          {t('search.nearby.checking')}
+        </span>
+      )}
+      {line.kind === 'unknown' && <span className="text-attention-800">{t('search.nearby.unknown')}</span>}
+      {line.kind === 'refused' && <span className="text-danger-800">{t(line.refusal.key, line.refusal.params)}</span>}
+      {line.kind === 'none' && (
+        <>
+          {here(line.here)}
+          <span aria-hidden>·</span>
+          <span>{t('search.nearby.none')}</span>
+        </>
+      )}
+      {line.kind === 'listed' && (
+        <>
+          {here(line.here)}
+          {line.stores.map((store) => (
+            <span key={store.plant} className="flex items-baseline gap-1.5" data-cc-nearby-store={store.plant}>
+              <span aria-hidden>·</span>
+              <span className="font-medium text-ink-1">
+                <bdi>{store.name}</bdi> <Ltr>{store.atp}</Ltr>
+              </span>
+            </span>
+          ))}
+          {line.more > 0 && (
+            <span className="flex items-baseline gap-1.5" data-cc-nearby-more={line.more}>
+              <span aria-hidden>·</span>
+              <Trans t={t} ns="callcenter" i18nKey="search.nearby.more" count={line.more} components={{ n: <Ltr /> }} />
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  )
+}

@@ -141,5 +141,25 @@
       "slot": "تم اختيار موعد التوصيل",
       "source": "تم تحديد مصدر المستند"
     }
+  },
+  "search": {
+    "nearby": {
+      "here_zero": "<n>{{count}}</n> هنا",
+      "here_one": "<n>{{count}}</n> هنا",
+      "here_two": "<n>{{count}}</n> هنا",
+      "here_few": "<n>{{count}}</n> هنا",
+      "here_many": "<n>{{count}}</n> هنا",
+      "here_other": "<n>{{count}}</n> هنا",
+      "hereUnknown": "؟ هنا",
+      "checking": "جارٍ التحقق من الفروع الأخرى…",
+      "unknown": "تعذّر التحقق من الفروع الأخرى — وهذا لا يعني أنه غير متوفر لدى أي فرع.",
+      "none": "غير متوفر في أي فرع آخر",
+      "more_zero": "+<n>{{count}}</n> أخرى",
+      "more_one": "+<n>{{count}}</n> أخرى",
+      "more_two": "+<n>{{count}}</n> أخرى",
+      "more_few": "+<n>{{count}}</n> أخرى",
+      "more_many": "+<n>{{count}}</n> أخرى",
+      "more_other": "+<n>{{count}}</n> أخرى"
+    }
   }
 }

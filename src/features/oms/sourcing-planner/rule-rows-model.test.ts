@@ -1,70 +1,64 @@
 /**
- * Ticket 968 (BackOffice spec 4354 §8, BO 4362): one product rule table. A row says an item group may not ship by a
- * mode, or may ship only from named stores, and has a switch. The owner's pick (variant A): the rules are a list of
- * rows, by item group and then by mode, each with its switch.
+ * Ticket 968 (BackOffice spec 4354 §8, BO 4362 `ProductRuleEndpoints` at pricing2 35a4e56be): one product rule table.
+ * A row keeps an item group off a mode, or on named stores only, says why (one of the simulator's sentences), and has a
+ * switch. The owner's pick (variant A): the rules are a list of rows, by item group and then by mode, each with its switch.
  */
 import { describe, expect, it } from 'vitest'
-import type { PlannerRow } from '@/core/models/sourcing-planner'
-import { ruleGroups, ruleRows, switchEnded, switchRequest, switchStarted } from './rule-rows-model'
+import type { ProductRuleRow } from '@/core/models/sourcing-planner'
+import { ruleGroups, ruleRows, switchEnded, switchStarted } from './rule-rows-model'
+import { rowsOf } from './wire'
 
-let n = 0
-const rule = (values: Record<string, unknown>, over: Partial<PlannerRow> = {}): PlannerRow => ({
-  id: `r${++n}`,
-  values: { ruleKind: 'NOT_BY_MODE', stores: null, on: true, ...values } as PlannerRow['values'],
-  setAt: '2026-11-01 07:00:00',
-  setBy: 'seed',
+const rule = (over: Partial<ProductRuleRow> & Pick<ProductRuleRow, 'rule' | 'group' | 'value' | 'mode' | 'reason'>): ProductRuleRow => ({
+  onlyFrom: [],
+  on: true,
+  note: '',
+  startedBy: '',
+  startedAt: '2026-11-01 07:00:00',
+  ended: false,
   ...over,
 })
 
-const ROWS: PlannerRow[] = [
-  rule({ groupKind: 'NAMED_LIST', group: 'BULKY', mode: 'DAWAA_NOW' }, { id: 'bulky-dn' }),
-  rule({ groupKind: 'COLD_CHAIN', group: 'COLD', mode: 'CARRIER_NEXT_DAY' }, { id: 'cold-cnd' }),
-  rule({ groupKind: 'NAMED_LIST', group: 'RESTRICTED', mode: 'SLOT' }, { id: 'restr-sl' }),
-  rule({ groupKind: 'COLD_CHAIN', group: 'COLD', mode: 'DAWAA_NOW', on: false }, { id: 'cold-dn' }),
-  rule({ groupKind: 'NAMED_LIST', group: 'RESTRICTED', mode: 'DAWAA_NOW' }, { id: 'restr-dn' }),
-  rule(
-    { groupKind: 'ITEM', group: '121007', ruleKind: 'ONLY_FROM_STORES', mode: 'SLOT', stores: ['P901', 'P905'], on: false },
-    { id: 'insulin-sl', names: { group: 'Insulin glargine pen' } },
-  ),
-  rule({ groupKind: 'COLD_CHAIN', group: 'COLD', mode: 'SLOT' }, { id: 'cold-sl-ended', endedAt: '2026-11-10 09:00:00' }),
-]
+const ROWS = rowsOf('rules', {
+  rules: [
+    rule({ rule: 'PR0015', group: 'LIST', value: 'BULKY', mode: 'DAWAA_NOW', reason: 'BULKY' }),
+    rule({ rule: 'PR0013', group: 'COLD_CHAIN', value: '', mode: 'CARRIER_NEXT_DAY', reason: 'COLD' }),
+    rule({ rule: 'PR0007', group: 'LIST', value: 'RESTRICTED', mode: 'SLOT', reason: 'RESTRICTED' }),
+    rule({ rule: 'PR0011', group: 'COLD_CHAIN', value: '', mode: 'DAWAA_NOW', reason: 'COLD', on: false }),
+    rule({ rule: 'PR0006', group: 'LIST', value: 'RESTRICTED', mode: 'DAWAA_NOW', reason: 'RESTRICTED' }),
+    rule({ rule: 'PR0001', group: 'SAP_STATUS', value: 'Restricted Drugs', mode: 'DAWAA_NOW', reason: 'RESTRICTED' }),
+    rule({ rule: 'PR0020', group: 'ITEM', value: '121007', mode: '', onlyFrom: ['P901', 'P905'], reason: 'NAMED_STORES', on: false }),
+    rule({ rule: 'PR0012', group: 'COLD_CHAIN', value: '', mode: 'SLOT', reason: 'COLD', ended: true, endedAt: '2026-11-10 09:00:00' }),
+  ],
+  lists: [],
+})
 
 describe('rule rows by item group and mode', () => {
-  it('lists the rows in force by group kind, then group, then mode in the six modes\' order', () => {
-    expect(ruleRows(ROWS).map((r) => r.id)).toEqual(['cold-dn', 'cold-cnd', 'bulky-dn', 'restr-dn', 'restr-sl', 'insulin-sl'])
+  it('lists the rows in force by group (the server\'s order), then value, then mode in the six modes\' order', () => {
+    expect(ruleRows(ROWS).map((r) => r.rule)).toEqual(['PR0011', 'PR0013', 'PR0001', 'PR0015', 'PR0006', 'PR0007', 'PR0020'])
   })
 
-  it('reads each row\'s switch, rule and stores', () => {
-    const insulin = ruleRows(ROWS).find((r) => r.id === 'insulin-sl')!
-    expect(insulin).toMatchObject({ groupKind: 'ITEM', group: '121007', groupName: 'Insulin glargine pen', ruleKind: 'ONLY_FROM_STORES', mode: 'SLOT', stores: ['P901', 'P905'], on: false })
-    expect(ruleRows(ROWS).find((r) => r.id === 'cold-dn')!.on).toBe(false)
-    expect(ruleRows(ROWS).find((r) => r.id === 'restr-dn')!.stores).toEqual([])
+  it('reads each row\'s switch, why, and stores', () => {
+    const named = ruleRows(ROWS).find((r) => r.rule === 'PR0020')!
+    expect(named).toMatchObject({ group: 'ITEM', value: '121007', mode: null, onlyFrom: ['P901', 'P905'], reason: 'NAMED_STORES', on: false })
+    expect(ruleRows(ROWS).find((r) => r.rule === 'PR0006')!.onlyFrom).toEqual([])
   })
 
   it('groups the rows by item group, counting the switches on and off', () => {
-    expect(ruleGroups(ROWS).map((g) => [g.groupKind, g.group, g.rows.map((r) => r.mode), g.on, g.off])).toEqual([
-      ['COLD_CHAIN', 'COLD', ['DAWAA_NOW', 'CARRIER_NEXT_DAY'], 1, 1],
-      ['NAMED_LIST', 'BULKY', ['DAWAA_NOW'], 1, 0],
-      ['NAMED_LIST', 'RESTRICTED', ['DAWAA_NOW', 'SLOT'], 2, 0],
-      ['ITEM', '121007', ['SLOT'], 0, 1],
+    expect(ruleGroups(ROWS).map((g) => [g.group, g.value, g.rows.map((r) => r.mode), g.on, g.off])).toEqual([
+      ['COLD_CHAIN', null, ['DAWAA_NOW', 'CARRIER_NEXT_DAY'], 1, 1],
+      ['SAP_STATUS', 'Restricted Drugs', ['DAWAA_NOW'], 1, 0],
+      ['LIST', 'BULKY', ['DAWAA_NOW'], 1, 0],
+      ['LIST', 'RESTRICTED', ['DAWAA_NOW', 'SLOT'], 2, 0],
+      ['ITEM', '121007', [null], 0, 1],
     ])
   })
 
   it('leaves out an ended row', () => {
-    expect(ruleRows(ROWS).some((r) => r.id === 'cold-sl-ended')).toBe(false)
+    expect(ruleRows(ROWS).some((r) => r.rule === 'PR0012')).toBe(false)
   })
 })
 
 describe('switching a row', () => {
-  it('asks the door to change only the switch, on the version on screen, with no reason (BO 4362 keeps none)', () => {
-    const coldDn = ROWS.find((r) => r.id === 'cold-dn')!
-    expect(switchRequest(coldDn)).toEqual({
-      rowId: 'cold-dn',
-      values: { groupKind: 'COLD_CHAIN', group: 'COLD', ruleKind: 'NOT_BY_MODE', mode: 'DAWAA_NOW', stores: null, on: true },
-    })
-    expect(switchRequest(ROWS.find((r) => r.id === 'bulky-dn')!).values.on).toBe(false)
-  })
-
   it('a row whose switch is waiting on its answer cannot be switched again; another row may switch meanwhile (review 2 #5)', () => {
     const a = switchStarted(new Set(), 'cold-dn')!
     expect([...a]).toEqual(['cold-dn'])

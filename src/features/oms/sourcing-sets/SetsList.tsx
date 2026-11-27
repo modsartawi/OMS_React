@@ -37,7 +37,7 @@ export default function SetsList({ canMark, onMark }: { canMark: boolean; onMark
     )
 
   // The set holding the candidate set opens first.
-  const opened = open ?? sets.data.filter((s) => s.candidateVersion !== null).map((s) => s.name)
+  const opened = open ?? sets.data.filter((s) => s.versions.some((v) => v.candidate)).map((s) => s.name)
   const toggle = (name: string) => setOpen(opened.includes(name) ? opened.filter((n) => n !== name) : [...opened, name])
   const pair = comparedPair(picked)
 
@@ -101,7 +101,8 @@ function SetRows({
   onMark: (ref: WeightSetVersionRef) => void
 }) {
   const { t } = useTranslation(NS)
-  const saved = new Map((s.saved ?? []).map((v) => [v.version, v]))
+  const candidate = s.versions.find((v) => v.candidate)
+  const trial = s.versions.some((v) => v.trial)
   return (
     <Fragment>
       <tr className={`border-b border-border ${s.retired ? 'text-muted-foreground' : ''}`} data-set={s.name} data-retired={s.retired ? '' : undefined}>
@@ -117,7 +118,7 @@ function SetRows({
           <Ltr>{s.versions.length}</Ltr>
         </td>
         <td className={TD} data-candidate-cell="">
-          {s.candidateVersion !== null && <StatusBadge sev="go">{t('list.candidateVersion', { version: fsi(s.candidateVersion) })}</StatusBadge>}
+          {candidate && <StatusBadge sev="go">{t('list.candidateVersion', { version: fsi(candidate.version) })}</StatusBadge>}
         </td>
         <td className={TD}>
           <span className="inline-flex flex-wrap gap-1">
@@ -126,7 +127,7 @@ function SetRows({
                 <StatusBadge sev="mute">{t('list.retired')}</StatusBadge>
               </span>
             )}
-            {s.trial && (
+            {trial && (
               <span data-state="trial">
                 <StatusBadge sev="warn">
                   <FlaskConical className="me-1 h-3 w-3" aria-hidden />
@@ -134,7 +135,7 @@ function SetRows({
                 </StatusBadge>
               </span>
             )}
-            {!s.owner && (
+            {s.baseline && (
               <span data-state="baseline">
                 <StatusBadge sev="mute">{t('list.baseline')}</StatusBadge>
               </span>
@@ -147,17 +148,19 @@ function SetRows({
         <>
           {s.retired && (
             <tr className="border-b border-border bg-muted/40">
-              <td className={`${TD} ps-8 whitespace-normal text-muted-foreground`} colSpan={7}>
-                {t('list.retiredNote')}
+              <td className={`${TD} ps-8 whitespace-normal text-muted-foreground`} colSpan={7} data-retired-note="">
+                {s.retiredBy && s.retiredAt
+                  ? t('list.retiredBy', { by: fsi(s.retiredBy), at: fsi(s.retiredAt) })
+                  : t('list.retiredNote')}
               </td>
             </tr>
           )}
-          {[...s.versions].reverse().map((version) => {
+          {[...s.versions].reverse().map((row) => {
+            const version = row.version
             const ref = { name: s.name, version }
-            const row = saved.get(version)
             const isPicked = picked.some((p) => p.name === s.name && p.version === version)
-            const isCandidate = s.candidateVersion === version
-            const markable = canMark && !isCandidate && !s.retired && !s.trial
+            const isCandidate = row.candidate
+            const markable = canMark && !isCandidate && !s.retired && !row.trial
             return (
               <tr key={version} className="border-b border-border bg-muted/40" data-version={`${s.name}|${version}`}>
                 <td className={`${TD} ps-8`}>
@@ -166,9 +169,11 @@ function SetRows({
                     <span>{t('list.version', { version: fsi(version) })}</span>
                   </label>
                 </td>
-                <td className={TD}>{row?.savedBy ? <Ltr>{row.savedBy}</Ltr> : <span className="text-muted-foreground">{t('list.seed')}</span>}</td>
-                <td className={`${TD} whitespace-normal`}>{row?.change && <bdi>{row.change}</bdi>}</td>
-                <td className={`${TD} text-end`}>{row && <Ltr>{row.savedAt}</Ltr>}</td>
+                <td className={TD}>{row.savedBy ? <Ltr>{row.savedBy}</Ltr> : <span className="text-muted-foreground">{t('list.seed')}</span>}</td>
+                <td className={`${TD} whitespace-normal`}>{row.change && <bdi>{row.change}</bdi>}</td>
+                <td className={`${TD} text-end`}>
+                  <Ltr>{row.savedAt}</Ltr>
+                </td>
                 <td className={TD}>
                   {isCandidate && (
                     <span data-is-candidate="">
@@ -176,7 +181,13 @@ function SetRows({
                     </span>
                   )}
                 </td>
-                <td className={TD} />
+                <td className={TD}>
+                  {row.trial && (
+                    <span data-state="trial">
+                      <StatusBadge sev="warn">{t('list.trialSet')}</StatusBadge>
+                    </span>
+                  )}
+                </td>
                 <td className={`${TD} text-end`}>
                   {markable && (
                     <Button variant="outlined" onClick={() => onMark(ref)} data-mark-version={`${s.name}|${version}`}>

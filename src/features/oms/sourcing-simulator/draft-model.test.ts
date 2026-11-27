@@ -7,29 +7,28 @@ import { describe, expect, it } from 'vitest'
 import type { WeightSetVersion } from '@/core/models/sourcing-run'
 import { controlValue, isChanged, openDraft, saveRequest, setValue, waitsForSet, WEIGHT_CONTROLS, weightSetRef } from './draft-model'
 
-/** A saved version as the read door would give it: the panel's values and settings the panel does not show. */
+/** A saved version as the version door answers it (BO 4360 `WeightSetVersionReply`): the whole nested document. */
 const baseline: WeightSetVersion = {
   name: 'Baseline',
   version: 1,
+  owner: '',
+  retired: false,
+  savedBy: 'seed',
+  savedAt: '2026-10-01 00:00:00',
+  change: 'Seed values of spec 4354',
+  formatVersion: 1,
   candidate: true,
   trial: false,
+  filledFromBaseline: [],
   values: {
-    companyCostWeight: 1,
-    feeWeight: 1,
-    waitingPerHour: 5,
-    splitPenalty: 0,
-    mostShipments: 3,
-    marginMultiplier: 1,
-    buffer: true,
-    stockConfidence: true,
-    storeRecord: true,
-    widerSlotReach: false,
-    carrierModes: false,
-    feePerOrder: false,
-    pickUpInDeliveryPlan: false,
-    coverPrice: 1,
-    failurePrices: { late: 4, returned: 9 },
-    storesLeftOut: [{ store: '1203', reason: 'refit' }],
+    formatVersion: 1,
+    name: 'Baseline',
+    version: 1,
+    modes: [{ mode: 'SLOT', on: true, reachWidened: false, marginMultiplier: 1.0 }],
+    waiting: { firstHours: 4, firstPerHour: 5.0, laterPerHour: 0.5, source: 'ASSUMED' },
+    prices: { companyCostWeight: 1, feeWeight: 1, handling: 2.0, handlingSource: 'ASSUMED', splitPenalty: 0.0 },
+    stock: { bufferOn: true, risk: 0.05, caution: 1.5, confidenceOn: true },
+    leftOut: [{ store: '1203', reason: 'refit' }],
   },
 }
 
@@ -44,7 +43,10 @@ describe('the draft', () => {
     const d = setValue(openDraft(baseline), 'companyCostWeight', 1.5)
     expect(isChanged(d)).toBe(true)
     expect(weightSetRef(d)).toEqual({
-      draft: { basedOn: { name: 'Baseline', version: 1 }, values: { ...baseline.values, companyCostWeight: 1.5 } },
+      draft: {
+        basedOn: { name: 'Baseline', version: 1 },
+        values: { ...baseline.values, prices: { ...(baseline.values.prices as object), companyCostWeight: 1.5 } },
+      },
     })
   })
 
@@ -57,11 +59,8 @@ describe('the draft', () => {
     expect(weightSetRef(back)).toEqual({ name: 'Baseline', version: 1 })
   })
 
-  it('a setting the version does not hold reads at its starting value, and moving it is a change', () => {
-    const older: WeightSetVersion = { ...baseline, name: 'Old', version: 2, values: { companyCostWeight: 1 } }
-    const fee = WEIGHT_CONTROLS.find((c) => c.key === 'feeWeight')!
-    expect(controlValue(older.values, fee)).toBe(1)
-    expect(isChanged(setValue(openDraft(older), 'feeWeight', 0.5))).toBe(true)
+  it('a switch writes the document\'s own setting: the buffer is `stock.bufferOn`', () => {
+    expect((setValue(openDraft(baseline), 'buffer', false).values.stock as { bufferOn: boolean }).bufferOn).toBe(false)
   })
 })
 
@@ -77,13 +76,13 @@ describe('the panel', () => {
   })
 })
 
-describe('save as a named set', () => {
-  it('sends the new name, the version it came from and the whole draft', () => {
+describe('save as a named set (BO 4360 `POST WeightSets/Copy`, with values)', () => {
+  it('copies the version it came from under the new name, holding the whole draft', () => {
     const d = setValue(openDraft(baseline), 'waitingPerHour', 7)
     expect(saveRequest(d, '  Late evenings  ')).toEqual({
+      from: { name: 'Baseline', version: 1 },
       name: 'Late evenings',
-      basedOn: { name: 'Baseline', version: 1 },
-      values: { ...baseline.values, waitingPerHour: 7 },
+      values: { ...baseline.values, waiting: { ...(baseline.values.waiting as object), firstPerHour: 7 } },
     })
   })
 

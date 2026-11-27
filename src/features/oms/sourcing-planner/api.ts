@@ -1,69 +1,45 @@
 /**
- * The planner-data screens' server calls (ticket 968, BackOffice spec 4354 §19; doors BO 4361, 4362, 4375 — "doors to
- * list and change each table", all unbuilt: every drive stubs exactly this wire).
- *
- * Through `@/core/api` (`api-envelope`): the envelope, the error taxonomy and 401 are its.
- *
- * 🚩 PROVISIONAL (spec 4354: not specified) — every path below (`SourcingAdvisor/Planner/<Table>`, `/History`, `/Add`,
- * `/Change`, `/End`, `/Choices`), every query name and every reply field. The three server tickets name each table's
- * content and none of its doors. Reconcile as built.
+ * The planner-data screens' server calls (ticket 968, BackOffice spec 4354 §19), through `@/core/api` (`api-envelope`):
+ * the envelope, the error taxonomy and 401 are its. Reconciled with BackOffice at pricing2 35a4e56be — three families
+ * of doors, each read and written in its own shape by `./wire`:
+ * - `SourcingAdvisor/BufferOverrides` (+ `/Save`, `/End`) and `SourcingAdvisor/StoreConfidences` (+ `/Set`, `/End`), BO 4375;
+ * - `SourcingAdvisor/ProductRules` (+ `/Change`, `/Lists/Add`, `/Lists/Remove`), BO 4362;
+ * - `SourcingAdvisor/PlannerTables` (+ `/History`, `/Save`, `/End`), BO 4361.
+ * Every list under the simulator's run grant; every change under its family's grant.
  */
 import { api } from '@/core/api'
-import type {
-  PlannerAddRequest,
-  PlannerChangeRequest,
-  PlannerChoicesReply,
-  PlannerEndRequest,
-  PlannerHistoryReply,
-  PlannerRow,
-  PlannerTableKey,
-  PlannerTableReply,
-} from '@/core/models/sourcing-planner'
-
-/** Each table's door segment. PROVISIONAL (spec 4354: not specified). */
-export const PLANNER_DOORS: Record<PlannerTableKey, string> = {
-  overrides: 'BufferOverrides',
-  confidence: 'StockConfidence',
-  rules: 'ProductRules',
-  restricted: 'RestrictedList',
-  bulky: 'BulkyList',
-  storeModes: 'StoreModes',
-  contracts: 'CarrierContracts',
-  slots: 'SlotRules',
-}
-
-const door = (table: PlannerTableKey, verb?: string) => `SourcingAdvisor/Planner/${PLANNER_DOORS[table]}${verb ? `/${verb}` : ''}`
+import { endCall, historyCall, historyOf, readCall, rowsOf, saveCall, switchCall, versionsOf } from './wire'
+import type { PlannerChange, PlannerRow, PlannerTableKey, PlannerValues } from './wire'
 
 export const sourcingPlannerApi = {
-  /** `GET SourcingAdvisor/Planner/<Table>?withEnded=` — the rows in force (and, asked, the rows ended with no successor). */
-  rows(table: PlannerTableKey, withEnded: boolean): Promise<PlannerTableReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<PlannerTableReply>(door(table), { withEnded: withEnded ? 'true' : null })
+  /** The tab's rows in force (and, asked, the ended ones, where its door lists them). */
+  async rows(table: PlannerTableKey, withEnded: boolean): Promise<PlannerRow[]> {
+    const call = readCall(table, withEnded)
+    return rowsOf(table, await api.get<unknown>(call.path, call.params))
   },
-  /** `GET SourcingAdvisor/Planner/<Table>/History?rowId=` — every version of one row and the changes that wrote them. */
-  history(table: PlannerTableKey, rowId: string): Promise<PlannerHistoryReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<PlannerHistoryReply>(door(table, 'History'), { rowId })
+  /** A row's versions (oldest first) and its changes (newest first): the history door, or the list with its ended rows. */
+  async history(table: PlannerTableKey, row: PlannerRow): Promise<{ versions: PlannerRow[]; changes: PlannerChange[] }> {
+    const door = historyCall(table, row)
+    const versions = door
+      ? rowsOf(table, await api.get<unknown>(door.path, door.params)).sort((a, b) => a.setAt.localeCompare(b.setAt))
+      : versionsOf(table, await sourcingPlannerApi.rows(table, true), row)
+    return { versions, changes: historyOf(table, versions) }
   },
-  /** `POST SourcingAdvisor/Planner/<Table>/Add`. */
-  add(table: PlannerTableKey, body: PlannerAddRequest): Promise<PlannerRow> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<PlannerRow>(door(table, 'Add'), body)
+  /** A new row (`row` null) or the row's next version. */
+  save(table: PlannerTableKey, row: PlannerRow | null, values: PlannerValues, reason: string): Promise<unknown> {
+    const call = saveCall(table, row, values, reason)
+    return api.post<unknown>(call.path, call.body)
   },
-  /** `POST SourcingAdvisor/Planner/<Table>/Change` — never in place: the server ends the row and writes a new one. */
-  change(table: PlannerTableKey, body: PlannerChangeRequest): Promise<PlannerRow> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<PlannerRow>(door(table, 'Change'), body)
+  /** The row ended (a list entry taken off). A rule is never ended: it is switched off. */
+  end(table: PlannerTableKey, row: PlannerRow, reason: string): Promise<unknown> {
+    const call = endCall(table, row, reason)
+    if (!call) return Promise.reject(new Error(`a ${table} row is not ended`))
+    return api.post<unknown>(call.path, call.body)
   },
-  /** `POST SourcingAdvisor/Planner/<Table>/End`. */
-  end(table: PlannerTableKey, body: PlannerEndRequest): Promise<PlannerRow> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.post<PlannerRow>(door(table, 'End'), body)
-  },
-  /** `GET SourcingAdvisor/Planner/Choices` — the stores, categories and sub-categories the forms pick from. */
-  choices(): Promise<PlannerChoicesReply> {
-    // PROVISIONAL (spec 4354: not specified)
-    return api.get<PlannerChoicesReply>('SourcingAdvisor/Planner/Choices')
+  /** A rule's switch flipped. */
+  switchRule(row: PlannerRow): Promise<unknown> {
+    const call = switchCall(row)
+    return api.post<unknown>(call.path, call.body)
   },
 }
 
@@ -72,5 +48,4 @@ export const plannerKeys = {
   table: (table: PlannerTableKey) => ['sourcing-planner', 'table', table] as const,
   rows: (table: PlannerTableKey, withEnded: boolean) => ['sourcing-planner', 'table', table, 'rows', withEnded] as const,
   history: (table: PlannerTableKey, rowId: string) => ['sourcing-planner', 'table', table, 'history', rowId] as const,
-  choices: ['sourcing-planner', 'choices'] as const,
 }

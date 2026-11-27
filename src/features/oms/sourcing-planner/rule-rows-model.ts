@@ -1,88 +1,77 @@
 /**
- * The product rule rows (ticket 968, BackOffice spec 4354 §8, BO 4362): a row says an item group may not ship by a
- * mode, or may ship only from named stores, and has a switch. The owner's pick (variant A, ticket 968 Comments): a
- * list of rows, by item group and then by mode. Whoever holds the product rules grant switches any row, a rule that
- * guards a medicine too, with no extra step; BO 4362 keeps no reason, so a switch asks for none.
- *
- * 🚩 PROVISIONAL (spec 4354: not specified) — the field names `groupKind`, `group`, `ruleKind`, `mode`, `stores`,
- * `on` and their codes (`@/core/models/sourcing-planner`).
+ * The product rule rows (ticket 968, BackOffice spec 4354 §8; BO 4362 `ProductRuleEndpoints`, pricing2 35a4e56be): a
+ * row keeps an item group (an A class, the cold chain, a SAP status, one of our lists, one item) off a mode, or on named
+ * stores only, says why, and has a switch. The owner's pick (variant A, ticket 968 Comments): a list of rows, by item
+ * group and then by mode. Whoever holds the product rules grant switches any row, a rule that guards a medicine too,
+ * with no extra step; BO 4362 keeps no reason, so a switch asks for none (`switchCall` in `./wire`).
  */
-import {
-  PLANNER_MODES,
-  RULE_GROUP_KINDS,
-  type PlannerChangeRequest,
-  type PlannerMode,
-  type PlannerRow,
-  type RuleGroupKind,
-  type RuleKind,
-} from '@/core/models/sourcing-planner'
+import { PLANNER_MODES, RULE_GROUPS, type RuleGroup, type RuleReason } from '@/core/models/sourcing-planner'
+import type { PlannerRow } from './wire'
 
 export interface RuleRow {
-  id: string
-  groupKind: RuleGroupKind
-  /** The group's code: a class, a status, a list's code, or one item's code. */
-  group: string
-  /** The name the server sends for the group (one item's name), when it sends one. */
-  groupName: string | null
-  ruleKind: RuleKind
-  mode: PlannerMode
-  stores: string[]
+  /** The rule's id across its rows. */
+  rule: string
+  group: RuleGroup
+  /** The group's value: an A class, a SAP status, a list's name, an item's code; null for the cold chain. */
+  value: string | null
+  /** Null for a row that names stores and no mode. */
+  mode: string | null
+  onlyFrom: string[]
+  reason: RuleReason
   on: boolean
   row: PlannerRow
 }
 
-export interface RuleGroup {
+export interface RuleGroupRows {
   key: string
-  groupKind: RuleGroupKind
-  group: string
-  groupName: string | null
+  group: RuleGroup
+  value: string | null
   rows: RuleRow[]
   on: number
   off: number
 }
 
-const order = <T extends string>(list: readonly T[], v: string) => {
-  const i = list.indexOf(v as T)
+const order = (list: readonly string[], v: string | null) => {
+  const i = v == null ? -1 : list.indexOf(v)
   return i < 0 ? list.length : i
 }
 
 function ruleRowOf(r: PlannerRow): RuleRow {
   const v = r.values
   return {
-    id: r.id,
-    groupKind: v.groupKind as RuleGroupKind,
-    group: String(v.group ?? ''),
-    groupName: r.names?.group ?? null,
-    ruleKind: v.ruleKind as RuleKind,
-    mode: v.mode as PlannerMode,
-    stores: Array.isArray(v.stores) ? [...(v.stores as readonly string[])] : [],
+    rule: r.key,
+    group: v.group as RuleGroup,
+    value: v.value == null ? null : String(v.value),
+    mode: v.mode == null ? null : String(v.mode),
+    onlyFrom: Array.isArray(v.onlyFrom) ? [...(v.onlyFrom as readonly string[])] : [],
+    reason: v.reason as RuleReason,
     on: v.on === true,
     row: r,
   }
 }
 
-/** The rows in force, by group kind, then group, then mode in the six modes' order. */
+/** The rows in force, by group, then the group's value, then mode in the six modes' order. */
 export function ruleRows(rows: readonly PlannerRow[]): RuleRow[] {
   return rows
     .filter((r) => !r.endedAt)
     .map(ruleRowOf)
     .sort(
       (a, b) =>
-        order(RULE_GROUP_KINDS, a.groupKind) - order(RULE_GROUP_KINDS, b.groupKind) ||
-        a.group.localeCompare(b.group) ||
+        order(RULE_GROUPS, a.group) - order(RULE_GROUPS, b.group) ||
+        (a.value ?? '').localeCompare(b.value ?? '') ||
         order(PLANNER_MODES, a.mode) - order(PLANNER_MODES, b.mode) ||
-        a.ruleKind.localeCompare(b.ruleKind),
+        a.rule.localeCompare(b.rule),
     )
 }
 
 /** The rows in force grouped by item group, with how many switches are on and off. */
-export function ruleGroups(rows: readonly PlannerRow[]): RuleGroup[] {
-  const out: RuleGroup[] = []
+export function ruleGroups(rows: readonly PlannerRow[]): RuleGroupRows[] {
+  const out: RuleGroupRows[] = []
   for (const r of ruleRows(rows)) {
-    const key = `${r.groupKind}:${r.group}`
+    const key = `${r.group}:${r.value ?? ''}`
     let g = out.find((x) => x.key === key)
     if (!g) {
-      g = { key, groupKind: r.groupKind, group: r.group, groupName: r.groupName, rows: [], on: 0, off: 0 }
+      g = { key, group: r.group, value: r.value, rows: [], on: 0, off: 0 }
       out.push(g)
     }
     g.rows.push(r)
@@ -90,11 +79,6 @@ export function ruleGroups(rows: readonly PlannerRow[]): RuleGroup[] {
     else g.off++
   }
   return out
-}
-
-/** The change a click on a row's switch sends: the version on screen, its switch flipped, nothing else. */
-export function switchRequest(row: PlannerRow): PlannerChangeRequest {
-  return { rowId: row.id, values: { ...row.values, on: row.values.on !== true } }
 }
 
 /**

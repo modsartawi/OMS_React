@@ -3,28 +3,26 @@
  * never edited"). Pure.
  *
  * The owner's default on the prototype (variant A): the changed settings only, grouped as the simulator's panel groups
- * them, then the shelf chance table, then any setting the screens do not name. "Show every setting" lists them all.
+ * them, then the shelf chance table, then every other setting. "Show every setting" lists them all.
  *
- * A version's document is read flat: a nested object becomes dotted keys (`shelfChance.DAWAA_NOW.1.L0`). A setting the
- * panel names and a version does not hold reads at its starting value, as the simulator reads it (BO 4360: "a setting
- * added by a later release is read at its baseline value"), so it is no difference by itself.
- * PROVISIONAL (spec 4354: not specified) — BO 4360 names no key inside a set's document; the panel's keys are
- * `WEIGHT_CONTROLS`, and the shelf chance table's `shelfChance.<mode>.<asked>.<left over>` is ours.
+ * A version's values are ONE nested document (BackOffice 4360 `WeightSetValues`, reconciled at pricing2 35a4e56be). It
+ * is read flat: a nested object becomes dotted keys, a row of a list is named by its mode or goal (`modes[SLOT].on`, as
+ * the server's own save check names it), and a shelf chance cell is named as the marking screen names the figure
+ * (`shelfChance 2/0`: units asked / units left over). The set's name, version and format are not settings. A panel
+ * control reads its own place in the document (`@/core/sourcing-advisor/weight-controls`).
  */
 import type { WeightSetValues, WeightSetVersionRef } from '@/core/models/sourcing-run'
-import { RESULTS_LEFT_OVERS, type ResultsLeftOver, type ResultsPromiseMode } from '@/core/models/sourcing-results'
-import { WEIGHT_CONTROLS, WEIGHT_GROUPS, type WeightGroup } from '@/core/sourcing-advisor/weight-controls'
+import { controlValue, WEIGHT_CONTROLS, WEIGHT_GROUPS, type WeightGroup } from '@/core/sourcing-advisor/weight-controls'
 
 export type SettingGroup = WeightGroup | 'shelf' | 'other'
 export const SETTING_GROUPS: readonly SettingGroup[] = [...WEIGHT_GROUPS, 'shelf', 'other']
 
-/** How a value is written: a weight, riyals (3 decimals), a switch, a shelf chance percent, or as read. */
-export type SettingKind = 'number' | 'riyals' | 'switch' | 'percent' | 'text'
+/** How a value is written: a weight, riyals (3 decimals), a switch, a shelf chance (a fraction shown as a percent), or as read. */
+export type SettingKind = 'number' | 'riyals' | 'switch' | 'chance' | 'text'
 
 export interface ShelfCell {
-  mode: ResultsPromiseMode
   asked: number
-  leftOver: ResultsLeftOver
+  leftOver: number
 }
 
 export interface DiffRow {
@@ -43,17 +41,31 @@ export interface DiffGroup {
   rows: DiffRow[]
 }
 
-const SHELF_MODES: readonly ResultsPromiseMode[] = ['DAWAA_NOW', 'SLOT', 'PICK_UP']
-const SHELF_KEY = /^shelfChance\.(DAWAA_NOW|SLOT|PICK_UP)\.(\d+)\.(L0|L1|L2|L3_4|L5_9|L10_PLUS)$/
+/** Not settings: the format number and the set's name and version (BO 4360 `WeightSetDocument.Metadata`). */
+const METADATA = ['formatVersion', 'name', 'version']
+const ROW_KEYS = ['mode', 'goal']
+const SHELF_TABLE = 'noStock.shelfChance'
+const SHELF_KEY = /^shelfChance (\d+)\/(\d+)$/
 
-/** A document read flat: nested objects become dotted keys; arrays and scalars are leaves. */
-export function flatValues(values: WeightSetValues, prefix = ''): Record<string, unknown> {
+const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
+const rowName = (row: unknown) => (isRecord(row) ? ROW_KEYS.map((k) => row[k]).find((v) => typeof v === 'string') : undefined)
+
+/** A document read flat: nested objects become dotted keys, named rows `list[NAME]`, shelf chance cells their figure name. */
+export function flatValues(values: WeightSetValues): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(values)) {
-    const key = prefix ? `${prefix}.${k}` : k
-    if (v !== null && typeof v === 'object' && !Array.isArray(v)) Object.assign(out, flatValues(v as WeightSetValues, key))
-    else out[key] = v
+  const walk = (v: unknown, key: string) => {
+    if (key === SHELF_TABLE && Array.isArray(v)) {
+      for (const c of v) if (isRecord(c)) out[`shelfChance ${String(c.asked)}/${String(c.leftOver)}`] = c.chance
+    } else if (isRecord(v)) {
+      for (const [k, x] of Object.entries(v)) if (key || !METADATA.includes(k)) walk(x, key ? `${key}.${k}` : k)
+    } else if (Array.isArray(v) && v.length > 0 && v.every((row) => rowName(row) !== undefined)) {
+      for (const row of v as Record<string, unknown>[]) {
+        const name = rowName(row)!
+        for (const [k, x] of Object.entries(row)) if (!ROW_KEYS.includes(k)) walk(x, `${key}[${name}].${k}`)
+      }
+    } else out[key] = v
   }
+  walk(values, '')
   return out
 }
 
@@ -61,16 +73,17 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 function shelfCell(key: string): ShelfCell | null {
   const m = SHELF_KEY.exec(key)
-  return m
-    ? {
-        mode: m[1] as ResultsPromiseMode,
-        asked: Number(m[2]),
-        leftOver: m[3] as ResultsLeftOver,
-      }
-    : null
+  return m ? { asked: Number(m[1]), leftOver: Number(m[2]) } : null
 }
 
-const shelfOrder = (c: ShelfCell) => SHELF_MODES.indexOf(c.mode) * 10000 + c.asked * 100 + RESULTS_LEFT_OVERS.indexOf(c.leftOver)
+/** The server's table order: by units left over, then units asked. */
+const shelfOrder = (c: ShelfCell) => c.leftOver * 1000 + c.asked
+
+/** Whether a flat key is a setting a panel control reads (`[*]` stands for any row). */
+const covered = WEIGHT_CONTROLS.flatMap((c) => c.paths).map(
+  (p) => new RegExp(`^${p.replace(/[.]/g, '\\.').replace(/\[\*\]/g, '\\[[^\\]]+\\]').replace(/\[([A-Z_]+)\]/g, '\\[$1\\]')}$`),
+)
+const isCovered = (key: string) => covered.some((re) => re.test(key))
 
 /**
  * Every setting of two versions side by side, grouped and in order; only the changed ones unless `every`. A group with
@@ -82,21 +95,13 @@ export function versionDiff(from: WeightSetValues, to: WeightSetValues, { every 
   const rows: DiffRow[] = []
 
   for (const c of WEIGHT_CONTROLS) {
-    const before = c.key in a ? a[c.key] : c.start
-    const after = c.key in b ? b[c.key] : c.start
+    const before = controlValue(from, c)
+    const after = controlValue(to, c)
     const kind: SettingKind = c.kind === 'switch' ? 'switch' : c.riyals ? 'riyals' : 'number'
-    rows.push({
-      key: c.key,
-      group: c.group,
-      kind,
-      before,
-      after,
-      changed: !same(before, after),
-    })
+    rows.push({ key: c.key, group: c.group, kind, before, after, changed: !same(before, after) })
   }
 
-  const named = new Set(WEIGHT_CONTROLS.map((c) => c.key))
-  const rest = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !named.has(k))
+  const rest = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !isCovered(k))
   const shelf: DiffRow[] = []
   const other: DiffRow[] = []
   for (const key of rest) {
@@ -104,16 +109,7 @@ export function versionDiff(from: WeightSetValues, to: WeightSetValues, { every 
     const after = b[key]
     const changed = !same(before, after)
     const cell = shelfCell(key)
-    if (cell)
-      shelf.push({
-        key,
-        group: 'shelf',
-        kind: 'percent',
-        before,
-        after,
-        changed,
-        cell,
-      })
+    if (cell) shelf.push({ key, group: 'shelf', kind: 'chance', before, after, changed, cell })
     else {
       const sample = after ?? before
       const kind: SettingKind = typeof sample === 'number' ? 'number' : typeof sample === 'boolean' ? 'switch' : 'text'

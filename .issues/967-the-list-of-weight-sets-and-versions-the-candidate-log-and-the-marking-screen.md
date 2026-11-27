@@ -97,3 +97,25 @@ Proof: `version-diff-model.test.ts` (8) and `marking-model.test.ts` (18) green, 
 `npm test` (13,106), `npm run typecheck`, `npm run lint` green; `tools/sourcing-sets-drive.mjs` on Edge
 (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL, 127/127. As on the other advisor screens, the RTL pass reads English words
 (the app boots i18next in English); every key has its Arabic.
+
+**2026-11-27 — reconciled with BackOffice 4360 and 4395 at pricing2 35a4e56be** (branch `reconcile-sets-planner`).
+- Doors (`WeightSetEndpoints`): `GET SourcingAdvisor/WeightSets?withRetired=true`, `GET …/Version`, `GET …/CandidateLog`
+  under the run grant; `GET …/MarkScreen?name=&version=` and `POST …/Mark {name, version, reason}` under the mark grant.
+- Grants: mark = `SourcingCandidateSet:03` (`WeightSetGrants.Mark`); the screen opens to the run grant only
+  (`canOpenWeightSets`), as every read is under it.
+- Wire (`src/core/models/sourcing-sets.ts`): the candidate log row `{markedBy, markedAt, before?, after, reason, review?}`;
+  the marking screen `{name, version, refusals[{code, why}], review{offered, exception, candidateUntil, trial, shelfChance[],
+  barPeriodCounted, barCountedFrom}}`; trial figures with shares as FRACTIONS, `refusedBy`/`changedBy` as maps, the promise
+  check `{mode, checked, within, share}`; a shelf figure `{figure, candidate, version, evidence: ENOUGH|TOO_FEW|NOT_STEADY}`
+  named `shelfChance 2/0` or `shortFigure SLOT bookAtZero`. Refusal codes are the server's `MarkRefusalCodes`; a refused
+  mark is `WEIGHTSET-423` (HTTP 422) with every reason in `data.refusals`.
+- The server reads the written reason for each "too few" / "not steady" figure's NAME (`ReasonSpeaksToFigures`): the
+  owner's tick now writes the figure's name into the reason (untick takes it out), and is ticked while the reason names
+  it; the body carries no `spokenTo`. The screen door always answers `REASON_SILENT_ON_FIGURE` (it checks a blank
+  reason): the screen treats it as the reason's to answer, not as a failed check.
+- Dropped as not on the wire: a figure's lines / failed / expected / halves, the promise check under the candidate set,
+  "ended N days ago" and "N days ago" for going back (the date is shown).
+- `stub-sets.json` is rebuilt from the server's own `baseline-weight-set.json`. Proof: `version-diff-model.test.ts` (10),
+  `marking-model.test.ts` (23), `tools/sourcing-sets-drive.mjs` 138/138 on Edge, LTR and RTL.
+- Not built, not in this ticket's list: `POST WeightSets/Copy` and `/Retire` as actions on the list (the server has them).
+No SERVER GAP left for this ticket.

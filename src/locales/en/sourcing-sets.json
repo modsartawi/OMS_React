@@ -1,12 +1,14 @@
 {
-  "menu": { "sourcingSets": "Weight sets" },
+  "menu": {
+    "sourcingSets": "Weight sets"
+  },
   "title": "Weight sets",
   "dash": "—",
   "subtitle": "The sourcing advisor's weight sets and their versions, the candidate log, and marking the candidate set.",
   "access": {
     "checking": "Checking your access…",
     "deniedTitle": "No access to the weight sets",
-    "deniedHint": "Your account holds none of the grants to run, save or mark weight sets. Ask an administrator if you need one.",
+    "deniedHint": "Your account does not hold the simulator's run grant, which opens the weight sets. Ask an administrator if you need it.",
     "unreachableTitle": "This screen is unavailable",
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
@@ -17,12 +19,20 @@
     "mark": "Mark the candidate set"
   },
   "setRef": "{{name}}, version {{version}}",
-  "cell": "{{mode}}, {{asked}} asked, {{left}} left over",
-  "mode": { "DAWAA_NOW": "Dawaa Now", "SLOT": "Slot delivery", "PICK_UP": "Pick-up" },
-  "group": { "APP_SITE": "(the app and the site)", "CALL_CENTRE": "(the call centre)" },
-  "leftOver": { "L0": "0", "L1": "1", "L2": "2", "L3_4": "3 to 4", "L5_9": "5 to 9", "L10_PLUS": "10 or more" },
-  "reading": { "ENOUGH_TO_CHANGE": "enough", "TOO_FEW": "too few", "NOT_STEADY": "not steady" },
-  "value": { "on": "On", "off": "Off", "riyals": "SAR {{amount}}" },
+  "cell": "{{asked}} asked, {{left}} left over",
+  "mode": {
+    "DAWAA_NOW": "Dawaa Now",
+    "SLOT": "Slot delivery",
+    "CARRIER_SAME_DAY": "Carrier, same day",
+    "CARRIER_NEXT_DAY": "Carrier, next day",
+    "BEYOND_BORDER": "Beyond the border",
+    "PICK_UP": "Pick-up"
+  },
+  "value": {
+    "on": "On",
+    "off": "Off",
+    "riyals": "SAR {{amount}}"
+  },
   "groups": {
     "weights": "Weights",
     "factors": "Factors",
@@ -68,7 +78,8 @@
     "baseline": "baseline",
     "version": "Version {{version}}",
     "seed": "seed",
-    "mark": "Mark…"
+    "mark": "Mark…",
+    "retiredBy": "Retired by {{by}} on {{at}}: kept for the runs that used it, never offered again."
   },
   "diff": {
     "title": "What differs",
@@ -102,7 +113,7 @@
     "seed": "seed",
     "nothing": "none",
     "noTrial": "no trial",
-    "barRestarted": "was counting, day {{day}}: started again",
+    "barRestarted": "counted since {{from}}: started again",
     "barNone": "not being counted",
     "reason": "Reason",
     "trialPeriod": "Trial {{trial}} over {{period}}, {{days}} days.",
@@ -110,40 +121,31 @@
   },
   "exceptionShort": {
     "FIRST_CANDIDATE": "first candidate set",
-    "BACK_WITHIN_90": "back within 90 days"
+    "BACK_WITHIN_90_DAYS": "back within 90 days"
   },
   "exception": {
     "FIRST_CANDIDATE": "No trial needed: the baseline set as the first candidate set.",
-    "BACK_WITHIN_90": "No trial needed: this version was the candidate set within the last 90 days."
+    "BACK_WITHIN_90_DAYS": "No trial needed: this version was the candidate set within the last 90 days."
   },
   "check": {
     "BALANCED_ON": "The balanced goal is on",
     "NO_WHAT_IF": "No what-if on planner data",
     "NO_ASSUMED_CARRIER_ROW": "No carrier mode on while a contract row it would use is assumed",
-    "KEPT_TRIAL": "A kept trial on this exact version: at least 14 whole days, ended 7 days ago or less, at most 5% of its orders refused, no stop finding"
+    "KEPT_TRIAL": "A kept trial on this exact version: at least 14 whole days, ended 7 days ago or less, at most 5% of its orders refused, no stop finding, read by the nightly plan check"
   },
   "why": {
-    "BALANCED_OFF": "The balanced goal is off.",
-    "WHAT_IF_ON_PLANNER_DATA": "The set has a what-if on planner data: it is a trial set.",
+    "BALANCED_GOAL_OFF": "The balanced goal is off.",
+    "TRIAL_SET": "The set holds a what-if on planner data: it is a trial set, never the candidate set.",
     "CARRIER_ROW_ASSUMED": "A carrier mode is on while a contract row it would use is assumed.",
     "NO_TRIAL": "No kept trial ran on this version.",
     "TRIAL_TOO_SHORT": "The trial covers fewer than 14 whole days.",
     "TRIAL_TOO_OLD": "The trial ended more than 7 days ago.",
+    "TRIAL_NO_ORDERS": "The trial holds no order.",
     "TRIAL_REFUSED_TOO_MANY": "The trial refused more than 5% of its orders.",
     "TRIAL_STOP_FINDING": "The trial holds a stop finding.",
-    "REASON_MISSING": "No written reason was given.",
-    "REASON_NOT_SPOKEN_TO": "The reason does not speak to every \"too few\" or \"not steady\" figure.",
-    "ALREADY_CANDIDATE": "This version is already the candidate set.",
-    "SET_RETIRED": "The set is retired.",
-    "TRIAL_SET": "A trial set is never the candidate set.",
+    "TRIAL_NOT_PLAN_CHECKED": "The nightly plan check has not read the trial yet.",
+    "REASON_SILENT_ON_FIGURE": "The reason does not name every \"too few\" or \"not steady\" figure.",
     "unknown": "Refused for a reason this screen does not know:"
-  },
-  "whyFigure": {
-    "TRIAL_TOO_SHORT": "The trial covers {{figure}} whole days, fewer than 14.",
-    "TRIAL_TOO_OLD": "The trial ended {{figure}} days ago, more than 7.",
-    "TRIAL_REFUSED_TOO_MANY": "The trial refused {{figure}}% of its orders, more than 5%.",
-    "TRIAL_STOP_FINDING": "The trial holds stop findings: {{figure}}.",
-    "CARRIER_ROW_ASSUMED": "A carrier mode is on while the contract row it would use is assumed: {{figure}}."
   },
   "refusal": {
     "MODE_SWITCHED_ON": "A mode switched on that the run did not read",
@@ -162,23 +164,16 @@
   },
   "promise": {
     "mode": "Mode",
-    "deliveries": "Deliveries",
-    "newVersion": "Under this version",
-    "candidate": "Under the candidate set",
-    "band": "Band",
-    "target": "target {{minutes}} minutes, no band",
-    "noBand": "no band"
+    "checked": "Deliveries checked",
+    "within": "Within the promise",
+    "share": "Share"
   },
   "shelf": {
     "figure": "Figure",
+    "name": "Its name in a reason",
     "candidate": "Candidate set",
     "version": "This version",
-    "reading": "Evidence",
-    "lines": "Lines",
-    "failed": "Failed",
-    "expected": "Failed, expected",
-    "firstHalf": "Failed, first half",
-    "secondHalf": "Failed, second half"
+    "evidence": "Evidence"
   },
   "mark": {
     "pick": "Version to mark",
@@ -194,32 +189,49 @@
     "refusedTitle": "This marking is refused",
     "refusedHint": "Mark stays off until every check below passes.",
     "checks": "The four checks",
-    "lastCandidate": "Last the candidate set until {{until}}, {{days}} days ago.",
+    "lastCandidate": "Last the candidate set until {{until}}.",
     "noTrial": "No trial figures: no kept trial stands behind this marking.",
-    "trialLine": "Trial {{trial}} over {{period}}: {{days}} whole days, ended {{ago}} days ago, {{orders}} orders.",
+    "trialLine": "Trial {{trial}} over {{period}}: {{days}} whole days, {{orders}} orders, beside {{beside}}.",
     "plansChanged": "Plans changed against the candidate set",
-    "plansOf": "{{share}} plans",
+    "plansOf": "{{share}} plans, beside the candidate set's trial {{beside}}",
     "refused": "Orders the trial refused",
     "refusedOf": "{{share}} orders; at most 5% may be refused",
     "stopFindings": "Stop findings: {{n}}",
     "promise": "Promise check per mode, under this version",
     "shelf": "Shelf chance figures that differ",
-    "shelfLede": "Each figure this version changes against the candidate set, with what its evidence says. A figure may change when it expects at least 50 failed lines, the gap is beyond chance and both halves of the window agree.",
+    "shelfLede": "Each figure this version changes against the candidate set, with what its evidence says.",
     "shelfNone": "No shelf chance figure differs.",
     "reasonTitle": "Your reason",
     "reasonLabel": "Written reason",
-    "reasonHint": "Kept in the candidate log. It must speak to each figure marked \"too few\" or \"not steady\": tick each one it speaks to.",
-    "speaksTo": "My reason speaks to",
+    "reasonHint": "Kept in the candidate log. It must name each figure marked \"too few\" or \"not steady\": tick one to write its name in.",
+    "speaksTo": "My reason names",
     "button": "Mark as the candidate set",
     "done": "Marked: {{set}} is now the candidate set. The candidate log keeps your reason and the trial's figures.",
     "serverRefusedTitle": "The marking was refused",
     "serverRefusedHint": "The server checked again and refused it:",
-    "denied": "Marking the candidate set needs the marking grant."
+    "denied": "Marking the candidate set needs the marking grant.",
+    "barRestarts": "A phase 2 bar period has been counted since {{from}}: a marking starts it again.",
+    "plansUnread": "Not read: the candidate set has no trial over the same period. Start one beside it.",
+    "planChecked": "Read by the nightly plan check.",
+    "planNotChecked": "Not read by the nightly plan check yet."
   },
   "state": {
     "checks": "Mark is off: a check fails.",
     "reason": "Mark is off until a reason is written. {{spoken}} figures spoken to.",
     "figures": "Mark is off until the reason speaks to every \"too few\" or \"not steady\" figure: {{spoken}}.",
     "ready": "Ready to mark. {{spoken}} figures spoken to."
+  },
+  "evidence": {
+    "ENOUGH": "enough",
+    "TOO_FEW": "too few",
+    "NOT_STEADY": "not steady",
+    "none": "not read"
+  },
+  "shortFigure": "Short figure, {{mode}}: {{row}}",
+  "shortRow": {
+    "bookBelowZero": "book below zero",
+    "bookAtZero": "book at zero",
+    "bookShort": "book short",
+    "heldByDeliveries": "held by deliveries"
   }
 }

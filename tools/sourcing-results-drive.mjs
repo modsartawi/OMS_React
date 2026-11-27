@@ -158,7 +158,7 @@ async function scenario(browser, lang) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'Auth/Permissions') return route.fulfill(permissions(wire.grant ? ['SourcingAdvisor:01', 'SourcingAdvisorSave:01', ...(wire.runGrant ? ['SourcingSimulator:03'] : [])] : []))
+    if (p === 'Auth/Permissions') return route.fulfill(permissions(wire.grant ? ['SourcingAdvisor:01', 'SourcingWeightSets:03', ...(wire.runGrant ? ['SourcingSimulator:03'] : [])] : []))
     // Ticket 969: the simulator a stored run's link opens — its read door (PROVISIONAL) answers the run is not there.
     if (p === 'SourcingAdvisor/Runs/Open') {
       wire.opens.push(url.searchParams.get('runId'))

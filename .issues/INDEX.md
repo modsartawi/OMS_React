@@ -1641,3 +1641,9 @@ From the 2026-11-27 production walk: three columns with the caller first, a step
 - [992](992-ctrl-k-reorders-sends-the-link-and-switches-fulfilment.md) — Ctrl K can reorder, send the location link, switch fulfilment and take the next slot · **open — MERGED to main (ff d41340c2), stubbed; live walk owed** · blocked by: 989
 - [993](993-the-agents-default-source-applies-at-open.md) — The agent's default source applies when an order opens · **open — MERGED to main (ff d41340c2), stubbed; live walk owed** · blocked by: —
 - [994](994-changing-the-store-never-leaves-the-console-stuck.md) — Changing the store never leaves the console stuck · **open — MERGED to main (ff d41340c2), stubbed; live walk owed** · blocked by: —
+
+## The agent reads an offer the way the caller hears it (spec 995, 2026-11-27)
+
+- [995](995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) — The agent reads an offer the way the caller hears it (spec) · **ready** · contract v1.14; canvas *Call center offer card for agents*
+- [996](996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) — The offer card and the applied card say the offer plainly · **open** · blocked by: 859, 4458 (BackOffice)
+- [997](997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) — The offer sheet shows what the caller would save, from the engine · **open** · blocked by: 996, 4459 (BackOffice)

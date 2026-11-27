@@ -21,7 +21,7 @@
  *    chips (135's progressive disclosure) but re-open the same form, because
  *    they are one act — a reference belongs to the source it references.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
@@ -48,23 +48,34 @@ export default function SourceForm({
   currentReference,
   apply,
   onClose,
+  askReference = false,
 }: {
   open: boolean
   currentSource: string | null
   currentReference: string | null
   apply: SourceApply
   onClose: () => void
+  /** 993 — opened because the agent's default was refused for want of a reference:
+   *  the caret goes straight into the reference box, the one thing left to type. */
+  askReference?: boolean
 }) {
   const { t } = useTranslation('callcenter')
   const [source, setSource] = useState('')
   const [reference, setReference] = useState('')
+  const referenceBox = useRef<HTMLInputElement>(null)
+
+  // After `ChipSection`'s own focus of its region (a child's effect runs first), so
+  // this one wins — and only on the road where the agent has something to type.
+  useEffect(() => {
+    if (open && askReference) referenceBox.current?.focus()
+  }, [open, askReference])
 
   const sources = useQuery({
     queryKey: MY_SOURCES_KEY,
     queryFn: () => callCenterApi.myDocumentSources(),
-    // The agent's own list does not change during a shift, and it is read on
-    // first open rather than at mount: an agent who never re-opens this section
-    // pays for it once.
+    // The agent's own list does not change during a shift, so it is read once.
+    // Since 993 the page reads it (same key) when an order opens with no source,
+    // to apply the agent's default; otherwise it is read on first open here.
     staleTime: Infinity,
     retry: false,
     enabled: open,
@@ -174,6 +185,7 @@ export default function SourceForm({
 
         <Field id="cc-source-reference" label={t('source.reference')} hint={t('source.referenceHint')}>
           <Input
+            ref={referenceBox}
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             disabled={apply.busy}

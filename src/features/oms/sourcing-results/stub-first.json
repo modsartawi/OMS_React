@@ -1,0 +1,623 @@
+{
+  "top": {
+    "filter": {
+      "period": "DAYS_14",
+      "from": "2026-11-13T00:00:00",
+      "to": "2026-11-27T00:00:00",
+      "channelGroup": "ALL",
+      "set": null,
+      "version": null,
+      "shortFigure": false,
+      "mark": null,
+      "runMark": null
+    },
+    "ordersCompared": 39870,
+    "segments": [
+      {
+        "code": "BREAKS_NESTING",
+        "orders": 40,
+        "percent": 0.1
+      },
+      {
+        "code": "SAME_PLAN_BOTH",
+        "orders": 27390,
+        "percent": 68.7
+      },
+      {
+        "code": "SAME_STORES_OTHER_WAY",
+        "orders": 3520,
+        "percent": 8.8
+      },
+      {
+        "code": "ANOTHER_STORE",
+        "orders": 5180,
+        "percent": 13
+      },
+      {
+        "code": "CALLOUT_FALLBACK",
+        "orders": 430,
+        "percent": 1.1
+      },
+      {
+        "code": "OUTSIDE_RULES",
+        "orders": 1240,
+        "percent": 3.1
+      },
+      {
+        "code": "NOT_COMPARABLE",
+        "orders": 2070,
+        "percent": 5.2
+      }
+    ],
+    "storesOnly": {
+      "segments": [
+        "SAME_PLAN_BOTH",
+        "SAME_STORES_OTHER_WAY"
+      ],
+      "orders": 30910,
+      "percent": 77.5
+    },
+    "wholePlan": {
+      "segments": [
+        "BREAKS_NESTING",
+        "SAME_PLAN_BOTH"
+      ],
+      "orders": 27430,
+      "percent": 68.8
+    },
+    "landed": 43512,
+    "runNotEnded": 2310,
+    "notRun": 1332
+  },
+  "panels": {
+    "filter": {
+      "period": "DAYS_14",
+      "from": "2026-11-13T00:00:00",
+      "to": "2026-11-27T00:00:00",
+      "channelGroup": "ALL",
+      "set": null,
+      "version": null,
+      "shortFigure": false,
+      "mark": null,
+      "runMark": null
+    },
+    "promiseCheck": [
+      {
+        "mode": "DAWAA_NOW",
+        "channelGroup": null,
+        "checked": 7640,
+        "within": 6769,
+        "percent": 88.6,
+        "pill": "INSIDE",
+        "bandLow": 85,
+        "bandHigh": 95,
+        "withinExpressStamp": 7034,
+        "expressStampPercent": 92.1
+      },
+      {
+        "mode": "PICK_UP",
+        "channelGroup": "APP_SITE",
+        "checked": 46600,
+        "within": 34717,
+        "percent": 74.5,
+        "pill": "NO_BAND",
+        "bandLow": null,
+        "bandHigh": null,
+        "withinExpressStamp": null,
+        "expressStampPercent": null
+      },
+      {
+        "mode": "PICK_UP",
+        "channelGroup": "CALL_CENTRE",
+        "checked": 8260,
+        "within": 4626,
+        "percent": 56,
+        "pill": "NO_BAND",
+        "bandLow": null,
+        "bandHigh": null,
+        "withinExpressStamp": null,
+        "expressStampPercent": null
+      }
+    ],
+    "cost": {
+      "setName": "Baseline",
+      "setVersion": 3,
+      "ratesAssumed": 5,
+      "ratesTotal": 6,
+      "rates": [
+        {
+          "part": "DELIVERY_RATE",
+          "mode": "DAWAA_NOW",
+          "channel": null,
+          "source": "MEASURED",
+          "assumed": false
+        },
+        {
+          "part": "DELIVERY_RATE",
+          "mode": "SLOT",
+          "channel": null,
+          "source": "ASSUMED",
+          "assumed": true
+        },
+        {
+          "part": "DELIVERY_RATE",
+          "mode": "BEYOND_BORDER",
+          "channel": null,
+          "source": "ASSUMED",
+          "assumed": true
+        },
+        {
+          "part": "HANDLING",
+          "mode": null,
+          "channel": null,
+          "source": "ASSUMED",
+          "assumed": true
+        },
+        {
+          "part": "NO_STOCK",
+          "mode": null,
+          "channel": null,
+          "source": "ASSUMED",
+          "assumed": true
+        },
+        {
+          "part": "WAITING",
+          "mode": null,
+          "channel": null,
+          "source": "ASSUMED",
+          "assumed": true
+        }
+      ],
+      "noRiyalTotal": true,
+      "ordersOnAssumedRates": 36100,
+      "ordersWithPlans": 37800,
+      "planShipments": 41930,
+      "realDeliveries": 43060,
+      "feeCompared": 37800,
+      "feeLower": 1474,
+      "feeSame": 35305,
+      "feeHigher": 1021,
+      "feeRulesNotConfirmed": true
+    },
+    "marks": [
+      {
+        "code": "RANGE_NOT_CONFIRMED",
+        "orders": 3120
+      },
+      {
+        "code": "NO_ROUTING_EQUIVALENT",
+        "orders": 0
+      },
+      {
+        "code": "ASSUMED_RATES",
+        "orders": 36100
+      },
+      {
+        "code": "FEE_RULES_NOT_CONFIRMED",
+        "orders": 37800
+      },
+      {
+        "code": "BEFORE_RESERVING_OFF",
+        "orders": 0
+      },
+      {
+        "code": "AS_IT_STANDS",
+        "orders": 1210
+      },
+      {
+        "code": "SHORT_FIGURE",
+        "orders": 2480
+      }
+    ]
+  },
+  "differ": {
+    "WHOLE_PLAN": {
+      "filter": {
+        "period": "DAYS_14",
+        "from": "2026-11-13T00:00:00",
+        "to": "2026-11-27T00:00:00",
+        "channelGroup": "ALL",
+        "set": null,
+        "version": null,
+        "shortFigure": false,
+        "mark": null,
+        "runMark": null
+      },
+      "view": "WHOLE_PLAN",
+      "rows": [
+        {
+          "code": "ANOTHER_MODE",
+          "orders": 2470,
+          "estimate": {
+            "middle": -95,
+            "low": -210,
+            "high": -20,
+            "orders": 2470
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 1946
+            },
+            {
+              "code": "LATE",
+              "orders": 237
+            },
+            {
+              "code": "RETURNED",
+              "orders": 151
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 89
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 47
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 0
+            }
+          ]
+        },
+        {
+          "code": "FEWER_SHIPMENTS",
+          "orders": 1010,
+          "estimate": {
+            "middle": 40,
+            "low": 0,
+            "high": 120,
+            "orders": 1010
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 798
+            },
+            {
+              "code": "LATE",
+              "orders": 41
+            },
+            {
+              "code": "RETURNED",
+              "orders": 32
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 122
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 16
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 1
+            }
+          ]
+        },
+        {
+          "code": "MORE_SHIPMENTS",
+          "orders": 390,
+          "estimate": {
+            "middle": -170,
+            "low": -290,
+            "high": -60,
+            "orders": 390
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 289
+            },
+            {
+              "code": "LATE",
+              "orders": 60
+            },
+            {
+              "code": "RETURNED",
+              "orders": 20
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 14
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 7
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 0
+            }
+          ]
+        },
+        {
+          "code": "ANOTHER_STORE",
+          "orders": 4830,
+          "estimate": {
+            "middle": -6,
+            "low": -19,
+            "high": 2,
+            "orders": 4830
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 3878
+            },
+            {
+              "code": "LATE",
+              "orders": 430
+            },
+            {
+              "code": "RETURNED",
+              "orders": 270
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 169
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 82
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 1
+            }
+          ]
+        },
+        {
+          "code": "OUTSIDE_RULES",
+          "orders": 1240,
+          "estimate": null,
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 985
+            },
+            {
+              "code": "LATE",
+              "orders": 74
+            },
+            {
+              "code": "RETURNED",
+              "orders": 55
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 107
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 20
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": -1
+            }
+          ]
+        },
+        {
+          "code": "CALLOUT_FALLBACK",
+          "orders": 430,
+          "estimate": null,
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 309
+            },
+            {
+              "code": "LATE",
+              "orders": 75
+            },
+            {
+              "code": "RETURNED",
+              "orders": 20
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 18
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 8
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 0
+            }
+          ]
+        },
+        {
+          "code": "SAME_PLAN",
+          "orders": 27430,
+          "estimate": {
+            "middle": 0,
+            "low": -4,
+            "high": 3,
+            "orders": 27430
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 23069
+            },
+            {
+              "code": "LATE",
+              "orders": 1865
+            },
+            {
+              "code": "RETURNED",
+              "orders": 1344
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 713
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 439
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 0
+            }
+          ]
+        }
+      ]
+    },
+    "STORES_ONLY": {
+      "filter": {
+        "period": "DAYS_14",
+        "from": "2026-11-13T00:00:00",
+        "to": "2026-11-27T00:00:00",
+        "channelGroup": "ALL",
+        "set": null,
+        "version": null,
+        "shortFigure": false,
+        "mark": null,
+        "runMark": null
+      },
+      "view": "STORES_ONLY",
+      "rows": [
+        {
+          "code": "ANOTHER_STORE",
+          "orders": 5220,
+          "estimate": {
+            "middle": -6,
+            "low": -18,
+            "high": 3,
+            "orders": 5180
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 4192
+            },
+            {
+              "code": "LATE",
+              "orders": 465
+            },
+            {
+              "code": "RETURNED",
+              "orders": 292
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 183
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 89
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": -1
+            }
+          ]
+        },
+        {
+          "code": "OUTSIDE_RULES",
+          "orders": 1240,
+          "estimate": null,
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 985
+            },
+            {
+              "code": "LATE",
+              "orders": 74
+            },
+            {
+              "code": "RETURNED",
+              "orders": 55
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 107
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 20
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": -1
+            }
+          ]
+        },
+        {
+          "code": "CALLOUT_FALLBACK",
+          "orders": 430,
+          "estimate": null,
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 309
+            },
+            {
+              "code": "LATE",
+              "orders": 75
+            },
+            {
+              "code": "RETURNED",
+              "orders": 20
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 18
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 8
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": 0
+            }
+          ]
+        },
+        {
+          "code": "SAME_PLAN",
+          "orders": 30910,
+          "estimate": {
+            "middle": 0,
+            "low": -5,
+            "high": 4,
+            "orders": 30910
+          },
+          "endings": [
+            {
+              "code": "ON_TIME",
+              "orders": 25841
+            },
+            {
+              "code": "LATE",
+              "orders": 2195
+            },
+            {
+              "code": "RETURNED",
+              "orders": 1546
+            },
+            {
+              "code": "CANCELLED",
+              "orders": 835
+            },
+            {
+              "code": "CUSTOMER_CANCELLED",
+              "orders": 495
+            },
+            {
+              "code": "NOT_ENDED",
+              "orders": -2
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

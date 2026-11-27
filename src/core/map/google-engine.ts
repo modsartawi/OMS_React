@@ -1,6 +1,6 @@
 import { googleLoader, type GoogleLoader } from './google-loader'
-import { lineLabelLook, markerHits, markerLook } from './map-markers'
-import { LINE_WIDTH, POLYGON_EDGE_WIDTH, STRONG_LINE_WIDTH, type MapFeature } from './map-drawing'
+import { lineLabelLook, markerHits, markerLook, pinDrag, pinLook } from './map-markers'
+import { lineStroke, POLYGON_EDGE_WIDTH, RING_LINE_WIDTH, type MapFeature } from './map-drawing'
 import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapView } from './map-panel'
 
 /**
@@ -24,6 +24,9 @@ import type { MapEngine, MapEngineEvents, MapEngineRunning, MapEngineStart, MapV
  *   points lie on top), taking no tap; its words an HTML element on the same overlay, at the line's middle as drawn.
  * - Shapes (947): each `start.polygons` entry a Google `Polygon` in its resolved fill, beneath the lines and every
  *   overlay; its click is reported as the shape's id (`events.shapeTap`).
+ * - 964: a dashed or dotted line repeats a short stroke of its colour along a hidden polyline (`lineStroke`); a ring is
+ *   such a dashed polyline round its closed path, beneath every leg, its words at its top; the customer's pin is an HTML
+ *   element above every marker, that a drag moves (`pinDrag`) and whose drop is reported once (`pinMoved`).
  * - "Drawn": the points are put on the map before Google can report anything; the panel then waits for `tilesloaded` and
  *   `idle` (M37).
  * - Google draws into an element of the adapter's own inside the panel's box, taken out again when the map is closed
@@ -41,8 +44,13 @@ interface LatLngLiteral {
 interface GListener {
   remove(): void
 }
+/** What Google hands a map's `click` listener (962): the place under the click, when there is one. */
+interface GMouseEvent {
+  latLng?: { lat(): number; lng(): number } | null
+}
+
 interface GMap {
-  addListener(event: string, handler: () => void): GListener
+  addListener(event: string, handler: (e?: GMouseEvent) => void): GListener
   fitBounds(bounds: { west: number; south: number; east: number; north: number }, padding?: number): void
   setOptions(options: Record<string, unknown>): void
   setCenter(at: LatLngLiteral): void
@@ -53,6 +61,8 @@ interface GMap {
 interface GPixels {
   fromLatLngToDivPixel(at: LatLngLiteral): { x: number; y: number } | null
   fromLatLngToContainerPixel(at: LatLngLiteral): { x: number; y: number } | null
+  /** 964: the place under a pixel of the overlay, for the pin's drop. */
+  fromDivPixelToLatLng(at: { x: number; y: number }): { lat(): number; lng(): number } | null
 }
 interface GOverlayView {
   setMap(map: GMap | null): void
@@ -175,7 +185,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         // The points are on the map before Google can report its tiles or idle: "drawn" then includes them.
         const m = map
         const hits = markerHits(events, () => m.getZoom() ?? 0)
-        overlay = markersOverlay(g, m, start, hits, project)
+        overlay = markersOverlay(g, m, start, hits, project, (place) => !destroyed && events.pinMoved?.(place))
         overlay.setMap(m)
         // 947: each shape a polygon in its fill, every ring a path, beneath the lines (zIndex 0) and every overlay; its
         // click is the shape's, reported by id.
@@ -205,6 +215,18 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
         // 922: each line a polyline in its colour, in the order given. Google draws polylines beneath every overlay, so
         // the points (and the lines' words) lie on top; a strong line stacks above every plain one, so a later leg lying
         // along it never hides it; a line takes no tap; the map's taps stay the panel's.
+        // 964: each ring a dashed closed polyline, beneath every line.
+        for (const ring of start.rings ?? []) {
+          polylines.push(
+            new Polyline({
+              map: m,
+              path: ring.path.map((q) => ({ lat: q.lat, lng: q.lon })),
+              ...lineStroke({ id: ring.id, from: ring.path[0], to: ring.path[0], stroke: ring.stroke, label: '', strong: false, dash: 'dashed' }, RING_LINE_WIDTH),
+              zIndex: 0,
+              clickable: false,
+            }),
+          )
+        }
         for (const line of start.lines ?? []) {
           polylines.push(
             new Polyline({
@@ -213,16 +235,19 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
                 { lat: line.from.lat, lng: line.from.lon },
                 { lat: line.to.lat, lng: line.to.lon },
               ],
-              strokeColor: line.stroke,
-              strokeOpacity: 0.9,
-              strokeWeight: line.strong ? STRONG_LINE_WIDTH : LINE_WIDTH,
+              // 964: a dashed or dotted line repeats a short stroke of its colour along a hidden one.
+              ...lineStroke(line),
               zIndex: line.strong ? 2 : 1,
               clickable: false,
             }),
           )
         }
         listeners.push(
-          m.addListener('click', () => !destroyed && hits.mapClick()),
+          // 962: the click's place rides with it, so a caller can place the customer where the map was clicked.
+          m.addListener('click', (e?: GMouseEvent) => {
+            if (destroyed) return
+            hits.mapClick(e?.latLng ? { lon: e.latLng.lng(), lat: e.latLng.lat() } : undefined)
+          }),
           m.addListener('tilesloaded', () => !destroyed && events.tilesLoaded()),
           m.addListener('idle', () => !destroyed && events.idle()),
           m.addListener('bounds_changed', () => !destroyed && events.moved(m.getZoom() ?? 0)),
@@ -283,6 +308,7 @@ function markersOverlay(
   start: MapEngineStart,
   hits: ReturnType<typeof markerHits>,
   project: (lon: number, lat: number) => { x: number; y: number },
+  pinMoved: (place: { lon: number; lat: number }) => void,
 ): GOverlayView {
   const layer = document.createElement('div')
   layer.setAttribute('data-map-markers', '')
@@ -338,12 +364,79 @@ function markersOverlay(
       wordsLayer.appendChild(el)
       return { line, el }
     })
+  // 964: each ring's words, at its top.
+  const ringWords = (start.rings ?? [])
+    .filter((ring) => ring.label !== '')
+    .map((ring) => {
+      const el = document.createElement('div')
+      const look = lineLabelLook({ id: ring.id, from: ring.labelAt, to: ring.labelAt, stroke: ring.stroke, label: ring.label, strong: false })
+      Object.assign(el.style, look.style, { zIndex: '49' })
+      el.setAttribute('data-map-ring', ring.id)
+      el.dir = 'auto'
+      el.textContent = look.label
+      wordsLayer.appendChild(el)
+      return { ring, el }
+    })
+  // 964: the customer's pin, above every marker; a drag moves it, and its drop is reported once.
+  const pin = start.pin
+  let pinEl: HTMLElement | null = null
+  const drag = pinDrag((x, y) => {
+    const at = overlay.getProjection()?.fromDivPixelToLatLng({ x, y })
+    return at ? { lon: at.lng(), lat: at.lat() } : null
+  }, pinMoved)
+  if (pin) {
+    const el = document.createElement('div')
+    Object.assign(el.style, pinLook(pin).style)
+    el.setAttribute('data-map-pin', pin.draggable ? 'draggable' : 'fixed')
+    el.setAttribute('role', 'img')
+    el.setAttribute('aria-label', pin.label)
+    el.setAttribute('title', pin.label)
+    // The pointer's place in the overlay's own pixels: the markers' layer stands at the overlay's origin.
+    const local = (e: PointerEvent) => {
+      const box = layer.getBoundingClientRect()
+      return { x: e.clientX - box.left, y: e.clientY - box.top }
+    }
+    if (pin.draggable) {
+      el.addEventListener('pointerdown', (e: PointerEvent) => {
+        e.stopPropagation()
+        e.preventDefault?.()
+        el.setPointerCapture?.(e.pointerId)
+        const at = local(e)
+        drag.down(at.x, at.y)
+        el.style.cursor = 'grabbing'
+      })
+      el.addEventListener('pointermove', (e: PointerEvent) => {
+        const at = local(e)
+        const to = drag.move(at.x, at.y)
+        if (!to) return
+        el.style.left = `${to.x}px`
+        el.style.top = `${to.y}px`
+      })
+      const release = (e: PointerEvent) => {
+        e.stopPropagation()
+        el.releasePointerCapture?.(e.pointerId)
+        el.style.cursor = 'grab'
+        // A drop is the pin's own, never a click beside the stores: the map's own click that follows places nothing.
+        if (drag.up()) hits.held()
+      }
+      el.addEventListener('pointerup', release)
+      el.addEventListener('pointercancel', release)
+    }
+    // A click on the pin is the pin's: it neither places the customer nor closes a card.
+    el.addEventListener('click', (e: Event) => {
+      e.stopPropagation()
+      hits.held()
+    })
+    g.OverlayView.preventMapHitsAndGesturesFrom(el)
+    pinEl = el
+  }
   const overlay = new g.OverlayView()
   return Object.assign(overlay, {
     onAdd() {
       const pane = overlay.getPanes()?.overlayMouseTarget
       pane?.appendChild(layer)
-      if (words.length > 0) pane?.appendChild(wordsLayer)
+      if (words.length + ringWords.length > 0) pane?.appendChild(wordsLayer)
+      if (pinEl) pane?.appendChild(pinEl)
     },
     draw() {
       const zoom = Math.floor(map.getZoom() ?? 0)
@@ -365,10 +458,25 @@ function markersOverlay(
         el.style.left = `${(a.x + b.x) / 2}px`
         el.style.top = `${(a.y + b.y) / 2}px`
       }
+      for (const { ring, el } of ringWords) {
+        const at = projection.fromLatLngToDivPixel({ lat: ring.labelAt.lat, lng: ring.labelAt.lon })
+        if (!at) continue
+        el.style.left = `${at.x}px`
+        el.style.top = `${at.y}px`
+      }
+      // The pin stands at its place, except while it is being dragged: then it is where the pointer is.
+      if (pin && pinEl && !drag.dragging) {
+        const at = projection.fromLatLngToDivPixel({ lat: pin.lat, lng: pin.lon })
+        if (at) {
+          pinEl.style.left = `${at.x}px`
+          pinEl.style.top = `${at.y}px`
+        }
+      }
     },
     onRemove() {
       layer.remove()
       wordsLayer.remove()
+      pinEl?.remove()
       shown = []
       drawnZoom = null
     },

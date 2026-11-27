@@ -1,0 +1,1869 @@
+{
+  "runId": "01JDM3K8Q2V7X4T9B6N0R5W1YZ",
+  "formatVersion": 1,
+  "engine": {
+    "name": "plain-search",
+    "version": "1.0.0"
+  },
+  "kind": "HAND_BUILT",
+  "level": "full",
+  "ranAt": "2026-11-26 19:42:03",
+  "plannedFor": "2026-11-26 19:42:03",
+  "madeBy": "msartawi",
+  "channel": "IOS",
+  "weightSet": {
+    "name": "Baseline",
+    "version": 1,
+    "candidate": true,
+    "trial": false,
+    "draft": false
+  },
+  "held": {
+    "until": "2026-11-26 20:12:03"
+  },
+  "solve": {
+    "ending": "PROVEN_BEST",
+    "plansChecked": 1846,
+    "workBudget": 200000,
+    "pairs": {
+      "beforeCut": 47,
+      "cut": 0,
+      "offered": 19
+    },
+    "ms": {
+      "waited": 0,
+      "localReads": 12,
+      "stockRead": 742,
+      "roadDistance": 410,
+      "coverage": 655,
+      "slots": 0,
+      "solve": 3,
+      "total": 771
+    },
+    "stoodIn": [],
+    "marks": [
+      "ASSUMED_RATES"
+    ],
+    "assumed": [
+      {
+        "part": "FEE",
+        "mode": "DAWAA_NOW",
+        "source": "ASSUMED"
+      },
+      {
+        "part": "HANDLING",
+        "source": "ASSUMED"
+      },
+      {
+        "part": "FEE",
+        "mode": "SLOT",
+        "source": "ASSUMED"
+      },
+      {
+        "part": "DELIVERY_RATE",
+        "mode": "SLOT",
+        "source": "ASSUMED"
+      },
+      {
+        "part": "FEE",
+        "mode": "PICK_UP",
+        "source": "ASSUMED"
+      }
+    ]
+  },
+  "lines": [
+    {
+      "lineNo": 1,
+      "item": "100234",
+      "quantity": 2,
+      "unit": "EA"
+    },
+    {
+      "lineNo": 2,
+      "item": "100871",
+      "quantity": 1,
+      "unit": "EA"
+    },
+    {
+      "lineNo": 3,
+      "item": "104410",
+      "quantity": 1,
+      "unit": "EA"
+    }
+  ],
+  "plans": [
+    {
+      "goal": "BALANCED",
+      "alsoGoals": [
+        "FASTEST",
+        "FEWEST"
+      ],
+      "label": {
+        "en": "Recommended",
+        "ar": "الأنسب"
+      },
+      "promise": {
+        "en": "Everything by 8:35 pm today",
+        "ar": "كل طلبك يصلك اليوم قبل 8:35 م",
+        "by": "2026-11-26 20:35:00"
+      },
+      "bestFound": false,
+      "fallback": false,
+      "trialSet": false,
+      "marks": [
+        "RANGE_NOT_CONFIRMED"
+      ],
+      "totals": {
+        "shipments": 1,
+        "linesServed": 3,
+        "fee": 16,
+        "companyCost": 17.42,
+        "companyNet": 1.42
+      },
+      "shipments": [
+        {
+          "no": 1,
+          "store": "1090",
+          "storeName": "Store 1090",
+          "mode": "DAWAA_NOW",
+          "lines": [
+            1,
+            2,
+            3
+          ],
+          "promise": {
+            "kind": "BY",
+            "by": "2026-11-26 20:35:00",
+            "en": "By 8:35 pm today",
+            "ar": "اليوم قبل 8:35 م"
+          },
+          "fee": 16,
+          "feeSource": "ASSUMED",
+          "companyCost": 17.42,
+          "km": 4.1,
+          "kmKind": "ROAD",
+          "costParts": [
+            {
+              "part": "DELIVERY_RATE",
+              "amount": 15,
+              "source": "MEASURED"
+            },
+            {
+              "part": "HANDLING",
+              "amount": 2,
+              "source": "ASSUMED"
+            },
+            {
+              "part": "STORE_RECORD",
+              "amount": 0.42,
+              "source": "STEADIED"
+            }
+          ],
+          "promiseParts": {
+            "pickEnd": "2026-11-26 20:01:00",
+            "madeReady": {
+              "usual": 12,
+              "cautious": 19,
+              "source": "STORES_OWN"
+            },
+            "courierWait": {
+              "usual": 6,
+              "cautious": 9,
+              "source": "STEADIED"
+            },
+            "travel": {
+              "usual": 13,
+              "cautious": 17,
+              "source": "ROAD",
+              "km": 4.1,
+              "kmKind": "ROAD",
+              "fixed": 4,
+              "perKm": 2.2,
+              "runOver": 4
+            },
+            "margin": 20,
+            "marginMultiplier": 1,
+            "unroundedMinutes": 51,
+            "minutes": 55,
+            "lengtheners": [
+              {
+                "lengthener": "DELIVERIES_WAITING",
+                "value": 1,
+                "bandFrom": 1,
+                "usual": 0,
+                "cautious": 0,
+                "state": "NO_EFFECT"
+              },
+              {
+                "lengthener": "BASKET_LINES",
+                "value": 1,
+                "bandFrom": 1,
+                "usual": 0,
+                "cautious": 0,
+                "state": "NO_EFFECT"
+              },
+              {
+                "lengthener": "HOUR_OF_DAY",
+                "value": 19,
+                "bandFrom": 19,
+                "usual": 0,
+                "cautious": 3,
+                "state": "ADDS"
+              }
+            ]
+          },
+          "storeRecord": {
+            "cost": 0.42,
+            "steadyingCount": 60,
+            "lines": [
+              {
+                "measure": "CALLOUT_IGNORED",
+                "source": "STEADIED",
+                "badEndings": 69,
+                "deliveries": 238,
+                "storeRate": 0.29,
+                "likeRate": 0.08,
+                "expectedRate": 0.08,
+                "steadiedRate": 0.29,
+                "failurePrice": 2,
+                "cost": 0.42
+              }
+            ]
+          }
+        }
+      ],
+      "lineMarks": [],
+      "missingLines": [],
+      "sum": {
+        "companyCostWeight": 1,
+        "feeWeight": 1,
+        "companyCost": 17.42,
+        "fees": 16,
+        "waiting": 7,
+        "cover": 0,
+        "splitPenalty": 0,
+        "total": 40.42
+      }
+    },
+    {
+      "goal": "CHEAPEST",
+      "alsoGoals": [],
+      "label": {
+        "en": "Cheapest",
+        "ar": "الأقل تكلفة"
+      },
+      "promise": {
+        "en": "Everything today between 10:00 and 11:59 pm",
+        "ar": "كل طلبك يصلك اليوم بين 10:00 و11:59 م",
+        "by": "2026-11-26 23:59:00"
+      },
+      "bestFound": false,
+      "fallback": false,
+      "trialSet": false,
+      "totals": {
+        "shipments": 1,
+        "linesServed": 3,
+        "fee": 12,
+        "companyCost": 22.95,
+        "companyNet": 10.95
+      },
+      "shipments": [
+        {
+          "no": 1,
+          "store": "1055",
+          "storeName": "Store 1055",
+          "mode": "SLOT",
+          "lines": [
+            1,
+            2,
+            3
+          ],
+          "promise": {
+            "kind": "BETWEEN",
+            "from": "2026-11-26 22:00:00",
+            "by": "2026-11-26 23:59:00",
+            "en": "Today between 10:00 and 11:59 pm",
+            "ar": "اليوم بين 10:00 و11:59 م"
+          },
+          "slotCode": "00022724",
+          "fee": 12,
+          "feeSource": "ASSUMED",
+          "companyCost": 22.95,
+          "km": 2.9,
+          "kmKind": "STRAIGHT_LINE",
+          "costParts": [
+            {
+              "part": "DELIVERY_RATE",
+              "amount": 14.35,
+              "source": "ASSUMED"
+            },
+            {
+              "part": "HANDLING",
+              "amount": 2,
+              "source": "ASSUMED"
+            },
+            {
+              "part": "STORE_RECORD",
+              "amount": -0.175,
+              "source": "STEADIED"
+            },
+            {
+              "part": "NO_STOCK",
+              "amount": 6.775,
+              "source": "WEIGHT_SET"
+            }
+          ],
+          "promiseParts": {
+            "pickEnd": "2026-11-26 20:51:00",
+            "madeReady": {
+              "usual": 14,
+              "cautious": 23,
+              "source": "STORES_OWN"
+            },
+            "margin": 0,
+            "marginMultiplier": 1,
+            "unroundedMinutes": 14,
+            "minutes": 15,
+            "slot": {
+              "code": "00022724",
+              "from": "2026-11-26 22:00:00",
+              "to": "2026-11-26 23:59:00",
+              "source": "HYBRIS",
+              "skipped": [
+                {
+                  "from": "2026-11-26 20:00:00",
+                  "why": "INSIDE_LEAD"
+                }
+              ]
+            },
+            "lengtheners": [
+              {
+                "lengthener": "DELIVERIES_WAITING",
+                "value": 1,
+                "bandFrom": 1,
+                "usual": 0,
+                "cautious": 0,
+                "state": "NO_EFFECT"
+              }
+            ]
+          },
+          "marks": [
+            "LATER_SLOT_CHEAPER"
+          ],
+          "slotCosts": {
+            "channelGroup": "APP",
+            "slots": [
+              {
+                "code": "00022724",
+                "from": "2026-11-26 22:00:00",
+                "to": "2026-11-26 23:59:00",
+                "taken": true,
+                "standing": 3,
+                "usualSlot": 7,
+                "load": 0.571,
+                "loadPoints": 0,
+                "loadCost": 0,
+                "loadSource": "LIVE_COUNT",
+                "hoursToSlot": 2.3,
+                "hoursBand": "2_TO_4",
+                "place": "REGULAR",
+                "returnedPoints": 0,
+                "latePoints": 0,
+                "timingCost": 0,
+                "timingSource": "SWITCHED_OFF",
+                "waiting": 9.8,
+                "sum": 9.8
+              },
+              {
+                "code": "00022731",
+                "from": "2026-11-27 10:00:00",
+                "to": "2026-11-27 11:59:00",
+                "taken": false,
+                "standing": 3,
+                "usualSlot": 7,
+                "load": 0.571,
+                "loadPoints": 0,
+                "loadCost": 0,
+                "loadSource": "LIVE_COUNT",
+                "hoursToSlot": 2.3,
+                "hoursBand": "2_TO_4",
+                "place": "REGULAR",
+                "returnedPoints": 0,
+                "latePoints": 0,
+                "timingCost": 0,
+                "timingSource": "SWITCHED_OFF",
+                "waiting": 50.1,
+                "sum": 50.1
+              },
+              {
+                "code": "00022732",
+                "from": "2026-11-27 12:00:00",
+                "to": "2026-11-27 13:59:00",
+                "taken": false,
+                "standing": 3,
+                "usualSlot": 7,
+                "load": 0.571,
+                "loadPoints": 0,
+                "loadCost": 0,
+                "loadSource": "LIVE_COUNT",
+                "hoursToSlot": 2.3,
+                "hoursBand": "2_TO_4",
+                "place": "REGULAR",
+                "returnedPoints": 0,
+                "latePoints": 0,
+                "timingCost": 0,
+                "timingSource": "SWITCHED_OFF",
+                "waiting": 52.4,
+                "sum": 52.4
+              }
+            ],
+            "laterSlotCheaper": true
+          },
+          "storeRecord": {
+            "cost": -0.175,
+            "steadyingCount": 60,
+            "lines": [
+              {
+                "measure": "LATE",
+                "source": "STEADIED",
+                "badEndings": 13,
+                "deliveries": 412,
+                "storeRate": 0.031,
+                "likeRate": 0.038,
+                "expectedRate": 0.038,
+                "steadiedRate": 0.031,
+                "failurePrice": 10,
+                "cost": -0.07
+              },
+              {
+                "measure": "RETURNED",
+                "source": "STEADIED",
+                "badEndings": 5,
+                "deliveries": 412,
+                "storeRate": 0.012,
+                "likeRate": 0.0162,
+                "expectedRate": 0.0162,
+                "steadiedRate": 0.012,
+                "failurePrice": 30,
+                "cost": -0.105
+              },
+              {
+                "measure": "CANCELLED",
+                "source": "NEUTRAL_DEFAULT",
+                "badEndings": 0,
+                "deliveries": 0,
+                "storeRate": 0.009,
+                "likeRate": 0.009,
+                "expectedRate": 0.009,
+                "steadiedRate": 0.009,
+                "failurePrice": 30,
+                "cost": 0
+              }
+            ]
+          }
+        }
+      ],
+      "lineMarks": [
+        {
+          "lineNo": 3,
+          "code": "FIGURE_SHORT",
+          "store": "1055",
+          "stockClass": "BOOK_AT_ZERO",
+          "figures": {
+            "tillStock": 0,
+            "sapStock": 2,
+            "heldByOrders": 0,
+            "heldByDeliveries": 0,
+            "shown": 0,
+            "asked": 1
+          },
+          "row": 0.22,
+          "factor": 1,
+          "chance": 0.22,
+          "cost": 6.6,
+          "mode": "SLOT"
+        }
+      ],
+      "missingLines": [],
+      "sum": {
+        "companyCostWeight": 1,
+        "feeWeight": 1,
+        "companyCost": 22.95,
+        "fees": 12,
+        "waiting": 9.8,
+        "cover": 6.6,
+        "splitPenalty": 0,
+        "total": 51.35
+      }
+    },
+    {
+      "goal": "PICK_UP",
+      "alsoGoals": [],
+      "label": {
+        "en": "Pick-up",
+        "ar": "الاستلام من الصيدلية"
+      },
+      "promise": {
+        "en": "Ready to collect at Store 1090 in 30 minutes",
+        "ar": "جاهز للاستلام من صيدلية 1090 خلال 30 دقيقة",
+        "by": "2026-11-26 20:15:00"
+      },
+      "bestFound": false,
+      "fallback": false,
+      "trialSet": false,
+      "totals": {
+        "shipments": 1,
+        "linesServed": 3,
+        "fee": 0,
+        "companyCost": 2.31,
+        "companyNet": 2.31
+      },
+      "shipments": [
+        {
+          "no": 1,
+          "store": "1090",
+          "storeName": "Store 1090",
+          "mode": "PICK_UP",
+          "lines": [
+            1,
+            2,
+            3
+          ],
+          "promise": {
+            "kind": "READY_BY",
+            "by": "2026-11-26 20:15:00",
+            "en": "Ready to collect in 30 minutes",
+            "ar": "جاهز للاستلام خلال 30 دقيقة"
+          },
+          "fee": 0,
+          "feeSource": "ASSUMED",
+          "companyCost": 2.31,
+          "km": 2.5,
+          "kmKind": "STRAIGHT_LINE",
+          "costParts": [
+            {
+              "part": "HANDLING",
+              "amount": 2,
+              "source": "ASSUMED"
+            },
+            {
+              "part": "STORE_RECORD",
+              "amount": 0.31,
+              "source": "STEADIED"
+            }
+          ],
+          "promiseParts": {
+            "pickEnd": "2026-11-26 23:42:00",
+            "madeReady": {
+              "usual": 10,
+              "cautious": 16,
+              "source": "STORES_OWN"
+            },
+            "margin": 0,
+            "marginMultiplier": 1,
+            "unroundedMinutes": 40,
+            "minutes": 40,
+            "target": 30,
+            "lengtheners": [
+              {
+                "lengthener": "DELIVERIES_WAITING",
+                "value": 1,
+                "bandFrom": 1,
+                "usual": 0,
+                "cautious": 0,
+                "state": "NO_EFFECT"
+              },
+              {
+                "lengthener": "BASKET_LINES",
+                "value": 1,
+                "bandFrom": 1,
+                "usual": 0,
+                "cautious": 0,
+                "state": "NO_EFFECT"
+              }
+            ]
+          },
+          "storeRecord": {
+            "cost": 0.31,
+            "steadyingCount": 60,
+            "lines": [
+              {
+                "measure": "NEVER_READY",
+                "source": "STEADIED",
+                "badEndings": 2,
+                "deliveries": 96,
+                "storeRate": 0.021,
+                "likeRate": 0.011,
+                "expectedRate": 0.011,
+                "steadiedRate": 0.021,
+                "failurePrice": 30,
+                "cost": 0.3
+              },
+              {
+                "measure": "READY_LATE",
+                "source": "STEADIED",
+                "badEndings": 10,
+                "deliveries": 96,
+                "storeRate": 0.105,
+                "likeRate": 0.1,
+                "expectedRate": 0.1,
+                "steadiedRate": 0.105,
+                "failurePrice": 30,
+                "cost": 0.01
+              }
+            ]
+          }
+        }
+      ],
+      "lineMarks": [],
+      "missingLines": [],
+      "sum": {
+        "companyCostWeight": 1,
+        "feeWeight": 1,
+        "companyCost": 2.31,
+        "fees": 0,
+        "waiting": 45,
+        "cover": 0,
+        "splitPenalty": 0,
+        "total": 47.31
+      }
+    }
+  ],
+  "noPlan": [],
+  "hiddenPlans": [],
+  "refusedPins": [],
+  "inputs": {
+    "reads": [
+      {
+        "read": "STOCK",
+        "readAt": "2026-11-26 19:42:03",
+        "fromCache": false,
+        "stores": 31,
+        "chunks": 1,
+        "addedBack": false,
+        "feeds": [
+          {
+            "feed": "TILL",
+            "ageSeconds": 41
+          },
+          {
+            "feed": "SAP",
+            "ageSeconds": 8
+          }
+        ]
+      }
+    ],
+    "stores": [
+      {
+        "store": "1055",
+        "name": "Store 1055",
+        "km": 2.9,
+        "kmKind": "STRAIGHT_LINE"
+      },
+      {
+        "store": "1090",
+        "name": "Store 1090",
+        "km": 4.1,
+        "kmKind": "ROAD"
+      },
+      {
+        "store": "1061",
+        "name": "Store 1061",
+        "km": 3.6,
+        "kmKind": "ROAD"
+      },
+      {
+        "store": "1203",
+        "name": "Store 1203",
+        "km": 6.8,
+        "kmKind": "ROAD"
+      }
+    ],
+    "madeReady": [
+      {
+        "store": "1055",
+        "mode": "SLOT",
+        "usual": 14,
+        "cautious": 23,
+        "source": "STORES_OWN"
+      },
+      {
+        "store": "1090",
+        "mode": "DAWAA_NOW",
+        "usual": 12,
+        "cautious": 19,
+        "source": "STORES_OWN"
+      },
+      {
+        "store": "1090",
+        "mode": "PICK_UP",
+        "usual": 10,
+        "cautious": 16,
+        "source": "STORES_OWN"
+      },
+      {
+        "store": "1061",
+        "mode": "DAWAA_NOW",
+        "usual": 15,
+        "cautious": 22,
+        "source": "STEADIED"
+      }
+    ],
+    "deliveriesWaiting": [
+      {
+        "store": "1055",
+        "count": 2
+      },
+      {
+        "store": "1090",
+        "count": 1
+      },
+      {
+        "store": "1061",
+        "count": 4
+      },
+      {
+        "store": "1203",
+        "count": 0
+      }
+    ],
+    "storeLines": [
+      {
+        "store": "1055",
+        "item": "104410",
+        "afterOpenDemand": 0,
+        "tillStock": 0,
+        "sapStock": 2,
+        "heldByOrders": 0,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "SLOT",
+            "netted": 0,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 0,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 0,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 0
+          },
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 0,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 0,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 0,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 0
+          }
+        ]
+      },
+      {
+        "store": "1055",
+        "item": "100234",
+        "afterOpenDemand": 4,
+        "tillStock": 4,
+        "sapStock": 4,
+        "heldByOrders": 0,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "SLOT",
+            "netted": 4,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 4,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 4,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 4
+          },
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 4,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 4,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 4,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 4
+          }
+        ]
+      },
+      {
+        "store": "1055",
+        "item": "100871",
+        "afterOpenDemand": 2,
+        "tillStock": 2,
+        "sapStock": 2,
+        "heldByOrders": 0,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "SLOT",
+            "netted": 2,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 2,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 1,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 2
+          },
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 2,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 2,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 1,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 2
+          }
+        ]
+      },
+      {
+        "store": "1090",
+        "item": "100234",
+        "afterOpenDemand": 4,
+        "tillStock": 6,
+        "sapStock": 6,
+        "heldByOrders": 1,
+        "heldByDeliveries": 1,
+        "working": [
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 4,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 4,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 3,
+            "computedBuffer": 1,
+            "buffer": 1,
+            "offered": 3
+          },
+          {
+            "mode": "PICK_UP",
+            "netted": 4,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 4,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 3,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 4
+          },
+          {
+            "mode": "SLOT",
+            "netted": 4,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 4,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 3,
+            "computedBuffer": 1,
+            "buffer": 1,
+            "offered": 3
+          }
+        ]
+      },
+      {
+        "store": "1090",
+        "item": "100871",
+        "afterOpenDemand": 3,
+        "tillStock": 3,
+        "sapStock": 3,
+        "heldByOrders": 0,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 3,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 3,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 2,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 3
+          },
+          {
+            "mode": "PICK_UP",
+            "netted": 3,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 3,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 2,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 3
+          },
+          {
+            "mode": "SLOT",
+            "netted": 3,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 3,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 2,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 3
+          }
+        ]
+      },
+      {
+        "store": "1090",
+        "item": "104410",
+        "afterOpenDemand": 1,
+        "tillStock": 2,
+        "sapStock": 2,
+        "heldByOrders": 0,
+        "heldByDeliveries": 1,
+        "working": [
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 1,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 1,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 1,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 1
+          },
+          {
+            "mode": "PICK_UP",
+            "netted": 1,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 1,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 1,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 1
+          },
+          {
+            "mode": "SLOT",
+            "netted": 1,
+            "confidence": 1,
+            "confidenceSource": "NEUTRAL_DEFAULT",
+            "afterConfidence": 1,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 1,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 1
+          }
+        ]
+      },
+      {
+        "store": "1061",
+        "item": "100234",
+        "afterOpenDemand": 3,
+        "tillStock": 5,
+        "sapStock": 5,
+        "heldByOrders": 2,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 3,
+            "confidence": 0.8,
+            "confidenceSource": "HAND_SET",
+            "afterConfidence": 2,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 1,
+            "expectedAtPickEnd": 2,
+            "computedBuffer": 1,
+            "buffer": 1,
+            "offered": 1
+          }
+        ]
+      },
+      {
+        "store": "1061",
+        "item": "100871",
+        "afterOpenDemand": 1,
+        "tillStock": 1,
+        "sapStock": 1,
+        "heldByOrders": 0,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 1,
+            "confidence": 0.8,
+            "confidenceSource": "HAND_SET",
+            "afterConfidence": 1,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 1,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 1
+          }
+        ]
+      },
+      {
+        "store": "1061",
+        "item": "104410",
+        "afterOpenDemand": 0,
+        "tillStock": 0,
+        "sapStock": 0,
+        "heldByOrders": 0,
+        "heldByDeliveries": 0,
+        "working": [
+          {
+            "mode": "DAWAA_NOW",
+            "netted": 0,
+            "confidence": 0.8,
+            "confidenceSource": "HAND_SET",
+            "afterConfidence": 0,
+            "band": "SLOW",
+            "rate": 0.4,
+            "hours": 1.5,
+            "expected": 0,
+            "expectedAtPickEnd": 0,
+            "computedBuffer": 0,
+            "buffer": 0,
+            "offered": 0
+          }
+        ]
+      }
+    ]
+  },
+  "filterSteps": [
+    {
+      "step": 1,
+      "code": "MODE_OFF",
+      "before": 64,
+      "after": 61,
+      "removedCount": 3,
+      "byMode": [
+        {
+          "mode": "CARRIER_SAME_DAY",
+          "count": 3,
+          "nearest": [
+            {
+              "store": "1055",
+              "mode": "CARRIER_SAME_DAY"
+            },
+            {
+              "store": "1061",
+              "mode": "CARRIER_SAME_DAY"
+            },
+            {
+              "store": "1090",
+              "mode": "CARRIER_SAME_DAY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "code": "OUT_OF_REACH",
+      "before": 61,
+      "after": 47,
+      "removedCount": 14,
+      "byMode": [
+        {
+          "mode": "DAWAA_NOW",
+          "count": 1,
+          "nearest": [
+            {
+              "store": "1203",
+              "mode": "DAWAA_NOW",
+              "km": 6.8,
+              "kmKind": "ROAD",
+              "reachKm": 5
+            }
+          ]
+        }
+      ],
+      "removed": [
+        {
+          "store": "1203",
+          "mode": "DAWAA_NOW",
+          "km": 6.8,
+          "kmKind": "ROAD",
+          "reachKm": 5
+        }
+      ]
+    },
+    {
+      "step": "CUT",
+      "code": "OVER_PAIR_CAP",
+      "before": 47,
+      "after": 47,
+      "cap": 100,
+      "removedCount": 0,
+      "removed": []
+    },
+    {
+      "step": 11,
+      "code": "NO_STOCK",
+      "before": 47,
+      "after": 19,
+      "removedCount": 28,
+      "removed": [
+        {
+          "store": "1061",
+          "mode": "PICK_UP",
+          "lineNo": 3,
+          "offered": 0,
+          "asked": 1
+        }
+      ]
+    }
+  ],
+  "used": [
+    {
+      "factor": "STOCK",
+      "state": "REAL_DATA"
+    },
+    {
+      "factor": "STOCK_CONFIDENCE",
+      "state": "NEUTRAL_DEFAULT"
+    },
+    {
+      "factor": "BUFFER",
+      "state": "REAL_DATA"
+    },
+    {
+      "factor": "DUTY_HOURS",
+      "state": "REAL_DATA"
+    },
+    {
+      "factor": "PRODUCT_RULES",
+      "state": "REAL_DATA",
+      "source": "RULE_TABLE"
+    },
+    {
+      "factor": "RIDERS_AVAILABLE",
+      "state": "SWITCHED_OFF"
+    },
+    {
+      "factor": "MADE_READY",
+      "state": "REAL_DATA",
+      "source": "STORES_OWN",
+      "storesOnDefault": 1
+    },
+    {
+      "factor": "LENGTHENERS",
+      "state": "REAL_DATA"
+    },
+    {
+      "factor": "ROAD_DISTANCE",
+      "state": "REAL_DATA",
+      "source": "ROAD"
+    },
+    {
+      "factor": "DELIVERY_RATE",
+      "mode": "SLOT",
+      "state": "ASSUMPTION",
+      "source": "ASSUMED"
+    },
+    {
+      "factor": "DELIVERY_RATE",
+      "mode": "DAWAA_NOW",
+      "state": "REAL_DATA",
+      "source": "MEASURED"
+    },
+    {
+      "factor": "HANDLING",
+      "state": "ASSUMPTION",
+      "source": "ASSUMED"
+    },
+    {
+      "factor": "STORE_RECORD",
+      "state": "REAL_DATA",
+      "source": "STEADIED"
+    },
+    {
+      "factor": "SHELF_CHANCE",
+      "state": "NEUTRAL_DEFAULT",
+      "source": "NEUTRAL_DEFAULT"
+    },
+    {
+      "factor": "FEE",
+      "state": "ASSUMPTION",
+      "source": "ASSUMED"
+    },
+    {
+      "factor": "MODE_FAILURE_COST",
+      "state": "SWITCHED_OFF",
+      "source": "SWITCHED_OFF"
+    }
+  ],
+  "search": {
+    "counts": {
+      "plansChecked": 1846,
+      "cutByShipmentCap": 212,
+      "cutByMixing": 96,
+      "cutByPins": 0
+    },
+    "kept": [
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 20:35:00",
+        "fee": 16,
+        "companyCost": 17.42,
+        "waiting": 7,
+        "sum": 40.42,
+        "shipments": [
+          {
+            "store": "1090",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 1,
+        "lostBy": 0
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 21:59:00",
+        "fee": 12,
+        "companyCost": 17.4,
+        "waiting": 9.8,
+        "sum": 41.87,
+        "shipments": [
+          {
+            "store": "1055",
+            "mode": "SLOT",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 2,
+        "lostBy": 1.45,
+        "lostMostOn": "WAITING"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 20:41:00",
+        "fee": 16,
+        "companyCost": 19.32,
+        "waiting": 7.78,
+        "sum": 43.1,
+        "shipments": [
+          {
+            "store": "1061",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 3,
+        "lostBy": 2.68,
+        "lostMostOn": "COMPANY_COST"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 12,
+        "companyCost": 18.25,
+        "waiting": 13.8,
+        "sum": 44.05,
+        "shipments": [
+          {
+            "store": "1090",
+            "mode": "SLOT",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 4,
+        "lostBy": 3.63,
+        "lostMostOn": "WAITING"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 16,
+        "companyCost": 18.9,
+        "waiting": 7.3,
+        "sum": 46.2,
+        "shipments": [
+          {
+            "store": "1090",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "store": "1055",
+            "mode": "SLOT",
+            "lines": [
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 5,
+        "lostBy": 5.78,
+        "lostMostOn": "SPLIT_PENALTY"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 20:15:00",
+        "fee": 0,
+        "companyCost": 2.31,
+        "waiting": 45,
+        "sum": 47.31,
+        "shipments": [
+          {
+            "store": "1090",
+            "mode": "PICK_UP",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 6,
+        "lostBy": 6.89,
+        "lostMostOn": "WAITING"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 20:41:00",
+        "fee": 16,
+        "companyCost": 22.1,
+        "waiting": 7.5,
+        "sum": 48.6,
+        "shipments": [
+          {
+            "store": "1061",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1
+            ]
+          },
+          {
+            "store": "1090",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 7,
+        "lostBy": 8.18,
+        "lostMostOn": "SPLIT_PENALTY"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 20:52:00",
+        "fee": 16,
+        "companyCost": 18.6,
+        "waiting": 8.75,
+        "sum": 49.95,
+        "shipments": [
+          {
+            "store": "1055",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 8,
+        "lostBy": 9.53,
+        "lostMostOn": "COVER"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 12,
+        "companyCost": 22.95,
+        "waiting": 9.8,
+        "sum": 51.35,
+        "shipments": [
+          {
+            "store": "1055",
+            "mode": "SLOT",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 9,
+        "lostBy": 10.93,
+        "lostMostOn": "COVER"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 16,
+        "companyCost": 21.4,
+        "waiting": 9,
+        "sum": 52.4,
+        "shipments": [
+          {
+            "store": "1055",
+            "mode": "SLOT",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "store": "1090",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 10,
+        "lostBy": 11.98,
+        "lostMostOn": "SPLIT_PENALTY"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 16,
+        "companyCost": 23,
+        "waiting": 9.8,
+        "sum": 55.8,
+        "shipments": [
+          {
+            "store": "1061",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1,
+              2
+            ]
+          },
+          {
+            "store": "1090",
+            "mode": "SLOT",
+            "lines": [
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 11,
+        "lostBy": 15.38,
+        "lostMostOn": "SPLIT_PENALTY"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 16,
+        "companyCost": 26.4,
+        "waiting": 9.8,
+        "sum": 61.2,
+        "shipments": [
+          {
+            "store": "1061",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              1
+            ]
+          },
+          {
+            "store": "1055",
+            "mode": "SLOT",
+            "lines": [
+              2
+            ]
+          },
+          {
+            "store": "1090",
+            "mode": "DAWAA_NOW",
+            "lines": [
+              3
+            ]
+          }
+        ],
+        "goal": "BALANCED",
+        "rank": 12,
+        "lostBy": 20.78,
+        "lostMostOn": "SPLIT_PENALTY"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 12,
+        "companyCost": 22.95,
+        "waiting": 9.8,
+        "sum": 51.35,
+        "shipments": [
+          {
+            "store": "1055",
+            "mode": "SLOT",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "CHEAPEST",
+        "rank": 1,
+        "lostBy": 0
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 23:59:00",
+        "fee": 12,
+        "companyCost": 18.25,
+        "waiting": 13.8,
+        "sum": 44.05,
+        "shipments": [
+          {
+            "store": "1090",
+            "mode": "SLOT",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "CHEAPEST",
+        "rank": 2,
+        "lostBy": 0.3,
+        "lostMostOn": "COMPANY_COST"
+      },
+      {
+        "linesServed": 3,
+        "by": "2026-11-26 20:15:00",
+        "fee": 0,
+        "companyCost": 2.31,
+        "waiting": 45,
+        "sum": 47.31,
+        "shipments": [
+          {
+            "store": "1090",
+            "mode": "PICK_UP",
+            "lines": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "goal": "PICK_UP",
+        "rank": 1,
+        "lostBy": 0
+      }
+    ],
+    "whyNot": [
+      {
+        "store": "1061",
+        "mode": "DAWAA_NOW",
+        "goal": "BALANCED",
+        "isPlan": false,
+        "plan": {
+          "linesServed": 3,
+          "by": "2026-11-26 20:41:00",
+          "fee": 16,
+          "companyCost": 19.32,
+          "waiting": 7.78,
+          "sum": 43.1,
+          "shipments": [
+            {
+              "store": "1061",
+              "mode": "DAWAA_NOW",
+              "lines": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "lostBy": 2.68,
+        "difference": [
+          {
+            "part": "COMPANY_COST",
+            "amount": 1.9
+          },
+          {
+            "part": "WAITING",
+            "amount": 0.78
+          }
+        ]
+      },
+      {
+        "store": "1055",
+        "mode": "SLOT",
+        "goal": "BALANCED",
+        "isPlan": false,
+        "plan": {
+          "linesServed": 3,
+          "by": "2026-11-26 21:59:00",
+          "fee": 12,
+          "companyCost": 17.4,
+          "waiting": 9.8,
+          "sum": 41.87,
+          "shipments": [
+            {
+              "store": "1055",
+              "mode": "SLOT",
+              "lines": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "lostBy": 1.45,
+        "difference": [
+          {
+            "part": "WAITING",
+            "amount": 2.8
+          },
+          {
+            "part": "FEES",
+            "amount": -4
+          }
+        ]
+      },
+      {
+        "store": "1090",
+        "mode": "SLOT",
+        "goal": "BALANCED",
+        "isPlan": false,
+        "plan": {
+          "linesServed": 3,
+          "by": "2026-11-26 23:59:00",
+          "fee": 12,
+          "companyCost": 18.25,
+          "waiting": 13.8,
+          "sum": 44.05,
+          "shipments": [
+            {
+              "store": "1090",
+              "mode": "SLOT",
+              "lines": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "lostBy": 3.63,
+        "difference": [
+          {
+            "part": "WAITING",
+            "amount": 6.8
+          },
+          {
+            "part": "FEES",
+            "amount": -4
+          }
+        ]
+      },
+      {
+        "store": "1090",
+        "mode": "PICK_UP",
+        "goal": "BALANCED",
+        "isPlan": false,
+        "plan": {
+          "linesServed": 3,
+          "by": "2026-11-26 20:15:00",
+          "fee": 0,
+          "companyCost": 2.31,
+          "waiting": 45,
+          "sum": 47.31,
+          "shipments": [
+            {
+              "store": "1090",
+              "mode": "PICK_UP",
+              "lines": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "lostBy": 6.89,
+        "difference": [
+          {
+            "part": "WAITING",
+            "amount": 38
+          },
+          {
+            "part": "FEES",
+            "amount": -16
+          }
+        ]
+      },
+      {
+        "store": "1055",
+        "mode": "DAWAA_NOW",
+        "goal": "BALANCED",
+        "isPlan": false,
+        "plan": {
+          "linesServed": 3,
+          "by": "2026-11-26 20:52:00",
+          "fee": 16,
+          "companyCost": 18.6,
+          "waiting": 8.75,
+          "sum": 49.95,
+          "shipments": [
+            {
+              "store": "1055",
+              "mode": "DAWAA_NOW",
+              "lines": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "lostBy": 9.53,
+        "difference": [
+          {
+            "part": "COVER",
+            "amount": 6.6
+          }
+        ]
+      },
+      {
+        "store": "1090",
+        "mode": "DAWAA_NOW",
+        "goal": "BALANCED",
+        "isPlan": true,
+        "plan": {
+          "linesServed": 3,
+          "by": "2026-11-26 20:35:00",
+          "fee": 16,
+          "companyCost": 17.42,
+          "waiting": 7,
+          "sum": 40.42,
+          "shipments": [
+            {
+              "store": "1090",
+              "mode": "DAWAA_NOW",
+              "lines": [
+                1,
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "lostBy": 0,
+        "difference": []
+      },
+      {
+        "store": "1061",
+        "mode": "PICK_UP",
+        "removedAt": 11,
+        "code": "NO_STOCK"
+      }
+    ]
+  },
+  "customerPoint": {
+    "lat": 24.7741,
+    "lng": 46.7386
+  }
+}

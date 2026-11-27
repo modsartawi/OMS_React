@@ -12,8 +12,11 @@ import {
   type MapGrouping,
   type MapLang,
   type MapLine,
+  type MapPin,
+  type MapPlace,
   type MapPoint,
   type MapPolygon,
+  type MapRing,
   type MapSelection,
   type MapsAccess,
   type MapView,
@@ -50,12 +53,26 @@ export interface MapPanelProps {
    * Stable, like `points`. Absent: none, and the map is drawn exactly as before.
    */
   lines?: readonly MapLine[]
+  /** Rings round a place (964: the customer's 5 km and 10 km). Stable, like `points`. Absent: none. */
+  rings?: readonly MapRing[]
+  /** The customer's pin (964), above every point. Stable, like `points`. Absent or null: none. */
+  pin?: MapPin | null
+  /**
+   * The pin was dragged and dropped here (964): told on the drop, never while dragging. Changing the handler does not
+   * restart the map. Absent: the pin is drawn but cannot be dragged.
+   */
+  onPinMoved?: (place: MapPlace) => void
   /** The model's `maps` part (BackOffice 3986): Google's key, and the map ID when served. Absent: "cannot draw" (`no-key`). */
   maps?: MapsAccess | null
   /** The map's accessible name, in the caller's words. */
   ariaLabel: string
   onDrawn?: () => void
   onCannotDraw?: (reason: CannotDrawReason) => void
+  /**
+   * A click on the map beside every point, at this place (ticket 962, spec 4354 §19: "a click places the customer").
+   * Changing the handler does not restart the map. Absent: a click beside only closes a card.
+   */
+  onPlace?: (place: MapPlace) => void
   /** The panel's size. Defaults to the full width and a fixed height. */
   className?: string
   /** Shapes to shade beneath the points (947: the command center's regions). Stable, like `points`. Absent: none. */
@@ -87,10 +104,14 @@ export default function MapPanel({
   grouping = null,
   groupNearby = true,
   lines,
+  rings,
+  pin = null,
+  onPinMoved,
   maps = null,
   ariaLabel,
   onDrawn,
   onCannotDraw,
+  onPlace,
   className = 'h-80 w-full',
   polygons,
   onSelect,
@@ -106,8 +127,10 @@ export default function MapPanel({
   const [state, setState] = useState<MapPanelState>('drawing')
   const [card, setCard] = useState<MapCardState>(null)
   // The callers' latest handlers, without restarting the map when they change identity.
-  const handlers = useRef({ onDrawn, onCannotDraw, onSelect })
-  handlers.current = { onDrawn, onCannotDraw, onSelect }
+  const handlers = useRef({ onDrawn, onCannotDraw, onSelect, onPlace, onPinMoved })
+  handlers.current = { onDrawn, onCannotDraw, onSelect, onPlace, onPinMoved }
+  // Whether a drag moves the pin: a fact of the map as started, so only its change restarts the map.
+  const movable = !!onPinMoved
   const lang = pageLang ?? (i18n.language?.split('-')[0] === 'ar' ? 'ar' : 'en')
   const dir = pageDir ?? documentDirection()
   // 947: the view by value. The map opens on the one set when it starts and is moved to each later one.
@@ -132,12 +155,16 @@ export default function MapPanel({
       grouping,
       groupNearby,
       lines,
+      rings,
+      pin,
+      ...(movable ? { onPinMoved: (place: MapPlace) => handlers.current.onPinMoved?.(place) } : {}),
       polygons,
       pointsFromZoom,
       ...(viewNow.current ? { view: viewNow.current } : {}),
       onSelect: (selection) => handlers.current.onSelect?.(selection),
       inkOf: (token) => tokenOf(container, token),
       onCard: setCard,
+      onPlace: (place) => handlers.current.onPlace?.(place),
       lang,
       dir,
       onDrawn: () => {
@@ -154,7 +181,7 @@ export default function MapPanel({
       panelRef.current = null
       panel.close()
     }
-  }, [points, grouping, groupNearby, lines, polygons, pointsFromZoom, lang, dir, key, mapId])
+  }, [points, grouping, groupNearby, lines, rings, pin, movable, polygons, pointsFromZoom, lang, dir, key, mapId])
   useEffect(() => {
     if (viewNow.current) panelRef.current?.show(viewNow.current)
   }, [viewKey])

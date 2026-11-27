@@ -1,0 +1,46 @@
+[
+  {
+    "runId": "01JDP2Z8C4H6F1Q9Y7E3M5D2KB",
+    "name": "Hittin split, moved pin 3 km north",
+    "keptBy": "msartawi",
+    "keptAt": "2026-11-25 11:08:33",
+    "ranAt": "2026-11-25 11:05:17",
+    "kind": "REPLAY_MOVED_POINT",
+    "channel": "WEB",
+    "madeBy": "msartawi",
+    "engineVersion": "2.3.0"
+  },
+  {
+    "runId": "01JDN5R2V7K9P4T6A8G1J3S0WC",
+    "name": "Call-centre cart, no stock at the named store",
+    "keptBy": "omar.h",
+    "keptAt": "2026-11-26 09:51:02",
+    "ranAt": "2026-11-26 09:49:40",
+    "kind": "HAND_BUILT",
+    "channel": "CC",
+    "madeBy": "omar.h",
+    "engineVersion": "2.2.4"
+  },
+  {
+    "runId": "01JDQ7M4X9T2B6N8R3K5W1C0VA",
+    "name": "Malqa replay, insulin cold chain",
+    "keptBy": "msartawi",
+    "keptAt": "2026-11-26 15:42:10",
+    "ranAt": "2026-11-26 15:40:52",
+    "kind": "REPLAY",
+    "channel": "IOS",
+    "madeBy": "msartawi",
+    "engineVersion": "2.3.1"
+  },
+  {
+    "runId": "01JDM8T6B3W5N2X4Q9H7L1F0PD",
+    "name": "Weekend peak, a draft with Dawaa Now reach 8 km",
+    "keptBy": "msartawi",
+    "keptAt": "2026-11-22 20:14:45",
+    "ranAt": "2026-11-22 20:12:03",
+    "kind": "HAND_BUILT",
+    "channel": "ROID",
+    "madeBy": "msartawi",
+    "engineVersion": "2.2.4"
+  }
+]

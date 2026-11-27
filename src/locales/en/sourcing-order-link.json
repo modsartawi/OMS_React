@@ -1,0 +1,29 @@
+{
+  "title": "Sourcing advisor",
+  "subtitle": "The advisor no longer scores orders one by one. An order opens its stored run in the simulator, or can be replayed there.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the sourcing advisor",
+    "deniedHint": "Your account does not hold the sourcing advisor grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "loading": "Looking for the order's stored run…",
+  "failedTitle": "The order's stored run could not be read",
+  "failed": "Something went wrong reading this order. Try again in a moment.",
+  "noOrder": "No order number was given. Open an order from Delivery details.",
+  "backToDelivery": "Back to the delivery",
+  "backToResults": "Open the comparison results",
+  "openResults": "Open the comparison results",
+  "stored": {
+    "line": "Order <order>{{order}}</order> has a stored run, made <at>{{ranAt}}</at>.",
+    "lineUndated": "Order <order>{{order}}</order> has a stored run.",
+    "needsRunGrant": "Opening it in the simulator needs the simulator's run grant."
+  },
+  "none": {
+    "line": "Order <order>{{order}}</order> has no stored run: it was never run, or its record is past its 90 days.",
+    "replay": "Replay it in the simulator",
+    "needsRunGrant": "A replay in the simulator needs the simulator's run grant."
+  },
+  "unknown": "No order or delivery numbered <order>{{asked}}</order> is known."
+}

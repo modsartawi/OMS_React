@@ -405,18 +405,62 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/ClosesPage')).default,
         }),
       },
-      // Sourcing advisor (ticket 738, spec 734 D21) — read-only, behind its own grant on the one permissions answer.
-      // The entry (739 puts the 30-day simulation there) and one order's explanation, which Delivery details links to.
-      {
-        path: 'oms/sourcing-advisor',
-        lazy: async () => ({
-          Component: (await import('@/features/oms/sourcing-advisor/SourcingAdvisorPage')).default,
-        }),
-      },
+      // The retired sourcing advisor (ticket 738's pages, removed by ticket 974 with BackOffice 4397): its entry's old
+      // address opens the comparison results page, and its order link (Delivery details' "Why this store?") opens that
+      // order's stored run in the simulator, or says it has none and offers a replay.
+      // (Its old filters are dropped: they are not the results page's.)
+      { path: 'oms/sourcing-advisor', loader: () => redirect('/oms/sourcing-results') },
       {
         path: 'oms/sourcing-advisor/order/:orderNo',
         lazy: async () => ({
-          Component: (await import('@/features/oms/sourcing-advisor/SourcingExplainPage')).default,
+          Component: (await import('@/features/oms/sourcing-order-link/OldOrderLinkPage')).default,
+        }),
+      },
+      // Sourcing simulator (ticket 962, BackOffice spec 4354 §19) — the workbench: build a cart, run it, read the plans.
+      // Behind the advisor's run grant (provisional key). Its path is `SIMULATOR_PATH` in `@/core/sourcing-advisor`.
+      {
+        path: 'oms/sourcing-simulator',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-simulator/SourcingSimulatorPage')).default,
+        }),
+      },
+      // Kept runs (ticket 969, BackOffice spec 4354 §12) — the caller's kept runs; a run's link opens the simulator on
+      // it. The simulator's own page, under the run grant. Its path is `KEPT_RUNS_PATH` in `@/core/sourcing-advisor`.
+      {
+        path: 'oms/sourcing-simulator/kept',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-simulator/KeptRunsPage')).default,
+        }),
+      },
+      // The store record list (ticket 969, BackOffice spec 4354 §6, §14, §19) — read only, under the run grant.
+      {
+        path: 'oms/sourcing-record',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-record/SourcingRecordPage')).default,
+        }),
+      },
+      // The comparison results page (ticket 971, BackOffice spec 4354 §17) — under the advisor view grant. The menu's
+      // "Sourcing advisor" entry opens it (ticket 974).
+      {
+        path: 'oms/sourcing-results',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-results/SourcingResultsPage')).default,
+        }),
+      },
+      // Weight sets (ticket 967, BackOffice spec 4354 §10, §19) — the sets and versions, the candidate log and the
+      // marking screen. Open to whoever runs, saves or marks sets (provisional keys).
+      {
+        path: 'oms/sourcing-sets',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-sets/SourcingSetsPage')).default,
+        }),
+      },
+      // Sourcing planner data (ticket 968, BackOffice spec 4354 §19) — the eight planner tables, each tab under one of the
+      // three planner grants (provisional keys); the page opens with any one of them.
+      {
+        path: 'oms/sourcing-planner',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-planner/SourcingPlannerPage')).default,
         }),
       },
       // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's

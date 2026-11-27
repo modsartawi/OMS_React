@@ -165,8 +165,8 @@ tools/.loy-groups-shots/
 tools/.insurance-playground-shots/
 # Insurance coverage drive screenshots (tools/insurance-coverage-drive.mjs)
 tools/.insurance-coverage-shots/
-# Sourcing advisor drive screenshots (tools/sourcing-advisor-drive.mjs, ticket 738)
-tools/.sourcing-advisor-shots/
+# Sourcing simulator drive screenshots (tools/sourcing-simulator-drive.mjs, ticket 962)
+tools/.sourcing-simulator-shots/
 # LF returns needing action drive screenshots (tools/lf-returns-queue-drive.mjs, ticket 764)
 tools/.lf-returns-queue-shots/
 # LF return panel drive screenshots (tools/lf-return-drive.mjs, ticket 762)
@@ -197,3 +197,11 @@ tools/.store-stages-shots/
 tools/.stock-fallback-shots/
 # Call center history drive screenshots (tools/callcenter-history-drive.mjs, ticket 990)
 tools/.callcenter-history-shots/
+# Comparison results drive screenshots (tools/sourcing-results-drive.mjs, ticket 971)
+tools/.sourcing-results-shots/
+# Weight sets drive screenshots (tools/sourcing-sets-drive.mjs, ticket 967)
+tools/.sourcing-sets-shots/
+# Store record and kept runs drive screenshots (tools/sourcing-record-drive.mjs, ticket 969)
+tools/.sourcing-record-shots/
+# Sourcing planner data drive screenshots (tools/sourcing-planner-drive.mjs, ticket 968)
+tools/.sourcing-planner-shots/

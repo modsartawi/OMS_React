@@ -1,0 +1,559 @@
+{
+ "builtAt": "2026-11-27T02:14:09",
+ "windowFrom": "2026-08-29T00:00:00",
+ "windowTo": "2026-11-26T00:00:00",
+ "pairs": [
+  {
+   "storeCode": "P901",
+   "mode": "DAWAA_NOW",
+   "city": "RUH",
+   "countedFrom": "2026-11-02T00:00:00",
+   "costDeliveries": 238,
+   "timingDeliveries": 230,
+   "fallbackDeliveries": 4,
+   "madeReady": {
+    "count": 230,
+    "usual": 12,
+    "cautious": 19,
+    "likeUsual": 14,
+    "likeCautious": 22,
+    "steadiedUsual": 12.2,
+    "steadiedCautious": 19.3,
+    "source": "STORE"
+   },
+   "courierWait": {
+    "count": 230,
+    "usual": 6,
+    "cautious": 9,
+    "likeUsual": 0,
+    "likeCautious": 0,
+    "steadiedUsual": 6.1,
+    "steadiedCautious": 9.2,
+    "source": "CITY"
+   },
+   "slot": null,
+   "measures": [
+    {
+     "measure": "CALLOUT_IGNORED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 69,
+     "deliveries": 238,
+     "band": 2,
+     "bandCount": 238,
+     "bandBadEndings": 470,
+     "bandDeliveries": 5000,
+     "storeRate": 0.29,
+     "likeRate": 0.094,
+     "steadiedRate": 0.2581,
+     "steadyingCount": 60,
+     "isNeutral": false
+    }
+   ]
+  },
+  {
+   "storeCode": "P901",
+   "mode": "PICK_UP",
+   "city": "RUH",
+   "countedFrom": "2026-08-29T00:00:00",
+   "costDeliveries": 96,
+   "timingDeliveries": 90,
+   "fallbackDeliveries": 0,
+   "madeReady": null,
+   "courierWait": null,
+   "slot": null,
+   "measures": [
+    {
+     "measure": "CANCELLED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 1,
+     "deliveries": 96,
+     "band": 0,
+     "bandCount": 96,
+     "bandBadEndings": 60,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0104,
+     "likeRate": 0.012,
+     "steadiedRate": 0.0112,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "NEVER_READY",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 2,
+     "deliveries": 96,
+     "band": 0,
+     "bandCount": 96,
+     "bandBadEndings": 55,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0208,
+     "likeRate": 0.011,
+     "steadiedRate": 0.0171,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "READY_LATE",
+     "channels": "TIMING",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB"
+     ],
+     "badEndings": 9,
+     "deliveries": 90,
+     "band": 0,
+     "bandCount": 90,
+     "bandBadEndings": 500,
+     "bandDeliveries": 5000,
+     "storeRate": 0.1,
+     "likeRate": 0.1,
+     "steadiedRate": 0.1,
+     "steadyingCount": 60,
+     "isNeutral": false
+    }
+   ]
+  },
+  {
+   "storeCode": "P901",
+   "mode": "SLOT",
+   "city": "RUH",
+   "countedFrom": "2026-08-29T00:00:00",
+   "costDeliveries": 612,
+   "timingDeliveries": 600,
+   "fallbackDeliveries": 0,
+   "madeReady": {
+    "count": 600,
+    "usual": 14,
+    "cautious": 23,
+    "likeUsual": 15,
+    "likeCautious": 24,
+    "steadiedUsual": 14.1,
+    "steadiedCautious": 23.1,
+    "source": "STORE"
+   },
+   "courierWait": null,
+   "slot": {
+    "lateCustomerMovesFollowed": 0,
+    "lateTillMovesHeld": 0,
+    "tillMovesAvailability": 9,
+    "tillMovesDelivery": 5,
+    "tillMovesOther": 3,
+    "storeSlots": 88,
+    "tillMoves": 41,
+    "tillMovesCustomer": 24,
+    "slotDeliveries": 612,
+    "regularSlotHours": "10,12,16",
+    "usualSlot": 7
+   },
+   "measures": [
+    {
+     "measure": "CANCELLED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 11,
+     "deliveries": 612,
+     "band": 3,
+     "bandCount": 612,
+     "bandBadEndings": 120,
+     "bandDeliveries": 5000,
+     "storeRate": 0.018,
+     "likeRate": 0.024,
+     "steadiedRate": 0.0183,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "LATE",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 19,
+     "deliveries": 612,
+     "band": 3,
+     "bandCount": 612,
+     "bandBadEndings": 189,
+     "bandDeliveries": 5000,
+     "storeRate": 0.031,
+     "likeRate": 0.0377,
+     "steadiedRate": 0.0314,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "RETURNED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 6,
+     "deliveries": 612,
+     "band": 3,
+     "bandCount": 612,
+     "bandBadEndings": 60,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0098,
+     "likeRate": 0.012,
+     "steadiedRate": 0.0099,
+     "steadyingCount": 60,
+     "isNeutral": false
+    }
+   ]
+  },
+  {
+   "storeCode": "P902",
+   "mode": "SLOT",
+   "city": "RUH",
+   "countedFrom": "2026-08-29T00:00:00",
+   "costDeliveries": 140,
+   "timingDeliveries": 138,
+   "fallbackDeliveries": 0,
+   "madeReady": {
+    "count": 138,
+    "usual": 16,
+    "cautious": 26,
+    "likeUsual": 15,
+    "likeCautious": 24,
+    "steadiedUsual": 15.6,
+    "steadiedCautious": 25.3,
+    "source": "STORE"
+   },
+   "courierWait": null,
+   "slot": {
+    "lateCustomerMovesFollowed": 0,
+    "lateTillMovesHeld": 0,
+    "tillMovesAvailability": 0,
+    "tillMovesDelivery": 0,
+    "tillMovesOther": 0,
+    "storeSlots": 30,
+    "tillMoves": 0,
+    "tillMovesCustomer": 0,
+    "slotDeliveries": 140,
+    "regularSlotHours": "",
+    "usualSlot": 0
+   },
+   "measures": [
+    {
+     "measure": "CANCELLED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 4,
+     "deliveries": 140,
+     "band": 2,
+     "bandCount": 140,
+     "bandBadEndings": 130,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0286,
+     "likeRate": 0.026,
+     "steadiedRate": 0.0272,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "LATE",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 8,
+     "deliveries": 140,
+     "band": 2,
+     "bandCount": 140,
+     "bandBadEndings": 205,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0571,
+     "likeRate": 0.041,
+     "steadiedRate": 0.0483,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "RETURNED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 2,
+     "deliveries": 140,
+     "band": 2,
+     "bandCount": 140,
+     "bandBadEndings": 65,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0143,
+     "likeRate": 0.013,
+     "steadiedRate": 0.0136,
+     "steadyingCount": 60,
+     "isNeutral": false
+    }
+   ]
+  },
+  {
+   "storeCode": "P907",
+   "mode": "DAWAA_NOW",
+   "city": "JED",
+   "countedFrom": "2026-11-02T00:00:00",
+   "costDeliveries": 41,
+   "timingDeliveries": 40,
+   "fallbackDeliveries": 0,
+   "madeReady": {
+    "count": 40,
+    "usual": 15,
+    "cautious": 22,
+    "likeUsual": 14,
+    "likeCautious": 22,
+    "steadiedUsual": 14.6,
+    "steadiedCautious": 22,
+    "source": "STORE"
+   },
+   "courierWait": {
+    "count": 40,
+    "usual": 8,
+    "cautious": 12,
+    "likeUsual": 0,
+    "likeCautious": 0,
+    "steadiedUsual": 7.4,
+    "steadiedCautious": 11.1,
+    "source": "CHAIN"
+   },
+   "slot": null,
+   "measures": [
+    {
+     "measure": "CALLOUT_IGNORED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 9,
+     "deliveries": 41,
+     "band": 1,
+     "bandCount": 41,
+     "bandBadEndings": 525,
+     "bandDeliveries": 5000,
+     "storeRate": 0.2195,
+     "likeRate": 0.105,
+     "steadiedRate": 0.1534,
+     "steadyingCount": 60,
+     "isNeutral": false
+    }
+   ]
+  },
+  {
+   "storeCode": "P907",
+   "mode": "PICK_UP",
+   "city": "JED",
+   "countedFrom": "2026-08-29T00:00:00",
+   "costDeliveries": 12,
+   "timingDeliveries": 12,
+   "fallbackDeliveries": 0,
+   "madeReady": null,
+   "courierWait": null,
+   "slot": null,
+   "measures": [
+    {
+     "measure": "CANCELLED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 0,
+     "deliveries": 12,
+     "band": 0,
+     "bandCount": 12,
+     "bandBadEndings": 60,
+     "bandDeliveries": 5000,
+     "storeRate": 0,
+     "likeRate": 0.012,
+     "steadiedRate": 0.0101,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "NEVER_READY",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 1,
+     "deliveries": 12,
+     "band": 0,
+     "bandCount": 12,
+     "bandBadEndings": 55,
+     "bandDeliveries": 5000,
+     "storeRate": 0.0833,
+     "likeRate": 0.011,
+     "steadiedRate": 0.0222,
+     "steadyingCount": 60,
+     "isNeutral": false
+    },
+    {
+     "measure": "READY_LATE",
+     "channels": "TIMING",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB"
+     ],
+     "badEndings": 2,
+     "deliveries": 12,
+     "band": 0,
+     "bandCount": 12,
+     "bandBadEndings": 500,
+     "bandDeliveries": 5000,
+     "storeRate": 0.1667,
+     "likeRate": 0.1,
+     "steadiedRate": 0.1105,
+     "steadyingCount": 60,
+     "isNeutral": false
+    }
+   ]
+  },
+  {
+   "storeCode": "P911",
+   "mode": "SLOT",
+   "city": "DMM",
+   "countedFrom": "2026-08-29T00:00:00",
+   "costDeliveries": 0,
+   "timingDeliveries": 0,
+   "fallbackDeliveries": 0,
+   "madeReady": {
+    "count": 0,
+    "usual": 0,
+    "cautious": 0,
+    "likeUsual": 15,
+    "likeCautious": 24,
+    "steadiedUsual": 15,
+    "steadiedCautious": 24,
+    "source": "LIKE_STORES"
+   },
+   "courierWait": null,
+   "slot": {
+    "lateCustomerMovesFollowed": 0,
+    "lateTillMovesHeld": 0,
+    "tillMovesAvailability": 0,
+    "tillMovesDelivery": 0,
+    "tillMovesOther": 0,
+    "storeSlots": 0,
+    "tillMoves": 0,
+    "tillMovesCustomer": 0,
+    "slotDeliveries": 0,
+    "regularSlotHours": "",
+    "usualSlot": 0
+   },
+   "measures": [
+    {
+     "measure": "CANCELLED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 0,
+     "deliveries": 0,
+     "band": 0,
+     "bandCount": 0,
+     "bandBadEndings": 150,
+     "bandDeliveries": 5000,
+     "storeRate": 0,
+     "likeRate": 0.03,
+     "steadiedRate": 0.03,
+     "steadyingCount": 60,
+     "isNeutral": true
+    },
+    {
+     "measure": "LATE",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 0,
+     "deliveries": 0,
+     "band": 0,
+     "bandCount": 0,
+     "bandBadEndings": 260,
+     "bandDeliveries": 5000,
+     "storeRate": 0,
+     "likeRate": 0.052,
+     "steadiedRate": 0.052,
+     "steadyingCount": 60,
+     "isNeutral": true
+    },
+    {
+     "measure": "RETURNED",
+     "channels": "COST",
+     "countedChannels": [
+      "IOS",
+      "ROID",
+      "WEB",
+      "category C"
+     ],
+     "badEndings": 0,
+     "deliveries": 0,
+     "band": 0,
+     "bandCount": 0,
+     "bandBadEndings": 80,
+     "bandDeliveries": 5000,
+     "storeRate": 0,
+     "likeRate": 0.016,
+     "steadiedRate": 0.016,
+     "steadyingCount": 60,
+     "isNeutral": true
+    }
+   ]
+  }
+ ]
+}

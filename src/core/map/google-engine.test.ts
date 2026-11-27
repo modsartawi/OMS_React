@@ -6,8 +6,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { googleEngine } from './google-engine'
+import { RING_LINE_WIDTH } from './map-drawing'
 import { createGoogleLoader, type LoaderPage } from './google-loader'
-import type { MapEngineEvents, MapEngineStart, MapFeature, MapLineFeature, MapPolygonFeature, MapTarget } from './map-panel'
+import type { MapEngineEvents, MapEngineStart, MapFeature, MapLineFeature, MapPinFeature, MapPolygonFeature, MapRingFeature, MapTarget } from './map-panel'
 
 const KEY = 'planted-test-key'
 
@@ -63,7 +64,7 @@ function stageGoogle() {
   let zoom = 12
 
   class StagedMap {
-    readonly handlers = new Map<string, (() => void)[]>()
+    readonly handlers = new Map<string, ((e?: unknown) => void)[]>()
     readonly calls: unknown[][] = []
     constructor(
       readonly el: El,
@@ -73,12 +74,12 @@ function stageGoogle() {
       // Google draws into the element it is given.
       el.appendChild(new El())
     }
-    addListener(event: string, handler: () => void) {
+    addListener(event: string, handler: (e?: unknown) => void) {
       this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler])
       return { remove: () => this.handlers.set(event, (this.handlers.get(event) ?? []).filter((h) => h !== handler)) }
     }
-    fire(event: string) {
-      for (const h of this.handlers.get(event) ?? []) h()
+    fire(event: string, e?: unknown) {
+      for (const h of this.handlers.get(event) ?? []) h(e)
     }
     fitBounds(...a: unknown[]) {
       this.calls.push(['fitBounds', ...a])
@@ -118,7 +119,12 @@ function stageGoogle() {
       return { overlayMouseTarget: pane }
     }
     getProjection() {
-      return { fromLatLngToDivPixel: toPixel, fromLatLngToContainerPixel: toPixel }
+      return {
+        fromLatLngToDivPixel: toPixel,
+        fromLatLngToContainerPixel: toPixel,
+        // 964: the pin's drop, read back from a pixel to a place.
+        fromDivPixelToLatLng: ({ x, y }: { x: number; y: number }) => ({ lat: () => y / 10, lng: () => x / 10 }),
+      }
     }
     static preventMapHitsAndGesturesFrom() {}
   }
@@ -429,6 +435,162 @@ describe('lines (922): each a Google polyline in its colour, its words at its mi
       await google.answer()
       expect(google.polylines).toEqual([])
     }
+  })
+})
+
+describe('a click on the map carries the place under it (ticket 962: a click places the customer)', () => {
+  const startWith = (google: ReturnType<typeof stageGoogle>, taps: unknown[][]) =>
+    googleEngine(google.loader).start(
+      { container: new El(), view: { kind: 'centre', lon: 46.7, lat: 24.7, zoom: 14 }, key: KEY, controlsCorner: 'top-right', featuresAt: () => [], labelInk: '', lang: 'en' },
+      { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap: (...a) => void taps.push(a), moved() {}, sized() {} },
+    )
+
+  it('Google’s click hands its latLng on as the place, longitude and latitude', async () => {
+    const google = stageGoogle()
+    const taps: unknown[][] = []
+    startWith(google, taps)
+    await google.answer()
+    google.maps[0].fire('click', { latLng: { lat: () => 24.6911, lng: () => 46.7012 } })
+    expect(taps).toEqual([[null, 12, { lon: 46.7012, lat: 24.6911 }]])
+  })
+
+  it('a click with no latLng is a tap beside, with no place', async () => {
+    const google = stageGoogle()
+    const taps: unknown[][] = []
+    startWith(google, taps)
+    await google.answer()
+    google.maps[0].fire('click', {})
+    expect(taps).toEqual([[null, 12]])
+  })
+})
+
+describe('964: a dashed line, the rings and the customer pin on Google’s map', () => {
+  const FROM = { lon: 46.6, lat: 24.6 }
+  const TO = { lon: 46.7, lat: 24.7 }
+  const LEG: MapLineFeature = { id: 'leg', from: FROM, to: TO, stroke: 'ink(--map-mode-pick-up)', label: '', strong: false }
+  const RING: MapRingFeature = {
+    id: 'ring-5',
+    path: [
+      { lon: 46.7, lat: 24.75 },
+      { lon: 46.75, lat: 24.7 },
+      { lon: 46.7, lat: 24.65 },
+      { lon: 46.7, lat: 24.75 },
+    ],
+    stroke: 'ink(--map-ring)',
+    label: '5 km',
+    labelAt: { lon: 46.7, lat: 24.75 },
+  }
+  const PIN: MapPinFeature = { lon: 46.7, lat: 24.7, fill: 'ink(--map-customer)', stroke: 'ink(--map-ring)', label: 'The customer', draggable: true }
+
+  function startWith(google: ReturnType<typeof stageGoogle>, over: Partial<MapEngineStart>, moved: unknown[] = [], taps: unknown[][] = []) {
+    return googleEngine(google.loader).start(
+      { container: new El(), view: { kind: 'centre', lon: 46.7, lat: 24.7, zoom: 13 }, key: KEY, controlsCorner: 'top-right', featuresAt: () => [], labelInk: '', lang: 'en', ...over },
+      { tilesLoaded() {}, idle() {}, failed() {}, pointer() {}, tap: (...a) => void taps.push(a), moved() {}, sized() {}, pinMoved: (p) => void moved.push(p) },
+    )
+  }
+  const pinEl = (google: ReturnType<typeof stageGoogle>) => google.pane.children.find((c) => c.attrs.has('data-map-pin'))
+
+  it('a dashed line is a polyline with its own stroke hidden and a short stroke of its colour repeated along it', async () => {
+    const google = stageGoogle()
+    startWith(google, { lines: [{ ...LEG, dash: 'dashed' }] })
+    await google.answer()
+    const p = google.polylines[0]
+    expect(p.options.strokeOpacity).toBe(0)
+    expect(p.options.icons).toEqual([expect.objectContaining({ icon: expect.objectContaining({ strokeColor: 'ink(--map-mode-pick-up)' }), offset: '0' })])
+  })
+
+  it('a solid line is drawn as before, with no strokes repeated', async () => {
+    const google = stageGoogle()
+    startWith(google, { lines: [LEG] })
+    await google.answer()
+    expect(google.polylines[0].options.strokeOpacity).toBe(0.9)
+    expect(google.polylines[0].options.icons).toBeUndefined()
+  })
+
+  it('a ring is a closed dashed polyline round its path, beneath the legs, taking no tap; its words stand at its top', async () => {
+    const google = stageGoogle()
+    startWith(google, { rings: [RING], lines: [LEG] })
+    await google.answer()
+    const ring = google.polylines.find((p) => (p.options.path as unknown[]).length === 4)
+    expect(ring?.options.path).toEqual(RING.path.map((q) => ({ lat: q.lat, lng: q.lon })))
+    expect(ring?.options.strokeOpacity).toBe(0)
+    expect(ring?.options.icons).toHaveLength(1)
+    // The visible stroke of a dashed line is the repeated icon's: it carries the ring's own, thinner width.
+    expect((ring?.options.icons as { icon: { strokeWeight: number } }[])[0].icon.strokeWeight).toBe(RING_LINE_WIDTH)
+    expect(ring?.options.clickable).toBe(false)
+    const leg = google.polylines.find((p) => p !== ring)
+    expect(Number(ring?.options.zIndex)).toBeLessThan(Number(leg?.options.zIndex))
+    const words = google.pane.children.find((c) => c.attrs.has('data-map-lines'))?.children.find((c) => c.attrs.get('data-map-ring') === 'ring-5')
+    expect(words?.textContent).toBe('5 km')
+    expect(parseFloat(words?.style.left ?? '')).toBeCloseTo(467)
+    expect(parseFloat(words?.style.top ?? '')).toBeCloseTo(247.5)
+  })
+
+  it('closing the map takes the rings away', async () => {
+    const google = stageGoogle()
+    const running = startWith(google, { rings: [RING] })
+    await google.answer()
+    running.destroy()
+    expect(google.polylines.every((p) => p.map === null)).toBe(true)
+  })
+
+  it('the pin is drawn at its place, named by its words, above the stores', async () => {
+    const google = stageGoogle()
+    startWith(google, { pin: PIN })
+    await google.answer()
+    const el = pinEl(google)
+    expect(el?.attrs.get('aria-label')).toBe('The customer')
+    expect(el?.attrs.get('title')).toBe('The customer')
+    expect(el?.style.left).toBe('467px')
+    expect(el?.style.top).toBe('247px')
+    expect(Number(el?.style.zIndex)).toBeGreaterThan(1000)
+  })
+
+  it('a drag moves the pin with the pointer and reports the place it was dropped at, once, on the drop', async () => {
+    const google = stageGoogle()
+    const moved: unknown[] = []
+    startWith(google, { pin: PIN }, moved)
+    await google.answer()
+    const el = pinEl(google)!
+    el.fire('pointerdown', { clientX: 467, clientY: 247, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    el.fire('pointermove', { clientX: 480, clientY: 250, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    expect(el.style.left).toBe('480px')
+    expect(moved).toEqual([])
+    el.fire('pointerup', { clientX: 480, clientY: 250, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    expect(moved).toEqual([{ lon: 48, lat: 25 }])
+  })
+
+  it('a press on the pin that does not move places nothing and moves nothing', async () => {
+    const google = stageGoogle()
+    const moved: unknown[] = []
+    const taps: unknown[][] = []
+    startWith(google, { pin: PIN }, moved, taps)
+    await google.answer()
+    const el = pinEl(google)!
+    el.fire('pointerdown', { clientX: 467, clientY: 247, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    el.fire('pointerup', { clientX: 467, clientY: 247, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    expect(moved).toEqual([])
+    expect(taps).toEqual([])
+  })
+
+  it('a pin that is not draggable takes no drag', async () => {
+    const google = stageGoogle()
+    const moved: unknown[] = []
+    startWith(google, { pin: { ...PIN, draggable: false } }, moved)
+    await google.answer()
+    const el = pinEl(google)!
+    el.fire('pointerdown', { clientX: 467, clientY: 247, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    el.fire('pointermove', { clientX: 480, clientY: 250, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    el.fire('pointerup', { clientX: 480, clientY: 250, pointerId: 1, stopPropagation() {}, preventDefault() {} })
+    expect(moved).toEqual([])
+    expect(el.style.left).toBe('467px')
+  })
+
+  it('a map with no pin draws none (every map before 964)', async () => {
+    const google = stageGoogle()
+    startWith(google, {})
+    await google.answer()
+    expect(pinEl(google)).toBeUndefined()
   })
 })
 

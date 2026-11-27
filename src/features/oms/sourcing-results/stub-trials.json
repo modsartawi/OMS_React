@@ -1,0 +1,443 @@
+{
+ "trials": [
+  {
+   "trialId": "01JE3D7F6G5H4J3K2L1M0N9B8V",
+   "name": "Margin ×1.1",
+   "version": 1,
+   "trialSet": false,
+   "factorOff": "",
+   "factorTableOf": "",
+   "from": "2026-11-12 00:00:00",
+   "to": "2026-11-25 00:00:00",
+   "startedBy": "planner.one",
+   "besideCandidate": "Baseline",
+   "besideCandidateVersion": 3,
+   "state": "WAITING",
+   "repeat": false,
+   "addedAt": "2026-11-27 08:05:00",
+   "durationMs": 0,
+   "orders": 0,
+   "solved": 0,
+   "asStored": 0,
+   "refused": 0,
+   "refusedBy": {},
+   "noPlan": 0,
+   "notEnded": 0,
+   "failed": 0,
+   "stopFindings": 0,
+   "ahead": 0
+  },
+  {
+   "trialId": "01JE3C1B2N3M4K5J6H7G8F9D0S",
+   "name": "Baseline",
+   "version": 2,
+   "trialSet": false,
+   "factorOff": "",
+   "factorTableOf": "",
+   "from": "2026-11-12 00:00:00",
+   "to": "2026-11-25 00:00:00",
+   "startedBy": "owner.dmsco",
+   "besideCandidate": "Baseline",
+   "besideCandidateVersion": 3,
+   "state": "RUNNING",
+   "repeat": false,
+   "addedAt": "2026-11-27 07:50:00",
+   "durationMs": 0,
+   "orders": 39870,
+   "solved": 21040,
+   "asStored": 0,
+   "refused": 310,
+   "refusedBy": {
+    "NEEDS_WIDER_READ": 310
+   },
+   "noPlan": 22,
+   "notEnded": 0,
+   "failed": 3,
+   "stopFindings": 0
+  },
+  {
+   "trialId": "01JE2A5M4N3B2V1C0X9Z8L7K6J",
+   "name": "Dawaa Now reach 8 km",
+   "version": 1,
+   "trialSet": true,
+   "factorOff": "",
+   "factorTableOf": "",
+   "from": "2026-11-12 00:00:00",
+   "to": "2026-11-25 00:00:00",
+   "startedBy": "owner.dmsco",
+   "besideCandidate": "Baseline",
+   "besideCandidateVersion": 3,
+   "state": "DONE",
+   "repeat": false,
+   "addedAt": "2026-11-26 09:10:00",
+   "durationMs": 30120000,
+   "orders": 39870,
+   "solved": 38372,
+   "asStored": 0,
+   "refused": 1420,
+   "refusedBy": {
+    "STORE_NOT_READ": 240,
+    "NEEDS_WIDER_READ": 1180
+   },
+   "noPlan": 66,
+   "notEnded": 0,
+   "failed": 12,
+   "stopFindings": 0,
+   "endedAt": "2026-11-26 17:32:00"
+  },
+  {
+   "trialId": "01JE1Z9Y8X7W6V5T4S3R2Q1P0N",
+   "name": "Baseline",
+   "version": 3,
+   "trialSet": false,
+   "factorOff": "",
+   "factorTableOf": "",
+   "from": "2026-11-12 00:00:00",
+   "to": "2026-11-25 00:00:00",
+   "startedBy": "owner.dmsco",
+   "besideCandidate": "Baseline",
+   "besideCandidateVersion": 3,
+   "state": "DONE",
+   "repeat": false,
+   "addedAt": "2026-11-25 22:00:00",
+   "durationMs": 29700000,
+   "orders": 39870,
+   "solved": 39790,
+   "asStored": 39790,
+   "refused": 0,
+   "refusedBy": {},
+   "noPlan": 68,
+   "notEnded": 0,
+   "failed": 12,
+   "stopFindings": 0,
+   "endedAt": "2026-11-26 06:15:00"
+  },
+  {
+   "trialId": "01JDZ0A1S2D3F4G5H6J7K8L9P0",
+   "name": "Baseline",
+   "version": 2,
+   "trialSet": false,
+   "factorOff": "",
+   "factorTableOf": "",
+   "from": "2026-10-01 00:00:00",
+   "to": "2026-10-30 00:00:00",
+   "startedBy": "owner.dmsco",
+   "besideCandidate": "Baseline",
+   "besideCandidateVersion": 3,
+   "state": "FAILED",
+   "repeat": false,
+   "addedAt": "2026-11-02 21:00:00",
+   "durationMs": 0,
+   "orders": 88210,
+   "solved": 40100,
+   "asStored": 0,
+   "refused": 0,
+   "refusedBy": {},
+   "noPlan": 0,
+   "notEnded": 0,
+   "failed": 2,
+   "stopFindings": 0,
+   "endedAt": "2026-11-03 14:00:00",
+   "error": "The worker stopped: the run records of 2026-10-01 are past their 90 days."
+  }
+ ],
+ "factorTable": {
+  "trial": {
+   "trialId": "01JE2A5M4N3B2V1C0X9Z8L7K6J",
+   "name": "Dawaa Now reach 8 km",
+   "version": 1,
+   "trialSet": true,
+   "factorOff": "",
+   "factorTableOf": "",
+   "from": "2026-11-12 00:00:00",
+   "to": "2026-11-25 00:00:00",
+   "startedBy": "owner.dmsco",
+   "besideCandidate": "Baseline",
+   "besideCandidateVersion": 3,
+   "state": "DONE",
+   "repeat": false,
+   "addedAt": "2026-11-26 09:10:00",
+   "durationMs": 30120000,
+   "orders": 39870,
+   "solved": 38372,
+   "asStored": 0,
+   "refused": 1420,
+   "refusedBy": {
+    "STORE_NOT_READ": 240,
+    "NEEDS_WIDER_READ": 1180
+   },
+   "noPlan": 66,
+   "notEnded": 0,
+   "failed": 12,
+   "stopFindings": 0,
+   "endedAt": "2026-11-26 17:32:00"
+  },
+  "rows": [
+   {
+    "factor": "SLOT_LOAD",
+    "trialId": "01JE4F00ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 1840,
+    "share": 4.8,
+    "kinds": {
+     "ANOTHER_STORE": 1210,
+     "ANOTHER_MODE": 630
+    }
+   },
+   {
+    "factor": "SLOT_TIMING",
+    "trialId": "01JE4F01ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 920,
+    "share": 2.4,
+    "kinds": {
+     "ANOTHER_STORE": 700,
+     "ANOTHER_MODE": 220
+    }
+   },
+   {
+    "factor": "RECORD_SLOT_LATE",
+    "trialId": "01JE4F02ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 410,
+    "share": 1.1,
+    "kinds": {
+     "ANOTHER_STORE": 410
+    }
+   },
+   {
+    "factor": "RECORD_SLOT_RETURNED",
+    "trialId": "01JE4F03ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 120,
+    "share": 0.3,
+    "kinds": {
+     "ANOTHER_STORE": 120
+    }
+   },
+   {
+    "factor": "RECORD_SLOT_CANCELLED",
+    "trialId": "01JE4F04ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 95,
+    "share": 0.2,
+    "kinds": {
+     "ANOTHER_STORE": 95
+    }
+   },
+   {
+    "factor": "RECORD_PICK_UP_NEVER_READY",
+    "trialId": "01JE4F05ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 60,
+    "share": 0.2,
+    "kinds": {
+     "ANOTHER_STORE": 60
+    }
+   },
+   {
+    "factor": "RECORD_PICK_UP_CANCELLED",
+    "trialId": "01JE4F06ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 44,
+    "share": 0.1,
+    "kinds": {
+     "ANOTHER_STORE": 44
+    }
+   },
+   {
+    "factor": "RECORD_PICK_UP_READY_LATE",
+    "trialId": "01JE4F07ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 38,
+    "share": 0.1,
+    "kinds": {
+     "ANOTHER_STORE": 38
+    }
+   },
+   {
+    "factor": "RECORD_DAWAA_NOW_CALLOUT_IGNORED",
+    "trialId": "01JE4F08ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 210,
+    "share": 0.5,
+    "kinds": {
+     "ANOTHER_STORE": 150,
+     "ANOTHER_MODE": 60
+    }
+   },
+   {
+    "factor": "RECORD_DAWAA_NOW_LATE",
+    "trialId": "01JE4F09ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 180,
+    "share": 0.5,
+    "kinds": {
+     "ANOTHER_STORE": 180
+    }
+   },
+   {
+    "factor": "COVER",
+    "trialId": "01JE4F10ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 2360,
+    "share": 6.2,
+    "kinds": {
+     "ANOTHER_STORE": 1900,
+     "FEWER_SHIPMENTS": 310,
+     "MORE_SHIPMENTS": 150
+    }
+   },
+   {
+    "factor": "SHELF_CHANCE",
+    "trialId": "01JE4F11ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 3120,
+    "share": 8.1,
+    "kinds": {
+     "ANOTHER_STORE": 2400,
+     "FEWER_SHIPMENTS": 520,
+     "MORE_SHIPMENTS": 200
+    }
+   },
+   {
+    "factor": "SHORT_FIGURE_FACTOR",
+    "trialId": "01JE4F12ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 640,
+    "share": 1.7,
+    "kinds": {
+     "ANOTHER_STORE": 640
+    }
+   },
+   {
+    "factor": "NAMED_STORE_STAYS",
+    "trialId": "01JE4F13ACTORROWTRIAL0000",
+    "state": "DONE",
+    "compared": 38300,
+    "plansChanged": 0,
+    "share": 0,
+    "kinds": {}
+   },
+   {
+    "factor": "COUNT_FACTOR_ON",
+    "trialId": "01JE4F14ACTORROWTRIAL0000",
+    "state": "RUNNING",
+    "compared": 0,
+    "plansChanged": 0,
+    "share": 0,
+    "kinds": {}
+   }
+  ]
+ },
+ "beside": {
+  "orders": 39870,
+  "compared": 38300,
+  "leftOut": 1570,
+  "leftOutBy": {
+   "NEEDS_WIDER_READ": 1180,
+   "STORE_NOT_READ": 240,
+   "NO_PLAN": 136,
+   "FAILED": 14
+  },
+  "plansDiffer": 2140,
+  "plansDifferShare": 5.6,
+  "differBy": {
+   "ANOTHER_MODE": 610,
+   "ANOTHER_STORE": 1320,
+   "FEWER_SHIPMENTS": 150,
+   "MORE_SHIPMENTS": 60
+  },
+  "first": {
+   "trialId": "01JE1Z9Y8X7W6V5T4S3R2Q1P0N",
+   "name": "Baseline",
+   "version": 3,
+   "trialSet": false,
+   "shipments": 40210,
+   "wholeClasses": {
+    "SAME_PLAN": 27310,
+    "ANOTHER_STORE": 4790,
+    "ANOTHER_MODE": 2400,
+    "FEWER_SHIPMENTS": 990,
+    "MORE_SHIPMENTS": 380,
+    "OUTSIDE_RULES": 1210,
+    "NOT_COMPARABLE": 1220
+   },
+   "storesClasses": {
+    "SAME_PLAN": 30800,
+    "ANOTHER_STORE": 5070,
+    "OUTSIDE_RULES": 1210,
+    "NOT_COMPARABLE": 1220
+   },
+   "promise": [
+    {
+     "mode": "DAWAA_NOW",
+     "checked": 7420,
+     "within": 6575,
+     "share": 88.6
+    },
+    {
+     "mode": "PICK_UP",
+     "checked": 52100,
+     "within": 38300,
+     "share": 73.5
+    }
+   ]
+  },
+  "second": {
+   "trialId": "01JE2A5M4N3B2V1C0X9Z8L7K6J",
+   "name": "Dawaa Now reach 8 km",
+   "version": 1,
+   "trialSet": true,
+   "shipments": 39980,
+   "wholeClasses": {
+    "SAME_PLAN": 26180,
+    "ANOTHER_STORE": 5600,
+    "ANOTHER_MODE": 2810,
+    "FEWER_SHIPMENTS": 1000,
+    "MORE_SHIPMENTS": 280,
+    "OUTSIDE_RULES": 1210,
+    "NOT_COMPARABLE": 1220
+   },
+   "storesClasses": {
+    "SAME_PLAN": 29600,
+    "ANOTHER_STORE": 6270,
+    "OUTSIDE_RULES": 1210,
+    "NOT_COMPARABLE": 1220
+   },
+   "promise": [
+    {
+     "mode": "DAWAA_NOW",
+     "checked": 8110,
+     "within": 6935,
+     "share": 85.5
+    },
+    {
+     "mode": "PICK_UP",
+     "checked": 51800,
+     "within": 38100,
+     "share": 73.6
+    }
+   ]
+  },
+  "minutesMiddle": -4,
+  "minutesMiddleHalfFrom": -12,
+  "minutesMiddleHalfTo": 1,
+  "feeLower": 820,
+  "feeSame": 37100,
+  "feeHigher": 380
+ }
+}

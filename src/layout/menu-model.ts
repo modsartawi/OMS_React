@@ -24,7 +24,8 @@ import { canOpenExpiredApprovalPicks } from '@/features/oms/expired-approval-pic
 import { canOpenHeldStockReport } from '@/features/stock/held-stock-report/access'
 import { canOpenHoldDailyList } from '@/features/stock/hold-daily-list/access'
 import { canOpenStoreStages } from '@/features/stock/store-stages/access'
-import { canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { canOpenSourcingPlanner, canOpenWeightSets, canRunSourcingAdvisor, canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { SIMULATOR_PATH } from '@/core/sourcing-advisor/simulator-path'
 import { canOpenStockHealth } from '@/features/stock/stock-health/access'
 import { canOpenStockConsole } from '@/features/stock/stock-console/access'
 import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
@@ -79,6 +80,7 @@ import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Me
 import { CalendarClock, Smartphone } from 'lucide-react'
 import { canViewMiniPos } from '@/core/mini-pos/access'
 import { FileDown } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { MY_EXPORTS_OFFER } from '@/core/inquiry-export/api'
 import { canOpenMiniPosScorecard } from '@/features/mini-pos/scorecard/access'
 
@@ -337,14 +339,55 @@ export const MENU: ShellMenuItem[] = [
         requires: canOpenExpiredApprovalPicks,
       },
       {
-        // Sourcing advisor (ticket 738, spec 734 D21) — its own grant, `BackOfficeScreen[SourcingAdvisor, 01]`,
-        // on its own predicate in `@/core/` (Delivery details' "Why this store?" link reads it too); fails closed.
+        // Sourcing advisor (ticket 738, spec 734 D21; ticket 974) — opens the comparison results page (ticket 971), under
+        // the advisor view grant, `BackOfficeScreen[SourcingAdvisor, 01]`, on its own predicate in `@/core/` (Delivery
+        // details' "Why this store?" link reads it too); fails closed. Also lit on the retired advisor's order link.
         // Before Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
-        labelKey: 'sourcing-advisor:menu.sourcingAdvisor',
+        labelKey: 'sourcing-results:menu.sourcingAdvisor',
         icon: Route,
-        routerLink: '/oms/sourcing-advisor',
-        activePrefix: '/oms/sourcing-advisor',
+        routerLink: '/oms/sourcing-results',
+        activePrefix: ['/oms/sourcing-results', '/oms/sourcing-advisor'],
         requires: canViewSourcingAdvisor,
+      },
+      {
+        // Sourcing simulator (ticket 962, BackOffice spec 4354 §19) — the advisor's run grant (a provisional key, on its
+        // own predicate in `@/core/`); fails closed. Right after the Sourcing advisor, before Pick support, so Pick
+        // support and Delivery statistics keep the last two places their tests pin.
+        labelKey: 'sourcing-simulator:menu.sourcingSimulator',
+        icon: FlaskConical,
+        routerLink: SIMULATOR_PATH,
+        activePrefix: SIMULATOR_PATH,
+        requires: canRunSourcingAdvisor,
+      },
+      {
+        // Sourcing planner data (ticket 968, BackOffice spec 4354 §19) — the eight planner tables, each tab under one of
+        // three planner grants (provisional keys); the leaf shows with any one of them and fails closed. After the
+        // simulator, before Pick support, so Pick support and Delivery statistics keep the last two places.
+        labelKey: 'sourcing-planner:menu.sourcingPlanner',
+        icon: DatabaseZap,
+        routerLink: '/oms/sourcing-planner',
+        activePrefix: '/oms/sourcing-planner',
+        requires: canOpenSourcingPlanner,
+      },
+      {
+        // Store record (ticket 969, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and
+        // kept runs") — read only, the run grant (provisional key); fails closed. After the planner data, before Pick
+        // support, so Pick support and Delivery statistics keep the last two places.
+        labelKey: 'sourcing-record:menu.sourcingRecord',
+        icon: ClipboardList,
+        routerLink: '/oms/sourcing-record',
+        activePrefix: '/oms/sourcing-record',
+        requires: canRunSourcingAdvisor,
+      },
+      {
+        // Weight sets (ticket 967, BackOffice spec 4354 §10, §19) — the sets and versions, the candidate log and the
+        // marking screen. Open to whoever runs, saves or marks sets (provisional keys, `canOpenWeightSets` in `@/core/`);
+        // fails closed. After the store record, before Pick support, which keeps its place.
+        labelKey: 'sourcing-sets:menu.sourcingSets',
+        icon: Layers,
+        routerLink: '/oms/sourcing-sets',
+        activePrefix: '/oms/sourcing-sets',
+        requires: canOpenWeightSets,
       },
       {
         // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport:03`, placed before Delivery statistics

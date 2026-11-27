@@ -128,3 +128,15 @@ None — the door is on pricing2 (BackOffice 3470). For the live check, a stagin
     - The Measured tile reads "100% of measured", as the ticket literally asks.
     - "Today" is the browser's date (the estate is one timezone).
 
+
+**2026-11-27 — re-checked on main; still waiting on the live read with the owner.**
+
+- After the commits that touched the slice since 523c50f7 (909's `Auth/Permissions` swap, the Stock area move):
+  typecheck is clean, `road-shadow.test.ts` + `menu-model.test.ts` give 82/82, and `tools/road-shadow-drive.mjs`
+  gives 67/67 (`DRIVE_PORT=5199`).
+- Staging `http://172.23.10.110:4321` answers **401** on `DispatchBoard/RoadShadow` and **404** on an unknown
+  `DispatchBoard/*` route, so the door is deployed there. Port 4433 did not answer.
+- To do the live read: `$env:SIS_API='http://172.23.10.110:4321'; npx vite --port 5173 --strictPort`. The owner
+  signs in, then opens `/oms/dispatch-board/road-shadow` over the Shadow week (BackOffice 3473 step 4). Before that,
+  QC must be set to Shadow on staging.
+- The fallback-share base ruling and the Arabic review are both still owed.

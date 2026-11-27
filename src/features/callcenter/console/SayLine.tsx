@@ -33,11 +33,14 @@ export default function SayLine({ phrases }: { phrases: GuidancePhrase[] }) {
   )
 }
 
+const WORDS = new Set(['offer', 'currency'])
+
 function isolated(params: GuidancePhrase['params']): Record<string, string | number | boolean> {
   return Object.fromEntries(
     Object.entries(params).map(([key, value]) =>
       // The offer is isolated by its slot; isolating it again would put FSI inside the <bdi>.
-      [key, typeof value === 'string' && key !== 'offer' ? fsi(value) : value],
+      // The currency is the locale's own word, not a data value.
+      [key, typeof value === 'string' && !WORDS.has(key) ? fsi(value) : value],
     ),
   )
 }

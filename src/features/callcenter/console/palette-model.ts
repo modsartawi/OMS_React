@@ -183,6 +183,9 @@ const NO_CALLER_HISTORY = `${NS}palette.reason.NO_CALLER_HISTORY`
  *  picker's own consequence sentence), a fact `pickup` carries. */
 const COLLECTION_HAS_NO_SLOT = `${NS}palette.reason.COLLECTION_HAS_NO_SLOT`
 
+/** 983 review — and for the location link the panel withdrew (`CCL-00001`). */
+const LOCATION_LINK_UNAVAILABLE = `${NS}palette.reason.LOCATION_LINK_UNAVAILABLE`
+
 /** The order the verbs are listed in. `attachCaller`/`removeCaller` is one slot
  *  holding whichever of the two the order's state makes true. */
 const VERB_ORDER: PaletteVerb[] = [
@@ -226,6 +229,12 @@ export interface PaletteInput {
    * are looking for the picker.
    */
   pickup: boolean
+  /**
+   * 983 review — the location-link panel withdrew Send for the rest of this order
+   * (`CCL-00001`: the feature is not configured). A fact the panel learned from the
+   * server, read for one sentence on the *Send location link* row.
+   */
+  locationLinkWithdrawn?: boolean
   actions: PaletteActions
   /**
    * Whether a (namespaced) key has words in the bundle — `i18n.exists`. Read only
@@ -248,6 +257,7 @@ export function paletteCommands({
   capabilities,
   hasCaller,
   pickup,
+  locationLinkWithdrawn = false,
   actions,
   known,
 }: PaletteInput): Command[] {
@@ -281,7 +291,7 @@ export function paletteCommands({
       id: `verb:${verb}`,
       label: labelOf(verb, pickup),
       run: actions.verbs[verb] ?? null,
-      reason: said(refusalOf(verb, capabilities, hasCaller, pickup)),
+      reason: said(refusalOf(verb, capabilities, hasCaller, pickup, locationLinkWithdrawn)),
     })
   }
 
@@ -338,6 +348,7 @@ function refusalOf(
   capabilities: SessionCapabilities,
   hasCaller: boolean,
   pickup: boolean,
+  locationLinkWithdrawn: boolean,
 ): PalettePhrase {
   const gate = REASON_FAMILY[verb]
   const code = gate ? capabilities.capabilityReasons?.[gate.capability] : undefined
@@ -352,6 +363,7 @@ function refusalOf(
   if (verb === 'changeStore' && !pickup) return { key: STORE_FOLLOWS_ADDRESS }
   if (verb === 'reorderLast' && !hasCaller) return { key: NO_CALLER_HISTORY }
   if (verb === 'nextFreeSlot' && pickup) return { key: COLLECTION_HAS_NO_SLOT }
+  if (verb === 'sendLocationLink' && locationLinkWithdrawn) return { key: LOCATION_LINK_UNAVAILABLE }
   return { key: VAGUE_REASON }
 }
 

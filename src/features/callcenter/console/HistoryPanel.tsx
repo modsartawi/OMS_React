@@ -84,9 +84,10 @@ export default function HistoryPanel({ actions }: { actions: HistoryActions }) {
         <ReadState read={read} list={read.data?.usual} empty={t('history.noUsual')} marker="usual" />
         {read.data?.usual && read.data.usual.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {read.data.usual.map((item) => (
+            {read.data.usual.map((item, index) => (
               <Button
-                key={item.itemNumber}
+                // By position too: one item can appear twice, in two units.
+                key={`${item.itemNumber}:${index}`}
                 variant="secondary"
                 onClick={() => actions.onAddUsual?.(item)}
                 disabled={!actions.onAddUsual || actions.addingUsual !== null || actions.reordering !== null}
@@ -187,8 +188,9 @@ function OrderCard({ order, actions }: { order: CustomerHistoryOrder; actions: H
         )}
       </div>
       <ul className="flex flex-col text-xs" data-cc-history-items>
-        {order.items.slice(0, ITEMS_SHOWN).map((item) => (
-          <li key={item.itemNumber} className="flex min-w-0 gap-1.5">
+        {order.items.slice(0, ITEMS_SHOWN).map((item, index) => (
+          // By position too: an order can hold one item twice, in two units.
+          <li key={`${item.itemNumber}:${item.uom ?? ''}:${index}`} className="flex min-w-0 gap-1.5">
             <Ltr>
               <span className="text-muted-foreground" data-numeric>
                 {item.qty}
@@ -236,8 +238,8 @@ function ReorderReportView({
   if (report.refused.length === 0 && report.stopped === null) return null
   return (
     <div className={`${NOTE.attention} flex flex-col gap-1.5`} data-cc-reorder-report={orderNumber}>
-      {report.refused.map(({ line, reason, message }) => (
-        <p key={line.itemNumber} className="flex flex-col" data-cc-reorder-refused={line.itemNumber}>
+      {report.refused.map(({ line, reason, message }, index) => (
+        <p key={`${line.itemNumber}:${index}`} className="flex flex-col" data-cc-reorder-refused={line.itemNumber}>
           <bdi className="font-medium">{line.description}</bdi>
           {/* The server's own sentence for a refusal; the console's for an ask it will
               not accept on the agent's behalf. */}

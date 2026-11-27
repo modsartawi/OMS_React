@@ -58,13 +58,6 @@ export function beginStoreMove(
 }
 
 /**
- * The confirm re-send and the re-preview are `confirm-action.ts`'s, not this
- * module's: the id discipline is identical for every two-phase verb, and
- * [169](.issues/169-below-availability-accepted.md)'s acceptance takes the same
- * three functions. What is a rebind's own — the target, the diff, the refusal —
- * is what stays here.
- */
-/**
  * What the store picker offers on one row (994): `move` for any other store, `current` for the
  * store the order already holds, and `confirm` for that same store when the server says choosing
  * it is a real act.
@@ -89,7 +82,14 @@ export function storeOption(
   return canConfirmSeededStore === true ? 'confirm' : 'current'
 }
 
-export const committingStoreMove =(move: StoreMove, confirmToken: string): StoreMove =>
+/**
+ * The confirm re-send and the re-preview are `confirm-action.ts`'s, not this
+ * module's: the id discipline is identical for every two-phase verb, and
+ * [169](.issues/169-below-availability-accepted.md)'s acceptance takes the same
+ * three functions. What is a rebind's own — the target, the diff, the refusal —
+ * is what stays here.
+ */
+export const committingStoreMove = (move: StoreMove, confirmToken: string): StoreMove =>
   committing(move, confirmToken)
 
 export const repreviewingStoreMove = (move: StoreMove): StoreMove => repreviewing(move)

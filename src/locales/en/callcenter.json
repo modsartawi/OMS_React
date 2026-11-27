@@ -715,6 +715,7 @@
       "SESSION_CLOSED": "This order is no longer open.",
       "NO_CALLER_HISTORY": "Attach the caller first — their last order comes with them.",
       "COLLECTION_HAS_NO_SLOT": "A collection order has no delivery slot to book.",
+      "LOCATION_LINK_UNAVAILABLE": "Location links are not set up, so none can be sent on this order.",
       "unknown": "This can't be done on this order right now."
     }
   },
@@ -960,9 +961,9 @@
     },
     "say": {
       "label": "Say",
-      "applied_one": "“<offer>{{offer}}</offer>” takes {{amount}} off line {{lines}}.",
-      "applied_other": "“<offer>{{offer}}</offer>” takes {{amount}} off lines {{lines}}.",
-      "appliedOrder": "“<offer>{{offer}}</offer>” takes {{amount}} off your order.",
+      "applied_one": "“<offer>{{offer}}</offer>” takes {{amount}} {{currency}} off line {{lines}}.",
+      "applied_other": "“<offer>{{offer}}</offer>” takes {{amount}} {{currency}} off lines {{lines}}.",
+      "appliedOrder": "“<offer>{{offer}}</offer>” takes {{amount}} {{currency}} off your order.",
       "notOn_one": "It doesn’t apply to line {{lines}}.",
       "notOn_other": "It doesn’t apply to lines {{lines}}.",
       "add_one": "Add {{count}} more item and “<offer>{{offer}}</offer>” applies.",

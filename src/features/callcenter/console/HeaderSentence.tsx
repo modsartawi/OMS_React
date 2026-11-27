@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
+import { formatPair } from '@/core/util/bidi'
 import { callCenterApi, MY_SOURCES_KEY } from './api'
 import { capabilityGate, isPickup } from './fulfilment-view'
 import type { HeaderSlotId } from './header-chips'
@@ -150,7 +151,6 @@ function SentenceWord({ word, onOpen }: { word: HeaderWord; onOpen?: () => void 
   )
 }
 
-/** One ledger field: its label, then its value or its empty wording. */
 /**
  * The source, said by its NAME as well as its code (walk 2026-11-27: "CCHT" alone tells the agent
  * nothing). The description comes from the agent's own source list — the same cached read the
@@ -165,22 +165,13 @@ function SourceValue({ field }: { field: HeaderWord }) {
     retry: false,
   })
   const description = sources.data?.find((option) => option.documentSource === field.value)?.description?.trim()
-  return (
-    <>
-      <WordValue word={field} mono />
-      {description && (
-        <>
-          <span aria-hidden className="mx-1 text-muted-foreground">
-            ·
-          </span>
-          {/* Server text, passed through as data — Arabic or English, isolated whole. */}
-          <bdi>{description}</bdi>
-        </>
-      )}
-    </>
-  )
+  if (!description || field.value == null) return <WordValue word={field} mono />
+  // `code · name` is a pair led by a machine value: one string, isolated ONCE (bidi rule) —
+  // the name is server text in either script, and isolating each half reverses the pair.
+  return <Ltr>{formatPair(field.value, description)}</Ltr>
 }
 
+/** One ledger field: its label, then its value or its empty wording. */
 function LedgerField({ field, onOpen }: { field: HeaderWord; onOpen?: () => void }) {
   const { t } = useTranslation('callcenter')
   const tone =

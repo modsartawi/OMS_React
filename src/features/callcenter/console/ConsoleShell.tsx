@@ -35,6 +35,7 @@ import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
+import { revealAndFocus } from './reveal'
 import { receipt as receiptOf, type ReceiptFee } from './receipt-view'
 import { paletteCommands, type PaletteActions } from './palette-model'
 import { capabilityGate, isPickup, showsDeliveryRegion } from './fulfilment-view'
@@ -153,6 +154,7 @@ export default function ConsoleShell({
   addressBook = null,
   history = null,
   shortcuts,
+  locationLinkWithdrawn = false,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -276,6 +278,8 @@ export default function ConsoleShell({
   /** 992 (983 D13) — the Ctrl K shortcuts only the page can run (reorder, the location
    *  link, the switch, the next slot, a held coupon). Each absent ⇒ a disabled row. */
   shortcuts?: PaletteActions['verbs']
+  /** 983 review — the location-link panel withdrew Send (`CCL-00001`): the row's reason. */
+  locationLinkWithdrawn?: boolean
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
@@ -306,6 +310,7 @@ export default function ConsoleShell({
       // for a reason no capability carries, and the row borrows the store
       // readout's own words for it rather than falling through to the vague one.
       pickup: isPickup(state.header),
+      locationLinkWithdrawn,
       known: (key) => i18n.exists(key),
       actions: {
         verbs: {
@@ -496,8 +501,7 @@ function focusStep(step: RailStep) {
     const el = document.querySelector<HTMLElement>(selector)
     if (!el) continue
     if (!el.matches('button, input, select, textarea, a[href], [tabindex]')) el.setAttribute('tabindex', '-1')
-    el.focus()
-    el.scrollIntoView({ block: 'nearest' })
+    revealAndFocus(el)
     return
   }
 }

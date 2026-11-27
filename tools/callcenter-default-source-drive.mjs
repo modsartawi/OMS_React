@@ -11,7 +11,11 @@
 //   2. the default refused SOURCE_REFERENCE_REQUIRED → still one send; the Source section
 //      opens on that source, the caret in the reference box, the refusal worded;
 //   3. no default (the owner's login) → no SetDocumentSource at all;
-//   4. an order that already holds a source → no SetDocumentSource at all.
+//   4. an order that already holds a source → no SetDocumentSource at all;
+//   5. (983 review) the agent opens Source while the default is in flight → the default's
+//      success settles the chip and does NOT close the agent's form;
+//   6. (983 review) the default refused quietly (any other code) → nothing opens, and Source
+//      opened later shows no stale failure.
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { permissions } from './permissions-stub.mjs'
@@ -58,7 +62,7 @@ const NO_DEFAULT = [row('CLCN', 'Call centre', false), row('TMRA', 'Tamara campa
 
 const browser = await chromium.launch()
 
-async function run({ sources, opened = OPENED, refuse = null }) {
+async function run({ sources, opened = OPENED, refuse = null, delay = 0 }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -72,7 +76,7 @@ async function run({ sources, opened = OPENED, refuse = null }) {
       !/^Failed to load resource: the server responded with a status of/.test(m.text()) &&
       errors.push(m.text()),
   )
-  await page.route('**/api/**', (route) => {
+  await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(
@@ -85,6 +89,7 @@ async function run({ sources, opened = OPENED, refuse = null }) {
     if (p === 'CallCenterWeb/SetDocumentSource') {
       const body = route.request().postDataJSON()
       sends.push(body)
+      if (delay) await new Promise((r) => setTimeout(r, delay))
       if (refuse) return route.fulfill(refusal(refuse, 400))
       served = {
         ...served,
@@ -97,8 +102,13 @@ async function run({ sources, opened = OPENED, refuse = null }) {
   })
   await page.goto(`${BASE}/callcenter`, { timeout: 120_000 })
   await page.locator('[data-cc-console]').waitFor({ timeout: 60_000 })
-  await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(800)
+  if (delay) {
+    // The default is held in flight: wait for it to be SENT, not for the network to settle.
+    for (let i = 0; i < 100 && sends.length === 0; i++) await page.waitForTimeout(50)
+  } else {
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(800)
+  }
   return { context, page, errors, sends }
 }
 
@@ -131,6 +141,7 @@ console.log('\n2. the default needs a reference')
   )
   const said = (await page.locator('[data-cc-source-error]').innerText().catch(() => '')).replace(/\s+/g, ' ')
   ok(said.includes('TMRA') && !/[A-Z]{3,}_[A-Z_]+/.test(said), 'the refusal is worded, naming the source', said)
+  ok(said.includes('Your usual source'), "it is the default's own cue, not the generic refusal", said)
   ok(errors.length === 0, 'no console errors', errors[0] ?? '')
   await context.close()
 }
@@ -148,6 +159,38 @@ console.log('\n4. an order that already holds a source')
   const held = { ...OPENED, header: { ...OPENED.header, documentSource: 'CLCN', sourceReference: null } }
   const { context, errors, sends } = await run({ sources: WITH_DEFAULT, opened: held })
   ok(sends.length === 0, 'no SetDocumentSource — what the order holds wins', String(sends.length))
+  ok(errors.length === 0, 'no console errors', errors[0] ?? '')
+  await context.close()
+}
+
+console.log('\n5. the agent opens Source while the default is in flight')
+{
+  const { context, page, errors, sends } = await run({ sources: WITH_DEFAULT, delay: 2500 })
+  await page.locator('[data-cc-chip-open="source"]').first().click()
+  await page.locator('[data-cc-section="source"]').waitFor({ timeout: 5_000 }).catch(() => {})
+  ok((await page.locator('[data-cc-section="source"]').count()) === 1, "the agent's Source form is open")
+  await page.waitForTimeout(3500)
+  ok(sends.length === 1, 'the default was sent once', String(sends.length))
+  const chip = (await page.locator('[data-cc-chip="source"]').innerText().catch(() => '')).replace(/\s+/g, ' ')
+  ok(chip.includes('TMRA'), 'the default settled on the order', chip)
+  ok((await page.locator('[data-cc-section="source"]').count()) === 1, 'the form the agent opened stays open')
+  ok(errors.length === 0, 'no console errors', errors[0] ?? '')
+  await context.close()
+}
+
+console.log('\n6. the default refused quietly')
+{
+  const { context, page, errors, sends } = await run({ sources: WITH_DEFAULT, refuse: 'SOURCE_NOT_ASSIGNED' })
+  ok(sends.length === 1, 'one send', String(sends.length))
+  ok((await page.locator('[data-cc-section="source"]').count()) === 0, 'nothing opens')
+  await page.locator('[data-cc-chip-open="source"]').first().click()
+  await page.locator('[data-cc-section="source"]').waitFor({ timeout: 5_000 }).catch(() => {})
+  ok((await page.locator('[data-cc-section="source"]').count()) === 1, "Source opens on the agent's press")
+  ok(
+    (await page.locator('[data-cc-source-error]').count()) === 0,
+    'no stale failure from the default',
+    await page.locator('[data-cc-source-error]').innerText().catch(() => ''),
+  )
   ok(errors.length === 0, 'no console errors', errors[0] ?? '')
   await context.close()
 }

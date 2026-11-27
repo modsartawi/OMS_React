@@ -296,13 +296,13 @@
     },
     "say": {
       "label": "قل للمتصل",
-      "applied_zero": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
-      "applied_one": "«<offer>{{offer}}</offer>» يخصم {{amount}} من السطر {{lines}}.",
-      "applied_two": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
-      "applied_few": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
-      "applied_many": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
-      "applied_other": "«<offer>{{offer}}</offer>» يخصم {{amount}} من الأسطر {{lines}}.",
-      "appliedOrder": "«<offer>{{offer}}</offer>» يخصم {{amount}} من طلبك.",
+      "applied_zero": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من الأسطر {{lines}}.",
+      "applied_one": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من السطر {{lines}}.",
+      "applied_two": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من الأسطر {{lines}}.",
+      "applied_few": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من الأسطر {{lines}}.",
+      "applied_many": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من الأسطر {{lines}}.",
+      "applied_other": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من الأسطر {{lines}}.",
+      "appliedOrder": "«<offer>{{offer}}</offer>» يخصم {{amount}} {{currency}} من طلبك.",
       "notOn_zero": "لا ينطبق على الأسطر {{lines}}.",
       "notOn_one": "لا ينطبق على السطر {{lines}}.",
       "notOn_two": "لا ينطبق على الأسطر {{lines}}.",
@@ -331,7 +331,8 @@
     },
     "reason": {
       "NO_CALLER_HISTORY": "اربط المتصل أولًا — آخر طلب له يأتي معه.",
-      "COLLECTION_HAS_NO_SLOT": "طلب الاستلام من الفرع ليس له موعد توصيل."
+      "COLLECTION_HAS_NO_SLOT": "طلب الاستلام من الفرع ليس له موعد توصيل.",
+      "LOCATION_LINK_UNAVAILABLE": "روابط الموقع غير مفعّلة، فلا يمكن إرسال رابط على هذا الطلب."
     }
   }
 }

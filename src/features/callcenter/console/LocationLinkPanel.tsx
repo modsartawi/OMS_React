@@ -86,6 +86,7 @@ import {
   type StripView,
 } from './location-link-view'
 import ResendButton from './ResendButton'
+import { revealAndFocus } from './reveal'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 
@@ -116,6 +117,7 @@ export default function LocationLinkPanel({
   onRefresh,
   onCreateAddress,
   askToSend = 0,
+  onWithdrawn,
 }: {
   state: SessionState
   /** Told after every successful Send, so the page knows this order has a link to Retire. */
@@ -131,12 +133,21 @@ export default function LocationLinkPanel({
   onCreateAddress?: (prefill: AddressFormValues) => Promise<CustomerAddressBookEntry | null>
   /** 992 — bumped by Ctrl K's *Send location link*: each new value is one ask. */
   askToSend?: number
+  /** 983 review — told once the panel withdraws Send for this order (`CCL-00001`), so
+   *  Ctrl K's *Send location link* is withheld with its reason rather than pressing a
+   *  panel that is no longer drawn. */
+  onWithdrawn?: () => void
 }) {
   const { t } = useTranslation('callcenter')
   const now = useSecondClock()
   const [held, setHeld] = useState<HeldLink | null>(null)
   /** `CCL-00001` — the feature turned out not to be configured: the action goes for good. */
   const [hidden, setHidden] = useState(false)
+  const toldWithdrawn = useRef(onWithdrawn)
+  toldWithdrawn.current = onWithdrawn
+  useEffect(() => {
+    if (hidden) toldWithdrawn.current?.()
+  }, [hidden])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [mobile, setMobile] = useState('')
   const [refusal, setRefusal] = useState<SendRefusal | null>(null)
@@ -389,8 +400,8 @@ export default function LocationLinkPanel({
     if (!askToSend || askToSend === askedFor.current) return
     askedFor.current = askToSend
     if (held) {
-      rootRef.current?.scrollIntoView({ block: 'nearest' })
-      rootRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus()
+      const target = rootRef.current?.querySelector<HTMLElement>('button:not([disabled])') ?? rootRef.current
+      if (target) revealAndFocus(target)
       return
     }
     setMobile(customerMobile ?? '')

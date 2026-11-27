@@ -79,12 +79,13 @@ function AppliedItem({ card }: { card: AppliedCard }) {
   const notOn = listText(card.notOn.map(String), i18n.language)
   // The sentence names the engine's amount as a saving. 🚩 Its sign is presentation only: the
   // figure is the server's, never summed or derived (`noFigureIsComputedHere`).
-  const amount = `${formatMoney(Math.abs(card.amount))} ${t('money.currency')}`
+  const amount = formatMoney(Math.abs(card.amount))
+  const currency = t('money.currency')
   const offer = card.description
   const say: GuidancePhrase[] = [
     card.lines.length > 0
-      ? { key: 'callcenter:promotions.say.applied', params: { offer, amount, lines, count: card.lines.length } }
-      : { key: 'callcenter:promotions.say.appliedOrder', params: { offer, amount } },
+      ? { key: 'callcenter:promotions.say.applied', params: { offer, amount, currency, lines, count: card.lines.length } }
+      : { key: 'callcenter:promotions.say.appliedOrder', params: { offer, amount, currency } },
     ...(card.notOn.length > 0
       ? [{ key: 'callcenter:promotions.say.notOn', params: { lines: notOn, count: card.notOn.length } }]
       : []),
@@ -97,7 +98,8 @@ function AppliedItem({ card }: { card: AppliedCard }) {
     >
       <div className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 text-sm font-medium" data-cc-server-text>
-          <Ltr>{card.description}</Ltr>
+          {/* Free server text, in either script: `<bdi>`, not `Ltr`. */}
+          <bdi>{card.description}</bdi>
         </span>
         <span className="shrink-0" data-cc-applied-amount>
           <Ltr>

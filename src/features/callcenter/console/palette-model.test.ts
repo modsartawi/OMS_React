@@ -581,6 +581,16 @@ describe('newRowsAreEnabledOnlyWithAHandler', () => {
     expect(rowOf(collecting, 'verb:reorderLast').reason).toBe(VAGUE_REASON)
     expect(rowOf(collecting, 'verb:nextFreeSlot').reason).toBe('callcenter:palette.reason.COLLECTION_HAS_NO_SLOT')
   })
+
+  it('says the location link is not available here once the panel withdrew it (CCL-00001)', () => {
+    const shut = { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, sendLocationLink: null } }
+    const withdrawn = build({ hasCaller: true, locationLinkWithdrawn: true, actions: shut })
+    expect(rowOf(withdrawn, 'verb:sendLocationLink').run).toBeNull()
+    expect(rowOf(withdrawn, 'verb:sendLocationLink').reason).toBe(
+      'callcenter:palette.reason.LOCATION_LINK_UNAVAILABLE',
+    )
+    expect(rowOf(build({ hasCaller: true, actions: shut }), 'verb:sendLocationLink').reason).toBe(VAGUE_REASON)
+  })
 })
 
 describe('noChordReachesATerminalAct', () => {

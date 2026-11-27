@@ -306,6 +306,8 @@ function ConsoleSession() {
   const [slotLapsed, setSlotLapsed] = useState(false)
   /** 992 — Ctrl K's *Send location link*: each bump is one ask the panel answers. */
   const [linkAsk, setLinkAsk] = useState(0)
+  /** 983 review — the order whose location-link panel withdrew Send (`CCL-00001`). */
+  const [linkWithdrawnOn, setLinkWithdrawnOn] = useState<string | null>(null)
 
   /** The source + reference form, open or not (173). One flag for two chips:
    *  they collapse two fields of one act. */
@@ -940,23 +942,27 @@ function ConsoleSession() {
    * a predicate this console does not own — the same reasoning that keeps
    * `submitBlockers` the only thing that dims *Place order*.
    */
+  const sendDocumentSource = (action: { documentSource: string; sourceReference: string }) => {
+    const requestId = newRequestId()
+    return runGuarded(() =>
+      callCenterApi.setDocumentSource(
+        transactionId!,
+        requestId,
+        action.documentSource,
+        action.sourceReference,
+      ),
+    )
+  }
+  const applySourceState = (fresh: SessionState) => {
+    queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+      applyState(current, fresh),
+    )
+  }
   const documentSource = useMutation({
     // No `again`: the form draws this call's own failure.
-    mutationFn: (action: { documentSource: string; sourceReference: string }) => {
-      const requestId = newRequestId()
-      return runGuarded(() =>
-        callCenterApi.setDocumentSource(
-          transactionId!,
-          requestId,
-          action.documentSource,
-          action.sourceReference,
-        ),
-      )
-    },
+    mutationFn: sendDocumentSource,
     onSuccess: (fresh) => {
-      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
-        applyState(current, fresh),
-      )
+      applySourceState(fresh)
       setEditingSource(false)
     },
     retry: false,
@@ -972,6 +978,17 @@ function ConsoleSession() {
    * this tab all find it already tried.
    */
   const defaultTried = useRef(new Set<string>())
+  /**
+   * 🚩 The default's OWN mutation, never the agent's (983 review): it applies the state
+   * and nothing else. It does not close a Source form the agent opened meanwhile, and a
+   * refusal stays here — the form shows only the agent's own failures, so a quiet refusal
+   * is never read later as a stale one, and the reference cue below is not masked by it.
+   */
+  const defaultSource = useMutation({
+    mutationFn: sendDocumentSource,
+    onSuccess: applySourceState,
+    retry: false,
+  })
   /** The default the server wanted a reference for — the source section's cue to
    *  word why it opened and put the caret in the reference box. */
   const [defaultNeedsReference, setDefaultNeedsReference] = useState<string | null>(null)
@@ -994,7 +1011,7 @@ function ConsoleSession() {
     const id = session.data?.transactionId
     if (!defaultToApply || !id || defaultTried.current.has(id)) return
     defaultTried.current.add(id)
-    documentSource.mutate(
+    defaultSource.mutate(
       { documentSource: defaultToApply, sourceReference: '' },
       {
         onError: (err) => {
@@ -1004,7 +1021,7 @@ function ConsoleSession() {
         },
       },
     )
-    // `documentSource` / `openSection` are fresh each render; the guard is the ref.
+    // `defaultSource` / `openSection` are fresh each render; the guard is the ref.
   },[defaultToApply, session.data?.transactionId])
   // The cue is spent once the section closes, by any road.
   useEffect(() => {
@@ -2516,11 +2533,17 @@ function ConsoleSession() {
         // with its reason). Each opens its own section too, so a refusal is drawn where the
         // agent already reads it. `reorderLast` is 990's Reorder all on the newest order; `applyHeldCoupon`
         // on a read of the caller's held coupons — the console has none yet (987: no new read).
+        locationLinkWithdrawn={linkWithdrawnOn === session.data.transactionId}
         shortcuts={{
           reorderLast: reorderLastOrder ?? undefined,
-          sendLocationLink: showsSendAction(session.data.capabilities)
-            ? () => setLinkAsk((n) => n + 1)
-            : undefined,
+          // Withheld (a disabled row with its reason) on a closed order, where the panel
+          // draws nothing, and once the panel withdrew Send for this order.
+          sendLocationLink:
+            session.data.status === 'open' &&
+            showsSendAction(session.data.capabilities) &&
+            linkWithdrawnOn !== session.data.transactionId
+              ? () => setLinkAsk((n) => n + 1)
+              : undefined,
           switchFulfilment:
             session.data.status === 'open' &&
             capabilityGate(session.data.capabilities, 'canChangeFulfilment').open &&
@@ -2560,6 +2583,7 @@ function ConsoleSession() {
             onApply={applyLocation}
             onRefresh={refreshSession}
             askToSend={linkAsk}
+            onWithdrawn={() => setLinkWithdrawnOn(session.data!.transactionId)}
             onCreateAddress={
               session.data.header.customer && session.data.capabilities.canOpenAddressBook
                 ? createAddressFromLocation

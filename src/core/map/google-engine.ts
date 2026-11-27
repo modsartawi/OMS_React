@@ -181,8 +181,7 @@ export function googleEngine(loader: GoogleLoader = googleLoader()): MapEngine {
             new Polyline({
               map: m,
               path: ring.path.map((q) => ({ lat: q.lat, lng: q.lon })),
-              ...lineStroke({ id: ring.id, from: ring.path[0], to: ring.path[0], stroke: ring.stroke, label: '', strong: false, dash: 'dashed' }),
-              strokeWeight: RING_LINE_WIDTH,
+              ...lineStroke({ id: ring.id, from: ring.path[0], to: ring.path[0], stroke: ring.stroke, label: '', strong: false, dash: 'dashed' }, RING_LINE_WIDTH),
               zIndex: 0,
               clickable: false,
             }),

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { WeightSetVersion } from '@/core/models/sourcing-run'
-import { controlValue, isChanged, openDraft, saveRequest, setValue, WEIGHT_CONTROLS, weightSetRef } from './draft-model'
+import { controlValue, isChanged, openDraft, saveRequest, setValue, waitsForSet, WEIGHT_CONTROLS, weightSetRef } from './draft-model'
 
 /** A saved version as the read door would give it: the panel's values and settings the panel does not show. */
 const baseline: WeightSetVersion = {
@@ -89,5 +89,24 @@ describe('save as a named set', () => {
 
   it('a blank name saves nothing', () => {
     expect(saveRequest(openDraft(baseline), '   ')).toBeNull()
+  })
+})
+
+describe('Run waits for the weight set (review 4354 #7)', () => {
+  const reading = { draft: false, setsRead: false, setsFailed: false, chosen: false, versionFailed: false }
+
+  it('waits while the sets, or the chosen version, are still being read — a run then would name no set', () => {
+    expect(waitsForSet(reading)).toBe(true)
+    expect(waitsForSet({ ...reading, setsRead: true, chosen: true })).toBe(true)
+  })
+
+  it('runs once the draft is open', () => {
+    expect(waitsForSet({ ...reading, setsRead: true, chosen: true, draft: true })).toBe(false)
+  })
+
+  it('never waits on a read that failed, nor when there is no set to read: the door then plans on the candidate set', () => {
+    expect(waitsForSet({ ...reading, setsFailed: true })).toBe(false)
+    expect(waitsForSet({ ...reading, setsRead: true, chosen: true, versionFailed: true })).toBe(false)
+    expect(waitsForSet({ ...reading, setsRead: true, chosen: false })).toBe(false)
   })
 })

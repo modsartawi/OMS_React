@@ -11,7 +11,8 @@
 //   3. the three panels: the promise check's words, the cost notice and no riyal figure, a mark with no orders greyed;
 //   4. "Where the plans differ": the rows per view, no estimate for "outside the rules", the view in the URL;
 //   5. a segment opens its orders in the drawer, the figure sent to the door; the list sorts and pages;
-//   6. one order opens its card, the advisor's plan beside what happened, and "Open the stored run in the simulator";
+//   6. one order opens its card, the advisor's plan beside what happened; "Open the stored run in the simulator" is not
+//      offered (review 4354 #4: the simulator does not read the stored run yet, and the view grant opens no simulator);
 //   7. a mark's count opens its orders; a filter re-reads the summary; the seven tabs, the open one kept in the URL;
 //   8. no page error and no raw key;
 //   9. (ticket 973) Trials: the list newest first, a trial's result with its refusals in the spec order, the factor
@@ -372,14 +373,8 @@ async function scenario(browser, lang) {
   const dashed = await drawer.locator('[data-card-side="happened"]').evaluate((el) => getComputedStyle(el).borderStyle)
   check(`${tag} what happened sits in a dashed box`, dashed.includes('dashed'), dashed)
   await page.screenshot({ path: `${SHOTS}/${lang}-drawer.png` })
-  await drawer.locator('[data-open-simulator]').click()
-  await page.waitForTimeout(500)
-  const navs = await page.evaluate(() => window.__navs)
-  check(
-    `${tag} "Open the stored run in the simulator" opens the run (the simulator's route is ticket 962's)`,
-    navs.some((u) => u.includes('/oms/sourcing-simulator?run=01JDQ7Y3K2M5N8P0R4S6T9V1WX')),
-    navs.join(' '),
-  )
+  // Review 4354 #4: the simulator does not read `?run=` yet, and this context holds the view grant, not the run grant.
+  check(`${tag} "Open the stored run in the simulator" is not offered while the simulator cannot open it`, (await drawer.locator('[data-open-simulator]').count()) === 0)
 
   // 7. a mark's count, a filter, the tabs
   await page.goto(`${BASE}/oms/sourcing-results`)
@@ -551,7 +546,10 @@ async function scenario(browser, lang) {
     sameFields(wire.marks.at(-1), { channelGroup: 'APP_SITE', runs: 'OMS', from: '2026-10-29', orderNumber: '4500718405', mark: 'WRONG_RULE', view: 'WHOLE_PLAN', direction: 'EARLIER' }),
     JSON.stringify(wire.marks.at(-1)),
   )
-  check(`${tag} the mark stands, and the order opens its stored run`, (await page.locator('[data-largest-row="4500718405"]').getAttribute('data-largest-mark')) === 'WRONG_RULE' && (await page.locator('[data-largest-row="4500718405"] a').getAttribute('href'))?.includes('/oms/sourcing-simulator?run='))
+  check(
+    `${tag} the mark stands; the order is no link to a stored run the simulator cannot open (review 4354 #4)`,
+    (await page.locator('[data-largest-row="4500718405"]').getAttribute('data-largest-mark')) === 'WRONG_RULE' && (await page.locator('[data-largest-row="4500718405"] a').count()) === 0,
+  )
   await page.locator('[data-bar-ruling-due="BOOK_AT_ZERO:DAWAA_NOW"] [data-bar-ruling-text]').fill('Counts too few at zero book; keep the figure.')
   await page.locator('[data-bar-ruling-due="BOOK_AT_ZERO:DAWAA_NOW"] [data-bar-ruling-save]').click()
   await page.locator('[data-bar-ruling-written="BOOK_AT_ZERO:DAWAA_NOW"]').waitFor({ timeout: 10000 })

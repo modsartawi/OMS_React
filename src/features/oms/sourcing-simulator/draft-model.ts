@@ -79,6 +79,27 @@ export function weightSetRef(draft: WeightDraft): AdviseWeightSetRef {
   return isChanged(draft) ? { draft: { basedOn, values: { ...draft.values } } } : basedOn
 }
 
+/** Where the panel's read of the weight sets stands. */
+export interface SetReading {
+  /** The chosen version is read and open as the draft. */
+  draft: boolean
+  setsRead: boolean
+  setsFailed: boolean
+  /** A version is chosen (picked, or the one the picker opens on). */
+  chosen: boolean
+  versionFailed: boolean
+}
+
+/**
+ * Whether Run waits for the set (review 4354 #7): a run sent before the draft opens names no set, and the moment it
+ * opens the ask changes — the plans read as stale, and the next Run plans again on the earlier figures instead of
+ * reading afresh. A failed read never holds Run, nor does a list with no set to choose: the door plans on the candidate.
+ */
+export function waitsForSet(r: SetReading): boolean {
+  if (r.draft || r.setsFailed || r.versionFailed) return false
+  return !(r.setsRead && !r.chosen)
+}
+
 /** The body of "save as a named set"; null for a blank name. */
 export function saveRequest(draft: WeightDraft, name: string): WeightSetSaveRequest | null {
   const n = name.trim()

@@ -74,13 +74,24 @@ describe('a click on the map places the customer', () => {
     expect(cards.at(-1)).toMatchObject({ id: '1090', pinned: true })
   })
 
-  it('a click beside the points still closes a pinned card, as before, and places the customer too', () => {
+  it('a click beside the points while a card shows only closes the card: the customer stays where it was', () => {
     const placed: MapPlace[] = []
     const { e, cards } = open((p) => placed.push(p))
     e.events.tap({ id: '1090', x: 10, y: 10 }, 14)
     e.events.tap(null, 14, { lon: 46.7, lat: 24.69 })
     expect(cards.at(-1)).toBeNull()
-    expect(placed).toEqual([{ lon: 46.7, lat: 24.69 }])
+    expect(placed).toEqual([])
+  })
+
+  it('a hover card closes on a click beside the points without placing; the next click places', () => {
+    const placed: MapPlace[] = []
+    const { e, cards } = open((p) => placed.push(p))
+    e.events.pointer({ id: '1090', x: 10, y: 10 }, 14)
+    e.events.tap(null, 14, { lon: 46.7, lat: 24.69 })
+    expect(cards.at(-1)).toBeNull()
+    expect(placed).toEqual([])
+    e.events.tap(null, 14, { lon: 46.71, lat: 24.7 })
+    expect(placed).toEqual([{ lon: 46.71, lat: 24.7 }])
   })
 
   it('a map whose caller places nothing behaves as before: a click beside closes the card and nothing throws', () => {

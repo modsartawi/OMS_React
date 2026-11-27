@@ -329,9 +329,11 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
             running?.zoomTo(f.lon, f.lat, openingZoom(open.points, f.members ?? [], zoom, open.grouping ?? null))
             return
           }
+          // 962: a click beside every point places the customer there — unless a card was showing: that click only
+          // closes the card (review 4354 #5), so dismissing a store's card never moves the customer.
+          const cardWasOpen = card !== null
           cardOn({ kind: 'tap', target: f ? target : null })
-          // 962: a click beside every point places the customer there.
-          if (!f && place && state !== 'closed') open.onPlace?.(place)
+          if (!f && !cardWasOpen && place && state !== 'closed') open.onPlace?.(place)
         },
         // 964: the pin's drop is the caller's, until the panel is closed.
         pinMoved: (place) => {

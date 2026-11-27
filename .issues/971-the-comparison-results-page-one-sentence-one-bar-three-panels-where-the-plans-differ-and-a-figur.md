@@ -83,3 +83,12 @@ Proof: 31 vitest cases in the three model tests (`npm test`: 968 files green); `
 `tools/sourcing-results-drive.mjs` 85/85 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL. Under RTL the app's words
 stay English (the main app runs `lng: 'en'`), so the RTL pass proves the mirroring (the first segment and both brackets
 at the right) and the isolation; the Arabic locale file is in place for when the app switches language.
+
+**2026-11-27 — review 4354 #4: "Open the stored run in the simulator" is hidden.** The simulator never reads `?run=`:
+opening a stored run as it was is a read door of its own, not an advise call (BackOffice 4281 decision 11), and neither
+that door nor the simulator's reading of the parameter is built. The orders drawer's button and the bar tab's
+largest-differences links therefore show only under `canOpenStoredRun` (`src/core/sourcing-advisor/access.ts`), which
+is false while `SIMULATOR_READS_RUN` is false, and from then on needs the run grant (`canRunSourcingAdvisor`) — the
+results page opens under the view grant, which does not open the simulator. **Gap:** the ticket's "Open the stored run
+in the simulator" is not delivered until the simulator gains that read door; turn `SIMULATOR_READS_RUN` on in the change
+that builds it. The drive now checks the button and the links are absent.

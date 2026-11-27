@@ -4,12 +4,14 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatMoney3 } from '@/core/util/number-format'
-import { hasPin, type PinsCost } from './pins-model'
+import type { PinsCost } from './pins-model'
 import { usePlanWords } from './use-plan-words'
 
 /** What a plan card is handed to pin from it (ticket 963). Absent, the card shows no pin buttons. */
 export interface PlanPinning {
-  pins: readonly AdvisePin[]
+  /** Whether the pin is set (its button shows pressed). */
+  pressed: (pin: AdvisePin) => boolean
+  /** Sets the pin, or takes it off when it is set (review 4354 #10). */
   onPin: (pin: AdvisePin) => void
   /** Per goal, what the pins cost it; empty when the run had no pins. */
   cost: Partial<Record<PlanGoal, PinsCost>>
@@ -17,7 +19,8 @@ export interface PlanPinning {
 
 /**
  * The pin buttons on one shipment (ticket 963, spec 4354 story 20; the prototype's `shipHtml`): "never this store" for
- * the shipment, and per line "pin store" and "pin mode". A pin already set shows pressed. Nothing runs: Run plans again.
+ * the shipment, and per line "pin store" and "pin mode". A pin already set shows pressed; pressed again, it comes off.
+ * Nothing runs: Run plans again.
  */
 export function ShipmentPins({ s, pinning }: { s: AdviseShipment; pinning: PlanPinning }) {
   const w = usePlanWords()
@@ -28,7 +31,7 @@ export function ShipmentPins({ s, pinning }: { s: AdviseShipment; pinning: PlanP
       <Button
         variant="link"
         className="self-start"
-        aria-pressed={hasPin(pinning.pins, never)}
+        aria-pressed={pinning.pressed(never)}
         onClick={() => pinning.onPin(never)}
         data-pin-never-store={s.store}
       >
@@ -41,11 +44,11 @@ export function ShipmentPins({ s, pinning }: { s: AdviseShipment; pinning: PlanP
           return (
             <li key={lineNo} className="flex flex-wrap items-center gap-x-2" data-shipment-line={lineNo}>
               <span className="text-muted-foreground">{t('pins.plan.line', { line: fsi(lineNo) })}</span>
-              <Button variant="link" aria-pressed={hasPin(pinning.pins, store)} onClick={() => pinning.onPin(store)} data-pin-line-store={lineNo}>
+              <Button variant="link" aria-pressed={pinning.pressed(store)} onClick={() => pinning.onPin(store)} data-pin-line-store={lineNo}>
                 <Pin className="size-3" aria-hidden />
                 {t('pins.plan.pinStore')}
               </Button>
-              <Button variant="link" aria-pressed={hasPin(pinning.pins, mode)} onClick={() => pinning.onPin(mode)} data-pin-line-mode={lineNo}>
+              <Button variant="link" aria-pressed={pinning.pressed(mode)} onClick={() => pinning.onPin(mode)} data-pin-line-mode={lineNo}>
                 <Pin className="size-3" aria-hidden />
                 {t('pins.plan.pinMode')}
               </Button>

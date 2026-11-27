@@ -21,6 +21,7 @@
     "badPoint": "The customer's point needs a latitude and a longitude.",
     "badTotal": "The cart value is an amount in riyals.",
     "stale": "The cart has changed since this run. Press Run to plan it again.",
+    "readingSet": "Reading the weight set… Run waits for it.",
     "tryAgain": "Try again",
     "code": "Code"
   },

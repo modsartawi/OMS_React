@@ -30,6 +30,7 @@ import type {
   ApplyLocationRequest,
   CustomerAddressBookEntry,
   CustomerAddressCapture,
+  CustomerHistory,
   CustomerRequest,
   DeliveryType,
   ItemSearchResult,
@@ -108,6 +109,16 @@ export const addressBookKey = (customerId: string) =>
  */
 export const customerRequestsKey = (customerId: string) =>
   ['callcenter', 'requests', customerId] as const
+
+/**
+ * One caller's last orders and usual items (990, v1.13 C2). Keyed by the
+ * **customer**, as the requests and the book are: the door scopes the read to
+ * whoever is attached, so the key moves with the caller and the read is made once
+ * per attached customer (spec 983 D11) — a swap reads the new caller's, never
+ * shows the last one's.
+ */
+export const customerHistoryKey = (customerId: string) =>
+  ['callcenter', 'history', customerId] as const
 
 /**
  * One catalogue search. Keyed by the **order** as well as the term, because the
@@ -977,6 +988,21 @@ export const callCenterApi = {
    */
   customerRequests(transactionId: string): Promise<CustomerRequest[]> {
     return api.get<CustomerRequest[]>('CallCenterWeb/CustomerRequests', { transactionId })
+  },
+
+  /**
+   * `GET CallCenterWeb/CustomerHistory` (v1.13 C2, BackOffice 4455) — the attached
+   * caller's last 5 orders, newest first, and their usual items (top 8 by number of
+   * orders over 12 months). A pure read, so no `requestId`.
+   *
+   * 🚩 **The transaction id is the only id it carries**, exactly as
+   * `customerRequests`: the scope comes off the session row, and before an attach
+   * the door refuses `NO_CUSTOMER_ATTACHED` — which is why the page fires it only
+   * with a caller on the order (`historyRead`). A degraded source answers `null`
+   * lists, never empty ones (`CustomerHistory`).
+   */
+  customerHistory(transactionId: string): Promise<CustomerHistory> {
+    return api.get<CustomerHistory>('CallCenterWeb/CustomerHistory', { transactionId })
   },
 
   /**

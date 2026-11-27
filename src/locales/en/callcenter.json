@@ -863,6 +863,35 @@
       "malformed": "SPL refused this as malformed. A Short Address is four letters followed by four digits, e.g. RIMA6904."
     }
   },
+  "history": {
+    "lastOrders": "Last orders",
+    "usuallyBuys": "Usually buys",
+    "loading": "Loading the caller's history…",
+    "loadFailed": "Could not load the caller's history.",
+    "noOrders": "No past orders.",
+    "noUsual": "No usual items yet.",
+    "addUsual": "Add one to the order",
+    "moreItems_one": "and {{n}} more item",
+    "moreItems_other": "and {{n}} more items",
+    "channel": {
+      "callCenter": "Call center",
+      "online": "Online",
+      "store": "In store"
+    },
+    "reorder": {
+      "all": "Reorder all",
+      "running": "Reordering…",
+      "toast": "{{added}} added",
+      "belowAtp": "Not added: the store has fewer than this. Add it from search to accept.",
+      "stoppedBusy_one": "Stopped: the order is busy. {{n}} item was not tried.",
+      "stoppedBusy_other": "Stopped: the order is busy. {{n}} items were not tried.",
+      "stoppedClosed_one": "Stopped: this order is closed. {{n}} item was not tried.",
+      "stoppedClosed_other": "Stopped: this order is closed. {{n}} items were not tried.",
+      "rest_one": "Add the remaining {{n}}",
+      "rest_other": "Add the remaining {{n}}",
+      "dismiss": "Dismiss"
+    }
+  },
   "callerColumn": {
     "addresses": "Addresses",
     "manageAddresses": "Manage",

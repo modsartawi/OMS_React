@@ -1,10 +1,12 @@
-import type { AdvisePlan } from '@/core/models/sourcing-run'
+import type { AdvisePlan, PlanGoal } from '@/core/models/sourcing-run'
 import Ltr from '@/core/ui/Ltr'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatPair } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { plansTable, type PlanCell } from './plans-table-model'
+import type { PinsCost } from './pins-model'
 import PlanHead from './PlanHead'
+import { PinsCostLine } from './PlanPins'
 import { usePlanWords } from './use-plan-words'
 import { toMinute } from './WhatHappenedCard'
 import { happenedCells, type HappenedCell, type WhatHappenedCard } from './what-happened-model'
@@ -16,7 +18,16 @@ import { happenedCells, type HappenedCell, type WhatHappenedCard } from './what-
 /** A promise sentence wraps; every figure stays on one line (`TD`). */
 const WRAP_TD = 'min-w-48 px-2 py-1.5 align-top'
 
-export default function PlansTable({ plans, happened = null }: { plans: readonly AdvisePlan[]; happened?: WhatHappenedCard | null }) {
+/** `pinsCost` (ticket 963): with pins on, one more row, what the pins cost each plan. */
+export default function PlansTable({
+  plans,
+  pinsCost,
+  happened = null,
+}: {
+  plans: readonly AdvisePlan[]
+  pinsCost?: Partial<Record<PlanGoal, PinsCost>>
+  happened?: WhatHappenedCard | null
+}) {
   const w = usePlanWords()
   const table = plansTable({ plans: [...plans] })
   // 964: on a replay, "What happened" is the table's last column.
@@ -57,6 +68,18 @@ export default function PlansTable({ plans, happened = null }: { plans: readonly
               )}
             </tr>
           ))}
+          {pinsCost && Object.keys(pinsCost).length > 0 && (
+            <tr data-plans-row="pinsCost">
+              <th className={`${TH} text-start font-medium`} scope="row">
+                {w.t('pins.cost.title')}
+              </th>
+              {table.columns.map((c) => (
+                <td key={c.goal} className={WRAP_TD} data-plans-cell={`pinsCost:${c.goal}`}>
+                  <PinsCostLine cost={pinsCost[c.goal]} titled={false} />
+                </td>
+              ))}
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

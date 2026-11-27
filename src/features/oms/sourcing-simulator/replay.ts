@@ -3,13 +3,11 @@
  * customer-point switch (`withCustomerPoint`, decision 17), and the point the user placed by hand, if any. Pure.
  */
 import type { AdviseCartRequest, AdvisePoint, AdviseReplayRequest } from '@/core/models/sourcing-run'
+import type { SimulatorRequest } from './replan-model'
 
 /** How a run is started (SIMT decision 6: a two-way switch). */
 export const START_KINDS = ['replay', 'build'] as const
 export type StartKind = (typeof START_KINDS)[number]
-
-/** Any request the simulator sends. */
-export type SimulatorRequest = AdviseCartRequest | AdviseReplayRequest
 
 export interface ReplayForm {
   orderNumber: string

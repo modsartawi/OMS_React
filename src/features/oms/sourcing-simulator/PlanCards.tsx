@@ -5,6 +5,7 @@ import { formatFigure } from '@/core/util/number-format'
 import { planColumn } from './plans-table-model'
 import { shortFigures } from './short-figure'
 import PlanHead from './PlanHead'
+import { PinsCostLine, ShipmentPins, type PlanPinning } from './PlanPins'
 import { usePlanWords } from './use-plan-words'
 import WhatHappenedCard from './WhatHappenedCard'
 import type { WhatHappenedCard as Happened } from './what-happened-model'
@@ -12,13 +13,14 @@ import type { WhatHappenedCard as Happened } from './what-happened-model'
 /**
  * The plans as cards (ticket 962, SIMT decision 1): per plan its label and tags, the server's promise sentence in both
  * languages, the customer's fee per shipment and in total, the company's cost, the price of waiting and the balanced
- * total, then its shipments and the lines not on it.
+ * total, then its shipments and the lines not on it. With `pinning` (ticket 963) each shipment carries its pin
+ * buttons and each plan what the pins cost it.
  */
-export default function PlanCards({ plans, happened = null }: { plans: readonly AdvisePlan[]; happened?: Happened | null }) {
+export default function PlanCards({ plans, pinning, happened = null }: { plans: readonly AdvisePlan[]; pinning?: PlanPinning; happened?: Happened | null }) {
   return (
     <div className="grid gap-3 xl:grid-cols-2" data-plan-cards="">
       {plans.map((p) => (
-        <PlanCard key={p.goal} plan={p} />
+        <PlanCard key={p.goal} plan={p} pinning={pinning} />
       ))}
       {/* 964: on a replay, "What happened" beside the plans, as a dashed card. */}
       {happened && <WhatHappenedCard card={happened} />}
@@ -26,7 +28,7 @@ export default function PlanCards({ plans, happened = null }: { plans: readonly 
   )
 }
 
-function PlanCard({ plan }: { plan: AdvisePlan }) {
+function PlanCard({ plan, pinning }: { plan: AdvisePlan; pinning?: PlanPinning }) {
   const w = usePlanWords()
   const { t } = w
   const figures: { key: string; label: string; value: string }[] = [
@@ -55,11 +57,12 @@ function PlanCard({ plan }: { plan: AdvisePlan }) {
           </div>
         ))}
       </dl>
+      {pinning && <PinsCostLine cost={pinning.cost[plan.goal]} />}
       <div className="flex flex-col gap-2">
         <h4 className="text-xs font-semibold text-muted-foreground">{t('card.shipments')}</h4>
         <ol className="flex flex-col gap-2">
           {plan.shipments.map((s) => (
-            <Shipment key={s.no} s={s} />
+            <Shipment key={s.no} s={s} pinning={pinning} />
           ))}
         </ol>
       </div>
@@ -88,7 +91,7 @@ function PlanCard({ plan }: { plan: AdvisePlan }) {
   )
 }
 
-function Shipment({ s }: { s: AdviseShipment }) {
+function Shipment({ s, pinning }: { s: AdviseShipment; pinning?: PlanPinning }) {
   const w = usePlanWords()
   const { t } = w
   return (
@@ -131,6 +134,7 @@ function Shipment({ s }: { s: AdviseShipment }) {
           </dd>
         </div>
       </dl>
+      {pinning && <ShipmentPins s={s} pinning={pinning} />}
     </li>
   )
 }

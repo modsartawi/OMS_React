@@ -3,8 +3,17 @@
  * at the page. ⚠ Neither door exists yet (BackOffice 4355–4357 open): the drive stubs both.
  */
 import { api } from '@/core/api'
-import type { AdviseReply, AdviseWhyNot, PlanGoal, SimulatorWorkbench } from '@/core/models/sourcing-run'
-import type { SimulatorRequest } from './replay'
+import type {
+  AdviseReply,
+  AdviseWhyNot,
+  PlanGoal,
+  SimulatorWorkbench,
+  WeightSetListItem,
+  WeightSetSaveRequest,
+  WeightSetVersion,
+  WeightSetVersionRef,
+} from '@/core/models/sourcing-run'
+import type { SimulatorRequest } from './replan-model'
 
 export const simulatorApi = {
   /**
@@ -18,6 +27,21 @@ export const simulatorApi = {
    */
   workbench: () => api.get<SimulatorWorkbench>('SourcingAdvisor/Workbench'),
   /**
+   * The weight sets and their versions, for the panel's picker (ticket 963; BackOffice 4360 "list sets and versions").
+   * PROVISIONAL (spec 4354: not specified) — 4360 names the door but not its path: `SourcingAdvisor/WeightSets` is ours.
+   */
+  weightSets: () => api.get<WeightSetListItem[]>('SourcingAdvisor/WeightSets'),
+  /**
+   * One saved version, read whole (BackOffice 4360 "read a version").
+   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/WeightSets/Version` and its params are ours.
+   */
+  weightSetVersion: (ref: WeightSetVersionRef) => api.get<WeightSetVersion>('SourcingAdvisor/WeightSets/Version', { name: ref.name, version: ref.version }),
+  /**
+   * Save the draft as a named set, under the save grant (BackOffice 4360 "save, copy"). The reply names the version saved.
+   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/WeightSets/Save` is ours.
+   */
+  saveWeightSet: (body: WeightSetSaveRequest) => api.post<WeightSetVersionRef>('SourcingAdvisor/WeightSets/Save', body),
+  /**
    * `GET SourcingAdvisor/WhyNot` — "why not another store" (ticket 965, spec 4354 story 28): one store's rows of the
    * held run's `search.whyNot[]` for one goal, in 4281's row shape (decision 27).
    * PROVISIONAL (spec 4354: not specified) — the door, its path and its query `runId`, `store`, `goal` are ours. A run no
@@ -25,6 +49,21 @@ export const simulatorApi = {
    */
   whyNot: (runId: string, store: string, goal: PlanGoal) => api.get<AdviseWhyNot[]>('SourcingAdvisor/WhyNot', { runId, store, goal }),
 }
+
+export const weightSetsQuery = () => ({
+  queryKey: ['sourcing-simulator', 'weight-sets'] as const,
+  queryFn: simulatorApi.weightSets,
+  retry: false,
+})
+
+export const weightSetVersionQuery = (ref: WeightSetVersionRef | null) => ({
+  queryKey: ['sourcing-simulator', 'weight-set', ref?.name ?? '', ref?.version ?? 0] as const,
+  queryFn: () => simulatorApi.weightSetVersion(ref!),
+  enabled: !!ref,
+  // A saved version is never edited (spec 4354 §10).
+  staleTime: Infinity,
+  retry: false,
+})
 
 export const workbenchQuery = () => ({
   queryKey: ['sourcing-simulator', 'workbench'] as const,

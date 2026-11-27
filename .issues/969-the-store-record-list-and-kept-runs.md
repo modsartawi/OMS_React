@@ -38,3 +38,7 @@ The owner has seen the prototype; the model tests are green and the drive passes
 [962](962-the-simulator-builds-a-cart-runs-it-and-shows-the-plans-as-cards-or-as-one-table.md),
 BackOffice 4373 (`.issues/4373-the-store-record-is-rebuilt-each-night-per-pair-on-the-counted-channels-with-one-bad-ending-per.md`),
 BackOffice 4380 (`.issues/4380-every-run-is-held-an-earlier-run-is-planned-again-on-the-same-figures-and-a-user-keeps-a-run-by.md`)
+
+## Comments
+
+Owner decision 2026-11-27 on the prototype (branch `prototype/4354-secondary-screens`, route `/oms/prototype-sourcing-record`): **variant C**. One tab per mode. The like-store rates, counted-from date and channels are said once per mode, with a row per store below. A kept run's link opens the simulator straight away.

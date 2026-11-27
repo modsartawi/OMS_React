@@ -43,3 +43,7 @@ BackOffice 4375 (`.issues/4375-the-buffer-holds-back-expected-walk-in-sales-a-pl
 ## Open questions
 
 Who may switch a rule that guards a medicine? The default is the holder of the product rules grant.
+
+## Comments
+
+Owner decision 2026-11-27 on the prototype (branch `prototype/4354-secondary-screens`, route `/oms/prototype-sourcing-planner`): **variant A**. A row opens in a side sheet with its form, a reason where the server keeps one (overrides and stock confidence) and its own history. Rules are a list of rows. A tab is hidden without its grant. **Open question settled:** whoever holds the product rules grant may switch a rule that guards a medicine; no extra step. Defaults taken: rule, list and table changes ask no reason, as BO 4361/4362 keep none.

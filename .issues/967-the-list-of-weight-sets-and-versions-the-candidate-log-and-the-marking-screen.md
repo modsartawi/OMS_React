@@ -38,3 +38,7 @@ The owner has seen the prototype; the model tests are green and the drive passes
 [963](963-pins-and-the-weight-set-panel-pin-from-a-plan-change-values-on-a-draft-save-as-a-named-set.md),
 BackOffice 4360 (`.issues/4360-weight-sets-are-saved-as-numbered-versions-a-draft-runs-unsaved-and-the-candidate-set-is-marked.md`),
 BackOffice 4395 (`.issues/4395-a-marking-is-refused-without-a-recent-clean-trial-and-the-candidate-log-keeps-the-trials-figures.md`)
+
+## Comments
+
+Owner decision 2026-11-27 on the prototype (branch `prototype/4354-secondary-screens`, route `/oms/prototype-sourcing-sets`): **variant A**. Sets expand into versions in a table, the candidate log is rows, and marking is one long form. The four checks show first and Mark stays off while one fails. One written reason plus a tick for each "too few" / "not steady" figure. Defaults taken: the version diff shows changed settings only, grouped.

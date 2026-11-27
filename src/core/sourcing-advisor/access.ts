@@ -26,6 +26,21 @@ export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdv
 export const canRunSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisorRun:06')
 
 /**
+ * The grant to mark the candidate set (spec 4354 §10: "marking the candidate set needs a second grant"; §19 "a grant to
+ * mark the candidate set"). The weight-set list's marking screen (ticket 967) offers Mark only under it.
+ * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorMark:06`; BO 4360 seeds the grant unnamed.
+ */
+export const canMarkCandidateSet = (p: Permissions): boolean => p.has('SourcingAdvisorMark:06')
+
+/**
+ * Who opens the list of weight sets and versions, with the candidate log (ticket 967). Spec 4354 §19 lists the screen
+ * but gives it no grant of its own: whoever runs sets (the simulator's picker already reads the list), saves them or
+ * marks one reads it. Today's view grant alone does not.
+ * PROVISIONAL (spec 4354: not specified) — which grants open the screen.
+ */
+export const canOpenWeightSets = (p: Permissions): boolean => canRunSourcingAdvisor(p) || canSaveWeightSets(p) || canMarkCandidateSet(p)
+
+/**
  * The three planner grants (ticket 968, BackOffice spec 4354 §19: "a grant for the buffer overrides and the hand-set
  * stock confidence; a grant for the product rules and lists; a grant for the other planner tables"). BO 4375, 4362 and
  * 4361 each seed one, unnamed. The planner page shows a tab only to the holder of its grant (owner's pick, variant A).

@@ -193,6 +193,8 @@ tools/.store-stages-shots/
 tools/.stock-fallback-shots/
 # Comparison results drive screenshots (tools/sourcing-results-drive.mjs, ticket 971)
 tools/.sourcing-results-shots/
+# Weight sets drive screenshots (tools/sourcing-sets-drive.mjs, ticket 967)
+tools/.sourcing-sets-shots/
 # Store record and kept runs drive screenshots (tools/sourcing-record-drive.mjs, ticket 969)
 tools/.sourcing-record-shots/
 # Sourcing planner data drive screenshots (tools/sourcing-planner-drive.mjs, ticket 968)

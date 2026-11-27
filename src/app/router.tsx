@@ -434,6 +434,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-results/SourcingResultsPage')).default,
         }),
       },
+      // Weight sets (ticket 967, BackOffice spec 4354 §10, §19) — the sets and versions, the candidate log and the
+      // marking screen. Open to whoever runs, saves or marks sets (provisional keys).
+      {
+        path: 'oms/sourcing-sets',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-sets/SourcingSetsPage')).default,
+        }),
+      },
       // Sourcing planner data (ticket 968, BackOffice spec 4354 §19) — the eight planner tables, each tab under one of the
       // three planner grants (provisional keys); the page opens with any one of them.
       {

@@ -1,0 +1,352 @@
+{
+  "_note": "PROVISIONAL stub (oms ticket 967): BackOffice 4360 and 4395 name no path and no field. The model tests and tools/sourcing-sets-drive.mjs both read this file. Figures from the owner's prototype (variant A).",
+  "sets": [
+    {
+      "name": "Baseline",
+      "owner": null,
+      "note": "Every starting value of spec 4354. Seed data, belongs to nobody, cannot be edited.",
+      "retired": false,
+      "trial": false,
+      "candidateVersion": null,
+      "versions": [1],
+      "saved": [{ "version": 1, "savedBy": null, "savedAt": "2026-10-01 00:00:00", "change": "Seed values of spec 4354" }]
+    },
+    {
+      "name": "Express margin",
+      "owner": "nalharbi",
+      "note": "Dawaa Now margin and waiting rate tuned on November's deliveries.",
+      "retired": false,
+      "trial": false,
+      "candidateVersion": 4,
+      "versions": [1, 2, 3, 4, 5],
+      "saved": [
+        { "version": 1, "savedBy": "nalharbi", "savedAt": "2026-10-20 13:02:44", "change": "Waiting priced at SAR 6 an hour" },
+        { "version": 2, "savedBy": "nalharbi", "savedAt": "2026-10-24 09:41:10", "change": "Margin multiplier 1.25 on every mode" },
+        { "version": 3, "savedBy": "nalharbi", "savedAt": "2026-10-29 15:12:03", "change": "A split costs SAR 2; Dawaa Now one-unit shelf chance lowered" },
+        { "version": 4, "savedBy": "nalharbi", "savedAt": "2026-11-16 11:27:51", "change": "Margin back to 1.10; waiting SAR 6.50" },
+        { "version": 5, "savedBy": "nalharbi", "savedAt": "2026-11-24 10:05:19", "change": "Fee weight 0.75; five shelf chance figures from the 90-day evidence" }
+      ]
+    },
+    {
+      "name": "Wider slot reach",
+      "owner": "msartawi",
+      "note": "Slot delivery from any delivering store within 20 km.",
+      "retired": false,
+      "trial": false,
+      "candidateVersion": null,
+      "versions": [1, 2],
+      "saved": [
+        { "version": 1, "savedBy": "msartawi", "savedAt": "2026-10-06 10:00:12", "change": "Slot reach widened to 20 km" },
+        { "version": 2, "savedBy": "msartawi", "savedAt": "2026-10-09 17:45:00", "change": "At most two shipments" }
+      ]
+    },
+    {
+      "name": "Carrier pilot",
+      "owner": "falotaibi",
+      "note": "Aramex next-day from Riyadh's delivering stores, on an assumed contract row.",
+      "retired": false,
+      "trial": true,
+      "candidateVersion": null,
+      "versions": [1],
+      "saved": [{ "version": 1, "savedBy": "falotaibi", "savedAt": "2026-11-12 08:30:40", "change": "Carrier modes on" }]
+    },
+    {
+      "name": "تجربة سجل الصيدلية",
+      "owner": "msartawi",
+      "note": "What the plans look like without the store record.",
+      "retired": true,
+      "trial": false,
+      "candidateVersion": null,
+      "versions": [1, 2, 3],
+      "saved": [
+        { "version": 1, "savedBy": "msartawi", "savedAt": "2026-10-02 12:00:00", "change": "Store record switched off" },
+        { "version": 2, "savedBy": "msartawi", "savedAt": "2026-10-03 09:20:31", "change": "Buffer off too" },
+        { "version": 3, "savedBy": "msartawi", "savedAt": "2026-10-04 14:55:02", "change": "Buffer back on" }
+      ]
+    }
+  ],
+  "versions": [
+    {
+      "name": "Baseline",
+      "version": 1,
+      "candidate": false,
+      "trial": false,
+      "values": {
+        "companyCostWeight": 1, "feeWeight": 1, "waitingPerHour": 5, "splitPenalty": 0, "mostShipments": 3, "marginMultiplier": 1,
+        "buffer": true, "stockConfidence": true, "storeRecord": true,
+        "widerSlotReach": false, "carrierModes": false, "feePerOrder": false, "pickUpInDeliveryPlan": false,
+        "pairCap": 100,
+        "shelfChance": { "DAWAA_NOW": { "1": { "L0": 62.5, "L1": 81 } }, "SLOT": { "1": { "L2": 88 }, "2": { "L0": 55 } }, "PICK_UP": { "1": { "L0": 43 } } }
+      }
+    },
+    {
+      "name": "Express margin",
+      "version": 3,
+      "candidate": false,
+      "trial": false,
+      "values": {
+        "companyCostWeight": 1, "feeWeight": 1, "waitingPerHour": 6, "splitPenalty": 2, "mostShipments": 3, "marginMultiplier": 1.25,
+        "buffer": true, "stockConfidence": true, "storeRecord": true,
+        "widerSlotReach": false, "carrierModes": false, "feePerOrder": false, "pickUpInDeliveryPlan": false,
+        "pairCap": 100,
+        "shelfChance": { "DAWAA_NOW": { "1": { "L0": 60, "L1": 81 } }, "SLOT": { "1": { "L2": 88 }, "2": { "L0": 55 } }, "PICK_UP": { "1": { "L0": 43 } } }
+      }
+    },
+    {
+      "name": "Express margin",
+      "version": 4,
+      "candidate": true,
+      "trial": false,
+      "values": {
+        "companyCostWeight": 1, "feeWeight": 1, "waitingPerHour": 6.5, "splitPenalty": 2, "mostShipments": 3, "marginMultiplier": 1.1,
+        "buffer": true, "stockConfidence": true, "storeRecord": true,
+        "widerSlotReach": false, "carrierModes": false, "feePerOrder": false, "pickUpInDeliveryPlan": false,
+        "pairCap": 100,
+        "shelfChance": { "DAWAA_NOW": { "1": { "L0": 60, "L1": 81 } }, "SLOT": { "1": { "L2": 88 }, "2": { "L0": 55 } }, "PICK_UP": { "1": { "L0": 43 } } }
+      }
+    },
+    {
+      "name": "Express margin",
+      "version": 5,
+      "candidate": false,
+      "trial": false,
+      "values": {
+        "companyCostWeight": 1, "feeWeight": 0.75, "waitingPerHour": 6.5, "splitPenalty": 2, "mostShipments": 3, "marginMultiplier": 1.1,
+        "buffer": true, "stockConfidence": true, "storeRecord": true,
+        "widerSlotReach": false, "carrierModes": false, "feePerOrder": false,
+        "pairCap": 100,
+        "shelfChance": { "DAWAA_NOW": { "1": { "L0": 58, "L1": 78.5 } }, "SLOT": { "1": { "L2": 89.5 }, "2": { "L0": 51.25 } }, "PICK_UP": { "1": { "L0": 40 } } }
+      }
+    },
+    {
+      "name": "Wider slot reach",
+      "version": 2,
+      "candidate": false,
+      "trial": false,
+      "values": {
+        "companyCostWeight": 1, "feeWeight": 1, "waitingPerHour": 5, "splitPenalty": 0, "mostShipments": 2, "marginMultiplier": 1,
+        "buffer": true, "stockConfidence": true, "storeRecord": true,
+        "widerSlotReach": true, "carrierModes": false, "feePerOrder": false, "pickUpInDeliveryPlan": false,
+        "pairCap": 100,
+        "shelfChance": { "DAWAA_NOW": { "1": { "L0": 62.5, "L1": 81 } }, "SLOT": { "1": { "L2": 88 }, "2": { "L0": 55 } }, "PICK_UP": { "1": { "L0": 43 } } }
+      }
+    },
+    {
+      "name": "Carrier pilot",
+      "version": 1,
+      "candidate": false,
+      "trial": true,
+      "values": {
+        "companyCostWeight": 1, "feeWeight": 1, "waitingPerHour": 5, "splitPenalty": 0, "mostShipments": 3, "marginMultiplier": 1,
+        "buffer": true, "stockConfidence": true, "storeRecord": true,
+        "widerSlotReach": false, "carrierModes": true, "feePerOrder": false, "pickUpInDeliveryPlan": false,
+        "pairCap": 100,
+        "shelfChance": { "DAWAA_NOW": { "1": { "L0": 62.5, "L1": 81 } }, "SLOT": { "1": { "L2": 88 }, "2": { "L0": 55 } }, "PICK_UP": { "1": { "L0": 43 } } }
+      }
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-11-18 10:42:05",
+      "by": "nalharbi",
+      "before": { "name": "Express margin", "version": 3 },
+      "after": { "name": "Express margin", "version": 4 },
+      "reason": "Version 3 promised Dawaa Now too tightly in the 4 to 6 km band; 1.10 keeps the band inside the promise band on the trial.",
+      "exception": null,
+      "trial": {
+        "trialId": "T-0031",
+        "period": { "from": "2026-11-03", "to": "2026-11-16" },
+        "days": 14,
+        "orders": 41902,
+        "plansChanged": { "count": 1284, "of": 41090, "percent": 3.1 },
+        "kinds": [
+          { "kind": "ANOTHER_STORE", "count": 902 },
+          { "kind": "ANOTHER_MODE", "count": 211 },
+          { "kind": "FEWER_SHIPMENTS", "count": 140 },
+          { "kind": "MORE_SHIPMENTS", "count": 31 }
+        ],
+        "refused": { "count": 812, "of": 41902, "percent": 1.9 },
+        "refusedBy": [
+          { "reason": "STORE_NEVER_READ", "count": 282 },
+          { "reason": "REACH_WIDER_THAN_READ", "count": 530 }
+        ],
+        "stopFindings": 0,
+        "promise": [
+          { "mode": "PICK_UP", "channelGroup": "CALL_CENTRE", "count": 1077, "percent": 85.2, "band": null, "targetMinutes": 30, "candidatePercent": 85.0 },
+          { "mode": "DAWAA_NOW", "channelGroup": null, "count": 9812, "percent": 90.4, "band": { "from": 85, "to": 95 }, "candidatePercent": 89.7 },
+          { "mode": "SLOT", "channelGroup": null, "count": 21330, "percent": 96.9, "band": { "from": 85, "to": 95 }, "candidatePercent": 96.8 },
+          { "mode": "PICK_UP", "channelGroup": "APP_SITE", "count": 6204, "percent": 88.1, "band": null, "targetMinutes": 30, "candidatePercent": 87.9 }
+        ]
+      },
+      "barDay": 15
+    },
+    {
+      "at": "2026-11-02 09:15:30",
+      "by": "nalharbi",
+      "before": { "name": "Baseline", "version": 1 },
+      "after": { "name": "Express margin", "version": 3 },
+      "reason": "Waiting rate and split cost judged on 15 days of stored orders; the promise check met in every band.",
+      "exception": null,
+      "trial": {
+        "trialId": "T-0027",
+        "period": { "from": "2026-10-16", "to": "2026-10-30" },
+        "days": 15,
+        "orders": 44210,
+        "plansChanged": { "count": 2930, "of": 43600, "percent": 6.7 },
+        "kinds": [{ "kind": "ANOTHER_STORE", "count": 2930 }],
+        "refused": { "count": 610, "of": 44210, "percent": 1.4 },
+        "refusedBy": [{ "reason": "REACH_WIDER_THAN_READ", "count": 610 }],
+        "stopFindings": 0,
+        "promise": [
+          { "mode": "DAWAA_NOW", "channelGroup": null, "count": 9812, "percent": 89.7, "band": { "from": 85, "to": 95 }, "candidatePercent": 86.2 }
+        ]
+      },
+      "barDay": 4
+    },
+    {
+      "at": "2026-10-01 00:00:00",
+      "by": null,
+      "before": null,
+      "after": { "name": "Baseline", "version": 1 },
+      "reason": "The baseline set ships as the first candidate set.",
+      "exception": "FIRST_CANDIDATE",
+      "trial": null,
+      "barDay": null
+    }
+  ],
+  "marking": {
+    "Express margin|5": {
+      "target": { "name": "Express margin", "version": 5 },
+      "candidate": { "name": "Express margin", "version": 4 },
+      "trialSet": false,
+      "checks": [
+        { "check": "BALANCED_ON", "passed": true, "why": [] },
+        { "check": "NO_WHAT_IF", "passed": true, "why": [] },
+        { "check": "NO_ASSUMED_CARRIER_ROW", "passed": true, "why": [] },
+        { "check": "KEPT_TRIAL", "passed": true, "why": [] }
+      ],
+      "trial": {
+        "trialId": "T-0036",
+        "period": { "from": "2026-11-10", "to": "2026-11-23" },
+        "days": 14,
+        "endedDaysAgo": 4,
+        "orders": 43118,
+        "plansChanged": { "count": 2116, "of": 42401, "percent": 5.0 },
+        "kinds": [
+          { "kind": "ANOTHER_STORE", "count": 1402 },
+          { "kind": "ANOTHER_MODE", "count": 388 },
+          { "kind": "FEWER_SHIPMENTS", "count": 251 },
+          { "kind": "MORE_SHIPMENTS", "count": 75 }
+        ],
+        "refused": { "count": 717, "of": 43118, "percent": 1.7 },
+        "refusedBy": [
+          { "reason": "STORE_NEVER_READ", "count": 114 },
+          { "reason": "REACH_WIDER_THAN_READ", "count": 402 },
+          { "reason": "HIGHER_PAIR_CAP_ON_CUT_RUN", "count": 201 }
+        ],
+        "stopFindings": 0,
+        "promise": [
+          { "mode": "SLOT", "channelGroup": null, "count": 21330, "percent": 97.1, "band": { "from": 85, "to": 95 }, "candidatePercent": 96.9 },
+          { "mode": "PICK_UP", "channelGroup": "CALL_CENTRE", "count": 1077, "percent": 84.9, "band": null, "targetMinutes": 30, "candidatePercent": 85.2 },
+          { "mode": "DAWAA_NOW", "channelGroup": null, "count": 9812, "percent": 91.8, "band": { "from": 85, "to": 95 }, "candidatePercent": 90.4 },
+          { "mode": "PICK_UP", "channelGroup": "APP_SITE", "count": 6204, "percent": 88.3, "band": null, "targetMinutes": 30, "candidatePercent": 88.1 }
+        ]
+      },
+      "lastCandidate": null,
+      "shelf": [
+        { "key": "SLOT.2.L0", "mode": "SLOT", "asked": 2, "leftOver": "L0", "from": 55, "to": 51.25, "reading": "NOT_STEADY", "lines": 1890, "failed": 921, "expectedFailed": 851, "halves": [44.1, 53.4] },
+        { "key": "DAWAA_NOW.1.L0", "mode": "DAWAA_NOW", "asked": 1, "leftOver": "L0", "from": 60, "to": 58, "reading": "ENOUGH_TO_CHANGE", "lines": 3412, "failed": 1433, "expectedFailed": 1330, "halves": [41.6, 42.4] },
+        { "key": "DAWAA_NOW.1.L1", "mode": "DAWAA_NOW", "asked": 1, "leftOver": "L1", "from": 81, "to": 78.5, "reading": "TOO_FEW", "lines": 202, "failed": 44, "expectedFailed": 38, "halves": [22.0, 21.6] },
+        { "key": "SLOT.1.L2", "mode": "SLOT", "asked": 1, "leftOver": "L2", "from": 88, "to": 89.5, "reading": "ENOUGH_TO_CHANGE", "lines": 5120, "failed": 538, "expectedFailed": 614, "halves": [10.3, 10.7] },
+        { "key": "PICK_UP.1.L0", "mode": "PICK_UP", "asked": 1, "leftOver": "L0", "from": 43, "to": 40, "reading": "TOO_FEW", "lines": 37, "failed": 23, "expectedFailed": 21, "halves": [61.0, null] }
+      ]
+    },
+    "Express margin|3": {
+      "target": { "name": "Express margin", "version": 3 },
+      "candidate": { "name": "Express margin", "version": 4 },
+      "trialSet": false,
+      "checks": [
+        { "check": "BALANCED_ON", "passed": true, "why": [] },
+        { "check": "NO_WHAT_IF", "passed": true, "why": [] },
+        { "check": "NO_ASSUMED_CARRIER_ROW", "passed": true, "why": [] },
+        {
+          "check": "KEPT_TRIAL",
+          "passed": false,
+          "why": [
+            { "code": "TRIAL_TOO_SHORT", "figure": "10" },
+            { "code": "TRIAL_TOO_OLD", "figure": "9" },
+            { "code": "TRIAL_REFUSED_TOO_MANY", "figure": "6.2" },
+            { "code": "TRIAL_STOP_FINDING", "figure": "1" }
+          ]
+        }
+      ],
+      "trial": {
+        "trialId": "T-0034",
+        "period": { "from": "2026-11-09", "to": "2026-11-18" },
+        "days": 10,
+        "endedDaysAgo": 9,
+        "orders": 30544,
+        "plansChanged": { "count": 1510, "of": 28650, "percent": 5.3 },
+        "kinds": [{ "kind": "ANOTHER_STORE", "count": 1510 }],
+        "refused": { "count": 1894, "of": 30544, "percent": 6.2 },
+        "refusedBy": [
+          { "reason": "REACH_WIDER_THAN_READ", "count": 1310 },
+          { "reason": "STORE_NEVER_READ", "count": 584 }
+        ],
+        "stopFindings": 1,
+        "promise": [
+          { "mode": "DAWAA_NOW", "channelGroup": null, "count": 7011, "percent": 88.0, "band": { "from": 85, "to": 95 }, "candidatePercent": 90.4 }
+        ]
+      },
+      "lastCandidate": null,
+      "shelf": []
+    },
+    "Wider slot reach|2": {
+      "target": { "name": "Wider slot reach", "version": 2 },
+      "candidate": { "name": "Express margin", "version": 4 },
+      "trialSet": false,
+      "checks": [
+        { "check": "BALANCED_ON", "passed": true, "why": [] },
+        { "check": "NO_WHAT_IF", "passed": true, "why": [] },
+        { "check": "NO_ASSUMED_CARRIER_ROW", "passed": true, "why": [] },
+        { "check": "KEPT_TRIAL", "passed": false, "why": [{ "code": "NO_TRIAL" }] }
+      ],
+      "trial": null,
+      "lastCandidate": null,
+      "shelf": [
+        { "key": "DAWAA_NOW.1.L0", "mode": "DAWAA_NOW", "asked": 1, "leftOver": "L0", "from": 60, "to": 62.5, "reading": "ENOUGH_TO_CHANGE", "lines": 3412, "failed": 1433, "expectedFailed": 1330, "halves": [41.6, 42.4] }
+      ]
+    },
+    "Carrier pilot|1": {
+      "target": { "name": "Carrier pilot", "version": 1 },
+      "candidate": { "name": "Express margin", "version": 4 },
+      "trialSet": true,
+      "checks": [
+        { "check": "BALANCED_ON", "passed": true, "why": [] },
+        { "check": "NO_WHAT_IF", "passed": false, "why": [{ "code": "WHAT_IF_ON_PLANNER_DATA" }] },
+        { "check": "NO_ASSUMED_CARRIER_ROW", "passed": false, "why": [{ "code": "CARRIER_ROW_ASSUMED", "figure": "ARAMEX-RUH" }] },
+        { "check": "KEPT_TRIAL", "passed": false, "why": [{ "code": "NO_TRIAL" }] }
+      ],
+      "trial": null,
+      "lastCandidate": null,
+      "shelf": []
+    },
+    "Baseline|1": {
+      "target": { "name": "Baseline", "version": 1 },
+      "candidate": { "name": "Express margin", "version": 4 },
+      "trialSet": false,
+      "checks": [
+        { "check": "BALANCED_ON", "passed": true, "why": [] },
+        { "check": "NO_WHAT_IF", "passed": true, "why": [] },
+        { "check": "NO_ASSUMED_CARRIER_ROW", "passed": true, "why": [] },
+        { "check": "KEPT_TRIAL", "passed": true, "why": [], "exception": "BACK_WITHIN_90" }
+      ],
+      "trial": null,
+      "lastCandidate": { "until": "2026-11-02 09:15:30", "daysAgo": 25 },
+      "shelf": [
+        { "key": "DAWAA_NOW.1.L0", "mode": "DAWAA_NOW", "asked": 1, "leftOver": "L0", "from": 60, "to": 62.5, "reading": "ENOUGH_TO_CHANGE", "lines": 3412, "failed": 1433, "expectedFailed": 1330, "halves": [41.6, 42.4] },
+        { "key": "PICK_UP.1.L0", "mode": "PICK_UP", "asked": 1, "leftOver": "L0", "from": 43, "to": 43, "reading": "TOO_FEW", "lines": 37, "failed": 23, "expectedFailed": 21, "halves": [61.0, 63.2] }
+      ]
+    }
+  }
+}

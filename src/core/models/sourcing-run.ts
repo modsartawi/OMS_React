@@ -122,7 +122,7 @@ export type AdvisePinKind = AdvisePin['kind']
 /**
  * A weight set's values, the whole document (BackOffice 4243 decision 19). Carried as read and sent back in full.
  * PROVISIONAL (spec 4354: not specified) — BackOffice 4360 names no key inside a set's document; the keys the simulator's
- * panel edits are ours (`WEIGHT_CONTROLS` in the simulator's `draft-model.ts`).
+ * panel edits are ours (`WEIGHT_CONTROLS` in `@/core/sourcing-advisor/weight-controls`).
  */
 export type WeightSetValues = Record<string, unknown>
 
@@ -399,6 +399,27 @@ export interface WeightSetListItem {
   candidateVersion: number | null
   /** A set with a what-if on planner data: runs under a banner, never the candidate. */
   trial: boolean
+  /**
+   * What the weight-set list (ticket 967) shows beyond the picker: the owner's note, the retired mark, and each
+   * version's saver, time and "line saying what changed" (BO 4360's set and version tables). Optional, so a reply
+   * without them still serves the simulator's picker.
+   * PROVISIONAL (spec 4354: not specified) — the fields.
+   */
+  note?: string | null
+  /** Retired, never deleted: kept for the runs that used it, never offered again (spec 4354 §10). */
+  retired?: boolean
+  saved?: WeightSetSavedVersion[]
+}
+
+/** One version's row in the list (BO 4360's version table). PROVISIONAL (spec 4354: not specified) — every field. */
+export interface WeightSetSavedVersion {
+  version: number
+  /** Who saved it; null for the baseline set's seed. */
+  savedBy: string | null
+  /** Local wall clock `yyyy-MM-dd HH:mm:ss`. */
+  savedAt: string
+  /** The line saying what changed. */
+  change: string | null
 }
 
 /**

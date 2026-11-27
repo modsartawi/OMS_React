@@ -604,6 +604,25 @@ describe('the Sourcing planner data leaf (ticket 968)', () => {
   })
 })
 
+describe('the Weight sets leaf (ticket 967)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const keys = (oms.items ?? []).map((i) => i.labelKey)
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-sets:menu.sourcingSets')!
+
+  it('sits in the OMS group right after the Store record (planner data and store record follow the simulator), lit alone on its own screen', () => {
+    expect(keys.indexOf('sourcing-sets:menu.sourcingSets')).toBe(keys.indexOf('sourcing-record:menu.sourcingRecord') + 1)
+    expect(leaf.routerLink).toBe('/oms/sourcing-sets')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-sets')).map((i) => i.labelKey)).toEqual(['sourcing-sets:menu.sourcingSets'])
+  })
+
+  it('🚩 opens to the run, save or mark grant (provisional keys), not to the view grant, and fails closed', () => {
+    for (const key of ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06']) expect(shows(leaf, key)).toBe(true)
+    expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
+  })
+})
+
 describe('the Road distance (Shadow) leaf (ticket 859)', () => {
   const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
   const keys = (oms.items ?? []).map((i) => i.labelKey)

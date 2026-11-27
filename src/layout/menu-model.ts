@@ -24,7 +24,7 @@ import { canOpenExpiredApprovalPicks } from '@/features/oms/expired-approval-pic
 import { canOpenHeldStockReport } from '@/features/stock/held-stock-report/access'
 import { canOpenHoldDailyList } from '@/features/stock/hold-daily-list/access'
 import { canOpenStoreStages } from '@/features/stock/store-stages/access'
-import { canOpenSourcingPlanner, canRunSourcingAdvisor, canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { canOpenSourcingPlanner, canOpenWeightSets, canRunSourcingAdvisor, canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { SIMULATOR_PATH } from '@/core/sourcing-advisor/simulator-path'
 import { canOpenStockHealth } from '@/features/stock/stock-health/access'
 import { canOpenStockConsole } from '@/features/stock/stock-console/access'
@@ -377,6 +377,16 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/oms/sourcing-record',
         activePrefix: '/oms/sourcing-record',
         requires: canRunSourcingAdvisor,
+      },
+      {
+        // Weight sets (ticket 967, BackOffice spec 4354 §10, §19) — the sets and versions, the candidate log and the
+        // marking screen. Open to whoever runs, saves or marks sets (provisional keys, `canOpenWeightSets` in `@/core/`);
+        // fails closed. After the store record, before Pick support, which keeps its place.
+        labelKey: 'sourcing-sets:menu.sourcingSets',
+        icon: Layers,
+        routerLink: '/oms/sourcing-sets',
+        activePrefix: '/oms/sourcing-sets',
+        requires: canOpenWeightSets,
       },
       {
         // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport:03`, placed before Delivery statistics

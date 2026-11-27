@@ -8,8 +8,10 @@ import {
   canEditPlannerBuffer,
   canEditPlannerRules,
   canEditPlannerTables,
+  canMarkCandidateSet,
   canOpenSourcingPlanner,
   canOpenStoredRun,
+  canOpenWeightSets,
   canRunSourcingAdvisor,
   canSaveWeightSets,
   canViewSourcingAdvisor,
@@ -20,6 +22,22 @@ describe('the save grant (save weight sets, start trials)', () => {
     expect(canSaveWeightSets(permissionsOf({ screens: ['SourcingAdvisorSave:01'] }))).toBe(true)
     expect(canSaveWeightSets(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
     expect(canSaveWeightSets(permissionsOf(null))).toBe(false)
+  })
+})
+
+describe('the marking grant and the weight-set list (ticket 967, provisional keys)', () => {
+  it('marks the candidate set on its own key — the save grant does not mark', () => {
+    expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorMark:06'] }))).toBe(true)
+    expect(canMarkCandidateSet(permissionsOf({ screens: ['SourcingAdvisorSave:01', 'SourcingAdvisorRun:06'] }))).toBe(false)
+    expect(canMarkCandidateSet(permissionsOf(null))).toBe(false)
+  })
+
+  it('the list opens to whoever runs, saves or marks sets — not to the view grant alone', () => {
+    for (const key of ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06'] as const) {
+      expect(canOpenWeightSets(permissionsOf({ screens: [key] }))).toBe(true)
+    }
+    expect(canOpenWeightSets(permissionsOf({ screens: ['SourcingAdvisor:01'] }))).toBe(false)
+    expect(canOpenWeightSets(permissionsOf(null))).toBe(false)
   })
 })
 

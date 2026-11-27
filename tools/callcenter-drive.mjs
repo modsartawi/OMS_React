@@ -1346,6 +1346,11 @@ async function open(
 
 const count = (calls, re) => calls.filter((c) => re.test(c)).length
 const text = async (page, selector) => (await page.locator(selector).first().innerText()).trim()
+// What the checklist still waits on (spec 983 D3: ticket 984 replaced the receipt's
+// `[data-cc-blockers]` line with *Before you place it*). Its MISSING rows only — a done
+// row ("Delivery slot chosen") names the same section and must not read as a blocker.
+const blockersText = async (page) =>
+  (await page.locator('[data-cc-checklist] [data-cc-check-state="missing"]').allInnerTexts()).join(' ').trim()
 
 async function run() {
   const browser = await chromium.launch()
@@ -1398,7 +1403,7 @@ async function run() {
 
     // Submit: disabled by `capabilities`, reason named from `submitBlockers`.
     check('Place order is disabled', await page.locator('[data-cc-submit]').isDisabled())
-    const blockers = await text(page, '[data-cc-blockers]')
+    const blockers = await blockersText(page)
     check(
       'the reason submit is blocked is named',
       STATE.capabilities.submitBlockers.length > 0 && blockers.length > 0,
@@ -3251,7 +3256,7 @@ async function run() {
         (await chipState('reference')) === 'needsAttention',
     )
     check('and submit is dead while they are', await page.locator('[data-cc-submit]').isDisabled())
-    const blockers = (await text(page, '[data-cc-blockers]')).replace(/\s+/g, ' ')
+    const blockers = (await blockersText(page)).replace(/\s+/g, ' ')
     check('the dead submit NAMES what it is waiting for', blockers.length > 20, blockers)
     check(
       '🚩 in words — an unknown blocker code never reaches the agent',
@@ -3303,8 +3308,8 @@ async function run() {
     )
     check(
       'and the *needs attention* state clears with it',
-      !(await text(page, '[data-cc-blockers]')).toLowerCase().includes('slot'),
-      await text(page, '[data-cc-blockers]'),
+      !(await blockersText(page)).toLowerCase().includes('slot'),
+      await blockersText(page),
     )
 
     // ---- the source and its reference: two chips, one form, one verb ----
@@ -3431,8 +3436,8 @@ async function run() {
     // 🚩 It blocks nothing: the receipt never names it, whatever else it names.
     check(
       '🚩 and nothing in the receipt is waiting on a note',
-      !(await text(page, '[data-cc-blockers]')).toLowerCase().includes('note'),
-      await text(page, '[data-cc-blockers]'),
+      !(await blockersText(page)).toLowerCase().includes('note'),
+      await blockersText(page),
     )
 
     await page.locator('[data-cc-chip-open="note"]').click()

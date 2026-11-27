@@ -131,6 +131,23 @@
       "left_other": "{{n}} أمر متبقٍ"
     }
   },
+  "receipt": {
+    "heading": "يدفع المتصل",
+    "original": "السعر الأصلي",
+    "discount": "الخصم",
+    "subtotal": "المجموع الفرعي",
+    "vat": "ضريبة القيمة المضافة",
+    "delivery": "رسوم التوصيل",
+    "free": "مجانًا",
+    "freeOver": "التوصيل مجاني فوق {{amount}} {{currency}}.",
+    "saves": "يوفّر المتصل",
+    "total": "الإجمالي",
+    "waivedReason": {
+      "ThresholdReached": "تجاوزت السلة حد التوصيل المجاني.",
+      "PromotionalWindow": "حملة توصيل مجاني جارية.",
+      "ConfiguredOverride": "نوع هذا الطلب بلا رسوم توصيل."
+    }
+  },
   "checklist": {
     "heading": "قبل تنفيذ الطلب",
     "done": {

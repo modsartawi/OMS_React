@@ -364,6 +364,15 @@ export interface DeliveryFee {
 
 /** Engine truth. The console never sums `lines` (§2.1). */
 export interface SessionTotals {
+  /**
+   * v1.13 (C1, BackOffice 4454) — the ex-VAT amount before any discount, from the
+   * same engine run as `net`. Absent on a v1.12 server: the receipt then hides
+   * Original and Discount rather than deriving them.
+   */
+  beforeDiscount?: number
+  /** v1.13 (C1) — the total discount, a POSITIVE amount; `beforeDiscount − discount = net`
+   *  on the server. The delivery fee is in neither. The client never does that sum. */
+  discount?: number
   net: number
   vat: number
   gross: number

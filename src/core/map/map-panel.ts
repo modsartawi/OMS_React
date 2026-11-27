@@ -4,6 +4,7 @@ import {
   GROUP_LABEL_INK,
   lineFeatures,
   openingZoom,
+  polygonFeatures,
   RING_INK,
   ringFeatures,
   type MapCardState,
@@ -12,12 +13,14 @@ import {
   type MapLine,
   type MapLineFeature,
   type MapPoint,
+  type MapPolygon,
+  type MapPolygonFeature,
   type MapRing,
   type MapRingFeature,
   type MapTarget,
 } from './map-drawing'
 
-export type { MapCard, MapCardState, MapFeature, MapGrouping, MapLine, MapLineFeature, MapPoint, MapRing, MapRingFeature, MapTarget } from './map-drawing'
+export type { MapCard, MapCardState, MapFeature, MapGrouping, MapLine, MapLineFeature, MapPoint, MapPolygon, MapPolygonFeature, MapRing, MapRingFeature, MapTarget } from './map-drawing'
 
 /**
  * The map panel's own logic (ticket 879, BackOffice spec 3630 M28, M29, M33-M35; ticket 908, ADR 0139): what it hands the
@@ -80,6 +83,11 @@ export interface MapEngineStart {
    * list, empty when the caller gave none; absent is read as empty.
    */
   lines?: MapLineFeature[]
+  /**
+   * The shapes to shade beneath the lines and the points (947), in the order given, colours resolved. The panel always
+   * hands the list, empty when the caller gave none; absent is read as empty.
+   */
+  polygons?: MapPolygonFeature[]
   /** The rings to draw beneath the points (964), colours resolved. Absent is read as none. */
   rings?: MapRingFeature[]
   /** The customer's pin (964), above every point, colours resolved. Absent: none. */
@@ -141,6 +149,8 @@ export interface MapEngineEvents {
    * run plans again on the drop. Optional for an engine that draws no pin.
    */
   pinMoved?(place: MapPlace): void
+  /** A click or a tap on a shape (947), by its id. Optional: an engine started with no shapes never reports one. */
+  shapeTap?(id: string): void
 }
 
 /** The engine once started. */
@@ -209,6 +219,32 @@ export interface OpenMapPanel {
   pin?: MapPin | null
   /** The pin was dragged and dropped here (964). Absent: the pin is drawn but cannot be dragged. */
   onPinMoved?(place: MapPlace): void
+  /** Shapes to shade beneath the lines and the points (947): the command center's regions. Absent: none. */
+  polygons?: readonly MapPolygon[]
+  /** A point or a shape was tapped (947): the caller opens what it stands for. A group's tap zooms in and tells nothing. */
+  onSelect?(selection: MapSelection): void
+  /**
+   * The whole zoom from which points are drawn (947): further out the map shows only its shapes. Absent: points at
+   * every zoom, as on every map before.
+   */
+  pointsFromZoom?: number
+  /** The view to open on (947). Absent: the view fitted to the points and the lines' ends. */
+  view?: MapView
+}
+
+/** What a tap chose (947): a store's point, or a shape, by id. */
+export type MapSelection = { kind: 'point' | 'shape'; id: string }
+
+/**
+ * The panel's key for a view (947): by value, so a view built again does not move the map, plus the caller's choice
+ * count (`nonce`), so choosing the same view again moves the map back to it after the reader has panned away.
+ */
+export const mapViewKey = (view: MapView | null, nonce = 0): string => (view ? `${JSON.stringify(view)}#${nonce}` : '')
+
+/** An open panel: closed once, and told to show another view (947) without starting the map again. */
+export interface OpenedMapPanel {
+  close(): void
+  show(view: MapView): void
 }
 
 /** The view that holds every point (and every line's two ends, 922: pass them as places). */
@@ -241,7 +277,7 @@ export function fittedView(points: readonly { lon: number; lat: number }[]): Map
  *
  * Nothing is signalled once the panel is closed.
  */
-export function openMapPanel(open: OpenMapPanel): { close(): void } {
+export function openMapPanel(open: OpenMapPanel): OpenedMapPanel {
   let state: 'drawing' | 'drawn' | 'ended' | 'closed' = 'drawing'
   const end = (signal: () => void, to: 'drawn' | 'ended' = 'ended') => {
     if (state !== 'drawing') return
@@ -251,11 +287,12 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
   const key = open.maps?.key?.trim() ?? ''
   if (key === '') {
     open.onCannotDraw('no-key')
-    return { close: () => {} }
+    return { close: () => {}, show: () => {} }
   }
   const lines = open.lines ?? []
   const pin = open.pin ?? null
-  const view = fittedView([...open.points, ...lines.flatMap((l) => [l.from, l.to]), ...(pin ? [pin] : [])])
+  // The view on show: the one opened on, then the last the caller set (947). A box sized late is fitted to it (W2).
+  let view = open.view ?? fittedView([...open.points, ...lines.flatMap((l) => [l.from, l.to]), ...(pin ? [pin] : [])])
   let tilesLoaded = false
   let idle = false
   const drawnWhenBoth = () => {
@@ -280,7 +317,9 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
   const featuresOf = (zoom: number) => {
     const z = Math.floor(zoom)
     let f = drawn.get(z)
-    if (!f) drawn.set(z, (f = featuresAt(open.points, z, open.grouping ?? null, inkOf, open.groupNearby !== false)))
+    // 947: further out than `pointsFromZoom` only the shapes show.
+    const shown = open.pointsFromZoom !== undefined && z < open.pointsFromZoom ? [] : open.points
+    if (!f) drawn.set(z, (f = featuresAt(shown, z, open.grouping ?? null, inkOf, open.groupNearby !== false)))
     return f
   }
   // A target is read against the features it was drawn from (review W8): the zoom may have moved on since.
@@ -309,6 +348,7 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
         ...(pin
           ? { pin: { lon: pin.lon, lat: pin.lat, fill: inkOf(pin.ink), stroke: inkOf(RING_INK), label: pin.label, draggable: !!open.onPinMoved } }
           : {}),
+        polygons: polygonFeatures(open.polygons ?? [], inkOf),
       },
       {
         tilesLoaded: () => {
@@ -334,10 +374,14 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
           const cardWasOpen = card !== null
           cardOn({ kind: 'tap', target: f ? target : null })
           if (!f && !cardWasOpen && place && state !== 'closed') open.onPlace?.(place)
+          if (f && state !== 'closed') open.onSelect?.({ kind: 'point', id: f.id })
         },
         // 964: the pin's drop is the caller's, until the panel is closed.
         pinMoved: (place) => {
           if (state !== 'closed') open.onPinMoved?.(place)
+        },
+        shapeTap: (id) => {
+          if (state !== 'closed') open.onSelect?.({ kind: 'shape', id })
         },
         // Review W4: a card stands by its store, not where the store was when it was pointed at. A store joined into a
         // group by a zoom out is no longer a point to stand by: its card closes.
@@ -372,6 +416,11 @@ export function openMapPanel(open: OpenMapPanel): { close(): void } {
     close: () => {
       state = 'closed'
       running?.destroy()
+    },
+    show: (next) => {
+      if (state === 'closed') return
+      view = next
+      running?.fit(next)
     },
   }
 }

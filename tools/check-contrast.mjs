@@ -265,6 +265,8 @@ const mapLight = [
   ...['--map-better', '--map-same', '--map-worse', '--map-ring', '--map-group'].map((t) => [t, '--card', UI]),
   // 964: the simulator's map tab — each mode's store and leg, and the customer's pin.
   ...['--map-mode-dawaa-now', '--map-mode-slot', '--map-mode-carrier', '--map-mode-pick-up', '--map-customer'].map((t) => [t, '--card', UI]),
+  // oms 947: the command center's pharmacy points are the status tokens (green, amber, red) on the same light map.
+  ...['--success', '--attention', '--danger'].map((t) => [t, '--card', UI]),
   ['--map-group-ink', '--map-group', BODY],
 ]
 // The comparison results page (oms-react 971, BackOffice spec 4354 §17). The bar's segments, the classes and the

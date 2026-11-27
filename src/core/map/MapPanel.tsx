@@ -4,7 +4,24 @@ import { documentDirection } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { googleEngine } from './google-engine'
 import { placeCard } from './map-drawing'
-import { openMapPanel, type CannotDrawReason, type MapCardState, type MapGrouping, type MapLine, type MapPin, type MapPlace, type MapPoint, type MapRing, type MapsAccess } from './map-panel'
+import {
+  openMapPanel,
+  type CannotDrawReason,
+  mapViewKey,
+  type MapCardState,
+  type MapGrouping,
+  type MapLang,
+  type MapLine,
+  type MapPin,
+  type MapPlace,
+  type MapPoint,
+  type MapPolygon,
+  type MapRing,
+  type MapSelection,
+  type MapsAccess,
+  type MapView,
+  type OpenedMapPanel,
+} from './map-panel'
 
 /**
  * The map panel (ticket 879, BackOffice spec 3630; ticket 908, ADR 0139): given points, it draws them on Google's road
@@ -58,6 +75,25 @@ export interface MapPanelProps {
   onPlace?: (place: MapPlace) => void
   /** The panel's size. Defaults to the full width and a fixed height. */
   className?: string
+  /** Shapes to shade beneath the points (947: the command center's regions). Stable, like `points`. Absent: none. */
+  polygons?: readonly MapPolygon[]
+  /** A point or a shape was tapped (947). Absent: a tap only shows a point's card, as before. */
+  onSelect?: (selection: MapSelection) => void
+  /** The whole zoom from which points are drawn (947); further out only the shapes show. Absent: points at every zoom. */
+  pointsFromZoom?: number
+  /**
+   * The view to show (947: a region chosen zooms to it). The map opens on it, and moves to each new one without starting
+   * again; compared by value. Absent: the view fitted to the points.
+   */
+  view?: MapView | null
+  /** Bumped by the caller on each choice of a view, so choosing the same one again moves the map back to it (947). */
+  viewNonce?: number
+  /**
+   * The language of Google's labels and the direction of its controls, for a page that sets its own (947: the command
+   * center's `?lang=`). Absent: the screen's language (`i18n.language`) and the page's direction.
+   */
+  lang?: MapLang
+  dir?: 'ltr' | 'rtl'
 }
 
 /** A token's value on the page (Google takes a colour, not a CSS variable). */
@@ -77,6 +113,13 @@ export default function MapPanel({
   onCannotDraw,
   onPlace,
   className = 'h-80 w-full',
+  polygons,
+  onSelect,
+  pointsFromZoom,
+  view = null,
+  viewNonce = 0,
+  lang: pageLang,
+  dir: pageDir,
 }: MapPanelProps) {
   const { i18n } = useTranslation()
   const box = useRef<HTMLDivElement>(null)
@@ -84,11 +127,17 @@ export default function MapPanel({
   const [state, setState] = useState<MapPanelState>('drawing')
   const [card, setCard] = useState<MapCardState>(null)
   // The callers' latest handlers, without restarting the map when they change identity.
-  const handlers = useRef({ onDrawn, onCannotDraw, onPlace, onPinMoved })
-  handlers.current = { onDrawn, onCannotDraw, onPlace, onPinMoved }
+  const handlers = useRef({ onDrawn, onCannotDraw, onSelect, onPlace, onPinMoved })
+  handlers.current = { onDrawn, onCannotDraw, onSelect, onPlace, onPinMoved }
   // Whether a drag moves the pin: a fact of the map as started, so only its change restarts the map.
   const movable = !!onPinMoved
-  const lang = i18n.language?.split('-')[0] === 'ar' ? 'ar' : 'en'
+  const lang = pageLang ?? (i18n.language?.split('-')[0] === 'ar' ? 'ar' : 'en')
+  const dir = pageDir ?? documentDirection()
+  // 947: the view by value. The map opens on the one set when it starts and is moved to each later one.
+  const viewKey = mapViewKey(view, viewNonce)
+  const viewNow = useRef(view)
+  viewNow.current = view
+  const panelRef = useRef<OpenedMapPanel | null>(null)
   // The key's own value, not the part's identity: a model read again must not restart a drawn map.
   const key = maps?.key ?? ''
   const mapId = maps?.mapId
@@ -109,11 +158,15 @@ export default function MapPanel({
       rings,
       pin,
       ...(movable ? { onPinMoved: (place: MapPlace) => handlers.current.onPinMoved?.(place) } : {}),
+      polygons,
+      pointsFromZoom,
+      ...(viewNow.current ? { view: viewNow.current } : {}),
+      onSelect: (selection) => handlers.current.onSelect?.(selection),
       inkOf: (token) => tokenOf(container, token),
       onCard: setCard,
       onPlace: (place) => handlers.current.onPlace?.(place),
       lang,
-      dir: documentDirection(),
+      dir,
       onDrawn: () => {
         setState('drawn')
         handlers.current.onDrawn?.()
@@ -123,8 +176,15 @@ export default function MapPanel({
         handlers.current.onCannotDraw?.(reason)
       },
     })
-    return () => panel.close()
-  }, [points, grouping, groupNearby, lines, rings, pin, movable, lang, key, mapId])
+    panelRef.current = panel
+    return () => {
+      panelRef.current = null
+      panel.close()
+    }
+  }, [points, grouping, groupNearby, lines, rings, pin, movable, polygons, pointsFromZoom, lang, dir, key, mapId])
+  useEffect(() => {
+    if (viewNow.current) panelRef.current?.show(viewNow.current)
+  }, [viewKey])
   const shown = card ? points.find((p) => p.id === card.id) : undefined
 
   return (

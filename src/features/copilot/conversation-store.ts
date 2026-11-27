@@ -5,9 +5,10 @@ import { useSession } from '@/core/session'
 import { newRequestId } from '@/core/engine-session/request-id'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { AnalyticsLabel } from '@/core/models/analytics'
+import type { CopilotFinding } from '@/core/copilot-panel'
 import type { CopilotAnswer, CopilotAskRequest, CopilotQuestionOrigin, CopilotSqlItemRef, CopilotSqlOffer, CopilotStatedReading } from '@/core/models/copilot'
 import { copilotApi, copilotNamedSetApi, copilotReadingApi, type CopilotNamedSetDoors, type CopilotReadingDoors } from './api'
-import { copilotAnswerModel } from './answer'
+import { copilotAnswerModel, questionFits } from './answer'
 import { EMPTY_CONVERSATION, askBody, boxOpen, canAskMore, pendingAsk, withAnswer, withRefusal, type AskFrom, type CopilotConversation, type TurnConfirms } from './conversation'
 import { cancellationBody, confirmationBody, type CardValues, type ProposalCard } from './proposal'
 
@@ -119,13 +120,25 @@ export interface CopilotConversationState {
   setSqlMode: (on: boolean) => void
   /**
    * Q46 (BackOffice 3678): the SQL item this conversation was opened on ("Change by asking"), or null. Its id rides as
-   * `sqlItemContext` on the first question asked in SQL mode only (`sqlItemSent` then); an answer's Edit opens that
+   * `sqlItemContext` on the first question asked in SQL mode until one is answered (`sqlItemSent` then); an answer's Edit opens that
    * item's editor at the revision it was opened at. Dropped by a new conversation, a resumed one and a user change.
    */
   sqlItem: CopilotSqlItemRef | null
   sqlItemSent: boolean
   /** Opens a SQL item: a new conversation (the current one filed), the toggle on, the item held for the first question. */
   openSqlItem: (item: CopilotSqlItemRef) => void
+  /**
+   * oms 950 (BackOffice spec 4165, 4179): the finding "Ask" opened this conversation on, or null. Its id rides as
+   * `findingContext` until a question is answered (`findingSent` then: a refused one is retried with it); the panel draws its line as the shared finding card
+   * at the top. Dropped by a new conversation, a resumed one and a user change.
+   */
+  finding: CopilotFinding | null
+  findingSent: boolean
+  /**
+   * Opens a finding: a new conversation (the current one filed), SQL mode off (the findings tool is a plain question),
+   * and the finding's written question asked with its id. `null` as `ask` (nothing sent: the panel puts it in the box).
+   */
+  openFinding: (finding: CopilotFinding) => Promise<void> | null
   /**
    * "Try in SQL mode" tapped (888, BackOffice 3674, Q28): the toggle goes on and the offer's question is asked again in
    * SQL mode, in the offer's conversation, or (its id null: that was the conversation's last question) in a new one,
@@ -166,6 +179,17 @@ export interface CopilotConversationState {
   resume: (index: number) => void
   /** Drops one past conversation from the history. */
   forget: (index: number) => void
+}
+
+/**
+ * oms 950: the panel's take of a finding "Ask" handed over (`@/core/copilot-panel`): taken once, opened as a new
+ * conversation with its card (`openFinding`), and asked. What comes back is the text for the box: the question when it
+ * could not be sent (too long, review A7), else null.
+ */
+export function takeHandedFinding(take: () => CopilotFinding | null, open: (finding: CopilotFinding) => Promise<void> | null): string | null {
+  const finding = take()
+  if (finding === null) return null
+  return open(finding) === null ? finding.question : null
 }
 
 export function createCopilotConversation(
@@ -226,9 +250,16 @@ export function createCopilotConversation(
       const sql = said.sqlMode === true
       const { sqlItem, sqlItemSent } = get()
       const sqlItemContext = sql && sqlItem !== null && !sqlItemSent ? { itemId: sqlItem.itemId } : null
-      if (sqlItemContext) set({ sqlItemSent: true })
-      const from: AskFrom = { ...said, sqlMode: sql, sqlItemContext, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
-      return run(askBody(conv, question, from), question, undefined, sql).then(() => undefined)
+      const { finding, findingSent } = get()
+      const findingContext = finding !== null && !findingSent ? { findingId: finding.findingId } : null
+      const from: AskFrom = { ...said, sqlMode: sql, sqlItemContext, findingContext, reportContext: reportBridge.getState().context, boardContext: boardBridge.getState().context }
+      // Sent only once answered (review A8): a refused or dropped first question leaves them unsent, so the retry still
+      // carries the SQL item and the finding. (A reply to a cleared conversation is dropped and lands nothing.)
+      return run(askBody(conv, question, from), question, undefined, sql).then((reply) => {
+        if (reply === null) return
+        if (sqlItemContext) set({ sqlItemSent: true })
+        if (findingContext) set({ findingSent: true })
+      })
     }
     /** A confirmation needs the conversation the proposal was made in, still open, and nothing in flight. */
     const openConversation = (): string | null => {
@@ -289,6 +320,15 @@ export function createCopilotConversation(
         get().startNew()
         set({ sqlMode: true, sqlItem: { itemId: item.itemId, revision: item.revision }, sqlItemSent: false })
       },
+      finding: null,
+      findingSent: false,
+      openFinding: (finding) => {
+        get().startNew()
+        set({ sqlMode: false, finding, findingSent: false })
+        // Too long to send (review A7): the conversation, its card and its context are set up all the same; only the
+        // send is skipped, and the panel puts the question in the box (`takeHandedFinding`).
+        return questionFits(finding.question) ? put(finding.question, {}) : null
+      },
       trySqlOffer: (offer) => {
         if (get().inFlight !== null) return null
         if (offer.conversationId === null) get().startNew()
@@ -297,7 +337,7 @@ export function createCopilotConversation(
       },
       startNew: () => {
         abandon()
-        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()), sqlItem: null, sqlItemSent: false }))
+        set((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: filed(s.history, s.conv, now()), sqlItem: null, sqlItemSent: false, finding: null, findingSent: false }))
       },
       resume: (index) =>
         set((s) => {
@@ -305,7 +345,7 @@ export function createCopilotConversation(
           if (!past) return {}
           abandon()
           const rest = s.history.filter((_, i) => i !== index)
-          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()), sqlItem: null, sqlItemSent: false }
+          return { conv: past.conv, inFlight: null, epoch: s.epoch + 1, history: filed(rest, s.conv, now()), sqlItem: null, sqlItemSent: false, finding: null, findingSent: false }
         }),
       forget: (index) => set((s) => ({ history: s.history.filter((_, i) => i !== index) })),
     }
@@ -330,7 +370,7 @@ export function createCopilotConversation(
   }
   useSession.subscribe((user, before) => {
     if (user.userId !== before.userId) abandon()
-    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false, offers: {} }))
+    if (user.userId !== before.userId) store.setState((s) => ({ conv: EMPTY_CONVERSATION, inFlight: null, epoch: s.epoch + 1, history: [], sqlMode: false, sqlItem: null, sqlItemSent: false, finding: null, findingSent: false, offers: {} }))
   })
   return store
 }

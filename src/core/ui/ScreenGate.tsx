@@ -39,6 +39,7 @@ export default function ScreenGate({
   can,
   ns,
   keyPrefix = 'access',
+  t: pageT,
   title,
   subtitle,
   children,
@@ -49,6 +50,9 @@ export default function ScreenGate({
   /** Which `<keyPrefix>.*` block in `ns` holds this screen's five sentences.
    *  Defaults to `access` — the shape every caller before 296 used. */
   keyPrefix?: string
+  /** A page that sets its own language (the command center's `?lang=`, oms 946) hands in its fixed translator, so
+   *  the gate's sentences are in the page's language, not the app's. Absent: the app's, from `ns`. */
+  t?: (key: string) => string
   title: string
   subtitle: string
   /** The screen's body — **required**, which is the stricter of the two copies'
@@ -57,7 +61,8 @@ export default function ScreenGate({
    *  whose body has not landed yet passes its own placeholder, in its own words. */
   children: ReactNode
 }) {
-  const { t } = useTranslation(ns)
+  const { t: appT } = useTranslation(ns)
+  const t = pageT ?? appT
   const permissions = usePermissions()
   // Built once rather than interpolated at each of the five call sites: five
   // separate `${keyPrefix}.` concatenations is five chances to typo one and ship

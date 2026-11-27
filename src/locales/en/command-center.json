@@ -1,0 +1,138 @@
+{
+  "title": "Command center",
+  "subtitle": "Last night's picture of the chain: the morning brief, and the pharmacies and regions behind it.",
+  "menu": {
+    "commandCenter": "Command center"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the command center",
+    "deniedHint": "Your account does not hold the analytics view grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so the screen stays closed. Try again shortly."
+  },
+  "loading": "Loading the morning brief…",
+  "loadFailed": "The morning brief could not be loaded.",
+  "previousNight": "Tonight's brief is not published yet. This is the brief of {{night}}.",
+  "lang": {
+    "label": "Language",
+    "en": "English",
+    "ar": "العربية"
+  },
+  "status": {
+    "label": "Overnight runs",
+    "dataAsOf": "Data as of {{date}}",
+    "notFinished": "not finished",
+    "state": {
+      "waiting": "Waiting",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "missed": "Missed"
+    }
+  },
+  "brief": {
+    "more": "More in today's brief",
+    "section": {
+      "headline": "Headline",
+      "changed": "What changed overnight",
+      "risks": "Top risks",
+      "opportunities": "Top opportunities",
+      "slipped": "Slipped and improved",
+      "products": "Products and stock",
+      "categories": "Categories",
+      "omni": "Omni-channel pulse"
+    },
+    "dataAsOf": "Data as of {{date}}",
+    "notAvailable": "Not available this morning",
+    "lastGood": "Last good brief: {{date}}",
+    "startsOn": "The list starts on {{date}}.",
+    "empty": "Nothing to show tonight."
+  },
+  "map": {
+    "title": "Kingdom map",
+    "label": "Kingdom map: regions shaded by their share of flagged pharmacies, each pharmacy a point when zoomed in",
+    "filter": {
+      "label": "Show",
+      "all": "All issues",
+      "sales": "Sales",
+      "stock": "Stock",
+      "delivery": "Delivery"
+    },
+    "cannotDraw": "The map could not be drawn. The region table below still holds every region.",
+    "notOnMap": "Pharmacies not on the map (no coordinates):",
+    "zoomHint": "Zoom in to see each pharmacy.",
+    "boundaries": "Region borders: geoBoundaries, CC BY 4.0"
+  },
+  "regions": {
+    "title": "Regions",
+    "caption": "Pharmacies scored, flagged and their share, per region, under the map's filter",
+    "region": "Region",
+    "scored": "Scored",
+    "flagged": "Flagged",
+    "share": "Share",
+    "wholeKingdom": "Whole kingdom"
+  },
+  "scorecard": {
+    "eyebrow": "Pharmacy scorecard",
+    "close": "Close the scorecard",
+    "loading": "Loading the scorecard…",
+    "loadFailed": "The scorecard could not be loaded.",
+    "dataAsOf": "Data as of {{date}}",
+    "flagged": "Flagged",
+    "isNew": "New pharmacy",
+    "new": "New",
+    "notScored": "Not scored",
+    "peer": "Peers",
+    "plain": "Year on year",
+    "openProfile": "Open the store profile"
+  },
+  "categoryProfile": {
+    "title": "Category profile",
+    "subtitle": "One category for the chain, a region or one pharmacy: its sales and share, product health and promotion.",
+    "loading": "Loading the category profile…",
+    "loadFailed": "The category profile could not be loaded.",
+    "trail": "Where you are",
+    "children": "Its second-level categories",
+    "scope": {
+      "label": "Narrow to",
+      "chain": "The whole chain",
+      "store": "One pharmacy",
+      "storeCode": "Pharmacy code",
+      "apply": "Apply"
+    },
+    "export": "Export",
+    "exportFailed": "The workbook could not be downloaded.",
+    "unclassified": "Unclassified"
+  },
+  "profile": {
+    "notAvailableYet": "Not available yet",
+    "inclVat": "Money figures include VAT.",
+    "cut80": "The products above the line make 80% of sales."
+  },
+  "ask": {
+    "button": "Ask",
+    "hint": "Ask the copilot about this finding",
+    "store": "Ask the copilot",
+    "storeHint": "Ask the copilot about this pharmacy"
+  },
+  "storeProfile": {
+    "title": "Store profile",
+    "subtitle": "One pharmacy for a period: its sales against its peers, its mix, its customers and its products.",
+    "loading": "Loading the store profile…",
+    "loadFailed": "The store profile could not be loaded.",
+    "trail": "Where you are",
+    "beside": "compared with",
+    "export": "Export",
+    "exportFailed": "The workbook could not be downloaded."
+  },
+  "period": {
+    "label": "Period",
+    "rolling4": "Last 4 weeks",
+    "ytd": "Year to date",
+    "dates": "Dates",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply"
+  }
+}

@@ -88,4 +88,28 @@ describe('panel opener (ticket 782)', () => {
     expect(panel.getState().open).toBe(false)
     expect(panel.getState().takeDraft()).toBeNull()
   })
+
+  // oms 950 (BackOffice spec 4165): "Ask" on a brief line or a pharmacy's scorecard hands over the server's written
+  // question and its finding's id, and (a brief line) the line itself, for the copilot's opening card.
+  it('askAbout opens the panel and hands the written question and the finding over once (950)', () => {
+    const panel = createCopilotPanel()
+    panel.getState().setAvailable(true)
+    panel.getState().askAbout({ question: 'Why is P166 newly flagged?', findingId: 'f-1' })
+    expect(panel.getState().open).toBe(true)
+    // Not a plain question: the copilot sends it with its finding as context.
+    expect(panel.getState().takeQuestion()).toBeNull()
+    expect(panel.getState().takeFinding()).toEqual({ question: 'Why is P166 newly flagged?', findingId: 'f-1' })
+    expect(panel.getState().takeFinding()).toBeNull()
+  })
+
+  it('closing, or the copilot going away, drops a finding nobody took (950)', () => {
+    const panel = createCopilotPanel()
+    panel.getState().setAvailable(true)
+    panel.getState().askAbout({ question: 'Why?', findingId: 'f-1' })
+    panel.getState().close()
+    expect(panel.getState().takeFinding()).toBeNull()
+    panel.getState().askAbout({ question: 'Why?', findingId: 'f-1' })
+    panel.getState().setAvailable(false)
+    expect(panel.getState().takeFinding()).toBeNull()
+  })
 })

@@ -19,6 +19,7 @@ const visibleLeaves = (p: Permissions): string[] => leaves(resolveMenu(MENU, p).
 const NO_EXTRAS: PermissionsExtras = {
   fileServerReady: false,
   notificationCenterOn: false,
+  commandCenterOn: false,
   nphiesContractVersion: '',
   canManageRoles: false,
   canManageUsers: false,

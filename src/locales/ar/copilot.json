@@ -540,5 +540,8 @@
       "total": "فترة «{{status}}» <period>{{period}}</period> تتداخل مع <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>)، فقد يبدو أثر الموسم تغيرًا.",
       "totalOpen": "فترة «{{status}}» منذ <period>{{period}}</period> تتداخل مع <event>{{event}}</event> (<eventPeriod>{{eventPeriod}}</eventPeriod>)، فقد يبدو أثر الموسم تغيرًا."
     }
+  },
+  "finding": {
+    "askingAbout": "سؤال عن هذه الملاحظة من موجز الصباح"
   }
 }

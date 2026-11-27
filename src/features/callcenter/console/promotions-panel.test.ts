@@ -4,9 +4,9 @@
  * Expected values are literals off the fixtures, never recomputed the way the module does.
  */
 import { describe, expect, it } from 'vitest'
-import type { FiredPromotion, NearMiss, SessionLine, SessionState } from '@/core/models/callcenter'
+import type { FiredPromotion, NearMiss, OfferDefinition, SessionLine, SessionState } from '@/core/models/callcenter'
 import { ATTACHED_SESSION, GET_SHORTFALL, NEAR_MISS_CLASSES } from './__fixtures__/payloads'
-import { promotionsPanel } from './promotions-panel'
+import { promotionsPanel, rememberDefinitions } from './promotions-panel'
 
 const line = (lineId: string): SessionLine => ({ ...ATTACHED_SESSION.lines[0], lineId })
 
@@ -71,6 +71,87 @@ describe('appliedCardsNameTheirLinesByNumber', () => {
   })
 })
 
+describe('appliedCardIsCardD', () => {
+  /** The owner's case after Add 3: 509366 × 4 at 98.00, the engine's −98.00, the line paying 294.00. */
+  const owner = (over: Partial<SessionState> = {}) =>
+    walk({
+      lines: [{ ...line('L10'), qty: 4, unitPrice: { net: 85.22, gross: 98 }, lineTotal: { net: 255.65, gross: 294 } }],
+      firedPromotions: [{ offerId: 'OMS000004571', description: '3+1', amount: -98, lineIds: ['L10'] }],
+      ...over,
+    })
+  const buy3get1: OfferDefinition = { buyQty: 3, buyUom: 'EA', getQty: 1, getSameItem: true, discountType: 'percent', discountValue: 100 }
+
+  it('names the one line it landed on with its quantity and the line’s own server figures', () => {
+    const [card] = promotionsPanel(owner()).applied
+    expect(card.landed).toEqual({ line: 1, qty: 4, unitGross: 98, lineGross: 294 })
+  })
+
+  it('more than one line → no single line to do the arithmetic on', () => {
+    const fired: FiredPromotion = { offerId: 'X', description: 'x', amount: -1, lineIds: ['L10', 'L30'] }
+    expect(promotionsPanel(walk({ firedPromotions: [fired] })).applied[0].landed).toBeNull()
+  })
+
+  it('warns that removing one takes the free one away when the offer it was had a get side', () => {
+    const remembered = new Map([['OMS000004571', buy3get1]])
+    expect(promotionsPanel(owner(), { remembered }).applied[0].keepAll).toBe(true)
+    expect(promotionsPanel(owner()).applied[0].keepAll).toBe(false)
+    const percent = new Map([['OMS000004571', { ...buy3get1, getQty: 0 }]])
+    expect(promotionsPanel(owner(), { remembered: percent }).applied[0].keepAll).toBe(false)
+  })
+
+  it('remembers each near-miss definition by offerId across states, and never by a blank id', () => {
+    const miss = { ...NEAR_MISS_CLASSES[0], offerId: 'OMS000004571', definition: buy3get1 }
+    const first = rememberDefinitions(new Map(), [miss, { ...miss, offerId: '' }])
+    expect([...first.keys()]).toEqual(['OMS000004571'])
+    // The next state: the offer fired, so it is no longer a near-miss — the memory keeps it.
+    expect(rememberDefinitions(first, []).get('OMS000004571')).toEqual(buy3get1)
+  })
+})
+
+describe('oneStepAwayCarriesThePitch', () => {
+  const WALK = new Date(2026, 10, 27, 15, 30)
+  const owner: NearMiss = {
+    ...NEAR_MISS_CLASSES[0],
+    offerId: 'OMS000004571',
+    description: '3+1',
+    progress: { have: 0, need: 1, unitsHave: 1, unitsNeed: 3 },
+    prereq: { kind: 'material', materialNumber: '509366' },
+    definition: { buyQty: 3, buyUom: 'EA', getQty: 1, getSameItem: true, discountType: 'percent', discountValue: 100 },
+    endsOn: '2026-12-03',
+    audience: { channelOnly: true, tiers: ['P', 'G', 'S'], callerQualifies: true },
+  }
+
+  it('the owner’s case: headline, 1 of 4, add 3 of 509366, phone + tier + ends', () => {
+    const panel = promotionsPanel(walk({ nearMisses: [owner] }), { now: WALK })
+    const pitch = panel.pitch.get('OMS000004571')
+    expect(pitch?.headline).toEqual({
+      kind: 'phrase',
+      phrase: { key: 'callcenter:offer.headline.nthFree', params: { buy: 3, count: 4, ordinal: true } },
+    })
+    expect(pitch?.strip).toEqual({ slots: ['in', 'add', 'add', 'free'], have: 1, total: 4 })
+    expect(pitch?.add).toEqual({ qty: 3, free: 1, itemNumber: '509366' })
+    expect(pitch?.badges.map((badge) => badge.kind)).toEqual(['phoneOnly', 'tier', 'ends'])
+    expect(pitch?.say.map((phrase) => phrase.key)).toEqual([
+      'callcenter:offer.say.addFree',
+      'callcenter:offer.say.phoneOnly',
+      'callcenter:offer.say.ends',
+    ])
+  })
+
+  it('a grouping prerequisite has no one item to add: the card opens the items instead', () => {
+    const grouping = { ...owner, prereq: { kind: 'grouping', groupingId: 'G1', eligibleCount: 12 } }
+    expect(promotionsPanel(walk({ nearMisses: [grouping] }), { now: WALK }).pitch.get('OMS000004571')?.add).toBeNull()
+  })
+
+  it('a v1.13 near-miss degrades: description headline, no strip, no add', () => {
+    const old: NearMiss = { ...NEAR_MISS_CLASSES[0], offerId: 'OLD', description: '3+1' }
+    const pitch = promotionsPanel(walk({ nearMisses: [old] }), { now: WALK }).pitch.get('OLD')
+    expect(pitch?.headline).toEqual({ kind: 'description', text: '3+1' })
+    expect(pitch?.strip).toBeNull()
+    expect(pitch?.add).toBeNull()
+  })
+})
+
 describe('nearMissesKeepTheirShortfallOrder', () => {
   it('🚩 a shortfall the server lists after an actionable offer is drawn first (412 W8)', () => {
     const [actionable, counted, skipped] = NEAR_MISS_CLASSES
@@ -100,7 +181,7 @@ describe('nearMissesKeepTheirShortfallOrder', () => {
 describe('noFigureIsComputedHere', () => {
   /** Every money-shaped value the panel carries, wherever it is nested. */
   const moneyOf = (value: unknown, key = ''): number[] => {
-    if (typeof value === 'number') return /amount|total|sav|discount|price/i.test(key) ? [value] : []
+    if (typeof value === 'number') return /amount|total|sav|discount|price|gross/i.test(key) ? [value] : []
     if (Array.isArray(value)) return value.flatMap((item) => moneyOf(item, key))
     if (value instanceof Map) return [...value.values()].flatMap((item) => moneyOf(item, key))
     if (value && typeof value === 'object')
@@ -125,9 +206,12 @@ describe('noFigureIsComputedHere', () => {
   ]
 
   it.each(fixtures.map((state, i) => [i, state] as const))('fixture %i: every amount is a server field, verbatim', (_, state) => {
-    const served = state.firedPromotions.map((fired) => fired.amount)
+    // Card D (996) carries its line's own unitPrice.gross and lineTotal.gross, verbatim.
+    const served = [
+      ...state.firedPromotions.map((fired) => fired.amount),
+      ...state.lines.flatMap((line) => [line.unitPrice.gross, line.lineTotal.gross]),
+    ]
     const shown = moneyOf(promotionsPanel(state))
-    expect(shown.length).toBe(served.length)
-    for (const amount of shown) expect(served.some((s) => Object.is(s, amount))).toBe(true)
+        for (const amount of shown) expect(served.some((s) => Object.is(s, amount))).toBe(true)
   })
 })

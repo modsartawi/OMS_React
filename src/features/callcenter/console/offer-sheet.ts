@@ -1,0 +1,171 @@
+/**
+ * The offer sheet's model (spec 995 B, ticket 997) — the what-if read it makes, and the figures it
+ * may draw.
+ *
+ * - **The read** (D5): `OfferWhatIf`, keyed by transaction, offer and basket `version`, and enabled
+ *   only while the sheet is open on an addressable offer. A closed card asks nothing; a basket
+ *   change is a new key, so the open sheet re-reads it once.
+ * - **The figures**: until the read answers, and when it fails, the sheet shows the DEFINITION
+ *   (*100% off 1*). Once it answers, the engine's own `saving`, `unitAfter` and payable before and
+ *   after, verbatim.
+ *
+ * 🚩 **No figure is computed here.** `unitAfter` is the server's per-unit price; where it is null
+ * (an offer over several items) there is no per-unit figure, because the client never divides.
+ */
+import type { NearMiss, OfferAudience, OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
+import { offerWhatIfKey } from './api'
+import type { GuidancePhrase } from './guidance-view'
+import { offerStrip } from './offer-strip'
+
+export { offerEnds } from './offer-badges'
+
+export function whatIfQuery({
+  transactionId,
+  offerId,
+  version,
+  open,
+}: {
+  transactionId: string
+  offerId: string
+  version: number
+  /** The sheet is open on this offer, and it is still a near-miss. */
+  open: boolean
+}) {
+  return {
+    queryKey: offerWhatIfKey(transactionId, offerId, version),
+    // A blank id (859) cannot be addressed: `buildQuery` would drop it and the door answer 500.
+    enabled: open && offerId !== '',
+  }
+}
+
+/** What the read has done so far, as the sheet sees it. */
+export type WhatIfRead = { status: 'pending' } | { status: 'error' } | { status: 'success'; data: OfferWhatIf }
+
+export type SheetFigures =
+  | { kind: 'pending'; definition: GuidancePhrase | null }
+  | { kind: 'failed'; definition: GuidancePhrase | null }
+  | {
+      kind: 'priced'
+      saving: number
+      /** `unitAfter`, verbatim; null ⇒ no per-unit figure. */
+      eachAfter: number | null
+      payableBefore: number
+      payableAfter: number
+      fires: boolean
+    }
+
+export function sheetFigures(read: WhatIfRead, definition: OfferDefinition | null | undefined): SheetFigures {
+  if (read.status === 'success')
+    return {
+      kind: 'priced',
+      saving: read.data.saving,
+      eachAfter: read.data.unitAfter ?? null,
+      payableBefore: read.data.payableBefore,
+      payableAfter: read.data.payableAfter,
+      fires: read.data.fires,
+    }
+  return { kind: read.status === 'error' ? 'failed' : 'pending', definition: definitionFigure(definition) }
+}
+
+const KEY = 'callcenter:offer.sheet.definition'
+
+/**
+ * The definition as a figure, for where the money will be: *100% off 1*, *20% off 2*, *10 off*,
+ * *For 29.95*. The percent's count is the get side, or the buy side where there is none. 🚩 Never a
+ * saving: `discountValue` is what the record states, not what this basket would get.
+ */
+export function definitionFigure(definition: OfferDefinition | null | undefined): GuidancePhrase | null {
+  const value = positive(definition?.discountValue)
+  if (!definition || value === null) return null
+  if (definition.discountType === 'percent') {
+    const count = positive(definition.getQty) ?? positive(definition.buyQty)
+    return count === null
+      ? { key: `${KEY}.percentOnly`, params: { value } }
+      : { key: `${KEY}.percent`, params: { value, count } }
+  }
+  if (definition.discountType === 'amount' || definition.discountType === 'price')
+    return { key: `${KEY}.${definition.discountType}`, params: { value } }
+  return null
+}
+
+const positive = (value: number | null | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+
+const HOW = 'callcenter:offer.sheet.how'
+
+export interface HowItWorks {
+  /** *Buy 3 of this item*; null with no single buy quantity (a value threshold, several prerequisites). */
+  buy: GuidancePhrase | null
+  /** *Get 1 more of it free*, or the discount on what is bought; null for a shape with no words. */
+  get: GuidancePhrase | null
+  /** Units for the progress bar (`offer-strip.ts`'s count, free units included); null with no units. */
+  progress: { have: number; total: number } | null
+}
+
+/** The buy side and the get side in words, and the units for the bar (D3). Counts, never money. */
+export function howItWorks(definition: OfferDefinition | null | undefined, progress: NearMiss['progress']): HowItWorks {
+  const strip = offerStrip(progress, definition)
+  const bar = strip ? { have: strip.have, total: strip.total } : null
+  if (!definition) return { buy: null, get: null, progress: null }
+  const buy = positive(definition.buyQty)
+  const getQty = positive(definition.getQty)
+  const value = positive(definition.discountValue)
+  const type = definition.discountType
+  let get: GuidancePhrase | null = null
+  if (value !== null && getQty !== null) {
+    const same = definition.getSameItem === true
+    if (type === 'percent')
+      get =
+        value >= 100
+          ? { key: `${HOW}.${same ? 'getSameFree' : 'getOtherFree'}`, params: { count: getQty } }
+          : { key: `${HOW}.${same ? 'getSamePercent' : 'getOtherPercent'}`, params: { count: getQty, value } }
+  } else if (value !== null && (type === 'percent' || type === 'amount' || type === 'price')) {
+    get = { key: `${HOW}.buy${type[0].toUpperCase()}${type.slice(1)}`, params: { value } }
+  }
+  return {
+    buy: buy === null ? null : { key: `${HOW}.buy`, params: { count: buy, uom: definition.buyUom ?? '' } },
+    get,
+    progress: bar,
+  }
+}
+
+export interface WhoGetsIt {
+  /** Tier codes; empty ⇒ every caller. */
+  tiers: string[]
+  /** The server's `callerQualifies`, verbatim — the console never compares a tier itself. */
+  qualifies: boolean
+  phoneOnly: boolean
+}
+
+/** Who the offer is for (D4: server facts). `null` where the wire said nothing (a v1.13 server). */
+export function whoGetsIt(audience: OfferAudience | null | undefined): WhoGetsIt | null {
+  if (!audience) return null
+  return {
+    tiers: (audience.tiers ?? []).map((code) => (typeof code === 'string' ? code.trim() : '')).filter((code) => code !== ''),
+    qualifies: audience.callerQualifies === true,
+    phoneOnly: audience.channelOnly === true,
+  }
+}
+
+const SAY = 'callcenter:offer.say'
+
+/**
+ * The sheet's longer script (D7): the pitch card's sentences, then *your membership qualifies*
+ * where the offer is tier-limited and the caller qualifies, then — only once the what-if answered —
+ * the engine's saving and the total it becomes, both formatted server figures handed in as strings.
+ */
+export function sheetSay({
+  pitch,
+  who,
+  priced,
+}: {
+  pitch: GuidancePhrase[]
+  who: WhoGetsIt | null
+  priced: { saving: string; after: string } | null
+}): GuidancePhrase[] {
+  const phrases = [...pitch]
+  if (who && who.tiers.length > 0 && who.qualifies) phrases.push({ key: `${SAY}.qualifies`, params: {} })
+  // `currency` is a word SayLine says in each sentence's own language.
+  if (priced) phrases.push({ key: `${SAY}.wouldSave`, params: { amount: priced.saving, after: priced.after, currency: true } })
+  return phrases
+}

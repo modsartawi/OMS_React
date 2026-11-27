@@ -53,13 +53,20 @@ export function formatOfferDay(date: string, lang: string, length: 'short' | 'lo
 }
 
 function endsBadge(endsOn: string | null | undefined, now: Date): OfferBadge | null {
+  const ends = offerEnds(endsOn, now)
+  if (!ends || ends.days > ENDS_WITHIN_DAYS) return null
+  return { kind: 'ends', ...ends }
+}
+
+/** The offer's last day and the calendar days left to it (997's sheet shows it however far away);
+ *  `null` when it has passed or is not a date. */
+export function offerEnds(endsOn: string | null | undefined, now: Date): { date: string; days: number } | null {
   const day = endsOn ? dayOf(endsOn) : null
   if (!day || !endsOn) return null
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   // Calendar days between two local midnights; rounded, so a DST change is not a day.
   const days = Math.round((day.getTime() - today.getTime()) / 86_400_000)
-  if (days < 0 || days > ENDS_WITHIN_DAYS) return null
-  return { kind: 'ends', date: endsOn.slice(0, 10), days }
+  return days < 0 ? null : { date: endsOn.slice(0, 10), days }
 }
 
 /** `2026-12-03` (or a datetime that starts with it) as that LOCAL day; `null` otherwise. */

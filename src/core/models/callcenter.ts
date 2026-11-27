@@ -528,6 +528,31 @@ export interface OfferAudience {
   callerQualifies: boolean
 }
 
+/**
+ * v1.14 (spec 995 C3, BackOffice 4459) — `GET CallCenterWeb/OfferWhatIf?transactionId=&offerId=`
+ * (CONTRACT.md §3.9): the order's basket priced AS IF the offer's missing quantity were added, in
+ * one claim-free engine run. It writes nothing.
+ *
+ * 🚩 The one money the offers region may show (the owner's amendment of 574 US26), and only in the
+ * offer sheet, read when the agent opens it. Every figure is the engine's, VAT-inclusive; the
+ * client never sums, subtracts or divides them. Field names are 4459's; the server half is unbuilt.
+ */
+export interface OfferWhatIf {
+  offerId: string
+  /** What the run added: the missing buy quantity plus the free units (a material), or the top
+   *  ranked in-stock member (a grouping). */
+  adds: { itemNumber: string; qty: number }[]
+  /** The offer's bonus buy is among the applied ones in the run. */
+  fires: boolean
+  /** The VAT-inclusive sum of THAT offer's conditions in the run (positive). */
+  saving: number
+  /** The basket gross before and after the adds, the delivery fee excluded. */
+  payableBefore: number
+  payableAfter: number
+  /** The offer item's VAT-inclusive price per unit after it fires; single-item offers only, else null. */
+  unitAfter: number | null
+}
+
 export interface NearMiss {
   offerId: string
   description: string

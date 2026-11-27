@@ -203,3 +203,13 @@ unless a decision below names a new read.
   SIS.Pos **26.4.164** on the engine branch `fix/resume-reenrich-codes`. It has to be committed, packed
   from the committed HEAD and released before go-live. It is not part of this spec.
 - Go-live is unchanged: pilot agents, CLCN cash.
+
+## Comments
+
+**2026-11-27 — built (implement-spec run).** Tickets 984–994 are built on `spec/983-caller-console` (tip 2bc37582), worktree `C:\Playground\oms-react-spec983`, **not merged to main**. All on stubs; every ticket stays `open` until its live walk. The first commit carries the 2026-11-27 walk fixes to `HeaderSentence.tsx` / `ItemSearchPanel.tsx` that sat uncommitted on main. `/code-review` found 4 important + 6 nits, all fixed in 2bc37582. typecheck, 12914 tests, lint, and the callcenter drives are green.
+
+Open asks (unfiled):
+- US10 *Could still use* / Ctrl K *Apply a held coupon*: no read of coupons the caller holds but has not applied — needs a BackOffice read; the column is not drawn and the palette row is disabled.
+- "Not on line N" matches a coupon to a fired promotion by exact description — a `couponCode` + per-line skip reason on `FiredPromotion` would make it exact (and give the "medicine" reason).
+- VAT rate per line is derived (description %, 0 when amount 0, else VAT/net rounded) — a `rate` on the condition would remove that client arithmetic (985).
+- Owner rulings listed in each ticket's Comments (address book read on attach 989, switch skips the two-choice picker 992, reorder below-ATP reported not added 990, read-back wording 988, Caller saves excludes VAT 986).

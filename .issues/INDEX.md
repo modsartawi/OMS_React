@@ -1630,14 +1630,14 @@ Server tickets are BackOffice 4422–4430 on `pricing2`.
 From the 2026-11-27 production walk: three columns with the caller first, a step rail, numbered lines, the full receipt, a promotions panel, a read-back sentence, the location link in the caller column, and no points. Reference: the *Call Center Console v3* artifact. Contract v1.13 (C1, C2) is served by BackOffice 4454 and 4455.
 
 - [983](983-the-console-is-built-around-the-caller-spec.md) — The console is built around the caller (spec) · **ready** · spec, consumable by /to-tickets
-- [984](984-three-columns-and-a-step-rail-that-reads-the-blockers.md) — Three columns, and a step rail that reads the submit blockers · **open** · blocked by: —
-- [985](985-numbered-basket-lines-with-their-pricing-underneath.md) — Numbered basket lines, with how each was priced underneath · **open** · blocked by: 984
-- [986](986-the-receipt-shows-original-discount-vat-fee-and-total.md) — The receipt shows the original amount, the discount, VAT, the fee and the total · **open** · blocked by: 984, 4454 (BackOffice)
-- [987](987-a-promotions-panel-says-what-fired-what-is-close-and-what-to-say.md) — A promotions panel says what fired, what is one step away, and what to say · **open** · blocked by: 985
-- [988](988-a-read-back-sentence-the-agent-says-before-placing.md) — A read-back sentence the agent says before placing the order · **open** · blocked by: 986
-- [989](989-the-caller-column-tier-addresses-and-the-location-link.md) — The caller column: tier, addresses and the location link · **open** · blocked by: 984
-- [990](990-last-orders-reorder-all-and-usual-items.md) — Last orders with Reorder all, and usual items as one-click chips · **open** · blocked by: 989, 4455 (BackOffice)
-- [991](991-the-highlighted-search-row-says-where-else-it-is-in-stock.md) — The highlighted search row says where else the item is in stock · **open** · blocked by: —
-- [992](992-ctrl-k-reorders-sends-the-link-and-switches-fulfilment.md) — Ctrl K can reorder, send the location link, switch fulfilment and take the next slot · **open** · blocked by: 989
-- [993](993-the-agents-default-source-applies-at-open.md) — The agent's default source applies when an order opens · **open** · blocked by: —
-- [994](994-changing-the-store-never-leaves-the-console-stuck.md) — Changing the store never leaves the console stuck · **open** · blocked by: —
+- [984](984-three-columns-and-a-step-rail-that-reads-the-blockers.md) — Three columns, and a step rail that reads the submit blockers · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: —
+- [985](985-numbered-basket-lines-with-their-pricing-underneath.md) — Numbered basket lines, with how each was priced underneath · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 984
+- [986](986-the-receipt-shows-original-discount-vat-fee-and-total.md) — The receipt shows the original amount, the discount, VAT, the fee and the total · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 984, 4454 (BackOffice)
+- [987](987-a-promotions-panel-says-what-fired-what-is-close-and-what-to-say.md) — A promotions panel says what fired, what is one step away, and what to say · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 985
+- [988](988-a-read-back-sentence-the-agent-says-before-placing.md) — A read-back sentence the agent says before placing the order · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 986
+- [989](989-the-caller-column-tier-addresses-and-the-location-link.md) — The caller column: tier, addresses and the location link · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 984
+- [990](990-last-orders-reorder-all-and-usual-items.md) — Last orders with Reorder all, and usual items as one-click chips · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 989, 4455 (BackOffice)
+- [991](991-the-highlighted-search-row-says-where-else-it-is-in-stock.md) — The highlighted search row says where else the item is in stock · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: —
+- [992](992-ctrl-k-reorders-sends-the-link-and-switches-fulfilment.md) — Ctrl K can reorder, send the location link, switch fulfilment and take the next slot · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: 989
+- [993](993-the-agents-default-source-applies-at-open.md) — The agent's default source applies when an order opens · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: —
+- [994](994-changing-the-store-never-leaves-the-console-stuck.md) — Changing the store never leaves the console stuck · **open — built on spec/983-caller-console (2bc37582), stubbed, not merged; live walk owed** · blocked by: —

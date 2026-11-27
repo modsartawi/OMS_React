@@ -1142,6 +1142,10 @@ export interface ItemSearchRow {
   estimatePriceExVat: number | null
   /** Availability at the ORDER's plant. `null` = unknown, distinct from `0`. */
   atp: number | null
+  /** `Item.SalesCategory5`, SAP's material status, as the master spells it (`AVAILABLE`, `DEPLETION`,
+   *  `SFDA`, …). BackOffice 4464: the search now shows every status but DISCONTINUED, as the till does,
+   *  so the row says which one it is. Absent on a prerequisite row. */
+  materialStatus?: string | null
 }
 
 /**

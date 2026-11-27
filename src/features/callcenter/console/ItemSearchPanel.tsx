@@ -590,8 +590,20 @@ function Row({
     >
       <div className="min-w-0 flex-1">
         {/* The name, alone on its line — it is what the agent reads out. */}
-        <div className="truncate text-sm" data-cc-search-title>
-          {row.title}
+        <div className="flex min-w-0 items-baseline gap-2">
+          <div className="truncate text-sm" data-cc-search-title>
+            {row.title}
+          </div>
+          {/* oms-react 1000: a status other than AVAILABLE, said before the agent adds it. */}
+          {row.status && (
+            <span
+              className="shrink-0 rounded border border-border px-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              title={t('search.status', { status: row.status })}
+              data-cc-search-status
+            >
+              {row.status}
+            </span>
+          )}
         </div>
         {/* 🚩 The second line: item number · Arabic name · estimate. This is the
             money column's absence, made structural. */}

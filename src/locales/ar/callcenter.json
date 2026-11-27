@@ -251,6 +251,7 @@
     }
   },
   "search": {
+    "status": "حالة الصنف: {{status}}",
     "nearby": {
       "here_zero": "<n>{{count}}</n> هنا",
       "here_one": "<n>{{count}}</n> هنا",

@@ -72,6 +72,19 @@ describe('availabilityOf — three states, and unknown is not zero', () => {
   })
 })
 
+describe('searchRowView — the material status (oms-react 1000, BackOffice 4464)', () => {
+  it('names any status but AVAILABLE, as the master spells it', () => {
+    // 509091 TODDIES WIPES was DEPLETION and invisible before 4464; now it is found and says so.
+    expect(searchRowView(row({ materialStatus: 'DEPLETION' })).status).toBe('DEPLETION')
+    expect(searchRowView(row({ materialStatus: ' SUPPLIER CONSTRAINT ' })).status).toBe('SUPPLIER CONSTRAINT')
+  })
+  it('says nothing for AVAILABLE, a blank status, or a row without one', () => {
+    expect(searchRowView(row({ materialStatus: 'Available' })).status).toBeNull()
+    expect(searchRowView(row({ materialStatus: '  ' })).status).toBeNull()
+    expect(searchRowView(row()).status).toBeNull()
+  })
+})
+
 describe('searchRowView — the estimate never enters the money column', () => {
   it('puts the estimate on the meta line, beside the item number', () => {
     const view = searchRowView(row())
@@ -94,7 +107,9 @@ describe('searchRowView — the estimate never enters the money column', () => {
     // is what guarantees nothing else can be put there: it is one field, and it
     // is the classification.
     const view = searchRowView(row())
-    expect(Object.keys(view).sort()).toEqual(['availability', 'itemNumber', 'meta', 'title'])
+    // `status` (1000) is the master's status text beside the name, never a figure.
+    expect(Object.keys(view).sort()).toEqual(['availability', 'itemNumber', 'meta', 'status', 'title'])
+    expect(String(searchRowView(row({ materialStatus: 'DEPLETION' })).status)).not.toContain('9.13')
     expect(JSON.stringify(view.availability)).not.toContain('9.13')
     expect(view.title).not.toContain('9.13')
   })

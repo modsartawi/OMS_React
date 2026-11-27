@@ -309,6 +309,7 @@
     "defaultNeedsReference": "Your usual source, {{source}}, needs a reference before it can be set on this order. Enter the campaign, ticket or system reference and save."
   },
   "search": {
+    "status": "Material status: {{status}}",
     "label": "Search the catalogue",
     "placeholder": "Search items — name, Arabic name, or item number · Ctrl+K for everything else",
     "clear": "Clear the search",

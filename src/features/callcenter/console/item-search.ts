@@ -107,6 +107,10 @@ export interface SearchRowView {
    *  the master carries nothing rather than drawn as an empty segment. */
   meta: MetaPart[]
   availability: Availability
+  /** The material status beside the name when it is anything but AVAILABLE (oms-react 1000, BackOffice
+   *  4464): *DEPLETION*, *SFDA*, *SUPPLIER CONSTRAINT*. Server text, shown as the master spells it;
+   *  `null` for AVAILABLE or none. The stock check at add still decides; this only tells the agent. */
+  status: string | null
 }
 
 export function searchRowView(row: ItemSearchRow): SearchRowView {
@@ -124,7 +128,13 @@ export function searchRowView(row: ItemSearchRow): SearchRowView {
     title: row.descriptionEn,
     meta,
     availability: availabilityOf(row.atp),
+    status: statusOf(row.materialStatus),
   }
+}
+
+const statusOf = (status: string | null | undefined): string | null => {
+  const text = status?.trim()
+  return text && text.toUpperCase() !== 'AVAILABLE' ? text : null
 }
 
 /** The whole answer, in the server's own ranking — nothing here re-sorts it. */

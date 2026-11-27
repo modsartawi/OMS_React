@@ -8,7 +8,7 @@ import type { MapPlace } from '@/core/map/map-panel'
 import type { AdvisePin, AdviseReply, WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { usePermissions } from '@/core/permissions'
 import { canRunSourcingAdvisor, canSaveWeightSets } from '@/core/sourcing-advisor/access'
-import { KEPT_RUNS_PATH, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
+import { KEPT_RUNS_PATH, replayOrderOf, SIMULATOR_RUN_PARAM } from '@/core/sourcing-advisor/simulator-path'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -100,9 +100,11 @@ function Workbench() {
   const { t } = useTranslation('sourcing-simulator')
   const [form, setForm] = useState<CartForm>(firstForm)
   const [view, setView] = useState<PlansView>('cards')
-  // 964: a run starts from a cart or from an order to replay.
-  const [start, setStart] = useState<StartKind>('build')
-  const [replay, setReplay] = useState<ReplayForm>({ orderNumber: '', withPoint: false, movedTo: null })
+  // 964: a run starts from a cart or from an order to replay. 974: the old order link's replay offer opens the page set
+  // to replay its order (`?replay=`, `simulatorReplayPath`); nothing runs until Run.
+  const [replayAsked] = useState(() => replayOrderOf(new URLSearchParams(window.location.search)))
+  const [start, setStart] = useState<StartKind>(replayAsked ? 'replay' : 'build')
+  const [replay, setReplay] = useState<ReplayForm>({ orderNumber: replayAsked, withPoint: false, movedTo: null })
   const workbench = useQuery(workbenchQuery())
   const queryClient = useQueryClient()
   const permissions = usePermissions()

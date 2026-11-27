@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TimeSlotModel, TimeSlotTimeModel } from '@/core/models/slots'
-import { canSaveReschedule, seedReschedule } from './reschedule-model'
+import { canSaveReschedule, rescheduleRefusalKey, seedReschedule } from './reschedule-model'
 
 const DAY = { date: '2026-11-28', day: 'Saturday', fullDay: 'Saturday 28 Nov', times: [] } as unknown as TimeSlotModel
 const WINDOW = {
@@ -44,5 +44,17 @@ describe('save is off until a reason is chosen', () => {
     expect(canSaveReschedule({ ...ready, day: null, reasonCode: 'CUST' })).toBe(false)
     expect(canSaveReschedule({ ...ready, time: null, reasonCode: 'CUST' })).toBe(false)
     expect(canSaveReschedule({ ...ready, ready: false, reasonCode: 'CUST' })).toBe(false)
+  })
+})
+
+describe('the server refuses a move with no reason (BackOffice 4384)', () => {
+  it('words its own code, SDS-00054, in the user’s language', () => {
+    expect(rescheduleRefusalKey('SDS-00054')).toBe('reschedule.reasonRefused')
+  })
+
+  it('leaves every other refusal, and none, to the server’s own words', () => {
+    expect(rescheduleRefusalKey('SDS-00053')).toBeNull()
+    expect(rescheduleRefusalKey('SDD-04384')).toBeNull()
+    expect(rescheduleRefusalKey(null)).toBeNull()
   })
 })

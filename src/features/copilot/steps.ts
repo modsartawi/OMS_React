@@ -37,7 +37,7 @@ export const WALKED_STEP_TOOLS: readonly CopilotTool[] = [
   'sap_posting_backlog',
   'store_lookup',
   'sourcing_explain',
-  'sourcing_savings',
+  'sourcing_comparison',
   'describe_model',
   'semantic_query',
 ]

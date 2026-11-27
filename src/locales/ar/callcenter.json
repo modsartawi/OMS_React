@@ -231,6 +231,25 @@
       "source": "تم تحديد مصدر المستند"
     }
   },
+  "readBack": {
+    "heading": "اقرأ الطلب على المتصل",
+    "items": "طلبك: <lines/>.",
+    "line": "<qty/> × <name/>",
+    "saving": "وفّرت <amount/>.",
+    "total": "الإجمالي <amount/>.",
+    "where": {
+      "deliverAt": "سنوصله إلى <address/>، <window/>.",
+      "deliverTo": "سنوصله إلى <address/>.",
+      "deliver": "سنوصله إليك.",
+      "collectFrom": "سيكون جاهزًا للاستلام من <store/>.",
+      "collect": "سيكون جاهزًا للاستلام."
+    },
+    "payment": {
+      "cashOnDelivery": "الدفع نقدًا عند التوصيل.",
+      "payOnCollection": "الدفع عند الاستلام من الفرع.",
+      "paidOnline": "الدفع عبر الإنترنت."
+    }
+  },
   "search": {
     "nearby": {
       "here_zero": "<n>{{count}}</n> هنا",

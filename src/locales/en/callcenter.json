@@ -931,5 +931,24 @@
       "slot": "Delivery slot chosen",
       "source": "Document source set"
     }
+  },
+  "readBack": {
+    "heading": "Read it back",
+    "items": "That's <lines/>.",
+    "line": "<qty/> × <name/>",
+    "saving": "You save <amount/>.",
+    "total": "Your total is <amount/>.",
+    "where": {
+      "deliverAt": "We'll deliver it to <address/>, <window/>.",
+      "deliverTo": "We'll deliver it to <address/>.",
+      "deliver": "We'll deliver it to you.",
+      "collectFrom": "It'll be ready to collect at <store/>.",
+      "collect": "It'll be ready for you to collect."
+    },
+    "payment": {
+      "cashOnDelivery": "You pay cash on delivery.",
+      "payOnCollection": "You pay when you collect.",
+      "paidOnline": "You pay online."
+    }
   }
 }

@@ -201,7 +201,7 @@ export default function CallerBar({
           >
             {t('callerBar.caller')}
           </label>
-          <form onSubmit={search} className="flex w-56 shrink-0 gap-1.5">
+          <form onSubmit={search} className="flex w-56 min-w-0 shrink gap-1.5">
             <Input
               id="cc-phone"
               // 🚩 US9. Put here by the effect above rather than by `autoFocus`,

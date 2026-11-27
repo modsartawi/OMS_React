@@ -815,5 +815,50 @@
       "refused": "The server refused the check.",
       "malformed": "SPL refused this as malformed. A Short Address is four letters followed by four digits, e.g. RIMA6904."
     }
+  },
+  "rail": {
+    "label": "Order steps",
+    "steps": {
+      "caller": "Caller",
+      "items": "Items",
+      "fulfilment": "Fulfilment",
+      "payment": "Payment",
+      "review": "Review"
+    },
+    "state": {
+      "done": "done",
+      "missing": "still needed"
+    },
+    "caller": {
+      "none": "No caller yet"
+    },
+    "items": {
+      "none": "No items yet",
+      "count_one": "{{n}} item",
+      "count_other": "{{n}} items"
+    },
+    "fulfilment": {
+      "noAddress": "No address yet",
+      "collect": "Collect from"
+    },
+    "payment": {
+      "none": "Not set"
+    },
+    "review": {
+      "ready": "Ready to place",
+      "left_one": "{{n}} thing left",
+      "left_other": "{{n}} things left"
+    }
+  },
+  "checklist": {
+    "heading": "Before you place it",
+    "done": {
+      "caller": "Caller attached",
+      "items": "Items added",
+      "address": "Address picked",
+      "store": "Store chosen",
+      "slot": "Delivery slot chosen",
+      "source": "Document source set"
+    }
   }
 }

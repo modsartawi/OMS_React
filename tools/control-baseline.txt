@@ -75,7 +75,7 @@ auth 22
   src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
   src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
 
-callcenter/console 20
+callcenter/console 21
   src/features/callcenter/console/AddressForm.tsx button: city step *Change*: a text button inside the city box that does not navigate (restyled in place)
   src/features/callcenter/console/AddressForm.tsx button: city option: a row picker in the city listbox (spec 590: pickers restyle in place)
   src/features/callcenter/console/AddressForm.tsx button: district option: a row picker in the district listbox (spec 590: pickers restyle in place)
@@ -95,6 +95,7 @@ callcenter/console 20
   src/features/callcenter/console/PaymentPicker.tsx button: payment type: a tile picker (spec 590: pickers restyle in place)
   src/features/callcenter/console/SlotPicker.tsx button: day tab: a two-line tab (weekday over date) a 28px Chip cannot hold; on Chip tokens
   src/features/callcenter/console/SlotPicker.tsx button: slot window: a tile picker, a full one aria-disabled (spec 590: pickers restyle in place)
+  src/features/callcenter/console/StepRail.tsx button: rail step: a two-line tile (step name over its answer) that moves focus to its section - a picker
   src/features/callcenter/console/StorePicker.tsx button: store row: a row picker (spec 590: pickers restyle in place)
 
 campaigns/coupon-finder 0

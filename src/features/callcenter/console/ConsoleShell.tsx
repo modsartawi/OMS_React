@@ -19,10 +19,16 @@
  *
  * The caller bar is the call's opening move rather than furniture (165, 409 — see
  * `CallerBar.tsx`).
+ *
+ * 🚩 **Three columns** (spec 983 D1, ticket 984): the caller (start), the order (centre)
+ * and the summary (end). Below 1280px they stack — caller, order, summary — and the
+ * console scrolls as one page, never sideways. The centre opens with the step rail
+ * (D3), which reads the same `step-rail.ts` model as the summary's *Before you place it*
+ * checklist, so the rail, the checklist and *Place order* cannot disagree.
  */
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
+import { Check, CircleDashed, Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
 import { useCommands } from '@/core/commands/registry'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
@@ -43,7 +49,8 @@ import Money from './Money'
 import OpeningSteps from './OpeningSteps'
 import { openingSteps } from './opening-steps'
 import type { RebindRefusal } from './store-move'
-import { submitBlockers } from './submit-blockers'
+import StepRail from './StepRail'
+import { beforeYouPlace, stepRail, type Checklist, type RailStep } from './step-rail'
 import { submitRefusalChip, type SubmitFailure, type SubmitOutcome } from './submit-outcome'
 import Button from '@/core/ui/Button'
 import IconButton from '@/core/ui/IconButton'
@@ -264,6 +271,9 @@ export default function ConsoleShell({
   // and the palette lists it (192), and two reads would be two chances for them
   // to disagree about what is actionable.
   const guidance = guidanceView(state.nearMisses)
+  // 🚩 One model for the rail and the checklist (D3): two reads would be two chances to
+  // disagree with *Place order*.
+  const rail = stepRail(state)
   const { i18n } = useTranslation()
   // 🚩 One key reaches everything the order can do (192), through the app-wide palette
   // (395, spec 380 K19): these are the console's This screen rows, and every one runs a
@@ -356,16 +366,34 @@ export default function ConsoleShell({
       {/* The same slot again (194): the lines the link did not copy, over an order
           that is otherwise exactly what the agent asked for. */}
       <RequestReportBanner actions={requestReport} />
-      {/* 1440×900 by design, degrading to 1280; below that is out of scope —
-          it is a desktop console (135's density budget). */}
-      {/* 🚩 Two columns plus a bar (379, spec 380 C2): the centre (`minmax(0,1fr)`)
-          and the receipt (320px), beside the shell's rail. */}
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px]">
-        {/* Not a `<main>`: the console sits inside the shell's (407), and a page has one. */}
-        <div className="flex min-h-0 min-w-0 flex-col border-e border-border" data-cc-centre>
-          {/* 🚩 The caller bar (379, C7): at the top of the centre, the same pixels
-              before and after the attach, so nothing under it moves on a call. */}
+      {/* 🚩 Three columns at 1280 and up (spec 983 D1): the caller, the order and the
+          summary, each scrolling in itself. Below 1280 they stack in that order and the
+          console scrolls as one column — never sideways. Stacked rows are sized to
+          their content (`auto-rows-max`): an `auto` row in an overflowing grid falls to
+          its min-content, which for the receipt's own scroller is zero. */}
+      <div
+        className="grid min-h-0 flex-1 auto-rows-max grid-cols-1 overflow-y-auto xl:auto-rows-[minmax(0,1fr)] xl:grid-cols-[288px_minmax(0,1fr)_320px] xl:overflow-hidden"
+        data-cc-columns
+      >
+        {/* The caller column (start). 989 fills it — tier, last orders, usual items,
+            the address book and the location link (D10) land here, under the bar. */}
+        <div
+          className="flex min-w-0 flex-col border-b border-border bg-card xl:min-h-0 xl:overflow-y-auto xl:border-e xl:border-b-0"
+          data-cc-col="caller"
+        >
+          {/* 🚩 The caller bar (379, C7): the call's opening move, at the top of the
+              caller column, the same pixels before and after the attach. */}
           <CallerBar state={state} customerActions={customerActions} signup={signup} requests={requests} />
+        </div>
+        {/* Not a `<main>`: the console sits inside the shell's (407), and a page has one. */}
+        <div
+          className="flex min-w-0 flex-col border-b border-border xl:min-h-0 xl:border-e xl:border-b-0"
+          data-cc-centre
+          data-cc-col="order"
+        >
+          {/* 🚩 The step rail (D3): what is done and what is missing, at a glance. A
+              click lands focus on the step's own section. */}
+          <StepRail steps={rail} onStep={focusStep} />
           {/* 🚩 The order header as a sentence over a ledger (408, spec 380 C3).
               Each word opens the section it names; the model decides which words
               can be controls at all, and a missing handler here means the page
@@ -386,35 +414,31 @@ export default function ConsoleShell({
             }}
           />
           {/* 574 — the delivery address's own row: *Send location link* beside the
-              address word (the console's Change address), and the waiting strip in
-              the same place. Empty while the order cannot send one. */}
+              address word. D10 moves it to the caller column (989); until then it
+              stays under the sentence it answers. */}
           {locationLink}
-          {/* 🚩 175 §9, the half that was owed: **the section a word opens, in
-              the flow, immediately under the sentence that opened it.** The
-              sentence stays visible above it — a word is a place, and a place
-              that vanishes when you go to it is not one. */}
+          {/* 🚩 175 §9: **the section a word opens, in the flow, immediately under
+              the sentence that opened it** — still in the centre column (984 moves
+              where the header lives, not where its sections open). */}
           {headerSection}
           {/* 🚩 The sequence, while the door will take nothing (175). It sits
-              exactly where the section would, because it is answering the same
-              question — *what now?* — and it retires the moment the gate opens.
-              Never both at once: an agent inside a section is already doing the
-              thing the card would tell them to do. */}
+              exactly where the section would, and it retires the moment the gate
+              opens. Never both at once. */}
           {!headerSectionOpen && (
             <OpeningSteps steps={openingSteps(state.header, state.capabilities, state.status)} />
           )}
-          {/* 135's fixed vertical order — header sentence → item search → basket. The
-              search is above the basket because that is the direction the work
-              runs in: what the agent finds lands underneath it. */}
+          {/* 135's fixed vertical order — search above the basket, because that is
+              the direction the work runs in. */}
           <ItemSearchPanel
             state={state}
             add={addItem}
             scope={searchScope}
             onClearScope={onClearSearchScope}
           />
+          {/* 985 numbers the basket and adds each line's pricing detail, here. */}
           <BasketPanel state={state} refusedLines={refusedLines} actions={lineEdit} />
-          {/* Last in the fixed vertical order (135), UNDER the basket it is
-              about — the offers the basket nearly qualifies for (171), and the
-              one-click add that closes their gap (172). */}
+          {/* Under the basket it is about — the offers the basket nearly qualifies
+              for (171, 172). D7's promotions panel takes this place. */}
           <GuidanceStrip
             view={guidance}
             transactionId={state.transactionId}
@@ -422,7 +446,7 @@ export default function ConsoleShell({
             actions={guidanceActions}
           />
         </div>
-        <Receipt state={state} submit={submit} />
+        <Receipt state={state} submit={submit} checklist={beforeYouPlace(state)} />
       </div>
     </div>
   )
@@ -431,6 +455,37 @@ export default function ConsoleShell({
 /** The two boxes a palette row hands focus back to. */
 function focusBox(id: string) {
   document.getElementById(id)?.focus()
+}
+
+/**
+ * Where a step click lands (D3): the first place on screen that answers the step's
+ * focus, tried in order. A header word that is a readout rather than a control is made
+ * programmatically focusable (`tabindex=-1`) so focus still arrives somewhere visible.
+ */
+const STEP_TARGETS: Record<RailStep['focus'], string[]> = {
+  caller: ['#cc-phone', '[data-cc-col="caller"]'],
+  items: ['#cc-item-search', '[data-cc-basket]'],
+  fulfilment: ['[data-cc-chips] [data-cc-chip="fulfilment"]', '[data-cc-chips]'],
+  address: ['[data-cc-chips] [data-cc-chip="address"]', '[data-cc-chips]'],
+  store: ['[data-cc-chips] [data-cc-chip="store"]', '[data-cc-chips]'],
+  slot: ['[data-cc-chips] [data-cc-chip="slot"]', '[data-cc-chips]'],
+  payment: ['[data-cc-chips] [data-cc-chip="payment"]', '[data-cc-chips]'],
+  source: ['[data-cc-chips] [data-cc-chip="source"]', '[data-cc-chips]'],
+  reference: ['[data-cc-chips] [data-cc-chip="reference"]', '[data-cc-chips]'],
+  review: ['#cc-checklist'],
+  placed: ['#cc-checklist'],
+  unknown: ['#cc-checklist'],
+}
+
+function focusStep(step: RailStep) {
+  for (const selector of STEP_TARGETS[step.focus]) {
+    const el = document.querySelector<HTMLElement>(selector)
+    if (!el) continue
+    if (!el.matches('button, input, select, textarea, a[href], [tabindex]')) el.setAttribute('tabindex', '-1')
+    el.focus()
+    el.scrollIntoView({ block: 'nearest' })
+    return
+  }
 }
 
 function TopBar({
@@ -715,11 +770,18 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
  * threshold is something the agent watches happen rather than discovers at
  * submit (US36).
  */
-function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions }) {
+function Receipt({
+  state,
+  submit,
+  checklist,
+}: {
+  state: SessionState
+  submit: SubmitActions
+  /** *Before you place it* (D3) — the same model the step rail reads. */
+  checklist: Checklist
+}) {
   const { t } = useTranslation('callcenter')
-  const { capabilities } = state
   const receipt = receiptView(state.totals)
-  const blockers = submitBlockers(capabilities.submitBlockers)
   // 🚩 The order number outranks everything else in this foot. Once it exists
   // there is nothing left to press and nothing left to fix — including the
   // `ALREADY_SUBMITTED` blocker, which is the projection saying the same thing
@@ -749,6 +811,10 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
             </span>
           </div>
         </dl>
+        {/* 🚩 *Before you place it* (D3, US12): the server's blockers as rows, the
+            same model the rail's Review step reads. Gone once the order is placed —
+            `ALREADY_SUBMITTED` beside the order number would read as a problem. */}
+        {!placed && <BeforeYouPlace checklist={checklist} />}
       </div>
       <div className="space-y-2 border-t border-divider p-4">
         {placed ? (
@@ -764,24 +830,14 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
               requestGone={submit.requestGone ?? null}
               onUnlink={submit.onUnlink}
             />
-            {blockers.length > 0 && (
-              // 🚩 US54 / US22 — *Place order* is never mysteriously dead: while
-              // something is missing the reason is NAMED, from the server's own
-              // list. The wording and the chip ownership are `submit-blockers.ts`'s,
-              // so a code this client has never heard of still reaches the agent as
-              // words rather than as `MISSING_PAYMENT_TYPE`, and the chip row cannot
-              // disagree with this sentence about which section is at fault.
-              <div className="text-xs text-attention-800" data-cc-blockers>
-                {t('receipt.needed', { list: blockers.map((blocker) => t(blocker.key)).join(' · ') })}
-              </div>
-            )}
             <Button
               onClick={submit.onPlace}
               // 🚩 Dead unless the page passed a handler — which it does only on
-              // the door's own `canSubmit` — and dead while it is running: a
+              // the door's own `canSubmit` — dead while any blocker remains (D9:
+              // the checklist names what), and dead while it is running: a
               // second press mid-flight is one action sent twice, on the verb
               // that mints a real OMS order.
-              disabled={!submit.onPlace || submit.placing}
+              disabled={!submit.onPlace || !checklist.ready || submit.placing}
               data-cc-submit
               // The handle the drive asserts *the receipt holds* through: the
               // button says what it is doing and nothing else on screen moves.
@@ -803,6 +859,53 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
         )}
       </div>
     </aside>
+  )
+}
+
+/**
+ * *Before you place it* (spec 983 D3, US12): every row the order still needs, in the
+ * server's own words, beside the ones already settled. Its id is the Review step's
+ * landing place.
+ */
+function BeforeYouPlace({ checklist }: { checklist: Checklist }) {
+  const { t } = useTranslation('callcenter')
+  return (
+    <section
+      id="cc-checklist"
+      tabIndex={-1}
+      aria-labelledby="cc-checklist-heading"
+      className="mt-4 border-t border-divider pt-3"
+      data-cc-checklist={checklist.ready ? 'ready' : 'blocked'}
+    >
+      <h2
+        id="cc-checklist-heading"
+        className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+      >
+        {t('checklist.heading')}
+      </h2>
+      <ul className="mt-1.5 space-y-1">
+        {checklist.rows.map((row) => {
+          const done = row.state === 'done'
+          return (
+            <li
+              key={row.id}
+              className={`flex items-start gap-1.5 text-xs ${done ? 'text-success-800' : 'text-attention-800'}`}
+              data-cc-check={row.id}
+              data-cc-check-state={row.state}
+              // The wire codes, for the drive and the log — never for the eye.
+              data-cc-check-codes={row.codes.join(' ') || undefined}
+            >
+              {done ? (
+                <Check className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+              ) : (
+                <CircleDashed className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+              )}
+              <span className="first-letter:uppercase">{t(row.key)}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

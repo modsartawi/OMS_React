@@ -19,3 +19,16 @@ export const SIMULATOR_RUN_PARAM = 'run'
  * door is the simulator's build: ticket 969 reads this parameter through it (a kept run's link is this link too).
  */
 export const simulatorRunPath = (runId: string): string => `${SIMULATOR_PATH}?${new URLSearchParams({ [SIMULATOR_RUN_PARAM]: runId })}`
+
+/** The query parameter naming an order the simulator opens set to replay (ticket 974). */
+export const SIMULATOR_REPLAY_PARAM = 'replay'
+
+/**
+ * The link that opens the simulator set to replay an order (ticket 974, BackOffice 4397: an old order link with no
+ * stored run "offers a replay"). It only sets the replay up: nothing runs until the user presses Run.
+ */
+export const simulatorReplayPath = (orderNumber: string): string =>
+  `${SIMULATOR_PATH}?${new URLSearchParams({ [SIMULATOR_REPLAY_PARAM]: orderNumber })}`
+
+/** The order the simulator's address asks it to replay, trimmed; `''` when none. */
+export const replayOrderOf = (params: URLSearchParams): string => (params.get(SIMULATOR_REPLAY_PARAM) ?? '').trim()

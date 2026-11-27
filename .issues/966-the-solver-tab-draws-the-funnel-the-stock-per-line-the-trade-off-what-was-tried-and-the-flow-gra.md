@@ -112,3 +112,5 @@ the fixture's extra "why not" rows (store 1090's own rows set aside in one case;
 are now four). Then merged again after 963 (both cart helpers kept in the drive). After the merges: `npm test`
 991 files, typecheck and lint green, the drive 186/186 on Edge, and the build's entry chunk still holds no xyflow code.
 
+
+**2026-11-27 — Reconciled with BackOffice 4355–4381 (4373, 4379, 4380, 4381, 4386) at pricing2 35a4e56be.** Filter steps carry `removedCount` and, for the whole-store steps, `byMode` (steps 1 and 2 are never listed pair by pair); the funnel lists `removed` or the nearest five per mode. `inputs.storeLines` is per store and item with a `working[]` per mode, so the stock per line has a row per store and mode. Kept plans are `RecordKeptPlan` (`by`, `linesServed`, `lostMostOn` as a sum part such as `SPLIT_PENALTY`). No gap left in this ticket's wire. Proof: `npm test`, `npm run typecheck`, `npm run lint` green; `tools/sourcing-simulator-drive.mjs` 222/222 and `tools/sourcing-record-drive.mjs` 96/96 on Edge, LTR and RTL, against stubs serving the server's shapes.

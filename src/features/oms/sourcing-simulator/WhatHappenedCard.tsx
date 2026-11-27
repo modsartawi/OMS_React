@@ -51,10 +51,7 @@ export default function WhatHappenedCard({ card }: { card: Card }) {
       <ul className="flex flex-col gap-1 text-xs">
         {card.deliveries.map((d) => (
           <li key={d.delivery} className="flex flex-col" data-what-happened-delivery={d.delivery}>
-            <span>{t('whatHappened.chose', { store: fsi(formatPair(d.store, d.storeName)), mode: w.mode(d.mode) })}</span>
-            {d.late && d.minutesLate !== null && (
-              <span className="text-muted-foreground">{t('whatHappened.lateBy', { minutes: fsi(d.minutesLate) })}</span>
-            )}
+            <span>{t('whatHappened.chose', { store: fsi(formatPair(d.store, d.storeName)), mode: d.mode ? w.mode(d.mode) : t('dash') })}</span>
           </li>
         ))}
       </ul>

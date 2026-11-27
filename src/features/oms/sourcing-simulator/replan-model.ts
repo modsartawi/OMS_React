@@ -36,8 +36,9 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 /**
  * The cart form (or, 964, the order form), carrying the pins and the set. A replay sends them beside `orderNumber` as a
- * cart does: pins apply to every run (spec 4354 §3). A choice to confirm with BackOffice 4381 (4281 decision 11 says
- * "`orderNumber` alone").
+ * cart does: pins apply to every run (spec 4354 §3). BackOffice 4381 takes them there (`AdviseRequestCheck.CheckOrder`:
+ * beside an order only a moved point, `weightSet`, `pins`, `level`, `allPlans`, `plannedFor` and `withCustomerPoint`;
+ * the pins are checked against the order's own lines once it is read).
  */
 export function cartRequest(ask: RunAsk): AdviseCartRequest | AdviseReplayRequest {
   return {
@@ -99,16 +100,19 @@ export function cartAgain(sent: SimulatorRequest, err: unknown, ask: RunAsk): Ad
 export interface RunBasis {
   /** Planned again: the figures are as read at this time, from this run. */
   figuresFrom: { runId: string; readAt: string | null } | null
-  /** The change needed a figure the earlier run never read: read afresh, with the server's why. */
-  readAfresh: { why: string | null } | null
+  /** The change needed a figure the earlier run never read: read afresh, with the server's reasons (`AfreshReasons`). */
+  readAfresh: { fromRun: string | null; why: string[] } | null
   /** The held copy was gone, so the cart ran again. */
   heldGone: boolean
 }
 
-export function runBasis(reply: Pick<AdviseReply, 'basedOnRun' | 'figuresReadAt' | 'solve'>, { heldGone }: { heldGone: boolean }): RunBasis {
+export function runBasis(reply: Pick<AdviseReply, 'basedOnRun' | 'figuresReadAt' | 'solve' | 'readAfresh'>, { heldGone }: { heldGone: boolean }): RunBasis {
   return {
     figuresFrom: reply.basedOnRun ? { runId: reply.basedOnRun, readAt: reply.figuresReadAt ?? null } : null,
-    readAfresh: reply.solve.marks.includes('READ_AFRESH') ? { why: reply.solve.readAfreshWhy ?? null } : null,
+    readAfresh:
+      reply.readAfresh || reply.solve.marks.includes('READ_AFRESH')
+        ? { fromRun: reply.readAfresh?.fromRun ?? null, why: reply.readAfresh?.why ?? [] }
+        : null,
     heldGone,
   }
 }

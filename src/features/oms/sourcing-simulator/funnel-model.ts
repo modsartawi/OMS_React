@@ -3,9 +3,10 @@
  * pair, then each filter step in the run's order with the pairs still standing after it. A step opens to the pairs it
  * removed, each with its code's figures; the screen writes the rule's words. Pure.
  *
- * The figures are the record's: `before` and `after` per step, the cut's `cap`, and `solve.pairs` for the pairs cut and
- * offered. A step's count is `before − after`; the list under it is what the record carries (the middle level lists
- * the nearest five out of reach, the full level every store).
+ * The figures are the record's: `before`, `after` and `removedCount` per step, the cut's `cap`, and `solve.pairs` for the
+ * pairs cut and offered. The list under a step is what the record carries: its `removed[]` (every removal of steps 4
+ * and 5 at the full level), else a whole-store step's nearest five per mode (`byMode`); steps 1 and 2 are never listed
+ * pair by pair (BackOffice 4379).
  */
 import type { AdviseFilterStep, AdviseRemovedPair, AdviseReply } from '@/core/models/sourcing-run'
 
@@ -52,8 +53,8 @@ export function funnelOf(reply: Pick<AdviseReply, 'filterSteps' | 'solve'>): Fun
       step: s.step,
       code: s.code,
       standing: s.after,
-      removedCount: Math.max(0, s.before - s.after),
-      removed: s.removed ?? [],
+      removedCount: s.removedCount,
+      removed: s.removed ?? (s.byMode ?? []).flatMap((m) => m.nearest),
       fraction: share(s.after),
     })),
   ]

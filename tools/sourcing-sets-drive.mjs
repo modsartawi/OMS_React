@@ -33,7 +33,7 @@ const SHOTS = 'tools/.sourcing-sets-shots'
 mkdirSync(SHOTS, { recursive: true })
 
 const STUB = JSON.parse(readFileSync('src/features/oms/sourcing-sets/stub-sets.json', 'utf8'))
-const ALL_GRANTS = ['SourcingAdvisorRun:06', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06']
+const ALL_GRANTS = ['SourcingSimulator:03', 'SourcingAdvisorSave:01', 'SourcingAdvisorMark:06']
 
 const results = []
 const check = (name, pass, detail = '') => {
@@ -159,7 +159,7 @@ async function scenario(browser, lang) {
     const denied = await page.getByRole('alert').first().innerText()
     check(`${tag} the view grant alone opens no weight sets`, /No access to the weight sets/.test(denied), denied.slice(0, 80))
 
-    wire.grants = ['SourcingAdvisorRun:06']
+    wire.grants = ['SourcingSimulator:03']
     await page.goto(`${BASE}/oms/sourcing-sets?tab=mark&set=Express%20margin&version=5`)
     await page.locator('[data-sets]').waitFor({ timeout: 15000 })
     check(

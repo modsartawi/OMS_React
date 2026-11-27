@@ -1,8 +1,7 @@
-import type { AdvisePlan, AdviseReply } from '@/core/models/sourcing-run'
+import type { AdvisePlan } from '@/core/models/sourcing-run'
 import Ltr from '@/core/ui/Ltr'
 import { TD, TH } from '@/core/ui/sheet-table'
-import { formatPair } from '@/core/util/bidi'
-import { formatFigure } from '@/core/util/number-format'
+import { formatCount, formatPair } from '@/core/util/bidi'
 import { storeRecords } from './money-rows-model'
 import SourcePill from './SourcePill'
 import { usePlanWords } from './use-plan-words'
@@ -15,12 +14,12 @@ const percent = (rate: number) => `${(rate * 100).toFixed(1)}%`
  * store's record for its mode — a row per measure, the store's rate against like stores, the deliveries behind it,
  * and its cost or credit. A neutral default and a steadied rate say so. The words never blame the store.
  */
-export default function StoreRecords({ plan, reply }: { plan: AdvisePlan; reply: AdviseReply }) {
+export default function StoreRecords({ plan }: { plan: AdvisePlan }) {
   const w = usePlanWords()
   const { t } = w
   return (
     <ol className="flex flex-col gap-3" data-why-records="">
-      {storeRecords(plan, reply).map((r) => (
+      {storeRecords(plan).map((r) => (
         <li key={r.no} className="flex flex-col gap-1.5 rounded-md border border-border/70 px-3 py-2 text-xs" data-why-record={r.no}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex flex-wrap items-center gap-1.5 font-semibold">
@@ -61,7 +60,7 @@ export default function StoreRecords({ plan, reply }: { plan: AdvisePlan; reply:
                       <td className={`${TD} text-end`}>
                         <span className="inline-flex items-center justify-end gap-1">
                           {m.neutral ? (
-                            <SourcePill source="NEUTRAL_DEFAULT" />
+                            <SourcePill source={m.source} />
                           ) : (
                             <>
                               <span className="tabular-nums">
@@ -76,10 +75,10 @@ export default function StoreRecords({ plan, reply }: { plan: AdvisePlan; reply:
                         <Ltr>{percent(m.likeStores)}</Ltr>
                       </td>
                       <td className={`${TD} text-end tabular-nums`}>
-                        <Ltr>{formatFigure(m.count)}</Ltr>
+                        <Ltr>{formatCount(m.bad, m.count)}</Ltr>
                       </td>
                       <td className={`${TD} text-end tabular-nums`} data-why-measure-cost="">
-                        {m.cost === null ? t('dash') : <Ltr>{w.money(m.cost)}</Ltr>}
+                        <Ltr>{w.money(m.cost)}</Ltr>
                       </td>
                     </tr>
                   ))}

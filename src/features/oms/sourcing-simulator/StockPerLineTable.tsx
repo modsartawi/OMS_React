@@ -60,22 +60,25 @@ export default function StockPerLineTable({ reply, plan }: { reply: AdviseReply;
             </thead>
             <tbody>
               {stock.rows.map((r) => (
-                <tr key={r.store} className={`border-b border-border/60 ${r.chosen ? 'bg-primary-050' : ''}`} data-solver-stock-row={r.store} data-solver-stock-chosen={r.chosen ? 'true' : undefined}>
+                <tr key={`${r.store} ${r.mode}`} className={`border-b border-border/60 ${r.chosen ? 'bg-primary-050' : ''}`} data-solver-stock-row={r.store} data-solver-stock-mode={r.mode} data-solver-stock-chosen={r.chosen ? 'true' : undefined}>
                   <td className={TD}>
                     <span className="font-mono">
                       <Ltr>{r.storeName ? formatPair(r.store, r.storeName) : r.store}</Ltr>
                     </span>
                     {r.chosen && <span className="ms-2 rounded-full border border-primary-border px-1.5 py-px text-[11px]">{t('solver.stock.chosen')}</span>}
+                    <div className="text-[11px] text-muted-foreground" data-solver-stock-row-mode="">
+                      {w.mode(r.mode)}
+                    </div>
                   </td>
                   <td className={`${TD} text-end tabular-nums`} data-solver-stock-cell="onHand">
                     <Ltr>{formatFigure(r.onHand)}</Ltr>
-                    <div className="text-[11px] text-muted-foreground">{t('solver.stock.sap', { count: fsi(formatFigure(r.sapStock)) })}</div>
+                    {r.sapStock !== null && <div className="text-[11px] text-muted-foreground">{t('solver.stock.sap', { count: fsi(formatFigure(r.sapStock)) })}</div>}
                   </td>
                   <td className={`${TD} text-end tabular-nums`} data-solver-stock-cell="heldByOrders">
-                    <Ltr>{less(r.heldByOrders)}</Ltr>
+                    {r.heldByOrders === null ? t('dash') : <Ltr>{less(r.heldByOrders)}</Ltr>}
                   </td>
                   <td className={`${TD} text-end tabular-nums`} data-solver-stock-cell="heldByDeliveries">
-                    <Ltr>{less(r.heldByDeliveries)}</Ltr>
+                    {r.heldByDeliveries === null ? t('dash') : <Ltr>{less(r.heldByDeliveries)}</Ltr>}
                   </td>
                   <td className={`${TD} text-end tabular-nums`} data-solver-stock-cell="afterDemand">
                     <Ltr>{formatFigure(r.afterDemand)}</Ltr>

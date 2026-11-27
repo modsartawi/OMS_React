@@ -14,13 +14,20 @@ const sent = pinsFixture.pins as AdvisePin[]
 const pinned: AdviseReply = { ...reply, refusedPins: pinsFixture.refusedPins as AdviseReply['refusedPins'], withoutPins: pinsFixture.withoutPins as AdviseReply['withoutPins'] }
 
 describe('the pins as chips', () => {
-  it('a pin that held has no reason; a refused pin stays listed with its code, filter step and rule', () => {
+  it('a pin that held has no reason; a refused pin stays listed with its code, filter step, the product rule’s id and its sentence', () => {
     expect(pinChips(sent, pinned)).toEqual([
       { key: 'LINE_STORE:3:1090', pin: { kind: 'LINE_STORE', lineNo: 3, store: '1090' }, refusal: null },
       {
         key: 'LINE_MODE:2:DAWAA_NOW',
         pin: { kind: 'LINE_MODE', lineNo: 2, mode: 'DAWAA_NOW' },
-        refusal: { code: 'PIN_PAIR_REMOVED', step: 10, stepCode: 'PRODUCT_RULE', rule: 'cold items: slot delivery and pick-up only' },
+        refusal: {
+          code: 'PIN_PAIR_REMOVED',
+          step: 10,
+          stepCode: 'PRODUCT_RULE',
+          rule: 'PR-0007',
+          en: 'cold items: slot delivery and pick-up only',
+          ar: 'أصناف التبريد: توصيل بموعد أو استلام من الصيدلية فقط',
+        },
       },
     ])
   })

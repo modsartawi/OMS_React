@@ -33,7 +33,7 @@ export default function WhyThisPlan({ reply, plan }: SimulatorTabProps) {
         <MoneyTable plan={plan} />
       </Part>
       <Part title={t('why.records.title')}>
-        <StoreRecords plan={plan} reply={reply} />
+        <StoreRecords plan={plan} />
       </Part>
       {short.length > 0 && (
         <Part title={t('why.shortFigure.title')}>

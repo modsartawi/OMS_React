@@ -5,22 +5,28 @@
  *
  * The comparison is an estimate, never "would have been better" (spec 4354 §16): a replay plans on today's figures at the
  * order's hour, so the plan's promise is read as the time from planning to its last shipment, and the order's as the
- * time from being placed to its last delivery. Totals are the server's, as sent (4281 decision 28); the minutes between
- * two wall-clock times are the one figure worked out here.
+ * time from its first delivery coming in to its last delivered. The minutes between two wall-clock times are worked out
+ * here.
  *
- * ⚠ The wire's field names are PROVISIONAL (spec 4354: not specified) — see `AdviseWhatHappened`.
+ * The wire is BackOffice 4381's `whatHappened[]`: one row per real delivery (its store, mode, lines, when it came in and
+ * was delivered, late or not, the fee paid). SERVER GAP (spec 4354) — it sends no totals, no store name and no minutes
+ * late: the count is how many deliveries came, the fee paid is their fees added (each a fact, never an assumed rate), a
+ * store is named by the reply's own name for it or its code, and a late delivery says only that it was late.
  */
 import type { AdviseReply, DeliveryMode } from '@/core/models/sourcing-run'
 import type { PlanMeasure, ShipmentBrief } from './plans-table-model'
+import { storeNames } from './stock-per-line-model'
 
 export interface HappenedDelivery {
   delivery: string
   store: string
+  /** The reply's own name for the store; empty when it gives none. */
   storeName: string
-  mode: DeliveryMode | string
+  /** Null when no mode reads the delivery's type. */
+  mode: DeliveryMode | string | null
+  cameInAt: string
   deliveredAt: string | null
   late: boolean | null
-  minutesLate: number | null
   fee: number
 }
 
@@ -44,7 +50,7 @@ export type HappenedAgainst =
 export interface WhatHappenedCard {
   orderNumber: string
   deliveries: HappenedDelivery[]
-  /** The totals as sent. */
+  /** How many deliveries came, and the fee paid for them. */
   count: number
   fee: number
   /** The last delivery's time, as sent; null while any delivery is not delivered. */
@@ -74,24 +80,29 @@ export function whatHappened(reply: AdviseReply): WhatHappenedCard | null {
   const wh = reply.whatHappened
   // CMP 93: a replay whose customer's pin was moved by hand drops the card; only the order's own replay shows it.
   if (reply.kind !== 'REPLAY' || !wh) return null
-  const deliveries: HappenedDelivery[] = wh.deliveries.map((d) => ({
-    delivery: d.delivery,
+  const names = storeNames(reply)
+  const deliveries: HappenedDelivery[] = wh.map((d) => ({
+    delivery: d.deliveryNo,
     store: d.store,
-    storeName: d.storeName,
-    mode: d.mode,
-    deliveredAt: d.deliveredAt,
-    late: d.late,
-    minutesLate: d.minutesLate,
+    storeName: names.get(d.store) ?? '',
+    mode: d.mode ?? null,
+    cameInAt: d.cameInAt,
+    deliveredAt: d.deliveredAt ?? null,
+    late: d.late ?? null,
     fee: d.fee,
   }))
+  const count = deliveries.length
+  // Facts only: the fees the customer paid (no total is sent).
+  const fee = Math.round(deliveries.reduce((a, d) => a + d.fee, 0) * 1000) / 1000
+  const cameIn = deliveries.length > 0 ? deliveries.map((d) => d.cameInAt).reduce((a, b) => (minutesOf(b)! < minutesOf(a)! ? b : a)) : null
   const delivered = deliveries.length > 0 && deliveries.every((d) => d.deliveredAt !== null)
   const deliveredAt = delivered ? deliveries.map((d) => d.deliveredAt as string).reduce((a, b) => (minutesOf(b)! > minutesOf(a)! ? b : a)) : null
   const rec = reply.plans.find((p) => p.goal === 'BALANCED')
   let against: HappenedAgainst | null = null
   const planMinutes = rec ? minutesBetween(reply.plannedFor, rec.promise.by) : null
   if (rec && planMinutes !== null) {
-    const base = { planMinutes, planDeliveries: rec.totals.shipments, deliveries: wh.totals.deliveries, planFee: rec.totals.fee, fee: wh.totals.fee }
-    const happenedMinutes = minutesBetween(wh.placedAt, deliveredAt)
+    const base = { planMinutes, planDeliveries: rec.totals.shipments, deliveries: count, planFee: rec.totals.fee, fee }
+    const happenedMinutes = minutesBetween(cameIn, deliveredAt)
     if (happenedMinutes === null) against = { kind: 'notDelivered', ...base }
     else {
       const apart = happenedMinutes - planMinutes
@@ -110,8 +121,8 @@ export function whatHappened(reply: AdviseReply): WhatHappenedCard | null {
   return {
     orderNumber: reply.orderNumber ?? '',
     deliveries,
-    count: wh.totals.deliveries,
-    fee: wh.totals.fee,
+    count,
+    fee,
     deliveredAt,
     late: deliveries.some((d) => d.late === true),
     against,
@@ -132,7 +143,7 @@ export function happenedCells(card: WhatHappenedCard): Record<PlanMeasure, Happe
   return {
     promise: { kind: 'delivered', at: card.deliveredAt, late: card.late },
     deliveries: { kind: 'count', value: card.count },
-    storesAndModes: { kind: 'shipments', shipments: card.deliveries.map((d, i) => ({ no: i + 1, store: d.store, storeName: d.storeName, mode: d.mode })) },
+    storesAndModes: { kind: 'shipments', shipments: card.deliveries.map((d, i) => ({ no: i + 1, store: d.store, storeName: d.storeName, mode: d.mode ?? '' })) },
     fee: { kind: 'money', value: card.fee, perShipment: card.deliveries.map((d) => d.fee) },
     companyCost: { kind: 'notRecorded' },
     waiting: { kind: 'notRecorded' },

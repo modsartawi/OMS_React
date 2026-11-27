@@ -2,11 +2,12 @@
 // Ticket 966 adds the Solver tab's five diagrams (`solverDrive`, its steps listed above it): the flow graph's chunk is
 // asked for only when the graph opens.
 //
-// Drives the REAL app against a STUB of the advise door BackOffice 4355–4357 have not built, answering EXACTLY the
-// BackOffice 4281 wire (its worked example, cut to the full level: `src/features/oms/sourcing-simulator/
+// Drives the REAL app against a stub of the advise door as BackOffice 4355–4381 built it (reconciled at pricing2
+// 35a4e56be), answering the server's run record at the full level (`src/features/oms/sourcing-simulator/
 // advise-reply.fixture.json`, the same reply the model tests read):
-//   GET  Auth/Permissions           → the run grant `SourcingAdvisorRun:06` (PROVISIONAL key) held or not
-//   GET  SourcingAdvisor/Workbench  → no map key (PROVISIONAL door): the map cannot draw, the point is typed
+//   GET  Auth/Permissions           → the run grant `SourcingSimulator:03` held or not
+//   GET  SourcingAdvisor/Workbench  → no map key (SERVER GAP: no such door): the map cannot draw, the point is typed
+//   GET  SdDocument/StoreDetails    → the stores' points (the run record carries none)
 //   POST SourcingAdvisor/Advise     → the fixture, a variant of it, or a door error (true HTTP status + code)
 // Left to right and right to left (`oms.locale = 'ar'`, the page's direction) it asserts:
 //   1. without the run grant: no menu leaf, the denied card, and the door is never asked;
@@ -26,9 +27,9 @@
 //  11. RTL: the page is right to left, and the store pair and the run number read left to right;
 //  12. no page errors;
 //  13. (ticket 965) on a split plan — two Dawaa Now shipments, picked in the tab strip — "Why this plan": a promise bar
-//      of four parts per shipment with sources, the pick end, the usual time, lengtheners marked "adds nothing"; the
+//      of four parts per shipment with sources, the pick end (no usual time: the server sends none), lengtheners marked "adds nothing"; the
 //      money with a column per shipment, sources and the assumed banner; how deliveries go at each store; "why not
-//      another store" asks the PROVISIONAL door `GET SourcingAdvisor/WhyNot` (stubbed with the reply's `search.whyNot`)
+//      another store" reads the reply on screen (its `search.whyNot` and `filterSteps`: the server has no door for it)
 //      and shows a removal's rule, a pair the plan uses, and on Recommended a standing pair's sums and parts; a slot
 //      shipment's skipped and next slots; the short-figure sentence with its chance, on the card and in the tab;
 //      "What the run used": four counts, the marks of the run, every factor; never "fault", "performance", "rating" or
@@ -85,7 +86,7 @@ const SPLIT = { ...REPLY, plans: [REPLY.plans[0], SPLIT_PLAN, ...REPLY.plans.sli
 // locale's own keys; the server's Arabic sentences are picked when the language is Arabic (`use-plan-words.ts`).
 const EN = json('../src/locales/en/sourcing-simulator.json')
 const WORDS = { ltr: EN, rtl: EN }
-const RUN_GRANT = 'SourcingAdvisorRun:06'
+const RUN_GRANT = 'SourcingSimulator:03'
 const SAVE_GRANT = 'SourcingAdvisorSave:01'
 // Ticket 963: the pins, the run without them and the refused pin, shared with `pins-model.test.ts`.
 const PINS = json('../src/features/oms/sourcing-simulator/pins-reply.fixture.json')
@@ -164,12 +165,7 @@ async function open(dir, { granted = true, canSave = true } = {}) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     wire.calls.push(p)
-    if (p === 'SourcingAdvisor/WhyNot') {
-      // PROVISIONAL door (ticket 965): one store's rows of the held run's `search.whyNot[]`.
-      const q = Object.fromEntries(url.searchParams)
-      wire.whyNot.push(q)
-      return route.fulfill(envelope(REPLY.search.whyNot.filter((r) => r.store === q.store)))
-    }
+    if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'Auth/Permissions')
       return route.fulfill(permissions(['DocumentList:03', 'SourcingAdvisor:01', ...(granted ? [RUN_GRANT] : []), ...(granted && canSave ? [SAVE_GRANT] : [])]))
@@ -231,6 +227,14 @@ const isLtrIsolate = (locator) => locator.evaluate((el) => el.tagName === 'BDI' 
 const text = async (locator) => ((await locator.textContent()) ?? '').replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ').trim()
 
 const SIM = '/oms/sourcing-simulator'
+
+/** The store list's points (`SdDocument/StoreDetails`, latitude and longitude as text): the map places the stores by them. */
+const STORE_DETAILS = [
+  ['1090', '24.7801', '46.752'],
+  ['1055', '24.7902', '46.7611'],
+  ['1061', '24.765', '46.7301'],
+  ['1203', '24.8302', '46.7105'],
+].map(([storeCode, latitude, longitude]) => ({ storeCode, city: 'RUH', region: 'C', storeAddress: '', deliveryStore: true, latitude, longitude, wasfatyRefill: false }))
 
 async function drive(dir) {
   const W = WORDS[dir]
@@ -459,11 +463,10 @@ async function drive(dir) {
   const part1 = await text(why.locator('[data-why-shipment="1"] [data-why-part="madeReady"]'))
   check(`${label}: each part with its minutes and its source`, part1.includes(W.why.promise.part.madeReady) && part1.includes('10') && part1.includes(W.why.source.STORES_OWN), part1)
   const pickEnd = await text(why.locator('[data-why-shipment="1"] [data-why-pick-end]'))
-  const usual = await text(why.locator('[data-why-shipment="1"] [data-why-usual]'))
   check(
-    `${label}: the pick end with its rule, and the usual time beside the promise`,
-    pickEnd.includes('20:01') && pickEnd.includes(W.why.pickEndRule.CAUTIOUS_MADE_READY) && usual.includes('20:08'),
-    `${pickEnd} | ${usual}`,
+    `${label}: the pick end as sent; no usual time and no pick-end rule, which the server does not send`,
+    pickEnd.includes('20:01') && (await why.locator('[data-why-shipment="1"] [data-why-usual]').count()) === 0 && (await why.locator('[data-why-pick-end=""]').count()) === 2,
+    pickEnd,
   )
   check(
     `${label}: lengtheners that add nothing say so; one that lengthens does not`,
@@ -486,10 +489,10 @@ async function drive(dir) {
   )
   const assumedRows = await why.locator('[data-why-assumed-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-why-assumed-row')))
   check(`${label}: the banner names the assumed ones`, assumedRows.join() === 'fee,HANDLING', assumedRows.join())
-  const record = await text(why.locator('[data-why-record="2"] [data-why-measure="calloutIgnored"]'))
+  const record = await text(why.locator('[data-why-record="2"] [data-why-measure="CALLOUT_IGNORED"]'))
   check(
-    `${label}: how deliveries go at each store: the measure against like stores, the deliveries behind it, its cost`,
-    (await why.locator('[data-why-record]').count()) === 2 && record.includes('23.0%') && record.includes('8.0%') && record.includes('41') && record.includes(money('0.300')),
+    `${label}: how deliveries go at each store: the shipment's store record, the measure against like stores, the bad endings and deliveries behind it, its cost`,
+    (await why.locator('[data-why-record]').count()) === 2 && record.includes('23.0%') && record.includes('8.0%') && record.includes('9 / 41') && record.includes(money('0.300')),
     record,
   )
   const pairLtr = why.locator('[data-why-money-column="2"] bdi').first()
@@ -499,8 +502,8 @@ async function drive(dir) {
   await why.locator('[data-why-not-answer="1203"]').waitFor({ timeout: 3000 })
   const removed = await text(why.locator('[data-why-not-mode="DAWAA_NOW"]'))
   check(
-    `${label}: "why not" asks the door for the store and the plan's goal, and a removed store gives its rule`,
-    JSON.stringify(wire.whyNot.at(-1)) === JSON.stringify({ runId: REPLY.runId, store: '1203', goal: 'FASTEST' }) &&
+    `${label}: "why not" is read off the reply on screen, no door asked, and a removed store gives its rule`,
+    !wire.calls.some((c) => c.startsWith('SourcingAdvisor/WhyNot')) &&
       (await why.locator('[data-why-not-kind="removed"] [data-why-not-code="OUT_OF_REACH"]').count()) === 1 &&
       removed.includes(W.why.filter.OUT_OF_REACH) &&
       removed.includes('5'),
@@ -516,10 +519,14 @@ async function drive(dir) {
   await whyRec.locator('[data-why-not-store]').selectOption('1061')
   await whyRec.locator('[data-why-not-answer="1061"]').waitFor({ timeout: 3000 })
   const sums = await text(whyRec.locator('[data-why-not-sums]'))
-  const extra = await text(whyRec.locator('[data-why-not-part="STORE_RECORD"]'))
+  const extra = await text(whyRec.locator('[data-why-not-part="COMPANY_COST"]'))
   check(
-    `${label}: a standing store gives the best plan through it, against this plan, and what it costs more by part`,
-    sums.includes(money('43.100')) && sums.includes(money('40.420')) && extra.includes(W.why.part.STORE_RECORD) && extra.includes(W.why.whyNot.more.replace('{{amount}}', money('1.900'))),
+    `${label}: a standing store gives the best plan through it, against this plan, what it lost by, and what it costs more by part`,
+    sums.includes(money('43.100')) &&
+      sums.includes(money('40.420')) &&
+      sums.includes(money('2.680')) &&
+      extra.includes(W.why.part.COMPANY_COST) &&
+      extra.includes(W.why.whyNot.more.replace('{{amount}}', money('1.900'))),
     `${sums} | ${extra}`,
   )
   // a slot shipment: skipped and next slots; the short-figure line in the tab
@@ -530,23 +537,29 @@ async function drive(dir) {
     `${label}: a slot shipment lists the slots skipped and why, its next two slots, and the mark when a later one was cheaper`,
     (await whyCheap.locator('[data-why-skip="INSIDE_LEAD"]').count()) === 1 &&
       (await whyCheap.locator('[data-why-next-slot]').count()) === 2 &&
-      (await whyCheap.locator('[data-why-later-cheaper]').count()) === 1 &&
-      (await whyCheap.locator('[data-why-pick-end="HALF_WAY_TO_SLOT"]').count()) === 1,
+      (await whyCheap.locator('[data-why-later-cheaper]').count()) === 1,
   )
   check(`${label}: the tab says the short-figure line with its chance`, (await text(whyCheap.locator('[data-why-short-line="3"] [data-short-figure-sentence]'))) === cardShort)
   // what the run used
   await page.locator('[data-sim-tab="used"]').click()
   await page.locator('[data-used]').waitFor({ timeout: 3000 })
   const counts = {}
-  for (const s of ['REAL_DATA', 'NEUTRAL_DEFAULT', 'ASSUMED', 'SWITCHED_OFF']) counts[s] = await text(page.locator(`[data-used-count="${s}"] dd`))
-  check(`${label}: four counts on top`, JSON.stringify(counts) === JSON.stringify({ REAL_DATA: '8', NEUTRAL_DEFAULT: '2', ASSUMED: '3', SWITCHED_OFF: '2' }), JSON.stringify(counts))
+  for (const s of ['REAL_DATA', 'NEUTRAL_DEFAULT', 'ASSUMPTION', 'SWITCHED_OFF']) counts[s] = await text(page.locator(`[data-used-count="${s}"] dd`))
+  check(`${label}: four counts on top`, JSON.stringify(counts) === JSON.stringify({ REAL_DATA: '9', NEUTRAL_DEFAULT: '2', ASSUMPTION: '3', SWITCHED_OFF: '2' }), JSON.stringify(counts))
   const marksSeen = await page.locator('[data-used-mark]').evaluateAll((els) => els.map((e) => e.getAttribute('data-used-mark')))
   check(`${label}: the marks of the run`, marksSeen.join() === 'straightLine,assumption,listFee,rangeNotConfirmed', marksSeen.join())
   const riders = await text(page.locator('[data-used-factor="RIDERS_AVAILABLE"]'))
+  const slotRate = await text(page.locator('[data-used-factor="DELIVERY_RATE"][data-used-mode="SLOT"]'))
+  const madeReady = await text(page.locator('[data-used-factor="MADE_READY"]'))
   check(
-    `${label}: every factor with how it enters, how it ran and its source`,
-    (await page.locator('[data-used-factor]').count()) === 15 && riders.includes(W.used.factor.RIDERS_AVAILABLE) && riders.includes(W.used.entersAs.FILTER) && riders.includes(W.used.state.SWITCHED_OFF) && riders.includes('no data'),
-    riders,
+    `${label}: every factor, per mode where read per mode, with how it ran, its source and the stores on the default`,
+    (await page.locator('[data-used-factor]').count()) === 16 &&
+      riders.includes(W.used.factor.RIDERS_AVAILABLE) &&
+      riders.includes(W.used.state.SWITCHED_OFF) &&
+      slotRate.includes(W.mode.SLOT) &&
+      slotRate.includes(W.used.state.ASSUMPTION) &&
+      madeReady.includes(W.used.storesOnDefault_one.replace('{{n}}', '1')),
+    `${riders} | ${slotRate} | ${madeReady}`,
   )
   await page.screenshot({ path: `${SHOTS}/${dir}-used.png`, fullPage: true })
   const panelWords = await text(page.locator('[data-sim-tabs]'))
@@ -798,11 +811,17 @@ async function solverDrive(dir) {
   // S2. the stock per line
   await page.locator('[data-solver-diagram="stock"]').click()
   await page.locator('[data-solver-panel="stock"]').waitFor()
-  const stores = await page.locator('[data-solver-stock-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-solver-stock-row')))
-  const cell = async (store, k) => text(page.locator(`[data-solver-stock-row="${store}"] [data-solver-stock-cell="${k}"]`))
+  const stores = await page
+    .locator('[data-solver-stock-row]')
+    .evaluateAll((els) => els.map((e) => `${e.getAttribute('data-solver-stock-row')} ${e.getAttribute('data-solver-stock-mode')}`))
+  const cell = async (store, k) => text(page.locator(`[data-solver-stock-row="${store}"] [data-solver-stock-cell="${k}"]`).first())
   check(
-    `${label}: line 1 is worked through every store the run read, in the record's figures`,
-    stores.join() === '1055,1090,1061' && (await cell('1061', 'afterDemand')) === '3' && (await cell('1061', 'confidence')) === '×0.80' && (await cell('1061', 'buffer')) === '−1' && (await cell('1061', 'offered')) === '1',
+    `${label}: line 1 is worked through every store the run read, a row per mode it worked, in the record's figures`,
+    stores.join() === '1055 SLOT,1055 DAWAA_NOW,1090 DAWAA_NOW,1090 PICK_UP,1090 SLOT,1061 DAWAA_NOW' &&
+      (await cell('1061', 'afterDemand')) === '3' &&
+      (await cell('1061', 'confidence')) === '×0.80' &&
+      (await cell('1061', 'buffer')) === '−1' &&
+      (await cell('1061', 'offered')) === '1',
     stores.join(),
   )
   check(`${label}: a store short of the quantity says by how much`, (await cell('1061', 'serves')) === S.stock.shortBy.replace('{{count}}', '1'))
@@ -999,12 +1018,22 @@ async function drivePins(dir) {
 
   // 17. a change that needs a wider read is read afresh, and the screen says so
   await page.locator('[data-weights-control="carrierModes"] input').check()
-  const why = 'a mode switched on: CARRIER_SAME_DAY'
-  wire.next.push(envelope({ ...REPLY, runId: '01JDM3P1N0000000000000000D', solve: { ...REPLY.solve, marks: ['ASSUMED_RATES', 'READ_AFRESH'], readAfreshWhy: why }, refusedPins: PINS.refusedPins, withoutPins: PINS.withoutPins }))
+  // BackOffice 4380: the run asked as `basedOnRun`, read afresh, and each reason (`AfreshReasons`).
+  const why = W.replan.afresh.MODE_SWITCHED_ON
+  wire.next.push(
+    envelope({
+      ...REPLY,
+      runId: '01JDM3P1N0000000000000000D',
+      solve: { ...REPLY.solve, marks: ['ASSUMED_RATES', 'READ_AFRESH'] },
+      readAfresh: { fromRun: '01JDM3P1N0000000000000000C', why: ['MODE_SWITCHED_ON'] },
+      refusedPins: PINS.refusedPins,
+      withoutPins: PINS.withoutPins,
+    }),
+  )
   await page.locator('[data-sim-run]').click()
   await page.locator('[data-run-read-afresh]').waitFor({ timeout: 8000 })
   check(
-    `${label}: a change that needed a wider read says it was read afresh, with the server's why`,
+    `${label}: a change that needed a wider read says it was read afresh, with the server's reason in words`,
     wire.posts.at(-1).basedOnRun === '01JDM3P1N0000000000000000C' && (await text(page.locator('[data-run-read-afresh-why]'))) === why && (await page.getByText(W.replan.readAfresh).count()) === 1,
   )
 
@@ -1047,7 +1076,7 @@ async function drivePins(dir) {
     runId: '01JDM3P1N0000000000000000F',
     plans: [],
     noPlan: ['BALANCED', 'FASTEST', 'FEWEST', 'CHEAPEST', 'PICK_UP'].map((goal) => ({ goal, code: 'PINS_CLASH', en: 'These pins leave no plan', ar: 'هذه التثبيتات لا تترك خطة' })),
-    refusedPins: [PINS.refusedPins[0], { pins: [PINS.pins[0], one], code: 'PINS_CLASH', rule: 'no single store holds the whole cart with line 3 from 1090' }],
+    refusedPins: [PINS.refusedPins[0], { pins: [PINS.pins[0], one], code: 'PINS_CLASH', rule: 'R3', goals: ['BALANCED', 'FASTEST', 'FEWEST', 'CHEAPEST', 'PICK_UP'] }],
     withoutPins: PINS.withoutPins,
   }
   wire.next.push(envelope(CLASH))

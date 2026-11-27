@@ -47,7 +47,7 @@ export default function WeightSetPanel({
 }) {
   const { t } = useTranslation('sourcing-simulator')
   const changed = !!draft && isChanged(draft)
-  const options = (sets ?? []).flatMap((s) => s.versions.map((v) => ({ name: s.name, version: v, candidate: s.candidateVersion === v, trial: s.trial })))
+  const options = (sets ?? []).filter((s) => !s.retired).flatMap((s) => s.versions.map((v) => ({ name: s.name, version: v.version, candidate: v.candidate, trial: v.trial })))
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" data-sim-weights="">

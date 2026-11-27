@@ -1,162 +1,196 @@
 /**
- * The marking screen's model (ticket 967; spec 4354 §10 and §18; BO 4360 and 4395). Pure.
+ * The marking screen's model (ticket 967; spec 4354 §10 and §18), over BackOffice 4360 / 4395 as built (pricing2
+ * 35a4e56be: `GET SourcingAdvisor/WeightSets/MarkScreen`, `POST SourcingAdvisor/WeightSets/Mark`). Pure.
  *
  * The owner's variant A: one long form read top to bottom. The four checks show first and Mark stays off while one
  * fails; then the trial's figures (plans changed against the candidate set, orders refused, the promise check per mode
- * under the new version); then every shelf chance figure that differs with its reading; then ONE written reason, with a
- * tick for each "too few" or "not steady" figure saying the reason speaks to it.
+ * under the new version); then every shelf chance figure that differs with what its evidence says; then ONE written
+ * reason, with a tick for each "too few" or "not steady" figure. The server reads the reason for each such figure's
+ * NAME (`ReasonSpeaksToFigures`), so a tick writes the name into the reason and is ticked while the reason names it.
  *
- * Figures are shown as sent ("every total is sent with its parts, as rounded; no reader recomputes"); the model only
- * orders them. The server checks again at the mark; its refusal is read by `refusalLines`.
+ * The screen door runs every check with a blank reason, so it always answers `REASON_SILENT_ON_FIGURE` while such a
+ * figure exists: that refusal is the reason's to answer, not a check. Figures are shown as sent; nothing re-summed.
  */
-import {
-  MARKING_CHECKS,
-  MARKING_REFUSALS,
-  type MarkingCheck,
-  type MarkingCheckKey,
-  type MarkingReply,
-  type MarkingShelfFigure,
-  type MarkingTrialFigures,
-  type MarkRequest,
-} from '@/core/models/sourcing-sets'
-import { RESULTS_LEFT_OVERS, TRIAL_REFUSALS, type ResultsPromiseRow } from '@/core/models/sourcing-results'
+import { ApiError } from '@/core/api'
 import type { WeightSetListItem, WeightSetVersionRef } from '@/core/models/sourcing-run'
+import type {
+  MarkException,
+  MarkRefusalCode,
+  MarkRefusalReason,
+  MarkRefusedData,
+  MarkRequest,
+  MarkScreenReply,
+  MarkTrialFigures,
+  ShelfChanceFigure,
+} from '@/core/models/sourcing-sets'
+
+/** The four checks of spec 4354 §10, in its order. */
+export type MarkCheckKey = 'BALANCED_ON' | 'NO_WHAT_IF' | 'NO_ASSUMED_CARRIER_ROW' | 'KEPT_TRIAL'
+export const MARK_CHECKS: readonly MarkCheckKey[] = ['BALANCED_ON', 'NO_WHAT_IF', 'NO_ASSUMED_CARRIER_ROW', 'KEPT_TRIAL']
+
+/** Which check each refusal code of the server belongs to (`MarkRefusalCodes`). */
+const CHECK_OF: Record<Exclude<MarkRefusalCode, 'REASON_SILENT_ON_FIGURE'>, MarkCheckKey> = {
+  BALANCED_GOAL_OFF: 'BALANCED_ON',
+  TRIAL_SET: 'NO_WHAT_IF',
+  CARRIER_ROW_ASSUMED: 'NO_ASSUMED_CARRIER_ROW',
+  NO_TRIAL: 'KEPT_TRIAL',
+  TRIAL_TOO_SHORT: 'KEPT_TRIAL',
+  TRIAL_TOO_OLD: 'KEPT_TRIAL',
+  TRIAL_NO_ORDERS: 'KEPT_TRIAL',
+  TRIAL_REFUSED_TOO_MANY: 'KEPT_TRIAL',
+  TRIAL_STOP_FINDING: 'KEPT_TRIAL',
+  TRIAL_NOT_PLAN_CHECKED: 'KEPT_TRIAL',
+}
+const SILENT: MarkRefusalCode = 'REASON_SILENT_ON_FIGURE'
+export const KNOWN_REFUSALS: readonly string[] = [...Object.keys(CHECK_OF), SILENT]
+
+/** The version the list marks as the candidate set; null before any marking. */
+export function candidateOf(sets: readonly WeightSetListItem[]): WeightSetVersionRef | null {
+  for (const s of sets) {
+    const v = s.versions.find((x) => x.candidate)
+    if (v) return { name: s.name, version: v.version }
+  }
+  return null
+}
 
 /**
- * The versions the marking screen offers: not a retired set's, not the candidate set itself, and none of a trial set,
+ * The versions the marking screen offers: not a retired set's, not the candidate set itself, and no trial set's,
  * which can never be marked (review 2 #9; as the set list offers Mark).
  */
 export const markableVersions = (sets: readonly WeightSetListItem[]): WeightSetVersionRef[] =>
-  sets.filter((s) => !s.retired && !s.trial).flatMap((s) => s.versions.filter((v) => v !== s.candidateVersion).map((version) => ({ name: s.name, version })))
+  sets.filter((s) => !s.retired).flatMap((s) => s.versions.filter((v) => !v.candidate && !v.trial).map((v) => ({ name: s.name, version: v.version })))
 
-export interface MarkingRefusalLine {
-  check: MarkingCheckKey
-  code: string
-  /** A machine value (days, a percent, a contract row's code); null when the reason has none. */
-  figure: string | null
+export interface MarkingCheck {
+  check: MarkCheckKey
+  passed: boolean
+  refusals: MarkRefusalReason[]
+  /** The exception that let the fourth check through. */
+  exception?: MarkException | null
 }
 
 export interface MarkingView {
-  target: MarkingReply['target']
-  candidate: MarkingReply['candidate']
+  target: WeightSetVersionRef
+  /** The candidate set it would replace, as the list marks it. */
+  candidate: WeightSetVersionRef | null
+  /** A set with a what-if on planner data: never offered, never marked. */
   trialSet: boolean
-  /** The four checks in the spec's order; a check the reply left out is shown failed. */
   checks: MarkingCheck[]
-  /** Every check passed and the set is no trial set: only then may it be marked. */
+  /** No refusal stands but the reason's own: only then may it be marked. */
   checksPass: boolean
-  /** Why it is refused: each failed check's reasons, in the checks' order. */
-  refusals: MarkingRefusalLine[]
-  trial: (MarkingTrialFigures & { endedDaysAgo: number }) | null
-  lastCandidate: MarkingReply['lastCandidate']
-  /** Every shelf chance figure that differs, by mode, units asked and units left over. */
-  shelf: MarkingShelfFigure[]
-  /** The figures the reason must speak to: every reading but "enough". */
-  mustSpeakTo: MarkingShelfFigure[]
+  /** Every refusal but the reason's, in the checks' order; one the screen does not know last. */
+  refusals: MarkRefusalReason[]
+  trial: MarkTrialFigures | null
+  /** Orders refused and plans changed, by code, most first. */
+  refusedBy: [string, number][]
+  changedBy: [string, number][]
+  candidateUntil: string | null
+  /** Every shelf chance figure that differs from the candidate set's, in the server's order. */
+  shelf: ShelfChanceFigure[]
+  /** The figures the reason must name: those the evidence marks "too few" or "not steady". */
+  mustSpeakTo: ShelfChanceFigure[]
+  bar: { counted: boolean; from: string | null }
 }
 
-const MODES = ['DAWAA_NOW', 'SLOT', 'PICK_UP'] as const
-const GROUPS = [null, 'APP_SITE', 'CALL_CENTRE'] as const
-
-const promiseOrder = (p: ResultsPromiseRow) => MODES.indexOf(p.mode) * 10 + GROUPS.indexOf(p.channelGroup)
-const shelfOrder = (f: MarkingShelfFigure) => MODES.indexOf(f.mode) * 10000 + f.asked * 100 + RESULTS_LEFT_OVERS.indexOf(f.leftOver)
-const refusalOrder = (reason: string) => {
-  const i = TRIAL_REFUSALS.indexOf(reason as (typeof TRIAL_REFUSALS)[number])
-  return i < 0 ? TRIAL_REFUSALS.length : i
+const PROMISE_MODES = ['DAWAA_NOW', 'SLOT', 'CARRIER_SAME_DAY', 'CARRIER_NEXT_DAY', 'BEYOND_BORDER', 'PICK_UP']
+const modeOrder = (m: string) => {
+  const i = PROMISE_MODES.indexOf(m)
+  return i < 0 ? PROMISE_MODES.length : i
 }
+const mostFirst = (counts: Record<string, number> | undefined): [string, number][] =>
+  Object.entries(counts ?? {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
 
-/**
- * A trial's figures in the order shown, here and in the candidate log: the refusals in the spec's order, the promise
- * check Dawaa Now, slot, then pick-up for the app and the site and for the call centre. Nothing re-summed.
- */
-export function orderedTrial<T extends MarkingTrialFigures>(trial: T): T {
+export function markingView(reply: MarkScreenReply, candidate: WeightSetVersionRef | null): MarkingView {
+  const review = reply.review ?? null
+  const standing = reply.refusals.filter((r) => r.code !== SILENT)
+  const checks = MARK_CHECKS.map((check): MarkingCheck => {
+    const refusals = standing.filter((r) => CHECK_OF[r.code as keyof typeof CHECK_OF] === check)
+    return {
+      check,
+      passed: refusals.length === 0,
+      refusals,
+      exception: check === 'KEPT_TRIAL' && refusals.length === 0 ? (review?.exception ?? null) : null,
+    }
+  })
+  const unknown = standing.filter((r) => !(r.code in CHECK_OF))
+  const trial = review?.trial ? { ...review.trial, promise: [...review.trial.promise].sort((a, b) => modeOrder(a.mode) - modeOrder(b.mode)) } : null
+  const shelf = (review?.shelfChance ?? []).filter((f) => f.candidate !== f.version)
   return {
-    ...trial,
-    refusedBy: [...trial.refusedBy].sort((a, b) => refusalOrder(a.reason) - refusalOrder(b.reason)),
-    promise: [...trial.promise].sort((a, b) => promiseOrder(a) - promiseOrder(b)),
-  }
-}
-
-export function markingView(reply: MarkingReply): MarkingView {
-  const checks = MARKING_CHECKS.map(
-    (key): MarkingCheck =>
-      reply.checks.find((c) => c.check === key) ?? {
-        check: key,
-        passed: false,
-        why: [],
-      },
-  )
-  const refusals = checks
-    .filter((c) => !c.passed)
-    .flatMap((c) =>
-      c.why.map((w) => ({
-        check: c.check,
-        code: w.code,
-        figure: w.figure ?? null,
-      })),
-    )
-  const trial = reply.trial && orderedTrial(reply.trial)
-  const shelf = reply.shelf.filter((f) => f.from !== f.to).sort((a, b) => shelfOrder(a) - shelfOrder(b))
-  return {
-    target: reply.target,
-    candidate: reply.candidate,
-    trialSet: reply.trialSet,
+    target: { name: reply.name, version: reply.version },
+    candidate,
+    trialSet: review?.offered === false || reply.refusals.some((r) => r.code === 'TRIAL_SET'),
     checks,
-    checksPass: !reply.trialSet && checks.every((c) => c.passed),
-    refusals,
+    checksPass: standing.length === 0 && review?.offered !== false,
+    refusals: [...checks.flatMap((c) => c.refusals), ...unknown],
     trial,
-    lastCandidate: reply.lastCandidate,
+    refusedBy: mostFirst(trial?.refusedBy),
+    changedBy: mostFirst(trial?.changedBy),
+    candidateUntil: review?.candidateUntil ?? null,
     shelf,
-    mustSpeakTo: shelf.filter((f) => f.reading !== 'ENOUGH_TO_CHANGE'),
+    mustSpeakTo: shelf.filter((f) => f.evidence === 'TOO_FEW' || f.evidence === 'NOT_STEADY'),
+    bar: { counted: !!review?.barPeriodCounted, from: review?.barCountedFrom ?? null },
   }
+}
+
+export type FigureName = { kind: 'shelf'; asked: number; leftOver: number } | { kind: 'short'; mode: string; row: string }
+
+/** A figure's name read back: `shelfChance 2/0` or `shortFigure SLOT bookAtZero`; null for one the screen does not know. */
+export function figureName(figure: string): FigureName | null {
+  const shelf = /^shelfChance (\d+)\/(\d+)$/.exec(figure)
+  if (shelf) return { kind: 'shelf', asked: Number(shelf[1]), leftOver: Number(shelf[2]) }
+  const short = /^shortFigure ([A-Z_]+) ([A-Za-z]+)$/.exec(figure)
+  return short ? { kind: 'short', mode: short[1], row: short[2] } : null
+}
+
+/** Whether the reason names the figure, as the server reads it: anywhere, in any case. */
+export const speaksTo = (reason: string, figure: string) => reason.toLowerCase().includes(figure.toLowerCase())
+
+/** The reason with the figure's name written on a line of its own, for the planner to go on; once only. */
+export function withFigure(reason: string, figure: string): string {
+  if (speaksTo(reason, figure)) return reason
+  return reason === '' ? `${figure}: ` : `${reason.replace(/\n+$/, '')}\n${figure}: `
+}
+
+/** The reason with every mention of the figure's name taken out (and a line left holding only it). */
+export function withoutFigure(reason: string, figure: string): string {
+  const escaped = figure.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+  return reason
+    .replace(new RegExp(`\\n?${escaped}: ?(?=\\n|$)`, 'gi'), '')
+    .replace(new RegExp(escaped, 'gi'), '')
+    .trimEnd()
 }
 
 export interface MarkState {
   canMark: boolean
-  /** What Mark waits for: a check to pass, a written reason, or a tick on each figure it must speak to. */
+  /** What Mark waits for: a check to pass, a written reason, or the reason to name each figure it must speak to. */
   waitingFor: 'checks' | 'reason' | 'figures' | null
   spoken: number
   of: number
 }
 
-export function markState(view: MarkingView, reason: string, ticked: readonly string[]): MarkState {
-  if (!view.checksPass)
-    return {
-      canMark: false,
-      waitingFor: 'checks',
-      spoken: 0,
-      of: view.mustSpeakTo.length,
-    }
+export function markState(view: MarkingView, reason: string): MarkState {
   const of = view.mustSpeakTo.length
-  const spoken = view.mustSpeakTo.filter((f) => ticked.includes(f.key)).length
+  if (!view.checksPass) return { canMark: false, waitingFor: 'checks', spoken: 0, of }
+  const spoken = view.mustSpeakTo.filter((f) => speaksTo(reason, f.figure)).length
   const waitingFor = !reason.trim() ? 'reason' : spoken < of ? 'figures' : null
   return { canMark: waitingFor === null, waitingFor, spoken, of }
 }
 
-/** The mark door's body; null while Mark is off. */
-export function markRequest(view: MarkingView, reason: string, ticked: readonly string[]): MarkRequest | null {
-  if (!markState(view, reason, ticked).canMark) return null
-  return {
-    name: view.target.name,
-    version: view.target.version,
-    reason: reason.trim(),
-    spokenTo: view.mustSpeakTo.filter((f) => ticked.includes(f.key)).map((f) => f.key),
-  }
+/** The mark door's body (`MarkCandidateRequest`); null while Mark is off. */
+export function markRequest(view: MarkingView, reason: string): MarkRequest | null {
+  if (!markState(view, reason).canMark) return null
+  return { name: view.target.name, version: view.target.version, reason: reason.trim() }
 }
 
 export interface RefusalLine {
   code: string
   /** The screen writes its own words for a code it knows; the server's words stand for one it does not. */
   known: boolean
-  message: string
+  why: string
 }
 
-/** The mark door's refusal: one line per error the envelope carried. */
-export function refusalLines(details: readonly { errorCode: string; errorMessage: string }[]): RefusalLine[] {
-  return details
-    .filter((d) => d.errorCode)
-    .map((d) => ({
-      code: d.errorCode,
-      known: (MARKING_REFUSALS as readonly string[]).includes(d.errorCode),
-      message: d.errorMessage,
-    }))
+/** A refused marking's reasons (`WEIGHTSET-423`, every reason in `data.refusals`); none for any other failure. */
+export function refusalLines(err: unknown): RefusalLine[] {
+  if (!(err instanceof ApiError)) return []
+  const data = err.data as Partial<MarkRefusedData> | null
+  return (Array.isArray(data?.refusals) ? data.refusals : []).map((r) => ({ code: r.code, known: KNOWN_REFUSALS.includes(r.code), why: r.why }))
 }

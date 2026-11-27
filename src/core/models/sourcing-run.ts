@@ -121,9 +121,9 @@ export type AdvisePin =
 export type AdvisePinKind = AdvisePin['kind']
 
 /**
- * A weight set's values, the whole document (BackOffice 4243 decision 19). Carried as read and sent back in full.
- * PROVISIONAL (spec 4354: not specified) — BackOffice 4360 names no key inside a set's document; the keys the simulator's
- * panel edits are ours (`WEIGHT_CONTROLS` in `@/core/sourcing-advisor/weight-controls`).
+ * A weight set's values: ONE nested document holding every setting of the set (BackOffice 4360 `WeightSetValues`,
+ * `baseline-weight-set.json`), carried as read and sent back in full — the server's save check refuses a document with
+ * a setting missing or one it does not know. The panel edits it by path (`@/core/sourcing-advisor/weight-controls`).
  */
 export type WeightSetValues = Record<string, unknown>
 
@@ -469,63 +469,70 @@ export interface SimulatorWorkbench {
   maps?: { key: string; mapId?: string } | null
 }
 
-// ── The weight-set doors (ticket 963; BackOffice 4360) ──────────────────────────────────────────
+// ── The weight-set doors (ticket 963, 967; BackOffice 4360 `WeightSetEndpoints`, reconciled at pricing2 35a4e56be) ──
 
-/**
- * One weight set in the list the simulator's picker reads (BackOffice 4360: "list sets and versions").
- * PROVISIONAL (spec 4354: not specified) — 4360 names the doors but not their paths or replies; every field is ours.
- */
-export interface WeightSetListItem {
-  name: string
-  /** The set's owner; null for the baseline set, which belongs to nobody. */
-  owner: string | null
-  /** Its saved versions, oldest first. */
-  versions: number[]
-  /** The version marked as the candidate set, when one of this set's is. */
-  candidateVersion: number | null
-  /** A set with a what-if on planner data: runs under a banner, never the candidate. */
-  trial: boolean
-  /**
-   * What the weight-set list (ticket 967) shows beyond the picker: the owner's note, the retired mark, and each
-   * version's saver, time and "line saying what changed" (BO 4360's set and version tables). Optional, so a reply
-   * without them still serves the simulator's picker.
-   * PROVISIONAL (spec 4354: not specified) — the fields.
-   */
-  note?: string | null
-  /** Retired, never deleted: kept for the runs that used it, never offered again (spec 4354 §10). */
-  retired?: boolean
-  saved?: WeightSetSavedVersion[]
-}
-
-/** One version's row in the list (BO 4360's version table). PROVISIONAL (spec 4354: not specified) — every field. */
-export interface WeightSetSavedVersion {
+/** One version's row in the list (`WeightSetVersionSummary`). */
+export interface WeightSetVersionSummary {
   version: number
-  /** Who saved it; null for the baseline set's seed. */
-  savedBy: string | null
+  savedBy: string
   /** Local wall clock `yyyy-MM-dd HH:mm:ss`. */
   savedAt: string
   /** The line saying what changed. */
-  change: string | null
-}
-
-/**
- * One saved version, read whole (BackOffice 4360: "read a version").
- * PROVISIONAL (spec 4354: not specified) — the reply's shape is ours.
- */
-export interface WeightSetVersion extends WeightSetVersionRef {
-  values: WeightSetValues
+  change: string
+  /** This version is the candidate set. */
   candidate: boolean
+  /** It holds a what-if on planner data: a trial set, never the candidate set. */
   trial: boolean
 }
 
 /**
- * "Save as a named set" (BackOffice 4360: any holder of the save grant copies any version under a new name).
- * PROVISIONAL (spec 4354: not specified) — the body's shape is ours. The reply names the version saved.
+ * One set of `GET SourcingAdvisor/WeightSets[?withRetired=true]` (`WeightSetSummary`), under the run grant. Retired
+ * sets come only when asked.
  */
-export interface WeightSetSaveRequest {
+export interface WeightSetListItem {
   name: string
-  basedOn: WeightSetVersionRef
+  /** Empty for the baseline set, which belongs to nobody. */
+  owner: string
+  baseline: boolean
+  note: string
+  createdAt: string
+  /** Retired, never deleted: kept for the runs that used it, never offered again (spec 4354 §10). */
+  retired: boolean
+  retiredBy?: string | null
+  retiredAt?: string | null
+  /** Oldest first. */
+  versions: WeightSetVersionSummary[]
+}
+
+/**
+ * `GET SourcingAdvisor/WeightSets/Version?name=&version=` (`WeightSetVersionReply`): one version in full. Its values
+ * hold every setting of this release; one the version did not hold is read at its baseline value and listed in
+ * `filledFromBaseline`.
+ */
+export interface WeightSetVersion extends WeightSetVersionRef {
+  owner: string
+  retired: boolean
+  savedBy: string
+  savedAt: string
+  change: string
+  formatVersion: number
+  candidate: boolean
+  trial: boolean
   values: WeightSetValues
+  filledFromBaseline: string[]
+}
+
+/**
+ * `POST SourcingAdvisor/WeightSets/Copy` (`CopySetRequest`), under the save grant: any version copied under a new name,
+ * owned by the caller, as its version 1. With `values` — the simulator's "Save as a named set" of a draft — the copy
+ * holds those values. Answers `{ name, version }` (`SavedVersionReply`); a name taken is `WEIGHTSET-409`, a document
+ * that fails the save check `WEIGHTSET-422`.
+ */
+export interface WeightSetCopyRequest {
+  from: WeightSetVersionRef
+  name: string
+  note?: string
+  values?: WeightSetValues
 }
 
 // ── The middle and full levels' parts (BackOffice 4363, 4365, 4366, 4376, 4379, 4386) ───────────────────────────

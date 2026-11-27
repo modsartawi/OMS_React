@@ -1,170 +1,145 @@
 /**
- * The candidate log and the marking screen's wire (oms ticket 967, BackOffice spec 4354 §10 and §18; server tickets
- * BO 4360 "mark, read the candidate log" and BO 4395 "the marking door answers what the marking screen shows").
+ * The candidate log and the marking screen's wire (oms ticket 967, BackOffice spec 4354 §10 and §18), reconciled with
+ * BackOffice 4360 and 4395 at pricing2 35a4e56be: `WeightSetEndpoints` (`CandidateLog`, `MarkScreen`, `Mark`),
+ * `WeightSetService.cs`, `CandidateMarkChecks.cs` and `Trials/MarkTrialReview.cs`.
  *
- * 🚩 Built on stubs. Both server tickets are open and name the CONTENT of these doors only: no path, no query name, no
- * field, no refusal code and no grant name. Every shape below is this build's design and carries
- * `// PROVISIONAL (spec 4354: not specified)` until it is reconciled with BO 4360 / 4395 as built.
- *
- * The list of sets and versions is `WeightSetListItem` (`./sourcing-run`, ticket 963, extended by 967), a version's
- * values `WeightSetVersion`. Formats as the rest of the advisor's wire (BO 4379): local wall clock
- * `yyyy-MM-dd HH:mm:ss`, no zone; shares as a percent with one decimal beside their count.
+ * The list of sets and versions is `WeightSetListItem` (`./sourcing-run`), a version's values `WeightSetVersion`.
+ * Formats as the rest of the advisor's wire: local wall clock `yyyy-MM-dd HH:mm:ss`, no zone; a null is left out (the
+ * serializer writes no null), so every nullable field is optional here. Shares are FRACTIONS to four decimals
+ * (`0.0499`), never percents: the screen multiplies by a hundred to show one.
  */
 import type { WeightSetVersionRef } from './sourcing-run'
-import type { ResultsLeftOver, ResultsPromiseRow, ResultsShare, TrialChangeKind, TrialRefusal } from './sourcing-results'
 
-/** A share with the whole it is a share of ("every total is sent with its parts"). */
-export interface MarkingShare extends ResultsShare {
-  of: number
-}
-
-/** One promise check row under the new version, beside the same deliveries under the candidate set of that day. */
-// PROVISIONAL (spec 4354: not specified) — `candidatePercent`.
-export interface MarkingPromiseRow extends ResultsPromiseRow {
-  candidatePercent: number | null
+/** The promise check of one mode under the trial's version, on the real deliveries (`TrialPromiseCheck`). */
+export interface MarkPromiseCheck {
+  mode: string
+  checked: number
+  within: number
+  /** Fraction; absent when none was checked. */
+  share?: number | null
 }
 
 /**
- * A trial's figures as the candidate log keeps them and the marking screen shows them (BO 4395): the trial's number,
- * the plans changed against the candidate set, the orders refused, the promise check per mode under the new version.
+ * A kept trial's figures as the marking screen shows them and the candidate log keeps them (`MarkTrialFigures`): the
+ * trial that qualifies, else the newest kept trial with why it does not (`fails`).
  */
-// PROVISIONAL (spec 4354: not specified) — every field.
-export interface MarkingTrialFigures {
+export interface MarkTrialFigures {
   trialId: string
-  /** Whole local days, `yyyy-MM-dd`, both ends included. */
-  period: { from: string; to: string }
+  /** Local wall clock; whole local days. */
+  from: string
+  to: string
   days: number
-  /** Every order of the period the trial read. */
+  /** The candidate set it ran beside: the candidate of the day it started. */
+  besideCandidate: string
+  besideCandidateVersion: number
   orders: number
-  plansChanged: MarkingShare
-  kinds: { kind: TrialChangeKind; count: number }[]
-  refused: MarkingShare
-  refusedBy: { reason: TrialRefusal; count: number }[]
+  refused: number
+  refusedShare?: number | null
+  /** Orders refused, by the trial's refusal code. */
+  refusedBy: Record<string, number>
   stopFindings: number
-  promise: MarkingPromiseRow[]
+  /** The nightly plan check has read the trial's plans. */
+  planChecked: boolean
+  /** The candidate set's own trial over the same period; absent when there is none: the plans changed are not read. */
+  candidateTrialId?: string | null
+  plansCompared: number
+  plansChanged: number
+  plansChangedShare: number
+  /** The plans changed, by the kind of change. */
+  changedBy: Record<string, number>
+  promise: MarkPromiseCheck[]
+  /** Why this trial does not qualify (`MarkRefusalCode`s); empty when it does. */
+  fails: string[]
 }
 
-/** The two exceptions to the fourth check (spec 4354 §10). */
-// PROVISIONAL (spec 4354: not specified) — the codes.
-export type MarkingException = 'FIRST_CANDIDATE' | 'BACK_WITHIN_90'
+/** What the evidence says of a shelf chance figure (`ShelfChanceEvidenceMarks`). */
+export type ShelfChanceEvidence = 'ENOUGH' | 'TOO_FEW' | 'NOT_STEADY'
 
-/** One row of the candidate log: never edited (BO 4360), with the trial's figures (BO 4395). */
-// PROVISIONAL (spec 4354: not specified) — every field.
+/** One shelf chance figure that differs from the candidate set's (`ShelfChanceFigure`). */
+export interface ShelfChanceFigure {
+  /** Its name, as the written reason must name it: `shelfChance 2/0` (units asked / left over) or `shortFigure SLOT bookAtZero`. */
+  figure: string
+  /** Fractions: the candidate set's, then this version's; absent where a set has no such cell. */
+  candidate?: number | null
+  version?: number | null
+  /** Absent while the evidence is not read. */
+  evidence?: ShelfChanceEvidence | null
+}
+
+/** The two exceptions to check 4 (`MarkTrialExceptions`). */
+export type MarkException = 'FIRST_CANDIDATE' | 'BACK_WITHIN_90_DAYS'
+
+/** What the marking screen shows for a version, and what the candidate log keeps (`MarkReview`). */
+export interface MarkReview {
+  /** False for a trial set: it is never offered at marking. */
+  offered: boolean
+  exception?: MarkException | null
+  /** For `BACK_WITHIN_90_DAYS`: when it last stopped being the candidate set. */
+  candidateUntil?: string | null
+  trial?: MarkTrialFigures | null
+  shelfChance: ShelfChanceFigure[]
+  /** A phase 2 bar period was being counted; a marking starts that count again. */
+  barPeriodCounted: boolean
+  barCountedFrom?: string | null
+}
+
+/** One row of `GET SourcingAdvisor/WeightSets/CandidateLog` (run grant), newest first: never edited. */
 export interface CandidateLogEntry {
-  at: string
-  /** Who marked it; null for the seed (the baseline set as the first candidate set). */
-  by: string | null
-  before: WeightSetVersionRef | null
+  markedBy: string
+  markedAt: string
+  /** Absent for the first marking. */
+  before?: WeightSetVersionRef | null
   after: WeightSetVersionRef
   reason: string
-  /** The exception the marking went through on, when it needed no trial. */
-  exception: MarkingException | null
-  trial: MarkingTrialFigures | null
-  /** A phase 2 bar period was being counted at the marking, on this day of its 28; the marking started it again. */
-  barDay: number | null
+  /** Absent for a marking logged before BO 4395. */
+  review?: MarkReview | null
 }
 
-/** The four checks that refuse a marking (spec 4354 §10), in the spec's order. */
-// PROVISIONAL (spec 4354: not specified) — the codes.
-export type MarkingCheckKey = 'BALANCED_ON' | 'NO_WHAT_IF' | 'NO_ASSUMED_CARRIER_ROW' | 'KEPT_TRIAL'
-export const MARKING_CHECKS: readonly MarkingCheckKey[] = ['BALANCED_ON', 'NO_WHAT_IF', 'NO_ASSUMED_CARRIER_ROW', 'KEPT_TRIAL']
-
-/**
- * Why a marking is refused, each with its figure where it has one (BO 4395 case 87). The marking door answers these
- * under a failed check, and the mark door refuses with the same codes as its envelope's error codes, plus the four
- * that only a write can meet.
- */
-// PROVISIONAL (spec 4354: not specified) — every code.
-export type MarkingRefusal =
-  | 'BALANCED_OFF'
-  | 'WHAT_IF_ON_PLANNER_DATA'
+/** Why a marking is refused (`MarkRefusalCodes`). A code never changes meaning. */
+export type MarkRefusalCode =
+  | 'BALANCED_GOAL_OFF'
+  | 'TRIAL_SET'
   | 'CARRIER_ROW_ASSUMED'
   | 'NO_TRIAL'
   | 'TRIAL_TOO_SHORT'
   | 'TRIAL_TOO_OLD'
+  | 'TRIAL_NO_ORDERS'
   | 'TRIAL_REFUSED_TOO_MANY'
   | 'TRIAL_STOP_FINDING'
-  | 'REASON_MISSING'
-  | 'REASON_NOT_SPOKEN_TO'
-  | 'ALREADY_CANDIDATE'
-  | 'SET_RETIRED'
-export const MARKING_REFUSALS: readonly MarkingRefusal[] = [
-  'BALANCED_OFF',
-  'WHAT_IF_ON_PLANNER_DATA',
-  'CARRIER_ROW_ASSUMED',
-  'NO_TRIAL',
-  'TRIAL_TOO_SHORT',
-  'TRIAL_TOO_OLD',
-  'TRIAL_REFUSED_TOO_MANY',
-  'TRIAL_STOP_FINDING',
-  'REASON_MISSING',
-  'REASON_NOT_SPOKEN_TO',
-  'ALREADY_CANDIDATE',
-  'SET_RETIRED',
-]
+  | 'TRIAL_NOT_PLAN_CHECKED'
+  | 'REASON_SILENT_ON_FIGURE'
 
-// PROVISIONAL (spec 4354: not specified) — every field.
-export interface MarkingCheck {
-  check: MarkingCheckKey
-  passed: boolean
-  /** Why it failed; empty when it passed. `figure` is a machine value (days, percent, a contract row's code). */
-  why: { code: string; figure?: string | null }[]
-  /** The exception that let the fourth check through. */
-  exception?: MarkingException | null
-}
-
-/** How a shelf chance figure stands against its evidence (spec 4354 §18, BO 4395): "enough", "too few", "not steady". */
-// PROVISIONAL (spec 4354: not specified) — the codes (973's `ResultsEvidenceReading` names the same three).
-export type MarkingReading = 'ENOUGH_TO_CHANGE' | 'TOO_FEW' | 'NOT_STEADY'
-
-/** One shelf chance figure the version changes against the candidate set, with its evidence. */
-// PROVISIONAL (spec 4354: not specified) — every field.
-export interface MarkingShelfFigure {
-  /** The figure's key: what the written reason's ticks name. */
-  key: string
-  mode: 'DAWAA_NOW' | 'SLOT' | 'PICK_UP'
-  asked: number
-  leftOver: ResultsLeftOver
-  /** Percent with two decimals: the candidate set's figure, then this version's. */
-  from: number
-  to: number
-  reading: MarkingReading
-  /** Lines behind it, the failed lines among them, and the failed lines the figure expects. */
-  lines: number
-  failed: number
-  expectedFailed: number
-  /** The failed share in each half of the window, percent; null where a half has no line. */
-  halves: [number | null, number | null]
+/** A refusal: its code and the server's English sentence (`MarkRefusalReason`). */
+export interface MarkRefusalReason {
+  code: string
+  why: string
 }
 
 /**
- * `GET SourcingAdvisor/WeightSets/Marking?name=&version=` — what the marking screen shows for one version, before a
- * marking: the checks, the trial's figures, every shelf chance figure that differs (BO 4395).
+ * `GET SourcingAdvisor/WeightSets/MarkScreen?name=&version=` (mark grant): every check's refusal — none means it may be
+ * marked, given a reason that names each figure the evidence does not back — and the review. The reason is blank when
+ * the screen reads, so `REASON_SILENT_ON_FIGURE` stands here until the written reason names those figures.
  */
-// PROVISIONAL (spec 4354: not specified) — the door, its path, its query and every field.
-export interface MarkingReply {
-  target: WeightSetVersionRef
-  /** The candidate set now; null before the first marking. */
-  candidate: WeightSetVersionRef | null
-  /** A set with a what-if on planner data: never marked (BO 4395 case 90). */
-  trialSet: boolean
-  checks: MarkingCheck[]
-  /** The kept trial the fourth check read; null when there is none or none was needed. */
-  trial: (MarkingTrialFigures & { endedDaysAgo: number }) | null
-  /** Going back: when this version was last the candidate set. */
-  lastCandidate: { until: string; daysAgo: number } | null
-  shelf: MarkingShelfFigure[]
+export interface MarkScreenReply {
+  name: string
+  version: number
+  refusals: MarkRefusalReason[]
+  review?: MarkReview | null
 }
 
 /**
- * `POST SourcingAdvisor/WeightSets/Mark` — under the marking grant. Answers the new log row; a refusal is an envelope
- * with `success:false` and one error per `MarkingRefusal`.
+ * `POST SourcingAdvisor/WeightSets/Mark` (mark grant) → the new `CandidateLogEntry`. Refused with `WEIGHTSET-423`
+ * (HTTP 422) and every reason in `data.refusals`; `WEIGHTSET-400` without a reason, `WEIGHTSET-409` when the set is
+ * retired or the version is the candidate set already.
  */
-// PROVISIONAL (spec 4354: not specified) — the door, its path, the body and its refusal codes.
 export interface MarkRequest {
   name: string
   version: number
   reason: string
-  /** The keys of the "too few" and "not steady" figures the reason speaks to. */
-  spokenTo: string[]
+}
+
+/** The data of a refused marking (`WEIGHTSET-423`). */
+export interface MarkRefusedData {
+  refusals: MarkRefusalReason[]
+  review?: MarkReview | null
 }

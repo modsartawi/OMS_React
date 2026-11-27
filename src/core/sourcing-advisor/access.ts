@@ -14,11 +14,12 @@ import type { Permissions } from '@/core/permissions'
 export const canViewSourcingAdvisor = (p: Permissions): boolean => p.has('SourcingAdvisor:01')
 
 /**
- * The grant to save weight sets and start trials (spec 4354 §18–§19, BO 4283 decision 4: "no new grant"). The results
- * page's Trials tab starts a trial and a factor table under it (BO 4394). The simulator's "Save as a named set" (ticket 963) reads it too.
- * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorSave:01`; BO 4360 seeds the grant unnamed.
+ * The grant to save weight sets and start trials (spec 4354 §18–§19): BackOffice 4360 `WeightSetGrants.Save`,
+ * `BackOfficeScreen[SourcingWeightSets, 03]` — it saves, copies and retires sets, and from BO 4394 starts trials. The
+ * results page's Trials tab starts a trial and a factor table under it (BO 4394); its Phase 2 bar tab writes under the
+ * mark grant (BO 4396). The simulator's "Save as a named set" (ticket 963, the Copy door) reads it too.
  */
-export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingAdvisorSave:01')
+export const canSaveWeightSets = (p: Permissions): boolean => p.has('SourcingWeightSets:03')
 
 /**
  * The run grant (ticket 962, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and the
@@ -36,34 +37,35 @@ export const canRunSourcingAdvisor = (p: Permissions): boolean => p.has('Sourcin
 export const canSeeCustomerPoint = (p: Permissions): boolean => p.has('SourcingCustomerPoint:03')
 
 /**
- * The grant to mark the candidate set (spec 4354 §10: "marking the candidate set needs a second grant"; §19 "a grant to
- * mark the candidate set"). The weight-set list's marking screen (ticket 967) offers Mark only under it.
- * PROVISIONAL (spec 4354: not specified) — the key `SourcingAdvisorMark:06`; BO 4360 seeds the grant unnamed.
+ * The grant to mark the candidate set (spec 4354 §10: "marking the candidate set needs a second grant"): BackOffice 4360
+ * `WeightSetGrants.Mark`, `BackOfficeScreen[SourcingCandidateSet, 03]` — the marking screen and the mark door. The
+ * weight-set list's marking screen (ticket 967) offers Mark only under it.
  */
-export const canMarkCandidateSet = (p: Permissions): boolean => p.has('SourcingAdvisorMark:06')
+export const canMarkCandidateSet = (p: Permissions): boolean => p.has('SourcingCandidateSet:03')
 
 /**
- * Who opens the list of weight sets and versions, with the candidate log (ticket 967). Spec 4354 §19 lists the screen
- * but gives it no grant of its own: whoever runs sets (the simulator's picker already reads the list), saves them or
- * marks one reads it. Today's view grant alone does not.
- * PROVISIONAL (spec 4354: not specified) — which grants open the screen.
+ * Who opens the list of weight sets and versions, with the candidate log (ticket 967): the run grant. BackOffice 4360
+ * reads the list, a version and the candidate log under the simulator's run grant only, so the save or mark grant alone
+ * would open a screen that can read nothing.
  */
-export const canOpenWeightSets = (p: Permissions): boolean => canRunSourcingAdvisor(p) || canSaveWeightSets(p) || canMarkCandidateSet(p)
+export const canOpenWeightSets = (p: Permissions): boolean => canRunSourcingAdvisor(p)
 
 /**
- * The three planner grants (ticket 968, BackOffice spec 4354 §19: "a grant for the buffer overrides and the hand-set
- * stock confidence; a grant for the product rules and lists; a grant for the other planner tables"). BO 4375, 4362 and
- * 4361 each seed one, unnamed. The planner page shows a tab only to the holder of its grant (owner's pick, variant A).
- * PROVISIONAL (spec 4354: not specified) — the keys `SourcingPlannerBuffer:01`, `SourcingPlannerRules:01` and
- * `SourcingPlannerTables:01`. Reconcile in `@/core/permissions` as seeded; every reader takes THESE predicates.
+ * The three planner grants (ticket 968, spec 4354 §19), each changing its tables; every list and history reads under
+ * the simulator's run grant. BackOffice at pricing2 35a4e56be:
+ * - buffer overrides and a store's hand-set stock confidence — `PlannerStockGrants`, `[SourcingPlannerStock, 03]` (BO 4375);
+ * - product rules and the restricted and bulky lists — `ProductRuleGrants`, `[SourcingProductRules, 03]` (BO 4362); its
+ *   holder switches any rule, one that guards a medicine too (owner, ticket 968);
+ * - the store-by-mode table, carrier contracts and slot rules — `PlannerTableGrants`, `[SourcingPlannerTables, 03]` (BO 4361).
+ * The planner page shows a tab only to the holder of its grant (owner's pick, variant A).
  */
-export const canEditPlannerBuffer = (p: Permissions): boolean => p.has('SourcingPlannerBuffer:01')
-export const canEditPlannerRules = (p: Permissions): boolean => p.has('SourcingPlannerRules:01')
-export const canEditPlannerTables = (p: Permissions): boolean => p.has('SourcingPlannerTables:01')
+export const canEditPlannerBuffer = (p: Permissions): boolean => p.has('SourcingPlannerStock:03')
+export const canEditPlannerRules = (p: Permissions): boolean => p.has('SourcingProductRules:03')
+export const canEditPlannerTables = (p: Permissions): boolean => p.has('SourcingPlannerTables:03')
 
-/** The planner-data page (and its menu leaf) opens with any one of the three planner grants. */
+/** The planner-data page (and its menu leaf) opens with the run grant, which reads every table, and any planner grant. */
 export const canOpenSourcingPlanner = (p: Permissions): boolean =>
-  canEditPlannerBuffer(p) || canEditPlannerRules(p) || canEditPlannerTables(p)
+  canRunSourcingAdvisor(p) && (canEditPlannerBuffer(p) || canEditPlannerRules(p) || canEditPlannerTables(p))
 
 /**
  * Whether the simulator reads the stored run it is handed (`?run=`, `simulatorRunPath`). It does since ticket 969:

@@ -1,46 +1,27 @@
 /**
  * The weight-set screens' server calls (ticket 967, BackOffice spec 4354 §10), through `@/core/api`. Wrapped in
- * TanStack Query at the page. ⚠ None of these doors exists yet (BackOffice 4360 and 4395 open): the drive stubs them.
- * The list and a version are the doors the simulator's picker already reads (ticket 963).
+ * TanStack Query at the page. Reconciled with BackOffice 4360 / 4395 at pricing2 35a4e56be (`WeightSetEndpoints`):
+ * the list, a version and the candidate log under the run grant; the marking screen and the mark under the mark grant.
+ *
+ * Not called here: `POST SourcingAdvisor/WeightSets/Save` (a new version of a set one owns), `/Copy` (the simulator's
+ * "Save as a named set" calls it) and `/Retire` — ticket 967 lists no such action on these screens.
  */
 import { api } from '@/core/api'
 import type { WeightSetListItem, WeightSetVersion, WeightSetVersionRef } from '@/core/models/sourcing-run'
-import type { CandidateLogEntry, MarkingReply, MarkRequest } from '@/core/models/sourcing-sets'
+import type { CandidateLogEntry, MarkRequest, MarkScreenReply } from '@/core/models/sourcing-sets'
 
 export const sourcingSetsApi = {
-  /**
-   * The sets and their versions (BackOffice 4360 "list sets and versions").
-   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/WeightSets` (ticket 963's) and the list's fields.
-   */
-  sets: () => api.get<WeightSetListItem[]>('SourcingAdvisor/WeightSets'),
-  /**
-   * One saved version, read whole (BackOffice 4360 "read a version").
-   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/WeightSets/Version` and its params (ticket 963's).
-   */
-  version: (ref: WeightSetVersionRef) =>
-    api.get<WeightSetVersion>('SourcingAdvisor/WeightSets/Version', {
-      name: ref.name,
-      version: ref.version,
-    }),
-  /**
-   * The candidate log, newest first (BackOffice 4360 "read the candidate log", with the trial's figures of BO 4395).
-   * PROVISIONAL (spec 4354: not specified) — the door's path `SourcingAdvisor/WeightSets/CandidateLog` and its reply.
-   */
+  /** `GET SourcingAdvisor/WeightSets?withRetired=true` — every set and its versions, the retired ones too (shown retired). */
+  sets: () => api.get<WeightSetListItem[]>('SourcingAdvisor/WeightSets', { withRetired: 'true' }),
+  /** `GET SourcingAdvisor/WeightSets/Version?name=&version=` — one saved version, read whole. */
+  version: (ref: WeightSetVersionRef) => api.get<WeightSetVersion>('SourcingAdvisor/WeightSets/Version', { name: ref.name, version: ref.version }),
+  /** `GET SourcingAdvisor/WeightSets/CandidateLog` — every marking, newest first, with what its screen showed. */
   log: () => api.get<CandidateLogEntry[]>('SourcingAdvisor/WeightSets/CandidateLog'),
+  /** `GET SourcingAdvisor/WeightSets/MarkScreen?name=&version=` — the checks, the trial and the shelf chance figures. */
+  markScreen: (ref: WeightSetVersionRef) => api.get<MarkScreenReply>('SourcingAdvisor/WeightSets/MarkScreen', { name: ref.name, version: ref.version }),
   /**
-   * What the marking screen shows for one version before a marking (BO 4395: "the marking door answers what the
-   * marking screen shows").
-   * PROVISIONAL (spec 4354: not specified) — the door, its path `SourcingAdvisor/WeightSets/Marking` and its query.
-   */
-  marking: (ref: WeightSetVersionRef) =>
-    api.get<MarkingReply>('SourcingAdvisor/WeightSets/Marking', {
-      name: ref.name,
-      version: ref.version,
-    }),
-  /**
-   * Mark the version as the candidate set, under the marking grant (BO 4360 "mark"). Answers the new log row; a refusal
-   * carries one error per reason (`MarkingRefusal`).
-   * PROVISIONAL (spec 4354: not specified) — the door, its path `SourcingAdvisor/WeightSets/Mark`, its body and its codes.
+   * `POST SourcingAdvisor/WeightSets/Mark` — mark the version as the candidate set, with a written reason. Answers the
+   * new log row; refused with `WEIGHTSET-423` and every reason in `data.refusals`.
    */
   mark: (body: MarkRequest) => api.post<CandidateLogEntry>('SourcingAdvisor/WeightSets/Mark', body),
 }
@@ -65,9 +46,9 @@ export const logQuery = () => ({
   retry: false,
 })
 
-export const markingQuery = (ref: WeightSetVersionRef | null) => ({
-  queryKey: ['sourcing-sets', 'marking', ref?.name ?? '', ref?.version ?? 0] as const,
-  queryFn: () => sourcingSetsApi.marking(ref!),
+export const markScreenQuery = (ref: WeightSetVersionRef | null) => ({
+  queryKey: ['sourcing-sets', 'mark-screen', ref?.name ?? '', ref?.version ?? 0] as const,
+  queryFn: () => sourcingSetsApi.markScreen(ref!),
   enabled: !!ref,
   retry: false,
 })

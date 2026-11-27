@@ -48,10 +48,10 @@ const CODES = read('stub-codes.json')
 const TRIAL_SET = '01JE2A5M4N3B2V1C0X9Z8L7K6J'
 const CANDIDATE = '01JE1Z9Y8X7W6V5T4S3R2Q1P0N'
 const RUN_ID = '01JDQ7Y3K2M5N8P0R4S6T9V1WX'
-/** The grants (the save and mark keys are the weight-set screens' until their reconciliation names them). */
+/** The grants: view (BO 4397), save and mark (BO 4360), run (BO 4355). */
 const VIEW = 'SourcingAdvisor:01'
-const SAVE = 'SourcingAdvisorSave:01'
-const MARK = 'SourcingAdvisorMark:06'
+const SAVE = 'SourcingWeightSets:03'
+const MARK = 'SourcingCandidateSet:03'
 const RUN = 'SourcingSimulator:03'
 
 const results = []
@@ -171,7 +171,9 @@ async function scenario(browser, lang) {
       wire.opens.push(q.runId)
       return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ statusCode: 404, success: false, message: 'Run not found', errors: [{ errorCode: 'ADVISE-404', internalErrorCode: '', errorMessage: 'Run not found' }], data: null }) })
     }
-    if (p === 'SourcingAdvisor/WeightSets') return route.fulfill(envelope([]))
+    // The simulator's own side doors, read when a stored run opens there (ticket 962's shapes).
+    if (p === 'SourcingAdvisor/WeightSets' || p === 'SdDocument/DocumentSources' || p === 'SourcingAdvisor/Runs/Kept') return route.fulfill(envelope([]))
+    if (p === 'SourcingAdvisor/Workbench') return route.fulfill(envelope({ maps: null }))
     if (p === 'SourcingAdvisor/Results/Codes') return route.fulfill(envelope(CODES))
     const echo = (reply) => ({ ...reply, filter: { ...reply.filter, period: q.period ?? 'DAYS_7', channelGroup: q.channelGroup ?? 'ALL' } })
     if (p === 'SourcingAdvisor/Results/Top') return route.fulfill(envelope(echo(FIRST.top, asked('top', q))))

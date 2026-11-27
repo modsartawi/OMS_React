@@ -5,16 +5,17 @@
  * A draft is unsaved simulator values: it lives in the browser and goes to the door in full. The panel opens on a saved
  * version, read whole; every setting the panel does not show is carried as read, so the draft is always the whole set.
  * A changed value marks "changed, not saved" and the request sends `{ draft: { basedOn, values } }`; with every value put
- * back it names the saved version again. "Save as a named set" sends the whole draft under a new name.
+ * back it names the saved version again. "Save as a named set" copies the version the draft came from under a new
+name, holding the whole draft (BackOffice 4360 `POST SourcingAdvisor/WeightSets/Copy` with `values`).
  *
  * There is no switch for pricing waiting on each shipment: waiting is priced on the last shipment (spec 4354 Further
  * Notes), so no such control exists here.
  */
-import type { AdviseWeightSetRef, WeightSetSaveRequest, WeightSetValues, WeightSetVersion } from '@/core/models/sourcing-run'
+import type { AdviseWeightSetRef, WeightSetCopyRequest, WeightSetValues, WeightSetVersion } from '@/core/models/sourcing-run'
 
-// The settings the panel edits (PROVISIONAL keys) live in `@/core/` since ticket 967: the weight-set list names them too.
-import { WEIGHT_CONTROLS, type WeightControl } from '@/core/sourcing-advisor/weight-controls'
-export { WEIGHT_CONTROLS, WEIGHT_GROUPS, type WeightControl, type WeightGroup } from '@/core/sourcing-advisor/weight-controls'
+// The settings the panel edits live in `@/core/` since ticket 967: the weight-set list names them too.
+import { WEIGHT_CONTROLS, withControl } from '@/core/sourcing-advisor/weight-controls'
+export { controlValue, WEIGHT_CONTROLS, WEIGHT_GROUPS, type WeightControl, type WeightGroup } from '@/core/sourcing-advisor/weight-controls'
 
 export interface WeightDraft {
   /** The saved version the panel opened on. */
@@ -25,19 +26,10 @@ export interface WeightDraft {
 
 export const openDraft = (base: WeightSetVersion): WeightDraft => ({ base, values: { ...base.values } })
 
-/** A control's value: the set's, else its starting value. */
-export function controlValue(values: WeightSetValues, control: WeightControl): number | boolean {
-  const v = values[control.key]
-  if (control.kind === 'slider') return typeof v === 'number' ? v : control.start
-  return typeof v === 'boolean' ? v : control.start
-}
-
+/** The draft with one control set, at its place in the document (`withControl`). */
 export function setValue(draft: WeightDraft, key: string, value: number | boolean): WeightDraft {
   const control = WEIGHT_CONTROLS.find((c) => c.key === key)
-  const values = { ...draft.values, [key]: value }
-  // Put back to what the version reads, a key the version never held is dropped again, so the draft is unchanged.
-  if (control && !(key in draft.base.values) && value === control.start) delete values[key]
-  return { ...draft, values }
+  return control ? { ...draft, values: withControl(draft.values, control, value, draft.base.values) } : draft
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -74,9 +66,9 @@ export function waitsForSet(r: SetReading): boolean {
   return !(r.setsRead && !r.chosen)
 }
 
-/** The body of "save as a named set"; null for a blank name. */
-export function saveRequest(draft: WeightDraft, name: string): WeightSetSaveRequest | null {
+/** The body of "save as a named set" (the Copy door with the draft's values); null for a blank name. */
+export function saveRequest(draft: WeightDraft, name: string): WeightSetCopyRequest | null {
   const n = name.trim()
   if (!n) return null
-  return { name: n, basedOn: { name: draft.base.name, version: draft.base.version }, values: { ...draft.values } }
+  return { from: { name: draft.base.name, version: draft.base.version }, name: n, values: { ...draft.values } }
 }

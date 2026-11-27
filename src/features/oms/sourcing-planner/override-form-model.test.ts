@@ -1,10 +1,11 @@
 /**
  * Ticket 968 (BackOffice spec 4354 §5, BO 4375): a planner's buffer override says "keep N units", "keep D days of
  * walk-in sales", or both (the larger applies, on the server). Four levels, the most specific wins: store and item,
- * item, merchandise category, store. A first day, an optional last day, a reason.
+ * item, merchandise category, store. A first day, an optional last day, a reason. The server's checks
+ * (BackOffice 4375 `PlannerStockService`, pricing2 35a4e56be) are read here first.
  */
 import { describe, expect, it } from 'vitest'
-import type { PlannerRow } from '@/core/models/sourcing-planner'
+import type { PlannerRow } from './wire'
 import {
   blankOverrideForm,
   levelsBeaten,
@@ -25,6 +26,7 @@ const form = (over: Partial<OverrideForm> = {}): OverrideForm => ({
 
 const row = (id: string, values: Record<string, unknown>, over: Partial<PlannerRow> = {}): PlannerRow => ({
   id,
+  key: id,
   values: { store: null, item: null, category: null, keepUnits: null, keepDays: null, lastDay: null, firstDay: '2026-11-01', ...values } as PlannerRow['values'],
   setAt: '2026-11-01 08:00:00',
   setBy: 'n.alharbi',
@@ -53,6 +55,12 @@ describe('units or days or both', () => {
     expect(overrideProblems(form({ keepUnits: '-1' }))).toEqual(['badUnits'])
     expect(overrideProblems(form({ keepUnits: '2.5' }))).toEqual(['badUnits'])
     expect(overrideProblems(form({ keepDays: '-0.5' }))).toEqual(['badDays'])
+  })
+
+  it('refuses more than 365 days or more than two decimals, as the server does', () => {
+    expect(overrideProblems(form({ keepDays: '365' }))).toEqual([])
+    expect(overrideProblems(form({ keepDays: '365.5' }))).toEqual(['badDays'])
+    expect(overrideProblems(form({ keepDays: '1.255' }))).toEqual(['badDays'])
   })
 
   it('sends both figures as numbers, and a blank one as null', () => {
@@ -89,6 +97,11 @@ describe('the level and its target', () => {
     expect(overrideProblems(form({ keepUnits: '1', firstDay: '' }))).toEqual(['needFirstDay'])
     expect(overrideProblems(form({ keepUnits: '1', firstDay: '2026-12-10', lastDay: '2026-12-01' }))).toEqual(['lastBeforeFirst'])
     expect(overrideProblems(form({ keepUnits: '1', firstDay: '2026-12-10', lastDay: '2026-12-10' }))).toEqual([])
+  })
+
+  it('refuses a last day before today, given today (the server: "on or after the first day and today")', () => {
+    expect(overrideProblems(form({ keepUnits: '1', firstDay: '2026-11-01', lastDay: '2026-11-26' }), '2026-11-27')).toEqual(['lastPast'])
+    expect(overrideProblems(form({ keepUnits: '1', firstDay: '2026-11-01', lastDay: '2026-11-27' }), '2026-11-27')).toEqual([])
   })
 
   it('reads a row back into the form, figures as text', () => {

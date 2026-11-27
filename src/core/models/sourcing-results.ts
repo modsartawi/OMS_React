@@ -498,9 +498,6 @@ export const TRIAL_REFUSALS: readonly TrialRefusal[] = [
   'PAIR_CAP_RAISED',
   'PRODUCT_RULE_SWITCHED_ON',
   'STORE_NOT_READ',
-  // Kept for the weight-set screens' marking stub (ticket 967), which still carries the stubbed codes; never sent by
-  // BO 4394. They sort after the real ones; the weight-set reconciliation drops them.
-  ...(['REACH_WIDER_THAN_READ', 'STORE_ADDED_TO_MODE', 'LONGER_WAITING_CAP', 'HIGHER_PAIR_CAP_ON_CUT_RUN', 'STORE_NEVER_READ'] as unknown as TrialRefusal[]),
 ]
 
 /** Where a trial stands (`TrialStates`). One runs at a time; others wait in order. */
@@ -857,30 +854,3 @@ export interface BarAcceptRequest {
   note: string
 }
 
-// ── Kept for the weight-set screens (ticket 967) ─────────────────────────────────────────────────
-// `@/core/models/sourcing-sets` (the marking screen, BO 4395) builds on these shapes of the results page as it was
-// stubbed. No results door sends them any more; the weight-set screens' own reconciliation decides whether they stay.
-
-/** A count and its share, as sent. */
-export interface ResultsShare {
-  count: number
-  /** Percent, one decimal. */
-  percent: number
-}
-
-/** The modes a promise check reads. */
-export type ResultsPromiseMode = 'DAWAA_NOW' | 'SLOT' | 'PICK_UP'
-
-/** A promise check row as the marking screen reads it (results ticket decision 9). */
-export interface ResultsPromiseRow {
-  mode: ResultsPromiseMode
-  channelGroup: 'APP_SITE' | 'CALL_CENTRE' | null
-  count: number
-  percent: number
-  band: { from: number; to: number } | null
-  targetMinutes?: number | null
-}
-
-/** The shelf chance table's columns by units left over (spec 4354 §6). */
-export type ResultsLeftOver = 'L0' | 'L1' | 'L2' | 'L3_4' | 'L5_9' | 'L10_PLUS'
-export const RESULTS_LEFT_OVERS: readonly ResultsLeftOver[] = ['L0', 'L1', 'L2', 'L3_4', 'L5_9', 'L10_PLUS']

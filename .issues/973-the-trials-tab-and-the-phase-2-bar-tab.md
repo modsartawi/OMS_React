@@ -86,3 +86,22 @@ the promise figures under the set beside it are plain, not drills, since the ord
 Proof: `trials-model.test.ts` (23) and `bar-model.test.ts` (16) green, plus two Breakdowns cases for the extra column;
 `npm test`, `typecheck`, `lint` green; `tools/sourcing-results-drive.mjs` on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and
 RTL, 295/295.
+
+**2026-11-27 — Reconciled with BackOffice 4394 and 4396 at pricing2 35a4e56be** (branch `reconcile-results`). Trials:
+`GET SourcingAdvisor/Trials` (a list), `POST /Trials/Start {name, version, from, to}` with days as
+`yyyy-MM-dd 00:00:00` (the save grant `SourcingWeightSets:03`), `GET|POST /Trials/FactorTable` (fifteen factor rows),
+and `GET /Trials/Beside?trialId=&otherId=`. "Set beside it" is now two finished trials over the same period, the
+candidate set's and the tried set's (`?against=&beside=` in the URL). Where the candidate has no such trial, the result
+offers to try it. The refusal codes are the server's six. Phase 2 bar: `GET /Results/Phase2Bar?from=&channelGroup=&step=`
+(adds the step, drops "runs made by"), with limits, whys, figures by name, the largest differences, outside reasons,
+shelf chance rows, the split check, read-only figures and kept readings. Our Mark and Ruling map onto
+`POST /Results/Phase2Bar/Close {from, channelGroup, kind, key, mark, text}` (`ORDER`: `NO_WRONG_RULE`|`WRONG_RULE`;
+`OUTSIDE_REASON`/`SHELF_CHANCE`: `RULED` + text). The split check (limit f) is now recorded there too (`SPLIT_CHECK`).
+"Accept this reading" is `POST /Accept {from, channelGroup, step, note}` and is offered on any reading, as the server
+keeps any. Both are under the mark grant `SourcingCandidateSet:03`. Removed, as the server has neither and the ticket
+did not ask: the "data fault" mark and the "runs made by" picker.
+- SERVER GAP (spec 4354): the breakdowns' column under "Set beside it"; the trial doors list no saved versions (the form
+  takes a name and a number) and send neither the longest period nor the records' keeping (30 and 90 days checked as
+  defaults); a largest difference names no run, so its stored run is read off the order's card.
+- Server behaviour to check: `Close` answers the reading of step 1 (`ReadAsync(from, group, null)`) whatever step is
+  shown, so the page re-reads instead of taking that answer.

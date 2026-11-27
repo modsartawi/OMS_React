@@ -86,3 +86,17 @@ is not sent until Run; the picker opens on the candidate set's marked version; R
 Proof as run (after merging the spec tip with 965 and 973): `npm test` (987 files), `npm run typecheck`, `npm run lint` green; `tools/sourcing-simulator-drive.mjs`
 144/144 on Edge (`PLAYWRIGHT_CHANNEL=msedge`), LTR and RTL (962's and 965's checks plus 21 for this ticket per direction). As in
 962, the RTL pass reads English words (the app boots i18next in English); the Arabic keys exist for every new key.
+
+**2026-11-27 — weight-set doors reconciled with BackOffice 4360 at pricing2 35a4e56be** (branch `reconcile-sets-planner`;
+the pins and the advise door are the simulator reconciler's). `GET SourcingAdvisor/WeightSets` → `WeightSetSummary[]`
+(`owner` empty for the baseline, `versions[]{version, savedBy, savedAt, change, candidate, trial}`; retired sets only with
+`withRetired=true`, so the picker never offers one); `GET …/WeightSets/Version?name=&version=` → the version in full,
+`values` being the server's ONE nested document (`baseline-weight-set.json`). "Save as a named set" is
+`POST SourcingAdvisor/WeightSets/Copy {from, name, values}` → `{name, version}` (BO 4360: "with values, the simulator's
+save as a named set of a draft"), under `WeightSetGrants.Save` = `SourcingWeightSets:03` (`canSaveWeightSets`). The
+panel's controls now read and write their place in the document (`@/core/sourcing-advisor/weight-controls`, paths such as
+`prices.companyCostWeight`, `waiting.firstPerHour`, `modes[*].marginMultiplier`, `stock.bufferOn`, `modes[SLOT].reachWidened`,
+`pickUpWithDelivery`); "carrier modes" turns both carrier modes' `on`, "store record" every measure's `on` (off: all off; on:
+the version's own back). No PROVISIONAL mark is left on the weight-set doors. Proof: `weight-controls.test.ts` (10),
+`draft-model.test.ts` (11), `tools/sourcing-simulator-drive.mjs` 222/222 on Edge, LTR and RTL (its 963 steps included).
+Not called: `POST WeightSets/Save` (a new version of a set one owns) — no screen of 963/967 asks for it.

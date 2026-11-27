@@ -1,160 +1,161 @@
 /**
- * The marking screen's model (ticket 967; spec 4354 §10 and §18, BO 4395): the figures it shows, the four checks first,
- * and one written reason that must speak to each "too few" or "not steady" figure (the owner's variant A: one reason
- * plus a tick per such figure). Fed the replies the drive serves (`stub-sets.json`, PROVISIONAL shapes).
+ * The marking screen's model (ticket 967; spec 4354 §10 and §18), over the real doors (BackOffice 4360 and 4395 at
+ * pricing2 35a4e56be: `GET WeightSets/MarkScreen`, `POST WeightSets/Mark`): the figures it shows, the four checks
+ * first, and one written reason that must NAME each figure the evidence marks "too few" or "not steady" — the server
+ * reads the reason for each figure's name (`ReasonSpeaksToFigures`). The owner's variant A: one reason plus a tick per
+ * such figure, the tick naming the figure in the reason. Fed the replies the drive serves (`stub-sets.json`).
  */
 import { describe, expect, it } from 'vitest'
+import { ApiError } from '@/core/api'
 import type { WeightSetListItem } from '@/core/models/sourcing-run'
-import type { MarkingReply } from '@/core/models/sourcing-sets'
+import type { MarkScreenReply } from '@/core/models/sourcing-sets'
 import stub from './stub-sets.json'
-import { markableVersions, markingView, markRequest, markState, refusalLines } from './marking-model'
+import {
+  candidateOf,
+  figureName,
+  markableVersions,
+  markingView,
+  markRequest,
+  markState,
+  refusalLines,
+  speaksTo,
+  withFigure,
+  withoutFigure,
+} from './marking-model'
 
-const reply = (key: string) => structuredClone((stub.marking as unknown as Record<string, MarkingReply>)[key])
-const clean = markingView(reply('Express margin|5'))
+const sets = stub.sets as unknown as WeightSetListItem[]
+const reply = (key: string) => structuredClone((stub.markScreen as unknown as Record<string, MarkScreenReply>)[key])
+const view = (key: string) => markingView(reply(key), candidateOf(sets))
+const clean = view('Express margin|5')
 
 describe('the figures shown', () => {
-  it('the trial: its number, period, plans changed against the candidate set and orders refused, as sent', () => {
+  it('in place of the candidate set the list marks', () => {
+    expect(candidateOf(sets)).toEqual({ name: 'Express margin', version: 4 })
+    expect(clean.target).toEqual({ name: 'Express margin', version: 5 })
+    expect(clean.candidate).toEqual({ name: 'Express margin', version: 4 })
+  })
+
+  it('the trial: its number, days, plans changed against the candidate set and orders refused, as sent', () => {
     expect(clean.trial).toMatchObject({
       trialId: 'T-0036',
       days: 14,
-      endedDaysAgo: 4,
-      plansChanged: { count: 2116, of: 42401, percent: 5.0 },
-      refused: { count: 717, of: 43118, percent: 1.7 },
+      plansCompared: 42401,
+      plansChanged: 2116,
+      plansChangedShare: 0.0499,
+      orders: 43118,
+      refused: 717,
+      refusedShare: 0.0166,
     })
   })
 
-  it('the orders refused by reason in the spec order, never re-summed', () => {
-    expect(clean.trial!.refusedBy).toEqual([
-      { reason: 'REACH_WIDER_THAN_READ', count: 402 },
-      { reason: 'HIGHER_PAIR_CAP_ON_CUT_RUN', count: 201 },
-      { reason: 'STORE_NEVER_READ', count: 114 },
+  it('the orders refused and the plans changed, most first, never re-summed', () => {
+    expect(clean.refusedBy).toEqual([
+      ['REACH_WIDER_THAN_READ', 402],
+      ['HIGHER_PAIR_CAP_ON_CUT_RUN', 201],
+      ['STORE_NEVER_READ', 114],
+    ])
+    expect(clean.changedBy.map(([k]) => k)).toEqual(['ANOTHER_STORE', 'ANOTHER_MODE', 'FEWER_SHIPMENTS', 'MORE_SHIPMENTS'])
+  })
+
+  it('the promise check per mode under the new version: Dawaa Now, slot, then pick-up', () => {
+    expect(clean.trial!.promise.map((p) => [p.mode, p.checked, p.within, p.share])).toEqual([
+      ['DAWAA_NOW', 9812, 9007, 0.918],
+      ['SLOT', 21330, 20710, 0.9709],
+      ['PICK_UP', 7281, 6430, 0.8831],
     ])
   })
 
-  it('the promise check per mode under the new version: Dawaa Now, slot, then pick-up app and site, call centre', () => {
-    expect(clean.trial!.promise.map((p) => [p.mode, p.channelGroup, p.percent, p.candidatePercent])).toEqual([
-      ['DAWAA_NOW', null, 91.8, 90.4],
-      ['SLOT', null, 97.1, 96.9],
-      ['PICK_UP', 'APP_SITE', 88.3, 88.1],
-      ['PICK_UP', 'CALL_CENTRE', 84.9, 85.2],
+  it('every shelf chance figure that differs, with what its evidence says', () => {
+    expect(clean.shelf.map((f) => [f.figure, f.evidence ?? null])).toEqual([
+      ['shelfChance 1/0', 'ENOUGH'],
+      ['shelfChance 2/0', 'NOT_STEADY'],
+      ['shelfChance 1/1', 'TOO_FEW'],
+      ['shelfChance 1/2', null],
+      ['shortFigure SLOT bookAtZero', 'TOO_FEW'],
     ])
   })
 
-  it('every shelf chance figure that differs, by mode, units asked and units left over, with its reading', () => {
-    expect(clean.shelf.map((f) => [f.key, f.reading])).toEqual([
-      ['DAWAA_NOW.1.L0', 'ENOUGH_TO_CHANGE'],
-      ['DAWAA_NOW.1.L1', 'TOO_FEW'],
-      ['SLOT.1.L2', 'ENOUGH_TO_CHANGE'],
-      ['SLOT.2.L0', 'NOT_STEADY'],
-      ['PICK_UP.1.L0', 'TOO_FEW'],
-    ])
+  it('reads a figure\'s name: a shelf chance cell, or a short-figure row of a mode', () => {
+    expect(figureName('shelfChance 2/0')).toEqual({ kind: 'shelf', asked: 2, leftOver: 0 })
+    expect(figureName('shortFigure PICK_UP heldByDeliveries')).toEqual({ kind: 'short', mode: 'PICK_UP', row: 'heldByDeliveries' })
+    expect(figureName('somethingNew 1')).toBeNull()
   })
 
-  it('a figure the version leaves as it was is not one that differs', () => {
-    expect(markingView(reply('Baseline|1')).shelf.map((f) => f.key)).toEqual(['DAWAA_NOW.1.L0'])
+  it('the phase 2 bar count a marking starts again', () => {
+    expect(clean.bar).toEqual({ counted: true, from: '2026-11-04 00:00:00' })
+    expect(view('Wider slot reach|2').bar).toEqual({ counted: false, from: null })
   })
+})
 
-  it('the four checks in the spec order; a check passed on an exception says which', () => {
+describe('the four checks', () => {
+  it('pass for a clean version: the reason not yet naming its figures is the reason\'s to answer, not a check', () => {
     expect(clean.checks.map((c) => [c.check, c.passed])).toEqual([
       ['BALANCED_ON', true],
       ['NO_WHAT_IF', true],
       ['NO_ASSUMED_CARRIER_ROW', true],
       ['KEPT_TRIAL', true],
     ])
-    const back = markingView(reply('Baseline|1'))
-    expect(back.checksPass).toBe(true)
-    expect(back.checks[3]).toMatchObject({
-      passed: true,
-      exception: 'BACK_WITHIN_90',
-    })
-    expect(back.lastCandidate).toEqual({
-      until: '2026-11-02 09:15:30',
-      daysAgo: 25,
-    })
+    expect(clean.checksPass).toBe(true)
+    expect(clean.refusals).toEqual([])
   })
-})
 
-describe('a refused marking shows its reason', () => {
-  it('no kept trial: the fourth check fails with its reason, and the checks do not pass', () => {
-    const v = markingView(reply('Wider slot reach|2'))
+  it('no kept trial: the fourth check fails with the server\'s reason', () => {
+    const v = view('Wider slot reach|2')
     expect(v.checksPass).toBe(false)
-    expect(v.refusals).toEqual([{ check: 'KEPT_TRIAL', code: 'NO_TRIAL', figure: null }])
+    expect(v.checks.find((c) => c.check === 'KEPT_TRIAL')).toMatchObject({ passed: false, refusals: [{ code: 'NO_TRIAL' }] })
+    expect(v.refusals.map((r) => r.code)).toEqual(['NO_TRIAL'])
   })
 
-  it('case 87: too short, too old, too many refused and a stop finding, each with its figure', () => {
-    expect(markingView(reply('Express margin|3')).refusals.map((r) => [r.code, r.figure])).toEqual([
-      ['TRIAL_TOO_SHORT', '10'],
-      ['TRIAL_TOO_OLD', '9'],
-      ['TRIAL_REFUSED_TOO_MANY', '6.2'],
-      ['TRIAL_STOP_FINDING', '1'],
-    ])
+  it('a trial too old: the newest trial and why it does not qualify', () => {
+    const v = view('Baseline|1')
+    expect(v.refusals.map((r) => r.code)).toEqual(['TRIAL_TOO_OLD'])
+    expect(v.trial!.fails).toEqual(['TRIAL_TOO_OLD'])
   })
 
-  it('a trial set is never marked, even if a reply said every check passed', () => {
-    const r = reply('Carrier pilot|1')
-    expect(markingView(r).checksPass).toBe(false)
-    r.checks = r.checks.map((c) => ({ ...c, passed: true, why: [] }))
-    expect(markingView(r).checksPass).toBe(false)
+  it('a trial set fails the second check and is never offered; its assumed carrier row fails the third', () => {
+    const v = view('Carrier pilot|1')
+    expect(v.trialSet).toBe(true)
+    expect(v.checks.filter((c) => !c.passed).map((c) => c.check)).toEqual(['NO_WHAT_IF', 'NO_ASSUMED_CARRIER_ROW'])
   })
 
-  it('a reply that left out one of the four checks never passes', () => {
+  it('going back within 90 days passes the fourth check on its exception, saying until when it was the candidate', () => {
+    const v = view('Express margin|3')
+    expect(v.checksPass).toBe(true)
+    expect(v.checks[3]).toMatchObject({ passed: true, exception: 'BACK_WITHIN_90_DAYS' })
+    expect(v.candidateUntil).toBe('2026-11-18 10:42:05')
+  })
+
+  it('a refusal code the screen does not know blocks the marking, kept with the server\'s words', () => {
     const r = reply('Express margin|5')
-    r.checks = r.checks.slice(0, 3)
-    expect(markingView(r).checksPass).toBe(false)
-  })
-
-  it("the mark door's refusal: each code it sent, a code the screen does not know kept with the server's words", () => {
-    expect(
-      refusalLines([
-        {
-          errorCode: 'TRIAL_TOO_OLD',
-          errorMessage: 'The trial ended 8 days ago.',
-        },
-        {
-          errorCode: 'SOMETHING_NEW',
-          errorMessage: 'A rule this screen does not know.',
-        },
-      ]),
-    ).toEqual([
-      {
-        code: 'TRIAL_TOO_OLD',
-        known: true,
-        message: 'The trial ended 8 days ago.',
-      },
-      {
-        code: 'SOMETHING_NEW',
-        known: false,
-        message: 'A rule this screen does not know.',
-      },
-    ])
+    r.refusals.push({ code: 'SOMETHING_NEW', why: 'A rule this screen does not know.' })
+    const v = markingView(r, null)
+    expect(v.checksPass).toBe(false)
+    expect(v.refusals).toEqual([{ code: 'SOMETHING_NEW', why: 'A rule this screen does not know.' }])
   })
 })
 
-describe('the written reason must speak to each "too few" or "not steady"', () => {
-  it('names the figures it must speak to: every reading but "enough"', () => {
-    expect(clean.mustSpeakTo.map((f) => f.key)).toEqual(['DAWAA_NOW.1.L1', 'SLOT.2.L0', 'PICK_UP.1.L0'])
+describe('the written reason must name each "too few" or "not steady" figure', () => {
+  it('names the figures it must speak to: exactly those the evidence marks too few or not steady', () => {
+    expect(clean.mustSpeakTo.map((f) => f.figure)).toEqual(['shelfChance 2/0', 'shelfChance 1/1', 'shortFigure SLOT bookAtZero'])
   })
 
-  it('a reading the screen does not know must be spoken to as well (fails safe)', () => {
-    const r = reply('Express margin|5')
-    r.shelf[1] = { ...r.shelf[1], reading: 'INSIDE_CHANCE' as never }
-    expect(markingView(r).mustSpeakTo.map((f) => f.key)).toContain('DAWAA_NOW.1.L0')
+  it('a figure is spoken to when the reason names it, in any case', () => {
+    expect(speaksTo('The SHELFCHANCE 2/0 cell was read by hand.', 'shelfChance 2/0')).toBe(true)
+    expect(speaksTo('The shelfChance 2/1 cell.', 'shelfChance 2/0')).toBe(false)
   })
 
-  it('Mark stays off until a reason is written and every such figure is ticked', () => {
-    expect(markState(clean, '', [])).toEqual({
-      canMark: false,
-      waitingFor: 'reason',
-      spoken: 0,
-      of: 3,
-    })
-    expect(markState(clean, '   ', ['DAWAA_NOW.1.L1'])).toMatchObject({
-      canMark: false,
-      waitingFor: 'reason',
-      spoken: 1,
-    })
-    expect(markState(clean, 'Evidence read by hand.', ['DAWAA_NOW.1.L1', 'SLOT.2.L0'])).toEqual({ canMark: false, waitingFor: 'figures', spoken: 2, of: 3 })
-    expect(markState(clean, 'Evidence read by hand.', ['DAWAA_NOW.1.L1', 'SLOT.2.L0', 'PICK_UP.1.L0'])).toEqual({
+  it('a tick names the figure in the reason; untick takes the name out again', () => {
+    const once = withFigure('Read by hand.', 'shelfChance 1/1')
+    expect(once).toBe('Read by hand.\nshelfChance 1/1: ')
+    expect(withFigure(once, 'shelfChance 1/1')).toBe(once)
+    expect(withoutFigure(once, 'shelfChance 1/1')).toBe('Read by hand.')
+    expect(withFigure('', 'shelfChance 1/1')).toBe('shelfChance 1/1: ')
+  })
+
+  it('Mark stays off until a reason is written and names every such figure', () => {
+    expect(markState(clean, '')).toEqual({ canMark: false, waitingFor: 'reason', spoken: 0, of: 3 })
+    expect(markState(clean, 'Evidence read by hand: shelfChance 2/0, shelfChance 1/1.')).toEqual({ canMark: false, waitingFor: 'figures', spoken: 2, of: 3 })
+    expect(markState(clean, 'shelfChance 2/0, shelfChance 1/1 and shortFigure SLOT bookAtZero read by hand.')).toEqual({
       canMark: true,
       waitingFor: null,
       spoken: 3,
@@ -162,37 +163,47 @@ describe('the written reason must speak to each "too few" or "not steady"', () =
     })
   })
 
-  it('a tick on an "enough" figure counts for nothing', () => {
-    expect(markState(clean, 'Why.', ['DAWAA_NOW.1.L0', 'SLOT.1.L2', 'DAWAA_NOW.1.L1'])).toMatchObject({ canMark: false, spoken: 1, of: 3 })
-  })
-
   it('with nothing to speak to, a written reason is enough', () => {
-    expect(markState(markingView(reply('Baseline|1')), 'Back to the baseline while version 4 is looked at.', [])).toEqual({
-      canMark: true,
-      waitingFor: null,
-      spoken: 0,
-      of: 0,
-    })
+    expect(markState(view('Express margin|3'), 'Back to version 3 while version 4 is looked at.')).toEqual({ canMark: true, waitingFor: null, spoken: 0, of: 0 })
   })
 
   it('while a check fails Mark stays off, whatever is written', () => {
-    expect(markState(markingView(reply('Wider slot reach|2')), 'Please.', [])).toEqual({ canMark: false, waitingFor: 'checks', spoken: 0, of: 0 })
+    expect(markState(view('Wider slot reach|2'), 'Please.')).toEqual({ canMark: false, waitingFor: 'checks', spoken: 0, of: 0 })
   })
 
-  it('the body sent: the version, the trimmed reason, and only the figures it must speak to', () => {
-    expect(markRequest(clean, '  Read the halves by hand.  ', ['SLOT.1.L2', 'PICK_UP.1.L0', 'DAWAA_NOW.1.L1', 'SLOT.2.L0'])).toEqual({
+  it('the body sent: the version and the trimmed reason, nothing else (BO 4360 `MarkCandidateRequest`)', () => {
+    expect(markRequest(clean, '  shelfChance 2/0, shelfChance 1/1, shortFigure SLOT bookAtZero: read the halves by hand.  ')).toEqual({
       name: 'Express margin',
       version: 5,
-      reason: 'Read the halves by hand.',
-      spokenTo: ['DAWAA_NOW.1.L1', 'SLOT.2.L0', 'PICK_UP.1.L0'],
+      reason: 'shelfChance 2/0, shelfChance 1/1, shortFigure SLOT bookAtZero: read the halves by hand.',
     })
-    expect(markRequest(clean, 'Read.', ['SLOT.2.L0'])).toBeNull()
+    expect(markRequest(clean, 'Read.')).toBeNull()
+  })
+})
+
+describe('the mark door\'s refusal', () => {
+  it('reads every reason of a refused marking (`WEIGHTSET-423`, `data.refusals`)', () => {
+    const err = new ApiError('business', 'The version cannot be marked the candidate set: …', 422, [{ errorCode: 'WEIGHTSET-423', internalErrorCode: '', errorMessage: '…' }], {
+      refusals: [
+        { code: 'TRIAL_TOO_OLD', why: 'Its newest trial T-0036 ended on 2026-11-23, more than 7 days before the marking.' },
+        { code: 'SOMETHING_NEW', why: 'A rule this screen does not know.' },
+      ],
+    })
+    expect(refusalLines(err)).toEqual([
+      { code: 'TRIAL_TOO_OLD', known: true, why: 'Its newest trial T-0036 ended on 2026-11-23, more than 7 days before the marking.' },
+      { code: 'SOMETHING_NEW', known: false, why: 'A rule this screen does not know.' },
+    ])
+  })
+
+  it('any other refusal (a conflict, a bad request) carries no reasons of its own', () => {
+    expect(refusalLines(new ApiError('business', 'The set is retired.', 409, [{ errorCode: 'WEIGHTSET-409', internalErrorCode: '', errorMessage: 'The set is retired.' }]))).toEqual([])
+    expect(refusalLines(new Error('x'))).toEqual([])
   })
 })
 
 describe('the versions the marking screen offers (review 2 #9)', () => {
-  it('every version but the candidate set’s, of no retired set and no trial set: a trial set is never marked', () => {
-    expect(markableVersions(stub.sets as unknown as WeightSetListItem[])).toEqual([
+  it('every version but the candidate set\'s, of no retired set and no trial set: a trial set is never marked', () => {
+    expect(markableVersions(sets)).toEqual([
       { name: 'Baseline', version: 1 },
       { name: 'Express margin', version: 1 },
       { name: 'Express margin', version: 2 },

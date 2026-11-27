@@ -85,3 +85,35 @@ must be reconciled when the server lands.
   `day` (`SAME_DAY|NEXT_DAY`), `on`.
 - Items are typed by code (no item list door is named); the probe asks the item's category for the same reason.
 
+**2026-11-27 — reconciled with BackOffice 4361, 4362 and 4375 at pricing2 35a4e56be** (branch `reconcile-sets-planner`).
+Three families of doors replace the one provisional door; `./wire.ts` reads each into the screen's one row shape and one
+history, and writes each change in its door's own body (variant A unchanged: a side sheet per row, a reason only where
+the server keeps one, a tab hidden without its grant).
+- BO 4375 `PlannerStockEndpoints`: `GET SourcingAdvisor/BufferOverrides[?withEnded=true]`, `POST …/Save {replaces, level,
+  store, item, category, keepUnits, keepDays, firstDay, lastDay, reason}`, `POST …/End {id, reason}`;
+  `GET SourcingAdvisor/StoreConfidences[?withEnded=true]`, `POST …/Set {store, confidence, reason, endsOn}`,
+  `POST …/End {id: store, reason}`. Grant `SourcingPlannerStock:03`.
+- BO 4362 `ProductRuleEndpoints`: `GET SourcingAdvisor/ProductRules[?withHistory=true]` → `{rules, lists}`;
+  `POST …/Change {rule?, group, value, mode, onlyFrom, reason, on, note}` (a rule is switched, never ended),
+  `POST …/Lists/Add` and `…/Lists/Remove {list, kind, code, note?}` (an entry is never changed). Group codes `A_CLASS`,
+  `COLD_CHAIN`, `SAP_STATUS`, `LIST`, `ITEM`; the row's `reason` is the sentence code (`COLD`, `RESTRICTED`, `BULKY`,
+  `OUT_OF_RANGE`, `NAMED_STORES`). SAP's Restricted Drugs status is a rule row, not a locked list entry. Grant
+  `SourcingProductRules:03` — its holder switches any rule, a medicine's too.
+- BO 4361 `PlannerTableEndpoints`: `GET SourcingAdvisor/PlannerTables?table=` (current rows), `GET …/History?table=&key=`,
+  `POST …/Save {table, row, note}`, `POST …/End {table, key}`; tables `storeModes` (`{store, mode, gives}`, one row per
+  store and mode), `carrierContracts` (`{contract, mode, courier, cities[], cutOff, daysToDeliver, deliverBy, rate,
+  collectAt, keepsCold, assumed}`), `slotRules` (`{kind: SLOT|NEXT_DAY_AFTER, from, to?}`). Grant `SourcingPlannerTables:03`.
+- Every list reads under the run grant: the page opens with the run grant and any planner grant (`canOpenSourcingPlanner`).
+- History: the BO 4361 history door; for the others the versions are found in the list with its ended rows (an override
+  by `replaces`/`replacedBy`, a confidence by store, a rule by rule id, a list entry by list/kind/code).
+- The forms read the server's own checks first (keep days ≤ 365 with two decimals, last day not before today, confidence
+  two decimals and ending today to +90 days, a named-stores row and only it names stores, exclusion only from Dawaa Now
+  and pick-up, 0–30 days to deliver, a slot ends after it starts).
+- Proof: `wire.test.ts` (11), `tables.test.ts` (7), `override-form-model.test.ts` (18), `rule-rows-model.test.ts` (5);
+  `tools/sourcing-planner-drive.mjs` 82/82 on Edge, LTR and RTL.
+
+SERVER GAP (spec 4354), marked so in code where it bites:
+- No door names the stores, items, merchandise categories or sub-categories the planner forms pick from (the stubbed
+  `Planner/Choices` is gone): every code is typed as a code and shown as a code.
+- A planner table's list (BO 4361) gives only current rows: a key ended with no successor cannot be listed (its history
+  still reads by key), so those three tabs offer no "show ended rows".

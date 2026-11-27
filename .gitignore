@@ -193,3 +193,5 @@ tools/.store-stages-shots/
 tools/.stock-fallback-shots/
 # Comparison results drive screenshots (tools/sourcing-results-drive.mjs, ticket 971)
 tools/.sourcing-results-shots/
+# Store record and kept runs drive screenshots (tools/sourcing-record-drive.mjs, ticket 969)
+tools/.sourcing-record-shots/

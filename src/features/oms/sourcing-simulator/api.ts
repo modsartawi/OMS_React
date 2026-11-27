@@ -6,7 +6,10 @@ import { api } from '@/core/api'
 import type {
   AdviseReply,
   AdviseWhyNot,
+  KeepRunRequest,
+  KeptRun,
   PlanGoal,
+  StoredRun,
   SimulatorWorkbench,
   WeightSetListItem,
   WeightSetSaveRequest,
@@ -48,7 +51,45 @@ export const simulatorApi = {
    * longer held answers `ADVISE-404`, as the replan does.
    */
   whyNot: (runId: string, store: string, goal: PlanGoal) => api.get<AdviseWhyNot[]>('SourcingAdvisor/WhyNot', { runId, store, goal }),
+  /**
+   * Keep the held run under a name (ticket 969, spec 4354 §12; BackOffice 4380 "Doors: keep, list, open, delete"). The
+   * full record is stored for good. A run no longer held answers `ADVISE-404`, as the replan does.
+   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/Runs/Keep`, its body and reply are ours.
+   */
+  keepRun: (body: KeepRunRequest) => api.post<KeptRun>('SourcingAdvisor/Runs/Keep', body),
+  /**
+   * The caller's kept runs (BackOffice 4380 "list").
+   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/Runs/Kept` and its reply are ours.
+   */
+  keptRuns: () => api.get<KeptRun[]>('SourcingAdvisor/Runs/Kept'),
+  /**
+   * Delete one's own kept run (BackOffice 4380: "the keeper may delete"); its link stops opening.
+   * PROVISIONAL (spec 4354: not specified) — `DELETE SourcingAdvisor/Runs/Kept?runId=` is ours.
+   */
+  deleteKeptRun: (runId: string) => api.del<null>('SourcingAdvisor/Runs/Kept', { runId }),
+  /**
+   * Open a stored run by its link (BackOffice 4380 "open"): "a read door of the simulator's build, which solves again
+   * from the stored copy" — not an advise call (BackOffice 4281 decision 11). The stored plans stay the truth; the reply
+   * says when a newer engine answers differently. A run not there (deleted, or never kept) answers `ADVISE-404`.
+   * PROVISIONAL (spec 4354: not specified) — the path `SourcingAdvisor/Runs/Open`, its query `runId` and reply are ours.
+   */
+  openRun: (runId: string) => api.get<StoredRun>('SourcingAdvisor/Runs/Open', { runId }),
 }
+
+export const keptRunsQuery = () => ({
+  queryKey: ['sourcing-simulator', 'kept-runs'] as const,
+  queryFn: simulatorApi.keptRuns,
+  retry: false,
+})
+
+export const storedRunQuery = (runId: string | null) => ({
+  queryKey: ['sourcing-simulator', 'stored-run', runId ?? ''] as const,
+  queryFn: () => simulatorApi.openRun(runId!),
+  enabled: !!runId,
+  // A stored run is never changed; only deleted.
+  staleTime: Infinity,
+  retry: false,
+})
 
 export const weightSetsQuery = () => ({
   queryKey: ['sourcing-simulator', 'weight-sets'] as const,

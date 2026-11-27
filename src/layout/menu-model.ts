@@ -80,6 +80,7 @@ import { BadgePercent, Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Me
 import { CalendarClock, Smartphone } from 'lucide-react'
 import { canViewMiniPos } from '@/core/mini-pos/access'
 import { FileDown } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { MY_EXPORTS_OFFER } from '@/core/inquiry-export/api'
 import { canOpenMiniPosScorecard } from '@/features/mini-pos/scorecard/access'
 
@@ -355,6 +356,15 @@ export const MENU: ShellMenuItem[] = [
         icon: FlaskConical,
         routerLink: SIMULATOR_PATH,
         activePrefix: SIMULATOR_PATH,
+        requires: canRunSourcingAdvisor,
+      },
+      {
+        // Store record (ticket 969, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and
+        // kept runs") — read only, the run grant (provisional key); fails closed. After the simulator, before Pick support.
+        labelKey: 'sourcing-record:menu.sourcingRecord',
+        icon: ClipboardList,
+        routerLink: '/oms/sourcing-record',
+        activePrefix: '/oms/sourcing-record',
         requires: canRunSourcingAdvisor,
       },
       {

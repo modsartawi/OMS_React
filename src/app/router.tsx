@@ -411,6 +411,21 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-simulator/SourcingSimulatorPage')).default,
         }),
       },
+      // Kept runs (ticket 969, BackOffice spec 4354 §12) — the caller's kept runs; a run's link opens the simulator on
+      // it. The simulator's own page, under the run grant. Its path is `KEPT_RUNS_PATH` in `@/core/sourcing-advisor`.
+      {
+        path: 'oms/sourcing-simulator/kept',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-simulator/KeptRunsPage')).default,
+        }),
+      },
+      // The store record list (ticket 969, BackOffice spec 4354 §6, §14, §19) — read only, under the run grant.
+      {
+        path: 'oms/sourcing-record',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-record/SourcingRecordPage')).default,
+        }),
+      },
       // The comparison results page (ticket 971, BackOffice spec 4354 §17) — under today's advisor view grant. The menu's
       // "Sourcing advisor" entry is repointed here by ticket 974, which removes the old pages above.
       {

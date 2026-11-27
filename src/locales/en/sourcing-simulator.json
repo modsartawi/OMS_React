@@ -839,5 +839,92 @@
       "note": "A dotted line on the map joins the stores of one plan."
     },
     "noStores": "No plan's store to show."
+  },
+  "kept": {
+    "link": "Kept runs",
+    "keep": {
+      "button": "Keep and name this run…",
+      "held": "Held until {{time}} as a working copy, with no link.",
+      "notHeld": "The door could not hold this run, so it cannot be kept. Run it again to keep it.",
+      "kept": "Kept as",
+      "gone": "This run is no longer held: run it again to keep it.",
+      "failed": "The run could not be kept.",
+      "done": "Run kept",
+      "dialog": {
+        "title": "Keep and name this run",
+        "name": "Name",
+        "namePlaceholder": "What this run shows",
+        "hint": "The full record is stored for good, with a link anyone with the run grant can open. The customer's point is never stored.",
+        "keep": "Keep",
+        "cancel": "Cancel",
+        "noName": "Give the run a name.",
+        "tooLong": "A name takes at most {{max}} characters."
+      }
+    },
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied",
+    "linkNotCopied": "The link could not be copied",
+    "linkNotCopiedDetail": "Copy it from the address bar after opening the run.",
+    "list": {
+      "title": "Kept runs",
+      "lede": "Your kept runs. A run is stored for good only when its user keeps and names it; anyone with the run grant opens it by its link.",
+      "back": "Back to the simulator",
+      "loading": "Reading your kept runs…",
+      "failed": "Your kept runs could not be read.",
+      "empty": {
+        "title": "No kept runs yet",
+        "hint": "Keep a run from the simulator to give it a name and a link."
+      },
+      "col": {
+        "name": "Name",
+        "run": "Run",
+        "kind": "Kind",
+        "channel": "Channel",
+        "order": "Order",
+        "weightSet": "Weight set",
+        "ranAt": "Ran",
+        "keptAt": "Kept",
+        "engine": "Engine"
+      },
+      "open": "Open in the simulator",
+      "delete": "Delete",
+      "draft": "{{name}}, version {{version}}, changed, not saved",
+      "deleteDialog": {
+        "title": "Delete this kept run?",
+        "body": "Its link stops opening for everyone. This cannot be undone.",
+        "confirm": "Delete",
+        "cancel": "Keep it"
+      },
+      "deleted": "Kept run deleted",
+      "deleteFailed": "The kept run could not be deleted."
+    },
+    "kind": {
+      "HAND_BUILT": "Hand-built cart",
+      "REPLAY": "Replay",
+      "REPLAY_MOVED_POINT": "Replay, customer's point moved by hand",
+      "CHECKOUT": "Checkout call",
+      "COMPARISON": "Comparison run"
+    }
+  },
+  "stored": {
+    "title": {
+      "KEPT": "A kept run, opened by its link",
+      "COMPARISON": "A comparison run, opened by its link",
+      "HELD": "A held run, opened by its link"
+    },
+    "keptBy": "Kept by",
+    "keptAt": "Kept",
+    "ranAt": "Ran",
+    "engine": "Engine",
+    "engineDiffers": "Solved again on engine {{now}}, it answers differently. The stored plans, from engine {{then}}, stay the truth.",
+    "sameEngine": "Solved again on today's engine, it gives the stored plans.",
+    "setBackCart": "Its cart is set on the left without the customer's point, which is never stored: place the customer and Run to plan it afresh.",
+    "setBackOrder": "Its order is set on the left: Run replays it on today's figures.",
+    "opening": "Opening the stored run…",
+    "gone": {
+      "title": "This run is not there",
+      "hint": "Its keeper deleted it, or the link is wrong. A held run's working copy has no link."
+    },
+    "failed": "The stored run could not be opened."
   }
 }

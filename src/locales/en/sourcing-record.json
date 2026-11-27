@@ -1,0 +1,94 @@
+{
+  "menu": {
+    "sourcingRecord": "Store record"
+  },
+  "title": "How deliveries go at each store",
+  "lede": "Every store and mode, over the last 90 whole local days. Read only: a record only ever costs or earns a credit, and never rules a store out.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the store record",
+    "deniedHint": "Your account does not hold the sourcing advisor's run grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "money": "SAR {{amount}}",
+  "loading": "Reading the store record…",
+  "failed": "The store record could not be read.",
+  "builtAt": "Built on the night of {{at}}",
+  "window": "Window",
+  "costPerMeasure": "Each measure costs its failure price times the steadied rate less the like-store rate. Below like stores it earns a credit.",
+  "notBuilt": {
+    "title": "The store record has not been built yet",
+    "hint": "The nightly pass has not run. Every pair runs on the neutral default and costs nothing."
+  },
+  "tabs": {
+    "label": "Delivery modes",
+    "CARRIERS": "Carriers and beyond the border"
+  },
+  "mode": {
+    "SLOT": "Slot delivery",
+    "PICK_UP": "Pick-up",
+    "DAWAA_NOW": "Dawaa Now",
+    "CARRIER_SAME_DAY": "Carrier same day",
+    "CARRIER_NEXT_DAY": "Carrier next day",
+    "BEYOND_BORDER": "Beyond the border"
+  },
+  "measure": {
+    "late": "Late",
+    "returned": "Returned by the driver",
+    "cancelled": "Cancelled, not by the customer",
+    "neverMadeReady": "Never made ready",
+    "readyLate": "Ready after 30 minutes",
+    "calloutIgnored": "Callout ignored"
+  },
+  "channel": {
+    "APP": "App",
+    "SITE": "Site",
+    "CALL_CENTRE": "Call centre"
+  },
+  "band": {
+    "UNDER_30": "under 30 deliveries",
+    "FROM_30": "30 to 99 deliveries",
+    "FROM_100": "100 to 299 deliveries",
+    "FROM_300": "300 deliveries or more"
+  },
+  "neutral": {
+    "mark": "neutral default",
+    "NO_DELIVERIES": "no deliveries in the window",
+    "NO_RECORD": "this mode keeps no record",
+    "SWITCHED_OFF": "switched off"
+  },
+  "shared": {
+    "countedFrom": "Counted from",
+    "countedFromNote": "No earlier day counts.",
+    "channels": "Channels counted",
+    "likeStores": "Like stores",
+    "price": "failure price"
+  },
+  "col": {
+    "store": "Store",
+    "deliveries": "Deliveries",
+    "thisStore": "This store",
+    "badEndings": "Bad endings",
+    "cost": "Cost or credit",
+    "pairCost": "Record cost",
+    "fallback": "Callout fallback left out",
+    "usualSlot": "Usual slot",
+    "regularHours": "Regular slot hours",
+    "tillMoves": "Till moves marked \"Customer\""
+  },
+  "credit": "credit",
+  "noSlotHours": "None yet",
+  "tillNote": "Till moves marked \"Customer\": this store's share first, like stores' beside it. The reason is the store's own word.",
+  "fallbackNote": "Deliveries that reached the store as the callout's fallback are left out of its record and counted apart.",
+  "shown": {
+    "title": "Shown, not charged",
+    "lead": "Worked out and shown. Switched off in the baseline set, so none of it costs.",
+    "lastCount": "Last full count",
+    "countFactor": "Count factor",
+    "donorRefusals": "A donor's refusals for no stock"
+  },
+  "noStores": "No store has this mode in the record.",
+  "noRecordMode": "These modes keep no record. Each pair runs on the neutral default and costs nothing."
+}

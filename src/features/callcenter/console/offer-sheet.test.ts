@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OfferDefinition, OfferWhatIf } from '@/core/models/callcenter'
+import type { GuidancePhrase } from './guidance-view'
 import { definitionFigure, howItWorks, offerEnds, sheetSay, sheetFigures, whatIfQuery, whoGetsIt } from './offer-sheet'
 
 const buy3get1: OfferDefinition = {
@@ -176,7 +177,7 @@ describe('offerEnds', () => {
 })
 
 describe('sheetSay', () => {
-  const pitch = [
+  const pitch: GuidancePhrase[] = [
     { key: 'callcenter:offer.say.addFree', params: { count: 3, free: 1 } },
     { key: 'callcenter:offer.say.phoneOnly', params: {} },
   ]

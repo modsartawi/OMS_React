@@ -6,9 +6,9 @@
  * builds — **Send location link**, its dialog, and the **waiting strip** — and is where 575's
  * card and chip, and 576's Discard and Resend-over-a-card, land in the same place.
  *
- * - **Placement.** In the flow directly under the header sentence, whose address word is the
- *   console's *Change address* (the address book's only door, 166/379). The action sits on the
- *   address's own row there, never inside `AddressPicker`.
+ * - **Placement.** In the caller column, directly under the address book cards (spec 983 D10,
+ *   989) — moved there from under the header sentence with its states and verbs unchanged.
+ *   Never inside `AddressPicker`.
  * - **Hidden, never disabled.** The action is drawn only while `canSendLocationLink` is true
  *   (`showsSendAction`); a `CCL-00001` from Send hides it for the rest of the order.
  * - **The link is held here and nowhere else.** The page mounts this panel keyed by the

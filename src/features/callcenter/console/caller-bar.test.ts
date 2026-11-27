@@ -38,16 +38,25 @@ const CARD: LinkedCard = {
 const ids = (fields: { id: string }[]) => fields.map((f) => f.id)
 
 describe('barFields', () => {
-  it('🚩 bar shows the same six railFields in order', () => {
+  it('🚩 bar shows railFields in order, less the points', () => {
     const bar = barFields(CUSTOMER, MEMBER)
     const rail = railFields(CUSTOMER, MEMBER)
     expect(bar.length).toBeLessThanOrEqual(MAX_RAIL_FIELDS)
-    // The same fields with the same values — the bar only re-seats them.
+    // The same fields with the same values — the bar only re-seats them (and drops points, D2).
     expect([...bar].sort((a, b) => a.id.localeCompare(b.id))).toEqual(
-      [...rail].sort((a, b) => a.id.localeCompare(b.id)),
+      rail.filter((f) => f.id !== 'points').sort((a, b) => a.id.localeCompare(b.id)),
     )
-    expect(ids(bar)).toEqual(['name', 'tier', 'points', 'mobile', 'member', 'email'])
+    expect(ids(bar)).toEqual(['name', 'tier', 'mobile', 'member', 'email'])
     expect(ids(bar)).toEqual(BAR_ORDER)
+  })
+
+  // 🚩 Spec 983 D2 (owner ruling 2026-11-27): the tier stays, points never show.
+  it('pointsAreNeverShown: no points field for a member who has points', () => {
+    expect(MEMBER.pointsBalance).toBeGreaterThan(0)
+    expect(ids(barFields(CUSTOMER, MEMBER))).not.toContain('points')
+    expect(ids(barFields(CUSTOMER, { ...MEMBER, pointsBalance: 0 }))).not.toContain('points')
+    expect(BAR_ORDER).not.toContain('points')
+    expect(ids(barFields(CUSTOMER, MEMBER))).toContain('tier')
   })
 
   it('keeps the order when the lookup is not to hand: name, mobile, member', () => {

@@ -438,6 +438,15 @@ const rowText = async (page, field) =>
 const tickOf = (page, field) => page.locator(`[data-cc-location-tick="${field}"]`).isChecked()
 const lastApply = (srv) => calls(srv, /ApplyLocation$/).at(-1)?.body ?? null
 
+/** 989: `sel` is in the caller column, after the address book's cards when they are drawn. */
+const inCallerColumn = (page, sel) =>
+  page.evaluate((s) => {
+    const el = document.querySelector(s)
+    const col = el?.closest('[data-cc-col="caller"]')
+    const cards = col?.querySelector('[data-cc-address-cards]')
+    return !!(col && (!cards || cards.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
+  }, sel)
+
 /** Send a link from a fresh order and have the customer send their location: the card. */
 async function toCard(page, srv, mobile) {
   await page.locator('[data-cc-location-send]').click()
@@ -471,9 +480,8 @@ for (const mode of MODES) {
 
   const { context, page, errors, srv } = await open(mode)
   ok(await page.locator('[data-cc-location-send]').isVisible(), `${at}: canSendLocationLink true → Send location link is shown`)
-  const sentence = await page.locator('[data-cc-sentence]').boundingBox()
-  const row = await page.locator('[data-cc-location]').boundingBox()
-  ok(row && sentence && row.y >= sentence.y + sentence.height - 1, `${at}: it sits on the address row, under the header sentence`)
+  // 989 (spec 983 D10): the panel moved to the caller column, under the address book.
+  ok(await inCallerColumn(page, '[data-cc-location]'), `${at}: it sits in the caller column, under the address book`)
 
   // ---- 2. the dialog and the body ----
   await page.locator('[data-cc-location-send]').click()
@@ -700,8 +708,7 @@ for (const mode of MODES) {
     (await page.locator('[data-cc-location-card]').isVisible()) && (await page.locator('[data-cc-location-strip]').count()) === 0,
     `${at}: Captured → the card replaces the strip`,
   )
-  const cardBox = await page.locator('[data-cc-location-card]').boundingBox()
-  ok(cardBox && cardBox.y >= sentence.y + sentence.height - 1, `${at}: in the same place, under the header sentence`)
+  ok(await inCallerColumn(page, '[data-cc-location-card]'), `${at}: in the same place, in the caller column under the address book`)
   const capturedPolls = calls(srv, /Tok000000004\/Status$/).length
   await run(page, 9_000)
   ok(calls(srv, /Tok000000004\/Status$/).length === capturedPolls, `${at}: Captured stops the poll`)
@@ -1213,6 +1220,14 @@ for (const mode of MODES) {
     await toCard(page, srv)
     await page.locator('[data-cc-location-apply]').click()
     await page.locator('[data-cc-location-chip="applied"]').waitFor({ timeout: 5_000 })
+    // 989 (spec 983 D10): the applied pin shows as the selected address in the caller column.
+    await page.locator('[data-cc-address-card="77120"] [data-cc-address-card-pinned]').waitFor({ timeout: 5_000 })
+    ok(
+      (await page.locator('[data-cc-address-card="77120"][data-cc-address-card-selected] [data-cc-address-card-pinned]').count()) === 1 &&
+        (await page.locator('[data-cc-address-card-pinned]').count()) === 1,
+      `${at}: the applied pin shows on the selected address card, and only there`,
+    )
+    await page.screenshot({ path: `${SHOTS}/caller-column-pinned-${at}.png` })
     await page.locator('[data-cc-chip-open="address"]').click()
     await page.locator('[data-cc-address-option="77121"]').click()
     await page.locator('[data-cc-location-chip="cleared"]').waitFor({ timeout: 5_000 })
@@ -1227,9 +1242,14 @@ for (const mode of MODES) {
       `${at}: read by the addressNumber — the new row brought a pin of its own`,
     )
     await page.screenshot({ path: `${SHOTS}/chip-cleared-${at}.png` })
-    // Back on the first address, still cleared: its row's own pin, not the capture.
-    await page.locator('[data-cc-chip-open="address"]').click()
-    await page.locator('[data-cc-address-option="77120"]').click()
+    // Back on the first address, still cleared: its row's own pin, not the capture. (989: by
+    // the caller column's card this time — one click applies, the same rebind.)
+    await page.locator('[data-cc-address-card="77120"]').click()
+    await page.locator('[data-cc-address-card="77120"][data-cc-address-card-selected]').waitFor({ timeout: 5_000 })
+    ok(
+      calls(srv, /SetAddress$/).at(-1)?.body?.addressNumber === '77120' && calls(srv, /SetAddress$/).length === 2,
+      `${at}: a card in the caller column applies its address in one click`,
+    )
     await page.waitForTimeout(400)
     ok(
       (await page.locator('[data-cc-location-chip]').getAttribute('data-cc-location-chip')) === 'cleared',
@@ -1303,10 +1323,14 @@ for (const mode of MODES) {
       `${at}: the create carries the captured pin, the details and the Short Address`,
       JSON.stringify(create?.body),
     )
-    const order = srv.wire.map((w) => w.path).filter((q) => /CustomerAddresses$|SetAddress$|ApplyLocation$/.test(q))
+    // 989: the caller column's address cards read the book on attach, so the book's GETs are
+    // no longer a fixed count; the writes and their order are what this asserts.
+    const order = srv.wire
+      .filter((w) => /SetAddress$|ApplyLocation$/.test(w.path) || (/CustomerAddresses$/.test(w.path) && w.method === 'POST'))
+      .map((w) => w.path)
     ok(
       order.join(' → ') ===
-        'CallCenterWeb/CustomerAddresses → CallCenterWeb/CustomerAddresses → CallCenterWeb/SetAddress → CallCenterWeb/ApplyLocation',
+        'CallCenterWeb/CustomerAddresses → CallCenterWeb/SetAddress → CallCenterWeb/ApplyLocation',
       `${at}: the create auto-applies, then the capture is stamped`,
       order.join(' → '),
     )

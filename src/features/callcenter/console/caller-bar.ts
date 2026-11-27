@@ -14,10 +14,15 @@ import type { LinkedCard, RequestOffer } from './linked-request'
 import { railFields, type RailField } from './rail-view'
 
 /** The bar's fixed order. Fixed for the rail's reason: the agent's eye lands in the
- *  same place at hour nine as at hour one, whatever the lookup happened to add. */
-export const BAR_ORDER: RailField['id'][] = ['name', 'tier', 'points', 'mobile', 'member', 'email']
+ *  same place at hour nine as at hour one, whatever the lookup happened to add.
+ *
+ *  🚩 **No `points`** (spec 983 D2, owner ruling 2026-11-27): the caller column shows the
+ *  tier and never a points balance. Leaving it out of the order is what drops it, so a
+ *  balance the lookup carries cannot reach the screen. */
+export const BAR_ORDER: RailField['id'][] = ['name', 'tier', 'mobile', 'member', 'email']
 
-/** `railFields`, re-seated in `BAR_ORDER`. Never a field the rail would not show. */
+/** `railFields`, re-seated in `BAR_ORDER`. Never a field the rail would not show, and
+ *  never one `BAR_ORDER` leaves out. */
 export function barFields(customer: SessionCustomer | null, member: LoyaltyMember | null): RailField[] {
   const fields = railFields(customer, member)
   return BAR_ORDER.flatMap((id) => fields.filter((field) => field.id === id))

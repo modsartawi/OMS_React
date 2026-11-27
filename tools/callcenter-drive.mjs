@@ -1895,8 +1895,8 @@ async function run() {
     )
     check('the rail card is capped at six fields', fields.length <= 6, `${fields.length}: ${fields.join(', ')}`)
     check(
-      'in the bar’s fixed order (409): name, standing, then the numbers',
-      fields.join(',') === 'name,tier,points,mobile,member,email',
+      'in the bar’s fixed order (409), never points (983 D2): name, standing, then the numbers',
+      fields.join(',') === 'name,tier,mobile,member,email',
       fields.join(','),
     )
     check(
@@ -1906,8 +1906,8 @@ async function run() {
       await text(page, '[data-cc-rail-field="name"]'),
     )
     check(
-      'the caller sits in the bar at the top of the centre (409)',
-      await page.evaluate(() => !!document.querySelector('[data-cc-centre] > [data-cc-caller-bar] [data-cc-caller]')),
+      'the caller sits in the bar at the top of the caller column (409, 989)',
+      await page.evaluate(() => !!document.querySelector('[data-cc-col="caller"] > [data-cc-caller-bar]:first-child [data-cc-caller]')),
     )
 
     // 🚩 The heart of it: the control appears because `capabilities` opened it.
@@ -2203,22 +2203,24 @@ async function run() {
     await page.locator('[data-cc-attach]').click()
     await page.locator(ADDRESS_DOOR).waitFor({ timeout: 10_000 })
 
-    // Attaching a caller opens the book's DOOR; it does not read it. An agent
-    // who never changes the address should cost the door nothing.
+    // 989 (spec 983 D10) reversed the old "attaching does not read the book": the caller
+    // column draws the book as cards, so the attach reads it — once.
+    await page.locator('[data-cc-address-cards-error]').waitFor({ timeout: 10_000 })
     check(
-      'attaching does not read the address book',
-      count(calls, /^CallCenterWeb\/CustomerAddresses$/) === 0,
+      'attaching reads the address book once, for the caller column’s cards (989)',
+      count(calls, /^CallCenterWeb\/CustomerAddresses$/) === 1,
     )
-
-    await page.locator(ADDRESS_DOOR).click()
-    await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
-    // 🚩 A failed read is not a dead end — the read is pure, so it may be tried
+    // 🚩 A failed book read is not a dead end — the read is pure, so it may be tried
     // again, and the agent is holding the only address the caller has.
-    check('a failed book read offers a retry', await page.locator('[data-cc-address-reload]').isVisible())
-    await page.locator('[data-cc-address-reload]').click()
-    await page.locator('[data-cc-address-option="77120"]').waitFor({ timeout: 10_000 })
-    check('and the retry lands on the book', (await page.locator('[data-cc-address-option]').count()) === 2)
+    check('a failed book read offers a retry', await page.locator('[data-cc-address-cards-reload]').isVisible())
+    await page.locator('[data-cc-address-cards-reload]').click()
+    await page.locator('[data-cc-address-card="77120"]').waitFor({ timeout: 10_000 })
+    check('and the retry lands on the book', (await page.locator('[data-cc-address-card]').count()) === 2)
     check('it is not retried into the ground', count(calls, /^CallCenterWeb\/CustomerAddresses$/) === 2)
+    // The dialog (edit, delete, add) opens on the same book.
+    await page.locator(ADDRESS_DOOR).click()
+    await page.locator('[data-cc-address-option="77120"]').waitFor({ timeout: 10_000 })
+    check('the address word still opens the book dialog', (await page.locator('[data-cc-address-option]').count()) === 2)
 
     // 🚩 The book belongs to whoever is attached. Swapping callers mid-open must
     // not leave the next caller's addresses springing open by themselves.

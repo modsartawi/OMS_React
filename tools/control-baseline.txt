@@ -75,7 +75,7 @@ auth 22
   src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
   src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
 
-callcenter/console 22
+callcenter/console 23
   src/features/callcenter/console/AddressCards.tsx button: address card: the caller column's row picker, one click applies (spec 590: pickers restyle in place)
   src/features/callcenter/console/AddressForm.tsx button: city step *Change*: a text button inside the city box that does not navigate (restyled in place)
   src/features/callcenter/console/AddressForm.tsx button: city option: a row picker in the city listbox (spec 590: pickers restyle in place)
@@ -93,6 +93,7 @@ callcenter/console 22
   src/features/callcenter/console/HeaderSentence.tsx button: sentence word: a word of the order sentence that opens its section - a picker
   src/features/callcenter/console/HeaderSentence.tsx button: ledger field: a ledger cell that opens its section - a picker
   src/features/callcenter/console/ItemSearchPanel.tsx button: scope *Show all*: an underlined text button that does not navigate
+  src/features/callcenter/console/OfferCard.tsx button: pitch card header: the card itself is the disclosure (aria-expanded) - a row picker, as the guidance card header
   src/features/callcenter/console/PaymentPicker.tsx button: payment type: a tile picker (spec 590: pickers restyle in place)
   src/features/callcenter/console/SlotPicker.tsx button: day tab: a two-line tab (weekday over date) a 28px Chip cannot hold; on Chip tokens
   src/features/callcenter/console/SlotPicker.tsx button: slot window: a tile picker, a full one aria-disabled (spec 590: pickers restyle in place)

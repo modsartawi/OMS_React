@@ -26,11 +26,11 @@
  * (D3), which reads the same `step-rail.ts` model as the summary's *Before you place it*
  * checklist, so the rail, the checklist and *Place order* cannot disagree.
  */
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, CircleDashed, Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
 import { useCommands } from '@/core/commands/registry'
-import type { SessionState } from '@/core/models/callcenter'
+import type { OfferDefinition, SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
@@ -44,7 +44,7 @@ import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions
 import CallerColumn from './CallerColumn'
 import type { GuidanceActions } from './GuidanceStrip'
 import PromotionsPanel from './PromotionsPanel'
-import { promotionsPanel } from './promotions-panel'
+import { promotionsPanel, rememberDefinitions } from './promotions-panel'
 import HeaderSentence from './HeaderSentence'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
@@ -288,7 +288,11 @@ export default function ConsoleShell({
   // and the palette lists it (192), and two reads would be two chances for them
   // to disagree about what is actionable.
   // 987: the promotions panel reads it through `promotionsPanel`, so it is still one read.
-  const promotions = promotionsPanel(state)
+  // 996: a fired promotion carries no definition (C4), so card D's *removing one takes the free one
+  // away* reads the definition each offer had while it was a near-miss, remembered for the call.
+  const definitions = useRef<Map<string, OfferDefinition>>(new Map())
+  definitions.current = rememberDefinitions(definitions.current, state.nearMisses)
+  const promotions = promotionsPanel(state, { remembered: definitions.current })
   const guidance = promotions.guidance
   // 🚩 One model for the rail and the checklist (D3): two reads would be two chances to
   // disagree with *Place order*.

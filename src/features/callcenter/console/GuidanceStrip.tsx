@@ -43,7 +43,9 @@ import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
 import type { GuidanceCard, GuidancePhrase, GuidanceView, RewardArm } from './guidance-view'
 import type { SearchRowView } from './item-search'
+import OfferCard from './OfferCard'
 import { prereqRows, restOfSet, rewardResolutionView } from './prereq-view'
+import type { OfferPitch } from './promotions-panel'
 import IconButton from '@/core/ui/IconButton'
 import SayLine from './SayLine'
 
@@ -71,11 +73,15 @@ export interface GuidanceActions {
   /** The route to the rest of a set: narrow the console's OWN item search to
    *  this offer. Never a second list (138). */
   onSearchRest: (offerId: string, description: string) => void
+  /** 996 → 997: open the offer sheet for a pitch card (a grouping's *Choose the items*, the
+   *  card's title). Absent until the sheet exists: the card then opens its own qualifying list. */
+  onOpenOffer?: (card: GuidanceCard) => void
 }
 
 export default function GuidanceStrip({
   view,
   say,
+  pitch,
   transactionId,
   plant,
   actions,
@@ -83,6 +89,8 @@ export default function GuidanceStrip({
   view: GuidanceView
   /** 987 — the sentence to recommend each within-reach card, by `cardId` (`promotions-panel.ts`). */
   say: Map<string, GuidancePhrase>
+  /** 996 — the pitch card's facts, by `cardId`. A card with none draws as 171–415 drew it. */
+  pitch?: Map<string, OfferPitch>
   /** Which order the qualifying items are resolved for — the set is ranked and
    *  ATP-filtered at THIS order's plant, server-side. */
   transactionId: string
@@ -168,6 +176,7 @@ export default function GuidanceStrip({
                     open={open === card.cardId}
                     onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
                     say={say.get(card.cardId) ?? null}
+                    pitch={pitch?.get(card.cardId) ?? null}
                     transactionId={transactionId}
                     actions={actions}
                   />
@@ -488,6 +497,7 @@ function Card({
   open,
   onToggle,
   say,
+  pitch,
   transactionId,
   actions,
 }: {
@@ -495,10 +505,39 @@ function Card({
   open: boolean
   onToggle: () => void
   say: GuidancePhrase | null
+  /** 996 — present ⇒ the pitch card (`OfferCard`). */
+  pitch: OfferPitch | null
   transactionId: string
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
+  if (pitch)
+    return (
+      <OfferCard
+        card={card}
+        pitch={pitch}
+        open={open}
+        onToggle={onToggle}
+        transactionId={transactionId}
+        actions={actions}
+        fallbackSay={say}
+        meter={
+          <>
+            {card.progress && <Meter have={card.progress.have} need={card.progress.need} />}
+            {card.stillNeeded > 0 && (
+              <span className="text-xs text-foreground" data-cc-delta>
+                {t('guidance.add', { count: card.stillNeeded })}
+              </span>
+            )}
+          </>
+        }
+      >
+        {/* A material offer's add is the card's own action, with its stock beside it; the ranked
+            list is for what the agent chooses from (a set, or the degraded card). */}
+        {open && !pitch.add && <Qualifying card={card} transactionId={transactionId} actions={actions} />}
+        {open && <BbyDetailsLink offerId={card.offerId} />}
+      </OfferCard>
+    )
   return (
     <CardShell
       card={card}

@@ -64,6 +64,8 @@ export interface OfferPitch {
   /** One `addItem` of the missing quantity of the offer's MATERIAL. `null` for a grouping (its
    *  items are chosen: the sheet, 997), with no units, or where the wire named no material. */
   add: (OfferAddQty & { itemNumber: string }) | null
+  /** A set prerequisite (grouping) with units to go: the agent CHOOSES the items (the sheet, 997). */
+  choose: boolean
   badges: OfferBadge[]
   say: GuidancePhrase[]
 }
@@ -142,6 +144,7 @@ function pitchOf(miss: NearMiss, now: Date): OfferPitch {
     headline: offerHeadline(miss.definition, miss.description ?? ''),
     strip: offerStrip(miss.progress, miss.definition),
     add,
+    choose: add === null && qty !== null && (miss.prereq?.kind === 'grouping' || miss.prereq?.kind === 'condition'),
     badges,
     say: pitchSay({ description: miss.description ?? '', add, badges }),
   }

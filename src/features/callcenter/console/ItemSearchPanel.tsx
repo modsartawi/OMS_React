@@ -307,6 +307,25 @@ export default function ItemSearchPanel({
   const OPTION_ID = 'cc-search-option-'
   const LIST_ID = 'cc-search-results'
 
+  // The arrows aim a row the agent must be able to SEE: the results box scrolls inside its own
+  // cap (below), so the highlighted row is brought into it. Focus stays in the box (153) — this
+  // scrolls, it never focuses.
+  // 🚩 Only the LIST is scrolled, by hand. `scrollIntoView` also scrolls every ancestor —
+  // including the console's `overflow-hidden` frame, which then sits shifted with the header
+  // off-screen and no scrollbar to bring it back (seen on the 2026-11-27 walk).
+  const highlightedItem = highlighted === null ? null : (rows[highlighted]?.itemNumber ?? null)
+  useEffect(() => {
+    if (highlightedItem === null) return
+    const list = document.getElementById(LIST_ID)
+    const row = document.getElementById(`${OPTION_ID}${highlightedItem}`)
+    if (!list || !row) return
+    // The list is `relative`, so it is the row's offsetParent and offsetTop is list-relative.
+    const top = row.offsetTop
+    const bottom = top + row.offsetHeight
+    if (top < list.scrollTop) list.scrollTop = top
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight
+  }, [highlightedItem])
+
   return (
     <div className="shrink-0 border-b border-divider bg-card-2 px-4 py-3" data-cc-search>
       <div className="flex items-center gap-2">
@@ -425,7 +444,15 @@ export default function ItemSearchPanel({
       {/* The list the box drives. Unnamed on purpose: the combobox that owns it
           already carries the name, and a second one would be read twice. */}
       {asked && (
-        <div className="mt-2 overflow-hidden rounded-md border border-border bg-card" id={LIST_ID} role="listbox">
+        // 🚩 Capped and scrolling IN ITSELF: the search section is `shrink-0` inside a console that
+        // clips at the viewport, so an uncapped list (200 rows for "vichy") ran off the screen with
+        // no scrollbar anywhere and the basket below it pushed out of reach.
+        <div
+          className="relative mt-2 max-h-[45vh] overflow-y-auto overscroll-contain rounded-md border border-border bg-card"
+          id={LIST_ID}
+          role="listbox"
+          data-cc-search-results
+        >
           {search.isPending && (
             <p className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground" data-cc-search-loading>
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />

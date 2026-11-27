@@ -19,9 +19,11 @@
  * this replaces; they are kept so 159/173/175/176/183/194's drives still find them.
  */
 import type { ReactElement } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
+import { callCenterApi, MY_SOURCES_KEY } from './api'
 import { capabilityGate, isPickup } from './fulfilment-view'
 import type { HeaderSlotId } from './header-chips'
 import { headerSentence, SENTENCE_KEY, wordTag, type HeaderWord, type WordLook } from './header-sentence'
@@ -149,6 +151,36 @@ function SentenceWord({ word, onOpen }: { word: HeaderWord; onOpen?: () => void 
 }
 
 /** One ledger field: its label, then its value or its empty wording. */
+/**
+ * The source, said by its NAME as well as its code (walk 2026-11-27: "CCHT" alone tells the agent
+ * nothing). The description comes from the agent's own source list — the same cached read the
+ * Source section makes (`MY_SOURCES_KEY`, staleTime Infinity), so this costs at most one call per
+ * shift. A code the list does not carry (a source set before a re-assignment) still shows its code.
+ */
+function SourceValue({ field }: { field: HeaderWord }) {
+  const sources = useQuery({
+    queryKey: MY_SOURCES_KEY,
+    queryFn: () => callCenterApi.myDocumentSources(),
+    staleTime: Infinity,
+    retry: false,
+  })
+  const description = sources.data?.find((option) => option.documentSource === field.value)?.description?.trim()
+  return (
+    <>
+      <WordValue word={field} mono />
+      {description && (
+        <>
+          <span aria-hidden className="mx-1 text-muted-foreground">
+            ·
+          </span>
+          {/* Server text, passed through as data — Arabic or English, isolated whole. */}
+          <bdi>{description}</bdi>
+        </>
+      )}
+    </>
+  )
+}
+
 function LedgerField({ field, onOpen }: { field: HeaderWord; onOpen?: () => void }) {
   const { t } = useTranslation('callcenter')
   const tone =
@@ -161,6 +193,8 @@ function LedgerField({ field, onOpen }: { field: HeaderWord; onOpen?: () => void
     field.id === 'note' && field.value != null ? (
       // The quotes are the template's, OUTSIDE the isolate: inside it they mirror under RTL.
       <Trans t={t} ns="callcenter" i18nKey="ledger.quoted" components={{ note: <NoteText text={field.value} /> }} />
+    ) : field.id === 'source' && field.value != null ? (
+      <SourceValue field={field} />
     ) : (
       <WordValue word={field} mono={MONO.has(field.id)} />
     )

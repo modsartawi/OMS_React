@@ -1,5 +1,16 @@
 import { create } from 'zustand'
+import type { CcAsk, CcLang, CcLine } from './models/command-center'
 import type { CopilotSqlItemRef } from './models/copilot'
+
+/**
+ * oms 950 (BackOffice spec 4165, 4179): a finding the reader asked the copilot about — the server's written question and
+ * its finding's id (`CcAsk`), and, from a brief line, the line itself and the language it was written in, so the copilot
+ * draws the same card (`@/core/findings/FindingCard`) at the top of its panel. A pharmacy's scorecard asks with no line.
+ */
+export interface CopilotFinding extends CcAsk {
+  line?: CcLine
+  lang?: CcLang
+}
 
 /**
  * The app shell's copilot panel opener (ticket 782, spec 766 §F) — moved out of the top-bar button's
@@ -11,6 +22,9 @@ import type { CopilotSqlItemRef } from './models/copilot'
  * - `takeQuestion()` hands it over ONCE: the panel that takes it sends it, a second read gets null.
  * - `prefill(text)` (ticket 843) opens the sheet with the text IN THE BOX, sent by nobody: the user reads, edits
  *   and sends it. `takeDraft()` hands it over once, like `takeQuestion()`.
+ * - `askAbout(finding)` (oms 950) opens the sheet on a stored finding ("Ask" on a brief line or a pharmacy's scorecard,
+ *   `@/core/findings/AskButton`): the copilot takes it once (`takeFinding()`) and asks its written question with the
+ *   finding's id as context, in a new conversation.
  * - `available` is published by the top-bar button from the one permissions answer (`Copilot:01`, oms 914), so a
  *   feature can gate its ask box on the copilot grant without importing the copilot feature
  *   (feature-structure rule). It fails closed: false until the answer says yes, and going false closes
@@ -28,12 +42,19 @@ export interface CopilotPanelState {
    * feature hands it over here: neither feature imports the other.
    */
   sqlItem: CopilotSqlItemRef | null
+  /**
+   * 950: the finding "Ask" opened the panel on, or null. The copilot takes it ONCE (`takeFinding`), starts a new
+   * conversation and asks its written question with the finding's id as context. Neither feature imports the other.
+   */
+  finding: CopilotFinding | null
   /** The permissions answer holds `Copilot:01` — published by the shell's button. */
   available: boolean
   openPanel: (question?: string) => void
   prefill: (text: string) => void
   openSqlItem: (item: CopilotSqlItemRef) => void
   takeSqlItem: () => CopilotSqlItemRef | null
+  askAbout: (finding: CopilotFinding) => void
+  takeFinding: () => CopilotFinding | null
   close: () => void
   takeQuestion: () => string | null
   takeDraft: () => string | null
@@ -46,6 +67,7 @@ export function createCopilotPanel() {
     question: null,
     draft: null,
     sqlItem: null,
+    finding: null,
     available: false,
     openPanel: (question) => {
       const q = question?.trim() ?? ''
@@ -61,7 +83,13 @@ export function createCopilotPanel() {
       if (s !== null) set({ sqlItem: null })
       return s
     },
-    close: () => set({ open: false, question: null, draft: null, sqlItem: null }),
+    askAbout: (finding) => set({ open: true, finding }),
+    takeFinding: () => {
+      const f = get().finding
+      if (f !== null) set({ finding: null })
+      return f
+    },
+    close: () => set({ open: false, question: null, draft: null, sqlItem: null, finding: null }),
     takeQuestion: () => {
       const q = get().question
       if (q !== null) set({ question: null })
@@ -72,7 +100,7 @@ export function createCopilotPanel() {
       if (d !== null) set({ draft: null })
       return d
     },
-    setAvailable: (available) => set(available ? { available } : { available, open: false, question: null, draft: null, sqlItem: null }),
+    setAvailable: (available) => set(available ? { available } : { available, open: false, question: null, draft: null, sqlItem: null, finding: null }),
   }))
 }
 

@@ -263,6 +263,8 @@ darkOnly.push(['--chart-2', '--card', UI])
 // shades step darker one after another, so neither reading depends on hue alone.
 const mapLight = [
   ...['--map-better', '--map-same', '--map-worse', '--map-ring', '--map-group'].map((t) => [t, '--card', UI]),
+  // oms 947: the command center's pharmacy points are the status tokens (green, amber, red) on the same light map.
+  ...['--success', '--attention', '--danger'].map((t) => [t, '--card', UI]),
   ['--map-group-ink', '--map-group', BODY],
 ]
 const MAP_BETTER_WORSE_LIGHTNESS = 1.8

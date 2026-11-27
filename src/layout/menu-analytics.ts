@@ -1,8 +1,10 @@
-import { BadgeCheck, BadgePercent, CalendarClock, ChartColumn, ChartColumnBig, CircleHelp, FileText, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, BadgePercent, CalendarClock, ChartColumn, ChartColumnBig, CircleHelp, FileText, Gauge, Home, LayoutDashboard, Library, Trash2, Users, type LucideIcon } from 'lucide-react'
 import { MY_SCHEDULES_PATH } from '@/core/analytics-routes'
+import { COMMAND_CENTER_PATH } from '@/core/command-center-routes'
 import { canViewAnalytics } from '@/core/analytics-access'
 import { canReadHelp } from '@/core/help/help-access'
 import { MY_SCHEDULES_OFFERED_KEY, mySchedulesOffered } from '@/features/analytics/boards/access'
+import { canOpenCommandCenter } from '@/features/analytics/command-center/access'
 import { LIBRARY_PAGES, type LibraryMenuPage } from '@/features/analytics/boards/library-pages'
 import { canViewPriceWatch } from '@/features/analytics/price-command-center/access'
 import type { MenuOffer, ShellMenuItem } from './menu-model'
@@ -69,6 +71,16 @@ export const ANALYTICS_MENU: ShellMenuItem = {
       routerLink: MY_SCHEDULES_PATH,
       requires: canViewAnalytics,
       offered: mySchedulesOffer,
+    },
+    // 946 (BackOffice spec 4165): the Retail Command Center home, on the view grant AND the server's `CommandCenter:Home`
+    // switch (`extras.commandCenterOn` on the one permissions answer) — the page gate's own predicate. Before the price
+    // command center, which stays last.
+    {
+      labelKey: 'command-center:menu.commandCenter',
+      icon: Gauge,
+      routerLink: COMMAND_CENTER_PATH,
+      activePrefix: COMMAND_CENTER_PATH,
+      requires: canOpenCommandCenter,
     },
     // 934 (BackOffice spec 4127): the price command center, on its OWN grant (`PriceWatch:03`), not the library's —
     // a PriceWatch-only user sees the group with this one leaf (`filterMenu` keeps a group with any visible leaf).

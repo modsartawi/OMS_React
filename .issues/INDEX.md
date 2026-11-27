@@ -1645,6 +1645,6 @@ From the 2026-11-27 production walk: three columns with the caller first, a step
 ## The agent reads an offer the way the caller hears it (spec 995, 2026-11-27)
 
 - [995](995-the-agent-reads-an-offer-the-way-the-caller-hears-it-spec.md) — The agent reads an offer the way the caller hears it (spec) · **ready** · contract v1.14; canvas *Call center offer card for agents*
-- [996](996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) — The offer card and the applied card say the offer plainly · **open** · blocked by: 859, 4458 (BackOffice)
+- [996](996-the-offer-card-and-the-applied-card-say-the-offer-plainly.md) — The offer card and the applied card say the offer plainly · **open — built on spec/995-offer-card, stubbed; live walk owed** · blocked by: 859, 4458 (BackOffice)
 - [997](997-the-offer-sheet-shows-what-the-caller-would-save-from-the-engine.md) — The offer sheet shows what the caller would save, from the engine · **open** · blocked by: 996, 4459 (BackOffice)
 

@@ -270,6 +270,13 @@ export default function ConsoleShell({
   addressBook?: ReactNode
   /** 990 — the caller's last orders and usual items, between the caller and the book. */
   history?: ReactNode
+  /**
+   * 990 — *Reorder all* on the caller's newest order, for 992's palette row *Reorder
+   * last order* (spec 983 D13). `null` while there is no last order, the door will not
+   * accept an add, or a reorder is already running — so the row draws disabled. Not yet
+   * read here: 992 seats it in `paletteCommands`.
+   */
+  reorderLastOrder?: (() => void) | null
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.

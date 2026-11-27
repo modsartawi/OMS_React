@@ -61,6 +61,7 @@ import {
   addressBookKey,
   callCenterApi,
   canOpenCallCenter,
+  customerHistoryKey,
   customerRequestsKey,
   MY_SOURCES_KEY,
   newRequestId,
@@ -149,7 +150,10 @@ import RequestPicker from './RequestPicker'
 import SlotPicker from './SlotPicker'
 import SourceForm from './SourceForm'
 import { afterDefaultRefused, defaultSourceToApply } from './default-source'
-import { fsi } from '@/core/util/bidi'
+import { formatCount, fsi } from '@/core/util/bidi'
+import { toast } from 'sonner'
+import HistoryPanel from './HistoryPanel'
+import { historyRead, reorderAll, reorderLines, type ReorderLine, type ReorderReport } from './reorder'
 import type { PreviewReissue } from './ConfirmSheet'
 import StoreMoveConfirm from './StoreMoveConfirm'
 import StorePicker from './StorePicker'
@@ -1133,6 +1137,84 @@ function ConsoleSession() {
     staleTime: 60_000,
     retry: false,
   })
+
+  /**
+   * The caller's last orders and usual items (990, spec 983 D11, v1.13 C2).
+   *
+   * 🚩 **Read once per attached customer, never before an attach** (`historyRead`):
+   * keyed by the caller so a swap reads the new one, `enabled` only with a caller on
+   * an open order (the door refuses `NO_CUSTOMER_ATTACHED` otherwise), and never
+   * stale for the life of the page — the history does not change during the call,
+   * and a re-read would only spend the 500 ms budget again.
+   *
+   * A pure read: no `runGuarded`, no `requestId`.
+   */
+  const historyFor = historyRead(session.data)
+  const history = useQuery({
+    queryKey: customerHistoryKey(historyFor?.customerId ?? ''),
+    queryFn: () => callCenterApi.customerHistory(historyFor!.transactionId),
+    enabled: historyFor !== null,
+    staleTime: Infinity,
+    retry: false,
+  })
+
+  /** The order whose *Reorder all* is running, and the last one's report. */
+  const [reordering, setReordering] = useState<string | null>(null)
+  const [reorderReport, setReorderReport] = useState<{ orderNumber: string; report: ReorderReport } | null>(
+    null,
+  )
+
+  /**
+   * *Reorder all* (990, D11) — the lines of a past order, added again **one at a time
+   * through the ordinary `addItem`** (`reorderAll`).
+   *
+   * - Each line is its own act, so each gets its own `requestId`, minted once outside
+   *   the thunk: a busy retry of a line replays that line, never adds it twice (law 3).
+   * - It rides `runGuarded`, so a collision gets the contract's schedule and the strip.
+   *   No `again` is passed: a schedule that runs out STOPS the loop, and the report's
+   *   *Add the remaining* is the one retry — a strip offering a second would re-send
+   *   one line and forget the rest.
+   * - Each answer is applied as it lands, so the basket fills line by line, priced by
+   *   the engine today rather than at the old order's prices.
+   */
+  const reorder = async (orderNumber: string, lines: ReorderLine[]) => {
+    if (!transactionId || reordering !== null || lines.length === 0) return
+    setReordering(orderNumber)
+    setReorderReport(null)
+    try {
+      const report = await reorderAll(lines, {
+        add: (line) => {
+          const requestId = newRequestId()
+          return runGuarded(() =>
+            callCenterApi.addItem(transactionId, requestId, line.itemNumber, line.qty, undefined, line.uom || undefined),
+          )
+        },
+        messageOf: (err) => apiErrorMessage(err, t('search.addFailed')),
+        onLanded: (fresh) =>
+          queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+            applyState(current, fresh),
+          ),
+      })
+      setReorderReport({ orderNumber, report })
+      // "4 / 5 added": the count is ONE value, isolated once (bidi rule).
+      const said = t('history.reorder.toast', { added: fsi(formatCount(report.added, report.total)) })
+      if (report.added === report.total) toast.success(said)
+      else toast.warning(said)
+    } finally {
+      setReordering(null)
+    }
+  }
+
+  /**
+   * 🚩 **The handle 992's palette row *Reorder last order* takes** (D13): the newest
+   * order's *Reorder all*, or `null` while there is nothing to reorder, the door will
+   * not accept an add, or a reorder is already running. Same loop, same report.
+   */
+  const lastOrder = history.data?.orders?.[0] ?? null
+  const reorderLastOrder: (() => void) | null =
+    lastOrder && lastOrder.items.length > 0 && session.data?.capabilities.canAddItem && reordering === null
+      ? () => void reorder(lastOrder.orderNumber, reorderLines(lastOrder))
+      : null
 
   /** The picker is drawn only when the agent asks for it — 🚩 nothing opens by
    *  itself: they are mid-greeting, and a picker over the basket takes the call
@@ -2439,6 +2521,37 @@ function ConsoleSession() {
                 : undefined
             }
           />
+        }
+        // 990 — the palette's *Reorder last order* (992 seats the row).
+        reorderLastOrder={reorderLastOrder}
+        // 990 — last orders with *Reorder all*, and usually-buys chips: while a caller
+        // is attached (the read never runs before). A chip is the search row's add.
+        history={
+          historyFor ? (
+            <HistoryPanel
+              actions={{
+                read: {
+                  status: history.status,
+                  data: history.data,
+                  error: history.error,
+                  fetching: history.isFetching,
+                  retry: () => void history.refetch(),
+                },
+                onReorder: session.data.capabilities.canAddItem
+                  ? (orderNumber, lines) => void reorder(orderNumber, lines)
+                  : null,
+                reordering,
+                report: reorderReport,
+                dismissReport: () => setReorderReport(null),
+                onAddUsual: session.data.capabilities.canAddItem
+                  ? (item) =>
+                      addItem.mutate(beginAdd({ itemNumber: item.itemNumber, qty: 1, description: item.description }))
+                  : null,
+                addingUsual:
+                  addItem.isPending && !addedFrom ? (addItem.variables?.itemNumber ?? null) : null,
+              }}
+            />
+          ) : null
         }
         // 989 — the caller column's address book: the same book, the same one-click
         // rebind as the dialog, while the order delivers. *Manage* opens the dialog

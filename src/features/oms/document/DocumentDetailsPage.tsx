@@ -70,6 +70,7 @@ import CommandPanel from './CommandPanel'
 import FactsColumn from './FactsColumn'
 import { pickSupportSectionGate } from './pick-support-section'
 import RescheduleDialog from './RescheduleDialog'
+import { rescheduleRefusalKey } from './reschedule-model'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
 import { CANCELLATION_REASONS_KEY, requestCloseRefusalKeyOf, requestCloseUpdate } from './request-close'
@@ -609,7 +610,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       void reload()
     } catch (err) {
       setActionRunning(false)
-      notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
+      // BackOffice 4384: a move with no reason is refused with its own code (SDS-00054), worded here in the user's
+      // language with the code beside it; any other refusal is shown in the server's own words.
+      const code = apiErrorCode(err)
+      const refusal = rescheduleRefusalKey(code)
+      if (refusal) notify.error(t('toast.failed', { label }), t(refusal, { code: fsi(code ?? '') }))
+      else notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
     }
   }
 
@@ -724,8 +730,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const canLinkServingList = hasServingList && canViewServingLists(permissions)
   const showCallout = hasCallout && activityView === 'callout'
   /**
-   * "Why this store?" (ticket 738, spec 734 D21): a delivery's link into the sourcing advisor's
-   * explanation, drawn only for an advisor holder (`SourcingAdvisor:01`), failing closed. A delivery only: the advisor scores deliveries.
+   * "Why this store?" (ticket 738, spec 734 D21): a delivery's link into the sourcing advisor, drawn only for an
+   * advisor holder (`SourcingAdvisor:01`), failing closed. Since ticket 974 (BackOffice 4397) it lands on the retired
+   * advisor's order link, which opens the order's stored run in the simulator or offers a replay.
    */
   // The CATEGORY alone (not `commands.isDelivery`, which also counts the route): the advisor scores `D` records.
   const isDeliveryCategoryRecord = document !== null && isDeliveryCategory(document.documentCategory)

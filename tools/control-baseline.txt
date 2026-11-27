@@ -327,6 +327,15 @@ oms/serial-refusals 1
 oms/serving-lists 1
   src/features/oms/serving-lists/AddStoresDialog.tsx button: store search hit as role=checkbox row: a row picker (spec 590: restyled in place)
 
+oms/sourcing-results 4
+  src/features/oms/sourcing-results/Drill.tsx button: an underlined figure inside a sentence or a cell that opens its orders in the drawer: an inline text button (ticket 971)
+  src/features/oms/sourcing-results/OrdersDrawer.tsx button: a column header of the orders list that sorts it (aria-sort on the th): a header sort toggle (ticket 971)
+  src/features/oms/sourcing-results/OrdersDrawer.tsx button: an order number that opens its card above the list (aria-pressed): a row picker (ticket 971)
+  src/features/oms/sourcing-results/ResultsBar.tsx button: a coloured segment of the results bar that opens its orders: a chart segment, sized by its count (ticket 971)
+
+oms/sourcing-simulator 1
+  src/features/oms/sourcing-simulator/WeightSetPanel.tsx input: a weight set's slider (type=range, one component drawn per weight): no shared range control exists in core/ui (ticket 963)
+
 pricing/bonus-buy-download 0
 
 pricing/bonus-buy-inquiry 1

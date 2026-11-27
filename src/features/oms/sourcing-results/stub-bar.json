@@ -1,0 +1,400 @@
+{
+ "reading": {
+  "from": "2026-10-30 00:00:00",
+  "to": "2026-11-27 00:00:00",
+  "channelGroup": "APP_SITE",
+  "step": "STORES_ONLY",
+  "candidateName": "Baseline",
+  "candidateVersion": 3,
+  "state": "NOT_MET",
+  "cannotReadYet": [],
+  "limits": [
+   {
+    "code": "STOP_FINDINGS",
+    "state": "MET",
+    "why": [],
+    "figures": {
+     "findings": 0,
+     "nightsChecked": 28
+    }
+   },
+   {
+    "code": "ORDERS_RUN",
+    "state": "MET",
+    "why": [],
+    "figures": {
+     "landedWithDelivery": 43512,
+     "run": 41950,
+     "runPercent": 96.4,
+     "doorErrors": 12,
+     "doorErrorsPerThousand": 0.6,
+     "fallbackAnswered": 13
+    }
+   },
+   {
+    "code": "DAWAA_NOW_PROMISE",
+    "state": "NOT_MET",
+    "why": [
+     "HALF_OUTSIDE_BAND"
+    ],
+    "figures": {
+     "checked": 15280,
+     "within": 13360,
+     "percent": 87.4,
+     "firstHalfChecked": 7640,
+     "firstHalfPercent": 90.8,
+     "secondHalfChecked": 7640,
+     "secondHalfPercent": 84.1,
+     "bandLow": 85,
+     "bandHigh": 95
+    }
+   },
+   {
+    "code": "DISTANCE_BANDS",
+    "state": "NOT_MET",
+    "why": [
+     "BAND_UNDER_80"
+    ],
+    "figures": {
+     "shipmentsAtLeast": 300,
+     "bandAtLeast": 80,
+     "KM_0_2.checked": 6620,
+     "KM_0_2.percent": 92,
+     "KM_2_4.checked": 5560,
+     "KM_2_4.percent": 89,
+     "KM_4_6.checked": 2240,
+     "KM_4_6.percent": 83.2,
+     "KM_6_UP.checked": 860,
+     "KM_6_UP.percent": 74
+    }
+   },
+   {
+    "code": "SHELF_CHANCE",
+    "state": "NOT_MET",
+    "why": [
+     "RULING_MISSING"
+    ],
+    "figures": {
+     "rows": 8,
+     "enoughToChange": 2,
+     "ruled": 1,
+     "unruled": 1,
+     "tooFew": 3,
+     "notSteady": 1
+    }
+   },
+   {
+    "code": "SPLIT_CHECK",
+    "state": "CANNOT_READ_YET",
+    "why": [
+     "SPLIT_CHECK_NOT_RECORDED"
+    ],
+    "figures": {
+     "otherAtMostPercent": 1
+    }
+   },
+   {
+    "code": "LARGEST_DIFFERENCES",
+    "state": "NOT_MET",
+    "why": [
+     "ORDERS_NOT_MARKED"
+    ],
+    "figures": {
+     "listed": 6,
+     "marked": 2,
+     "wrongRule": 0,
+     "eachWay": 30
+    }
+   },
+   {
+    "code": "OUTSIDE_RULES",
+    "state": "MET",
+    "why": [],
+    "figures": {
+     "ordersCompared": 79740,
+     "outside": 2480,
+     "reasons": 3,
+     "reasonsOver1Percent": 1,
+     "unruled": 0
+    }
+   },
+   {
+    "code": "RATES",
+    "state": "CANNOT_READ_YET",
+    "why": [
+     "RATE_TRIAL_NOT_RUN"
+    ],
+    "figures": {
+     "assumed": 5,
+     "total": 6
+    }
+   }
+  ],
+  "largestDifferences": [
+   {
+    "view": "WHOLE_PLAN",
+    "way": "ADVISOR_EARLIER",
+    "orderNumber": "0081734455",
+    "estimate": -190
+   },
+   {
+    "view": "WHOLE_PLAN",
+    "way": "ADVISOR_EARLIER",
+    "orderNumber": "0081733012",
+    "estimate": -260,
+    "mark": "NO_WRONG_RULE",
+    "markedBy": "owner.dmsco",
+    "markedAt": "2026-11-26 09:12:00"
+   },
+   {
+    "view": "WHOLE_PLAN",
+    "way": "ADVISOR_LATER",
+    "orderNumber": "0081736620",
+    "estimate": 150
+   },
+   {
+    "view": "STORES_ONLY",
+    "way": "ADVISOR_EARLIER",
+    "orderNumber": "0081733012",
+    "estimate": -120,
+    "mark": "NO_WRONG_RULE",
+    "markedBy": "owner.dmsco",
+    "markedAt": "2026-11-26 09:12:00"
+   },
+   {
+    "view": "STORES_ONLY",
+    "way": "ADVISOR_EARLIER",
+    "orderNumber": "0081737781",
+    "estimate": -80
+   },
+   {
+    "view": "STORES_ONLY",
+    "way": "ADVISOR_LATER",
+    "orderNumber": "0081738904",
+    "estimate": 95
+   }
+  ],
+  "outsideReasons": [
+   {
+    "code": "PIN_PAIR_REMOVED",
+    "stepCode": "OUT_OF_REACH",
+    "orders": 1040,
+    "percent": 1.3,
+    "needsRuling": true,
+    "ruling": {
+     "kind": "OUTSIDE_REASON",
+     "key": "PIN_PAIR_REMOVED|OUT_OF_REACH",
+     "mark": "RULED",
+     "text": "The reach is right; these pins come from the call centre picking a far store.",
+     "by": "owner.dmsco",
+     "at": "2026-11-25 10:00:00"
+    }
+   },
+   {
+    "code": "PIN_NO_STOCK",
+    "stepCode": "",
+    "orders": 620,
+    "percent": 0.8,
+    "needsRuling": false
+   },
+   {
+    "code": "PIN_NO_STOCK_ROW",
+    "stepCode": "",
+    "orders": 380,
+    "percent": 0.5,
+    "needsRuling": false
+   }
+  ],
+  "shelfChance": [
+   {
+    "mode": "SLOT",
+    "stockClass": "BOOK_AT_ZERO",
+    "lines": 9100,
+    "failedLines": 512,
+    "verdict": "ENOUGH_TO_CHANGE",
+    "expected": 402.6,
+    "fits": 0.9,
+    "chanceGap": 0.1,
+    "daysCounted": 88,
+    "needsRuling": true,
+    "ratio": 1.27,
+    "firstHalf": 1.25,
+    "secondHalf": 1.3
+   },
+   {
+    "mode": "DAWAA_NOW",
+    "stockClass": "BOOK_BELOW_ZERO",
+    "lines": 4200,
+    "failedLines": 260,
+    "verdict": "ENOUGH_TO_CHANGE",
+    "expected": 188.4,
+    "fits": 0.9,
+    "chanceGap": 0.146,
+    "daysCounted": 90,
+    "needsRuling": true,
+    "ratio": 1.38,
+    "firstHalf": 1.4,
+    "secondHalf": 1.35,
+    "ruling": {
+     "kind": "SHELF_CHANCE",
+     "key": "DAWAA_NOW|BOOK_BELOW_ZERO",
+     "mark": "RULED",
+     "text": "Keep the figure until the reason fix has a full window.",
+     "by": "owner.dmsco",
+     "at": "2026-11-24 16:40:00"
+    }
+   },
+   {
+    "mode": "DAWAA_NOW",
+    "stockClass": "BOOK_AT_ZERO",
+    "lines": 6100,
+    "failedLines": 233,
+    "verdict": "INSIDE_CHANCE",
+    "expected": 251,
+    "fits": 0.9,
+    "chanceGap": 0.126,
+    "daysCounted": 90,
+    "needsRuling": false,
+    "ratio": 0.93,
+    "firstHalf": 0.95,
+    "secondHalf": 0.9
+   },
+   {
+    "mode": "DAWAA_NOW",
+    "stockClass": "BOOK_SHORT",
+    "lines": 1800,
+    "failedLines": 31,
+    "verdict": "TOO_FEW",
+    "expected": 36.2,
+    "fits": 0.9,
+    "chanceGap": 0.332,
+    "daysCounted": 90,
+    "needsRuling": false,
+    "ratio": 0.86,
+    "firstHalf": 0.9,
+    "secondHalf": 0.82
+   },
+   {
+    "mode": "DAWAA_NOW",
+    "stockClass": "HELD_BY_DELIVERIES",
+    "lines": 700,
+    "failedLines": 9,
+    "verdict": "TOO_FEW",
+    "expected": 12.5,
+    "fits": 0.9,
+    "chanceGap": 0.566,
+    "daysCounted": 90,
+    "needsRuling": false,
+    "ratio": 0.72
+   },
+   {
+    "mode": "SLOT",
+    "stockClass": "BOOK_BELOW_ZERO",
+    "lines": 5200,
+    "failedLines": 310,
+    "verdict": "NOT_STEADY",
+    "expected": 290.4,
+    "fits": 0.9,
+    "chanceGap": 0.117,
+    "daysCounted": 90,
+    "needsRuling": false,
+    "ratio": 1.07,
+    "firstHalf": 0.82,
+    "secondHalf": 1.3
+   },
+   {
+    "mode": "SLOT",
+    "stockClass": "BOOK_SHORT",
+    "lines": 2600,
+    "failedLines": 77,
+    "verdict": "INSIDE_CHANCE",
+    "expected": 84,
+    "fits": 0.9,
+    "chanceGap": 0.218,
+    "daysCounted": 90,
+    "needsRuling": false,
+    "ratio": 0.92,
+    "firstHalf": 0.94,
+    "secondHalf": 0.9
+   },
+   {
+    "mode": "SLOT",
+    "stockClass": "HELD_BY_DELIVERIES",
+    "lines": 900,
+    "failedLines": 6,
+    "verdict": "TOO_FEW",
+    "expected": 8.1,
+    "fits": 0.9,
+    "chanceGap": 0.703,
+    "daysCounted": 90,
+    "needsRuling": false
+   }
+  ],
+  "read": {
+   "ordersCompared": 79740,
+   "samePlanWhole": 68.8,
+   "sameStores": 77.5,
+   "wholeEstimate": {
+    "middle": -2,
+    "low": -11,
+    "high": 4,
+    "orders": 72100
+   },
+   "storesEstimate": {
+    "middle": -1,
+    "low": -7,
+    "high": 3,
+    "orders": 72000
+   },
+   "byMadeBy": [
+    {
+     "madeBy": "CHANNEL",
+     "orders": 48200,
+     "samePlanWhole": 70.1,
+     "sameStores": 78.4,
+     "wholeEstimate": {
+      "middle": -2,
+      "low": -10,
+      "high": 4,
+      "orders": 43500
+     }
+    },
+    {
+     "madeBy": "OMS",
+     "orders": 31540,
+     "samePlanWhole": 66.8,
+     "sameStores": 76.1,
+     "wholeEstimate": {
+      "middle": -3,
+      "low": -13,
+      "high": 5,
+      "orders": 28600
+     }
+    }
+   ],
+   "fleetRatios": [
+    {
+     "mode": "DAWAA_NOW",
+     "ratio": 0.84,
+     "expected": 412.5,
+     "lines": 18200
+    },
+    {
+     "mode": "SLOT",
+     "ratio": 0.93,
+     "expected": 806,
+     "lines": 36400
+    },
+    {
+     "mode": "PICK_UP",
+     "expected": 12,
+     "lines": 900
+    }
+   ],
+   "ordersWithSlot": 33000,
+   "laterSlotCheaper": 2640
+  },
+  "figuresRuledOn": "2026-11-25 00:00:00"
+ },
+ "kept": []
+}

@@ -263,10 +263,24 @@ darkOnly.push(['--chart-2', '--card', UI])
 // shades step darker one after another, so neither reading depends on hue alone.
 const mapLight = [
   ...['--map-better', '--map-same', '--map-worse', '--map-ring', '--map-group'].map((t) => [t, '--card', UI]),
+  // 964: the simulator's map tab — each mode's store and leg, and the customer's pin.
+  ...['--map-mode-dawaa-now', '--map-mode-slot', '--map-mode-carrier', '--map-mode-pick-up', '--map-customer'].map((t) => [t, '--card', UI]),
   // oms 947: the command center's pharmacy points are the status tokens (green, amber, red) on the same light map.
   ...['--success', '--attention', '--danger'].map((t) => [t, '--card', UI]),
   ['--map-group-ink', '--map-group', BODY],
 ]
+// The comparison results page (oms-react 971, BackOffice spec 4354 §17). The bar's segments, the classes and the
+// estimate are meaningful graphics on the panel's `--card`: the inks a reader must tell from the card clear 3:1 in both
+// themes. The pale segments ("not comparable", the customer's own cancellation, the stores-only split) sit beside their
+// legend's words and a count, as `--map-none` does, and are not held.
+positives.push(
+  ...['--results-same', '--results-store', '--results-mode', '--results-fewer', '--results-estimate', '--results-end-cancelled'].map((c) => [
+    c,
+    '--card',
+    UI,
+  ]),
+)
+
 const MAP_BETTER_WORSE_LIGHTNESS = 1.8
 const MAP_SCALE_STEP = 1.3
 const MAP_SCALE = ['--map-scale-1', '--map-scale-2', '--map-scale-3', '--map-scale-4', '--map-scale-5']

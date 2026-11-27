@@ -1,5 +1,5 @@
 import { GROUP_LABEL_TEXT, POINT_RADIUS, type MapFeature, type MapLineFeature } from './map-drawing'
-import type { MapEngineEvents } from './map-panel'
+import type { MapEngineEvents, MapPinFeature, MapPlace } from './map-panel'
 
 /**
  * What the Google adapter puts on the map for each feature, and how it reports the reader's hits (ticket 909, BackOffice
@@ -109,10 +109,15 @@ export function markerHits(events: Pick<MapEngineEvents, 'pointer' | 'tap'>, map
       markerTapAt = now()
       events.tap({ id, x: at.x, y: at.y, zoom: drawnZoom }, mapZoom())
     },
-    /** A tap on the map beside every marker. */
-    mapClick() {
+    /** A tap on the map beside every marker, with the place under it when Google reports one (962). */
+    mapClick(place?: MapPlace) {
       if (now() - markerTapAt < SAME_TAP_MS) return
-      events.tap(null, mapZoom())
+      if (place) events.tap(null, mapZoom(), place)
+      else events.tap(null, mapZoom())
+    },
+    /** 964: the customer's pin took this press (a click or a drop): the map's own click for it places nothing. */
+    held() {
+      markerTapAt = now()
     },
     /**
      * The markers were made again (the whole zoom changed): the one under the pointer is gone with no `pointerleave`,
@@ -122,6 +127,72 @@ export function markerHits(events: Pick<MapEngineEvents, 'pointer' | 'tap'>, map
       if (!pointedAt) return
       pointedAt = false
       events.pointer(null, mapZoom())
+    },
+  }
+}
+
+/** The customer pin's size, in pixels: a square turned on its point, larger than a plain store. */
+export const PIN_SIZE = 16
+
+/**
+ * The customer's pin (964): a diamond in its colour, edged in the ring ink, centred on its place, above every store and
+ * group. A draggable pin shows a grab cursor and takes no touch scrolling, so a finger drags it rather than the page.
+ */
+export function pinLook(pin: MapPinFeature): MarkerLook {
+  return {
+    style: {
+      position: 'absolute',
+      boxSizing: 'border-box',
+      width: `${PIN_SIZE}px`,
+      height: `${PIN_SIZE}px`,
+      background: pin.fill,
+      border: `2px solid ${pin.stroke}`,
+      transform: 'translate(-50%, -50%) rotate(45deg)',
+      cursor: pin.draggable ? 'grab' : 'default',
+      touchAction: 'none',
+      zIndex: '2000',
+    },
+    label: '',
+  }
+}
+
+/** How far the pointer must travel, in pixels, before a press on the pin is a drag and not a click. */
+export const DRAG_MIN_PX = 4
+
+/**
+ * The drag of the customer's pin (964), as the adapter reports the pointer: pressed, moved, released, in the overlay's
+ * own pixels. Each move past the jitter returns where the pin now stands (the adapter puts it there); the release reports
+ * the place under the last move once, through `onDrop`, and says whether there was a drag. Nothing is told while dragging:
+ * the run plans again on the drop, not on every move.
+ */
+export function pinDrag(toPlace: (x: number, y: number) => MapPlace | null, onDrop: (place: MapPlace) => void) {
+  let from: { x: number; y: number } | null = null
+  let last: { x: number; y: number } | null = null
+  return {
+    down(x: number, y: number) {
+      from = { x, y }
+      last = null
+    },
+    /** Where the pin stands after this move, or null while it is no drag. */
+    move(x: number, y: number): { x: number; y: number } | null {
+      if (!from) return null
+      if (!last && Math.hypot(x - from.x, y - from.y) < DRAG_MIN_PX) return null
+      last = { x, y }
+      return last
+    },
+    /** True when the release ended a drag (and the drop was told). */
+    up(): boolean {
+      const at = from ? last : null
+      from = null
+      last = null
+      if (!at) return false
+      const place = toPlace(at.x, at.y)
+      if (!place) return false
+      onDrop(place)
+      return true
+    },
+    get dragging() {
+      return last !== null
     },
   }
 }

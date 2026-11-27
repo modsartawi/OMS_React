@@ -4,7 +4,16 @@
  */
 import { describe, expect, it } from 'vitest'
 import { permissionsOf } from '@/core/permissions'
-import { canOpenStoredRun, canRunSourcingAdvisor, canSaveWeightSets, canViewSourcingAdvisor } from './access'
+import {
+  canEditPlannerBuffer,
+  canEditPlannerRules,
+  canEditPlannerTables,
+  canOpenSourcingPlanner,
+  canOpenStoredRun,
+  canRunSourcingAdvisor,
+  canSaveWeightSets,
+  canViewSourcingAdvisor,
+} from './access'
 
 describe('the save grant (save weight sets, start trials)', () => {
   it('grants on its own key, not on the view grant', () => {
@@ -46,6 +55,25 @@ describe('opening a stored run in the simulator (review 4354 #4)', () => {
   it('once the simulator reads it, only a holder of the run grant is offered it — the view grant opens no simulator', () => {
     expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisorRun:06'] }), true)).toBe(true)
     expect(canOpenStoredRun(permissionsOf({ screens: ['SourcingAdvisor:01'] }), true)).toBe(false)
+  })
+})
+
+describe('the three planner grants (ticket 968, provisional keys)', () => {
+  const p = (...keys: string[]) => permissionsOf({ screens: keys as never[] })
+
+  it('each opens its own tables only', () => {
+    expect(canEditPlannerBuffer(p('SourcingPlannerBuffer:01'))).toBe(true)
+    expect(canEditPlannerBuffer(p('SourcingPlannerRules:01', 'SourcingPlannerTables:01'))).toBe(false)
+    expect(canEditPlannerRules(p('SourcingPlannerRules:01'))).toBe(true)
+    expect(canEditPlannerRules(p('SourcingPlannerBuffer:01'))).toBe(false)
+    expect(canEditPlannerTables(p('SourcingPlannerTables:01'))).toBe(true)
+    expect(canEditPlannerTables(p('SourcingAdvisorRun:06'))).toBe(false)
+  })
+
+  it('the planner page opens with any one of the three, and not with the run or view grant alone', () => {
+    for (const k of ['SourcingPlannerBuffer:01', 'SourcingPlannerRules:01', 'SourcingPlannerTables:01']) expect(canOpenSourcingPlanner(p(k))).toBe(true)
+    expect(canOpenSourcingPlanner(p('SourcingAdvisorRun:06', 'SourcingAdvisor:01'))).toBe(false)
+    expect(canOpenSourcingPlanner(permissionsOf(null))).toBe(false)
   })
 })
 

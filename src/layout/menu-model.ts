@@ -24,7 +24,7 @@ import { canOpenExpiredApprovalPicks } from '@/features/oms/expired-approval-pic
 import { canOpenHeldStockReport } from '@/features/stock/held-stock-report/access'
 import { canOpenHoldDailyList } from '@/features/stock/hold-daily-list/access'
 import { canOpenStoreStages } from '@/features/stock/store-stages/access'
-import { canRunSourcingAdvisor, canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
+import { canOpenSourcingPlanner, canRunSourcingAdvisor, canViewSourcingAdvisor } from '@/core/sourcing-advisor/access'
 import { SIMULATOR_PATH } from '@/core/sourcing-advisor/simulator-path'
 import { canOpenStockHealth } from '@/features/stock/stock-health/access'
 import { canOpenStockConsole } from '@/features/stock/stock-console/access'
@@ -359,8 +359,19 @@ export const MENU: ShellMenuItem[] = [
         requires: canRunSourcingAdvisor,
       },
       {
+        // Sourcing planner data (ticket 968, BackOffice spec 4354 §19) — the eight planner tables, each tab under one of
+        // three planner grants (provisional keys); the leaf shows with any one of them and fails closed. After the
+        // simulator, before Pick support, so Pick support and Delivery statistics keep the last two places.
+        labelKey: 'sourcing-planner:menu.sourcingPlanner',
+        icon: DatabaseZap,
+        routerLink: '/oms/sourcing-planner',
+        activePrefix: '/oms/sourcing-planner',
+        requires: canOpenSourcingPlanner,
+      },
+      {
         // Store record (ticket 969, BackOffice spec 4354 §19: "a run grant opens the simulator, the store record list and
-        // kept runs") — read only, the run grant (provisional key); fails closed. After the simulator, before Pick support.
+        // kept runs") — read only, the run grant (provisional key); fails closed. After the planner data, before Pick
+        // support, so Pick support and Delivery statistics keep the last two places.
         labelKey: 'sourcing-record:menu.sourcingRecord',
         icon: ClipboardList,
         routerLink: '/oms/sourcing-record',

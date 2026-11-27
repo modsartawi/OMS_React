@@ -569,8 +569,8 @@ describe('the Store record leaf (ticket 969)', () => {
   const keys = (oms.items ?? []).map((i) => i.labelKey)
   const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-record:menu.sourcingRecord')!
 
-  it('sits in the OMS group right after the Sourcing simulator, lit alone on its own screen', () => {
-    expect(keys.indexOf('sourcing-record:menu.sourcingRecord')).toBe(keys.indexOf('sourcing-simulator:menu.sourcingSimulator') + 1)
+  it('sits in the OMS group right after the Sourcing planner data (which follows the simulator), lit alone on its own screen', () => {
+    expect(keys.indexOf('sourcing-record:menu.sourcingRecord')).toBe(keys.indexOf('sourcing-planner:menu.sourcingPlanner') + 1)
     expect(leaf.routerLink).toBe('/oms/sourcing-record')
     expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-record')).map((i) => i.labelKey)).toEqual(['sourcing-record:menu.sourcingRecord'])
   })
@@ -578,6 +578,27 @@ describe('the Store record leaf (ticket 969)', () => {
   it('🚩 reads the run grant (spec 4354 §19: it opens the store record list), and fails closed without it', () => {
     expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(true)
     expect(shows(leaf, 'SourcingAdvisor:01')).toBe(false)
+    expect(shows(leaf)).toBe(false)
+    expect(hiddenWhileUnsettled(leaf)).toBe(true)
+  })
+})
+
+describe('the Sourcing planner data leaf (ticket 968)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const keys = (oms.items ?? []).map((i) => i.labelKey)
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'sourcing-planner:menu.sourcingPlanner')!
+
+  it('sits in the OMS group right after the Sourcing simulator, lit alone on its own screen', () => {
+    expect(keys.indexOf('sourcing-planner:menu.sourcingPlanner')).toBe(keys.indexOf('sourcing-simulator:menu.sourcingSimulator') + 1)
+    expect(leaf.routerLink).toBe('/oms/sourcing-planner')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/sourcing-planner')).map((i) => i.labelKey)).toEqual([
+      'sourcing-planner:menu.sourcingPlanner',
+    ])
+  })
+
+  it('🚩 shows with any one of the three planner grants (provisional keys), not with the run grant, and fails closed', () => {
+    for (const k of ['SourcingPlannerBuffer:01', 'SourcingPlannerRules:01', 'SourcingPlannerTables:01']) expect(shows(leaf, k)).toBe(true)
+    expect(shows(leaf, 'SourcingAdvisorRun:06')).toBe(false)
     expect(shows(leaf)).toBe(false)
     expect(hiddenWhileUnsettled(leaf)).toBe(true)
   })

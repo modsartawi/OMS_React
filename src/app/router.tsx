@@ -434,6 +434,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/sourcing-results/SourcingResultsPage')).default,
         }),
       },
+      // Sourcing planner data (ticket 968, BackOffice spec 4354 §19) — the eight planner tables, each tab under one of the
+      // three planner grants (provisional keys); the page opens with any one of them.
+      {
+        path: 'oms/sourcing-planner',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/sourcing-planner/SourcingPlannerPage')).default,
+        }),
+      },
       // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
       // serial check, by staff, serial, store and article, behind its own grant on the one permissions answer. Filters in the URL.
       {

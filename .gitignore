@@ -195,3 +195,5 @@ tools/.stock-fallback-shots/
 tools/.sourcing-results-shots/
 # Store record and kept runs drive screenshots (tools/sourcing-record-drive.mjs, ticket 969)
 tools/.sourcing-record-shots/
+# Sourcing planner data drive screenshots (tools/sourcing-planner-drive.mjs, ticket 968)
+tools/.sourcing-planner-shots/

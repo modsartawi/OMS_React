@@ -89,6 +89,12 @@ export const SCREEN_KEYS = [
   // PROVISIONAL (spec 4354: not specified) — the sourcing advisor's run grant (spec 4354 §19: "a run grant opens the
   // simulator"). BackOffice 4355 seeds it but names none; this key is ours until it lands (`canRunSourcingAdvisor`).
   'SourcingAdvisorRun:06',
+  // PROVISIONAL (spec 4354: not specified) — the three planner grants (spec 4354 §19; seeded unnamed by BackOffice
+  // 4375, 4362 and 4361): buffer overrides + hand-set stock confidence; product rules + lists; the other planner
+  // tables. Ours until they land (`canEditPlannerBuffer` / `canEditPlannerRules` / `canEditPlannerTables`).
+  'SourcingPlannerBuffer:01',
+  'SourcingPlannerRules:01',
+  'SourcingPlannerTables:01',
   'StoreStage:02',
   'StoreStage:03',
   'StoreCountClose:02',

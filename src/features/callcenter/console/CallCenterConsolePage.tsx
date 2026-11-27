@@ -133,9 +133,11 @@ import { couponRemoveFailure, couponSurface } from './coupon-view'
 import ExistingOrderScreen from './ExistingOrderScreen'
 import FulfilmentPicker from './FulfilmentPicker'
 import LocationLinkPanel from './LocationLinkPanel'
-import { shouldRetire } from './location-link-view'
+import { shouldRetire, showsSendAction } from './location-link-view'
+import { nextFreeSlot } from './slot-view'
+import { lookupQueries } from '@/core/services/lookups'
 import NoteForm from './NoteForm'
-import { currentMode, currentPaymentType, isPickup } from './fulfilment-view'
+import { capabilityGate, currentMode, currentPaymentType, isPickup } from './fulfilment-view'
 import {
   CLOSED_SIGNUP,
   codeSent,
@@ -298,6 +300,8 @@ function ConsoleSession() {
    * gate rendered as a failure is a soft gate the console has quietly hardened.
    */
   const [slotLapsed, setSlotLapsed] = useState(false)
+  /** 992 — Ctrl K's *Send location link*: each bump is one ask the panel answers. */
+  const [linkAsk, setLinkAsk] = useState(0)
 
   /** The source + reference form, open or not (173). One flag for two chips:
    *  they collapse two fields of one act. */
@@ -2425,6 +2429,45 @@ function ConsoleSession() {
         // 🚩 175 §9 — the chips' sections land IN the centre column, under the row
         // they collapsed. The shell owns the place; this page owns the verbs.
         headerSection={headerSection}
+        // 992 (983 D13) — Ctrl K's shortcuts, each the SAME verb a surface already runs,
+        // handed in only while that surface would run it (an absent one is a disabled row
+        // with its reason). Each opens its own section too, so a refusal is drawn where the
+        // agent already reads it. `reorderLast` waits on 990's reorder; `applyHeldCoupon`
+        // on a read of the caller's held coupons — the console has none yet (987: no new read).
+        shortcuts={{
+          sendLocationLink: showsSendAction(session.data.capabilities)
+            ? () => setLinkAsk((n) => n + 1)
+            : undefined,
+          switchFulfilment:
+            session.data.status === 'open' &&
+            capabilityGate(session.data.capabilities, 'canChangeFulfilment').open &&
+            !fulfilment.isPending
+              ? () => {
+                  const to = currentMode(session.data!.header) === 'PickInStore' ? 'Delivery' : 'PickInStore'
+                  openSection('fulfilment')
+                  fulfilment.mutate(to)
+                }
+              : undefined,
+          nextFreeSlot:
+            session.data.status === 'open' &&
+            !isPickup(session.data.header) &&
+            session.data.header.plant !== '' &&
+            !slot.isPending
+              ? () => {
+                  const { plant, slot: held } = session.data!.header
+                  // Read fresh (the windows are uncached by construction); nothing free
+                  // after the held one, or a failed read, opens the picker to say so.
+                  void queryClient.fetchQuery(lookupQueries.availableSlots(plant)).then(
+                    (answer) => {
+                      const next = nextFreeSlot(answer.slots, held)
+                      openSection('slot')
+                      if (next) slot.mutate(next)
+                    },
+                    () => openSection('slot'),
+                  )
+                }
+              : undefined,
+        }}
         // 574 — keyed by the order, so a new order starts holding no link.
         locationLink={
           <LocationLinkPanel
@@ -2433,6 +2476,7 @@ function ConsoleSession() {
             onSent={() => linkSentOn.current.add(session.data!.transactionId)}
             onApply={applyLocation}
             onRefresh={refreshSession}
+            askToSend={linkAsk}
             onCreateAddress={
               session.data.header.customer && session.data.capabilities.canOpenAddressBook
                 ? createAddressFromLocation

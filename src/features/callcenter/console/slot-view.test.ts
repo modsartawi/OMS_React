@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionSlot } from '@/core/models/callcenter'
 import type { TimeSlotModel } from '@/core/models/slots'
-import { initialDayIndex } from './slot-view'
+import { initialDayIndex, nextFreeSlot } from './slot-view'
 
 const window_ = (slotId: string) => ({
   slotId,
@@ -52,5 +52,37 @@ describe('initialDayIndex', () => {
     expect(initialDayIndex(null, held('S4'))).toBe(0)
     expect(initialDayIndex([], held('S4'))).toBe(0)
     expect(initialDayIndex([{ ...DAYS[0], times: [] }], held('S4'))).toBe(0)
+  })
+})
+
+/** 992 — *Next free slot* from Ctrl K: the window the row books, as `setSlot` takes it. */
+describe('nextFreeSlot', () => {
+  const full = (slotId: string) => ({ ...window_(slotId), status: false })
+
+  it('takes the first window with room when the order holds none, skipping the full ones', () => {
+    const days: TimeSlotModel[] = [{ ...DAYS[0], times: [full('S1'), window_('S2')] }, DAYS[1]]
+    expect(nextFreeSlot(days, null)).toEqual({
+      slotId: 'S2',
+      day: 'THURSDAY',
+      description: '10:00 AM - 12:00 PM',
+      from: '2026-07-30T10:00:00',
+      to: '2026-07-30T12:00:00',
+    })
+  })
+
+  it('takes the first window with room AFTER the one the order holds, across days', () => {
+    expect(nextFreeSlot(DAYS, held('S2'))?.slotId).toBe('S3')
+    const days: TimeSlotModel[] = [DAYS[0], { ...DAYS[1], times: [full('S3')] }, DAYS[2]]
+    expect(nextFreeSlot(days, held('S2'))?.slotId).toBe('S4')
+  })
+
+  it('starts from the first window when the held one is not in the list (a store move)', () => {
+    expect(nextFreeSlot(DAYS, held('GONE'))?.slotId).toBe('S1')
+  })
+
+  it('answers nothing when no later window has room — the picker is then where the agent goes', () => {
+    expect(nextFreeSlot(DAYS, held('S5'))).toBeNull()
+    expect(nextFreeSlot([{ ...DAYS[0], times: [full('S1'), full('S2')] }], null)).toBeNull()
+    expect(nextFreeSlot(null, null)).toBeNull()
   })
 })

@@ -36,7 +36,7 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receipt as receiptOf, type ReceiptFee } from './receipt-view'
-import { paletteCommands } from './palette-model'
+import { paletteCommands, type PaletteActions } from './palette-model'
 import { capabilityGate, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions } from './CallerBar'
@@ -150,6 +150,7 @@ export default function ConsoleShell({
   locationLink = null,
   addressBook = null,
   history = null,
+  shortcuts,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -270,6 +271,9 @@ export default function ConsoleShell({
   addressBook?: ReactNode
   /** 990 — the caller's last orders and usual items, between the caller and the book. */
   history?: ReactNode
+  /** 992 (983 D13) — the Ctrl K shortcuts only the page can run (reorder, the location
+   *  link, the switch, the next slot, a held coupon). Each absent ⇒ a disabled row. */
+  shortcuts?: PaletteActions['verbs']
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
@@ -328,6 +332,7 @@ export default function ConsoleShell({
           // second `removeCustomer` on one caller.
           removeCaller: customerActions.busy ? null : customerActions.onRemove,
           refresh: onRefresh,
+          ...shortcuts,
         },
         // 🚩 Dead while it is running, exactly as the receipt's own button
         // is: one press is one action, on the verb that mints a real order.

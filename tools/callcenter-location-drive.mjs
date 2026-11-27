@@ -483,6 +483,37 @@ for (const mode of MODES) {
   // 989 (spec 983 D10): the panel moved to the caller column, under the address book.
   ok(await inCallerColumn(page, '[data-cc-location]'), `${at}: it sits in the caller column, under the address book`)
 
+  // ---- 992 (spec 983 D13). Ctrl K's new rows; *Send location link* opens the same dialog ----
+  await page.keyboard.press('Control+k')
+  await page.locator('[data-palette]').waitFor({ timeout: 5_000 })
+  const paletteRow = (id) => page.locator(`[data-palette-row="screen:verb:${id}"]`)
+  const enabledRow = async (id) => (await paletteRow(id).count()) === 1 && (await paletteRow(id).getAttribute('aria-disabled')) !== 'true'
+  ok(
+    (await enabledRow('sendLocationLink')) && (await enabledRow('switchFulfilment')) && (await enabledRow('nextFreeSlot')),
+    `${at}: Ctrl K lists Send location link, Switch to collect and Next free slot, enabled on this open delivery`,
+  )
+  ok(
+    (await paletteRow('switchFulfilment').innerText()).includes('Switch to collect'),
+    `${at}: the switch is named by where it goes (a delivery order → Switch to collect)`,
+  )
+  ok(
+    (await paletteRow('reorderLast').getAttribute('aria-disabled')) === 'true' &&
+      (await paletteRow('applyHeldCoupon').getAttribute('aria-disabled')) === 'true',
+    `${at}: Reorder last order and Apply a held coupon are listed disabled (no handler yet)`,
+  )
+  ok(
+    (await page.locator('[data-palette-row^="screen:"] kbd').count()) === 0,
+    `${at}: no console row carries a chord`,
+  )
+  await paletteRow('sendLocationLink').click()
+  await page.locator('[data-cc-location-dialog]').waitFor({ timeout: 5_000 })
+  ok(
+    (await page.locator('[data-cc-location-mobile]').inputValue()) === MOBILE,
+    `${at}: Ctrl K → Send location link opens the send dialog, pre-filled`,
+  )
+  await page.keyboard.press('Escape')
+  await page.locator('[data-cc-location-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
+
   // ---- 2. the dialog and the body ----
   await page.locator('[data-cc-location-send]').click()
   await page.locator('[data-cc-location-dialog]').waitFor({ timeout: 5_000 })

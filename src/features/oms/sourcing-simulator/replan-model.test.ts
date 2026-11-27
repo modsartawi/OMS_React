@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { AdviseCartRequest, AdvisePin, AdviseReply } from '@/core/models/sourcing-run'
 import fixture from './advise-reply.fixture.json'
-import { cartAgain, movedAsk, runBasis, runRequest, sameAsk, type RunAsk } from './replan-model'
+import { cartAgain, movedAsk, plansStale, runBasis, runRequest, sameAsk, type RunAsk } from './replan-model'
 import { replayRequest } from './replay'
 
 const reply = fixture as unknown as AdviseReply
@@ -132,5 +132,27 @@ describe('moving the customer on the map plans the run on screen again (review 4
 
   it('a moved run is a new run with its own read, never a plan again on the earlier figures', () => {
     expect(runRequest(movedAsk(first, to), last)).not.toHaveProperty('basedOnRun')
+  })
+})
+
+describe('the plans read as stale when the form no longer asks for them (review 2 #2)', () => {
+  it('a run of this page is stale once the ask changes, or while the form cannot run', () => {
+    expect(plansStale({ ask: first, stored: false }, first)).toBe(false)
+    expect(plansStale({ ask: first, stored: false }, { ...first, pins: [pin] })).toBe(true)
+    expect(plansStale({ ask: first, stored: false }, null)).toBe(true)
+  })
+
+  it('a stored run opened by its link is stale once a pin or the weight set changes from what it ran', () => {
+    expect(plansStale({ ask: first, stored: true }, first)).toBe(false)
+    expect(plansStale({ ask: first, stored: true }, { ...first, weightSet: { name: 'Express margin', version: 5 } })).toBe(true)
+    expect(plansStale({ ask: first, stored: true }, { ...first, pins: [pin] })).toBe(true)
+  })
+
+  it('but not while the form asks nothing yet: a stored cart run never kept its point', () => {
+    expect(plansStale({ ask: first, stored: true }, null)).toBe(false)
+  })
+
+  it('nothing on screen is never stale', () => {
+    expect(plansStale(null, first)).toBe(false)
   })
 })

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { AdviseReply, KeptRun } from '@/core/models/sourcing-run'
+import type { AdvisePin, AdviseReply, KeptRun } from '@/core/models/sourcing-run'
 import reply from './advise-reply.fixture.json'
+import type { CartForm } from './cart'
 import kept from './kept-runs.fixture.json'
 import replay from './replay-reply.fixture.json'
-import { canDelete, keepOffer, keepProblem, keptRunLink, keptRunsList, openedSetting, runToOpen } from './kept-runs-model'
+import { canDelete, cartAsk, keepOffer, keepProblem, keptRunLink, keptRunsList, openedAsk, openedSetting, openedWeightSet, runToOpen } from './kept-runs-model'
+import { runRequest } from './replan-model'
 
 const RUNS = kept as KeptRun[]
 const REPLY = reply as unknown as AdviseReply
@@ -70,5 +72,61 @@ describe('keeping the run on screen', () => {
     expect(keepProblem('  ')).toBe('noName')
     expect(keepProblem('x'.repeat(81))).toBe('tooLong')
     expect(keepProblem(' Malqa replay ')).toBeNull()
+  })
+})
+
+describe('a stored run opened by its link, as asked (review 2 #2 and #3)', () => {
+  const pin: AdvisePin = { kind: 'LINE_STORE', lineNo: 3, store: '1090' }
+  const storedCart = {
+    channel: 'IOS',
+    lines: [
+      { lineNo: 1, item: '100234', quantity: 2, unit: 'EA' },
+      { lineNo: 2, item: '100871', quantity: 1, unit: 'EA' },
+      { lineNo: 3, item: '104410', quantity: 1, unit: 'EA' },
+    ],
+    customer: {},
+    plannedFor: '2026-11-26 19:42:03',
+    level: 'full',
+    allPlans: true,
+  }
+  const setBack = (openedSetting(REPLY) as { start: 'build'; form: CartForm }).form
+
+  it('holds a cart run as its stored cart, without the point it never kept, on the set it planned on', () => {
+    expect(openedAsk(REPLY)).toEqual({ cart: storedCart, pins: [], weightSet: { name: 'Baseline', version: 1 } })
+  })
+
+  it('opens the weight set picker on the version the run planned on; a run on unsaved values, on their version', () => {
+    expect(openedWeightSet(REPLY)).toEqual({ name: 'Baseline', version: 1 })
+    const draft = { ...REPLY.weightSet, name: 'Express margin', version: 4, draft: true, basedOn: { name: 'Express margin', version: 4 } }
+    expect(openedWeightSet({ ...REPLY, weightSet: draft })).toEqual({ name: 'Express margin', version: 4 })
+  })
+
+  it('while the form holds the cart as it was set back, the cart asked is the stored run’s own', () => {
+    expect(cartAsk(setBack, REPLY)).toEqual({ cart: storedCart, fromStored: true })
+  })
+
+  it('so a changed pin plans again on the stored run’s figures', () => {
+    const opened = openedAsk(REPLY)
+    const { cart } = cartAsk(setBack, REPLY)
+    expect(runRequest({ cart: cart!, pins: [pin], weightSet: opened.weightSet }, { ask: opened, runId: '01JDM3K8Q2V7X4T9B6N0R5W1YZ' })).toEqual({
+      basedOnRun: '01JDM3K8Q2V7X4T9B6N0R5W1YZ',
+      weightSet: { name: 'Baseline', version: 1 },
+      pins: [pin],
+      level: 'full',
+      allPlans: true,
+    })
+  })
+
+  it('a point typed, or any other change, asks the form’s own cart: a new run with its own read', () => {
+    const now = new Date(2026, 10, 27, 9, 0)
+    const placed = cartAsk({ ...setBack, lat: '24.7741', lng: '46.7386' }, REPLY, now)
+    expect(placed.fromStored).toBe(false)
+    expect(placed.cart).toMatchObject({ customer: { point: { lat: 24.7741, lng: 46.7386 } }, plannedFor: '2026-11-27 19:42:00' })
+    expect(cartAsk({ ...setBack, channel: 'WEB' }, REPLY)).toEqual({ cart: null, fromStored: false })
+  })
+
+  it('with no stored run, or a replayed one, the form’s own cart', () => {
+    expect(cartAsk(setBack, null)).toEqual({ cart: null, fromStored: false })
+    expect(cartAsk(setBack, REPLAY)).toEqual({ cart: null, fromStored: false })
   })
 })

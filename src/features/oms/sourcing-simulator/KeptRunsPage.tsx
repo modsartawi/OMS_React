@@ -14,7 +14,8 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { TD, TH } from '@/core/ui/sheet-table'
-import { keptRunsQuery, simulatorApi } from './api'
+import { fsi } from '@/core/util/bidi'
+import { keptRunsQuery, simulatorApi, storedRunQuery } from './api'
 import CopyRunLink from './CopyRunLink'
 import { canDelete, keptRunsList } from './kept-runs-model'
 
@@ -44,14 +45,19 @@ function KeptRuns() {
   const [deleting, setDeleting] = useState<KeptRun | null>(null)
   const remove = useMutation({
     mutationFn: (runId: string) => simulatorApi.deleteKeptRun(runId),
-    onSuccess: () => {
+    onSuccess: (_, runId) => {
       setDeleting(null)
       notify.success(t('kept.list.deleted'))
       void queryClient.invalidateQueries({ queryKey: keptRunsQuery().queryKey })
+      // Review 2 #1: a stored run is read once and kept (`staleTime: Infinity`); a deleted one must not open from it.
+      queryClient.removeQueries({ queryKey: storedRunQuery(runId).queryKey })
     },
   })
-  const weightSet = (r: KeptRun) =>
-    r.weightSet.draft ? t('kept.list.draft', { name: r.weightSet.name, version: r.weightSet.version }) : t('runInfo.weightSetName', { name: r.weightSet.name, version: r.weightSet.version })
+  // Review 2 #6: the set's name and version are data in a sentence, each isolated whole.
+  const weightSet = (r: KeptRun) => {
+    const values = { name: fsi(r.weightSet.name), version: fsi(r.weightSet.version) }
+    return r.weightSet.draft ? t('kept.list.draft', values) : t('runInfo.weightSetName', values)
+  }
 
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-kept-runs="">

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { PlannerRow } from '@/core/models/sourcing-planner'
-import { ruleGroups, ruleRows, switchRequest } from './rule-rows-model'
+import { ruleGroups, ruleRows, switchEnded, switchRequest, switchStarted } from './rule-rows-model'
 
 let n = 0
 const rule = (values: Record<string, unknown>, over: Partial<PlannerRow> = {}): PlannerRow => ({
@@ -63,5 +63,17 @@ describe('switching a row', () => {
       values: { groupKind: 'COLD_CHAIN', group: 'COLD', ruleKind: 'NOT_BY_MODE', mode: 'DAWAA_NOW', stores: null, on: true },
     })
     expect(switchRequest(ROWS.find((r) => r.id === 'bulky-dn')!).values.on).toBe(false)
+  })
+
+  it('a row whose switch is waiting on its answer cannot be switched again; another row may switch meanwhile (review 2 #5)', () => {
+    const a = switchStarted(new Set(), 'cold-dn')!
+    expect([...a]).toEqual(['cold-dn'])
+    expect(switchStarted(a, 'cold-dn')).toBeNull()
+    const both = switchStarted(a, 'bulky-dn')!
+    expect([...both].sort()).toEqual(['bulky-dn', 'cold-dn'])
+    // B's answer coming back leaves A waiting still.
+    expect([...switchEnded(both, 'bulky-dn')]).toEqual(['cold-dn'])
+    expect(switchStarted(switchEnded(both, 'bulky-dn'), 'cold-dn')).toBeNull()
+    expect(switchStarted(switchEnded(a, 'cold-dn'), 'cold-dn')).not.toBeNull()
   })
 })

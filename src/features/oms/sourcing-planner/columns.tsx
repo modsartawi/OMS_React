@@ -25,7 +25,7 @@ export const SWITCH_COL = 'switch'
 
 export function usePlannerColumns(
   table: PlannerTableKey,
-  opts: { showEnded: boolean; onSwitch?: (row: PlannerRow) => void; switching?: string | null },
+  opts: { showEnded: boolean; onSwitch?: (row: PlannerRow) => void; switching?: ReadonlySet<string> },
 ): ColDef<PlannerRow>[] {
   const { t } = useTranslation(NS)
   const fmt = useFormat()
@@ -45,7 +45,7 @@ export function usePlannerColumns(
             const row = p.data
             if (!row) return null
             const on = row.values[f.key] === true
-            const busy = switching === row.id
+            const busy = !!switching?.has(row.id)
             return (
               <Chip
                 on={on}

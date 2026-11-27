@@ -96,3 +96,18 @@ export function ruleGroups(rows: readonly PlannerRow[]): RuleGroup[] {
 export function switchRequest(row: PlannerRow): PlannerChangeRequest {
   return { rowId: row.id, values: { ...row.values, on: row.values.on !== true } }
 }
+
+/**
+ * The rows whose switch waits on its answer (review 2 #5): each switch is held until its own answer comes, so a row
+ * cannot be switched twice while another row's switch is in flight. Null when the row is waiting already.
+ */
+export function switchStarted(pending: ReadonlySet<string>, rowId: string): ReadonlySet<string> | null {
+  return pending.has(rowId) ? null : new Set([...pending, rowId])
+}
+
+/** The rows still waiting once a row's switch is answered, done or refused. */
+export function switchEnded(pending: ReadonlySet<string>, rowId: string): ReadonlySet<string> {
+  const next = new Set(pending)
+  next.delete(rowId)
+  return next
+}

@@ -6,10 +6,11 @@
  * nothing of listing another keeper's: those open by their link). The link opens the simulator straight away on the run
  * (owner, on the 969 prototype), which reads it through the stored-run read door (BackOffice 4281 decision 11).
  */
-import type { AdviseReply, KeptRun } from '@/core/models/sourcing-run'
+import type { AdviseCartRequest, AdviseReply, KeptRun, WeightSetVersionRef } from '@/core/models/sourcing-run'
 import { SIMULATOR_RUN_PARAM, simulatorRunPath } from '@/core/sourcing-advisor/simulator-path'
-import type { CartForm } from './cart'
-import type { ReplayForm } from './replay'
+import { adviseRequest, type CartForm } from './cart'
+import type { RunAsk } from './replan-model'
+import { replayRequest, type ReplayForm } from './replay'
 
 /** The longest name a kept run takes. PROVISIONAL (spec 4354: not specified) — 80 characters is ours. */
 export const KEPT_NAME_MAX = 80
@@ -50,6 +51,49 @@ export function openedSetting(record: Pick<AdviseReply, 'kind' | 'orderNumber' |
       lng: '',
     },
   }
+}
+
+type OpenedRecord = Pick<AdviseReply, 'kind' | 'orderNumber' | 'channel' | 'plannedFor' | 'lines' | 'weightSet'>
+
+/** The weight set version a stored run opens the picker on (review 2 #2): the one it planned on, a draft's own base. */
+export function openedWeightSet(record: Pick<AdviseReply, 'weightSet'>): WeightSetVersionRef {
+  const w = record.weightSet
+  return w.draft && w.basedOn ? { name: w.basedOn.name, version: w.basedOn.version } : { name: w.name, version: w.version }
+}
+
+/**
+ * What the simulator holds as asked of a stored run opened by its link: its cart without the customer's point, which
+ * is never stored (spec 4354 §12), or the order it replayed; on the weight set it planned on.
+ */
+export function openedAsk(record: OpenedRecord): RunAsk {
+  const setting = openedSetting(record)
+  const weightSet = { name: record.weightSet.name, version: record.weightSet.version }
+  if (setting.start === 'replay') return { cart: replayRequest(setting.replay)!, pins: [], weightSet }
+  const cart: AdviseCartRequest = {
+    channel: record.channel,
+    lines: record.lines.map((l) => ({ lineNo: l.lineNo, item: l.item, quantity: l.quantity, unit: l.unit })),
+    customer: {},
+    plannedFor: record.plannedFor,
+    level: 'full',
+    allPlans: true,
+  }
+  return { cart, pins: [], weightSet }
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * The cart the form asks now (review 2 #3). A stored cart run's form is set back without the customer's point, so it
+ * cannot run on its own: while it still holds that cart unchanged, the cart asked is the stored run's own, and a
+ * changed pin or weight plans again on the stored figures (`basedOnRun`). A point typed, or any other change, asks the
+ * form's own cart — a new run with its own read.
+ */
+export function cartAsk(form: CartForm, opened: OpenedRecord | null, now: Date = new Date()): { cart: AdviseCartRequest | null; fromStored: boolean } {
+  if (opened) {
+    const setting = openedSetting(opened)
+    if (setting.start === 'build' && same(form, setting.form)) return { cart: openedAsk(opened).cart as AdviseCartRequest, fromStored: true }
+  }
+  return { cart: adviseRequest(form, now), fromStored: false }
 }
 
 /**

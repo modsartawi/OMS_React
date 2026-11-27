@@ -2,7 +2,7 @@
  * One planner table's tab (ticket 968, the owner's variant A): what the table is, the rows in force as a list, and a
  * click on a row opening it in a side sheet (`./RowSheet`). A switch field is switched straight from the list.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -23,7 +23,7 @@ import { PLANNER_DEFAULT_COL_DEF, SWITCH_COL, usePlannerColumns } from './column
 import { NS, useFormat } from './display'
 import OverrideProbe from './OverrideProbe'
 import RowSheet from './RowSheet'
-import { ruleGroups, ruleRows, switchRequest } from './rule-rows-model'
+import { ruleGroups, ruleRows, switchEnded, switchRequest, switchStarted } from './rule-rows-model'
 import { TABLES, todayIso } from './tables'
 
 export default function PlannerTab({ table }: { table: PlannerTableKey }) {
@@ -46,12 +46,30 @@ export default function PlannerTab({ table }: { table: PlannerTableKey }) {
       void queryClient.invalidateQueries({ queryKey: plannerKeys.table(table) })
     },
     onError: (err) => toast.error(apiErrorMessage(err, t('sheet.failedFallback'))),
+    // Review 2 #5: every switch in flight is held until its own answer comes, not only the last one clicked.
+    onSettled: (_d, _e, row) => {
+      pendingRef.current = switchEnded(pendingRef.current, row.id)
+      setPending(pendingRef.current)
+    },
   })
-  const onSwitch = useCallback((row: PlannerRow) => switchRow.mutate(row), [switchRow])
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set())
+  const pendingRef = useRef(pending)
+  // Review 2 #4: `mutate` is stable where the mutation object is not, so the columns are not rebuilt on every render.
+  const { mutate: switchMutate } = switchRow
+  const onSwitch = useCallback(
+    (row: PlannerRow) => {
+      const next = switchStarted(pendingRef.current, row.id)
+      if (!next) return
+      pendingRef.current = next
+      setPending(next)
+      switchMutate(row)
+    },
+    [switchMutate],
+  )
   const columns = usePlannerColumns(table, {
     showEnded,
     onSwitch: TABLES[table].switchField ? onSwitch : undefined,
-    switching: switchRow.isPending ? (switchRow.variables?.id ?? null) : null,
+    switching: pending,
   })
 
   const assumed = table === 'contracts' ? live.filter((r) => r.values.assumed === true).length : 0

@@ -11,7 +11,7 @@ import { TD, TH } from '@/core/ui/sheet-table'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { logQuery } from './api'
 import { orderedTrial } from './marking-model'
-import { CARD, count, CountList, NS, pct, PromiseTable, SetRef } from './parts'
+import { CARD, count, CountList, NS, Pct, PromiseTable, SetRef } from './parts'
 
 /**
  * The candidate log (ticket 967, the owner's variant A: rows that open): who, when, the version before and after, the
@@ -85,9 +85,15 @@ function LogRows({ entry: e, isOpen, onToggle }: { entry: CandidateLogEntry; isO
             <span className="text-muted-foreground">{t(e.exception ? `exceptionShort.${e.exception}` : 'log.noTrial')}</span>
           )}
         </td>
-        <td className={`${TD} text-end`}>{trial ? <Ltr>{pct(trial.plansChanged.percent)}</Ltr> : '—'}</td>
-        <td className={`${TD} text-end`}>{trial ? <Ltr>{pct(trial.refused.percent)}</Ltr> : '—'}</td>
-        <td className={`${TD} text-end`}>{dawaaNow ? <Ltr>{pct(dawaaNow.percent)}</Ltr> : '—'}</td>
+        <td className={`${TD} text-end`}>
+          <Pct n={trial?.plansChanged.percent} />
+        </td>
+        <td className={`${TD} text-end`}>
+          <Pct n={trial?.refused.percent} />
+        </td>
+        <td className={`${TD} text-end`}>
+          <Pct n={dawaaNow?.percent} />
+        </td>
         <td className={TD} data-log-bar="">
           {e.barDay !== null ? <span>{t('log.barRestarted', { day: fsi(e.barDay) })}</span> : <span className="text-muted-foreground">{t('log.barNone')}</span>}
         </td>

@@ -326,6 +326,16 @@
       "count": "{{qty}} in stock",
       "none": "none at store",
       "unknown": "? stock unknown"
+    },
+    "nearby": {
+      "here_one": "<n>{{count}}</n> here",
+      "here_other": "<n>{{count}}</n> here",
+      "hereUnknown": "? here",
+      "checking": "Checking other stores…",
+      "unknown": "Could not check other stores — not the same as nobody having it.",
+      "none": "no other store has it",
+      "more_one": "+<n>{{count}}</n> more",
+      "more_other": "+<n>{{count}}</n> more"
     }
   },
   "belowAtp": {

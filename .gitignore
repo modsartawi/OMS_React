@@ -78,6 +78,8 @@ tools/.callcenter-shell-shots/
 tools/.callcenter-sentence-shots/
 # Call center caller bar drive screenshots (tools/callcenter-callerbar-drive.mjs, ticket 409)
 tools/.callcenter-callerbar-shots/
+# Call center nearby-stock drive screenshots (tools/callcenter-nearby-drive.mjs, ticket 991)
+tools/.callcenter-nearby-shots/
 # Bonus Buy Maintenance drive screenshots (tools/bby-maintenance-drive.mjs, ticket 416)
 tools/.bby-maintenance-shots/
 # Delivery details donor-moments drive screenshots (tools/document-donor-drive.mjs, ticket 429)

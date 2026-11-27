@@ -238,6 +238,49 @@ export interface CustomerRequest {
   lines: CustomerRequestLine[]
 }
 
+/** One item of a past order (v1.13 C2, BackOffice 4455). Unpriced: a reorder sends
+ *  the item and the quantity, and the engine prices it today. */
+export interface CustomerHistoryItem {
+  itemNumber: string
+  description: string
+  qty: number
+  uom: string
+}
+
+/**
+ * v1.13 C2 (BackOffice 4455) — one of the attached caller's last orders, newest
+ * first. `channel` is the server's word for where it was placed (call center,
+ * online, store); `payable` is what the order came to then, engine money.
+ */
+export interface CustomerHistoryOrder {
+  orderNumber: string
+  date: string
+  channel: string
+  status: string
+  payable: number
+  items: CustomerHistoryItem[]
+}
+
+/** One of the caller's usual items: the top 8 by number of ORDERS in 12 months. */
+export interface CustomerUsualItem {
+  itemNumber: string
+  description: string
+  timesBought: number
+}
+
+/**
+ * v1.13 C2 — `GET CallCenterWeb/CustomerHistory?transactionId=`, scoped by the
+ * server to the session's attached customer.
+ *
+ * 🚩 **`null` is not `[]`.** A degraded read answers `success: true` with both
+ * lists null, which the console draws as *could not load*; an empty list means
+ * the caller has no history.
+ */
+export interface CustomerHistory {
+  orders: CustomerHistoryOrder[] | null
+  usual: CustomerUsualItem[] | null
+}
+
 /** One line the copy DID put on the order. */
 export interface CopiedRequestLine {
   itemNumber: string

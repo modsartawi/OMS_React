@@ -67,6 +67,11 @@ const ALL_LIVE: PaletteActions = {
     attachCaller: noop,
     removeCaller: noop,
     refresh: noop,
+    reorderLast: noop,
+    sendLocationLink: noop,
+    switchFulfilment: noop,
+    nextFreeSlot: noop,
+    applyHeldCoupon: noop,
   },
   place: noop,
   abandon: noop,
@@ -137,14 +142,19 @@ describe('theRowsComeInOneOrder', () => {
   it('lists the order verbs in the spec order, line verbs absent', () => {
     expect(build().filter((c) => kindOf(c.id) === 'verb').map((c) => c.id)).toEqual([
       'verb:searchItems',
+      'verb:reorderLast',
       'verb:addressBook',
+      'verb:sendLocationLink',
       'verb:changeStore',
       'verb:slot',
+      'verb:nextFreeSlot',
       'verb:source',
       'verb:note',
       'verb:fulfilment',
+      'verb:switchFulfilment',
       'verb:payment',
       'verb:coupon',
+      'verb:applyHeldCoupon',
       'verb:attachCaller',
       'verb:refresh',
     ])
@@ -473,5 +483,118 @@ describe('theTypedWordsNarrowTheRows', () => {
     const guidance = guidanceView(NEAR_MISS_CLASSES)
     const word = guidance.actionable[0].description.split(' ')[0]
     expect(listed(build({ guidance }), word).some((row) => kindOf(row.id) === 'offer')).toBe(true)
+  })
+})
+
+/**
+ * `newRowsAreEnabledOnlyWithAHandler` (ticket 992, spec 983 D13) — the five rows the
+ * caller-first console adds. Each is live exactly when the page hands in its handler,
+ * and a row handed none is a disabled row carrying its reason — never an absent one.
+ */
+describe('newRowsAreEnabledOnlyWithAHandler', () => {
+  const NEW_ROWS = [
+    'verb:reorderLast',
+    'verb:sendLocationLink',
+    'verb:switchFulfilment',
+    'verb:nextFreeSlot',
+    'verb:applyHeldCoupon',
+  ]
+  const rowOf = (commands: Command[], id: string) => listed(commands).find((row) => row.id === `screen:${id}`)!
+
+  it('lists all five, enabled, when every handler is handed in', () => {
+    const rows = listed(build({ hasCaller: true }))
+    for (const id of NEW_ROWS) {
+      const row = rows.find((r) => r.id === `screen:${id}`)
+      expect(row, `${id} is missing`).toBeTruthy()
+      expect(row!.enabled, `${id} is not enabled`).toBe(true)
+    }
+  })
+
+  it('🚩 draws each one disabled, with a reason that has words, when its handler is withheld', () => {
+    const withheld = build({
+      hasCaller: true,
+      actions: {
+        ...ALL_LIVE,
+        verbs: {
+          ...ALL_LIVE.verbs,
+          reorderLast: null,
+          sendLocationLink: null,
+          switchFulfilment: null,
+          nextFreeSlot: null,
+          applyHeldCoupon: null,
+        },
+      },
+    })
+    for (const id of NEW_ROWS) {
+      const row = rowOf(withheld, id)
+      expect(row.enabled, `${id} is enabled with no handler`).toBe(false)
+      expect(row.run).toBeNull()
+      expect(phrase(row.reason!), `${id} has no words for its refusal`).toBeTruthy()
+    }
+    // One handler, one row: the older verbs are untouched.
+    expect(rowOf(withheld, 'verb:slot').enabled).toBe(true)
+  })
+
+  it('runs the handler it was handed, and only that one', () => {
+    const ran: string[] = []
+    const commands = build({
+      hasCaller: true,
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, nextFreeSlot: () => ran.push('next') } },
+    })
+    commands.find((c) => c.id === 'verb:nextFreeSlot')!.run!()
+    expect(ran).toEqual(['next'])
+  })
+
+  it('names the switch by where it goes: *collect* on a delivery order, *deliver* on a collection one', () => {
+    const delivering = build({ pickup: false }).find((c) => c.id === 'verb:switchFulfilment')!
+    const collecting = build({ pickup: true }).find((c) => c.id === 'verb:switchFulfilment')!
+    expect(phrase(delivering.label)).toBe('Switch to collect')
+    expect(phrase(collecting.label)).toBe('Switch to deliver')
+  })
+
+  it('words a shut switch with the chip row’s own fulfilment sentence', () => {
+    const commands = build({
+      capabilities: capabilities({
+        canChangeFulfilment: false,
+        capabilityReasons: { canChangeFulfilment: 'DELIVERY_ONLY_SOURCE' },
+      }),
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, switchFulfilment: null } },
+    })
+    expect(rowOf(commands, 'verb:switchFulfilment').reason).toBe('callcenter:fulfilment.locked.DELIVERY_ONLY_SOURCE')
+  })
+
+  it('words a shut held coupon with the coupon modal’s own sentence', () => {
+    const commands = build({
+      hasCaller: true,
+      capabilities: capabilities({ canApplyCoupon: false, capabilityReasons: { canApplyCoupon: 'STORE_NOT_CHOSEN' } }),
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, applyHeldCoupon: null } },
+    })
+    expect(rowOf(commands, 'verb:applyHeldCoupon').reason).toBe('callcenter:coupon.shut.STORE_NOT_CHOSEN')
+  })
+
+  it('says why on the two facts the projection carries: no caller to reorder for, no slot on a collection', () => {
+    const shut = { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, reorderLast: null, nextFreeSlot: null } }
+    const noCaller = build({ hasCaller: false, pickup: false, actions: shut })
+    expect(rowOf(noCaller, 'verb:reorderLast').reason).toBe('callcenter:palette.reason.NO_CALLER_HISTORY')
+    expect(rowOf(noCaller, 'verb:nextFreeSlot').reason).toBe(VAGUE_REASON)
+    const collecting = build({ hasCaller: true, pickup: true, actions: shut })
+    expect(rowOf(collecting, 'verb:reorderLast').reason).toBe(VAGUE_REASON)
+    expect(rowOf(collecting, 'verb:nextFreeSlot').reason).toBe('callcenter:palette.reason.COLLECTION_HAS_NO_SLOT')
+  })
+})
+
+describe('noChordReachesATerminalAct', () => {
+  it('🚩 with the new rows in, no command carries a key and only Place order and Abandon are terminal', () => {
+    const commands = build({ guidance: guidanceView(NEAR_MISS_CLASSES), hasCaller: true })
+    expect(commands.some((c) => c.id === 'verb:reorderLast')).toBe(true)
+    expect(commands.filter((c) => c.keys !== undefined)).toEqual([])
+    expect(commands.filter((c) => c.terminal).map((c) => c.id)).toEqual(['terminal:place', 'terminal:abandon'])
+    const { bound, refused } = bindKeys(commands, { singleKeyScreen: false })
+    expect(bound.size).toBe(0)
+    expect(refused).toEqual([])
+    // And the terminals still sort last, never aimed at rest.
+    const rows = listed(commands)
+    expect(rows.slice(-2).map((row) => row.id)).toEqual(['screen:terminal:place', 'screen:terminal:abandon'])
+    expect(rows[restingAim(rows)!].terminal).toBe(false)
   })
 })

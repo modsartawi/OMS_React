@@ -22,7 +22,10 @@
 > read of one reward arm's products ([§3.7](#37-resolvereward--one-reward-arms-products-v112)).
 > **v1.13** adds `totals.beforeDiscount` and `totals.discount`, so the receipt can print the
 > original amount and the discount without subtracting
-> ([983](../../983-the-console-is-built-around-the-caller-spec.md) C1, additive — see [§2.1](#21-field-rules)).
+> ([983](../../983-the-console-is-built-around-the-caller-spec.md) C1, additive — see [§2.1](#21-field-rules)),
+> and the attached caller's last orders and usual items
+> ([983](../../983-the-console-is-built-around-the-caller-spec.md) C2, additive — see
+> [§3.8](#38-customerhistory--the-callers-last-orders-and-usual-items-v113)).
 > **This document is the single source of truth for both tracks.**
 > Client track: `oms-react` `features/callcenter/`. Server track: SIS.Api + `SIS.Pricing`
 > (BackOffice [785](C:\Work\DMSCO\BackOffice\.issues\785-web-cc-engine-session.md),
@@ -104,6 +107,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | itemSearch | `GET CallCenterWeb/ItemSearch` | `?transactionId=&query=` | `ItemSearchResult` ([799](C:\Work\DMSCO\BackOffice\.issues\799-cc-item-search-endpoint.md)) |
 | priceCheck | `GET CallCenterWeb/PriceCheck` | `?transactionId=&itemNumber=` | `PriceCheckResult` (v1.6, [§3.4](#34-pricecheck--what-an-item-costs-without-adding-it)) |
 | stockElsewhere | `GET CallCenterWeb/StockElsewhere` | `?transactionId=&itemNumber=` | `StockElsewhereResult` (v1.7, [§3.5](#35-stockelsewhere--who-else-has-it-read-only)) |
+| customerHistory | `GET CallCenterWeb/CustomerHistory` | `?transactionId=` | `CustomerHistory` (v1.13, [§3.8](#38-customerhistory--the-callers-last-orders-and-usual-items-v113)) |
 | access | `GET CallCenterWeb/Access` | — | `{ canOpenConsole: boolean }` |
 
 **Ruled out of phase 1** (map note 5): `replaceLine`, placeholder/text lines, prescription controls.
@@ -1028,6 +1032,48 @@ GET CallCenterWeb/ResolveReward?transactionId=…&offerId=000100000803&armId=2
 - **Keyed client-side by transaction, offer, arm and plant**, so a store change re-resolves at the new
   plant rather than reusing the old one's stock.
 
+### 3.8 `CustomerHistory` — the caller's last orders and usual items (v1.13)
+
+**v1.13, additive** ([983](../../983-the-console-is-built-around-the-caller-spec.md) C2/D11, client
+[990](../../990-last-orders-reorder-all-and-usual-items.md)). Server half: BackOffice
+[4455](C:\Work\DMSCO\BackOffice\.issues\4455-callcenter-customer-history-read.md) — **not yet
+built**; the console builds against a stub of exactly this shape. The field names are 4455's.
+
+```
+GET CallCenterWeb/CustomerHistory?transactionId=…
+→ {
+    "orders": [                         // the last 5, newest first; null ⇒ could not load
+      { "orderNumber": "1000004417", "date": "2026-10-01T10:12:00",
+        "channel": "CallCenter",        // call center / online / store — exact values are 4455's
+        "status": "Delivered", "payable": 64.30,
+        "items": [ { "itemNumber": "100001", "description": "…", "qty": 2, "uom": "PAC" } ] }
+    ],
+    "usual": [                          // top 8 by number of ORDERS over 12 months; null ⇒ could not load
+      { "itemNumber": "100001", "description": "…", "timesBought": 6 }
+    ]
+  }
+```
+
+**The rules.**
+
+1. **Scoped to the session's attached customer, server-side.** The client sends the transaction id
+   and nothing else, the door rule of 137/801 (as `CustomerRequests`). With no customer attached it
+   refuses `NO_CUSTOMER_ATTACHED`; the console never calls it before an attach.
+2. **Read once per attached customer** (D11). The client keys it by the customer and does not re-read
+   during the call.
+3. **`null` is not `[]`.** A degraded source answers `success: true` with `orders: null` and
+   `usual: null`, drawn as *could not load*. An empty list means *no history*.
+4. **Ties in `usual[]` are broken by the most recent order; cancelled orders are shown in `orders[]`
+   with their status and excluded from `usual[]`.** Both are the server's.
+5. **`payable` is drawn as given**, never re-summed from items (law 4). A reorder re-prices: the
+   items go back through `addItem`, one at a time, and the engine prices them today.
+6. **Reorder is not a verb.** *Reorder all* is N `addItem`s through the normal path (§4: one
+   `requestId` per line), stopping at the first `SESSION_BUSY` that outlives the §6.1 schedule; any
+   other refusal is that line's, shown with the server's message, and the rest continue.
+
+**No new error code, no new capability** — `canAddItem` gates the reorder and the usual-item adds
+exactly as it gates every add.
+
 ---
 
 ## 4. Idempotency — `requestId`
@@ -1430,6 +1476,7 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.12 | 2026-10-03 | **Proposed. A qualified offer whose reward has no target says so** ([§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)). Four new optional near-miss fields — `getShortfall`, `rewardLink`, `rewards[]` (one per get-side condition, with per-arm `have`/`need` and discount definition), `couponsSpent[]` — and one rule: **`isReady` is false for a get-side shortfall**, so *ready* goes back to meaning only *qualified but out-ranked*. No new code and no new capability. **One new read** ([415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md), [§3.7](#37-resolvereward--one-reward-arms-products-v112)): `GET CallCenterWeb/ResolveReward?transactionId=&offerId=&armId=` → `{ offerId, armId, reward, items, truncated, topN }`, `resolvePrereq`'s rules over a get-side condition and its refusals; a client that never calls it is unchanged. Server half: BackOffice ask BO-2, **unfiled**. (v1.11, the linked sales request of [194](../../194-the-callers-open-request-becomes-the-order.md) / BackOffice 880, is carried in the models but has no row here.) Server half: BackOffice ask BO-1, **unfiled**; the console builds against a stub of exactly this shape. | **minor — additive** | [412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) |
 
 | 1.13 | 2026-11-27 | **The receipt's original amount and discount** ([§2.1](#21-field-rules)). `totals` gains `beforeDiscount` and `discount` (positive), from the same simulation header as `net`, with `beforeDiscount − discount = net` held by the server and the delivery fee in neither. No new verb, code or capability. Server half: BackOffice [4454](C:\Work\DMSCO\BackOffice\.issues\4454-callcenter-session-totals-carry-before-discount-and-discount.md) (done; `CallCenterContract.Version` 1.13). ⚠ The server's own 1.12 is the location link (2482), while this document's 1.12 row is 412's shortfall; both sides call this addition 1.13. A session opened before the server bump still reports the `contractVersion` it opened under. | **minor — additive** — a v1.12 client ignores both fields | [983](../../983-the-console-is-built-around-the-caller-spec.md) C1 · [986](../../986-the-receipt-shows-original-discount-vat-fee-and-total.md) |
+| 1.13 | 2026-11-27 | **The caller's last orders and usual items** ([§3.8](#38-customerhistory--the-callers-last-orders-and-usual-items-v113)). One new read, `GET CallCenterWeb/CustomerHistory?transactionId=` → `{ orders[] \| null, usual[] \| null }`, scoped to the attached customer; field names per BackOffice 4455. No new verb that writes, no new code, no new capability; *Reorder all* is N ordinary `addItem`s. Server half: BackOffice [4455](C:\Work\DMSCO\BackOffice\.issues\4455-callcenter-customer-history-read.md) (**open**). | **minor — additive** — a client that never calls it is unchanged | [983](../../983-the-console-is-built-around-the-caller-spec.md) C2 · [990](../../990-last-orders-reorder-all-and-usual-items.md) |
 
 **Why 1.12 and not 2.0.** Four new fields, all optional, and one changed *answer*: `isReady` is now
 `false` on a get-side shortfall. That reads like a changed meaning, and it is the opposite — v1.11's

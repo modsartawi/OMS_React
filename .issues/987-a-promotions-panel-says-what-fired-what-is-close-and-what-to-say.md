@@ -76,7 +76,11 @@ Proof:
     - There is no Could still use column.
   - Retargeted: "the open card spans both columns" is now "one card per row: open and closed have the column's width". The empty-state height is measured on the column (`self-start`).
 - **The base's failing check ("two offers sharing one blank offerId") was a stale drive, not a bug.** Both captured near-misses are `prereq.kind: "coupon"` and unmet, so since 159 they draw as needs-a-coupon rows, never as `[data-cc-card]`. The check now counts entries across every class and reads 2 of 2. The 859 property (two offers under one blank id stay two) holds.
-- typecheck, `npm test` (12877/12877) and lint: clean.
+- typecheck and lint are clean. `npm test` passes 12913/12913 after merging `spec/983-caller-console` (990/992 included). The guidance drive still passes 166/166 on the merge.
+- Other drives that touch the region fail identically with and without this slice, so these failures were already on the base:
+  - coupon-159: 99/103. The 4 failures are in the signup leg.
+  - command-palette: 358/366. The failures are the last-row walk and the Jump rows.
+  - bby-link: times out at its first page load on both.
 
 Decisions for the owner:
 - **Could still use is absent.** `CouponPicker` reads only `header.coupons`, which holds the coupons already applied. Nothing on the wire lists coupons a caller holds and has not used, so per the Boundaries no read was invented and no column is drawn. US10 needs a BackOffice read, for example the caller's unredeemed coupons on `CustomerHistory` or its own door. That ask is unfiled.

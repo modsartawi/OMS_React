@@ -6,9 +6,9 @@
  * builds — **Send location link**, its dialog, and the **waiting strip** — and is where 575's
  * card and chip, and 576's Discard and Resend-over-a-card, land in the same place.
  *
- * - **Placement.** In the flow directly under the header sentence, whose address word is the
- *   console's *Change address* (the address book's only door, 166/379). The action sits on the
- *   address's own row there, never inside `AddressPicker`.
+ * - **Placement.** In the caller column, directly under the address book cards (spec 983 D10,
+ *   989) — moved there from under the header sentence with its states and verbs unchanged.
+ *   Never inside `AddressPicker`.
  * - **Hidden, never disabled.** The action is drawn only while `canSendLocationLink` is true
  *   (`showsSendAction`); a `CCL-00001` from Send hides it for the rest of the order.
  * - **The link is held here and nowhere else.** The page mounts this panel keyed by the
@@ -36,7 +36,7 @@
  *   pre-filled from the capture (`onCreateAddress`); once the created address is on the order,
  *   the capture is stamped through `ApplyLocation` (`stampAfterCreate`).
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { MapPin } from 'lucide-react'
@@ -115,6 +115,7 @@ export default function LocationLinkPanel({
   onApply,
   onRefresh,
   onCreateAddress,
+  askToSend = 0,
 }: {
   state: SessionState
   /** Told after every successful Send, so the page knows this order has a link to Retire. */
@@ -128,6 +129,8 @@ export default function LocationLinkPanel({
    *  created book row once the create lands, or `null` when the book closes without one.
    *  Absent when the book cannot be opened on this order. */
   onCreateAddress?: (prefill: AddressFormValues) => Promise<CustomerAddressBookEntry | null>
+  /** 992 — bumped by Ctrl K's *Send location link*: each new value is one ask. */
+  askToSend?: number
 }) {
   const { t } = useTranslation('callcenter')
   const now = useSecondClock()
@@ -375,6 +378,27 @@ export default function LocationLinkPanel({
     return () => clearTimeout(timer)
   }, [retryBody, applyMutate])
 
+  // 992 — *Send location link* from Ctrl K. A new ask (the page's counter moved) opens the
+  // same dialog the Send button opens. With a link already held, a fresh send would be a
+  // second link over the one the caller may be opening, so the ask lands on the panel
+  // instead and the agent presses whichever act its face offers (Resend, Send again, Apply).
+  const { reset: resetSend } = send
+  const askedFor = useRef(askToSend)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!askToSend || askToSend === askedFor.current) return
+    askedFor.current = askToSend
+    if (held) {
+      rootRef.current?.scrollIntoView({ block: 'nearest' })
+      rootRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus()
+      return
+    }
+    setMobile(customerMobile ?? '')
+    setRefusal(null)
+    resetSend()
+    setDialogOpen(true)
+  }, [askToSend, held, customerMobile, resetSend])
+
   if (!open || hidden) return null
   if (!held && !showsSendAction(state.capabilities)) return null
 
@@ -414,7 +438,11 @@ export default function LocationLinkPanel({
   const strayRefusal = refusal && !dialogOpen ? refusalText(refusal, t) : null
 
   return (
-    <div className="flex shrink-0 flex-col gap-1 border-b border-divider bg-card px-4 py-1.5" data-cc-location>
+    <div
+      ref={rootRef}
+      className="flex shrink-0 flex-col gap-1 border-b border-divider bg-card px-4 py-1.5"
+      data-cc-location
+    >
       {!held && (
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={openDialog} data-cc-location-send>

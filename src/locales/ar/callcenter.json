@@ -111,6 +111,56 @@
       "malformed": "رفضت سبل هذا الرمز لأنه غير صحيح الصيغة. العنوان المختصر أربعة أحرف تليها أربعة أرقام، مثل RIMA6904."
     }
   },
+  "history": {
+    "lastOrders": "آخر الطلبات",
+    "usuallyBuys": "يشتري عادةً",
+    "loading": "جارٍ تحميل سجل المتصل…",
+    "loadFailed": "تعذّر تحميل سجل المتصل.",
+    "noOrders": "لا توجد طلبات سابقة.",
+    "noUsual": "لا توجد أصناف معتادة بعد.",
+    "addUsual": "أضف واحدًا إلى الطلب",
+    "moreItems_zero": "و{{n}} صنف آخر",
+    "moreItems_one": "وصنف آخر",
+    "moreItems_two": "وصنفان آخران",
+    "moreItems_few": "و{{n}} أصناف أخرى",
+    "moreItems_many": "و{{n}} صنفًا آخر",
+    "moreItems_other": "و{{n}} صنف آخر",
+    "channel": {
+      "callCenter": "مركز الاتصال",
+      "online": "عبر الإنترنت",
+      "store": "في الصيدلية"
+    },
+    "reorder": {
+      "all": "إعادة طلب الكل",
+      "running": "جارٍ إعادة الطلب…",
+      "toast": "تمت إضافة {{added}}",
+      "belowAtp": "لم يُضف: الكمية المتوفرة في الصيدلية أقل. أضفه من البحث للموافقة.",
+      "stoppedBusy_zero": "توقف: الطلب مشغول. لم تتم محاولة {{n}} صنف.",
+      "stoppedBusy_one": "توقف: الطلب مشغول. لم تتم محاولة صنف واحد.",
+      "stoppedBusy_two": "توقف: الطلب مشغول. لم تتم محاولة صنفين.",
+      "stoppedBusy_few": "توقف: الطلب مشغول. لم تتم محاولة {{n}} أصناف.",
+      "stoppedBusy_many": "توقف: الطلب مشغول. لم تتم محاولة {{n}} صنفًا.",
+      "stoppedBusy_other": "توقف: الطلب مشغول. لم تتم محاولة {{n}} صنف.",
+      "stoppedClosed_zero": "توقف: هذا الطلب مغلق. لم تتم محاولة {{n}} صنف.",
+      "stoppedClosed_one": "توقف: هذا الطلب مغلق. لم تتم محاولة صنف واحد.",
+      "stoppedClosed_two": "توقف: هذا الطلب مغلق. لم تتم محاولة صنفين.",
+      "stoppedClosed_few": "توقف: هذا الطلب مغلق. لم تتم محاولة {{n}} أصناف.",
+      "stoppedClosed_many": "توقف: هذا الطلب مغلق. لم تتم محاولة {{n}} صنفًا.",
+      "stoppedClosed_other": "توقف: هذا الطلب مغلق. لم تتم محاولة {{n}} صنف.",
+      "rest_zero": "أضف المتبقي ({{n}})",
+      "rest_one": "أضف المتبقي ({{n}})",
+      "rest_two": "أضف المتبقي ({{n}})",
+      "rest_few": "أضف المتبقي ({{n}})",
+      "rest_many": "أضف المتبقي ({{n}})",
+      "rest_other": "أضف المتبقي ({{n}})",
+      "dismiss": "إغلاق"
+    }
+  },
+  "callerColumn": {
+    "addresses": "العناوين",
+    "manageAddresses": "إدارة",
+    "pinApplied": "تم تطبيق الدبوس"
+  },
   "rail": {
     "label": "خطوات الطلب",
     "steps": {
@@ -181,6 +231,25 @@
       "source": "تم تحديد مصدر المستند"
     }
   },
+  "readBack": {
+    "heading": "اقرأ الطلب على المتصل",
+    "items": "طلبك: <lines/>.",
+    "line": "<qty/> × <name/>",
+    "saving": "وفّرت <amount/>.",
+    "total": "الإجمالي <amount/>.",
+    "where": {
+      "deliverAt": "سنوصله إلى <address/>، <window/>.",
+      "deliverTo": "سنوصله إلى <address/>.",
+      "deliver": "سنوصله إليك.",
+      "collectFrom": "سيكون جاهزًا للاستلام من <store/>.",
+      "collect": "سيكون جاهزًا للاستلام."
+    },
+    "payment": {
+      "cashOnDelivery": "الدفع نقدًا عند التوصيل.",
+      "payOnCollection": "الدفع عند الاستلام من الفرع.",
+      "paidOnline": "الدفع عبر الإنترنت."
+    }
+  },
   "search": {
     "nearby": {
       "here_zero": "<n>{{count}}</n> هنا",
@@ -247,6 +316,22 @@
       "add_many": "أضف {{count}} صنفًا آخر ليُطبَّق «<offer>{{offer}}</offer>».",
       "add_other": "أضف {{count}} صنف آخر ليُطبَّق «<offer>{{offer}}</offer>».",
       "reward": "أنت مؤهل لـ«<offer>{{offer}}</offer>» — أضف أحد أصناف المكافأة ليُطبَّق."
+    }
+  },
+  "palette": {
+    "verb": {
+      "reorderLast": "إعادة طلب آخر طلب",
+      "sendLocationLink": "إرسال رابط الموقع",
+      "switchFulfilment": {
+        "toCollect": "التحويل إلى استلام من الفرع",
+        "toDeliver": "التحويل إلى توصيل"
+      },
+      "nextFreeSlot": "أقرب موعد متاح",
+      "applyHeldCoupon": "تطبيق قسيمة لدى العميل"
+    },
+    "reason": {
+      "NO_CALLER_HISTORY": "اربط المتصل أولًا — آخر طلب له يأتي معه.",
+      "COLLECTION_HAS_NO_SLOT": "طلب الاستلام من الفرع ليس له موعد توصيل."
     }
   }
 }

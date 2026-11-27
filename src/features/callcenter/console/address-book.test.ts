@@ -6,8 +6,8 @@
  * what any particular customer's book contains.
  */
 import { describe, expect, it } from 'vitest'
-import type { CustomerAddressBookEntry } from '@/core/models/callcenter'
-import { addressChoices, addressRefusalKey, rePinAfterEdit } from './address-book'
+import type { CustomerAddressBookEntry, SessionAddress } from '@/core/models/callcenter'
+import { addressChoices, addressRefusalKey, bookCards, rePinAfterEdit } from './address-book'
 
 const entry = (over: Partial<CustomerAddressBookEntry> = {}): CustomerAddressBookEntry => ({
   addressNumber: '77120',
@@ -233,5 +233,50 @@ describe('rePinAfterEdit', () => {
   it('re-issues with the number the ORDER holds, trimmed', () => {
     expect(rePinAfterEdit('77120  ', ' 77120')).toBe('77120')
     expect(rePinAfterEdit('a77120', 'A77120')).toBe('A77120')
+  })
+})
+
+describe('bookCards (989, spec 983 D10)', () => {
+  const onOrder = (over: Partial<SessionAddress> = {}): SessionAddress => ({
+    addressNumber: 'A2',
+    label: 'Home',
+    cityCode: '0021',
+    cityName: 'Riyadh',
+    districtCode: 'R-114',
+    districtName: 'Al Malqa',
+    line: 'King Abdulaziz Rd, Bldg 4, Al Malqa, Riyadh',
+    gpsLat: null,
+    gpsLon: null,
+    ...over,
+  })
+  const book = [entry({ addressNumber: 'A1' }), entry({ addressNumber: 'A2' })]
+
+  it('selects the address the order holds', () => {
+    const cards = bookCards(book, onOrder())
+    expect(cards.map((c) => [c.addressNumber, c.isCurrent])).toEqual([
+      ['A1', false],
+      ['A2', true],
+    ])
+  })
+
+  it('🚩 an applied pin shows on the selected address, and only there', () => {
+    const pinnedBook = [
+      entry({ addressNumber: 'A1', address: { ...entry().address!, gpsLat: 24.7, gpsLon: 46.7 } }),
+      entry({ addressNumber: 'A2' }),
+    ]
+    const cards = bookCards(pinnedBook, onOrder({ gpsLat: 24.774265, gpsLon: 46.738586 }))
+    expect(cards.map((c) => [c.addressNumber, c.pinned])).toEqual([
+      ['A1', false],
+      ['A2', true],
+    ])
+  })
+
+  it('no pin on the order ⇒ nothing pinned', () => {
+    expect(bookCards(book, onOrder()).some((c) => c.pinned)).toBe(false)
+    expect(bookCards(book, onOrder({ gpsLat: 24.7, gpsLon: null })).some((c) => c.pinned)).toBe(false)
+  })
+
+  it('no address on the order ⇒ nothing selected', () => {
+    expect(bookCards(book, null).some((c) => c.isCurrent || c.pinned)).toBe(false)
   })
 })

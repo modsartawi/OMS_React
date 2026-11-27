@@ -75,7 +75,8 @@ auth 22
   src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
   src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
 
-callcenter/console 21
+callcenter/console 22
+  src/features/callcenter/console/AddressCards.tsx button: address card: the caller column's row picker, one click applies (spec 590: pickers restyle in place)
   src/features/callcenter/console/AddressForm.tsx button: city step *Change*: a text button inside the city box that does not navigate (restyled in place)
   src/features/callcenter/console/AddressForm.tsx button: city option: a row picker in the city listbox (spec 590: pickers restyle in place)
   src/features/callcenter/console/AddressForm.tsx button: district option: a row picker in the district listbox (spec 590: pickers restyle in place)

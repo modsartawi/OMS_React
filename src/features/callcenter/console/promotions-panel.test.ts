@@ -19,6 +19,20 @@ const walk = (over: Partial<SessionState> = {}): SessionState => ({
   ...over,
 })
 
+describe('aPrescriptionOrderSaysOffersDoNotApply', () => {
+  it('on a Wasfaty or Nphies order the panel is the one line (1007)', () => {
+    for (const orderType of ['Wasfaty', 'Nphies']) {
+      const view = promotionsPanel(walk({ header: { ...ATTACHED_SESSION.header, orderType } }))
+      expect(view.prescription).toBe(true)
+    }
+  })
+
+  it('a phone order, or a pre-1.15 order with no type, lists its offers as before', () => {
+    expect(promotionsPanel(walk()).prescription).toBe(false)
+    expect(promotionsPanel(walk({ header: { ...ATTACHED_SESSION.header, orderType: 'Ordinary' } })).prescription).toBe(false)
+  })
+})
+
 describe('appliedCardsNameTheirLinesByNumber', () => {
   it('names each fired promotion’s lines by their basket number, in number order', () => {
     const [card] = promotionsPanel(walk()).applied

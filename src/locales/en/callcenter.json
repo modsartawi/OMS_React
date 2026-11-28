@@ -970,7 +970,8 @@
       "add_one": "Add {{count}} more item and “<offer>{{offer}}</offer>” applies.",
       "add_other": "Add {{count}} more items and “<offer>{{offer}}</offer>” applies.",
       "reward": "You qualify for “<offer>{{offer}}</offer>” — add one of the reward items and it applies."
-    }
+    },
+    "prescription": "Offers don't apply to prescription orders."
   },
   "readBack": {
     "heading": "Read it back",
@@ -1151,5 +1152,35 @@
       "missing_one": "add {{count}}",
       "missing_other": "add {{count}}"
     }
+  },
+  "orderType": {
+    "label": "Order type",
+    "option": {
+      "Ordinary": "Phone order",
+      "Wasfaty": "Wasfaty",
+      "Nphies": "Nphies",
+      "other": "Other"
+    },
+    "order": {
+      "Ordinary": "Phone order",
+      "Wasfaty": "Wasfaty order",
+      "Nphies": "Nphies order",
+      "other": "This order"
+    },
+    "badgeTitle": "Prescription order: no promotions or coupons",
+    "removed": {
+      "promotions_one": "{{n}} promotion",
+      "promotions_other": "{{n}} promotions",
+      "coupons_one": "coupon {{codes}}",
+      "coupons_other": "coupons {{codes}}",
+      "listSeparator": ", ",
+      "and": "{{a}} and {{b}}",
+      "sentence_one": "{{order}}: {{what}} was removed.",
+      "sentence_other": "{{order}}: {{what}} were removed."
+    },
+    "refused": {
+      "ORDER_TYPE_NOT_OFFERED": "This seat cannot take that order type. Nothing was changed."
+    },
+    "failed": "The order type was not changed."
   }
 }

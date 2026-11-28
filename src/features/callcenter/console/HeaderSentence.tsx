@@ -18,7 +18,7 @@
  * The `data-cc-chip*` handles are the drives' names for these places from the chip row
  * this replaces; they are kept so 159/173/175/176/183/194's drives still find them.
  */
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { SessionState } from '@/core/models/callcenter'
@@ -50,7 +50,16 @@ const HOVER: Record<WordLook, string> = {
   readout: '',
 }
 
-export default function HeaderSentence({ state, openers }: { state: SessionState; openers: WordOpeners }) {
+export default function HeaderSentence({
+  state,
+  openers,
+  orderType = null,
+}: {
+  state: SessionState
+  openers: WordOpeners
+  /** 1007 — the order-type picker, drawn in the ledger beside the source (spec 1006 D10). */
+  orderType?: ReactNode
+}) {
   const { t } = useTranslation('callcenter')
   const sentence = headerSentence(state)
   // 🚩 Each slot is a SELF-CONTAINED element: `<Trans>` drops a self-closing slot
@@ -77,6 +86,7 @@ export default function HeaderSentence({ state, openers }: { state: SessionState
         <Trans t={t} ns="callcenter" i18nKey={SENTENCE_KEY[sentence.shape]} components={components} />
       </p>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]" data-cc-ledger>
+        {orderType}
         {sentence.ledger.map((field) => (
           <LedgerField
             key={field.id}

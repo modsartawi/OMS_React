@@ -35,17 +35,25 @@ export default function PromotionsPanel({
       <h2 className="px-4 pt-2 text-xs font-semibold uppercase tracking-wide text-foreground">
         {t('promotions.heading')}
       </h2>
-      <div className="grid gap-x-3 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <AppliedColumn cards={view.applied} />
-        <GuidanceStrip
-          view={view.guidance}
-          say={view.say}
-          pitch={view.pitch}
-          transactionId={transactionId}
-          plant={plant}
-          actions={actions}
-        />
-      </div>
+      {/* 1007 (spec 1006 D2): a Wasfaty or Nphies order is priced without offers, so the panel says
+          so once instead of listing near-misses the order cannot reach. */}
+      {view.prescription ? (
+        <p className="px-4 pt-0.5 pb-2 text-xs text-muted-foreground" data-cc-promotions-prescription>
+          {t('promotions.prescription')}
+        </p>
+      ) : (
+        <div className="grid gap-x-3 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <AppliedColumn cards={view.applied} />
+          <GuidanceStrip
+            view={view.guidance}
+            say={view.say}
+            pitch={view.pitch}
+            transactionId={transactionId}
+            plant={plant}
+            actions={actions}
+          />
+        </div>
+      )}
     </section>
   )
 }

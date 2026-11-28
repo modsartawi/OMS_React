@@ -23,6 +23,7 @@ import { bundleNext, offerBundle, type OfferBundle } from './offer-bundle'
 import { offerHeadline, type OfferHeadline } from './offer-headline'
 import { pitchSay } from './offer-say'
 import { offerAdd, offerStrip, type OfferAddQty, type OfferStrip } from './offer-strip'
+import { isPrescriptionOrder } from './order-type'
 
 /** One fired promotion, as the Applied column draws it. */
 export interface AppliedCard {
@@ -94,6 +95,9 @@ export interface PromotionsPanel {
   say: Map<string, GuidancePhrase>
   /** 996 — the pitch card's facts, by `cardId`. */
   pitch: Map<string, OfferPitch>
+  /** 1007 (spec 1006 D2) — a Wasfaty or Nphies order: offers don't apply, so the panel is one
+   *  line in place of both columns and the top bar counts nothing within reach. */
+  prescription: boolean
 }
 
 export function promotionsPanel(state: SessionState, options: PanelOptions = {}): PromotionsPanel {
@@ -104,6 +108,7 @@ export function promotionsPanel(state: SessionState, options: PanelOptions = {})
   const coupons = state.header.coupons ?? []
   const guidance = guidanceView(state.nearMisses)
   return {
+    prescription: isPrescriptionOrder(state.header),
     applied: (state.firedPromotions ?? []).map((fired, index) =>
       appliedCard(fired, index, numbers, coupons, state.lines ?? [], remembered),
     ),

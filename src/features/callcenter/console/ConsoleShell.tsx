@@ -30,7 +30,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, CircleDashed, Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
 import { useCommands } from '@/core/commands/registry'
-import type { OfferDefinition, SessionState } from '@/core/models/callcenter'
+import type { OfferDefinition, OrderType, OrderTypeRemoved, SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
@@ -46,6 +46,8 @@ import type { GuidanceActions } from './GuidanceStrip'
 import OfferSheet, { type OfferSheetOffer } from './OfferSheet'
 import { firedTotal, sheetApplied as appliedOnSheet } from './offer-sheet'
 import PromotionsPanel from './PromotionsPanel'
+import { OrderTypeBadge, OrderTypePicker, type OrderTypeActions } from './OrderTypePicker'
+import { orderTypeNotice } from './order-type'
 import { promotionsPanel, rememberDefinitions, type PromotionsPanel as PromotionsPanelView } from './promotions-panel'
 import HeaderSentence from './HeaderSentence'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
@@ -148,6 +150,9 @@ export default function ConsoleShell({
   refusal = null,
   onDismissRefusal,
   swallowed = null,
+  orderType,
+  orderTypeRemoved = null,
+  onDismissOrderTypeRemoved,
   onDismissSwallowed,
   submit,
   headerSection = null,
@@ -250,6 +255,12 @@ export default function ConsoleShell({
    *  closed and the panel they were in may have too: the one thing that must not
    *  happen is the agent walking away believing it applied. */
   swallowed?: SwallowedCommit | null
+  /** 1007 — the order-type picker's verb. Absent ⇒ the picker draws as a readout. */
+  orderType?: OrderTypeActions
+  /** 1007 (spec 1006 D10) — what the last type switch took off, or `null`. Held by the page:
+   *  it is the verb's answer, not a projection field. */
+  orderTypeRemoved?: { type: OrderType; removed: OrderTypeRemoved } | null
+  onDismissOrderTypeRemoved?: () => void
   onDismissSwallowed?: () => void
   /** *Place order* and what it last answered (174) — the page's, like every
    *  other verb, because the outcome is a real OMS order and the cache is the
@@ -448,7 +459,8 @@ export default function ConsoleShell({
     >
       <TopBar
         state={state}
-        actionableOffers={guidance.withinReachCount}
+        // 1007: a prescription order has no offers within reach, whatever the wire still holds.
+        actionableOffers={promotions.prescription ? 0 : guidance.withinReachCount}
         onAbandon={onAbandon}
         onRefresh={onRefresh}
         refreshing={refreshing}
@@ -463,6 +475,8 @@ export default function ConsoleShell({
       {/* The same slot, the same shape: something the agent has to read once
           about an order that is otherwise fine. */}
       <SwallowedBanner kind={swallowed} onDismiss={onDismissSwallowed} />
+      {/* 1007: what a type switch took off — read once, then dismissed. */}
+      <OrderTypeRemovedBanner notice={orderTypeRemoved} onDismiss={onDismissOrderTypeRemoved} />
       {/* The same slot again (194): the lines the link did not copy, over an order
           that is otherwise exactly what the agent asked for. */}
       <RequestReportBanner actions={requestReport} />
@@ -502,6 +516,7 @@ export default function ConsoleShell({
               will not let that one open now. */}
           <HeaderSentence
             state={state}
+            orderType={<OrderTypePicker state={state} actions={orderType} />}
             openers={{
               fulfilment: onChangeFulfilment,
               // 166/379: the address word is the address book's ONLY door, once
@@ -643,6 +658,8 @@ function TopBar({
     <header className="flex h-11 shrink-0 items-center justify-between border-b border-border-strong bg-card px-4">
       <div className="flex items-center gap-3">
         <span className="text-sm font-semibold">{t('console.title')}</span>
+        {/* 1007: a Wasfaty or Nphies order says so beside its title (spec 1006). */}
+        <OrderTypeBadge state={state} where="title" />
         {/* Server-supplied, passed through as data: the document type is the
             engine's word for this order, not a label the console chooses. */}
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground" data-cc-doctype>
@@ -722,6 +739,34 @@ export type SwallowedCommit = 'belowAtp' | 'storeChange'
  *
  * It disappears on its own when 858 lands: a commit that applies is not a replay.
  */
+/**
+ * 1007 (spec 1006 D10) — **what a type switch took off.** A switch to Wasfaty or Nphies stops the
+ * promotions and removes the coupons; the agent has to tell the caller, so it is said once, here,
+ * in the server's own count (`removed`), never as a diff the console worked out. Nothing draws for
+ * an empty `removed`.
+ */
+function OrderTypeRemovedBanner({
+  notice,
+  onDismiss,
+}: {
+  notice: { type: OrderType; removed: OrderTypeRemoved } | null
+  onDismiss?: () => void
+}) {
+  const { t } = useTranslation('callcenter')
+  const text = notice ? orderTypeNotice(t, notice.type, notice.removed) : null
+  if (!text) return null
+  return (
+    <ConsoleBanner
+      tone="attention"
+      marker={{ 'data-cc-order-type-removed': notice!.type }}
+      dismissMarker={{ 'data-cc-order-type-removed-dismiss': '' }}
+      onDismiss={onDismiss}
+    >
+      <div className="text-sm font-medium text-attention-800">{text}</div>
+    </ConsoleBanner>
+  )
+}
+
 function SwallowedBanner({
   kind,
   onDismiss,
@@ -930,7 +975,10 @@ function Receipt({
   return (
     <aside className="flex min-h-0 flex-col bg-card" data-cc-receipt>
       <div className="border-b border-divider px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-        {t('receipt.heading')}
+        <span className="flex items-center gap-2">
+          {t('receipt.heading')}
+          <OrderTypeBadge state={state} where="receipt" />
+        </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         <dl className="space-y-1.5 text-sm">

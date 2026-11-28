@@ -35,6 +35,8 @@ import type {
   DeliveryType,
   ItemSearchResult,
   LinkRequestResult,
+  OrderType,
+  SetOrderTypeResult,
   LocationLinkDiscarded,
   LocationLinkRetired,
   LocationLinkRetireRequest,
@@ -875,6 +877,24 @@ export const callCenterApi = {
       transactionId,
       requestId,
       paymentType,
+    })
+  },
+
+  /**
+   * 🚩 **PROPOSED v1.15 (spec 1006, BackOffice 4485)** — `POST CallCenterWeb/SetOrderType` →
+   * `SetOrderTypeResult`: the order's type, a session fact (D10: allowed at any time while the
+   * order is open). The lines stay and are repriced server-side; promotions stop and coupons come
+   * off on a prescription type, and `removed` reports what came off so the console can say it.
+   *
+   * Refuses `ORDER_TYPE_NOT_OFFERED` (a type outside `capabilities.orderTypes`). The response
+   * shape (`{ state, removed }`, beside the state as `LinkRequestResult` has it) is this
+   * console's guess until 4485 ships — ticket 1007 Comments.
+   */
+  setOrderType(transactionId: string, requestId: string, orderType: OrderType): Promise<SetOrderTypeResult> {
+    return api.post<SetOrderTypeResult>('CallCenterWeb/SetOrderType', {
+      transactionId,
+      requestId,
+      orderType,
     })
   },
 

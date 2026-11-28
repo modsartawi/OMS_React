@@ -23,8 +23,36 @@ Client half of spec 1006, decisions **D1**, **D10** and default **A**.
 
 ## Proof
 
-- [ ] vitest: the picker's offering from capabilities, and the notice text for coupons, promotions, both and
+- [x] vitest: the picker's offering from capabilities, and the notice text for coupons, promotions, both and
   none (en and ar).
-- [ ] A console test from stubbed states: an Ordinary order with a fired offer, switched to Wasfaty, shows
+- [x] A console test from stubbed states: an Ordinary order with a fired offer, switched to Wasfaty, shows
   the notice, the badge and the empty-panel line.
-- [ ] typecheck, vitest, lint.
+- [x] typecheck, vitest, lint.
+
+## Comments
+
+**2026-11-28, built against the proposed v1.15 with stubs (BackOffice 4485 open).** Pure module
+`src/features/callcenter/console/order-type.ts` (+ `order-type.test.ts`, en and ar); picker and badge
+`OrderTypePicker.tsx` (core/ui `Chip`, no ratchet cost); the notice is `OrderTypeRemovedBanner` in
+`ConsoleShell.tsx`; `promotionsPanel(...).prescription` drives the panel line. Drive
+`tools/callcenter-order-type-drive.mjs`: 39/39.
+
+**Contract guesses to reconcile when BO 4485 ships:**
+1. **Enum naming.** `orderType` values are `'Ordinary' | 'Wasfaty' | 'Nphies'` (PascalCase, like
+   `PaymentType`/`DeliveryType`), with `(string & {})` so an unknown value degrades. The verb body is
+   `{ transactionId, requestId, orderType }`.
+2. **Verb path.** `POST CallCenterWeb/SetOrderType`.
+3. **Where `removed` sits.** Beside the state, `{ state, removed }`, as `LinkRequestResult` has it —
+   not a field on `SessionState`.
+4. **`removed`'s shape.** `{ coupons: string[] (the codes), promotions: number (a count of the fired
+   promotions stopped) }`. If BO sends coupon objects (`AppliedCoupon`) or a promotion list, the notice
+   helper reads the wrong thing.
+5. **`capabilities.orderTypes`** is the offered set, including `Ordinary`. Absent means a pre-1.15
+   server, so the picker is hidden. The order's own type stays listed even when it is not offered.
+6. **`header.documentType`** may flip to `WSFD`/`NPHS` on switch. The raw document-type chip in the
+   top bar is kept; the worded badge reads `header.orderType`.
+7. **Refusal.** `ORDER_TYPE_NOT_OFFERED` is worded on the picker; any other refusal shows the server
+   message (`apiErrorMessage`).
+
+Placement: the picker is the first field of the header ledger, beside Source and Ref. The top bar's
+*offers within reach* count is zero on a prescription order.

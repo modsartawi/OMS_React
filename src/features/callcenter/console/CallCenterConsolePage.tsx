@@ -54,6 +54,8 @@ import type {
   CustomerAddressBookEntry,
   CustomerAddressCapture,
   DeliveryType,
+  OrderType,
+  OrderTypeRemoved,
   PaymentType,
   SessionState,
 } from '@/core/models/callcenter'
@@ -368,6 +370,10 @@ function ConsoleSession() {
    *  agent answered has closed, and the one thing that must not happen is their
    *  walking away believing it applied. */
   const [swallowed, setSwallowed] = useState<SwallowedCommit | null>(null)
+  /** 1007 (spec 1006 D10) — what the last type switch took off, as `setOrderType` answered it.
+   *  Held here because it is the verb's answer, not a projection field: a later state carries
+   *  nothing about it. Cleared on dismiss, on the next switch and with the order. */
+  const [orderTypeRemoved, setOrderTypeRemoved] = useState<{ type: OrderType; removed: OrderTypeRemoved } | null>(null)
   /** How many adds have landed on the basket this console life. The search
    *  panel's signal to put its rows away — a question that has been answered. */
   const [addsLanded, setAddsLanded] = useState(0)
@@ -624,6 +630,8 @@ function ConsoleSession() {
       setResumedId(null)
       setOpenedId(null)
       setAbandoning(null)
+      // 1007: a switch notice is about the order that just ended.
+      setOrderTypeRemoved(null)
       // A rebind is about a basket that no longer exists — the preview, the
       // token and the refusal go with it.
       setMove(null)
@@ -931,6 +939,34 @@ function ConsoleSession() {
     },
     retry: false,
   })
+
+  /**
+   * The order type (1007, spec 1006 D10) — `setOrderType`, allowed at any time while the order is
+   * open. The server reprices the lines and says what came off (`removed`); the console says it
+   * once, in a banner, and only when something did.
+   */
+  const orderType = useMutation({
+    // No `again`: the picker draws this call's own failure.
+    mutationFn: (value: OrderType) => {
+      const requestId = newRequestId()
+      setOrderTypeRemoved(null)
+      return runGuarded(() => callCenterApi.setOrderType(transactionId!, requestId, value))
+    },
+    onSuccess: (result, value) => {
+      queryClient.setQueryData<SessionState>(sessionKey(result.state.transactionId), (current) =>
+        applyState(current, result.state),
+      )
+      const removed = result.removed
+      const any = (removed?.coupons?.length ?? 0) > 0 || (removed?.promotions ?? 0) > 0
+      setOrderTypeRemoved(any ? { type: result.state.header.orderType ?? value, removed } : null)
+    },
+    retry: false,
+  })
+  const orderTypeError = orderType.error
+    ? apiErrorCode(orderType.error) === 'ORDER_TYPE_NOT_OFFERED'
+      ? t('orderType.refused.ORDER_TYPE_NOT_OFFERED')
+      : apiErrorMessage(orderType.error, t('orderType.failed'))
+    : null
 
   /**
    * The document source and its reference (173, US20) — `setDocumentSource`, ONE
@@ -2885,6 +2921,13 @@ function ConsoleSession() {
         refusal={refusal}
         swallowed={swallowed}
         onDismissSwallowed={() => setSwallowed(null)}
+        orderType={{
+          onPick: session.data.status === 'open' ? (value: OrderType) => orderType.mutate(value) : undefined,
+          pending: orderType.isPending,
+          error: orderTypeError,
+        }}
+        orderTypeRemoved={orderTypeRemoved}
+        onDismissOrderTypeRemoved={() => setOrderTypeRemoved(null)}
         onDismissRefusal={() => setRefusal(null)}
         submit={{
           // 🚩 The DOOR decides whether this order may be placed (§2), with no

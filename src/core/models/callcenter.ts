@@ -62,6 +62,31 @@ export type WaivedReason =
   | 'ConfiguredOverride'
   | (string & {})
 
+/**
+ * 🚩 **PROPOSED v1.15 (spec 1006, BackOffice 4485) — not on the frozen contract yet.**
+ * The kind of order the agent is taking: the ordinary phone order (`CLCN`), or a
+ * Wasfaty (`WSFD`) or Nphies (`NPHS`) prescription order. A session fact set by
+ * `setOrderType`. An unknown value degrades (§9), never throws.
+ */
+export type OrderType = 'Ordinary' | 'Wasfaty' | 'Nphies' | (string & {})
+
+/**
+ * 🚩 **PROPOSED v1.15 (spec 1006)** — what a `setOrderType` switch took off the
+ * order: the codes of the coupons it removed, and how many fired promotions it
+ * stopped. Both shapes are this console's guess (ticket 1007 Comments).
+ */
+export interface OrderTypeRemoved {
+  coupons: string[]
+  promotions: number
+}
+
+/** 🚩 **PROPOSED v1.15 (spec 1006)** — `setOrderType`'s answer: the state, and what
+ *  came off beside it (the `LinkRequestResult` shape, ticket 1007 Comments). */
+export interface SetOrderTypeResult {
+  state: SessionState
+  removed: OrderTypeRemoved
+}
+
 /** v1.1 (§2.2). Both modes are phase 1; the flip never moves the plant. */
 export type DeliveryType = 'Delivery' | 'PickInStore'
 
@@ -172,6 +197,9 @@ export interface SessionHeader {
    * request in its own state would put that vector back.
    */
   linkedRequest?: LinkedRequest | null
+  /** 🚩 **PROPOSED v1.15 (spec 1006)** — the order's type. Absent on a pre-1.15
+   *  server, which a client reads as `Ordinary`. */
+  orderType?: OrderType
   /** Any line added or re-frozen below availability — the BackOffice fraud signal. */
   hasBelowAtp: boolean
 }
@@ -848,6 +876,12 @@ export interface SessionCapabilities {
    * which is one field per rule forever.
    */
   capabilityReasons?: Record<string, string>
+  /**
+   * 🚩 **PROPOSED v1.15 (spec 1006, default A)** — the order types this seat may
+   * mint, the set the picker offers. Absent on a pre-1.15 server, read strictly
+   * (absent ⇒ nothing offered, the picker hidden).
+   */
+  orderTypes?: OrderType[]
   /** Names the reason submit is refused; the console shows it, never derives it. */
   submitBlockers: string[]
 }

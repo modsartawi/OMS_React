@@ -317,7 +317,8 @@
       "add_many": "أضف {{count}} صنفًا آخر ليُطبَّق «<offer>{{offer}}</offer>».",
       "add_other": "أضف {{count}} صنف آخر ليُطبَّق «<offer>{{offer}}</offer>».",
       "reward": "أنت مؤهل لـ«<offer>{{offer}}</offer>» — أضف أحد أصناف المكافأة ليُطبَّق."
-    }
+    },
+    "prescription": "لا تنطبق العروض على طلبات الوصفات الطبية."
   },
   "palette": {
     "verb": {
@@ -605,5 +606,47 @@
       "missing_many": "أضف {{count}}",
       "missing_other": "أضف {{count}}"
     }
+  },
+  "orderType": {
+    "label": "نوع الطلب",
+    "option": {
+      "Ordinary": "طلب هاتفي",
+      "Wasfaty": "وصفتي",
+      "Nphies": "نفيس",
+      "other": "أخرى"
+    },
+    "order": {
+      "Ordinary": "طلب هاتفي",
+      "Wasfaty": "طلب وصفتي",
+      "Nphies": "طلب نفيس",
+      "other": "هذا الطلب"
+    },
+    "badgeTitle": "طلب وصفة طبية: بلا عروض ولا قسائم",
+    "removed": {
+      "promotions_zero": "{{n}} عروض",
+      "promotions_one": "عرض واحد",
+      "promotions_two": "عرضين",
+      "promotions_few": "{{n}} عروض",
+      "promotions_many": "{{n}} عرضًا",
+      "promotions_other": "{{n}} عرض",
+      "coupons_zero": "القسائم {{codes}}",
+      "coupons_one": "القسيمة {{codes}}",
+      "coupons_two": "القسيمتين {{codes}}",
+      "coupons_few": "القسائم {{codes}}",
+      "coupons_many": "القسائم {{codes}}",
+      "coupons_other": "القسائم {{codes}}",
+      "listSeparator": "، ",
+      "and": "{{a}} و{{b}}",
+      "sentence_zero": "{{order}}: تمت إزالة {{what}}.",
+      "sentence_one": "{{order}}: تمت إزالة {{what}}.",
+      "sentence_two": "{{order}}: تمت إزالة {{what}}.",
+      "sentence_few": "{{order}}: تمت إزالة {{what}}.",
+      "sentence_many": "{{order}}: تمت إزالة {{what}}.",
+      "sentence_other": "{{order}}: تمت إزالة {{what}}."
+    },
+    "refused": {
+      "ORDER_TYPE_NOT_OFFERED": "لا يمكن لهذا المقعد إنشاء هذا النوع من الطلبات. لم يتغير شيء."
+    },
+    "failed": "لم يتغير نوع الطلب."
   }
 }

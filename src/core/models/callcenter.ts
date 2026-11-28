@@ -788,7 +788,11 @@ export interface RewardResolution {
 
 /** §5 — "are you sure" arrives on the SUCCESS path with the UNCHANGED state. */
 export interface PendingConfirmation {
-  kind: 'storeChange' | 'belowAtp'
+  /** 🚩 `activePrescription` is **PROPOSED v1.15 (spec 1006 D5, BackOffice 4488)**: raised by
+   *  `submit` when OMS already holds an active prescription for this patient and reference
+   *  (`CheckActivePrescription`). Its guessed `detail` is `{ documentNo }`, the open order's number
+   *  (ticket 1009 Comments). */
+  kind: 'storeChange' | 'belowAtp' | 'activePrescription'
   confirmToken: string
   expiresInMs: number
   detail: unknown
@@ -974,6 +978,22 @@ export interface SubmitResult {
   /** The order as at submit — `status: 'submitted'` (law 2, like every verb). */
   state: SessionState | null
 }
+
+/**
+ * 🚩 **PROPOSED v1.15 (spec 1006 D5, BackOffice 4488) — guessed shape, ticket 1009 Comments.**
+ * A submit that stops on a duplicate prescription mints nothing: it answers `200` with no number
+ * and the **unchanged** state carrying `pendingConfirmation.kind: 'activePrescription'` (§5's
+ * rule, on submit's own result). Re-sending `submit` with the same `requestId` plus the
+ * `confirmToken` mints the order and answers a `SubmitResult`.
+ */
+export interface SubmitConfirmationRequired {
+  outcome: 'confirmationRequired'
+  documentNo: null
+  state: SessionState | null
+}
+
+/** What `POST CallCenterWeb/Submit` can answer on the success path. */
+export type SubmitAnswer = SubmitResult | SubmitConfirmationRequired
 
 /**
  * A loyalty member as the door's lookup answers it

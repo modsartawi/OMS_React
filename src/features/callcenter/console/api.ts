@@ -55,7 +55,7 @@ import type {
   SessionState,
   ShortAddressCheck,
   StockElsewhereResult,
-  SubmitResult,
+  SubmitAnswer,
 } from '@/core/models/callcenter'
 
 /**
@@ -1139,9 +1139,19 @@ export const callCenterApi = {
    * stays Open and retryable). 🚩 That 503 is only readable as a refusal because
    * `core/api.ts` lets a CODED envelope outrank a 5xx status; without it a
    * routine retryable outcome would reach the agent as "unexpected".
+   *
+   * 🚩 **PROPOSED v1.15 (spec 1006 D5, BackOffice 4488)** — a duplicate prescription stops the
+   * submit with `outcome: 'confirmationRequired'` and the unchanged state carrying a
+   * `pendingConfirmation.kind: 'activePrescription'`; the re-send with the SAME `requestId` plus
+   * `confirmToken` mints the order (§5, as `addItem` sends its `belowAtp` token). Guessed shapes:
+   * ticket 1009's Comments.
    */
-  submit(transactionId: string, requestId: string): Promise<SubmitResult> {
-    return api.post<SubmitResult>('CallCenterWeb/Submit', { transactionId, requestId })
+  submit(transactionId: string, requestId: string, confirmToken?: string): Promise<SubmitAnswer> {
+    return api.post<SubmitAnswer>('CallCenterWeb/Submit', {
+      transactionId,
+      requestId,
+      ...(confirmToken ? { confirmToken } : {}),
+    })
   },
 
   /**

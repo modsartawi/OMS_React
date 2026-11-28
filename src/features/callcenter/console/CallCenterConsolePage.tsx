@@ -80,7 +80,7 @@ import {
   readOpenResult,
   type PendingAbandon,
 } from './open-outcome'
-import { commitWasSwallowed, isCommitting, type ConfirmableAction } from './confirm-action'
+import { commitWasSwallowed, isCommitting, repreviewing, type ConfirmableAction } from './confirm-action'
 import {
   beginStoreMove,
   committingStoreMove,
@@ -120,7 +120,7 @@ import {
   type LinkReport,
   type SkippedRow,
 } from './linked-request'
-import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submit-outcome'
+import { readSubmitFailure, readSubmitResult, type SubmitFailure, type SubmitOutcome } from './submit-outcome'
 import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
 import { rePinAfterEdit } from './address-book'
@@ -132,6 +132,8 @@ import AddressCards from './AddressCards'
 import AddressPicker from './AddressPicker'
 import { showsCheck } from './short-address-check'
 import BelowAtpConfirm from './BelowAtpConfirm'
+import ActivePrescriptionConfirm from './ActivePrescriptionConfirm'
+import { placeAnyway, submitAsk, type ActivePrescriptionAsk, type SubmitPress } from './active-prescription'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell, { type SwallowedCommit } from './ConsoleShell'
@@ -675,6 +677,10 @@ function ConsoleSession() {
       // number, which belongs to an order this agent is no longer on.
       setSubmitAction(null)
       setPlaced(null)
+      // …and a duplicate-prescription ask about it (1009).
+      setPrescriptionAsk(null)
+      setSubmitReissue(null)
+      setSubmitUnconfirmable(false)
       colliders.current = 0
       setColliding(null)
       setStalled(null)
@@ -1458,22 +1464,60 @@ function ConsoleSession() {
    * moves. A danger box still saying *the order was not placed* under a receipt
    * the agent has just corrected is a console arguing with itself.
    */
-  const [submitAction, setSubmitAction] = useState<{ requestId: string; version: number } | null>(null)
+  const [submitAction, setSubmitAction] = useState<SubmitPress | null>(null)
   const [placed, setPlaced] = useState<SubmitOutcome | null>(null)
+  /**
+   * 1009 (spec 1006 D5) — the duplicate-prescription ask the last press raised. 🚩 Held here and
+   * NOT read off the cache, for the reason `belowAtp` is: the ask carries the UNCHANGED state at the
+   * same version, so `applyState` rightly keeps what is on screen.
+   */
+  const [prescriptionAsk, setPrescriptionAsk] = useState<ActivePrescriptionAsk | null>(null)
+  const [submitReissue, setSubmitReissue] = useState<PreviewReissue | null>(null)
+  /** A `confirmationRequired` answer this console could not state — never drawn as placed. */
+  const [submitUnconfirmable, setSubmitUnconfirmable] = useState(false)
+  /** 🚩 The synchronous guard on *Place anyway*: a double click can land two events before the
+   *  mutation's `isPending` has re-rendered the button disabled, and the token must go once. */
+  const committingSubmit = useRef(false)
 
   const submit = useMutation({
     // No `again`: the receipt draws this call's own outcome, at the foot where
     // the agent's hand already is, and a strip offering a second retry beside it
     // is one retry too many (164's ruling).
-    mutationFn: (action: { requestId: string }) =>
+    mutationFn: (action: SubmitPress) =>
       // 🚩 The id is the PRESS's, minted at `placeOrder` and re-sent verbatim by
-      // the retry a transient outage offers. Minting one inside the thunk would
-      // make every busy retry a new action to the server's ledger — on the one
-      // verb that mints a real OMS order.
-      runGuarded(() => callCenterApi.submit(transactionId!, action.requestId)),
+      // the retry a transient outage offers — and by *Place anyway* with its token
+      // (1009, §5). Minting one inside the thunk would make every busy retry a new
+      // action to the server's ledger — on the one verb that mints a real OMS order.
+      runGuarded(() => callCenterApi.submit(transactionId!, action.requestId, action.confirmToken)),
     // The last attempt's news belongs to the last attempt.
-    onMutate: () => setPlaced(null),
-    onSuccess: (result) => {
+    onMutate: () => {
+      setPlaced(null)
+      setSubmitUnconfirmable(false)
+    },
+    onSettled: () => {
+      committingSubmit.current = false
+    },
+    onSuccess: (answer, action) => {
+      // 🚩 1009 — read the ask FIRST. A duplicate prescription answers with no number and the
+      // unchanged state; read as a success it would draw *Order placed* over nothing.
+      const asked = submitAsk(answer)
+      if (asked) {
+        if (answer.state)
+          queryClient.setQueryData<SessionState>(sessionKey(transactionId!), (current) =>
+            applyState(current, answer.state!),
+          )
+        setSubmitAction(repreviewing(action))
+        setPrescriptionAsk(asked)
+        return
+      }
+      setPrescriptionAsk(null)
+      setSubmitReissue(null)
+      if (answer.outcome === 'confirmationRequired' || !answer.documentNo) {
+        // An ask this console cannot state: nothing was minted, and saying so beats silence.
+        setSubmitUnconfirmable(true)
+        return
+      }
+      const result = answer
       // 574 — a placed order's location link is retired, read off the state as it was
       // BEFORE the submitted one replaces it (which can no longer send one).
       retireLocationLink(transactionId!)
@@ -1491,8 +1535,41 @@ function ConsoleSession() {
       }
       setPlaced(readSubmitResult(result))
     },
+    onError: (err, action) => {
+      const code = apiErrorCode(err)
+      // 🚩 The same bounded re-ask as the rebind and the add: only a send that CARRIED a token can
+      // raise these, and the re-send carries none — the same press, the same id (law 3).
+      if (
+        action.confirmToken !== undefined &&
+        (code === 'CONFIRM_TOKEN_STALE' || code === 'CONFIRM_TOKEN_INVALID')
+      ) {
+        setSubmitReissue(code === 'CONFIRM_TOKEN_STALE' ? 'stale' : 'expired')
+        setPrescriptionAsk(null)
+        const again = repreviewing(action)
+        setSubmitAction(again)
+        submit.mutate(again)
+      }
+      // Any other failure of the commit stays in the sheet, with the same token still offered.
+    },
     retry: false,
   })
+
+  /** *Place anyway* (1009): the same press re-sent with the token — once. */
+  const confirmPrescription = () => {
+    const commit = placeAnyway(submitAction, prescriptionAsk, committingSubmit.current || submit.isPending)
+    if (!commit) return
+    committingSubmit.current = true
+    setSubmitAction(commit)
+    submit.mutate(commit)
+  }
+
+  /** *Go back* / Esc: nothing is sent, and the order stays open exactly as it was. */
+  const declinePrescription = () => {
+    setPrescriptionAsk(null)
+    setSubmitReissue(null)
+    setSubmitAction((press) => (press ? repreviewing(press) : press))
+    submit.reset()
+  }
 
   /**
    * What the last attempt said, worded once. A `SUBMIT_UNAVAILABLE` that reached
@@ -1505,10 +1582,16 @@ function ConsoleSession() {
    * — and either way a refusal about an order that has since changed must not be
    * waiting at the foot of the receipt.
    */
-  const submitFailure =
-    submit.isError && submitAction && session.data?.version === submitAction.version
-      ? readSubmitFailure(submit.error, t('submit.failed'))
-      : null
+  const submitFailure: SubmitFailure | null =
+    // 🚩 Silent while the duplicate-prescription sheet is open (1009): a failed commit is named IN
+    // the sheet, and one refusal in two voices is the thing 167 settled.
+    prescriptionAsk
+      ? null
+      : submit.isError && submitAction && session.data?.version === submitAction.version
+        ? readSubmitFailure(submit.error, t('submit.failed'))
+        : submitUnconfirmable
+          ? { kind: 'failed', message: t('submit.notConfirmable'), retryable: false, orderOpen: true, field: null }
+          : null
 
   /**
    * 🚩 **One press, one `requestId`, reused verbatim across every retry of that
@@ -1523,8 +1606,8 @@ function ConsoleSession() {
    * one attempt rather than as several.
    */
   const placeOrder = () => {
-    const action = submitFailure
-      ? submitAction!
+    const action: SubmitPress = submitFailure
+      ? repreviewing(submitAction!)
       : { requestId: newRequestId(), version: session.data?.version ?? -1 }
     setSubmitAction(action)
     submit.mutate(action)
@@ -3109,6 +3192,15 @@ function ConsoleSession() {
           it: the add (169) and the quantity raise (170) reach the SAME sheet
           with the same figures and the same buttons. Two mount points would be
           the second mechanism this pattern exists to prevent. */}
+      {/* 1009 — the duplicate prescription: the same sheet, a third body. */}
+      <ActivePrescriptionConfirm
+        ask={prescriptionAsk}
+        reissue={submitReissue}
+        busy={submit.isPending}
+        error={prescriptionAsk && submit.isError ? apiErrorMessage(submit.error, t('activePrescription.failed')) : null}
+        onConfirm={confirmPrescription}
+        onCancel={declinePrescription}
+      />
       <BelowAtpConfirm
         ask={acceptance?.ask ?? null}
         verb={acceptance?.verb}

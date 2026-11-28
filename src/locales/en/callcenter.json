@@ -554,7 +554,8 @@
     "requestGone": "Request {{documentNo}} has already been completed or cancelled by somebody else, so this order can't convert it. Unlink it and place the order — the order itself is fine.",
     "unavailableTitle": "The order has not been placed yet",
     "tryAgain": "Try again",
-    "failed": "The order could not be placed. The order is still open — try again."
+    "failed": "The order could not be placed. The order is still open — try again.",
+    "notConfirmable": "The order was not placed: the order service asked for a confirmation this console cannot show. The order is still open."
   },
   "blockers": {
     "NO_LINES": "add an item",
@@ -1215,5 +1216,15 @@
       "REFERENCE_REQUIRED": "The reference is needed. Ask the caller to read it out."
     },
     "failed": "The prescription was not saved. Nothing has changed on this order — try again."
+  },
+  "activePrescription": {
+    "title": "This prescription already has an open order",
+    "body": "This prescription already has an open order, {{documentNo}}. Place another one?",
+    "bodyNoNumber": "This prescription already has an open order. Place another one?",
+    "note": "Nothing has been placed yet. Go back if the caller is chasing the open order rather than placing a new one.",
+    "keep": "Go back",
+    "confirm": "Place anyway",
+    "working": "Placing…",
+    "failed": "The order could not be placed. It is still open — try again or go back."
   }
 }

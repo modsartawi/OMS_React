@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 1006
 blocked-by: 1007, BackOffice 4486, BackOffice 4487
 ---
@@ -71,3 +71,7 @@ Rail: on Wasfaty / Nphies an empty basket leaves the Items step green (D2) unles
 `NO_LINES`. The prescription row sits under Review. A switch to a prescription type opens the section
 until both fields are held; an uncommitted draft survives a switch away and back (the form stays mounted).
 Not driven here: the Nphies insurance store after the 994 store change (nothing new to draw; the walk, 1010).
+
+### 2026-11-28 — built (spec/1006-prescription-orders)
+
+Done on stubs against the proposed contract v1.15; the shape guesses above must be reconciled when the BackOffice tickets ship. Code review of the branch (9 findings) fixed in df551341. Drives green at df551341: prescription 65/65, `callcenter-drive.mjs` 531/531 (duplicate-prescription 44/0 and order-type 39/0 on the fix branch). The live proof is ticket 1010.

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 1006
 blocked-by: 1008, BackOffice 4488
 ---
@@ -54,3 +54,7 @@ by a synchronous ref as well as `isPending`, so a double click sends the token o
    sends its `belowAtp` token. `CONFIRM_TOKEN_STALE` / `CONFIRM_TOKEN_INVALID` re-send once without the
    token and re-ask with the re-issue notice, as the add and the rebind do.
 4. **Go back / Esc** send nothing; the next *Place order* is a new press with a new `requestId`.
+
+### 2026-11-28 — built (spec/1006-prescription-orders)
+
+Done on stubs against the proposed contract v1.15; the shape guesses above must be reconciled when the BackOffice tickets ship. Code review of the branch (9 findings) fixed in df551341. Drives green at df551341: prescription 65/65, `callcenter-drive.mjs` 531/531 (duplicate-prescription 44/0 and order-type 39/0 on the fix branch). The live proof is ticket 1010.

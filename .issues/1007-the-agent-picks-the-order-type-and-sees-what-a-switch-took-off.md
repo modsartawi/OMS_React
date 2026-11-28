@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 1006
 blocked-by: BackOffice 4485
 ---
@@ -56,3 +56,7 @@ Client half of spec 1006, decisions **D1**, **D10** and default **A**.
 
 Placement: the picker is the first field of the header ledger, beside Source and Ref. The top bar's
 *offers within reach* count is zero on a prescription order.
+
+### 2026-11-28 — built (spec/1006-prescription-orders)
+
+Done on stubs against the proposed contract v1.15; the shape guesses above must be reconciled when the BackOffice tickets ship. Code review of the branch (9 findings) fixed in df551341. Drives green at df551341: prescription 65/65, `callcenter-drive.mjs` 531/531 (duplicate-prescription 44/0 and order-type 39/0 on the fix branch). The live proof is ticket 1010.

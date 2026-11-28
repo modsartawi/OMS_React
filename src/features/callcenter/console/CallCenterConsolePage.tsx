@@ -124,6 +124,9 @@ import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submi
 import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
 import { rePinAfterEdit } from './address-book'
+import { isPrescriptionOrder } from './order-type'
+import PrescriptionForm from './PrescriptionForm'
+import { prescriptionRefusal, prescriptionSettled, type PrescriptionDraft } from './prescription'
 import type { AddressFormValues } from './address-capture'
 import AddressCards from './AddressCards'
 import AddressPicker from './AddressPicker'
@@ -315,6 +318,8 @@ function ConsoleSession() {
   /** The source + reference form, open or not (173). One flag for two chips:
    *  they collapse two fields of one act. */
   const [editingSource, setEditingSource] = useState(false)
+  /** 1008 — the patient ID + reference section (Wasfaty / Nphies only). */
+  const [editingPrescription, setEditingPrescription] = useState(false)
 
   /** The order note, open or not (183) — the note chip re-opening its own
    *  section. One free-text field, on one verb, like every other chip. */
@@ -665,6 +670,7 @@ function ConsoleSession() {
       setPickingSlot(false)
       setSlotLapsed(false)
       setEditingSource(false)
+      setEditingPrescription(false)
       // And a submit of a basket that no longer exists — including its order
       // number, which belongs to an order this agent is no longer on.
       setSubmitAction(null)
@@ -959,13 +965,49 @@ function ConsoleSession() {
       const removed = result.removed
       const any = (removed?.coupons?.length ?? 0) > 0 || (removed?.promotions ?? 0) > 0
       setOrderTypeRemoved(any ? { type: result.state.header.orderType ?? value, removed } : null)
+      // 1008 — a switch to Wasfaty or Nphies asks for what it now needs: the section opens until
+      // the order holds both the ID and the reference, then settles into its ledger field.
+      if (isPrescriptionOrder(result.state.header) && !prescriptionSettled(result.state.header))
+        openSection('prescription')
+      else if (!isPrescriptionOrder(result.state.header)) setEditingPrescription(false)
     },
     retry: false,
   })
+  // 🚩 `NO_INSURANCE_STORE_FOR_DISTRICT` (1008, spec 1006 D8) can arrive HERE as well as from the
+  // address flow: switching to Nphies with an address already set re-derives the store, and no
+  // address surface is open to word it.
+  const orderTypeErrorCode = orderType.error ? apiErrorCode(orderType.error) : null
   const orderTypeError = orderType.error
-    ? apiErrorCode(orderType.error) === 'ORDER_TYPE_NOT_OFFERED'
-      ? t('orderType.refused.ORDER_TYPE_NOT_OFFERED')
+    ? orderTypeErrorCode === 'ORDER_TYPE_NOT_OFFERED' || orderTypeErrorCode === 'NO_INSURANCE_STORE_FOR_DISTRICT'
+      ? t(`orderType.refused.${orderTypeErrorCode}`)
       : apiErrorMessage(orderType.error, t('orderType.failed'))
+    : null
+
+  /**
+   * The prescription (1008, spec 1006 D4) — `setPrescription`, ONE verb for the patient ID and the
+   * reference. The section settles (closes into its ledger field) once the order holds both; a
+   * refusal is worded under the field it names.
+   */
+  const prescription = useMutation({
+    mutationFn: (draft: PrescriptionDraft) => {
+      const requestId = newRequestId()
+      return runGuarded(() =>
+        callCenterApi.setPrescription(transactionId!, requestId, draft.patientId, draft.reference),
+      )
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      if (prescriptionSettled(fresh.header)) setEditingPrescription(false)
+    },
+    retry: false,
+  })
+  const prescriptionRefused = prescription.error ? prescriptionRefusal(apiErrorCode(prescription.error)) : null
+  const prescriptionError = prescription.error
+    ? prescriptionRefused
+      ? { field: prescriptionRefused.field, text: t(prescriptionRefused.key) }
+      : { field: null, text: apiErrorMessage(prescription.error, t('prescription.failed')) }
     : null
 
   /**
@@ -2181,11 +2223,12 @@ function ConsoleSession() {
    * the confirmation sheet, not to whichever chip was pressed after it.
    */
   const openSection = (
-    which: 'store' | 'slot' | 'source' | 'fulfilment' | 'payment' | 'coupon' | 'note',
+    which: 'store' | 'slot' | 'source' | 'prescription' | 'fulfilment' | 'payment' | 'coupon' | 'note',
   ) => {
     setPickingStore(which === 'store')
     setPickingSlot(which === 'slot')
     setEditingSource(which === 'source')
+    setEditingPrescription(which === 'prescription')
     setPickingFulfilment(which === 'fulfilment')
     setPickingPayment(which === 'payment')
     setPickingCoupon(which === 'coupon')
@@ -2199,6 +2242,9 @@ function ConsoleSession() {
         break
       case 'source':
         documentSource.reset()
+        break
+      case 'prescription':
+        prescription.reset()
         break
       case 'fulfilment':
         fulfilment.reset()
@@ -2488,6 +2534,22 @@ function ConsoleSession() {
           documentSource.reset()
         }}
       />
+      {/* 1008 — the patient ID and the reference. Mounted on every type so an uncommitted draft
+          survives a switch to a phone order and back (D10); only its section is hidden. */}
+      <PrescriptionForm
+        open={editingPrescription && isPrescriptionOrder(session.data.header)}
+        orderType={session.data.header.orderType ?? 'Ordinary'}
+        header={session.data.header}
+        apply={{
+          busy: prescription.isPending,
+          error: prescriptionError,
+          onCommit: (draft) => prescription.mutate(draft),
+        }}
+        onClose={() => {
+          setEditingPrescription(false)
+          prescription.reset()
+        }}
+      />
       {/* What the caller told the agent (183) — free text, and the one field on
           this header whose CLEARING is as much an act as its setting. */}
       <NoteForm
@@ -2691,6 +2753,7 @@ function ConsoleSession() {
           pickingStore ||
           pickingSlot ||
           editingSource ||
+          (editingPrescription && isPrescriptionOrder(session.data.header)) ||
           pickingFulfilment ||
           pickingPayment ||
           pickingCoupon ||
@@ -2871,6 +2934,7 @@ function ConsoleSession() {
         // order has no header left to capture.
         onChangeSlot={session.data.status === 'open' ? () => openSection('slot') : undefined}
         onChangeSource={session.data.status === 'open' ? () => openSection('source') : undefined}
+        onChangePrescription={session.data.status === 'open' ? () => openSection('prescription') : undefined}
         // Same rule again (183): there is no capability of its own for the note
         // (§2 lists none), and a submitted order has no header left to capture.
         onChangeNote={session.data.status === 'open' ? () => openSection('note') : undefined}

@@ -15,6 +15,8 @@
 import type { SessionState } from '@/core/models/callcenter'
 import { formatPair, formatRange } from '@/core/util/bidi'
 import { isPickup, paymentWordKey } from './fulfilment-view'
+import { isPrescriptionOrder } from './order-type'
+import { prescriptionSettled } from './prescription'
 import { submitBlockers, UNKNOWN_BLOCKER_KEY } from './submit-blockers'
 
 export type StepId = 'caller' | 'items' | 'fulfilment' | 'payment' | 'review'
@@ -37,6 +39,7 @@ export type CheckRowId =
   | 'slot'
   | 'source'
   | 'reference'
+  | 'prescription'
   | 'placed'
   | 'unknown'
 
@@ -95,6 +98,14 @@ const ROWS: {
     step: 'review',
     when: () => false,
   },
+  // 1008 (spec 1006 D4) — a Wasfaty / Nphies order's patient ID and reference. Drawn settled only
+  // once the order holds both, and never on a phone order.
+  {
+    id: 'prescription',
+    codes: ['prescription', 'MISSING_PRESCRIPTION'],
+    step: 'review',
+    when: (s) => isPrescriptionOrder(s.header) && prescriptionSettled(s.header),
+  },
   { id: 'placed', codes: ['ALREADY_SUBMITTED'], step: 'review', when: () => false },
 ]
 
@@ -127,7 +138,11 @@ export function stepRail(state: SessionState): RailStep[] {
   const pickup = isPickup(header)
 
   const callerMissing = missingOf('caller').length > 0 || !header.customer
-  const itemsMissing = missingOf('items').length > 0 || state.lines.length === 0
+  // 🚩 D2 (spec 1006): a Wasfaty or Nphies order may be placed with no items — the pharmacist
+  // completes it from the prescription — so there an empty basket is amber only when the server
+  // says so (`NO_LINES`).
+  const itemsMissing =
+    missingOf('items').length > 0 || (state.lines.length === 0 && !isPrescriptionOrder(header))
 
   const fulfilmentAnswer: RailSegment[] = []
   if (pickup) {

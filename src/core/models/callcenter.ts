@@ -87,6 +87,12 @@ export interface SetOrderTypeResult {
   removed: OrderTypeRemoved
 }
 
+/** 🚩 **PROPOSED v1.15 (spec 1006)** — `header.prescription`'s shape (ticket 1008 Comments). */
+export interface SessionPrescription {
+  patientId: string | null
+  reference: string | null
+}
+
 /** v1.1 (§2.2). Both modes are phase 1; the flip never moves the plant. */
 export type DeliveryType = 'Delivery' | 'PickInStore'
 
@@ -200,6 +206,13 @@ export interface SessionHeader {
   /** 🚩 **PROPOSED v1.15 (spec 1006)** — the order's type. Absent on a pre-1.15
    *  server, which a client reads as `Ordinary`. */
   orderType?: OrderType
+  /**
+   * 🚩 **PROPOSED v1.15 (spec 1006, BackOffice 4486)** — the patient's ID and the
+   * prescription reference (Wasfaty: the eRx number; Nphies: the PreAuthRef), set by
+   * `setPrescription`. Held on ANY type, so a switch keeps them; only Wasfaty and Nphies
+   * send them or block on them. Absent on a pre-1.15 server.
+   */
+  prescription?: SessionPrescription | null
   /** Any line added or re-frozen below availability — the BackOffice fraud signal. */
   hasBelowAtp: boolean
 }

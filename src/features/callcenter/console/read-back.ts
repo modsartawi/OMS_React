@@ -24,6 +24,8 @@ import type { SessionLine, SessionState } from '@/core/models/callcenter'
 import { formatPair, formatRange } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { isPickup, paymentWordKey } from './fulfilment-view'
+import { isPrescriptionOrder, orderTypeOf } from './order-type'
+import { prescriptionOf } from './prescription'
 import { receipt } from './receipt-view'
 
 export type ReadBackValue =
@@ -42,7 +44,7 @@ export interface ReadBackLine {
   name: string
 }
 
-export type ReadBackClauseId = 'items' | 'saving' | 'total' | 'where' | 'payment'
+export type ReadBackClauseId = 'type' | 'items' | 'saving' | 'total' | 'where' | 'payment'
 
 export interface ReadBackClause {
   id: ReadBackClauseId
@@ -69,6 +71,17 @@ export function readBack(state: SessionState, lang: string): ReadBackClause[] {
   const pickup = isPickup(header)
   const figures = receipt(state.totals, { delivering: !pickup })
   const clauses: ReadBackClause[] = []
+
+  // 1008 — a prescription order says what it is, and its reference (a machine value), first.
+  if (isPrescriptionOrder(header)) {
+    const type = orderTypeOf(header)
+    const reference = prescriptionOf(header).reference
+    clauses.push(
+      reference
+        ? { id: 'type', key: `readBack.type.${type}`, values: { reference: { kind: 'ltr', text: reference } } }
+        : { id: 'type', key: `readBack.type.${type}NoReference`, values: {} },
+    )
+  }
 
   if (state.lines.length > 0)
     clauses.push({

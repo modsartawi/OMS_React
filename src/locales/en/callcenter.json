@@ -156,7 +156,8 @@
       },
       "createFailed": "That address could not be added. Nothing has been saved — try again.",
       "updateFailed": "That correction could not be saved. The address is unchanged — try again."
-    }
+    },
+    "refusedNoInsuranceStore": "No insurance store serves that district, so this Nphies order cannot be sent to that address. Nothing has changed on this order — tell the caller now, and try another address."
   },
   "store": {
     "title": "Choose the fulfilment store",
@@ -216,7 +217,8 @@
       "payment": "Change how the caller pays",
       "note": "Add or change the order note",
       "coupon": "Add or remove a coupon",
-      "address": "Pick the delivery address from the caller's address book"
+      "address": "Pick the delivery address from the caller's address book",
+      "prescription": "Change the patient ID or the prescription reference"
     }
   },
   "sentence": {
@@ -250,7 +252,9 @@
     "addReference": "add a reference",
     "addCoupon": "+ coupon",
     "addNote": "+ note",
-    "quoted": "“<note/>”"
+    "quoted": "“<note/>”",
+    "prescription": "Prescription",
+    "addPrescription": "add the patient ID and reference"
   },
   "section": {
     "close": "Close this section",
@@ -561,7 +565,8 @@
     "MISSING_SOURCE_REFERENCE": "enter the source reference",
     "ALREADY_SUBMITTED": "this order has already been placed",
     "unknown": "something else this order needs — refresh it to see what changed",
-    "STORE_NOT_CHOSEN": "choose the fulfilment store"
+    "STORE_NOT_CHOSEN": "choose the fulfilment store",
+    "MISSING_PRESCRIPTION": "enter the patient ID and reference"
   },
   "money": {
     "currency": "SAR"
@@ -618,7 +623,8 @@
     "failed": "The payment type could not be changed. Nothing has changed on this order — try again.",
     "locked": {
       "PAYMENT_TYPE_FORCED": "This order must be paid online before it is dispatched, so the payment type cannot be changed.",
-      "unknown": "The payment type on this order cannot be changed."
+      "unknown": "The payment type on this order cannot be changed.",
+      "orderType": "Prescription orders are paid on delivery."
     }
   },
   "coupon": {
@@ -941,7 +947,8 @@
       "address": "Address picked",
       "store": "Store chosen",
       "slot": "Delivery slot chosen",
-      "source": "Document source set"
+      "source": "Document source set",
+      "prescription": "Patient ID and reference entered"
     }
   },
   "promotions": {
@@ -990,6 +997,12 @@
       "cashOnDelivery": "You pay cash on delivery.",
       "payOnCollection": "You pay when you collect.",
       "paidOnline": "You pay online."
+    },
+    "type": {
+      "Wasfaty": "It's a Wasfaty order, eRx number <reference/>.",
+      "Nphies": "It's an Nphies order, approval <reference/>.",
+      "WasfatyNoReference": "It's a Wasfaty order.",
+      "NphiesNoReference": "It's an Nphies order."
     }
   },
   "offer": {
@@ -1179,8 +1192,28 @@
       "sentence_other": "{{order}}: {{what}} were removed."
     },
     "refused": {
-      "ORDER_TYPE_NOT_OFFERED": "This seat cannot take that order type. Nothing was changed."
+      "ORDER_TYPE_NOT_OFFERED": "This seat cannot take that order type. Nothing was changed.",
+      "NO_INSURANCE_STORE_FOR_DISTRICT": "No insurance store serves this order's district, so it cannot be an Nphies order at this address. Nothing was changed."
     },
     "failed": "The order type was not changed."
+  },
+  "prescription": {
+    "title": "The prescription",
+    "patientId": "Patient ID",
+    "patientIdHint": "10 digits — the national ID or iqama number.",
+    "patientIdPlaceholder": "10 digits",
+    "reference": {
+      "Wasfaty": "eRx number",
+      "Nphies": "Approval / PreAuthRef",
+      "other": "Reference"
+    },
+    "referenceHint": "Saved when you leave the box or press Enter.",
+    "saving": "Saving…",
+    "close": "Close",
+    "refused": {
+      "PATIENT_ID_INVALID": "The patient ID is 10 digits. Check it with the caller.",
+      "REFERENCE_REQUIRED": "The reference is needed. Ask the caller to read it out."
+    },
+    "failed": "The prescription was not saved. Nothing has changed on this order — try again."
   }
 }

@@ -157,6 +157,11 @@ const REFUSAL_KEY: Record<string, string> = {
   // the ORDER is unchanged either way, and it is the order the agent is asking
   // about.
   NO_DELIVERY_STORE_FOR_DISTRICT: 'address.refusedNoDeliveryStore',
+  // 🚩 PROPOSED v1.15 (spec 1006 D8, default D): an Nphies delivery routes to the district's
+  // insurance store, and a district with none is refused the way a district with no store is.
+  // ⚠ The district greying (`district-choice.ts`) knows only the regular store, so such a
+  // district still looks pickable; the server's refusal is the guard.
+  NO_INSURANCE_STORE_FOR_DISTRICT: 'address.refusedNoInsuranceStore',
   // 🚩 Added by 188 (§6.5 rule 2). The console omits the delete control on the
   // row the order holds, so **its own UI should never provoke this** — it is
   // handled anyway, because the refusal is the guard and the omission is only

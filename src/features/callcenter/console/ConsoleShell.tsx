@@ -48,6 +48,7 @@ import { firedTotal, sheetApplied as appliedOnSheet } from './offer-sheet'
 import PromotionsPanel from './PromotionsPanel'
 import { OrderTypeBadge, OrderTypePicker, type OrderTypeActions } from './OrderTypePicker'
 import { orderTypeNotice } from './order-type'
+import { paymentLock } from './prescription'
 import { promotionsPanel, rememberDefinitions, type PromotionsPanel as PromotionsPanelView } from './promotions-panel'
 import HeaderSentence from './HeaderSentence'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
@@ -140,6 +141,7 @@ export default function ConsoleShell({
   onChangeStore,
   onChangeSlot,
   onChangeSource,
+  onChangePrescription,
   onChangeFulfilment,
   onChangePayment,
   onChangeCoupon,
@@ -212,6 +214,8 @@ export default function ConsoleShell({
    *  they collapse two fields of one section, and a reference belongs to the
    *  source it references. */
   onChangeSource?: () => void
+  /** 1008 — opens the patient ID + reference section. Absent once the order is not open. */
+  onChangePrescription?: () => void
   /** Opens the fulfilment choice (176) — *delivering, or collecting?*. Absent
    *  once the order is no longer open; the SHUT-GATE case is handled inside the
    *  header sentence off `capabilities`, because a delivery-only source is a different
@@ -421,7 +425,7 @@ export default function ConsoleShell({
           fulfilment: capabilityGate(state.capabilities, 'canChangeFulfilment').open
             ? onChangeFulfilment
             : undefined,
-          payment: capabilityGate(state.capabilities, 'canChangePaymentType').open
+          payment: paymentLock(state.header, state.capabilities).open
             ? onChangePayment
             : undefined,
           coupon: onChangeCoupon,
@@ -526,6 +530,7 @@ export default function ConsoleShell({
               slot: onChangeSlot,
               payment: onChangePayment,
               source: onChangeSource,
+              prescription: onChangePrescription,
               coupon: onChangeCoupon,
               note: onChangeNote,
             }}
@@ -622,6 +627,7 @@ const STEP_TARGETS: Record<RailStep['focus'], string[]> = {
   payment: ['[data-cc-chips] [data-cc-chip="payment"]', '[data-cc-chips]'],
   source: ['[data-cc-chips] [data-cc-chip="source"]', '[data-cc-chips]'],
   reference: ['[data-cc-chips] [data-cc-chip="reference"]', '[data-cc-chips]'],
+  prescription: ['[data-cc-chips] [data-cc-chip="prescription"]', '[data-cc-chips]'],
   review: ['#cc-checklist'],
   placed: ['#cc-checklist'],
   unknown: ['#cc-checklist'],

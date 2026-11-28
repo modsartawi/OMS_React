@@ -208,3 +208,36 @@ describe('theChecklistAndPlaceOrderAgree', () => {
             expect(has(locale, row.key), row.key).toBe(true)
   })
 })
+
+describe('a prescription order (1008, spec 1006 D2, D4)', () => {
+  const NPHIES: SessionState = {
+    ...READY,
+    lines: [],
+    header: { ...READY.header, orderType: 'Nphies', prescription: null },
+    capabilities: { ...READY.capabilities, submitBlockers: ['prescription'], canSubmit: false },
+  }
+  it('names the missing prescription on the checklist, in the blocker words', () => {
+    const rows = beforeYouPlace(NPHIES).rows.filter((row) => row.state === 'missing')
+    expect(rows.map((row) => [row.id, row.key, row.codes])).toEqual([
+      ['prescription', 'blockers.MISSING_PRESCRIPTION', ['prescription']],
+    ])
+    expect(rail(NPHIES).review.state).toBe('missing')
+  })
+  it('an empty basket is fine: the Items step stays green', () => {
+    expect(rail(NPHIES).items.state).toBe('done')
+    // …and on a phone order it is still amber.
+    expect(rail({ ...NPHIES, header: { ...NPHIES.header, orderType: 'Ordinary' } }).items.state).toBe('missing')
+  })
+  it('once both are held, the row says so; a phone order has no such row', () => {
+    const settled: SessionState = {
+      ...NPHIES,
+      header: { ...NPHIES.header, prescription: { patientId: '1023456789', reference: 'PA-1' } },
+      capabilities: { ...NPHIES.capabilities, submitBlockers: [] },
+    }
+    const row = beforeYouPlace(settled).rows.find((r) => r.id === 'prescription')
+    expect(row).toMatchObject({ state: 'done', key: 'checklist.done.prescription' })
+    expect(has(ar, 'checklist.done.prescription')).toBe(true)
+    const phone = { ...settled, header: { ...settled.header, orderType: 'Ordinary' } }
+    expect(beforeYouPlace(phone).rows.map((r) => r.id)).not.toContain('prescription')
+  })
+})

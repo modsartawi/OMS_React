@@ -27,6 +27,7 @@ import { formatPair } from '@/core/util/bidi'
 import { callCenterApi, MY_SOURCES_KEY } from './api'
 import { capabilityGate, isPickup } from './fulfilment-view'
 import type { HeaderSlotId } from './header-chips'
+import { paymentLock } from './prescription'
 import { headerSentence, SENTENCE_KEY, wordTag, type HeaderWord, type WordLook } from './header-sentence'
 
 /** What each word opens. A missing handler means the page will not let it open now
@@ -34,7 +35,7 @@ import { headerSentence, SENTENCE_KEY, wordTag, type HeaderWord, type WordLook }
 export type WordOpeners = Partial<Record<HeaderSlotId, () => void>>
 
 /** The words the ledger draws in mono: codes and IDs (359), never money or free text. */
-const MONO = new Set<HeaderSlotId>(['source', 'reference', 'coupon'])
+const MONO = new Set<HeaderSlotId>(['source', 'reference', 'prescription', 'coupon'])
 
 const LOOK: Record<WordLook, string> = {
   settled: 'border border-border-strong bg-card font-medium text-foreground',
@@ -245,7 +246,7 @@ function NoteText({ text }: { text: string }) {
 function HeaderNotes({ state, lapsed }: { state: SessionState; lapsed: boolean }) {
   const { t } = useTranslation('callcenter')
   const gate = capabilityGate(state.capabilities, 'canChangeFulfilment')
-  const payGate = capabilityGate(state.capabilities, 'canChangePaymentType')
+  const payGate = paymentLock(state.header, state.capabilities)
   /**
    * 🚩 **The retained address is the SERVER'S to say** (176, contract v1.8). Under
    * `PickInStore` the address leaves the projection, but the sidecar keeps it and a
@@ -288,12 +289,12 @@ function HeaderNotes({ state, lapsed }: { state: SessionState; lapsed: boolean }
           })}
         </p>
       )}
-      {/* ⚠ Unreachable in phase 1 and implemented anyway (§2.4). */}
+      {/* Reachable since 1008: a Wasfaty or Nphies order is cash on delivery, locked (spec 1006
+          D6). `paymentLock` reads both wire paths and words a prescription order's lock as
+          *paid on delivery*, never the generic *paid online*. */}
       {!payGate.open && (
         <p className="text-[11px] text-muted-foreground" data-cc-payment-locked={payGate.reason ?? ''}>
-          {t(payGate.reason ? `payment.locked.${payGate.reason}` : 'payment.locked.unknown', {
-            defaultValue: t('payment.locked.unknown'),
-          })}
+          {t(payGate.key)}
         </p>
       )}
     </>

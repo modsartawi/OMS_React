@@ -16,13 +16,15 @@ import type { SessionCapabilities, SessionHeader } from '@/core/models/callcente
 import { formatPair, formatRange } from '@/core/util/bidi'
 import { couponChipValue } from './coupon-view'
 import { isPickup, paymentWordKey } from './fulfilment-view'
+import { isPrescriptionOrder } from './order-type'
+import { prescriptionOf, prescriptionSettled } from './prescription'
 import { blockedChips } from './submit-blockers'
 
 export type ChipState = 'settled' | 'needsAttention' | 'unset'
 
 export interface HeaderChip {
   /** Stable id — the i18n key suffix and the drive's handle on the chip. */
-  id: 'fulfilment' | 'store' | 'slot' | 'source' | 'reference' | 'payment' | 'coupon' | 'note'
+  id: 'fulfilment' | 'store' | 'slot' | 'source' | 'reference' | 'prescription' | 'payment' | 'coupon' | 'note'
   state: ChipState
   /**
    * Server-supplied text (a store name, a slot label). Null renders the chip's
@@ -96,6 +98,7 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
   const slot = header.slot
   const pickup = isPickup(header)
   const payment = paymentWordKey(header)
+  const held = prescriptionOf(header)
 
   return [
     // 🚩 **First, and always settled** (176). The mode is the question the agent
@@ -120,6 +123,9 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // reference beside it (spec 380 C6).
     chip('source', header.documentSource, { ltr: true }),
     chip('reference', header.sourceReference, { ltr: true }),
+    // 1008 (spec 1006 D4) — the patient ID and the reference, settled only once BOTH are held.
+    // Two machine values said as one `id · reference` pair, isolated once (bidi rule).
+    chip('prescription', prescriptionSettled(header) ? formatPair(held.patientId, held.reference) : null, { ltr: true }),
     // 155 — settled and collapsed. It has a real default and no `submitBlocker`,
     // so it is a fact the agent confirms in one spoken question, not an
     // outstanding field. Its WORD follows the mode; its value never does.
@@ -155,6 +161,9 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // (capture 09), so a slot chip here would be the console asking for
     // something nothing will ever wait on.
     if (entry.id === 'slot' && pickup) return false
+    // 1008 — the prescription is a Wasfaty / Nphies field. On a phone order it is hidden, not
+    // cleared: the server keeps it, and the next switch shows it again (D10).
+    if (entry.id === 'prescription' && !isPrescriptionOrder(header)) return false
     // A `paymentType` the client cannot word (a future `Receivable`) draws no
     // chip rather than a chip saying nothing — degrade, never throw (§9).
     if (entry.id === 'payment' && !payment) return false

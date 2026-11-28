@@ -899,6 +899,21 @@ export const callCenterApi = {
   },
 
   /**
+   * 🚩 **PROPOSED v1.15 (spec 1006 D4, BackOffice 4486)** — `POST CallCenterWeb/SetPrescription`
+   * → the whole `SessionState`. The patient's ID and the reference, ONE verb for both, accepted on
+   * any type (so a switch keeps them). Refuses `PATIENT_ID_INVALID` (not 10 digits) and
+   * `REFERENCE_REQUIRED`. Path, body and answer are this console's guess — ticket 1008 Comments.
+   */
+  setPrescription(
+    transactionId: string,
+    requestId: string,
+    patientId: string,
+    reference: string,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetPrescription', { transactionId, requestId, patientId, reference })
+  },
+
+  /**
    * `POST CallCenterWeb/SetDocumentSource` → the whole `SessionState` (law 2) —
    * how the order is traced back to the campaign or system that produced the
    * call.

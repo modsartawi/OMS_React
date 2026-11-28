@@ -146,3 +146,28 @@ describe('theTotalIsThePayable', () => {
     expect(clauses).toContain('readBack.saving amount=money:7')
   })
 })
+
+describe('a prescription order says its type and reference (1008)', () => {
+  it('Wasfaty, with the eRx number as a machine value, first', () => {
+    const wasfaty = {
+      ...DELIVER,
+      header: { ...DELIVER.header, orderType: 'Wasfaty', prescription: { patientId: '1023456789', reference: 'ERX-77' } },
+    }
+    expect(sentence(wasfaty)[0]).toBe('readBack.type.Wasfaty reference=ltr:ERX-77')
+  })
+  it('Nphies with no reference yet says only the type', () => {
+    const nphies = { ...DELIVER, header: { ...DELIVER.header, orderType: 'Nphies', prescription: null } }
+    expect(sentence(nphies)[0]).toBe('readBack.type.NphiesNoReference')
+  })
+  it('a phone order says no type', () => {
+    expect(sentence(DELIVER).some((c) => c.startsWith('readBack.type'))).toBe(false)
+  })
+  it('every type key is in en and ar', () => {
+    const lookup = (json: unknown, key: string) =>
+      key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], json)
+    for (const k of ['Wasfaty', 'Nphies', 'WasfatyNoReference', 'NphiesNoReference']) {
+      expect(typeof lookup(en, `readBack.type.${k}`)).toBe('string')
+      expect(typeof lookup(ar, `readBack.type.${k}`)).toBe('string')
+    }
+  })
+})

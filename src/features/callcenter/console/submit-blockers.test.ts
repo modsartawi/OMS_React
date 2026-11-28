@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import callcenter from '@/locales/en/callcenter.json'
+import ar from '@/locales/ar/callcenter.json'
 import { EMPTY_SESSION } from './__fixtures__/payloads'
 import { headerChips } from './header-chips'
 import { blockedChips, submitBlockers, UNKNOWN_BLOCKER_KEY } from './submit-blockers'
@@ -124,5 +125,28 @@ describe('submitBlockers', () => {
       'slot',
       'reference',
     ])
+  })
+})
+
+describe('the prescription blocker (1008, spec 1006 D4)', () => {
+  // ⚠ The spec spells it `prescription`; every other code is UPPER_SNAKE. Both spellings are
+  // read as one fact until BackOffice 4486 pins it (ticket 1008 Comments).
+  it('words both spellings as one phrase, owned by the prescription field', () => {
+    for (const code of ['prescription', 'MISSING_PRESCRIPTION']) {
+      const [blocker] = submitBlockers([code])
+      expect(blocker.key).toBe('blockers.MISSING_PRESCRIPTION')
+      expect(blocker.chip).toBe('prescription')
+    }
+    expect(submitBlockers(['prescription', 'MISSING_PRESCRIPTION'])).toHaveLength(1)
+  })
+  it('says it in en and ar', () => {
+    expect(phrase('blockers.MISSING_PRESCRIPTION')).toBe('enter the patient ID and reference')
+    expect((ar as unknown as Record<string, Record<string, string>>).blockers.MISSING_PRESCRIPTION).toBeTruthy()
+  })
+  it('marks the prescription field on a Wasfaty order, and no chip on a phone order', () => {
+    const wasfaty = { ...EMPTY_SESSION.header, orderType: 'Wasfaty' }
+    const blocked = { ...EMPTY_SESSION.capabilities, submitBlockers: ['prescription'] }
+    expect(headerChips(wasfaty, blocked).find((c) => c.id === 'prescription')?.state).toBe('needsAttention')
+    expect(headerChips(EMPTY_SESSION.header, blocked).some((c) => c.id === 'prescription')).toBe(false)
   })
 })

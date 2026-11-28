@@ -12,7 +12,7 @@
  *   `‹Deliver› to ‹address› for ‹caller› from ‹store› at ‹window›, ‹payment›.` or
  *   `‹Collect› from ‹store› for ‹caller›, ‹payment›.` A mode flip rewrites it: the address
  *   and the window leave, and the store becomes a control (176's "absent, not disabled").
- * - **Line 2, the ledger:** Source · Ref · Coupon · Note as labelled fields — what the agent
+ * - **Line 2, the ledger:** (Prescription ·) Source · Ref · Coupon · Note as labelled fields — what the agent
  *   logs, not what they say to the caller.
  *
  * The words' ORDER on screen is the translation's, not this module's: each shape is one
@@ -23,6 +23,7 @@ import type { SessionState, SessionAddress } from '@/core/models/callcenter'
 import { formatPair } from '@/core/util/bidi'
 import { capabilityGate, isPickup } from './fulfilment-view'
 import { headerChips, type ChipState, type HeaderChip, type HeaderSlotId } from './header-chips'
+import { paymentLock } from './prescription'
 import { blockedChips } from './submit-blockers'
 
 export type SentenceShape = 'delivery' | 'collection'
@@ -154,7 +155,8 @@ export function headerSentence(state: SessionState): HeaderSentence {
   // 🚩 A shut gate turns the word into a readout (C4), and its reason is said once,
   // under the sentence. The mode chip is always settled, so this is its only other look.
   const modeGate = capabilityGate(capabilities, 'canChangeFulfilment')
-  const payGate = capabilityGate(capabilities, 'canChangePaymentType')
+  // 1008 — both wire paths: `canChangePaymentType: false` or the header's forced reason.
+  const payGate = paymentLock(header, capabilities)
 
   const mode = fromChip(chips.fulfilment!, 'sentence.unworded', {
     readout: !modeGate.open,
@@ -192,6 +194,8 @@ export function headerSentence(state: SessionState): HeaderSentence {
     shape: pickup ? 'collection' : 'delivery',
     words,
     ledger: [
+      // 1008 — a Wasfaty / Nphies order's patient ID and reference lead the ledger, beside the type.
+      ...(chips.prescription ? [fromChip(chips.prescription, 'ledger.addPrescription')] : []),
       fromChip(chips.source!, 'ledger.chooseSource'),
       fromChip(chips.reference!, 'ledger.addReference'),
       fromChip(chips.coupon!, 'ledger.addCoupon'),

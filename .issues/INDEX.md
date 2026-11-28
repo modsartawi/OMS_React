@@ -1651,3 +1651,11 @@ From the 2026-11-27 production walk: three columns with the caller first, a step
 - [999](999-promotion-sweep-every-live-offer-shape-through-the-console.md) — Promotion sweep: every live offer shape through the console · **needs-triage** (2026-11-28) · 915 offers / 36 shapes; 15/15 what-if fires confirmed and undone; found BackOffice 4463 (fixed) and group wording (fixed); open: dominated near-misses (owner decision), fixed-price and coupon wording → server-side wording
 - [1000](1000-a-search-row-says-the-items-material-status.md) — A search row says the item's material status (badge for anything but AVAILABLE) · **done 2026-11-28** · blocked by: BackOffice 4464
 
+
+## Store hierarchy board and duty page (BackOffice spec 4456, filed 2026-11-28)
+
+- [1001](1001-the-hierarchy-board-shows-the-company-tree-read-only.md) — The hierarchy board shows the company tree, read-only · **open** · blocked by: BackOffice 4468
+- [1002](1002-the-hierarchy-board-moves-stores-and-people-with-the-oms-preview.md) — The hierarchy board moves stores and people, with the OMS preview, one dialog per action · **open** · blocked by: BackOffice 4469, 4470, 4471, 4472, 4474
+- [1003](1003-the-duty-page-shows-a-stores-rosters-week-and-resulting-hours.md) — The duty page shows a store's rosters, week and resulting hours, and a duty administrator writes directly · **open** · blocked by: BackOffice 4476
+- [1004](1004-a-supervisor-proposes-and-a-senior-decides-from-awaiting-me.md) — A supervisor proposes hours and a senior decides from Awaiting me; the missing list confirms period hours · **open** · blocked by: BackOffice 4479
+- [1005](1005-the-calendar-and-administration-tabs.md) — The duty administrator keeps the calendar and the chain from the Calendar and Administration tabs · **open** · blocked by: BackOffice 4477, 4480

@@ -124,7 +124,7 @@ import { readSubmitFailure, readSubmitResult, type SubmitFailure, type SubmitOut
 import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
 import { rePinAfterEdit } from './address-book'
-import { isPrescriptionOrder } from './order-type'
+import { isPrescriptionOrder, orderTypeErrorStands, type OrderPoint } from './order-type'
 import PrescriptionForm from './PrescriptionForm'
 import { prescriptionRefusal, prescriptionSettled, type PrescriptionDraft } from './prescription'
 import type { AddressFormValues } from './address-capture'
@@ -133,7 +133,13 @@ import AddressPicker from './AddressPicker'
 import { showsCheck } from './short-address-check'
 import BelowAtpConfirm from './BelowAtpConfirm'
 import ActivePrescriptionConfirm from './ActivePrescriptionConfirm'
-import { placeAnyway, submitAsk, type ActivePrescriptionAsk, type SubmitPress } from './active-prescription'
+import {
+  nextSubmitPress,
+  placeAnyway,
+  submitAsk,
+  type ActivePrescriptionAsk,
+  type SubmitPress,
+} from './active-prescription'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell, { type SwallowedCommit } from './ConsoleShell'
@@ -381,6 +387,9 @@ function ConsoleSession() {
    *  Held here because it is the verb's answer, not a projection field: a later state carries
    *  nothing about it. Cleared on dismiss, on the next switch and with the order. */
   const [orderTypeRemoved, setOrderTypeRemoved] = useState<{ type: OrderType; removed: OrderTypeRemoved } | null>(null)
+  /** Review finding 5 — the order and version the last `setOrderType` was sent on: its refusal is
+   *  about that point, and is retired by a fresh order or any change that moves the version. */
+  const [orderTypeSentOn, setOrderTypeSentOn] = useState<OrderPoint | null>(null)
   /** How many adds have landed on the basket this console life. The search
    *  panel's signal to put its rows away — a question that has been answered. */
   const [addsLanded, setAddsLanded] = useState(0)
@@ -637,8 +646,9 @@ function ConsoleSession() {
       setResumedId(null)
       setOpenedId(null)
       setAbandoning(null)
-      // 1007: a switch notice is about the order that just ended.
+      // 1007: a switch notice is about the order that just ended — and so is a refusal.
       setOrderTypeRemoved(null)
+      setOrderTypeSentOn(null)
       // A rebind is about a basket that no longer exists — the preview, the
       // token and the refusal go with it.
       setMove(null)
@@ -680,7 +690,7 @@ function ConsoleSession() {
       // …and a duplicate-prescription ask about it (1009).
       setPrescriptionAsk(null)
       setSubmitReissue(null)
-      setSubmitUnconfirmable(false)
+      setSubmitUnconfirmableAt(null)
       colliders.current = 0
       setColliding(null)
       setStalled(null)
@@ -962,6 +972,9 @@ function ConsoleSession() {
     mutationFn: (value: OrderType) => {
       const requestId = newRequestId()
       setOrderTypeRemoved(null)
+      setOrderTypeSentOn(
+        transactionId && session.data ? { transactionId, version: session.data.version } : null,
+      )
       return runGuarded(() => callCenterApi.setOrderType(transactionId!, requestId, value))
     },
     onSuccess: (result, value) => {
@@ -982,8 +995,14 @@ function ConsoleSession() {
   // 🚩 `NO_INSURANCE_STORE_FOR_DISTRICT` (1008, spec 1006 D8) can arrive HERE as well as from the
   // address flow: switching to Nphies with an address already set re-derives the store, and no
   // address surface is open to word it.
-  const orderTypeErrorCode = orderType.error ? apiErrorCode(orderType.error) : null
-  const orderTypeError = orderType.error
+  const orderTypeErrorShown =
+    !!orderType.error &&
+    orderTypeErrorStands(
+      orderTypeSentOn,
+      transactionId && session.data ? { transactionId, version: session.data.version } : null,
+    )
+  const orderTypeErrorCode = orderTypeErrorShown ? apiErrorCode(orderType.error) : null
+  const orderTypeError = orderTypeErrorShown
     ? orderTypeErrorCode === 'ORDER_TYPE_NOT_OFFERED' || orderTypeErrorCode === 'NO_INSURANCE_STORE_FOR_DISTRICT'
       ? t(`orderType.refused.${orderTypeErrorCode}`)
       : apiErrorMessage(orderType.error, t('orderType.failed'))
@@ -1473,8 +1492,12 @@ function ConsoleSession() {
    */
   const [prescriptionAsk, setPrescriptionAsk] = useState<ActivePrescriptionAsk | null>(null)
   const [submitReissue, setSubmitReissue] = useState<PreviewReissue | null>(null)
-  /** A `confirmationRequired` answer this console could not state — never drawn as placed. */
-  const [submitUnconfirmable, setSubmitUnconfirmable] = useState(false)
+  /**
+   * A `confirmationRequired` answer this console could not state — never drawn as placed. Held as
+   * the order version it was answered on, so a correction (which moves the version) retires it the
+   * way it retires a refusal.
+   */
+  const [submitUnconfirmableAt, setSubmitUnconfirmableAt] = useState<number | null>(null)
   /** 🚩 The synchronous guard on *Place anyway*: a double click can land two events before the
    *  mutation's `isPending` has re-rendered the button disabled, and the token must go once. */
   const committingSubmit = useRef(false)
@@ -1492,7 +1515,7 @@ function ConsoleSession() {
     // The last attempt's news belongs to the last attempt.
     onMutate: () => {
       setPlaced(null)
-      setSubmitUnconfirmable(false)
+      setSubmitUnconfirmableAt(null)
     },
     onSettled: () => {
       committingSubmit.current = false
@@ -1514,7 +1537,7 @@ function ConsoleSession() {
       setSubmitReissue(null)
       if (answer.outcome === 'confirmationRequired' || !answer.documentNo) {
         // An ask this console cannot state: nothing was minted, and saying so beats silence.
-        setSubmitUnconfirmable(true)
+        setSubmitUnconfirmableAt(action.version)
         return
       }
       const result = answer
@@ -1582,12 +1605,14 @@ function ConsoleSession() {
    * — and either way a refusal about an order that has since changed must not be
    * waiting at the foot of the receipt.
    */
+  const submitFailed = submit.isError && !!submitAction && session.data?.version === submitAction.version
+  const submitUnconfirmable = submitUnconfirmableAt !== null && session.data?.version === submitUnconfirmableAt
   const submitFailure: SubmitFailure | null =
     // 🚩 Silent while the duplicate-prescription sheet is open (1009): a failed commit is named IN
     // the sheet, and one refusal in two voices is the thing 167 settled.
     prescriptionAsk
       ? null
-      : submit.isError && submitAction && session.data?.version === submitAction.version
+      : submitFailed
         ? readSubmitFailure(submit.error, t('submit.failed'))
         : submitUnconfirmable
           ? { kind: 'failed', message: t('submit.notConfirmable'), retryable: false, orderOpen: true, field: null }
@@ -1606,9 +1631,14 @@ function ConsoleSession() {
    * one attempt rather than as several.
    */
   const placeOrder = () => {
-    const action: SubmitPress = submitFailure
-      ? repreviewing(submitAction!)
-      : { requestId: newRequestId(), version: session.data?.version ?? -1 }
+    // 🚩 An unconfirmable answer mints a fresh id (review finding 2): its own id is cached server
+    // side, and re-sending it would replay the same unanswerable question forever.
+    const action = nextSubmitPress(
+      submitAction,
+      !prescriptionAsk && submitFailed ? 'failed' : submitUnconfirmable ? 'unconfirmable' : null,
+      session.data?.version ?? -1,
+      newRequestId,
+    )
     setSubmitAction(action)
     submit.mutate(action)
   }

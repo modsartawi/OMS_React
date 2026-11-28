@@ -38,9 +38,24 @@ export function isPrescriptionOrder(header: SessionHeader): boolean {
  * shows an order in a type it does not name. A type this console cannot word is dropped.
  */
 export function offeredOrderTypes(capabilities: SessionCapabilities, header: SessionHeader): KnownOrderType[] {
-  const offered = new Set<string>([...(capabilities.orderTypes ?? []), ...(header.orderType ? [header.orderType] : [])])
+  const offered = new Set<string>([...(capabilities.orderTypes ?? []), orderTypeOf(header)])
   const options = KNOWN_ORDER_TYPES.filter((type) => offered.has(type))
   return options.length < 2 ? [] : options
+}
+
+/** Where on which order a `setOrderType` call was made: the order and its version. */
+export interface OrderPoint {
+  transactionId: string
+  version: number
+}
+
+/**
+ * Whether a `setOrderType` refusal is still about the order on screen. 🚩 It is about the order
+ * and the version it was raised on: a fresh order, or any change that moves the version (an
+ * address that now has an insurance store), retires it.
+ */
+export function orderTypeErrorStands(raisedOn: OrderPoint | null, now: OrderPoint | null): boolean {
+  return !!raisedOn && !!now && raisedOn.transactionId === now.transactionId && raisedOn.version === now.version
 }
 
 /** The type's word in the picker and on the badge. */

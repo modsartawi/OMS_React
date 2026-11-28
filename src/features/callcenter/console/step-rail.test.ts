@@ -228,6 +228,15 @@ describe('a prescription order (1008, spec 1006 D2, D4)', () => {
     // …and on a phone order it is still amber.
     expect(rail({ ...NPHIES, header: { ...NPHIES.header, orderType: 'Ordinary' } }).items.state).toBe('missing')
   })
+  // Review finding 6: "Items added" over an empty basket is a claim the basket contradicts.
+  it('an empty basket is worded as the pharmacist’s to complete, never as items added', () => {
+    const row = beforeYouPlace(NPHIES).rows.find((r) => r.id === 'items')
+    expect(row).toMatchObject({ state: 'done', key: 'checklist.done.itemsByPharmacist' })
+    expect(lookup(callcenter, 'checklist.done.itemsByPharmacist')).toBe('No items — the pharmacist completes it')
+    expect(has(ar, 'checklist.done.itemsByPharmacist')).toBe(true)
+    const withLines = { ...NPHIES, lines: READY.lines }
+    expect(beforeYouPlace(withLines).rows.find((r) => r.id === 'items')).toMatchObject({ key: 'checklist.done.items' })
+  })
   it('once both are held, the row says so; a phone order has no such row', () => {
     const settled: SessionState = {
       ...NPHIES,

@@ -72,7 +72,12 @@ export default function PrescriptionForm({
     commit('enter')
   }
   const fieldError = (field: 'patientId' | 'reference') =>
-    apply.error?.field === field ? <span data-cc-prescription-error={field}>{apply.error.text}</span> : undefined
+    // Possibly the server's own words, so isolated as free text (bidi rule), as `OrderTypePicker` does.
+    apply.error?.field === field ? (
+      <span data-cc-prescription-error={field}>
+        <bdi>{apply.error.text}</bdi>
+      </span>
+    ) : undefined
 
   return (
     <ChipSection
@@ -133,7 +138,7 @@ export default function PrescriptionForm({
         </Field>
         {apply.error && apply.error.field === null && (
           <p className={`${NOTE.danger} sm:col-span-2`} data-cc-prescription-error="">
-            {apply.error.text}
+            <bdi>{apply.error.text}</bdi>
           </p>
         )}
       </div>

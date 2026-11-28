@@ -399,6 +399,7 @@ export default function ConsoleShell({
     paletteCommands({
       guidance,
       capabilities: state.capabilities,
+      header: state.header,
       hasCaller: state.header.customer != null,
       // Read for one sentence: *Change store* is refused on a delivery order
       // for a reason no capability carries, and the row borrows the store

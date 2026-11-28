@@ -13,7 +13,7 @@ import en from '@/locales/en/callcenter.json'
 import ar from '@/locales/ar/callcenter.json'
 import type { SubmitAnswer } from '@/core/models/callcenter'
 import { ATTACHED_SESSION, BELOW_ATP_CONFIRM, SUBMIT_PLACED } from './__fixtures__/payloads'
-import { activePrescriptionCopy, placeAnyway, submitAsk } from './active-prescription'
+import { activePrescriptionCopy, nextSubmitPress, placeAnyway, submitAsk } from './active-prescription'
 
 const instance = i18next.createInstance()
 instance.init({
@@ -50,6 +50,13 @@ describe('submitAsk — reading the duplicate-prescription ask off a submit answ
 
   it('answers null for a placed order', () => {
     expect(submitAsk(SUBMIT_PLACED)).toBeNull()
+  })
+
+  // Review finding 3: a placed answer is never a question, whatever its state still carries.
+  it('answers null for a placed answer whose state still carries the ask', () => {
+    const placed: SubmitAnswer = { outcome: 'submitted', documentNo: '0090022222', state: ASKED.state }
+    expect(submitAsk(placed)).toBeNull()
+    expect(submitAsk({ ...placed, outcome: 'alreadySubmitted' })).toBeNull()
   })
 
   it("answers null for someone else's kind of confirmation", () => {
@@ -115,5 +122,25 @@ describe('placeAnyway — the token is sent exactly once', () => {
 
   it('sends nothing with no press behind the ask', () => {
     expect(placeAnyway(null, ask, false)).toBeNull()
+  })
+})
+
+// Review finding 2: an unconfirmable answer is cached under its requestId, so re-sending that id
+// replays it forever. Only a failure that may have landed keeps the id.
+describe('nextSubmitPress — which id the next press of Place order carries', () => {
+  const last = { requestId: 'REQ-1', version: 7, confirmToken: 'TOKEN-RX-1' }
+  const mint = () => 'REQ-NEW'
+
+  it('re-sends the same id, without a token, after a failure that may have landed', () => {
+    expect(nextSubmitPress(last, 'failed', 7, mint)).toEqual({ requestId: 'REQ-1', version: 7 })
+  })
+
+  it('mints a fresh id after an answer the console could not confirm', () => {
+    expect(nextSubmitPress(last, 'unconfirmable', 7, mint)).toEqual({ requestId: 'REQ-NEW', version: 7 })
+  })
+
+  it('mints a fresh id, at the current version, with nothing standing', () => {
+    expect(nextSubmitPress(last, null, 9, mint)).toEqual({ requestId: 'REQ-NEW', version: 9 })
+    expect(nextSubmitPress(null, 'failed', 9, mint)).toEqual({ requestId: 'REQ-NEW', version: 9 })
   })
 })

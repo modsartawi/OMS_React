@@ -81,9 +81,19 @@ const ROWS: {
   codes: string[]
   step: StepId
   when: (state: SessionState) => boolean
+  /** The settled row's words, where they depend on the order; `checklist.done.<id>` otherwise. */
+  doneKey?: (state: SessionState) => string
 }[] = [
   { id: 'caller', codes: ['NO_CUSTOMER'], step: 'caller', when: () => true },
-  { id: 'items', codes: ['NO_LINES'], step: 'items', when: () => true },
+  // 🚩 Review finding 6: drawn settled only over lines — "Items added" over an empty basket is a
+  // claim it contradicts. A prescription order may go with none (D2), and its row says so.
+  {
+    id: 'items',
+    codes: ['NO_LINES'],
+    step: 'items',
+    when: (s) => s.lines.length > 0 || isPrescriptionOrder(s.header),
+    doneKey: (s) => (s.lines.length > 0 ? 'checklist.done.items' : 'checklist.done.itemsByPharmacist'),
+  },
   { id: 'address', codes: ['NO_ADDRESS'], step: 'fulfilment', when: (s) => !isPickup(s.header) },
   { id: 'store', codes: ['STORE_NOT_CHOSEN'], step: 'fulfilment', when: () => true },
   { id: 'slot', codes: ['MISSING_SLOT'], step: 'fulfilment', when: (s) => !isPickup(s.header) },
@@ -121,7 +131,7 @@ export function beforeYouPlace(state: SessionState): Checklist {
       // The receipt's own phrase for the code (one fact, one sentence).
       rows.push({ id: row.id, state: 'missing', key: submitBlockers(carried)[0].key, codes: carried, step: row.step })
     } else if (row.when(state)) {
-      rows.push({ id: row.id, state: 'done', key: `checklist.done.${row.id}`, codes: [], step: row.step })
+      rows.push({ id: row.id, state: 'done', key: row.doneKey?.(state) ?? `checklist.done.${row.id}`, codes: [], step: row.step })
     }
   }
   const unknown = codes.filter((code) => !KNOWN.has(code))

@@ -16,7 +16,10 @@
 //   C. the fields stay filled in across a switch to a phone order and back — a committed pair and
 //      an uncommitted draft;
 //   D. `NO_INSURANCE_STORE_FOR_DISTRICT` on a switch is worded on the picker; a waived fee shows;
-//   E. under Arabic, the blocker and the lock reason are Arabic.
+//   E. under Arabic, the blocker and the lock reason are Arabic;
+//   F. (review finding 1) a committed pair does not reach the next order after an abandon;
+//   G. (review finding 5) a switch refusal is retired by a change that moves the order's version,
+//      and by an abandon and a fresh order.
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { permissions } from './permissions-stub.mjs'
@@ -101,7 +104,7 @@ const NPHIES = derive({
 
 const browser = await chromium.launch()
 
-async function open({ openState, locale = 'en', switchRefusal = null }) {
+async function open({ openState, locale = 'en', switchRefusal = null, nextOrder = null }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -135,6 +138,11 @@ async function open({ openState, locale = 'en', switchRefusal = null }) {
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
       )
     if (p === 'Auth/Permissions') return route.fulfill(permissions(['CallCenter:03']))
+    if (p === 'CallCenterWeb/Abandon') {
+      const ended = served.transactionId
+      if (nextOrder) served = nextOrder
+      return route.fulfill(envelope({ outcome: 'abandoned', transactionId: ended }))
+    }
     if (p === 'CallCenterWeb/Open') return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
     if (p === 'CallCenterWeb/MyDocumentSources')
@@ -157,7 +165,11 @@ async function open({ openState, locale = 'en', switchRefusal = null }) {
   await page.goto(`${BASE}/callcenter`)
   await page.locator('[data-cc-console]').waitFor({ timeout: 20_000 })
   await page.waitForLoadState('networkidle')
-  return { context, page, errors, wire }
+  /** The server moves the order on behind the console (a second tab's address change). */
+  const moveOn = () => {
+    served = bump(served)
+  }
+  return { context, page, errors, wire, moveOn }
 }
 
 const text = async (page, selector) => ((await page.locator(selector).first().innerText()) ?? '').replace(/\s+/g, ' ')
@@ -320,6 +332,75 @@ async function pick(page, type) {
   check('the ID box reads left-to-right', (await attr(page, '[data-cc-prescription-id]', 'dir')) === 'ltr')
   await page.locator('[data-cc-prescription-id]').fill('١٠٢٣٤٥٦٧٨٩')
   check('Arabic-Indic digits are read as digits', (await page.locator('[data-cc-prescription-id]').inputValue()) === '1023456789')
+  check('no console errors', errors.length === 0, errors[0] ?? '')
+  await context.close()
+}
+
+const NEXT_ID = 'TX-NEXT-ORDER-0001'
+const NEXT_NPHIES = { ...NPHIES, transactionId: NEXT_ID, version: 1, etag: 'next-1' }
+
+async function abandon(page) {
+  await page.locator('[data-cc-abandon]').click()
+  await page.locator('[data-cc-abandon-confirm]').click()
+  // The old order's console leaves before the next one's arrives.
+  await page.locator('[data-cc-console]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+  await settle(page)
+  await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+  await settle(page)
+}
+
+// ---- F. the next order starts with empty boxes (review finding 1) ----
+{
+  console.log('\nF. a committed pair does not reach the next order')
+  const { context, page, errors } = await open({ openState: NPHIES, nextOrder: NEXT_NPHIES })
+  await page.locator('[data-cc-chip-open="prescription"]').click()
+  await page.locator('[data-cc-prescription-id]').fill('1023456789')
+  await page.locator('[data-cc-prescription-reference]').fill('PA-1')
+  await page.locator('[data-cc-prescription-reference]').blur()
+  await settle(page)
+  await page.locator('[data-cc-section="prescription"]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+  check('the first order holds the pair', strip(await text(page, '[data-cc-ledger] [data-cc-chip="prescription"]')).includes('1023456789 · PA-1'))
+  await abandon(page)
+  check('the next order is on screen', (await page.locator('[data-cc-console]').count()) === 1)
+  if ((await count(page, '[data-cc-section="prescription"]')) === 0)
+    await page.locator('[data-cc-chip-open="prescription"]').click()
+  check(
+    'its boxes are empty',
+    (await page.locator('[data-cc-prescription-id]').inputValue()) === '' &&
+      (await page.locator('[data-cc-prescription-reference]').inputValue()) === '',
+    `${await page.locator('[data-cc-prescription-id]').inputValue()} / ${await page.locator('[data-cc-prescription-reference]').inputValue()}`,
+  )
+  check('no console errors', errors.length === 0, errors[0] ?? '')
+  await context.close()
+}
+
+// ---- G. a switch refusal is about the order and version it was raised on (review finding 5) ----
+{
+  console.log('\nG. a switch refusal is retired when the order moves on')
+  const ORDINARY = derive({ ...NPHIES, lines: PRICED.lines, header: { ...NPHIES.header, orderType: 'Ordinary' } })
+  const NEXT_ORDINARY = { ...ORDINARY, transactionId: NEXT_ID, version: 1, etag: 'next-1' }
+  const refuse = async (page) => {
+    await page.locator('[data-cc-order-type-option="Nphies"]').click()
+    await page.locator('[data-cc-order-type-error]').waitFor({ timeout: 10_000 }).catch(() => {})
+    await settle(page)
+  }
+  const { context, page, errors, moveOn } = await open({
+    openState: ORDINARY,
+    switchRefusal: 'NO_INSURANCE_STORE_FOR_DISTRICT',
+    nextOrder: NEXT_ORDINARY,
+  })
+  await refuse(page)
+  check('the refusal is worded', (await count(page, '[data-cc-order-type-error]')) === 1)
+  moveOn()
+  await page.locator('[data-cc-refresh]').click()
+  await settle(page)
+  await page.locator('[data-cc-order-type-error]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+  check('a change that moves the version retires it', (await count(page, '[data-cc-order-type-error]')) === 0)
+  await refuse(page)
+  check('a fresh refusal is worded again', (await count(page, '[data-cc-order-type-error]')) === 1)
+  await abandon(page)
+  await page.locator('[data-cc-order-type-error]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+  check('a fresh order carries no refusal', (await count(page, '[data-cc-order-type-error]')) === 0)
   check('no console errors', errors.length === 0, errors[0] ?? '')
   await context.close()
 }

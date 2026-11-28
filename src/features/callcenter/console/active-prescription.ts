@@ -18,7 +18,7 @@
 import type { TFunction } from 'i18next'
 import type { PendingConfirmation, SubmitAnswer } from '@/core/models/callcenter'
 import { fsi } from '@/core/util/bidi'
-import { committing, type ConfirmableAction } from './confirm-action'
+import { committing, repreviewing, type ConfirmableAction } from './confirm-action'
 
 /** One press of *Place order*: its id (kept through the confirm re-send, law 3), the order
  *  version it was made against, and the token while it is committing an ask. */
@@ -43,8 +43,16 @@ export function activePrescriptionAsk(pending: PendingConfirmation | null | unde
   return { confirmToken: pending.confirmToken, documentNo: str(asRecord(pending.detail).documentNo) }
 }
 
-/** The ask a submit answer carries, read off its (unchanged) state — `null` on a placed order. */
+/**
+ * The ask a submit answer carries, read off its (unchanged) state — `null` on a placed order.
+ *
+ * 🚩 A placed answer (a number, or an outcome other than `confirmationRequired`) is never a
+ * question, even if its state still carries the ask: read as one, it would reopen the sheet over
+ * an order that was just minted.
+ */
 export function submitAsk(answer: SubmitAnswer): ActivePrescriptionAsk | null {
+  const outcome = answer.outcome as string | undefined
+  if (answer.documentNo || (outcome !== undefined && outcome !== 'confirmationRequired')) return null
   return activePrescriptionAsk(answer.state?.pendingConfirmation)
 }
 
@@ -79,4 +87,23 @@ export function placeAnyway<T extends ConfirmableAction>(
 ): T | null {
   if (!press || !ask || inFlight) return null
   return committing(press, ask.confirmToken)
+}
+
+/** What stands behind the next press: a failure that may have landed, an answer the console
+ *  could not confirm, or nothing. */
+export type SubmitStanding = 'failed' | 'unconfirmable' | null
+
+/**
+ * The next press of *Place order* (law 3 / §4). Only a failure that may have landed re-sends the
+ * last press's id, without its token. 🚩 An unconfirmable answer is a settled answer, cached under
+ * its id: re-sending that id would replay it forever, so the next press is a new action.
+ */
+export function nextSubmitPress(
+  last: SubmitPress | null,
+  standing: SubmitStanding,
+  version: number,
+  mint: () => string,
+): SubmitPress {
+  if (standing === 'failed' && last) return repreviewing(last)
+  return { requestId: mint(), version }
 }

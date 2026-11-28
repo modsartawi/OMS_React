@@ -11,7 +11,10 @@
 //   B. Go back and Esc send nothing and leave the order open;
 //   C. Place anyway (double-clicked) sends once, with the token on the same requestId, and reaches
 //      placed;
-//   D. under Arabic, the sheet is Arabic and the order number reads left-to-right, isolated.
+//   D. under Arabic, the sheet is Arabic and the order number reads left-to-right, isolated;
+//   E. (review finding 3) a placed answer whose state still carries the ask is placed, not re-asked;
+//   F. (review finding 2) an ask this console cannot state is named, and the next press is a new
+//      requestId rather than a replay of the cached answer.
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { permissions } from './permissions-stub.mjs'
@@ -76,7 +79,7 @@ const WASFATY = {
 
 const browser = await chromium.launch()
 
-async function open({ locale = 'en' } = {}) {
+async function open({ locale = 'en', mode = 'normal' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -116,6 +119,17 @@ async function open({ locale = 'en' } = {}) {
     if (p === 'CallCenterWeb/Submit') {
       // A little latency, so a double click lands while the commit is in flight.
       await new Promise((r) => setTimeout(r, 300))
+      if (mode === 'unconfirmable')
+        return route.fulfill(
+          envelope({
+            outcome: 'confirmationRequired',
+            documentNo: null,
+            state: {
+              ...served,
+              pendingConfirmation: { kind: 'someLaterKind', confirmToken: 'TOKEN-X', expiresInMs: 120000, detail: {} },
+            },
+          }),
+        )
       if (body?.confirmToken !== TOKEN)
         return route.fulfill(
           envelope({
@@ -136,7 +150,23 @@ async function open({ locale = 'en' } = {}) {
         envelope({
           outcome: 'submitted',
           documentNo: MINTED,
-          state: { ...served, status: 'submitted', version: served.version + 1, etag: `${served.etag}-s` },
+          state: {
+            ...served,
+            status: 'submitted',
+            version: served.version + 1,
+            etag: `${served.etag}-s`,
+            // E: a server that leaves the ask on the placed state.
+            ...(mode === 'placedKeepsAsk'
+              ? {
+                  pendingConfirmation: {
+                    kind: 'activePrescription',
+                    confirmToken: TOKEN,
+                    expiresInMs: 120000,
+                    detail: { documentNo: EXISTING },
+                  },
+                }
+              : {}),
+          },
         }),
       )
     }
@@ -248,6 +278,45 @@ async function press(page) {
   await page.locator('[data-cc-confirm-accept]').click()
   await page.locator('[data-cc-order-placed]').waitFor({ timeout: 10_000 }).catch(() => {})
   check('Place anyway places it', (await count(page, '[data-cc-order-placed]')) === 1 && submits(wire).at(-1)?.body?.confirmToken === TOKEN)
+  check('no console errors', errors.length === 0, errors[0] ?? '')
+  await context.close()
+}
+
+// ---- E. a placed answer that still carries the ask (review finding 3) ----
+{
+  console.log('\nE. a placed answer whose state still carries the ask is placed')
+  const { context, page, errors, wire } = await open({ mode: 'placedKeepsAsk' })
+  await press(page)
+  await page.locator('[data-cc-confirm-accept]').click()
+  await page.locator('[data-cc-order-placed]').waitFor({ timeout: 10_000 }).catch(() => {})
+  await settle(page)
+  check('the order is placed', (await count(page, '[data-cc-order-placed]')) === 1)
+  check('…with the minted number', (await count(page, '[data-cc-order-placed]')) === 1 && strip(await text(page, '[data-cc-order-placed]')).includes(MINTED))
+  check('the sheet did not reopen', (await count(page, SHEET)) === 0)
+  check('two submits, no third', submits(wire).length === 2, String(submits(wire).length))
+  check('no console errors', errors.length === 0, errors[0] ?? '')
+  await context.close()
+}
+
+// ---- F. an ask this console cannot state (review finding 2) ----
+{
+  console.log('\nF. an ask this console cannot state, then a second press')
+  const { context, page, errors, wire } = await open({ mode: 'unconfirmable' })
+  await page.locator('[data-cc-submit]').click()
+  await settle(page)
+  await page.locator('[data-cc-submit-failed]').waitFor({ timeout: 10_000 }).catch(() => {})
+  check('no sheet for a kind it cannot word', (await count(page, SHEET)) === 0)
+  check('not drawn as placed', (await count(page, '[data-cc-order-placed]')) === 0)
+  check(
+    'the receipt says it could not confirm',
+    (await count(page, '[data-cc-submit-failed]')) === 1 &&
+      strip(await text(page, '[data-cc-submit-failed]')).includes('asked for a confirmation this console cannot show'),
+  )
+  await page.locator('[data-cc-submit]').click()
+  await settle(page)
+  const sent = submits(wire)
+  check('the second press sends again', sent.length === 2, String(sent.length))
+  check('…on a NEW requestId, not a replay', sent[1]?.body?.requestId && sent[1].body.requestId !== sent[0].body.requestId)
   check('no console errors', errors.length === 0, errors[0] ?? '')
   await context.close()
 }

@@ -37,9 +37,10 @@
  * Nothing user-visible is authored here: every phrase is a `callcenter:` **key**,
  * resolved by the palette with `t()`.
  */
-import type { SessionCapabilities } from '@/core/models/callcenter'
+import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
 import type { Command } from '@/core/commands/palette-model'
 import type { GuidanceView } from './guidance-view'
+import { paymentLock } from './prescription'
 import { submitBlockers } from './submit-blockers'
 
 /** The console's namespace: the core palette resolves a key with its namespace. */
@@ -142,7 +143,8 @@ const REASON_FAMILY: Partial<Record<PaletteVerb, { capability: string; family: s
   fulfilment: { capability: 'canChangeFulfilment', family: 'fulfilment.locked' },
   // The switch is the same flip by another route, so it says the same refusal.
   switchFulfilment: { capability: 'canChangeFulfilment', family: 'fulfilment.locked' },
-  payment: { capability: 'canChangePaymentType', family: 'payment.locked' },
+  // 🚩 `payment` is absent on purpose (review finding 4): its lock is read on both wire paths and
+  // worded per order type by `paymentLock`, the header's own function — see `refusalOf`.
   // 🚩 `coupon` is deliberately absent. A shut apply-gate is not a shut row
   // (189): the modal opens on the OPEN rule alone, because the order may hold a
   // coupon the agent has to read out, and the modal is where the shut gate is
@@ -219,6 +221,8 @@ export interface PaletteInput {
   guidance: GuidanceView
   /** Read ONLY for `capabilityReasons`. Never for enablement — see `PaletteActions`. */
   capabilities: SessionCapabilities
+  /** Read ONLY for the payment lock's words (`paymentLock`), so the row and the header agree. */
+  header: SessionHeader
   /** Whether a caller is on the order: which of the two caller rows exists. */
   hasCaller: boolean
   /**
@@ -255,6 +259,7 @@ export interface PaletteInput {
 export function paletteCommands({
   guidance,
   capabilities,
+  header,
   hasCaller,
   pickup,
   locationLinkWithdrawn = false,
@@ -291,7 +296,7 @@ export function paletteCommands({
       id: `verb:${verb}`,
       label: labelOf(verb, pickup),
       run: actions.verbs[verb] ?? null,
-      reason: said(refusalOf(verb, capabilities, hasCaller, pickup, locationLinkWithdrawn)),
+      reason: said(refusalOf(verb, capabilities, header, hasCaller, pickup, locationLinkWithdrawn)),
     })
   }
 
@@ -346,10 +351,16 @@ function wordedKey({ key, fallbackKey }: PalettePhrase, known: (key: string) => 
 function refusalOf(
   verb: PaletteVerb,
   capabilities: SessionCapabilities,
+  header: SessionHeader,
   hasCaller: boolean,
   pickup: boolean,
   locationLinkWithdrawn: boolean,
 ): PalettePhrase {
+  // One lock, one sentence: the header's own words for it, on a prescription order too.
+  if (verb === 'payment') {
+    const lock = paymentLock(header, capabilities)
+    if (!lock.open) return { key: `${NS}${lock.key}` }
+  }
   const gate = REASON_FAMILY[verb]
   const code = gate ? capabilities.capabilityReasons?.[gate.capability] : undefined
   if (gate && code) return { key: `${NS}${gate.family}.${code}`, fallbackKey: `${NS}${gate.family}.unknown` }

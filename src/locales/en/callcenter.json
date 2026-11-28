@@ -949,6 +949,7 @@
       "store": "Store chosen",
       "slot": "Delivery slot chosen",
       "source": "Document source set",
+      "itemsByPharmacist": "No items — the pharmacist completes it",
       "prescription": "Patient ID and reference entered"
     }
   },

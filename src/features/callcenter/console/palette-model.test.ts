@@ -81,6 +81,7 @@ const ALL_LIVE: PaletteActions = {
 const build = (over: Partial<PaletteInput> = {}): Command[] =>
   paletteCommands({
     guidance: guidanceView(null),
+    header: EMPTY_SESSION.header,
     capabilities: EMPTY_SESSION.capabilities,
     hasCaller: false,
     // Collection by default: the delivery reading is its own case below, and a
@@ -248,6 +249,7 @@ describe('theOffersAreTheStripsOwn', () => {
     const asked: string[] = []
     const commands = paletteCommands({
       guidance,
+      header: ATTACHED_SESSION.header,
       capabilities: ATTACHED_SESSION.capabilities,
       hasCaller: true,
       pickup: true,
@@ -300,6 +302,30 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
     const reason = rowOf(commands, 'verb:payment').reason!
     expect(reason).toBe('callcenter:payment.locked.unknown')
     expect(phrase(reason)).toBeTruthy()
+  })
+
+  // Review finding 4: one lock, one sentence — the header's `paymentLock` words a prescription
+  // order's lock as *paid on delivery*, and the palette must not say *must be paid online*.
+  it('words a prescription order’s payment lock as the header does', () => {
+    const commands = build({
+      header: { ...EMPTY_SESSION.header, orderType: 'Wasfaty' },
+      capabilities: capabilities({
+        canChangePaymentType: false,
+        capabilityReasons: { canChangePaymentType: 'PAYMENT_TYPE_FORCED' },
+      }),
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, payment: null } },
+    })
+    const reason = rowOf(commands, 'verb:payment').reason!
+    expect(reason).toBe('callcenter:payment.locked.orderType')
+    expect(phrase(reason)).toBe('Prescription orders are paid on delivery.')
+  })
+
+  it('words a lock the header forces, though no capability reason names it', () => {
+    const commands = build({
+      header: { ...EMPTY_SESSION.header, paymentTypeForcedReason: 'PAYMENT_TYPE_FORCED' },
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, payment: null } },
+    })
+    expect(rowOf(commands, 'verb:payment').reason).toBe('callcenter:payment.locked.PAYMENT_TYPE_FORCED')
   })
 
   // 🚩 153's *quote the contract's own precondition*, and the one place it can

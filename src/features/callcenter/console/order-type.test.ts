@@ -12,7 +12,7 @@ import en from '@/locales/en/callcenter.json'
 import ar from '@/locales/ar/callcenter.json'
 import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
 import { ATTACHED_SESSION } from './__fixtures__/payloads'
-import { isPrescriptionOrder, offeredOrderTypes, orderTypeNotice, orderTypeOf } from './order-type'
+import { isPrescriptionOrder, offeredOrderTypes, orderTypeErrorStands, orderTypeNotice, orderTypeOf } from './order-type'
 
 const instance = i18next.createInstance()
 instance.init({
@@ -61,6 +61,11 @@ describe('offeredOrderTypes', () => {
 
   it('keeps the type the order already has, even when it is no longer offered', () => {
     expect(offeredOrderTypes(caps(['Ordinary']), header('Nphies'))).toEqual(['Ordinary', 'Nphies'])
+  })
+
+  // Review finding 7: an order that names no type is a phone order, and the picker still names it.
+  it('keeps the phone order when the order names no type and the seat is not offered it', () => {
+    expect(offeredOrderTypes(caps(['Wasfaty', 'Nphies']), header())).toEqual(['Ordinary', 'Wasfaty', 'Nphies'])
   })
 
   it('drops a type this console does not know', () => {
@@ -125,5 +130,27 @@ describe('orderTypeNotice', () => {
 
   it('in Arabic: says nothing for an empty removed', () => {
     expect(orderTypeNotice(tAr, 'Nphies', { coupons: [], promotions: 0 })).toBeNull()
+  })
+})
+
+// Review finding 5: a refusal is about the order, and the version, it was raised on.
+describe('orderTypeErrorStands — whether a setOrderType refusal is still about this order', () => {
+  const raised = { transactionId: 'T-1', version: 4 }
+
+  it('stands on the order and version it was raised on', () => {
+    expect(orderTypeErrorStands(raised, { transactionId: 'T-1', version: 4 })).toBe(true)
+  })
+
+  it('retires once the order moves on (an address change)', () => {
+    expect(orderTypeErrorStands(raised, { transactionId: 'T-1', version: 5 })).toBe(false)
+  })
+
+  it('retires on a fresh order', () => {
+    expect(orderTypeErrorStands(raised, { transactionId: 'T-2', version: 4 })).toBe(false)
+    expect(orderTypeErrorStands(raised, null)).toBe(false)
+  })
+
+  it('stands for nothing when nothing was raised', () => {
+    expect(orderTypeErrorStands(null, { transactionId: 'T-1', version: 4 })).toBe(false)
   })
 })

@@ -23,7 +23,7 @@ export interface OrderTypeActions {
 
 export function OrderTypePicker({ state, actions }: { state: SessionState; actions?: OrderTypeActions }) {
   const { t } = useTranslation('callcenter')
-  const options = offeredOrderTypes(state.capabilities, state.header)
+  const options = offeredOrderTypes(state.capabilities)
   if (options.length === 0) return null
   const current = orderTypeOf(state.header)
   const onPick = actions?.onPick

@@ -40,7 +40,7 @@ const header = (orderType?: string): SessionHeader => ({
 
 describe('offeredOrderTypes', () => {
   it('offers every type the seat may mint, phone order first', () => {
-    expect(offeredOrderTypes(caps(['Nphies', 'Ordinary', 'Wasfaty']), header('Ordinary'))).toEqual([
+    expect(offeredOrderTypes(caps(['Nphies', 'Ordinary', 'Wasfaty']))).toEqual([
       'Ordinary',
       'Wasfaty',
       'Nphies',
@@ -48,28 +48,26 @@ describe('offeredOrderTypes', () => {
   })
 
   it('offers only the types in capabilities.orderTypes', () => {
-    expect(offeredOrderTypes(caps(['Ordinary', 'Wasfaty']), header('Ordinary'))).toEqual(['Ordinary', 'Wasfaty'])
+    expect(offeredOrderTypes(caps(['Ordinary', 'Wasfaty']))).toEqual(['Ordinary', 'Wasfaty'])
   })
 
   it('is empty (the picker hidden) when only Ordinary is offered', () => {
-    expect(offeredOrderTypes(caps(['Ordinary']), header('Ordinary'))).toEqual([])
+    expect(offeredOrderTypes(caps(['Ordinary']))).toEqual([])
   })
 
   it('is empty on a pre-1.15 server, which sends neither field', () => {
-    expect(offeredOrderTypes(caps(), header())).toEqual([])
+    expect(offeredOrderTypes(caps())).toEqual([])
   })
 
-  it('keeps the type the order already has, even when it is no longer offered', () => {
-    expect(offeredOrderTypes(caps(['Ordinary']), header('Nphies'))).toEqual(['Ordinary', 'Nphies'])
-  })
-
-  // Review finding 7: an order that names no type is a phone order, and the picker still names it.
-  it('keeps the phone order when the order names no type and the seat is not offered it', () => {
-    expect(offeredOrderTypes(caps(['Wasfaty', 'Nphies']), header())).toEqual(['Ordinary', 'Wasfaty', 'Nphies'])
+  // BO 4485 review: the server lists the order's own type itself (`ForOrder`), so the console
+  // adds nothing — a Tamara-linked ordinary order is offered `Ordinary` alone, and the picker hides.
+  it('adds nothing to the server’s list', () => {
+    expect(offeredOrderTypes(caps(['Ordinary', 'Nphies']))).toEqual(['Ordinary', 'Nphies'])
+    expect(offeredOrderTypes(caps(['Ordinary']))).toEqual([])
   })
 
   it('drops a type this console does not know', () => {
-    expect(offeredOrderTypes(caps(['Ordinary', 'P2E']), header('Ordinary'))).toEqual([])
+    expect(offeredOrderTypes(caps(['Ordinary', 'P2E']))).toEqual([])
   })
 })
 

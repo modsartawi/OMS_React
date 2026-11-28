@@ -129,15 +129,13 @@ describe('submitBlockers', () => {
 })
 
 describe('the prescription blocker (1008, spec 1006 D4)', () => {
-  // ⚠ The spec spells it `prescription`; every other code is UPPER_SNAKE. Both spellings are
-  // read as one fact until BackOffice 4486 pins it (ticket 1008 Comments).
-  it('words both spellings as one phrase, owned by the prescription field', () => {
-    for (const code of ['prescription', 'MISSING_PRESCRIPTION']) {
-      const [blocker] = submitBlockers([code])
-      expect(blocker.key).toBe('blockers.MISSING_PRESCRIPTION')
-      expect(blocker.chip).toBe('prescription')
-    }
-    expect(submitBlockers(['prescription', 'MISSING_PRESCRIPTION'])).toHaveLength(1)
+  // BackOffice 4486 spells it MISSING_PRESCRIPTION, like its siblings; the spec's `prescription`
+  // is not a code the server sends, so it falls back to the unknown phrase like any other.
+  it('words MISSING_PRESCRIPTION, owned by the prescription field', () => {
+    const [blocker] = submitBlockers(['MISSING_PRESCRIPTION'])
+    expect(blocker.key).toBe('blockers.MISSING_PRESCRIPTION')
+    expect(blocker.chip).toBe('prescription')
+    expect(submitBlockers(['prescription'])[0].key).toBe('blockers.unknown')
   })
   it('says it in en and ar', () => {
     expect(phrase('blockers.MISSING_PRESCRIPTION')).toBe('enter the patient ID and reference')
@@ -145,7 +143,7 @@ describe('the prescription blocker (1008, spec 1006 D4)', () => {
   })
   it('marks the prescription field on a Wasfaty order, and no chip on a phone order', () => {
     const wasfaty = { ...EMPTY_SESSION.header, orderType: 'Wasfaty' }
-    const blocked = { ...EMPTY_SESSION.capabilities, submitBlockers: ['prescription'] }
+    const blocked = { ...EMPTY_SESSION.capabilities, submitBlockers: ['MISSING_PRESCRIPTION'] }
     expect(headerChips(wasfaty, blocked).find((c) => c.id === 'prescription')?.state).toBe('needsAttention')
     expect(headerChips(EMPTY_SESSION.header, blocked).some((c) => c.id === 'prescription')).toBe(false)
   })

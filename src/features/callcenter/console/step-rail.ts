@@ -112,7 +112,7 @@ const ROWS: {
   // once the order holds both, and never on a phone order.
   {
     id: 'prescription',
-    codes: ['prescription', 'MISSING_PRESCRIPTION'],
+    codes: ['MISSING_PRESCRIPTION'],
     step: 'review',
     when: (s) => isPrescriptionOrder(s.header) && prescriptionSettled(s.header),
   },

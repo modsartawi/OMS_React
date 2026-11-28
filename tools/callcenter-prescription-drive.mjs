@@ -1,8 +1,9 @@
 // Ticket 1008 (spec 1006 D2, D4, D6, D8, D9) — a prescription order asks for the patient ID and the
 // reference, and shows its rules. Drives the REAL app in Chromium with the wire stubbed at
-// Playwright: contract v1.15 is PROPOSED (BackOffice 4486 / 4487 open), so `SetPrescription`, the
-// `prescription` blocker and the forced-payment reason are this ticket's guessed shapes (ticket 1008
-// Comments).
+// Playwright in the shapes BackOffice shipped (pricing2 e1433bf00, 4486/4487): `SetPrescription`
+// answers the state, the blocker is `MISSING_PRESCRIPTION`, the lock is `canChangePaymentType: false`
+// + `paymentTypeForcedReason: orderType` + `capabilityReasons.canChangePaymentType:
+// PAYMENT_TYPE_FORCED`, and the fee is `{ amount: 0, waived: false, waivedReason: null }`.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. DRIVE_PORT=5199 node tools/callcenter-prescription-drive.mjs
@@ -15,7 +16,8 @@
 //      the read-back says the type and the reference;
 //   C. the fields stay filled in across a switch to a phone order and back — a committed pair and
 //      an uncommitted draft;
-//   D. `NO_INSURANCE_STORE_FOR_DISTRICT` on a switch is worded on the picker; a waived fee shows;
+//   D. `NO_INSURANCE_STORE_FOR_DISTRICT` on a switch is worded on the picker; the zero fee is not
+//      drawn as waived;
 //   E. under Arabic, the blocker and the lock reason are Arabic;
 //   F. (review finding 1) a committed pair does not reach the next order after an abandon;
 //   G. (review finding 5) a switch refusal is retired by a change that moves the order's version,
@@ -37,8 +39,8 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   contentType: 'application/json',
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
-const refusal = (code, message) =>
-  envelope(null, { status: 400, success: false, message, errors: [{ errorCode: code, errorMessage: message }] })
+const refusal = (code, message, status = 400) =>
+  envelope(null, { status, success: false, message, errors: [{ errorCode: code, errorMessage: message }] })
 
 let pass = 0
 let fail = 0
@@ -62,18 +64,20 @@ const settled = (h) => !!h.prescription?.patientId && !!h.prescription?.referenc
 /** The server's answer for a header: a prescription type locks payment and blocks on the pair. */
 function derive(state) {
   const rx = isRx(state.header.orderType)
-  const blockers = rx && !settled(state.header) ? ['prescription'] : []
+  const blockers = rx && !settled(state.header) ? ['MISSING_PRESCRIPTION'] : []
   return {
     ...state,
     header: {
       ...state.header,
-      documentType: { Ordinary: 'CLCN', Wasfaty: 'WSFD', Nphies: 'NPHS' }[state.header.orderType],
       paymentType: 'CashOnDelivery',
       paymentTypeForcedReason: rx ? 'orderType' : null,
     },
     totals: {
       ...state.totals,
-      deliveryFee: rx ? { ...PRICED.totals.deliveryFee, amount: 0 } : PRICED.totals.deliveryFee,
+      // BO 4487 (D9): a prescription sub-source carries no fee — absent, not waived.
+      deliveryFee: rx
+        ? { ...PRICED.totals.deliveryFee, amount: 0, waived: false, waivedReason: null }
+        : PRICED.totals.deliveryFee,
     },
     firedPromotions: rx ? [] : PRICED.firedPromotions,
     nearMisses: rx ? [] : state.nearMisses,
@@ -81,7 +85,7 @@ function derive(state) {
       ...state.capabilities,
       orderTypes: ALL_TYPES,
       canChangePaymentType: !rx,
-      capabilityReasons: rx ? { canChangePaymentType: 'orderType' } : {},
+      capabilityReasons: rx ? { canChangePaymentType: 'PAYMENT_TYPE_FORCED' } : {},
       submitBlockers: blockers,
       canSubmit: blockers.length === 0,
     },
@@ -148,14 +152,21 @@ async function open({ openState, locale = 'en', switchRefusal = null, nextOrder 
     if (p === 'CallCenterWeb/MyDocumentSources')
       return route.fulfill(envelope([{ documentSource: 'CLCN', description: 'Call center', isDefault: true }]))
     if (p === 'CallCenterWeb/SetPrescription') {
-      if (!/^\d{10}$/.test(body.patientId ?? ''))
-        return route.fulfill(refusal('PATIENT_ID_INVALID', 'Patient ID must be 10 digits.'))
-      if (!(body.reference ?? '').trim()) return route.fulfill(refusal('REFERENCE_REQUIRED', 'Reference is required.'))
-      served = bump(derive({ ...served, header: { ...served.header, prescription: { patientId: body.patientId, reference: body.reference } } }))
+      // CallCenterPrescription.Validate: the ID first (ten ASCII digits after trimming), then the reference.
+      const patientId = (body.patientId ?? '').trim()
+      const reference = (body.reference ?? '').trim()
+      if (!/^[0-9]{10}$/.test(patientId))
+        return route.fulfill(refusal('PATIENT_ID_INVALID', 'The patient ID must be exactly 10 digits.'))
+      if (!reference || reference.length > 50)
+        return route.fulfill(refusal('REFERENCE_REQUIRED', 'The prescription reference is required.'))
+      served = bump(derive({ ...served, header: { ...served.header, prescription: { patientId, reference } } }))
       return route.fulfill(envelope(served))
     }
     if (p === 'CallCenterWeb/SetOrderType') {
-      if (switchRefusal) return route.fulfill(refusal(switchRefusal, 'No insurance store for district.'))
+      if (switchRefusal)
+        return route.fulfill(
+          refusal(switchRefusal, 'No insurance store serves that district. Pick another address, or another order type.', 409),
+        )
       // The prescription is KEPT across the switch (D10) — the server holds it on any type.
       served = bump(derive({ ...served, header: { ...served.header, orderType: body.orderType } }))
       return route.fulfill(envelope({ state: served, removed: { coupons: [], promotions: 0 } }))
@@ -308,13 +319,9 @@ async function pick(page, type) {
   check('no console errors', errors.length === 0, errors[0] ?? '')
   await context.close()
 
-  const WAIVED = {
-    ...NPHIES,
-    header: { ...NPHIES.header, orderType: 'Wasfaty' },
-    totals: { ...NPHIES.totals, deliveryFee: { ...PRICED.totals.deliveryFee, amount: 0, waived: true, waivedReason: 'ConfiguredOverride' } },
-  }
-  const w = await open({ openState: WAIVED })
-  check('a waived fee (the other guessed shape) shows as waived', (await count(w.page, '[data-cc-delivery-waived]')) === 1)
+  const WASFATY = derive({ ...NPHIES, header: { ...NPHIES.header, orderType: 'Wasfaty' } })
+  const w = await open({ openState: WASFATY })
+  check('the zero fee is not drawn as waived', (await count(w.page, '[data-cc-delivery-waived]')) === 0)
   check('no console errors', w.errors.length === 0, w.errors[0] ?? '')
   await w.context.close()
 }

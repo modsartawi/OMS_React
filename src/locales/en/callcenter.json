@@ -602,7 +602,8 @@
       "DELIVERY_ONLY_SOURCE": "This order came from a source that is delivered, never collected, so the fulfilment cannot be changed.",
       "unknown": "This order's fulfilment cannot be changed."
     },
-    "failed": "The fulfilment could not be changed. Nothing has changed on this order — try again."
+    "failed": "The fulfilment could not be changed. Nothing has changed on this order — try again.",
+    "refusedNoInsuranceStore": "No insurance store serves the district of the address this order kept, so this Nphies order cannot be delivered there. It stays a collection — pick another address, or another order type."
   },
   "payment": {
     "title": "How are they paying?",
@@ -644,6 +645,7 @@
       "NO_CUSTOMER": "Attach the caller first — a coupon is redeemed against them.",
       "STORE_NOT_CHOSEN": "Choose the store first — a coupon is redeemed against the store the order ships from, and that cannot be moved afterwards.",
       "ORDER_CLOSED": "This order is no longer open.",
+      "ORDER_TYPE": "Wasfaty and Nphies orders take no coupons.",
       "unknown": "A coupon cannot be applied to this order right now."
     }
   },

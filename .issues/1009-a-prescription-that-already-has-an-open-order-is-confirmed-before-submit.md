@@ -58,3 +58,22 @@ by a synchronous ref as well as `isPending`, so a double click sends the token o
 ### 2026-11-28 — built (spec/1006-prescription-orders)
 
 Done on stubs against the proposed contract v1.15; the shape guesses above must be reconciled when the BackOffice tickets ship. Code review of the branch (9 findings) fixed in df551341. Drives green at df551341: prescription 65/65, `callcenter-drive.mjs` 531/531 (duplicate-prescription 44/0 and order-type 39/0 on the fix branch). The live proof is ticket 1010.
+
+### 2026-11-28 — Reconciled to BO pricing2 e1433bf00 (ticket 4488, branch ticket/1006-reconcile-bo)
+
+1. **The pending answer — changed outcome word.** `200 { outcome: 'pendingConfirmation', documentNo: null, state }`, the
+   state unchanged with `pendingConfirmation { kind: 'activePrescription', confirmToken, expiresInMs, detail }`. 🚩 The
+   guessed `confirmationRequired` mattered: `submitAsk` returned null for any other outcome word, so the real ask would
+   have shown *could not confirm* instead of the sheet. Fixed in the model, `submitAsk` (keyed on the outcome only) and
+   the page.
+2. **The existing order's number — confirmed.** `detail.documentNo`; the detail also carries `storeCode` and
+   `documentDate` (`ActivePrescriptionDetail`), not drawn.
+3. **The token — confirmed.** The same `POST CallCenterWeb/Submit { transactionId, requestId, confirmToken }`.
+   `CONFIRM_TOKEN_STALE` (409) when the basket, plant, payable or prescription moved; `CONFIRM_TOKEN_INVALID` otherwise.
+   The submit's `requestId` is not a ledger key (once-only is `OrderNo + DocumentType`), so re-sending the press's id
+   is harmless. Drive scenario G covers the stale re-ask.
+4. **Go back / Esc — confirmed**, nothing is persisted by the ask beyond the issued token.
+5. **New:** the gate ignores the order's OWN minted order (a retried submit answers `alreadySubmitted`), and a check OMS
+   cannot answer is `SUBMIT_UNAVAILABLE`, never a silent mint.
+
+Drive `tools/callcenter-duplicate-prescription-drive.mjs`: 50/50.

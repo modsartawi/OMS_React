@@ -63,31 +63,35 @@ export type WaivedReason =
   | (string & {})
 
 /**
- * 🚩 **PROPOSED v1.15 (spec 1006, BackOffice 4485) — not on the frozen contract yet.**
- * The kind of order the agent is taking: the ordinary phone order (`CLCN`), or a
- * Wasfaty (`WSFD`) or Nphies (`NPHS`) prescription order. A session fact set by
- * `setOrderType`. An unknown value degrades (§9), never throws.
+ * v1.15 (spec 1006, BackOffice 4485) — the kind of order the agent is taking: the ordinary
+ * phone order (`CLCN`), or a Wasfaty (`WSFD`) or Nphies (`NPHS`) prescription order. A session
+ * fact set by `setOrderType`; PascalCase on the wire (`CallCenterOrderTypes`), never null (a row
+ * older than the column reads `Ordinary`). An unknown value degrades (§9), never throws.
  */
 export type OrderType = 'Ordinary' | 'Wasfaty' | 'Nphies' | (string & {})
 
 /**
- * 🚩 **PROPOSED v1.15 (spec 1006)** — what a `setOrderType` switch took off the
- * order: the codes of the coupons it removed, and how many fired promotions it
- * stopped. Both shapes are this console's guess (ticket 1007 Comments).
+ * v1.15 (4485) — what a `setOrderType` switch took off the order: the coupon codes as the agent
+ * typed them (each released at the coupon service, then voided), and how many fired promotions
+ * the order had before the switch and not after it. Empty on a switch to `Ordinary` (coupons are
+ * not re-added), on a replay, and on a `storeChange` ask.
  */
 export interface OrderTypeRemoved {
   coupons: string[]
   promotions: number
 }
 
-/** 🚩 **PROPOSED v1.15 (spec 1006)** — `setOrderType`'s answer: the state, and what
- *  came off beside it (the `LinkRequestResult` shape, ticket 1007 Comments). */
+/** v1.15 (4485) — `setOrderType`'s answer, `CallCenterSetOrderTypeResult`: the state, and what
+ *  came off beside it. 🚩 An Nphies switch on a delivery with lines may answer a `storeChange`
+ *  ask in `state.pendingConfirmation` (4487, D8): nothing changed yet, and the confirm is the
+ *  same verb with the token. */
 export interface SetOrderTypeResult {
   state: SessionState
   removed: OrderTypeRemoved
 }
 
-/** 🚩 **PROPOSED v1.15 (spec 1006)** — `header.prescription`'s shape (ticket 1008 Comments). */
+/** v1.15 (4486) — `header.prescription`, `CallCenterStatePrescription`. `null` while neither is
+ *  entered; `setPrescription` always sets both together. */
 export interface SessionPrescription {
   patientId: string | null
   reference: string | null
@@ -154,8 +158,8 @@ export interface SessionHeader {
    *  the order actually carries there (`CashOnDelivery`, §2.4). */
   paymentType?: PaymentType
   /** v1.4 — `null` while the agent may choose; a typed code when the server has
-   *  decided for them. 🚩 **`null` on every phase-1 order** (§2.4): the forcing
-   *  rule is a *kind* rule and every forcing kind is out of scope. */
+   *  decided for them. Since v1.15 (4487, spec 1006 D6) `orderType` on a Wasfaty /
+   *  Nphies order (cash on delivery, locked); still `null` on an ordinary order. */
   paymentTypeForcedReason?: string | null
   /** v1.3 — CC2's `OrderNote`. Free text, never price-affecting. */
   orderNote?: string | null
@@ -203,14 +207,15 @@ export interface SessionHeader {
    * request in its own state would put that vector back.
    */
   linkedRequest?: LinkedRequest | null
-  /** 🚩 **PROPOSED v1.15 (spec 1006)** — the order's type. Absent on a pre-1.15
-   *  server, which a client reads as `Ordinary`. */
+  /** v1.15 (4485) — the order's type. Absent on a pre-1.15 server, which a client
+   *  reads as `Ordinary`. 🚩 `documentType` above does NOT move with it: the type picks
+   *  the minted document at submit, the header keeps the seat's. */
   orderType?: OrderType
   /**
-   * 🚩 **PROPOSED v1.15 (spec 1006, BackOffice 4486)** — the patient's ID and the
-   * prescription reference (Wasfaty: the eRx number; Nphies: the PreAuthRef), set by
-   * `setPrescription`. Held on ANY type, so a switch keeps them; only Wasfaty and Nphies
-   * send them or block on them. Absent on a pre-1.15 server.
+   * v1.15 (4486) — the patient's ID and the prescription reference (Wasfaty: the eRx
+   * number; Nphies: the PreAuthRef), set by `setPrescription`. Held on ANY type, so a
+   * switch keeps them; only Wasfaty and Nphies send them or block on them
+   * (`MISSING_PRESCRIPTION`). Absent on a pre-1.15 server.
    */
   prescription?: SessionPrescription | null
   /** Any line added or re-frozen below availability — the BackOffice fraud signal. */
@@ -788,14 +793,22 @@ export interface RewardResolution {
 
 /** §5 — "are you sure" arrives on the SUCCESS path with the UNCHANGED state. */
 export interface PendingConfirmation {
-  /** 🚩 `activePrescription` is **PROPOSED v1.15 (spec 1006 D5, BackOffice 4488)**: raised by
-   *  `submit` when OMS already holds an active prescription for this patient and reference
-   *  (`CheckActivePrescription`). Its guessed `detail` is `{ documentNo }`, the open order's number
-   *  (ticket 1009 Comments). */
+  /** `activePrescription` is v1.15 (spec 1006 D5, BackOffice 4488): raised by `submit` when OMS
+   *  already holds an open order for this prescription (`CheckActivePrescription`). Its `detail`
+   *  is `ActivePrescriptionDetail`. */
   kind: 'storeChange' | 'belowAtp' | 'activePrescription'
   confirmToken: string
   expiresInMs: number
   detail: unknown
+}
+
+/** v1.15 (4488) — `pendingConfirmation.detail` on an `activePrescription` ask
+ *  (`CallCenterActivePrescriptionDetail`): the latest open order OMS holds for the prescription. */
+export interface ActivePrescriptionDetail {
+  documentNo: string | null
+  storeCode: string | null
+  /** ISO date-time. */
+  documentDate: string | null
 }
 
 /** §2 — advisory-but-authoritative. The console never re-implements a server
@@ -894,9 +907,10 @@ export interface SessionCapabilities {
    */
   capabilityReasons?: Record<string, string>
   /**
-   * 🚩 **PROPOSED v1.15 (spec 1006, default A)** — the order types this seat may
-   * mint, the set the picker offers. Absent on a pre-1.15 server, read strictly
-   * (absent ⇒ nothing offered, the picker hidden).
+   * v1.15 (4485, default A) — the order types `setOrderType` accepts on THIS order:
+   * `Ordinary` and the current type always, plus Wasfaty / Nphies while the seat may mint
+   * `WSFD` / `NPHS` — and no prescription type on a Tamara-linked order. Absent on a pre-1.15
+   * server, read strictly (absent ⇒ nothing offered, the picker hidden).
    */
   orderTypes?: OrderType[]
   /** Names the reason submit is refused; the console shows it, never derives it. */
@@ -980,14 +994,14 @@ export interface SubmitResult {
 }
 
 /**
- * 🚩 **PROPOSED v1.15 (spec 1006 D5, BackOffice 4488) — guessed shape, ticket 1009 Comments.**
- * A submit that stops on a duplicate prescription mints nothing: it answers `200` with no number
- * and the **unchanged** state carrying `pendingConfirmation.kind: 'activePrescription'` (§5's
- * rule, on submit's own result). Re-sending `submit` with the same `requestId` plus the
- * `confirmToken` mints the order and answers a `SubmitResult`.
+ * v1.15 (spec 1006 D5, BackOffice 4488). A submit that stops on a duplicate prescription mints
+ * nothing: it answers `200` with `outcome: 'pendingConfirmation'`, no number and the
+ * **unchanged** state carrying `pendingConfirmation.kind: 'activePrescription'` (§5's rule, on
+ * submit's own result). Re-sending `submit` with the `confirmToken` mints the order and answers
+ * a `SubmitResult`; a basket that moved meanwhile is `CONFIRM_TOKEN_STALE` (409).
  */
 export interface SubmitConfirmationRequired {
-  outcome: 'confirmationRequired'
+  outcome: 'pendingConfirmation'
   documentNo: null
   state: SessionState | null
 }

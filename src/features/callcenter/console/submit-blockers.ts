@@ -64,10 +64,8 @@ const BLOCKERS: Record<string, { phrase: string; chip: HeaderSlotId | null }> = 
   // Nothing to fix: the order is already placed (fixture 07). It names itself
   // rather than leaving submit dead and silent.
   ALREADY_SUBMITTED: { phrase: 'ALREADY_SUBMITTED', chip: null },
-  // 🚩 PROPOSED v1.15 (spec 1006 D4, BackOffice 4486): a Wasfaty or Nphies order without its
-  // patient ID and reference. ⚠ The spec spells it `prescription`, where every other code is
-  // UPPER_SNAKE, so both spellings are one fact until the server pins it (ticket 1008 Comments).
-  prescription: { phrase: 'MISSING_PRESCRIPTION', chip: 'prescription' },
+  // v1.15 (spec 1006 D4, BackOffice 4486): a Wasfaty or Nphies order without its patient ID and
+  // reference. The server spells it like its siblings (the spec's `prescription` was not kept).
   MISSING_PRESCRIPTION: { phrase: 'MISSING_PRESCRIPTION', chip: 'prescription' },
 }
 

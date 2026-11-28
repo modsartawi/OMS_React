@@ -163,6 +163,8 @@ describe('submitRefusalChip', () => {
     expect(submitRefusalChip('slot')).toBe('slot')
     expect(submitRefusalChip('documentSource')).toBe('source')
     expect(submitRefusalChip('sourceReference')).toBe('reference')
+    // v1.15 (BO 4486): the submit's own prescription check refuses with field `prescription`.
+    expect(submitRefusalChip('prescription')).toBe('prescription')
     // Case is the server's business, not a reason to fail to point at a chip.
     expect(submitRefusalChip('SLOT')).toBe('slot')
   })

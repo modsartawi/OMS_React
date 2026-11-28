@@ -33,12 +33,14 @@ import { newRequestId } from './api'
 import { committing, repreviewing, type ConfirmableAction } from './confirm-action'
 
 /** Which verb moves the plant. `address` derives it (§5.1's usual path);
- *  `store` is the explicit operator override. Same protocol, same modal. */
-export type StoreMoveKind = 'address' | 'store'
+ *  `store` is the explicit operator override; `orderType` is a switch to or from Nphies on a
+ *  delivery, which re-derives the store (BO 4487, spec 1006 D8). Same protocol, same modal. */
+export type StoreMoveKind = 'address' | 'store' | 'orderType'
 
 export interface StoreMove extends ConfirmableAction {
   kind: StoreMoveKind
-  /** `addressNumber` for an address move, `storeCode` for an override. */
+  /** `addressNumber` for an address move, `storeCode` for an override, the order type for a
+   *  type switch. */
   target: string
 }
 

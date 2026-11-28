@@ -10,13 +10,14 @@
  *
  * 🚩 **The submit is the one verb whose answer is not a `SessionState`.** A pending ask on it must
  * never reach `readSubmitResult`, which would draw *Order placed* over an order that has no number.
- * `submitAsk` is read FIRST, and a `confirmationRequired` answer it cannot state is never a success.
+ * `submitAsk` is read FIRST, and a `pendingConfirmation` answer it cannot state is never a success.
  *
- * Contract v1.15 is PROPOSED (BackOffice 4488 open); the shapes read here are guesses recorded in
- * ticket 1009's Comments.
+ * Contract v1.15 (BackOffice 4488, reconciled at pricing2 e1433bf00): `outcome: 'pendingConfirmation'`,
+ * `documentNo: null`, and `state.pendingConfirmation { kind: 'activePrescription', confirmToken,
+ * detail { documentNo, storeCode, documentDate } }`.
  */
 import type { TFunction } from 'i18next'
-import type { PendingConfirmation, SubmitAnswer } from '@/core/models/callcenter'
+import type { ActivePrescriptionDetail, PendingConfirmation, SubmitAnswer } from '@/core/models/callcenter'
 import { fsi } from '@/core/util/bidi'
 import { committing, repreviewing, type ConfirmableAction } from './confirm-action'
 
@@ -40,19 +41,19 @@ const str = (value: unknown): string | null => (typeof value === 'string' && val
 /** The `pendingConfirmation` block, projected — `null` for any other kind, or one with no token. */
 export function activePrescriptionAsk(pending: PendingConfirmation | null | undefined): ActivePrescriptionAsk | null {
   if (!pending || pending.kind !== 'activePrescription' || !pending.confirmToken) return null
-  return { confirmToken: pending.confirmToken, documentNo: str(asRecord(pending.detail).documentNo) }
+  const detail = asRecord(pending.detail) as Partial<Record<keyof ActivePrescriptionDetail, unknown>>
+  return { confirmToken: pending.confirmToken, documentNo: str(detail.documentNo) }
 }
 
 /**
  * The ask a submit answer carries, read off its (unchanged) state — `null` on a placed order.
  *
- * 🚩 A placed answer (a number, or an outcome other than `confirmationRequired`) is never a
+ * 🚩 Keyed on the outcome word: a placed answer (`submitted` / `alreadySubmitted`) is never a
  * question, even if its state still carries the ask: read as one, it would reopen the sheet over
  * an order that was just minted.
  */
 export function submitAsk(answer: SubmitAnswer): ActivePrescriptionAsk | null {
-  const outcome = answer.outcome as string | undefined
-  if (answer.documentNo || (outcome !== undefined && outcome !== 'confirmationRequired')) return null
+  if (answer.outcome !== 'pendingConfirmation') return null
   return activePrescriptionAsk(answer.state?.pendingConfirmation)
 }
 

@@ -28,9 +28,10 @@ const tEn = instance.getFixedT('en', 'callcenter')
 const tAr = instance.getFixedT('ar', 'callcenter')
 const iso = (value: string) => `⁨${value}⁩`
 
-/** The guessed v1.15 shape: no number yet, the UNCHANGED state carrying the ask. */
+/** The v1.15 shape (BO pricing2 e1433bf00, fixture 17-active-prescription): no number yet, the
+ *  UNCHANGED state carrying the ask. */
 const ASKED: SubmitAnswer = {
-  outcome: 'confirmationRequired',
+  outcome: 'pendingConfirmation',
   documentNo: null,
   state: {
     ...ATTACHED_SESSION,
@@ -38,7 +39,7 @@ const ASKED: SubmitAnswer = {
       kind: 'activePrescription',
       confirmToken: 'TOKEN-RX-1',
       expiresInMs: 120000,
-      detail: { documentNo: '0090011111' },
+      detail: { documentNo: '0090011111', storeCode: 'A001', documentDate: '2026-11-27T10:15:00' },
     },
   },
 }
@@ -57,6 +58,11 @@ describe('submitAsk — reading the duplicate-prescription ask off a submit answ
     const placed: SubmitAnswer = { outcome: 'submitted', documentNo: '0090022222', state: ASKED.state }
     expect(submitAsk(placed)).toBeNull()
     expect(submitAsk({ ...placed, outcome: 'alreadySubmitted' })).toBeNull()
+  })
+
+  // Reconciled to BO: the outcome word is the server's `pendingConfirmation`, not the guessed one.
+  it('answers null for an outcome other than pendingConfirmation', () => {
+    expect(submitAsk({ ...ASKED, outcome: 'confirmationRequired' } as unknown as SubmitAnswer)).toBeNull()
   })
 
   it("answers null for someone else's kind of confirmation", () => {

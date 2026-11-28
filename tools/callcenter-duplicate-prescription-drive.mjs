@@ -1,7 +1,9 @@
 // Ticket 1009 (spec 1006 D5) — a prescription that already has an open order is confirmed before
-// submit. Drives the REAL app in Chromium with the wire stubbed at Playwright: contract v1.15 is
-// PROPOSED (BackOffice 4488 open), so the `confirmationRequired` answer, `detail.documentNo` and the
-// `confirmToken` re-send are this ticket's guessed shapes (ticket 1009 Comments).
+// submit. Drives the REAL app in Chromium with the wire stubbed at Playwright, in the shapes
+// BackOffice shipped (pricing2 e1433bf00, 4488; fixture 17-active-prescription): `outcome:
+// 'pendingConfirmation'`, `documentNo: null`, `pendingConfirmation { kind: 'activePrescription',
+// confirmToken, detail { documentNo, storeCode, documentDate } }`, the confirm a `Submit` carrying
+// the token, and `CONFIRM_TOKEN_STALE` (409) when the basket moved.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. DRIVE_PORT=5199 node tools/callcenter-duplicate-prescription-drive.mjs
@@ -14,7 +16,8 @@
 //   D. under Arabic, the sheet is Arabic and the order number reads left-to-right, isolated;
 //   E. (review finding 3) a placed answer whose state still carries the ask is placed, not re-asked;
 //   F. (review finding 2) an ask this console cannot state is named, and the next press is a new
-//      requestId rather than a replay of the cached answer.
+//      requestId rather than a replay of the cached answer;
+//   G. a stale token (the basket moved) re-asks once without the token, with the re-issue notice.
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { permissions } from './permissions-stub.mjs'
@@ -42,6 +45,7 @@ const PRICED = fixture('02-two-lines-priced')
 const EXISTING = '0090011111'
 const MINTED = '0090012345'
 const TOKEN = 'TOKEN-RX-1'
+const DETAIL = { documentNo: EXISTING, storeCode: '1001', documentDate: '2026-11-27T10:15:00' }
 
 /** A Wasfaty delivery, prescription held, ready to place. */
 const WASFATY = {
@@ -49,7 +53,6 @@ const WASFATY = {
   header: {
     ...PRICED.header,
     orderType: 'Wasfaty',
-    documentType: 'WSFD',
     address: {
       addressNumber: '2',
       label: 'Home',
@@ -71,7 +74,7 @@ const WASFATY = {
     ...PRICED.capabilities,
     orderTypes: ['Ordinary', 'Wasfaty', 'Nphies'],
     canChangePaymentType: false,
-    capabilityReasons: { canChangePaymentType: 'orderType' },
+    capabilityReasons: { canChangePaymentType: 'PAYMENT_TYPE_FORCED' },
     submitBlockers: [],
     canSubmit: true,
   },
@@ -85,6 +88,7 @@ async function open({ locale = 'en', mode = 'normal' } = {}) {
   const errors = []
   const wire = []
   const served = WASFATY
+  let staleOnce = mode === 'stale'
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on(
     'console',
@@ -122,7 +126,7 @@ async function open({ locale = 'en', mode = 'normal' } = {}) {
       if (mode === 'unconfirmable')
         return route.fulfill(
           envelope({
-            outcome: 'confirmationRequired',
+            outcome: 'pendingConfirmation',
             documentNo: null,
             state: {
               ...served,
@@ -130,10 +134,21 @@ async function open({ locale = 'en', mode = 'normal' } = {}) {
             },
           }),
         )
+      if (body?.confirmToken && staleOnce) {
+        staleOnce = false
+        return route.fulfill(
+          envelope(null, {
+            status: 409,
+            success: false,
+            message: 'The order changed since you were asked.',
+            errors: [{ errorCode: 'CONFIRM_TOKEN_STALE', errorMessage: 'The order changed since you were asked.' }],
+          }),
+        )
+      }
       if (body?.confirmToken !== TOKEN)
         return route.fulfill(
           envelope({
-            outcome: 'confirmationRequired',
+            outcome: 'pendingConfirmation',
             documentNo: null,
             state: {
               ...served,
@@ -141,7 +156,7 @@ async function open({ locale = 'en', mode = 'normal' } = {}) {
                 kind: 'activePrescription',
                 confirmToken: TOKEN,
                 expiresInMs: 120000,
-                detail: { documentNo: EXISTING },
+                detail: DETAIL,
               },
             },
           }),
@@ -162,7 +177,7 @@ async function open({ locale = 'en', mode = 'normal' } = {}) {
                     kind: 'activePrescription',
                     confirmToken: TOKEN,
                     expiresInMs: 120000,
-                    detail: { documentNo: EXISTING },
+                    detail: DETAIL,
                   },
                 }
               : {}),
@@ -317,6 +332,26 @@ async function press(page) {
   const sent = submits(wire)
   check('the second press sends again', sent.length === 2, String(sent.length))
   check('…on a NEW requestId, not a replay', sent[1]?.body?.requestId && sent[1].body.requestId !== sent[0].body.requestId)
+  check('no console errors', errors.length === 0, errors[0] ?? '')
+  await context.close()
+}
+
+// ---- G. a stale token ----
+{
+  console.log('\nG. a stale token re-asks without the token')
+  const { context, page, errors, wire } = await open({ mode: 'stale' })
+  await press(page)
+  await page.locator('[data-cc-confirm-accept]').click()
+  await page.locator('[data-cc-confirm-reissued]').waitFor({ timeout: 10_000 }).catch(() => {})
+  await settle(page)
+  const sent = submits(wire)
+  check('three submits: the ask, the stale commit, the re-ask', sent.length === 3, String(sent.length))
+  check('the re-ask carries no token', sent[2]?.body?.confirmToken === undefined, JSON.stringify(sent[2]?.body))
+  check('the sheet is open again, with the re-issue notice', (await count(page, SHEET)) === 1 && (await count(page, '[data-cc-confirm-reissued]')) === 1)
+  check('not drawn as placed', (await count(page, '[data-cc-order-placed]')) === 0)
+  await page.locator('[data-cc-confirm-accept]').click()
+  await page.locator('[data-cc-order-placed]').waitFor({ timeout: 10_000 }).catch(() => {})
+  check('the second confirm places it', (await count(page, '[data-cc-order-placed]')) === 1 && submits(wire).at(-1)?.body?.confirmToken === TOKEN)
   check('no console errors', errors.length === 0, errors[0] ?? '')
   await context.close()
 }

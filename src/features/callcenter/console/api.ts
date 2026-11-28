@@ -881,28 +881,40 @@ export const callCenterApi = {
   },
 
   /**
-   * 🚩 **PROPOSED v1.15 (spec 1006, BackOffice 4485)** — `POST CallCenterWeb/SetOrderType` →
-   * `SetOrderTypeResult`: the order's type, a session fact (D10: allowed at any time while the
-   * order is open). The lines stay and are repriced server-side; promotions stop and coupons come
-   * off on a prescription type, and `removed` reports what came off so the console can say it.
+   * v1.15 (spec 1006, BackOffice 4485/4487) — `POST CallCenterWeb/SetOrderType { transactionId,
+   * requestId, orderType, confirmToken? }` → `SetOrderTypeResult { state, removed }`: the order's
+   * type, a session fact (D10: allowed at any time while the order is open). The lines stay and
+   * are repriced server-side; promotions stop and coupons come off on a prescription type, and
+   * `removed` reports what came off so the console can say it.
    *
-   * Refuses `ORDER_TYPE_NOT_OFFERED` (a type outside `capabilities.orderTypes`). The response
-   * shape (`{ state, removed }`, beside the state as `LinkRequestResult` has it) is this
-   * console's guess until 4485 ships — ticket 1007 Comments.
+   * 🚩 **Two-phase like `setAddress`** (4487, D8): a switch to or from Nphies on a delivery
+   * re-derives the store, and a basket with lines answers a `storeChange` ask (the unchanged state,
+   * `removed` empty). The confirm is this verb again with the same `requestId` and the token.
+   *
+   * Refuses `ORDER_TYPE_NOT_OFFERED` (not in `capabilities.orderTypes`, including a prescription
+   * type on a Tamara-linked order), `NO_INSURANCE_STORE_FOR_DISTRICT` (an Nphies delivery whose
+   * district has no insurance store) and `COUPON_REVERSAL_REFUSED` (nothing changed).
    */
-  setOrderType(transactionId: string, requestId: string, orderType: OrderType): Promise<SetOrderTypeResult> {
+  setOrderType(
+    transactionId: string,
+    requestId: string,
+    orderType: OrderType,
+    confirmToken?: string,
+  ): Promise<SetOrderTypeResult> {
     return api.post<SetOrderTypeResult>('CallCenterWeb/SetOrderType', {
       transactionId,
       requestId,
       orderType,
+      ...(confirmToken ? { confirmToken } : {}),
     })
   },
 
   /**
-   * 🚩 **PROPOSED v1.15 (spec 1006 D4, BackOffice 4486)** — `POST CallCenterWeb/SetPrescription`
-   * → the whole `SessionState`. The patient's ID and the reference, ONE verb for both, accepted on
-   * any type (so a switch keeps them). Refuses `PATIENT_ID_INVALID` (not 10 digits) and
-   * `REFERENCE_REQUIRED`. Path, body and answer are this console's guess — ticket 1008 Comments.
+   * v1.15 (spec 1006 D4, BackOffice 4486) — `POST CallCenterWeb/SetPrescription { transactionId,
+   * requestId, patientId, reference }` → the whole `SessionState`. ONE verb for both, accepted on
+   * any type (so a switch keeps them). Both are validated before anything is touched:
+   * `PATIENT_ID_INVALID` (not exactly ten ASCII digits after trimming) first, then
+   * `REFERENCE_REQUIRED` (blank after trimming, or over 50 characters).
    */
   setPrescription(
     transactionId: string,
@@ -1140,11 +1152,11 @@ export const callCenterApi = {
    * `core/api.ts` lets a CODED envelope outrank a 5xx status; without it a
    * routine retryable outcome would reach the agent as "unexpected".
    *
-   * 🚩 **PROPOSED v1.15 (spec 1006 D5, BackOffice 4488)** — a duplicate prescription stops the
-   * submit with `outcome: 'confirmationRequired'` and the unchanged state carrying a
-   * `pendingConfirmation.kind: 'activePrescription'`; the re-send with the SAME `requestId` plus
-   * `confirmToken` mints the order (§5, as `addItem` sends its `belowAtp` token). Guessed shapes:
-   * ticket 1009's Comments.
+   * v1.15 (spec 1006 D5, BackOffice 4488) — a duplicate prescription stops the submit with
+   * `outcome: 'pendingConfirmation'` and the unchanged state carrying a
+   * `pendingConfirmation.kind: 'activePrescription'`; the re-send with the `confirmToken` mints
+   * the order (§5, as `addItem` sends its `belowAtp` token). A basket that moved is
+   * `CONFIRM_TOKEN_STALE`; a check OMS cannot answer is `SUBMIT_UNAVAILABLE`, never a silent mint.
    */
   submit(transactionId: string, requestId: string, confirmToken?: string): Promise<SubmitAnswer> {
     return api.post<SubmitAnswer>('CallCenterWeb/Submit', {

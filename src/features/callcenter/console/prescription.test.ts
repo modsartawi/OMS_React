@@ -123,16 +123,15 @@ describe('paymentLock', () => {
       reason: 'orderType',
     })
   })
-  it('reads capabilityReasons when the header carries none', () => {
-    expect(
-      paymentLock(wasfaty, caps({ canChangePaymentType: false, capabilityReasons: { canChangePaymentType: 'orderType' } })),
-    ).toEqual({ open: false, key: 'payment.locked.orderType', reason: 'orderType' })
-  })
+  // The wire as BackOffice 4487 answers a Wasfaty order (pricing2 e1433bf00): the header names the
+  // why, the capability carries the generic code. The header's reason wins.
   it('never says "paid online" on a prescription order', () => {
     expect(
-      paymentLock(wasfaty, caps({ canChangePaymentType: false, capabilityReasons: { canChangePaymentType: 'PAYMENT_TYPE_FORCED' } })),
-    ).toMatchObject({ open: false, key: 'payment.locked.orderType' })
-    expect(paymentLock(wasfaty, caps({ canChangePaymentType: false }))).toMatchObject({ key: 'payment.locked.orderType' })
+      paymentLock(
+        header({ ...wasfaty, paymentTypeForcedReason: 'orderType' }),
+        caps({ canChangePaymentType: false, capabilityReasons: { canChangePaymentType: 'PAYMENT_TYPE_FORCED' } }),
+      ),
+    ).toEqual({ open: false, key: 'payment.locked.orderType', reason: 'orderType' })
   })
   it('keeps the existing words on an ordinary order', () => {
     expect(

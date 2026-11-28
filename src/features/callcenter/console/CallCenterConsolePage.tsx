@@ -967,28 +967,44 @@ function ConsoleSession() {
    * open. The server reprices the lines and says what came off (`removed`); the console says it
    * once, in a banner, and only when something did.
    */
+  /** A switch that landed — on the first send, or committed through the `storeChange` sheet. */
+  const orderTypeSwitched = (state: SessionState, removed: OrderTypeRemoved | null, value: OrderType) => {
+    const any = (removed?.coupons?.length ?? 0) > 0 || (removed?.promotions ?? 0) > 0
+    setOrderTypeRemoved(any && removed ? { type: state.header.orderType ?? value, removed } : null)
+    // 1008 — a switch to Wasfaty or Nphies asks for what it now needs: the section opens until
+    // the order holds both the ID and the reference, then settles into its ledger field.
+    if (isPrescriptionOrder(state.header) && !prescriptionSettled(state.header)) openSection('prescription')
+    else if (!isPrescriptionOrder(state.header)) setEditingPrescription(false)
+  }
+  /** What the `storeChange` commit of a type switch took off — its answer's `removed`, which the
+   *  rebind path (it reads a `SessionState`) would otherwise drop. */
+  const orderTypeCommitRemoved = useRef<OrderTypeRemoved | null>(null)
+
   const orderType = useMutation({
     // No `again`: the picker draws this call's own failure.
-    mutationFn: (value: OrderType) => {
+    mutationFn: async (value: OrderType) => {
       const requestId = newRequestId()
       setOrderTypeRemoved(null)
       setOrderTypeSentOn(
         transactionId && session.data ? { transactionId, version: session.data.version } : null,
       )
-      return runGuarded(() => callCenterApi.setOrderType(transactionId!, requestId, value))
+      const result = await runGuarded(() => callCenterApi.setOrderType(transactionId!, requestId, value))
+      return { result, requestId }
     },
-    onSuccess: (result, value) => {
+    onSuccess: ({ result, requestId }, value) => {
       queryClient.setQueryData<SessionState>(sessionKey(result.state.transactionId), (current) =>
         applyState(current, result.state),
       )
-      const removed = result.removed
-      const any = (removed?.coupons?.length ?? 0) > 0 || (removed?.promotions ?? 0) > 0
-      setOrderTypeRemoved(any ? { type: result.state.header.orderType ?? value, removed } : null)
-      // 1008 — a switch to Wasfaty or Nphies asks for what it now needs: the section opens until
-      // the order holds both the ID and the reference, then settles into its ledger field.
-      if (isPrescriptionOrder(result.state.header) && !prescriptionSettled(result.state.header))
-        openSection('prescription')
-      else if (!isPrescriptionOrder(result.state.header)) setEditingPrescription(false)
+      // 🚩 BO 4487 (D8): a switch to or from Nphies on a delivery with lines moves the store, and
+      // asks first, as `setAddress` does — the unchanged state, nothing removed yet. The ask is the
+      // rebind's: the same sheet, and the confirm is this verb again with the same id and the token.
+      const previewed = storeMovePreview(result.state.pendingConfirmation)
+      if (previewed) {
+        setMove(committingStoreMove({ kind: 'orderType', target: value, requestId }, previewed.confirmToken))
+        setPreview(previewed)
+        return
+      }
+      orderTypeSwitched(result.state, result.removed, value)
     },
     retry: false,
   })
@@ -1493,7 +1509,7 @@ function ConsoleSession() {
   const [prescriptionAsk, setPrescriptionAsk] = useState<ActivePrescriptionAsk | null>(null)
   const [submitReissue, setSubmitReissue] = useState<PreviewReissue | null>(null)
   /**
-   * A `confirmationRequired` answer this console could not state — never drawn as placed. Held as
+   * A `pendingConfirmation` answer this console could not state — never drawn as placed. Held as
    * the order version it was answered on, so a correction (which moves the version) retires it the
    * way it retires a refusal.
    */
@@ -1535,7 +1551,7 @@ function ConsoleSession() {
       }
       setPrescriptionAsk(null)
       setSubmitReissue(null)
-      if (answer.outcome === 'confirmationRequired' || !answer.documentNo) {
+      if (answer.outcome === 'pendingConfirmation' || !answer.documentNo) {
         // An ask this console cannot state: nothing was minted, and saying so beats silence.
         setSubmitUnconfirmableAt(action.version)
         return
@@ -2021,11 +2037,20 @@ function ConsoleSession() {
       // through the confirm and the re-preview (law 3 / §4). Nothing here mints
       // one — a fresh id inside the thunk would let a busy retry look like a
       // second rebind of a real basket.
-      runGuarded(() =>
-        move.kind === 'address'
-          ? callCenterApi.setAddress(transactionId!, move.requestId, move.target, move.confirmToken)
-          : callCenterApi.setStore(transactionId!, move.requestId, move.target, move.confirmToken),
-      ),
+      runGuarded(() => {
+        if (move.kind === 'address')
+          return callCenterApi.setAddress(transactionId!, move.requestId, move.target, move.confirmToken)
+        if (move.kind === 'store')
+          return callCenterApi.setStore(transactionId!, move.requestId, move.target, move.confirmToken)
+        // BO 4487 — the type switch that moves the store: its answer is `{ state, removed }`.
+        orderTypeCommitRemoved.current = null
+        return callCenterApi
+          .setOrderType(transactionId!, move.requestId, move.target, move.confirmToken)
+          .then((result) => {
+            orderTypeCommitRemoved.current = result.removed
+            return result.state
+          })
+      }),
     onSuccess: (fresh, move) => {
       queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
         applyState(current, fresh),
@@ -2062,6 +2087,7 @@ function ConsoleSession() {
       clearRebind()
       setPickingAddress(false)
       setPickingStore(false)
+      if (move.kind === 'orderType') orderTypeSwitched(fresh, orderTypeCommitRemoved.current, move.target)
       // 🚩 **The rebind's own answer is not trusted about the PLANT.** Both
       // routes to this verb have been seen to return a projection whose store is
       // not the one the order ends up at — the override answering the branch it
@@ -2597,7 +2623,13 @@ function ConsoleSession() {
         current={currentMode(session.data.header)}
         pending={fulfilment.isPending ? (fulfilment.variables ?? null) : null}
         error={
-          fulfilment.isError ? apiErrorMessage(fulfilment.error, t('fulfilment.failed')) : null
+          !fulfilment.isError
+            ? null
+            : // BO 1006 review (4487): PickInStore → Delivery on an Nphies order whose kept district has
+              // no insurance store is refused, and the order stays a collection.
+              apiErrorCode(fulfilment.error) === 'NO_INSURANCE_STORE_FOR_DISTRICT'
+              ? t('fulfilment.refusedNoInsuranceStore')
+              : apiErrorMessage(fulfilment.error, t('fulfilment.failed'))
         }
         onPick={(mode) => fulfilment.mutate(mode)}
         onClose={() => {
@@ -3100,8 +3132,14 @@ function ConsoleSession() {
         onDismissSwallowed={() => setSwallowed(null)}
         orderType={{
           onPick: session.data.status === 'open' ? (value: OrderType) => orderType.mutate(value) : undefined,
-          pending: orderType.isPending,
-          error: orderTypeError,
+          pending: orderType.isPending || (rebind.isPending && rebind.variables?.kind === 'orderType'),
+          // A re-ask of a type switch's store move (after a spent token) that then failed has no sheet
+          // to show it: the picker it started from does. A commit's own failure is the sheet's.
+          error:
+            orderTypeError ??
+            (rebindOn('orderType').error && !isCommitting(rebind.variables ?? null)
+              ? apiErrorMessage(rebindOn('orderType').error, t('orderType.failed'))
+              : null),
         }}
         orderTypeRemoved={orderTypeRemoved}
         onDismissOrderTypeRemoved={() => setOrderTypeRemoved(null)}

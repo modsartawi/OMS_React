@@ -9,11 +9,12 @@
  * - **A blur sends a whole pair, Enter sends what is there.** The verb carries both fields, so a
  *   blur with the other box still empty would only earn a refusal for a field the agent has not
  *   reached yet. Enter is the agent asking, so it is sent and the server answers.
- * - **The payment lock reads both wire paths** (`header.paymentTypeForcedReason` first, then
- *   `capabilityReasons.canChangePaymentType`), because which one BackOffice 4487 fills is open.
+ * - **The payment lock is the server's** (BackOffice 4487): a Wasfaty / Nphies order answers
+ *   `canChangePaymentType: false`, `header.paymentTypeForcedReason: 'orderType'` (the why) and
+ *   `capabilityReasons.canChangePaymentType: 'PAYMENT_TYPE_FORCED'` (the generic code). The header's
+ *   reason is read first because it is the specific one.
  */
 import type { OrderType, SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
-import { isPrescriptionOrder } from './order-type'
 
 export const PATIENT_ID_LENGTH = 10
 
@@ -94,15 +95,12 @@ export type PaymentLock = { open: true } | { open: false; key: string; reason: s
 /**
  * Whether the payment word is a control, and if not, the words for why.
  *
- * Shut when the server says so on either path: `canChangePaymentType: false`, or a forced reason
- * on the header. On a prescription order the words are always *paid on delivery*: the generic
- * `PAYMENT_TYPE_FORCED` copy says *must be paid online*, which is the opposite of the truth there.
+ * Shut when `canChangePaymentType` is false or the header carries a forced reason. The words come
+ * from the header's reason first (`orderType`: *paid on delivery*), then the capability's code.
  */
 export function paymentLock(header: SessionHeader, capabilities: SessionCapabilities): PaymentLock {
   const forced = header.paymentTypeForcedReason ?? null
   if (capabilities.canChangePaymentType !== false && !forced) return { open: true }
   const reason = forced ?? capabilities.capabilityReasons?.canChangePaymentType ?? null
-  if (isPrescriptionOrder(header) && (reason === null || reason === 'orderType' || reason === 'PAYMENT_TYPE_FORCED'))
-    return { open: false, key: 'payment.locked.orderType', reason }
   return { open: false, key: reason && KNOWN_PAYMENT_REASONS.has(reason) ? `payment.locked.${reason}` : 'payment.locked.unknown', reason }
 }

@@ -214,12 +214,12 @@ describe('a prescription order (1008, spec 1006 D2, D4)', () => {
     ...READY,
     lines: [],
     header: { ...READY.header, orderType: 'Nphies', prescription: null },
-    capabilities: { ...READY.capabilities, submitBlockers: ['prescription'], canSubmit: false },
+    capabilities: { ...READY.capabilities, submitBlockers: ['MISSING_PRESCRIPTION'], canSubmit: false },
   }
   it('names the missing prescription on the checklist, in the blocker words', () => {
     const rows = beforeYouPlace(NPHIES).rows.filter((row) => row.state === 'missing')
     expect(rows.map((row) => [row.id, row.key, row.codes])).toEqual([
-      ['prescription', 'blockers.MISSING_PRESCRIPTION', ['prescription']],
+      ['prescription', 'blockers.MISSING_PRESCRIPTION', ['MISSING_PRESCRIPTION']],
     ])
     expect(rail(NPHIES).review.state).toBe('missing')
   })

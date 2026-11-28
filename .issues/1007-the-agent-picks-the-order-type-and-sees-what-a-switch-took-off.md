@@ -60,3 +60,29 @@ Placement: the picker is the first field of the header ledger, beside Source and
 ### 2026-11-28 — built (spec/1006-prescription-orders)
 
 Done on stubs against the proposed contract v1.15; the shape guesses above must be reconciled when the BackOffice tickets ship. Code review of the branch (9 findings) fixed in df551341. Drives green at df551341: prescription 65/65, `callcenter-drive.mjs` 531/531 (duplicate-prescription 44/0 and order-type 39/0 on the fix branch). The live proof is ticket 1010.
+
+### 2026-11-28 — Reconciled to BO pricing2 e1433bf00 (tickets 4484–4488, branch ticket/1006-reconcile-bo)
+
+Each guess, against `CallCenterOrderTypes.cs`, `CallCenterSessionStateModels.cs`, `CallCenterSessionService.OrderType.cs`,
+the route table and fixture scenario 16:
+1. **Enum naming — confirmed.** `Ordinary | Wasfaty | Nphies`, PascalCase, matched ignoring case; `header.orderType` is
+   never null (an old row reads `Ordinary`). Body `{ transactionId, requestId, orderType }` — **plus** `confirmToken?`.
+2. **Verb path — confirmed.** `POST CallCenterWeb/SetOrderType`.
+3. **Where `removed` sits — confirmed.** `{ state, removed }` (`CallCenterSetOrderTypeResult`).
+4. **`removed`'s shape — confirmed.** `coupons: string[]` (the codes as typed), `promotions: int` (fired before, not
+   after). Empty on a switch to Ordinary, on a replay and on an ask.
+5. **`capabilities.orderTypes` — confirmed, narrowed.** Per order (`ForOrder`): Ordinary and the current type always,
+   Wasfaty/Nphies only while OMS lists WSFD/NPHS, and **no prescription type on a Tamara-linked order**. The client's
+   own "keep the current type" union is removed (`offeredOrderTypes(capabilities)`), the server does it.
+6. **`header.documentType` — changed: it never flips.** The header keeps the seat's type; only the submit mints
+   WSFD/NPHS. Stubs no longer flip it.
+7. **Refusals — confirmed, one added.** `ORDER_TYPE_NOT_OFFERED` (409) and `NO_INSURANCE_STORE_FOR_DISTRICT` (409) are
+   worded on the picker; `COUPON_REVERSAL_REFUSED` shows the server message.
+8. **New, not guessed: the switch is two-phase.** To or from Nphies on a delivery re-derives the store, and a basket with
+   lines answers a `storeChange` ask (unchanged state, nothing removed). The page now hands that ask to the rebind's
+   sheet (`StoreMoveKind 'orderType'`); *Confirm* re-sends `SetOrderType` with the same `requestId` and the token, and
+   the commit's `removed` is drawn. Ordinary ⇄ Wasfaty never moves the store. Drive scenario F.
+9. **Also new:** `canApplyCoupon` reason `ORDER_TYPE` on a prescription order (worded `coupon.shut.ORDER_TYPE`, en+ar);
+   `applyCoupon` there is refused `COUPON_REJECTED` before redeeming.
+
+Drive `tools/callcenter-order-type-drive.mjs`: 49/49.

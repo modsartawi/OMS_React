@@ -1,7 +1,8 @@
 // Ticket 1007 (spec 1006 D1, D10, default A) — the agent picks the order type and sees what a
-// switch took off. Drives the REAL app in Chromium with the wire stubbed at Playwright: contract
-// v1.15 is PROPOSED (BackOffice 4485 open), so `SetOrderType` and its `{ state, removed }` answer
-// are this ticket's guessed shape (ticket 1007 Comments).
+// switch took off. Drives the REAL app in Chromium with the wire stubbed at Playwright, in the
+// shapes BackOffice shipped (pricing2 e1433bf00, 4485/4487): `SetOrderType { orderType,
+// confirmToken? }` answers `{ state, removed { coupons[], promotions } }`, `header.documentType`
+// does not move, and an Nphies switch on a delivery with lines asks `storeChange` first.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. DRIVE_PORT=5199 node tools/callcenter-order-type-drive.mjs
@@ -13,7 +14,9 @@
 //      takes the badge off;
 //   C. the picker is hidden when only Ordinary is offered, and on a pre-1.15 state;
 //   D. a refused switch (`ORDER_TYPE_NOT_OFFERED`) is worded on the picker, nothing changes;
-//   E. under Arabic, the options and the notice are Arabic.
+//   E. under Arabic, the options and the notice are Arabic;
+//   F. an Nphies switch that moves the store asks first (the storeChange sheet, nothing removed),
+//      and the confirm is SetOrderType again with the same requestId and the token.
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { permissions } from './permissions-stub.mjs'
@@ -68,7 +71,6 @@ function switched(state, orderType) {
     header: {
       ...state.header,
       orderType,
-      documentType: { Ordinary: 'CLCN', Wasfaty: 'WSFD', Nphies: 'NPHS' }[orderType],
       coupons: prescription ? [] : state.header.coupons,
     },
     firedPromotions: prescription ? [] : PRICED.firedPromotions,
@@ -79,7 +81,29 @@ function switched(state, orderType) {
 
 const browser = await chromium.launch()
 
-async function open({ openState, locale = 'en', refuse = false }) {
+const STORE_CHANGE_TOKEN = 'TOKEN-NPHS-STORE'
+/** The ask BO 4487 answers for an Nphies switch on a delivery with lines: the UNCHANGED state with a
+ *  storeChange preview (fixture 05's detail), and nothing removed yet. */
+const storeChangeAsk = (state) => ({
+  state: {
+    ...state,
+    pendingConfirmation: {
+      kind: 'storeChange',
+      confirmToken: STORE_CHANGE_TOKEN,
+      expiresInMs: 120000,
+      detail: {
+        ...raw('05-rebind-preview').preview.response.body.data.pendingConfirmation.detail,
+        fromPlant: state.header.plant,
+        fromPlantName: state.header.plantName,
+        toPlant: '2002',
+        toPlantName: 'Insurance branch',
+      },
+    },
+  },
+  removed: { coupons: [], promotions: 0 },
+})
+
+async function open({ openState, locale = 'en', refuse = false, asksStore = false }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -124,7 +148,11 @@ async function open({ openState, locale = 'en', refuse = false }) {
             errors: [{ errorCode: 'ORDER_TYPE_NOT_OFFERED', errorMessage: 'Order type not offered.' }],
           }),
         )
+      if (asksStore && body.orderType === 'Nphies' && body.confirmToken !== STORE_CHANGE_TOKEN)
+        return route.fulfill(envelope(storeChangeAsk(served)))
       const result = switched(served, body.orderType)
+      if (asksStore && body.orderType === 'Nphies')
+        result.state = { ...result.state, header: { ...result.state.header, plant: '2002', plantName: 'Insurance branch' } }
       served = result.state
       return route.fulfill(envelope(result))
     }
@@ -246,6 +274,37 @@ async function pick(page, type) {
   const said = strip(await text(page, '[data-cc-order-type-removed]'))
   check('the notice is Arabic', said.includes('طلب وصفتي: تمت إزالة عرضين والقسيمة SAVE10.'), said)
   check('the panel line is Arabic', strip(await text(page, '[data-cc-promotions-prescription]')).includes('لا تنطبق العروض'))
+  check('no console errors', errors.length === 0, errors[0] ?? '')
+  await context.close()
+}
+
+// ---- F. an Nphies switch that moves the store ----
+{
+  console.log('\nF. an Nphies switch on a delivery with lines asks storeChange first')
+  const { context, page, errors, wire } = await open({ openState: ORDINARY, asksStore: true })
+  await page.locator('[data-cc-order-type-option="Nphies"]').click()
+  await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 }).catch(() => {})
+  check('the storeChange sheet opens', (await count(page, '[data-cc-confirm-sheet="storeChange"]')) === 1)
+  check('it names the insurance store', strip(await text(page, '[data-cc-rebind-to]')).includes('Insurance branch'))
+  check('nothing is removed yet: no notice', (await count(page, '[data-cc-order-type-removed]')) === 0)
+  check('the order is still a phone order', (await pressed(page, 'Ordinary')) === 'true')
+  await page.locator('[data-cc-confirm-accept]').click()
+  await page.waitForLoadState('networkidle')
+  await page.locator('[data-cc-order-type-removed]').waitFor({ timeout: 10_000 }).catch(() => {})
+  const sends = wire.filter((w) => w.path === 'CallCenterWeb/SetOrderType')
+  check('two SetOrderType sends: the ask and the confirm', sends.length === 2, String(sends.length))
+  check(
+    'the confirm re-sends the same requestId with the token',
+    sends[1]?.body?.requestId === sends[0]?.body?.requestId &&
+      sends[1]?.body?.confirmToken === STORE_CHANGE_TOKEN &&
+      sends[1]?.body?.orderType === 'Nphies' &&
+      sends[0]?.body?.confirmToken === undefined,
+    JSON.stringify(sends.map((s) => s.body)),
+  )
+  check('the sheet closes', (await count(page, '[data-cc-confirm-sheet="storeChange"]')) === 0)
+  check('Nphies is now the pressed option', (await pressed(page, 'Nphies')) === 'true')
+  const said = strip(await text(page, '[data-cc-order-type-removed]'))
+  check('the commit’s removed is drawn', said.includes('Nphies order: 2 promotions and coupon SAVE10 were removed.'), said)
   check('no console errors', errors.length === 0, errors[0] ?? '')
   await context.close()
 }

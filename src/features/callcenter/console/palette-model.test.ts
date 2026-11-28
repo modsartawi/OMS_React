@@ -308,7 +308,7 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
   // order's lock as *paid on delivery*, and the palette must not say *must be paid online*.
   it('words a prescription order’s payment lock as the header does', () => {
     const commands = build({
-      header: { ...EMPTY_SESSION.header, orderType: 'Wasfaty' },
+      header: { ...EMPTY_SESSION.header, orderType: 'Wasfaty', paymentTypeForcedReason: 'orderType' },
       capabilities: capabilities({
         canChangePaymentType: false,
         capabilityReasons: { canChangePaymentType: 'PAYMENT_TYPE_FORCED' },

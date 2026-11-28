@@ -115,6 +115,8 @@ const REFUSED_FIELD_CHIPS: Record<string, HeaderChip['id']> = {
   sourcereference: 'reference',
   store: 'store',
   plant: 'store',
+  // v1.15 (BO 4486) — the submit's own MISSING_PRESCRIPTION check names this field.
+  prescription: 'prescription',
 }
 
 export function submitRefusalChip(field: string | null | undefined): HeaderChip['id'] | null {

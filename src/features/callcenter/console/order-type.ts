@@ -2,8 +2,10 @@
  * The order type (ticket 1007, spec 1006 D1, D10, default A): which types the picker offers, and
  * the one line that says what a switch took off.
  *
- * - **The offering is the server's.** `capabilities.orderTypes` is the set this seat may mint
- *   (default A); the console never decides it. A pre-1.15 server sends no set, and the picker is
+ * - **The offering is the server's.** `capabilities.orderTypes` is the set this order may take
+ *   (default A; BackOffice `CallCenterOrderTypes.ForOrder`, which always keeps `Ordinary` and the
+ *   current type, and drops the prescription types on a Tamara-linked order); the console never
+ *   decides it. A pre-1.15 server sends no set, and the picker is
  *   then hidden: the order is the phone order it always was.
  * - **The notice is drawn from `removed`, never from a diff.** `setOrderType` answers with what it
  *   took off (spec 1006 v1.15). Comparing the coupon chip before and after would be the console
@@ -34,11 +36,11 @@ export function isPrescriptionOrder(header: SessionHeader): boolean {
  * The picker's options, phone order first. Empty means the picker is hidden: fewer than two
  * choices is no choice, so an offering of `Ordinary` alone (or none) draws nothing.
  *
- * The order's own type stays in the list even when it is no longer offered, so the picker never
- * shows an order in a type it does not name. A type this console cannot word is dropped.
+ * The server always lists the order's own type (BO 4485 review), so the console adds nothing. A
+ * type this console cannot word is dropped.
  */
-export function offeredOrderTypes(capabilities: SessionCapabilities, header: SessionHeader): KnownOrderType[] {
-  const offered = new Set<string>([...(capabilities.orderTypes ?? []), orderTypeOf(header)])
+export function offeredOrderTypes(capabilities: SessionCapabilities): KnownOrderType[] {
+  const offered = new Set<string>(capabilities.orderTypes ?? [])
   const options = KNOWN_ORDER_TYPES.filter((type) => offered.has(type))
   return options.length < 2 ? [] : options
 }

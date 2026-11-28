@@ -1665,7 +1665,7 @@ From the 2026-11-27 production walk: three columns with the caller first, a step
 Server tickets are BackOffice 4484–4488 on `pricing2`; contract v1.15, additive.
 
 - [1006](1006-wasfaty-and-nphies-orders-from-the-call-center-console-spec.md) — **Wasfaty and Nphies orders from the call-center console** · **ready** · spec · owner grilling 2026-11-28: cold call only, items optional with no promotions, WSFD/NPHS, patient ID + reference required, duplicate = warning, cash on delivery locked, no fee, Nphies delivery → InsuranceStoreCode, Wasfaty → regular store
-- [1007](1007-the-agent-picks-the-order-type-and-sees-what-a-switch-took-off.md) — The agent picks the order type and sees what a switch took off · **done** (stubbed) · blocked by: BackOffice 4485
-- [1008](1008-a-prescription-order-asks-for-the-patient-id-and-reference-and-shows-its-rules.md) — A prescription order asks for the patient ID and reference, and shows its rules · **done** (stubbed) · blocked by: 1007, BackOffice 4486, 4487
-- [1009](1009-a-prescription-that-already-has-an-open-order-is-confirmed-before-submit.md) — A prescription that already has an open order is confirmed before submit · **done** (stubbed) · blocked by: 1008, BackOffice 4488
+- [1007](1007-the-agent-picks-the-order-type-and-sees-what-a-switch-took-off.md) — The agent picks the order type and sees what a switch took off · **done** (reconciled to BO pricing2 e1433bf00) · blocked by: BackOffice 4485
+- [1008](1008-a-prescription-order-asks-for-the-patient-id-and-reference-and-shows-its-rules.md) — A prescription order asks for the patient ID and reference, and shows its rules · **done** (reconciled to BO pricing2 e1433bf00) · blocked by: 1007, BackOffice 4486, 4487
+- [1009](1009-a-prescription-that-already-has-an-open-order-is-confirmed-before-submit.md) — A prescription that already has an open order is confirmed before submit · **done** (reconciled to BO pricing2 e1433bf00) · blocked by: 1008, BackOffice 4488
 - [1010](1010-walk-wasfaty-and-nphies-orders-on-production.md) — Walk Wasfaty and Nphies orders on production · **open** · HITL · blocked by: 1009
